@@ -1,0 +1,835 @@
+{
+  "company": "HanwhaSystems(한화시스템, 가칭)",
+  "categories": {
+    "ACC": "계정·로그인",
+    "ACS": "접근권한",
+    "NET": "VPN·네트워크",
+    "SW": "SW·라이선스",
+    "HW": "HW·업무 PC",
+    "SYS": "사내 시스템",
+    "SEC": "정보보안"
+  },
+  "category_detail": [
+    {
+      "code": "ACC",
+      "name": "계정·로그인",
+      "scope": "비밀번호 만료·초기화, 계정 잠금, MFA, 통합 로그인(SSO) 장애"
+    },
+    {
+      "code": "ACS",
+      "name": "접근권한",
+      "scope": "시스템·폴더 접근권한 신청, 부서 이동·퇴사에 따른 권한 변경"
+    },
+    {
+      "code": "NET",
+      "name": "VPN·네트워크",
+      "scope": "사내 Wi-Fi, 유선 LAN, 인터넷 속도, 개인·전사 VPN 장애"
+    },
+    {
+      "code": "SW",
+      "name": "SW·라이선스",
+      "scope": "SW 설치·라이선스, 오피스 문서, 비밀번호 관리자, 개발도구 인증서, 메일 프로그램"
+    },
+    {
+      "code": "HW",
+      "name": "HW·업무 PC",
+      "scope": "업무 PC 속도·부팅, 모니터·도킹, 장비 수리·교체·반납, OS 업데이트, 프린터·복합기"
+    },
+    {
+      "code": "SYS",
+      "name": "사내 시스템",
+      "scope": "전자결재, ERP, 인사·근태, 업무 협업 플랫폼, 메일·메신저·화상회의, 공유 드라이브·파일서버, 개발 서버·DB"
+    },
+    {
+      "code": "SEC",
+      "name": "정보보안",
+      "scope": "피싱 메일, 악성코드·보안 알림, 매체·반출 예외, 시스템 침해 의심, 계정 도용, 웹사이트 차단 해제, 장비 분실"
+    }
+  ],
+  "urgency": {
+    "P1": {
+      "label": "긴급",
+      "desc": "전사 또는 여러 부서의 업무가 멈춘 경우",
+      "response_min": 15,
+      "resolve_min": 240
+    },
+    "P2": {
+      "label": "높음",
+      "desc": "부서 단위로 영향이 있거나 개인 업무를 전혀 할 수 없는 경우",
+      "response_min": 30,
+      "resolve_min": 480
+    },
+    "P3": {
+      "label": "보통",
+      "desc": "개인 업무 일부에 지장이 있지만 우회할 수 있는 경우",
+      "response_min": 120,
+      "resolve_min": 960
+    },
+    "P4": {
+      "label": "낮음",
+      "desc": "단순 문의·요청으로 업무 지장이 없는 경우",
+      "response_min": 240,
+      "resolve_min": 2400
+    }
+  },
+  "channels": [
+    {
+      "code": "전화",
+      "desc": "내선 가상 1000"
+    },
+    {
+      "code": "메일",
+      "desc": "IT 헬프데스크 메일"
+    },
+    {
+      "code": "메신저",
+      "desc": "#it-helpdesk 채널"
+    }
+  ],
+  "handling_types": [
+    {
+      "code": "티켓",
+      "desc": "담당자를 배정해 처리한 건. Jira 히스토리 이관 대상"
+    },
+    {
+      "code": "즉시 처리",
+      "desc": "서비스데스크 상담원이 바로 안내해 끝낸 건. 티켓 없음"
+    }
+  ],
+  "teams": [
+    "서비스데스크",
+    "엔드포인트지원팀",
+    "네트워크팀",
+    "시스템인프라팀",
+    "업무시스템팀",
+    "정보보안팀"
+  ],
+  "team_detail": [
+    {
+      "name": "서비스데스크",
+      "area": "문의 접수, 계정·로그인 및 일반 IT 문의 1차 지원"
+    },
+    {
+      "name": "엔드포인트지원팀",
+      "area": "HW·업무 PC, SW·라이선스"
+    },
+    {
+      "name": "네트워크팀",
+      "area": "VPN·네트워크 (LAN, Wi-Fi, 인터넷, VPN)"
+    },
+    {
+      "name": "시스템인프라팀",
+      "area": "서버·DB·파일서버, SSO·메일 서버"
+    },
+    {
+      "name": "업무시스템팀",
+      "area": "사내 시스템(ERP·전자결재·인사/근태)과 접근권한"
+    },
+    {
+      "name": "정보보안팀",
+      "area": "정보보안 (피싱·악성코드·계정 도용·장비 분실·보안 예외)"
+    }
+  ],
+  "user_roles": [
+    {
+      "role": "일반 임직원",
+      "who": "IT운영·보안 조직 밖의 모든 직원 (문의자)",
+      "page": "임직원",
+      "functions": "챗봇 문의, 내 문의·티켓 진행 상황 확인, FAQ·가이드 열람"
+    },
+    {
+      "role": "IT 운영 담당자",
+      "who": "IT운영·보안 조직 팀원 (L1 상담·L2 담당)",
+      "page": "관리자",
+      "functions": "임직원 기능 + 배정받은 티켓 처리(RDY→WIP→FIN), 담당자끼리 티켓 넘기기"
+    },
+    {
+      "role": "관리자",
+      "who": "6개 팀의 팀장과 IT운영·보안 조직장",
+      "page": "관리자",
+      "functions": "담당자 기능 + 티켓 재배정·최종 확인, 계정·권한 생성과 변경, 처리 완료 티켓의 가이드 추가 승인, 대시보드"
+    }
+  ],
+  "assignee_roles": [
+    {
+      "role": "L1 상담",
+      "assignable": "Y",
+      "desc": "서비스데스크 상담원. ITssue 도입 전에는 전화·메일·메신저 문의를 먼저 받아 간단한 건은 바로 안내해 끝내고(즉시 처리), 나머지는 티켓을 만들어 직접 처리하거나 전문팀(L2)에 넘겼습니다. 도입 후에는 문의 접수·분류를 챗봇이 맡고, 본인 확인 후 계정 조치·원격 지원 같은 사람이 해야 하는 1차 조치를 합니다."
+    },
+    {
+      "role": "L2 담당",
+      "assignable": "Y",
+      "desc": "전문팀 담당자. 장비 수리, 서버·네트워크 작업, 보안 조사처럼 전문 지식이 필요한 티켓을 처리합니다."
+    },
+    {
+      "role": "팀장",
+      "assignable": "N",
+      "desc": "팀을 총괄하고 담당자 재배정을 승인합니다. 티켓을 직접 배정받지 않습니다."
+    },
+    {
+      "role": "조직장",
+      "assignable": "N",
+      "desc": "IT운영·보안 조직 전체를 총괄합니다. 티켓을 직접 배정받지 않습니다."
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "ACC-01",
+      "cat": "ACC",
+      "sub": "비밀번호 만료·초기화",
+      "type": "요청",
+      "urg": "P3",
+      "team": "서비스데스크",
+      "manual": "MAN-01",
+      "faq": "FAQ-001",
+      "scope": "개인",
+      "tool": "디렉터리 계정"
+    },
+    {
+      "id": "ACC-02",
+      "cat": "ACC",
+      "sub": "계정 잠금",
+      "type": "장애",
+      "urg": "P3",
+      "team": "서비스데스크",
+      "manual": "MAN-01",
+      "faq": "FAQ-002",
+      "scope": "개인",
+      "tool": "디렉터리 계정"
+    },
+    {
+      "id": "ACC-03",
+      "cat": "ACC",
+      "sub": "2단계 인증(MFA)",
+      "type": "장애",
+      "urg": "P3",
+      "team": "서비스데스크",
+      "manual": "MAN-01",
+      "faq": "FAQ-003",
+      "scope": "개인",
+      "tool": "MFA"
+    },
+    {
+      "id": "ACC-04",
+      "cat": "ACC",
+      "sub": "통합 로그인(SSO) 장애",
+      "type": "장애",
+      "urg": "P1",
+      "team": "시스템인프라팀",
+      "manual": "MAN-01",
+      "faq": "",
+      "scope": "전사",
+      "tool": "SSO"
+    },
+    {
+      "id": "ACS-01",
+      "cat": "ACS",
+      "sub": "시스템·폴더 접근권한 신청",
+      "type": "요청",
+      "urg": "P4",
+      "team": "업무시스템팀",
+      "manual": "MAN-02",
+      "faq": "FAQ-004",
+      "scope": "개인",
+      "tool": "권한관리"
+    },
+    {
+      "id": "ACS-02",
+      "cat": "ACS",
+      "sub": "부서 이동·퇴사 권한 변경",
+      "type": "요청",
+      "urg": "P4",
+      "team": "업무시스템팀",
+      "manual": "MAN-02",
+      "faq": "FAQ-004",
+      "scope": "개인",
+      "tool": "권한관리"
+    },
+    {
+      "id": "NET-01",
+      "cat": "NET",
+      "sub": "사내 Wi-Fi",
+      "type": "장애",
+      "urg": "P3",
+      "team": "네트워크팀",
+      "manual": "MAN-03",
+      "faq": "FAQ-006",
+      "scope": "개인",
+      "tool": "사내 무선망"
+    },
+    {
+      "id": "NET-02",
+      "cat": "NET",
+      "sub": "VPN 접속 불가(개인)",
+      "type": "장애",
+      "urg": "P3",
+      "team": "네트워크팀",
+      "manual": "MAN-03",
+      "faq": "FAQ-007",
+      "scope": "개인",
+      "tool": "사내 VPN"
+    },
+    {
+      "id": "NET-03",
+      "cat": "NET",
+      "sub": "VPN 전사 장애",
+      "type": "장애",
+      "urg": "P1",
+      "team": "네트워크팀",
+      "manual": "MAN-03",
+      "faq": "",
+      "scope": "전사",
+      "tool": "사내 VPN"
+    },
+    {
+      "id": "NET-04",
+      "cat": "NET",
+      "sub": "인터넷 속도 저하",
+      "type": "장애",
+      "urg": "P2",
+      "team": "네트워크팀",
+      "manual": "MAN-03",
+      "faq": "",
+      "scope": "부서",
+      "tool": "사내 유선망"
+    },
+    {
+      "id": "NET-05",
+      "cat": "NET",
+      "sub": "유선 LAN",
+      "type": "장애",
+      "urg": "P3",
+      "team": "네트워크팀",
+      "manual": "MAN-03",
+      "faq": "FAQ-008",
+      "scope": "개인",
+      "tool": "사내 유선망"
+    },
+    {
+      "id": "SW-01",
+      "cat": "SW",
+      "sub": "SW 설치 요청",
+      "type": "요청",
+      "urg": "P4",
+      "team": "엔드포인트지원팀",
+      "manual": "MAN-04",
+      "faq": "FAQ-022",
+      "scope": "개인",
+      "tool": "소프트웨어 센터"
+    },
+    {
+      "id": "SW-02",
+      "cat": "SW",
+      "sub": "라이선스",
+      "type": "요청",
+      "urg": "P3",
+      "team": "엔드포인트지원팀",
+      "manual": "MAN-04",
+      "faq": "FAQ-023",
+      "scope": "개인",
+      "tool": "라이선스"
+    },
+    {
+      "id": "SW-03",
+      "cat": "SW",
+      "sub": "오피스 문서 오류",
+      "type": "장애",
+      "urg": "P3",
+      "team": "서비스데스크",
+      "manual": "MAN-04",
+      "faq": "FAQ-024",
+      "scope": "개인",
+      "tool": "오피스"
+    },
+    {
+      "id": "SW-04",
+      "cat": "SW",
+      "sub": "비밀번호 관리자",
+      "type": "문의",
+      "urg": "P4",
+      "team": "서비스데스크",
+      "manual": "MAN-04",
+      "faq": "FAQ-025",
+      "scope": "개인",
+      "tool": "비밀번호 관리자"
+    },
+    {
+      "id": "SW-05",
+      "cat": "SW",
+      "sub": "개발도구 인증서 오류",
+      "type": "장애",
+      "urg": "P3",
+      "team": "엔드포인트지원팀",
+      "manual": "MAN-04",
+      "faq": "FAQ-026",
+      "scope": "개인",
+      "tool": "개발도구"
+    },
+    {
+      "id": "SW-06",
+      "cat": "SW",
+      "sub": "메일 프로그램 오류",
+      "type": "장애",
+      "urg": "P3",
+      "team": "엔드포인트지원팀",
+      "manual": "MAN-04",
+      "faq": "",
+      "scope": "개인",
+      "tool": "메일"
+    },
+    {
+      "id": "HW-01",
+      "cat": "HW",
+      "sub": "PC 속도 저하",
+      "type": "장애",
+      "urg": "P3",
+      "team": "엔드포인트지원팀",
+      "manual": "MAN-05",
+      "faq": "FAQ-015",
+      "scope": "개인",
+      "tool": "Windows/macOS"
+    },
+    {
+      "id": "HW-02",
+      "cat": "HW",
+      "sub": "부팅 불가·블루스크린",
+      "type": "장애",
+      "urg": "P2",
+      "team": "엔드포인트지원팀",
+      "manual": "MAN-05",
+      "faq": "",
+      "scope": "개인",
+      "tool": "Windows/macOS"
+    },
+    {
+      "id": "HW-03",
+      "cat": "HW",
+      "sub": "모니터·도킹",
+      "type": "장애",
+      "urg": "P3",
+      "team": "엔드포인트지원팀",
+      "manual": "MAN-05",
+      "faq": "FAQ-016",
+      "scope": "개인",
+      "tool": "주변기기"
+    },
+    {
+      "id": "HW-04",
+      "cat": "HW",
+      "sub": "장비 파손·수리",
+      "type": "요청",
+      "urg": "P3",
+      "team": "엔드포인트지원팀",
+      "manual": "MAN-05",
+      "faq": "FAQ-017",
+      "scope": "개인",
+      "tool": "자산"
+    },
+    {
+      "id": "HW-05",
+      "cat": "HW",
+      "sub": "장비 지급·교체·반납",
+      "type": "문의",
+      "urg": "P4",
+      "team": "엔드포인트지원팀",
+      "manual": "MAN-05",
+      "faq": "FAQ-018",
+      "scope": "개인",
+      "tool": "자산"
+    },
+    {
+      "id": "HW-06",
+      "cat": "HW",
+      "sub": "OS 업데이트 문제",
+      "type": "장애",
+      "urg": "P3",
+      "team": "엔드포인트지원팀",
+      "manual": "MAN-05",
+      "faq": "",
+      "scope": "개인",
+      "tool": "Windows/macOS"
+    },
+    {
+      "id": "HW-07",
+      "cat": "HW",
+      "sub": "인쇄 불가",
+      "type": "장애",
+      "urg": "P3",
+      "team": "서비스데스크",
+      "manual": "MAN-05",
+      "faq": "FAQ-019",
+      "scope": "개인",
+      "tool": "복합기"
+    },
+    {
+      "id": "HW-08",
+      "cat": "HW",
+      "sub": "용지·토너",
+      "type": "요청",
+      "urg": "P4",
+      "team": "서비스데스크",
+      "manual": "MAN-05",
+      "faq": "FAQ-020",
+      "scope": "부서",
+      "tool": "복합기"
+    },
+    {
+      "id": "HW-09",
+      "cat": "HW",
+      "sub": "스캔",
+      "type": "장애",
+      "urg": "P3",
+      "team": "서비스데스크",
+      "manual": "MAN-05",
+      "faq": "FAQ-021",
+      "scope": "개인",
+      "tool": "복합기"
+    },
+    {
+      "id": "SYS-01",
+      "cat": "SYS",
+      "sub": "전자결재",
+      "type": "장애",
+      "urg": "P2",
+      "team": "업무시스템팀",
+      "manual": "MAN-06",
+      "faq": "FAQ-027",
+      "scope": "개인",
+      "tool": "그룹웨어"
+    },
+    {
+      "id": "SYS-02",
+      "cat": "SYS",
+      "sub": "ERP 오류",
+      "type": "장애",
+      "urg": "P2",
+      "team": "업무시스템팀",
+      "manual": "MAN-06",
+      "faq": "",
+      "scope": "개인",
+      "tool": "ERP"
+    },
+    {
+      "id": "SYS-03",
+      "cat": "SYS",
+      "sub": "ERP 전사 장애",
+      "type": "장애",
+      "urg": "P1",
+      "team": "업무시스템팀",
+      "manual": "MAN-06",
+      "faq": "",
+      "scope": "전사",
+      "tool": "ERP"
+    },
+    {
+      "id": "SYS-04",
+      "cat": "SYS",
+      "sub": "인사·근태",
+      "type": "문의",
+      "urg": "P3",
+      "team": "업무시스템팀",
+      "manual": "MAN-06",
+      "faq": "FAQ-028",
+      "scope": "개인",
+      "tool": "인사시스템"
+    },
+    {
+      "id": "SYS-05",
+      "cat": "SYS",
+      "sub": "업무 협업 플랫폼 장애·지연",
+      "type": "장애",
+      "urg": "P2",
+      "team": "업무시스템팀",
+      "manual": "MAN-06",
+      "faq": "",
+      "scope": "부서",
+      "tool": "업무 협업 플랫폼(PMS·BI·마케팅 툴)"
+    },
+    {
+      "id": "SYS-06",
+      "cat": "SYS",
+      "sub": "메일 수신 불가",
+      "type": "장애",
+      "urg": "P3",
+      "team": "서비스데스크",
+      "manual": "MAN-06",
+      "faq": "FAQ-010",
+      "scope": "개인",
+      "tool": "메일"
+    },
+    {
+      "id": "SYS-07",
+      "cat": "SYS",
+      "sub": "메일함 용량",
+      "type": "문의",
+      "urg": "P4",
+      "team": "서비스데스크",
+      "manual": "MAN-06",
+      "faq": "FAQ-011",
+      "scope": "개인",
+      "tool": "메일"
+    },
+    {
+      "id": "SYS-08",
+      "cat": "SYS",
+      "sub": "외부 발송 반송",
+      "type": "장애",
+      "urg": "P2",
+      "team": "시스템인프라팀",
+      "manual": "MAN-06",
+      "faq": "FAQ-012",
+      "scope": "부서",
+      "tool": "메일"
+    },
+    {
+      "id": "SYS-09",
+      "cat": "SYS",
+      "sub": "메일 서버 장애",
+      "type": "장애",
+      "urg": "P1",
+      "team": "시스템인프라팀",
+      "manual": "MAN-06",
+      "faq": "",
+      "scope": "전사",
+      "tool": "메일"
+    },
+    {
+      "id": "SYS-10",
+      "cat": "SYS",
+      "sub": "메신저·화상회의",
+      "type": "장애",
+      "urg": "P3",
+      "team": "서비스데스크",
+      "manual": "MAN-06",
+      "faq": "FAQ-013",
+      "scope": "개인",
+      "tool": "메신저/화상회의"
+    },
+    {
+      "id": "SYS-11",
+      "cat": "SYS",
+      "sub": "공유 캘린더·그룹메일",
+      "type": "요청",
+      "urg": "P4",
+      "team": "서비스데스크",
+      "manual": "MAN-06",
+      "faq": "FAQ-014",
+      "scope": "부서",
+      "tool": "그룹웨어"
+    },
+    {
+      "id": "SYS-12",
+      "cat": "SYS",
+      "sub": "협업 채널 관리",
+      "type": "요청",
+      "urg": "P4",
+      "team": "서비스데스크",
+      "manual": "MAN-06",
+      "faq": "FAQ-029",
+      "scope": "부서",
+      "tool": "메신저"
+    },
+    {
+      "id": "SYS-13",
+      "cat": "SYS",
+      "sub": "공유 드라이브 접속 장애",
+      "type": "장애",
+      "urg": "P2",
+      "team": "시스템인프라팀",
+      "manual": "MAN-06",
+      "faq": "FAQ-033",
+      "scope": "부서",
+      "tool": "파일서버"
+    },
+    {
+      "id": "SYS-14",
+      "cat": "SYS",
+      "sub": "파일 복구",
+      "type": "요청",
+      "urg": "P3",
+      "team": "시스템인프라팀",
+      "manual": "MAN-06",
+      "faq": "FAQ-034",
+      "scope": "개인",
+      "tool": "파일서버"
+    },
+    {
+      "id": "SYS-15",
+      "cat": "SYS",
+      "sub": "개발 서버·DB",
+      "type": "장애",
+      "urg": "P2",
+      "team": "시스템인프라팀",
+      "manual": "MAN-06",
+      "faq": "",
+      "scope": "부서",
+      "tool": "서버/DB"
+    },
+    {
+      "id": "SYS-16",
+      "cat": "SYS",
+      "sub": "파일서버 전사 장애",
+      "type": "장애",
+      "urg": "P1",
+      "team": "시스템인프라팀",
+      "manual": "MAN-06",
+      "faq": "",
+      "scope": "전사",
+      "tool": "파일서버"
+    },
+    {
+      "id": "SEC-01",
+      "cat": "SEC",
+      "sub": "피싱 메일 신고",
+      "type": "장애",
+      "urg": "P2",
+      "team": "정보보안팀",
+      "manual": "MAN-07",
+      "faq": "FAQ-030",
+      "scope": "개인",
+      "tool": "메일 보안"
+    },
+    {
+      "id": "SEC-02",
+      "cat": "SEC",
+      "sub": "악성코드·보안 알림",
+      "type": "장애",
+      "urg": "P2",
+      "team": "정보보안팀",
+      "manual": "MAN-07",
+      "faq": "FAQ-031",
+      "scope": "개인",
+      "tool": "EDR/백신"
+    },
+    {
+      "id": "SEC-03",
+      "cat": "SEC",
+      "sub": "매체·반출 예외",
+      "type": "요청",
+      "urg": "P4",
+      "team": "정보보안팀",
+      "manual": "MAN-07",
+      "faq": "FAQ-032",
+      "scope": "개인",
+      "tool": "DLP"
+    },
+    {
+      "id": "SEC-04",
+      "cat": "SEC",
+      "sub": "피싱 대량 유입",
+      "type": "장애",
+      "urg": "P1",
+      "team": "정보보안팀",
+      "manual": "MAN-07",
+      "faq": "FAQ-030",
+      "scope": "전사",
+      "tool": "메일 보안"
+    },
+    {
+      "id": "SEC-05",
+      "cat": "SEC",
+      "sub": "시스템 무단 접근·침해 의심",
+      "type": "장애",
+      "urg": "P2",
+      "team": "정보보안팀",
+      "manual": "MAN-07",
+      "faq": "",
+      "scope": "부서",
+      "tool": "서버/접근 로그"
+    },
+    {
+      "id": "SEC-06",
+      "cat": "SEC",
+      "sub": "계정 도용 의심",
+      "type": "장애",
+      "urg": "P2",
+      "team": "정보보안팀",
+      "manual": "MAN-07",
+      "faq": "FAQ-005",
+      "scope": "개인",
+      "tool": "SSO"
+    },
+    {
+      "id": "SEC-07",
+      "cat": "SEC",
+      "sub": "웹사이트 차단 해제",
+      "type": "요청",
+      "urg": "P4",
+      "team": "정보보안팀",
+      "manual": "MAN-07",
+      "faq": "FAQ-009",
+      "scope": "개인",
+      "tool": "웹 필터"
+    },
+    {
+      "id": "SEC-08",
+      "cat": "SEC",
+      "sub": "장비 분실·원격 잠금",
+      "type": "장애",
+      "urg": "P2",
+      "team": "정보보안팀",
+      "manual": "MAN-07",
+      "faq": "FAQ-039",
+      "scope": "개인",
+      "tool": "단말 관리(원격 잠금)"
+    }
+  ],
+  "major_incidents": [
+    {
+      "id": "MI-2026-01",
+      "scenario": "SYS-03",
+      "started_at": "2026-03-31 09:05",
+      "tickets": 10,
+      "duration_min": 190,
+      "summary": "ERP 월말 DB 잠금"
+    },
+    {
+      "id": "MI-2026-02",
+      "scenario": "NET-03",
+      "started_at": "2026-04-22 08:40",
+      "tickets": 12,
+      "duration_min": 150,
+      "summary": "VPN 게이트웨이 인증서 만료"
+    },
+    {
+      "id": "MI-2026-03",
+      "scenario": "SEC-04",
+      "started_at": "2026-05-13 10:20",
+      "tickets": 8,
+      "duration_min": 240,
+      "summary": "인사팀 사칭 피싱 캠페인"
+    },
+    {
+      "id": "MI-2026-04",
+      "scenario": "SYS-09",
+      "started_at": "2026-06-10 13:30",
+      "tickets": 8,
+      "duration_min": 200,
+      "summary": "메일 서버 스토리지 장애"
+    },
+    {
+      "id": "MI-2026-05",
+      "scenario": "ACC-04",
+      "started_at": "2026-07-15 08:55",
+      "tickets": 7,
+      "duration_min": 95,
+      "summary": "SSO 인증서 만료"
+    },
+    {
+      "id": "MI-2026-06",
+      "scenario": "SYS-16",
+      "started_at": "2026-08-19 14:10",
+      "tickets": 6,
+      "duration_min": 260,
+      "summary": "파일서버 스토리지 컨트롤러 장애"
+    },
+    {
+      "id": "MI-2026-07",
+      "scenario": "ACC-04",
+      "started_at": "2026-08-26 09:02",
+      "tickets": 3,
+      "duration_min": 176,
+      "summary": "SSO 인증서버 업데이트 후 세션 설정 오류"
+    }
+  ]
+}
