@@ -8,3 +8,7 @@
 
 # 배포용 묶음 (노션 업로드 zip 등)
 dist/
+
+# Python 캐시
+__pycache__/
+*.pyc
