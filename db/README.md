@@ -51,6 +51,7 @@ python db/seed.py --with-eval    # 평가용 정답셋도 넣음
 
 ## 알아둘 점
 
+- **PostgreSQL 17 기준입니다.** Supabase와 같은 PostgreSQL 17(pgvector 0.8)에서 실행을 확인했고, 16에서도 동작합니다.
 - **평가용 정답셋은 따로 둡니다.** AI 검색 자료에 넣지 않는 데이터라 `public`이 아닌 `eval` 스키마에 두고, `--with-eval`을 줬을 때만 넣습니다.
 - **모든 표에 행 수준 보안(RLS)을 켭니다.** Supabase가 자동으로 만드는 REST API(anon 키)로는 읽거나 쓸 수 없습니다. 백엔드는 DB에 직접 붙으므로 영향이 없습니다.
 - **pgvector 확장을 켜 둡니다.** 임베딩을 담을 표는 아직 없습니다.
