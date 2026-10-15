@@ -1,1 +1,22 @@
 .DS_Store
+
+# 로컬 참고 자료 (커밋·푸시 제외)
+참고/
+
+# Office 잠금 파일
+~$*
+
+# 배포용 묶음 (노션 업로드 zip 등)
+dist/
+
+# Python 캐시
+__pycache__/
+*.pyc
+
+# 접속 정보 (DB 비밀번호·API 키). .env.example 만 올린다
+.env
+.env.*
+!.env.example
+
+.venv/
+.pytest_cache/

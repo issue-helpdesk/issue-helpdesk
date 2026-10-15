@@ -1,0 +1,3 @@
+# 배포 시 필요 없는 패키지
+-r requirements.txt
+pytest==9.1.1
