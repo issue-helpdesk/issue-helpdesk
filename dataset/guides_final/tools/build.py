@@ -13,14 +13,13 @@ import layout as LY
 
 
 def out_dir(m):
-    if m['doc_type'] == 'policy':
-        return os.path.join(ROOT, 'policy')
-    sub = {'guide': 'guide', 'manual': 'manual', 'standard': ''}[m['doc_type']]
-    return os.path.join(ROOT, m['category'], sub) if sub else os.path.join(ROOT, m['category'])
+    if m['doc_type'] in ('policy', 'standard'):
+        return os.path.join(ROOT, 'common')
+    return os.path.join(ROOT, m['category'], m['doc_type'])
 
 
 def img_dir(m):
-    return os.path.join(ROOT, m['category'] if m['doc_type'] != 'policy' else 'policy', 'images')
+    return os.path.join(ROOT, m['category'] if m['doc_type'] in ('guide', 'manual') else 'common', 'images')
 
 
 def base_name(m):

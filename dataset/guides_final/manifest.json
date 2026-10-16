@@ -13,10 +13,10 @@
   "scenarios": [],
   "rag_target": true,
   "files": {
-   "pdf": "STD/IT-STD-001_IT 서비스 운영 기준.pdf",
-   "pptx": "STD/IT-STD-001_IT 서비스 운영 기준.pptx",
-   "docx": "STD/IT-STD-001_IT 서비스 운영 기준.docx",
-   "md": "STD/IT-STD-001_IT 서비스 운영 기준.md"
+   "pdf": "common/IT-STD-001_IT 서비스 운영 기준.pdf",
+   "pptx": "common/IT-STD-001_IT 서비스 운영 기준.pptx",
+   "docx": "common/IT-STD-001_IT 서비스 운영 기준.docx",
+   "md": "common/IT-STD-001_IT 서비스 운영 기준.md"
   }
  },
  {
@@ -33,10 +33,10 @@
   "scenarios": [],
   "rag_target": true,
   "files": {
-   "pdf": "STD/IT-STD-002_가이드 분류·작성·열람 기준.pdf",
-   "pptx": "STD/IT-STD-002_가이드 분류·작성·열람 기준.pptx",
-   "docx": "STD/IT-STD-002_가이드 분류·작성·열람 기준.docx",
-   "md": "STD/IT-STD-002_가이드 분류·작성·열람 기준.md"
+   "pdf": "common/IT-STD-002_가이드 분류·작성·열람 기준.pdf",
+   "pptx": "common/IT-STD-002_가이드 분류·작성·열람 기준.pptx",
+   "docx": "common/IT-STD-002_가이드 분류·작성·열람 기준.docx",
+   "md": "common/IT-STD-002_가이드 분류·작성·열람 기준.md"
   }
  },
  {
@@ -1296,10 +1296,10 @@
   ],
   "rag_target": false,
   "files": {
-   "pdf": "policy/IT-AI-001_접근권한 AI 응대·담당자 인계 기준.pdf",
-   "pptx": "policy/IT-AI-001_접근권한 AI 응대·담당자 인계 기준.pptx",
-   "docx": "policy/IT-AI-001_접근권한 AI 응대·담당자 인계 기준.docx",
-   "md": "policy/IT-AI-001_접근권한 AI 응대·담당자 인계 기준.md"
+   "pdf": "common/IT-AI-001_접근권한 AI 응대·담당자 인계 기준.pdf",
+   "pptx": "common/IT-AI-001_접근권한 AI 응대·담당자 인계 기준.pptx",
+   "docx": "common/IT-AI-001_접근권한 AI 응대·담당자 인계 기준.docx",
+   "md": "common/IT-AI-001_접근권한 AI 응대·담당자 인계 기준.md"
   }
  }
 ]
