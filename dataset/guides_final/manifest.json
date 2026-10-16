@@ -1,0 +1,1305 @@
+[
+ {
+  "doc_no": "IT-STD-001",
+  "title": "IT 서비스 운영 기준",
+  "category": "STD",
+  "doc_type": "standard",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "",
+  "scenarios": [],
+  "rag_target": true,
+  "files": {
+   "pdf": "STD/IT-STD-001_IT 서비스 운영 기준.pdf",
+   "pptx": "STD/IT-STD-001_IT 서비스 운영 기준.pptx",
+   "docx": "STD/IT-STD-001_IT 서비스 운영 기준.docx",
+   "md": "STD/IT-STD-001_IT 서비스 운영 기준.md"
+  }
+ },
+ {
+  "doc_no": "IT-STD-002",
+  "title": "가이드 분류·작성·열람 기준",
+  "category": "STD",
+  "doc_type": "standard",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "",
+  "scenarios": [],
+  "rag_target": true,
+  "files": {
+   "pdf": "STD/IT-STD-002_가이드 분류·작성·열람 기준.pdf",
+   "pptx": "STD/IT-STD-002_가이드 분류·작성·열람 기준.pptx",
+   "docx": "STD/IT-STD-002_가이드 분류·작성·열람 기준.docx",
+   "md": "STD/IT-STD-002_가이드 분류·작성·열람 기준.md"
+  }
+ },
+ {
+  "doc_no": "IT-ACC-001",
+  "title": "사내 SSO 로그인 오류 대응 가이드",
+  "category": "ACC",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-ACC-001-M",
+  "scenarios": [
+   "ACC-02",
+   "ACC-04"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "ACC/guide/IT-ACC-001_사내 SSO 로그인 오류 대응 가이드.pdf",
+   "pptx": "ACC/guide/IT-ACC-001_사내 SSO 로그인 오류 대응 가이드.pptx",
+   "docx": "ACC/guide/IT-ACC-001_사내 SSO 로그인 오류 대응 가이드.docx",
+   "md": "ACC/guide/IT-ACC-001_사내 SSO 로그인 오류 대응 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-ACC-001-M",
+  "title": "사내 SSO 로그인 오류 처리 매뉴얼",
+  "category": "ACC",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-ACC-001",
+  "scenarios": [
+   "ACC-02",
+   "ACC-04"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "ACC/manual/IT-ACC-001-M_사내 SSO 로그인 오류 처리 매뉴얼.pdf",
+   "pptx": "ACC/manual/IT-ACC-001-M_사내 SSO 로그인 오류 처리 매뉴얼.pptx",
+   "docx": "ACC/manual/IT-ACC-001-M_사내 SSO 로그인 오류 처리 매뉴얼.docx",
+   "md": "ACC/manual/IT-ACC-001-M_사내 SSO 로그인 오류 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-ACC-002",
+  "title": "비밀번호 변경·초기화 가이드",
+  "category": "ACC",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-ACC-002-M",
+  "scenarios": [
+   "ACC-01"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "ACC/guide/IT-ACC-002_비밀번호 변경·초기화 가이드.pdf",
+   "pptx": "ACC/guide/IT-ACC-002_비밀번호 변경·초기화 가이드.pptx",
+   "docx": "ACC/guide/IT-ACC-002_비밀번호 변경·초기화 가이드.docx",
+   "md": "ACC/guide/IT-ACC-002_비밀번호 변경·초기화 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-ACC-002-M",
+  "title": "비밀번호 변경·초기화 처리 매뉴얼",
+  "category": "ACC",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-ACC-002",
+  "scenarios": [
+   "ACC-01"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "ACC/manual/IT-ACC-002-M_비밀번호 변경·초기화 처리 매뉴얼.pdf",
+   "pptx": "ACC/manual/IT-ACC-002-M_비밀번호 변경·초기화 처리 매뉴얼.pptx",
+   "docx": "ACC/manual/IT-ACC-002-M_비밀번호 변경·초기화 처리 매뉴얼.docx",
+   "md": "ACC/manual/IT-ACC-002-M_비밀번호 변경·초기화 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-ACC-003",
+  "title": "MFA 인증 오류 대응 가이드",
+  "category": "ACC",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-ACC-003-M",
+  "scenarios": [
+   "ACC-03"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "ACC/guide/IT-ACC-003_MFA 인증 오류 대응 가이드.pdf",
+   "pptx": "ACC/guide/IT-ACC-003_MFA 인증 오류 대응 가이드.pptx",
+   "docx": "ACC/guide/IT-ACC-003_MFA 인증 오류 대응 가이드.docx",
+   "md": "ACC/guide/IT-ACC-003_MFA 인증 오류 대응 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-ACC-003-M",
+  "title": "MFA 인증 오류 처리 매뉴얼",
+  "category": "ACC",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-ACC-003",
+  "scenarios": [
+   "ACC-03"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "ACC/manual/IT-ACC-003-M_MFA 인증 오류 처리 매뉴얼.pdf",
+   "pptx": "ACC/manual/IT-ACC-003-M_MFA 인증 오류 처리 매뉴얼.pptx",
+   "docx": "ACC/manual/IT-ACC-003-M_MFA 인증 오류 처리 매뉴얼.docx",
+   "md": "ACC/manual/IT-ACC-003-M_MFA 인증 오류 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-ACS-001",
+  "title": "사내 시스템 접근권한 신청 가이드",
+  "category": "ACS",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "업무시스템팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-ACS-001-M",
+  "scenarios": [
+   "ACS-01"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "ACS/guide/IT-ACS-001_사내 시스템 접근권한 신청 가이드.pdf",
+   "pptx": "ACS/guide/IT-ACS-001_사내 시스템 접근권한 신청 가이드.pptx",
+   "docx": "ACS/guide/IT-ACS-001_사내 시스템 접근권한 신청 가이드.docx",
+   "md": "ACS/guide/IT-ACS-001_사내 시스템 접근권한 신청 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-ACS-001-M",
+  "title": "사내 시스템 접근권한 처리 매뉴얼",
+  "category": "ACS",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "업무시스템팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-ACS-001",
+  "scenarios": [
+   "ACS-01"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "ACS/manual/IT-ACS-001-M_사내 시스템 접근권한 처리 매뉴얼.pdf",
+   "pptx": "ACS/manual/IT-ACS-001-M_사내 시스템 접근권한 처리 매뉴얼.pptx",
+   "docx": "ACS/manual/IT-ACS-001-M_사내 시스템 접근권한 처리 매뉴얼.docx",
+   "md": "ACS/manual/IT-ACS-001-M_사내 시스템 접근권한 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-ACS-002",
+  "title": "개발·검증 서버 접근권한 가이드",
+  "category": "ACS",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "시스템인프라팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-ACS-002-M",
+  "scenarios": [
+   "ACS-01"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "ACS/guide/IT-ACS-002_개발·검증 서버 접근권한 가이드.pdf",
+   "pptx": "ACS/guide/IT-ACS-002_개발·검증 서버 접근권한 가이드.pptx",
+   "docx": "ACS/guide/IT-ACS-002_개발·검증 서버 접근권한 가이드.docx",
+   "md": "ACS/guide/IT-ACS-002_개발·검증 서버 접근권한 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-ACS-002-M",
+  "title": "개발·검증 서버 접근권한 처리 매뉴얼",
+  "category": "ACS",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "시스템인프라팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-ACS-002",
+  "scenarios": [
+   "ACS-01"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "ACS/manual/IT-ACS-002-M_개발·검증 서버 접근권한 처리 매뉴얼.pdf",
+   "pptx": "ACS/manual/IT-ACS-002-M_개발·검증 서버 접근권한 처리 매뉴얼.pptx",
+   "docx": "ACS/manual/IT-ACS-002-M_개발·검증 서버 접근권한 처리 매뉴얼.docx",
+   "md": "ACS/manual/IT-ACS-002-M_개발·검증 서버 접근권한 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-ACS-003",
+  "title": "퇴사·부서이동 권한 변경 가이드",
+  "category": "ACS",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "업무시스템팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-ACS-003-M",
+  "scenarios": [
+   "ACS-02"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "ACS/guide/IT-ACS-003_퇴사·부서이동 권한 변경 가이드.pdf",
+   "pptx": "ACS/guide/IT-ACS-003_퇴사·부서이동 권한 변경 가이드.pptx",
+   "docx": "ACS/guide/IT-ACS-003_퇴사·부서이동 권한 변경 가이드.docx",
+   "md": "ACS/guide/IT-ACS-003_퇴사·부서이동 권한 변경 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-ACS-003-M",
+  "title": "퇴사·부서이동 권한 변경 처리 매뉴얼",
+  "category": "ACS",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "업무시스템팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-ACS-003",
+  "scenarios": [
+   "ACS-02"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "ACS/manual/IT-ACS-003-M_퇴사·부서이동 권한 변경 처리 매뉴얼.pdf",
+   "pptx": "ACS/manual/IT-ACS-003-M_퇴사·부서이동 권한 변경 처리 매뉴얼.pptx",
+   "docx": "ACS/manual/IT-ACS-003-M_퇴사·부서이동 권한 변경 처리 매뉴얼.docx",
+   "md": "ACS/manual/IT-ACS-003-M_퇴사·부서이동 권한 변경 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-NET-001",
+  "title": "VPN 접속 장애 대응 가이드",
+  "category": "NET",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "네트워크팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-NET-001-M",
+  "scenarios": [
+   "NET-02"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "NET/guide/IT-NET-001_VPN 접속 장애 대응 가이드.pdf",
+   "pptx": "NET/guide/IT-NET-001_VPN 접속 장애 대응 가이드.pptx",
+   "docx": "NET/guide/IT-NET-001_VPN 접속 장애 대응 가이드.docx",
+   "md": "NET/guide/IT-NET-001_VPN 접속 장애 대응 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-NET-001-M",
+  "title": "VPN 접속 장애 처리 매뉴얼",
+  "category": "NET",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "네트워크팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-NET-001",
+  "scenarios": [
+   "NET-02"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "NET/manual/IT-NET-001-M_VPN 접속 장애 처리 매뉴얼.pdf",
+   "pptx": "NET/manual/IT-NET-001-M_VPN 접속 장애 처리 매뉴얼.pptx",
+   "docx": "NET/manual/IT-NET-001-M_VPN 접속 장애 처리 매뉴얼.docx",
+   "md": "NET/manual/IT-NET-001-M_VPN 접속 장애 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-NET-002",
+  "title": "사내 네트워크 장애 대응 가이드",
+  "category": "NET",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "네트워크팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-NET-002-M",
+  "scenarios": [
+   "NET-01",
+   "NET-04",
+   "NET-05"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "NET/guide/IT-NET-002_사내 네트워크 장애 대응 가이드.pdf",
+   "pptx": "NET/guide/IT-NET-002_사내 네트워크 장애 대응 가이드.pptx",
+   "docx": "NET/guide/IT-NET-002_사내 네트워크 장애 대응 가이드.docx",
+   "md": "NET/guide/IT-NET-002_사내 네트워크 장애 대응 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-NET-002-M",
+  "title": "사내 네트워크 장애 처리 매뉴얼",
+  "category": "NET",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "네트워크팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-NET-002",
+  "scenarios": [
+   "NET-01",
+   "NET-04",
+   "NET-05"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "NET/manual/IT-NET-002-M_사내 네트워크 장애 처리 매뉴얼.pdf",
+   "pptx": "NET/manual/IT-NET-002-M_사내 네트워크 장애 처리 매뉴얼.pptx",
+   "docx": "NET/manual/IT-NET-002-M_사내 네트워크 장애 처리 매뉴얼.docx",
+   "md": "NET/manual/IT-NET-002-M_사내 네트워크 장애 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-NET-003",
+  "title": "네트워크 장애 신고·이관 가이드",
+  "category": "NET",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "네트워크팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-NET-003-M",
+  "scenarios": [
+   "NET-03"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "NET/guide/IT-NET-003_네트워크 장애 신고·이관 가이드.pdf",
+   "pptx": "NET/guide/IT-NET-003_네트워크 장애 신고·이관 가이드.pptx",
+   "docx": "NET/guide/IT-NET-003_네트워크 장애 신고·이관 가이드.docx",
+   "md": "NET/guide/IT-NET-003_네트워크 장애 신고·이관 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-NET-003-M",
+  "title": "네트워크 장애 신고·이관 처리 매뉴얼",
+  "category": "NET",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "네트워크팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-NET-003",
+  "scenarios": [
+   "NET-03"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "NET/manual/IT-NET-003-M_네트워크 장애 신고·이관 처리 매뉴얼.pdf",
+   "pptx": "NET/manual/IT-NET-003-M_네트워크 장애 신고·이관 처리 매뉴얼.pptx",
+   "docx": "NET/manual/IT-NET-003-M_네트워크 장애 신고·이관 처리 매뉴얼.docx",
+   "md": "NET/manual/IT-NET-003-M_네트워크 장애 신고·이관 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-SW-001",
+  "title": "업무용 SW 설치 가이드",
+  "category": "SW",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SW-001-M",
+  "scenarios": [
+   "SW-01"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SW/guide/IT-SW-001_업무용 SW 설치 가이드.pdf",
+   "pptx": "SW/guide/IT-SW-001_업무용 SW 설치 가이드.pptx",
+   "docx": "SW/guide/IT-SW-001_업무용 SW 설치 가이드.docx",
+   "md": "SW/guide/IT-SW-001_업무용 SW 설치 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-SW-001-M",
+  "title": "SW 설치 요청 처리 매뉴얼",
+  "category": "SW",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "엔드포인트지원팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SW-001",
+  "scenarios": [
+   "SW-01"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SW/manual/IT-SW-001-M_SW 설치 요청 처리 매뉴얼.pdf",
+   "pptx": "SW/manual/IT-SW-001-M_SW 설치 요청 처리 매뉴얼.pptx",
+   "docx": "SW/manual/IT-SW-001-M_SW 설치 요청 처리 매뉴얼.docx",
+   "md": "SW/manual/IT-SW-001-M_SW 설치 요청 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-SW-002",
+  "title": "SW 라이선스 신청·인증 가이드",
+  "category": "SW",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SW-002-M",
+  "scenarios": [
+   "SW-02"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SW/guide/IT-SW-002_SW 라이선스 신청·인증 가이드.pdf",
+   "pptx": "SW/guide/IT-SW-002_SW 라이선스 신청·인증 가이드.pptx",
+   "docx": "SW/guide/IT-SW-002_SW 라이선스 신청·인증 가이드.docx",
+   "md": "SW/guide/IT-SW-002_SW 라이선스 신청·인증 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-SW-002-M",
+  "title": "SW 라이선스 처리 매뉴얼",
+  "category": "SW",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "엔드포인트지원팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SW-002",
+  "scenarios": [
+   "SW-02"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SW/manual/IT-SW-002-M_SW 라이선스 처리 매뉴얼.pdf",
+   "pptx": "SW/manual/IT-SW-002-M_SW 라이선스 처리 매뉴얼.pptx",
+   "docx": "SW/manual/IT-SW-002-M_SW 라이선스 처리 매뉴얼.docx",
+   "md": "SW/manual/IT-SW-002-M_SW 라이선스 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-SW-003",
+  "title": "업무용 SW 실행·오류 대응 가이드",
+  "category": "SW",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SW-003-M",
+  "scenarios": [
+   "SW-03",
+   "SW-04",
+   "SW-05",
+   "SW-06"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SW/guide/IT-SW-003_업무용 SW 실행·오류 대응 가이드.pdf",
+   "pptx": "SW/guide/IT-SW-003_업무용 SW 실행·오류 대응 가이드.pptx",
+   "docx": "SW/guide/IT-SW-003_업무용 SW 실행·오류 대응 가이드.docx",
+   "md": "SW/guide/IT-SW-003_업무용 SW 실행·오류 대응 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-SW-003-M",
+  "title": "SW 실행·오류 처리 매뉴얼",
+  "category": "SW",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SW-003",
+  "scenarios": [
+   "SW-03",
+   "SW-04",
+   "SW-05",
+   "SW-06"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SW/manual/IT-SW-003-M_SW 실행·오류 처리 매뉴얼.pdf",
+   "pptx": "SW/manual/IT-SW-003-M_SW 실행·오류 처리 매뉴얼.pptx",
+   "docx": "SW/manual/IT-SW-003-M_SW 실행·오류 처리 매뉴얼.docx",
+   "md": "SW/manual/IT-SW-003-M_SW 실행·오류 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-HW-001",
+  "title": "업무 PC 기본 장애 대응 가이드",
+  "category": "HW",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "엔드포인트지원팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-HW-001-M",
+  "scenarios": [
+   "HW-01",
+   "HW-02",
+   "HW-03",
+   "HW-06"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "HW/guide/IT-HW-001_업무 PC 기본 장애 대응 가이드.pdf",
+   "pptx": "HW/guide/IT-HW-001_업무 PC 기본 장애 대응 가이드.pptx",
+   "docx": "HW/guide/IT-HW-001_업무 PC 기본 장애 대응 가이드.docx",
+   "md": "HW/guide/IT-HW-001_업무 PC 기본 장애 대응 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-HW-001-M",
+  "title": "업무 PC 기본 장애 처리 매뉴얼",
+  "category": "HW",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "엔드포인트지원팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-HW-001",
+  "scenarios": [
+   "HW-01",
+   "HW-02",
+   "HW-03",
+   "HW-06"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "HW/manual/IT-HW-001-M_업무 PC 기본 장애 처리 매뉴얼.pdf",
+   "pptx": "HW/manual/IT-HW-001-M_업무 PC 기본 장애 처리 매뉴얼.pptx",
+   "docx": "HW/manual/IT-HW-001-M_업무 PC 기본 장애 처리 매뉴얼.docx",
+   "md": "HW/manual/IT-HW-001-M_업무 PC 기본 장애 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-HW-002",
+  "title": "업무 장비 교체·수리 신청 가이드",
+  "category": "HW",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "엔드포인트지원팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-HW-002-M",
+  "scenarios": [
+   "HW-04",
+   "HW-05"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "HW/guide/IT-HW-002_업무 장비 교체·수리 신청 가이드.pdf",
+   "pptx": "HW/guide/IT-HW-002_업무 장비 교체·수리 신청 가이드.pptx",
+   "docx": "HW/guide/IT-HW-002_업무 장비 교체·수리 신청 가이드.docx",
+   "md": "HW/guide/IT-HW-002_업무 장비 교체·수리 신청 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-HW-002-M",
+  "title": "업무 장비 교체·수리 처리 매뉴얼",
+  "category": "HW",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "엔드포인트지원팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-HW-002",
+  "scenarios": [
+   "HW-04",
+   "HW-05"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "HW/manual/IT-HW-002-M_업무 장비 교체·수리 처리 매뉴얼.pdf",
+   "pptx": "HW/manual/IT-HW-002-M_업무 장비 교체·수리 처리 매뉴얼.pptx",
+   "docx": "HW/manual/IT-HW-002-M_업무 장비 교체·수리 처리 매뉴얼.docx",
+   "md": "HW/manual/IT-HW-002-M_업무 장비 교체·수리 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-HW-003",
+  "title": "프린터·복합기 이용 가이드",
+  "category": "HW",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-HW-003-M",
+  "scenarios": [
+   "HW-07",
+   "HW-08",
+   "HW-09"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "HW/guide/IT-HW-003_프린터·복합기 이용 가이드.pdf",
+   "pptx": "HW/guide/IT-HW-003_프린터·복합기 이용 가이드.pptx",
+   "docx": "HW/guide/IT-HW-003_프린터·복합기 이용 가이드.docx",
+   "md": "HW/guide/IT-HW-003_프린터·복합기 이용 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-HW-003-M",
+  "title": "프린터·복합기 처리 매뉴얼",
+  "category": "HW",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-HW-003",
+  "scenarios": [
+   "HW-07",
+   "HW-08",
+   "HW-09"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "HW/manual/IT-HW-003-M_프린터·복합기 처리 매뉴얼.pdf",
+   "pptx": "HW/manual/IT-HW-003-M_프린터·복합기 처리 매뉴얼.pptx",
+   "docx": "HW/manual/IT-HW-003-M_프린터·복합기 처리 매뉴얼.docx",
+   "md": "HW/manual/IT-HW-003-M_프린터·복합기 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-001",
+  "title": "그룹웨어·ERP 이용 오류 대응 가이드",
+  "category": "SYS",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "업무시스템팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-001-M",
+  "scenarios": [
+   "SYS-01",
+   "SYS-02"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/guide/IT-SYS-001_그룹웨어·ERP 이용 오류 대응 가이드.pdf",
+   "pptx": "SYS/guide/IT-SYS-001_그룹웨어·ERP 이용 오류 대응 가이드.pptx",
+   "docx": "SYS/guide/IT-SYS-001_그룹웨어·ERP 이용 오류 대응 가이드.docx",
+   "md": "SYS/guide/IT-SYS-001_그룹웨어·ERP 이용 오류 대응 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-001-M",
+  "title": "그룹웨어·ERP 이용 오류 처리 매뉴얼",
+  "category": "SYS",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "업무시스템팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-001",
+  "scenarios": [
+   "SYS-01",
+   "SYS-02"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/manual/IT-SYS-001-M_그룹웨어·ERP 이용 오류 처리 매뉴얼.pdf",
+   "pptx": "SYS/manual/IT-SYS-001-M_그룹웨어·ERP 이용 오류 처리 매뉴얼.pptx",
+   "docx": "SYS/manual/IT-SYS-001-M_그룹웨어·ERP 이용 오류 처리 매뉴얼.docx",
+   "md": "SYS/manual/IT-SYS-001-M_그룹웨어·ERP 이용 오류 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-002",
+  "title": "사내 시스템 성능 저하 대응 가이드",
+  "category": "SYS",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "업무시스템팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-002-M",
+  "scenarios": [
+   "SYS-02",
+   "SYS-05"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/guide/IT-SYS-002_사내 시스템 성능 저하 대응 가이드.pdf",
+   "pptx": "SYS/guide/IT-SYS-002_사내 시스템 성능 저하 대응 가이드.pptx",
+   "docx": "SYS/guide/IT-SYS-002_사내 시스템 성능 저하 대응 가이드.docx",
+   "md": "SYS/guide/IT-SYS-002_사내 시스템 성능 저하 대응 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-002-M",
+  "title": "사내 시스템 성능 저하 처리 매뉴얼",
+  "category": "SYS",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "업무시스템팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-002",
+  "scenarios": [
+   "SYS-02",
+   "SYS-05"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/manual/IT-SYS-002-M_사내 시스템 성능 저하 처리 매뉴얼.pdf",
+   "pptx": "SYS/manual/IT-SYS-002-M_사내 시스템 성능 저하 처리 매뉴얼.pptx",
+   "docx": "SYS/manual/IT-SYS-002-M_사내 시스템 성능 저하 처리 매뉴얼.docx",
+   "md": "SYS/manual/IT-SYS-002-M_사내 시스템 성능 저하 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-003",
+  "title": "사내 시스템 장애 신고·이관 가이드",
+  "category": "SYS",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "업무시스템팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-003-M",
+  "scenarios": [
+   "SYS-03",
+   "SYS-05",
+   "SYS-09",
+   "SYS-16"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/guide/IT-SYS-003_사내 시스템 장애 신고·이관 가이드.pdf",
+   "pptx": "SYS/guide/IT-SYS-003_사내 시스템 장애 신고·이관 가이드.pptx",
+   "docx": "SYS/guide/IT-SYS-003_사내 시스템 장애 신고·이관 가이드.docx",
+   "md": "SYS/guide/IT-SYS-003_사내 시스템 장애 신고·이관 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-003-M",
+  "title": "사내 시스템 장애 신고·이관 처리 매뉴얼",
+  "category": "SYS",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "업무시스템팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-003",
+  "scenarios": [
+   "SYS-03",
+   "SYS-05",
+   "SYS-09",
+   "SYS-16"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/manual/IT-SYS-003-M_사내 시스템 장애 신고·이관 처리 매뉴얼.pdf",
+   "pptx": "SYS/manual/IT-SYS-003-M_사내 시스템 장애 신고·이관 처리 매뉴얼.pptx",
+   "docx": "SYS/manual/IT-SYS-003-M_사내 시스템 장애 신고·이관 처리 매뉴얼.docx",
+   "md": "SYS/manual/IT-SYS-003-M_사내 시스템 장애 신고·이관 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-004",
+  "title": "메일 이용 장애 대응 가이드",
+  "category": "SYS",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-004-M",
+  "scenarios": [
+   "SYS-06",
+   "SYS-07",
+   "SYS-08"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/guide/IT-SYS-004_메일 이용 장애 대응 가이드.pdf",
+   "pptx": "SYS/guide/IT-SYS-004_메일 이용 장애 대응 가이드.pptx",
+   "docx": "SYS/guide/IT-SYS-004_메일 이용 장애 대응 가이드.docx",
+   "md": "SYS/guide/IT-SYS-004_메일 이용 장애 대응 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-004-M",
+  "title": "메일 이용 장애 처리 매뉴얼",
+  "category": "SYS",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-004",
+  "scenarios": [
+   "SYS-06",
+   "SYS-07",
+   "SYS-08"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/manual/IT-SYS-004-M_메일 이용 장애 처리 매뉴얼.pdf",
+   "pptx": "SYS/manual/IT-SYS-004-M_메일 이용 장애 처리 매뉴얼.pptx",
+   "docx": "SYS/manual/IT-SYS-004-M_메일 이용 장애 처리 매뉴얼.docx",
+   "md": "SYS/manual/IT-SYS-004-M_메일 이용 장애 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-005",
+  "title": "메신저·화상회의·협업 도구 가이드",
+  "category": "SYS",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-005-M",
+  "scenarios": [
+   "SYS-10",
+   "SYS-11",
+   "SYS-12"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/guide/IT-SYS-005_메신저·화상회의·협업 도구 가이드.pdf",
+   "pptx": "SYS/guide/IT-SYS-005_메신저·화상회의·협업 도구 가이드.pptx",
+   "docx": "SYS/guide/IT-SYS-005_메신저·화상회의·협업 도구 가이드.docx",
+   "md": "SYS/guide/IT-SYS-005_메신저·화상회의·협업 도구 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-005-M",
+  "title": "메신저·화상회의·협업 도구 처리 매뉴얼",
+  "category": "SYS",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "서비스데스크",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-005",
+  "scenarios": [
+   "SYS-10",
+   "SYS-11",
+   "SYS-12"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/manual/IT-SYS-005-M_메신저·화상회의·협업 도구 처리 매뉴얼.pdf",
+   "pptx": "SYS/manual/IT-SYS-005-M_메신저·화상회의·협업 도구 처리 매뉴얼.pptx",
+   "docx": "SYS/manual/IT-SYS-005-M_메신저·화상회의·협업 도구 처리 매뉴얼.docx",
+   "md": "SYS/manual/IT-SYS-005-M_메신저·화상회의·협업 도구 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-006",
+  "title": "공유 드라이브·파일 복구 가이드",
+  "category": "SYS",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "시스템인프라팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-006-M",
+  "scenarios": [
+   "SYS-13",
+   "SYS-14"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/guide/IT-SYS-006_공유 드라이브·파일 복구 가이드.pdf",
+   "pptx": "SYS/guide/IT-SYS-006_공유 드라이브·파일 복구 가이드.pptx",
+   "docx": "SYS/guide/IT-SYS-006_공유 드라이브·파일 복구 가이드.docx",
+   "md": "SYS/guide/IT-SYS-006_공유 드라이브·파일 복구 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-006-M",
+  "title": "공유 드라이브·파일 복구 처리 매뉴얼",
+  "category": "SYS",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "시스템인프라팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-006",
+  "scenarios": [
+   "SYS-13",
+   "SYS-14"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/manual/IT-SYS-006-M_공유 드라이브·파일 복구 처리 매뉴얼.pdf",
+   "pptx": "SYS/manual/IT-SYS-006-M_공유 드라이브·파일 복구 처리 매뉴얼.pptx",
+   "docx": "SYS/manual/IT-SYS-006-M_공유 드라이브·파일 복구 처리 매뉴얼.docx",
+   "md": "SYS/manual/IT-SYS-006-M_공유 드라이브·파일 복구 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-007",
+  "title": "인사·근태 문의 가이드",
+  "category": "SYS",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "업무시스템팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-007-M",
+  "scenarios": [
+   "SYS-04"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/guide/IT-SYS-007_인사·근태 문의 가이드.pdf",
+   "pptx": "SYS/guide/IT-SYS-007_인사·근태 문의 가이드.pptx",
+   "docx": "SYS/guide/IT-SYS-007_인사·근태 문의 가이드.docx",
+   "md": "SYS/guide/IT-SYS-007_인사·근태 문의 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-007-M",
+  "title": "인사·근태 문의 처리 매뉴얼",
+  "category": "SYS",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "업무시스템팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-007",
+  "scenarios": [
+   "SYS-04"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/manual/IT-SYS-007-M_인사·근태 문의 처리 매뉴얼.pdf",
+   "pptx": "SYS/manual/IT-SYS-007-M_인사·근태 문의 처리 매뉴얼.pptx",
+   "docx": "SYS/manual/IT-SYS-007-M_인사·근태 문의 처리 매뉴얼.docx",
+   "md": "SYS/manual/IT-SYS-007-M_인사·근태 문의 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-008",
+  "title": "개발 서버·DB 장애 대응 가이드",
+  "category": "SYS",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "시스템인프라팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-008-M",
+  "scenarios": [
+   "SYS-15"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/guide/IT-SYS-008_개발 서버·DB 장애 대응 가이드.pdf",
+   "pptx": "SYS/guide/IT-SYS-008_개발 서버·DB 장애 대응 가이드.pptx",
+   "docx": "SYS/guide/IT-SYS-008_개발 서버·DB 장애 대응 가이드.docx",
+   "md": "SYS/guide/IT-SYS-008_개발 서버·DB 장애 대응 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-SYS-008-M",
+  "title": "개발 서버·DB 장애 처리 매뉴얼",
+  "category": "SYS",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "시스템인프라팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SYS-008",
+  "scenarios": [
+   "SYS-15"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SYS/manual/IT-SYS-008-M_개발 서버·DB 장애 처리 매뉴얼.pdf",
+   "pptx": "SYS/manual/IT-SYS-008-M_개발 서버·DB 장애 처리 매뉴얼.pptx",
+   "docx": "SYS/manual/IT-SYS-008-M_개발 서버·DB 장애 처리 매뉴얼.docx",
+   "md": "SYS/manual/IT-SYS-008-M_개발 서버·DB 장애 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-SEC-001",
+  "title": "피싱·의심 메일 대응 가이드",
+  "category": "SEC",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "정보보안팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SEC-001-M",
+  "scenarios": [
+   "SEC-01",
+   "SEC-04"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SEC/guide/IT-SEC-001_피싱·의심 메일 대응 가이드.pdf",
+   "pptx": "SEC/guide/IT-SEC-001_피싱·의심 메일 대응 가이드.pptx",
+   "docx": "SEC/guide/IT-SEC-001_피싱·의심 메일 대응 가이드.docx",
+   "md": "SEC/guide/IT-SEC-001_피싱·의심 메일 대응 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-SEC-001-M",
+  "title": "피싱·의심 메일 처리 매뉴얼",
+  "category": "SEC",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "정보보안팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SEC-001",
+  "scenarios": [
+   "SEC-01",
+   "SEC-04"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SEC/manual/IT-SEC-001-M_피싱·의심 메일 처리 매뉴얼.pdf",
+   "pptx": "SEC/manual/IT-SEC-001-M_피싱·의심 메일 처리 매뉴얼.pptx",
+   "docx": "SEC/manual/IT-SEC-001-M_피싱·의심 메일 처리 매뉴얼.docx",
+   "md": "SEC/manual/IT-SEC-001-M_피싱·의심 메일 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-SEC-002",
+  "title": "보안 프로그램(백신·EDR) 알림 대응 가이드",
+  "category": "SEC",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "정보보안팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SEC-002-M",
+  "scenarios": [
+   "SEC-02"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SEC/guide/IT-SEC-002_보안 프로그램(백신·EDR) 알림 대응 가이드.pdf",
+   "pptx": "SEC/guide/IT-SEC-002_보안 프로그램(백신·EDR) 알림 대응 가이드.pptx",
+   "docx": "SEC/guide/IT-SEC-002_보안 프로그램(백신·EDR) 알림 대응 가이드.docx",
+   "md": "SEC/guide/IT-SEC-002_보안 프로그램(백신·EDR) 알림 대응 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-SEC-002-M",
+  "title": "보안 프로그램(백신·EDR) 알림 처리 매뉴얼",
+  "category": "SEC",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "정보보안팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SEC-002",
+  "scenarios": [
+   "SEC-02"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SEC/manual/IT-SEC-002-M_보안 프로그램(백신·EDR) 알림 처리 매뉴얼.pdf",
+   "pptx": "SEC/manual/IT-SEC-002-M_보안 프로그램(백신·EDR) 알림 처리 매뉴얼.pptx",
+   "docx": "SEC/manual/IT-SEC-002-M_보안 프로그램(백신·EDR) 알림 처리 매뉴얼.docx",
+   "md": "SEC/manual/IT-SEC-002-M_보안 프로그램(백신·EDR) 알림 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-SEC-003",
+  "title": "계정 도용·장비 분실 신고 가이드",
+  "category": "SEC",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "정보보안팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SEC-003-M",
+  "scenarios": [
+   "SEC-06",
+   "SEC-05",
+   "SEC-08"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SEC/guide/IT-SEC-003_계정 도용·장비 분실 신고 가이드.pdf",
+   "pptx": "SEC/guide/IT-SEC-003_계정 도용·장비 분실 신고 가이드.pptx",
+   "docx": "SEC/guide/IT-SEC-003_계정 도용·장비 분실 신고 가이드.docx",
+   "md": "SEC/guide/IT-SEC-003_계정 도용·장비 분실 신고 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-SEC-003-M",
+  "title": "계정 도용·장비 분실 처리 매뉴얼",
+  "category": "SEC",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "정보보안팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SEC-003",
+  "scenarios": [
+   "SEC-06",
+   "SEC-05",
+   "SEC-08"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SEC/manual/IT-SEC-003-M_계정 도용·장비 분실 처리 매뉴얼.pdf",
+   "pptx": "SEC/manual/IT-SEC-003-M_계정 도용·장비 분실 처리 매뉴얼.pptx",
+   "docx": "SEC/manual/IT-SEC-003-M_계정 도용·장비 분실 처리 매뉴얼.docx",
+   "md": "SEC/manual/IT-SEC-003-M_계정 도용·장비 분실 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-SEC-004",
+  "title": "보안 예외 신청·정책 안내 가이드",
+  "category": "SEC",
+  "doc_type": "guide",
+  "access_level": "사내 일반",
+  "audience": "전 임직원",
+  "owner": "정보보안팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SEC-004-M",
+  "scenarios": [
+   "SEC-03",
+   "SEC-07"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SEC/guide/IT-SEC-004_보안 예외 신청·정책 안내 가이드.pdf",
+   "pptx": "SEC/guide/IT-SEC-004_보안 예외 신청·정책 안내 가이드.pptx",
+   "docx": "SEC/guide/IT-SEC-004_보안 예외 신청·정책 안내 가이드.docx",
+   "md": "SEC/guide/IT-SEC-004_보안 예외 신청·정책 안내 가이드.md"
+  }
+ },
+ {
+  "doc_no": "IT-SEC-004-M",
+  "title": "보안 예외 신청·정책 처리 매뉴얼",
+  "category": "SEC",
+  "doc_type": "manual",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "정보보안팀",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "IT-SEC-004",
+  "scenarios": [
+   "SEC-03",
+   "SEC-07"
+  ],
+  "rag_target": true,
+  "files": {
+   "pdf": "SEC/manual/IT-SEC-004-M_보안 예외 신청·정책 처리 매뉴얼.pdf",
+   "pptx": "SEC/manual/IT-SEC-004-M_보안 예외 신청·정책 처리 매뉴얼.pptx",
+   "docx": "SEC/manual/IT-SEC-004-M_보안 예외 신청·정책 처리 매뉴얼.docx",
+   "md": "SEC/manual/IT-SEC-004-M_보안 예외 신청·정책 처리 매뉴얼.md"
+  }
+ },
+ {
+  "doc_no": "IT-AI-001",
+  "title": "접근권한 AI 응대·담당자 인계 기준",
+  "category": "AI",
+  "doc_type": "policy",
+  "access_level": "사내 제한",
+  "audience": "IT 운영 담당자·관리자",
+  "owner": "ITssue 서비스 운영",
+  "version": "v2.0",
+  "effective_date": "2026-10-16",
+  "pair": "",
+  "scenarios": [
+   "ACS-01",
+   "ACS-02"
+  ],
+  "rag_target": false,
+  "files": {
+   "pdf": "policy/IT-AI-001_접근권한 AI 응대·담당자 인계 기준.pdf",
+   "pptx": "policy/IT-AI-001_접근권한 AI 응대·담당자 인계 기준.pptx",
+   "docx": "policy/IT-AI-001_접근권한 AI 응대·담당자 인계 기준.docx",
+   "md": "policy/IT-AI-001_접근권한 AI 응대·담당자 인계 기준.md"
+  }
+ }
+]
