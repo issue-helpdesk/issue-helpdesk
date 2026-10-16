@@ -1,7 +1,18 @@
 # 사내 IT 장애·문의 대응 AI Agent
 
 > 한화내일아카데미 캡스톤 프로젝트
+>
 > 반복되는 IT 문의는 AI가 1차로 응대하고, 해결이 어려운 건은 담당자에게 티켓을 자동 생성·배정하는 헬프데스크 에이전트입니다.
+
+## 목차
+
+- [배경](#배경)
+- [목표](#목표)
+- [주요 기능](#주요-기능)
+- [기술 스택](#기술-스택)
+- [개발 환경 설정](#개발-환경-설정)
+- [문서](#문서)
+- [팀원](#팀원)
 
 ## 배경
 
@@ -24,9 +35,55 @@
 
 | 구분 | 기술 |
 |---|---|
-| Backend | Python, FastAPI |
+| Backend | Python 3.12, FastAPI |
 | Frontend | Streamlit |
+| Database | PostgreSQL (Supabase), pgvector |
 | LLM | Claude |
+
+## 개발 환경 설정
+
+Python **3.12** 기준입니다.
+
+### 1. 가상환경과 패키지
+
+저장소 루트에서 실행합니다.
+
+```bash
+# 가상환경 만들기 (최초 한 번)
+python -m venv .venv
+
+# 가상환경 활성화 (Windows)
+.venv\Scripts\activate
+# 가상환경 활성화 (macOS)
+source .venv/bin/activate
+
+# 패키지 설치 (개발용)
+pip install -r requirements-dev.txt
+```
+
+### 2. 환경 변수
+
+`.env.example`을 `.env`로 복사하고 `DATABASE_URL`을 채웁니다.
+
+### 3. DB 연결 확인
+
+```bash
+pytest tests/test_db_connection.py -v
+```
+
+`PASSED`가 나오면 연결된 것입니다.
+
+## 문서
+
+| 문서 | 내용 |
+|---|---|
+| [프로젝트 기획서](docs/01.프로젝트_기획서.md) | 배경·목표·구현 범위 |
+| [제품 정의서 (PRD)](docs/02.제품정의서(PRD).md) | 기능·정책·MVP 범위 |
+| [요구사항 정의서 (SRS)](docs/03.요구사항정의서(SRS).md) | 기능·비기능 요구사항 |
+| [시스템 설계서](docs/04.시스템_설계셔.md) | 아키텍처·DB·API |
+| [가상 기업 환경 정의서](docs/05.가상기업_환경정의서.md) | 조직·사용자·IT 환경 |
+| [Git 협업 가이드](docs/git-collaboration-guide.md) | 브랜치·커밋·PR 규칙 |
+| [데이터셋 설명](dataset/README.md) | 데이터 파일과 코드 |
 
 ## 팀원
 
