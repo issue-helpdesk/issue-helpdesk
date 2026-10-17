@@ -496,7 +496,7 @@ const CATS={
 const GROUPS=['서비스데스크','엔드포인트지원팀','네트워크팀','시스템인프라팀','업무시스템팀','정보보안팀'];
 const PRI={P1:'긴급',P2:'높음',P3:'보통',P4:'낮음'};
 const PRI_RULE={P1:'전사·여러 부서의 주요 업무 중단 또는 광범위한 보안 대응 필요',P2:'부서 단위 업무 영향, 개인 업무 전면 중단 또는 보안 사고 의심',P3:'개인 업무 일부에 지장이 있으나 허용된 대체 방법으로 진행 가능',P4:'현재 업무 지장이 없는 단순 문의·사전 신청'};
-const TSTAT={RDY:['처리 대기','recv'],IP:['처리 중','prog'],FIN:['해결 확인 대기','need'],CLS:['해결 완료','ok']};
+const TSTAT={RDY:['처리 대기','recv'],WIP:['처리 중','prog'],FIN:['해결 확인 대기','need'],CLS:['해결 완료','ok']};
 const SERVICEDESK_PHONE='내선 1000 (평일 09:00~18:00)';
 const TEAMS_PPL={'서비스데스크':['서댕댕','박고양','이다람','최곰돌','정여우','한펭귄','오너구리','윤수달','강햄찌','조판다','임사슴','신고슴'],'엔드포인트지원팀':['문오리','배두루','홍거북','류수리','장병아','노라쿤','황부엉','안치타','송하마'],'네트워크팀':['김담당','전다랑','곽미어','변고라','유코알','남기린','도치이'],'시스템인프라팀':['구쿼카','어라마','탁미어','맹호랑','사여우','편앵무','석앙고','선복어'],'업무시스템팀':['설해달','마수리','길강아','연쥐돌','위토실','표다롱','명미니'],'정보보안팀':['기곰이','반토끼','김토끼','공다람','육고양','나햄찌','하쿼카']};
 const STAFF=[];{let n=1201;Object.keys(TEAMS_PPL).forEach(g=>TEAMS_PPL[g].forEach(nm=>{STAFF.push({id:nm==='김담당'?'HS1107':'HS'+(n++),name:nm,group:g,avail:true});}));}
@@ -547,7 +547,7 @@ const MAIL_NOTE='비밀번호·인증번호·API 키는 입력하지 마세요.'
 function seedTickets(){
   const titles={NET:['VPN 연결이 자주 끊겨요','사내 Wi-Fi 접속 불가','재택 VPN 인증 오류'],ACC:['계정 잠금 해제 요청','MFA 재등록 문의','비밀번호 변경 오류'],SW:['PDF 편집 프로그램 설치','라이선스 할당 요청','설치 프로그램 실행 오류'],HW:['노트북 화면 깜빡임','복합기 인쇄 오류','모니터 연결 불가'],ACS:['공유 폴더 접근권한 요청','ERP 조회 권한 변경','시스템 권한 신청'],SYS:['전자결재 접속 지연','근태 시스템 오류','ERP 화면 오류'],SEC:['의심 메일 신고','피싱 링크 클릭 문의','악성 첨부파일 의심']};
   const cats=Object.keys(CATS),pri=['P3','P3','P4','P2','P3','P4','P3','P3','P2','P4'],out=[],N=900;
-  const s0=['RDY','IP','IP','FIN','CLS','CLS','RDY','IP','FIN','CLS'],s1=['CLS','CLS','CLS','CLS','CLS','CLS','CLS','CLS','IP','FIN'];
+  const s0=['RDY','WIP','WIP','FIN','CLS','CLS','RDY','WIP','FIN','CLS'],s1=['CLS','CLS','CLS','CLS','CLS','CLS','CLS','CLS','WIP','FIN'];
   for(let i=0;i<N;i++){
     const h=(i*2654435761>>>0),cat=cats[i%7];let grp=CATS[cat].g;if((cat==='ACC'&&h%4===0)||((cat==='SYS'||cat==='ACS')&&h%3===0))grp='시스템인프라팀';const cand=STAFF.filter(s=>s.group===grp),day=Math.floor(h/7)%30,r=Math.floor(h/211)%10;
     const status=day>=10?'CLS':day>=3?s1[r]:s0[r];
@@ -664,7 +664,7 @@ function drawerHtml(){
     ['새 문의 · 대화','INQ-01~04 · CLASS-01~03 · ACTION-01/02','자연어 접수, 부족한 정보 추가 질문, 긴급 징후 시 담당자 연결 우선, P1~P4와 근거'],
     ['AI 답변','SEARCH-01~03 · ANSWER-01~04 · NFR-SEC-03 · NFR-REL-01','출처 표시, 과거 사례 적합성, 외부 전송 제한 시 안내, 근거 부족 시 연결 제안, 미응답 종료·재개'],
     ['담당자 연결·초안·접수','ASSIGN-01~03 · TICKET-01~04 · NFR-REL-02/07','사용자 선택·확인 전 접수 없음, 접수번호 발급, 저장 실패 시 대체 경로'],
-    ['Ticket 상세·상태','JIRA-01~05 · ASSIGN-04/05 · 4장 상태 정의','문의 상태, Jira 연동, 배정, RDY→IP→FIN→CLS를 분리 표시'],
+    ['Ticket 상세·상태','JIRA-01~05 · ASSIGN-04/05 · 4장 상태 정의','문의 상태, Jira 연동, 배정, RDY→WIP→FIN→CLS를 분리 표시'],
     ['처리할 문의 (담당자)','JIRA-03 · JIRA-05','상태 변경과 처리 결과 등록'],
     ['연동·배정 확인 필요','ADMIN-01 · NFR-REL-04/06 · LOG-01','Jira 미연결 건 조회, 생성 여부 확인 후 재시도, 담당자 지정과 사유 기록'],
     ['담당자 재배정·추가 답변 필요 표시','ASSIGN-05 · ADMIN-01 · SRS 4.5','관리자가 진행 중 Ticket의 담당자를 사유와 함께 재배정(진행 상태 유지, 재배정 표시). 담당자가 추가 정보를 요청하면 문의자에게 추가 답변 필요로 표시'],
@@ -675,7 +675,7 @@ function drawerHtml(){
     ['AI 운영','LOG-02 · 5.1 Golden Set','비용·품질 평가 예시 (Should). 수치는 시연 데이터'],
     ['Slack 알림 미리보기','SLACK-01/02','Ticket 상세에서 발송 내역 확인 (Should, 실제 발송 없음)']
   ];
-  return `<div class="row"><h3 style="font-size:18px">요구사항 매핑</h3><span class="sp"></span><button class="btn sec sm ico" data-act="map-close" aria-label="닫기">${ic('x')}</button></div><p class="hint">PRD v0.5 · SRS v0.5 · 시스템 설계서 v0.3 기준. 각 화면이 충족하려는 요구사항 ID입니다.</p>${rows.map(r=>`<div class="card w" style="margin:0"><b style="font-size:14px">${r[0]}</b><div class="mono" style="font-size:11.5px;color:var(--link);margin-top:4px">${r[1]}</div><div class="small muted" style="margin-top:4px">${r[2]}</div></div>`).join('')}<h4 style="margin-top:8px">제안으로 표시한 것 (문서에 제안으로 반영됨, 팀 확정 전)</h4><ul class="small muted" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px"><li>로그인 전 상담 (계정·로그인 문의)</li><li>보안·감사 알림 페이지 (접수 없는 보안 의심 신호)</li><li>담당자↔문의자 직접 메시지 (문서의 AI 중개 양방향 소통은 Could)</li><li>FIN 이후 미해결 시 FIN→IP 복귀 (PRD 4.8 제안)</li><li>FAQ (PRD 4.16 제안)</li></ul>`;
+  return `<div class="row"><h3 style="font-size:18px">요구사항 매핑</h3><span class="sp"></span><button class="btn sec sm ico" data-act="map-close" aria-label="닫기">${ic('x')}</button></div><p class="hint">PRD v0.5 · SRS v0.5 · 시스템 설계서 v0.3 기준. 각 화면이 충족하려는 요구사항 ID입니다.</p>${rows.map(r=>`<div class="card w" style="margin:0"><b style="font-size:14px">${r[0]}</b><div class="mono" style="font-size:11.5px;color:var(--link);margin-top:4px">${r[1]}</div><div class="small muted" style="margin-top:4px">${r[2]}</div></div>`).join('')}<h4 style="margin-top:8px">제안으로 표시한 것 (문서에 제안으로 반영됨, 팀 확정 전)</h4><ul class="small muted" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px"><li>로그인 전 상담 (계정·로그인 문의)</li><li>보안·감사 알림 페이지 (접수 없는 보안 의심 신호)</li><li>담당자↔문의자 직접 메시지 (문서의 AI 중개 양방향 소통은 Could)</li><li>FIN 이후 미해결 시 FIN→WIP 복귀 (PRD 4.8 제안)</li><li>FAQ (PRD 4.16 제안)</li></ul>`;
 }
 
 /* ===== 문의자 화면 · 대화 흐름 ===== */
@@ -732,11 +732,11 @@ function ticketSteps(t){
   const asgDone=t.asg==='완료';
   if(t.status==='CLS')st=['done','done','done','done'];
   else if(t.status==='FIN')st=['done','done','done','cur'];
-  else if(t.status==='IP')st=['done','done','cur','todo'];
+  else if(t.status==='WIP')st=['done','done','cur','todo'];
   else if(t.status==='RDY')st=['done','done','cur','todo'];
   else st=['done','cur','todo','todo'];
   if(asgDone){subs[1]=t.assignee+' 담당'+(t.reassigned?' · 재배정':'');}else subs[1]=t.asg==='확인 필요'||t.jira==='확인 필요'?'운영자 확인 중':'연결 중';
-  subs[2]=t.status==='RDY'?'대기':t.status==='IP'?'처리 중':t.status==='FIN'||t.status==='CLS'?'완료':'';
+  subs[2]=t.status==='RDY'?'대기':t.status==='WIP'?'처리 중':t.status==='FIN'||t.status==='CLS'?'완료':'';
   subs[3]=t.status==='FIN'?'확인 대기':t.status==='CLS'?'확인 완료':'';
   const tone=t.status==='CLS'?'var(--s-ok-dot)':t.status==='FIN'?'var(--s-need-dot)':'var(--s-prog-dot)';
   return stepper(st,tone,subs,t.id||t.receipt);
@@ -745,7 +745,7 @@ function userMsg(t){
   if(needReply(t))return `${t.assignee} 담당자가 추가 정보를 요청했어요. 답변을 남겨 주세요.`;
   if(t.status==='CLS')return '문의자 확인으로 종료되었어요. 감사합니다.';
   if(t.status==='FIN')return '담당자가 처리 결과를 등록했어요. 해결되었는지 확인해 주세요.';
-  if(t.status==='IP')return `${t.assignee} 담당자가 처리하고 있어요.`;
+  if(t.status==='WIP')return `${t.assignee} 담당자가 처리하고 있어요.`;
   if(t.status==='RDY')return `${t.assignee} 담당자(${t.group})에게 배정되었어요. 처리를 기다리고 있어요.`;
   if(t.jira==='확인 필요'||t.asg==='확인 필요')return '접수는 유지되어 있으며, 운영자가 담당자 연결을 확인하고 있어요. 다시 접수하실 필요는 없어요.';
   return '접수되었습니다. 담당자 연결을 진행하고 있어요.';
@@ -1000,7 +1000,7 @@ function pipeline(t,bypass){
     },1000);
   },1000);
 }
-const load=n=>S.tickets.filter(t=>t.assignee===n&&(t.status==='RDY'||t.status==='IP')).length;
+const load=n=>S.tickets.filter(t=>t.assignee===n&&(t.status==='RDY'||t.status==='WIP')).length;
 function assignTo(t,name,reason){
   t.assignee=name;t.asg='완료';t.status='RDY';delete t.excWhy;
   t.hist.unshift({t:NOW(),who:reason.startsWith('자동')?'ITssue':me().name,what:name+' 담당자 배정 · '+reason});
@@ -1011,15 +1011,15 @@ function assignTo(t,name,reason){
   if(S.flags.autoRun)autoAdvance(t);
 }
 function autoAdvance(t){
-  later(()=>{if(t.status!=='RDY')return;setStatus(t,'IP','시연 자동 진행');render({bottom:true});
-    later(()=>{if(t.status!=='IP')return;t.result=t.cat==='NET'?'인증 정보를 재동기화했습니다. VPN Client를 다시 실행하고 접속해 주세요.':'원인을 확인하고 조치를 완료했습니다. 같은 작업을 다시 진행해 주세요.';setStatus(t,'FIN','시연 자동 진행 · 처리 결과 등록');render({bottom:true});
+  later(()=>{if(t.status!=='RDY')return;setStatus(t,'WIP','시연 자동 진행');render({bottom:true});
+    later(()=>{if(t.status!=='WIP')return;t.result=t.cat==='NET'?'인증 정보를 재동기화했습니다. VPN Client를 다시 실행하고 접속해 주세요.':'원인을 확인하고 조치를 완료했습니다. 같은 작업을 다시 진행해 주세요.';setStatus(t,'FIN','시연 자동 진행 · 처리 결과 등록');render({bottom:true});
       toast('시연: 해결 확인 대기까지 진행했어요. 해결 확인은 문의자가 직접 눌러요.');},3200);},2600);
 }
 /* ---- 상태 변경 ---- */
 function setStatus(t,s,note){
   t.status=s;t.hist.unshift({t:NOW(),who:me()?.name||'시스템',what:'상태 '+s+' · '+TSTAT[s][0]+(note?' · '+note:'')});
-  const i=S.inqs.find(x=>x.id===t.inq);if(i){i.when='방금';if(s==='FIN'||s==='IP')i.unread=(i.unread||0)+(S.view.id===i.id?0:1);}
-  if(s==='IP')slack(t,'문의자','담당자가 처리를 시작했습니다.');
+  const i=S.inqs.find(x=>x.id===t.inq);if(i){i.when='방금';if(s==='FIN'||s==='WIP')i.unread=(i.unread||0)+(S.view.id===i.id?0:1);}
+  if(s==='WIP')slack(t,'문의자','담당자가 처리를 시작했습니다.');
   if(s==='FIN')slack(t,'문의자','처리 결과가 등록되었습니다. 해결 여부를 확인해 주세요.');
   if(s==='CLS')slack(t,'담당자','문의자가 해결을 확인했습니다. Ticket이 종료되었습니다.');
   log('상태 변경 · '+t.receipt+' → '+s);
@@ -1029,8 +1029,8 @@ function skipForward(){
   const t=mine[0];if(!t){toast('진행할 접수 Ticket이 없어요. 먼저 문의를 접수해 보세요.');return;}
   if(!t.status){toast('아직 담당자 배정 전이에요. 잠시 기다리거나 관리자 화면에서 복구해 주세요.');return;}
   const staff=S.accounts.find(a=>a.name===t.assignee);
-  if(t.status==='RDY'){setStatus(t,'IP','시연 진행');toast(t.assignee+' 담당자가 처리를 시작했어요.');}
-  else if(t.status==='IP'){t.result=t.cat==='NET'?'인증 정보를 재동기화했습니다. VPN Client를 다시 실행하고 접속해 주세요.':'원인을 확인하고 조치를 완료했습니다. 같은 작업을 다시 진행해 주세요.';setStatus(t,'FIN','시연 진행');toast('처리 결과가 등록되었어요. 해결 여부를 확인해 주세요.');}
+  if(t.status==='RDY'){setStatus(t,'WIP','시연 진행');toast(t.assignee+' 담당자가 처리를 시작했어요.');}
+  else if(t.status==='WIP'){t.result=t.cat==='NET'?'인증 정보를 재동기화했습니다. VPN Client를 다시 실행하고 접속해 주세요.':'원인을 확인하고 조치를 완료했습니다. 같은 작업을 다시 진행해 주세요.';setStatus(t,'FIN','시연 진행');toast('처리 결과가 등록되었어요. 해결 여부를 확인해 주세요.');}
   render({bottom:true});
 }
 
@@ -1056,7 +1056,7 @@ const PER=[['d','일'],['w','주'],['m','월']];
 const SC={w:'var(--s-recv-dot)',p:'var(--s-prog-dot)',n:'var(--s-need-dot)',c:'var(--s-ok-dot)'};
 const SLB={w:'처리 대기',p:'처리 중',n:'해결 확인 대기',c:'해결 완료'};
 const inWin=(t,per)=>per==='d'?t.day<1:per==='w'?t.day<7:true;
-const cntOf=l=>({w:l.filter(t=>t.status==='RDY').length,p:l.filter(t=>t.status==='IP').length,n:l.filter(t=>t.status==='FIN').length,c:l.filter(t=>t.status==='CLS').length});
+const cntOf=l=>({w:l.filter(t=>t.status==='RDY').length,p:l.filter(t=>t.status==='WIP').length,n:l.filter(t=>t.status==='FIN').length,c:l.filter(t=>t.status==='CLS').length});
 const tot=v=>v.w+v.p+v.n+v.c;
 const perCtl=act=>`<div class="seg">${PER.map(x=>`<button class="${S.dashPer===x[0]?'on':''}" data-act="${act}" data-p="${x[0]}">${x[1]}</button>`).join('')}</div>`;
 const legend=()=>`<div class="lgd" style="margin:0">${Object.keys(SC).map(k=>`<span><i style="background:${SC[k]}"></i>${SLB[k]}</span>`).join('')}</div>`;
@@ -1118,7 +1118,7 @@ function viewDash(){
   const wk=[...Array(7)].map((_,k)=>{const i=6-k;const d=new Date(2026,9,16-i);return {l:['일','월','화','수','목','금','토'][d.getDay()],t:T.filter(t=>t.day===i).length,a:S.aiSeed[k]||0};});
   const mx=Math.max(...wk.map(d=>d.t+d.a),1);
   const pris=['P1','P2','P3','P4'].map(p=>[p,T.filter(t=>t.p===p).length]);
-  const kp=[['전체 접수 (Ticket)',n,'data-act="tf"'],['처리 중 (RDY·IP)',st('RDY')+st('IP'),'data-act="tf" data-st="open"'],['해결 확인 대기',st('FIN'),'data-act="tf" data-st="FIN"'],['AI 해결',aiN,'data-act="tf" data-mode="ai"','re'],['연동·배정 확인',ex,'data-act="go" data-v="exc"',ex?'urg':'']];
+  const kp=[['전체 접수 (Ticket)',n,'data-act="tf"'],['처리 중 (RDY·WIP)',st('RDY')+st('WIP'),'data-act="tf" data-st="open"'],['해결 확인 대기',st('FIN'),'data-act="tf" data-st="FIN"'],['AI 해결',aiN,'data-act="tf" data-mode="ai"','re'],['연동·배정 확인',ex,'data-act="go" data-v="exc"',ex?'urg':'']];
   const cls=st('CLS');
   const per=S.dashPer,mode=S.dashMode,win=T.filter(t=>inWin(t,per));
   let items,sel=S.dashSel[mode],selLabel,memNames,memFilter,scale,tfAttr;
@@ -1146,7 +1146,7 @@ function viewDash(){
 /* ---- 담당자: 처리할 문의 + 내 현황 · 팀 현황 ---- */
 function viewQueue(){
   const acc=me();const mine=S.tickets.filter(t=>t.assignee===acc.name);
-  const tabs=[['open','진행 중',t=>t.status==='RDY'||t.status==='IP'],['fin','해결 확인 대기',t=>t.status==='FIN'],['cls','해결 완료',t=>t.status==='CLS']];
+  const tabs=[['open','진행 중',t=>t.status==='RDY'||t.status==='WIP'],['fin','해결 확인 대기',t=>t.status==='FIN'],['cls','해결 완료',t=>t.status==='CLS']];
   const cur=tabs.find(x=>x[0]===S.opsFilter)||tabs[0];
   const rows0=mine.filter(cur[2]).sort((a,b)=>a.p.localeCompare(b.p)||a.day-b.day);const rowsS=sortList(rows0,'q'),pgq=pager(rowsS.length,'q'),rows=pgq.slice(rowsS);
   const grp=(STAFF.find(s=>s.name===acc.name)||{group:acc.dept}).group;
@@ -1187,13 +1187,13 @@ function viewDetail(id){
   const mine=t.assignee===me().name;
   let act='';
   if(S.role==='staff'&&mine){
-    if(t.status==='RDY')act=`<button class="btn pri block" data-act="st-ip" data-id="${t.receipt}">처리 시작 (RDY → IP)</button>`;
-    if(t.status==='IP')act=`<button class="btn pri block" data-act="st-fin" data-id="${t.receipt}">처리 결과 등록 (IP → FIN)</button>`;
+    if(t.status==='RDY')act=`<button class="btn pri block" data-act="st-wip" data-id="${t.receipt}">처리 시작 (RDY → WIP)</button>`;
+    if(t.status==='WIP')act=`<button class="btn pri block" data-act="st-fin" data-id="${t.receipt}">처리 결과 등록 (WIP → FIN)</button>`;
     if(t.status==='FIN')act=`<div class="alert info">${ic('clock')}<div>문의자의 해결 확인을 기다리고 있어요. 미응답만으로 종료(CLS)하지 않아요.</div></div>`;
     if(t.status)act+=`<button class="btn sec block" data-act="msg-open" data-id="${t.receipt}" style="margin-top:8px">문의자에게 메시지 <span class="tag gray">제안</span></button>`;
   }
   if(S.role==='admin'&&(t.jira==='확인 필요'||t.asg==='확인 필요'||t.jira==='결과 확인 중'))act=`<button class="btn pri block" data-act="go" data-v="exc">연동·배정 확인 화면으로</button>`;
-  if(S.role==='admin'&&(t.status==='RDY'||t.status==='IP'))act+=`<button class="btn sec block" data-act="rs-open" data-id="${t.receipt}" style="margin-top:8px">담당자 재배정</button>`;
+  if(S.role==='admin'&&(t.status==='RDY'||t.status==='WIP'))act+=`<button class="btn sec block" data-act="rs-open" data-id="${t.receipt}" style="margin-top:8px">담당자 재배정</button>`;
   const msgs=(t.msgs||[]).map(m=>`<li>${ic(m.from==='문의자'?'user':'chat')}<div><b>${ESC(m.from)} · ${ESC(m.kind)}</b>${ESC(m.t)}<small>${ESC(m.time)}</small></div></li>`).join('');
   const slk=S.slack.filter(s=>s.rc===t.receipt).map(s=>`<li>${ic('bell')}<div><b>→ ${ESC(s.to)}</b>${ESC(s.text)}<small>${ESC(s.t)} · 미리보기 (실제 발송 없음)</small></div></li>`).join('');
   const hist=(t.hist||[]).map(h=>`<li>${ic('clock')}<div><b>${ESC(h.what)}</b><small>${ESC(h.t)} · ${ESC(h.who)}</small></div></li>`).join('');
@@ -1229,7 +1229,7 @@ function histHtml(){
 /* ===== 공통 표 · 대시보드 · Ticket 목록 ===== */
 /* ---- 정렬 · 페이지 ---- */
 const PAGE_N=20;
-const SORTV={title:t=>t.title,receipt:t=>t.receipt,cat:t=>CATS[t.cat]?CATS[t.cat].n:'힣',pri:t=>t.p||'P9',assignee:t=>t.assignee||'힣',status:t=>t.status?['RDY','IP','FIN','CLS'].indexOf(t.status)+1:0,guide:t=>t.guide,when:t=>t.day==null?-1:t.day};
+const SORTV={title:t=>t.title,receipt:t=>t.receipt,cat:t=>CATS[t.cat]?CATS[t.cat].n:'힣',pri:t=>t.p||'P9',assignee:t=>t.assignee||'힣',status:t=>t.status?['RDY','WIP','FIN','CLS'].indexOf(t.status)+1:0,guide:t=>t.guide,when:t=>t.day==null?-1:t.day};
 function sortList(list,key){const o=S.sort[key];if(!o||!SORTV[o.k])return list;const f=SORTV[o.k],d=o.dir==='desc'?-1:1;return list.slice().sort((a,b)=>{const x=f(a),y=f(b);return (x<y?-1:x>y?1:0)*d;});}
 const sortTh=(label,k,key)=>{const o=S.sort[key]||{};const on=o.k===k;const cl=on?(o.dir==='desc'?'dn':'up'):'';return `<th aria-sort="${on?(o.dir==='desc'?'descending':'ascending'):'none'}"><button class="d2th ${cl}" data-act="sort" data-k="${k}" data-key="${key}">${label}<i><b></b><b></b></i></button></th>`;};
 function pager(total,key){const pages=Math.max(1,Math.ceil(total/PAGE_N));let p=Math.min(S.page[key]||1,pages);S.page[key]=p;const from=total?(p-1)*PAGE_N+1:0,to=Math.min(total,p*PAGE_N);
@@ -1248,7 +1248,7 @@ function aiRows(){
   S.aiSeed.forEach((cnt,d)=>{for(let k=0;k<cnt;k++){const c=cats[(n*3+d)%cats.length],ts=AI_TITLES[c];out.push({id:'AI-'+(2000+n),title:ts[n%ts.length],cat:c,guide:(KB[c]||KB.SYS).g+' v'+(KB[c]||KB.SYS).v,when:d===0?'오늘':d+'일 전',day:d});n++;}});
   return live.concat(out);
 }
-function tfList(){const f=S.tf;return S.tickets.filter(t=>(!f.st||(f.st==='open'?(t.status==='RDY'||t.status==='IP'):f.st==='none'?!t.status:t.status===f.st))&&(!f.cat||t.cat===f.cat)&&(!f.pri||t.p===f.pri)&&(!f.team||t.group===f.team)&&(!f.staff||t.assignee===f.staff));}
+function tfList(){const f=S.tf;return S.tickets.filter(t=>(!f.st||(f.st==='open'?(t.status==='RDY'||t.status==='WIP'):f.st==='none'?!t.status:t.status===f.st))&&(!f.cat||t.cat===f.cat)&&(!f.pri||t.p===f.pri)&&(!f.team||t.group===f.team)&&(!f.staff||t.assignee===f.staff));}
 function viewTickets(){
   const f=S.tf,ai=f.mode==='ai';
   const seg=`<div class="seg"><button class="${!ai?'on':''}" data-act="tf-mode" data-m="t">Ticket (담당자 처리)</button><button class="${ai?'on':''}" data-act="tf-mode" data-m="ai">AI 해결</button></div>`;
@@ -1257,7 +1257,7 @@ function viewTickets(){
   const list=sortList(tfList(),'tk'),pg=pager(list.length,'tk');
   const CHV='<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l5 5 5-5"/></svg>';
   const sel=(k,lb,opts)=>{const on=!!f[k],open=S.dd===k;const cur=on?(opts.find(o=>o[0]===f[k])||['',f[k]])[1]:'전체';return `<span class="d2p ddw${on?' act':''}"><button class="ddb" data-act="dd" data-k="${k}" aria-haspopup="listbox" aria-expanded="${open}"><small>${lb}</small><span>${ESC(cur)}</span></button>${on?`<button class="x" data-act="tf-one" data-k="${k}" aria-label="${lb} 필터 해제">✕</button>`:CHV}${open?`<div class="ddm" role="listbox"><button role="option" class="${!on?'sel':''}" data-act="tf-pick" data-k="${k}" data-v="">전체</button>${opts.map(o=>`<button role="option" class="${f[k]===o[0]?'sel':''}" data-act="tf-pick" data-k="${k}" data-v="${ESC(o[0])}">${ESC(o[1])}</button>`).join('')}</div>`:''}</span>`;};
-  const base=S.tickets,cn={'':base.length,none:base.filter(t=>!t.status).length,open:base.filter(t=>t.status==='RDY'||t.status==='IP').length,FIN:base.filter(t=>t.status==='FIN').length,CLS:base.filter(t=>t.status==='CLS').length};
+  const base=S.tickets,cn={'':base.length,none:base.filter(t=>!t.status).length,open:base.filter(t=>t.status==='RDY'||t.status==='WIP').length,FIN:base.filter(t=>t.status==='FIN').length,CLS:base.filter(t=>t.status==='CLS').length};
   const stF=[['','전체'],['none','배정 전'],['open','진행 중'],['FIN','해결 확인 대기'],['CLS','해결 완료']];
   const active=Object.keys(f).filter(k=>k!=='mode'&&k!=='st'&&f[k]).length;
   return `<main class="main">${topbar('전체 접수',list.length+'건')}<div class="scroll"><div class="page"><div><div class="eyebrow">ALL TICKETS</div><h1>전체 접수</h1></div>${seg}<div class="d2seg">${stF.map(x=>`<button class="${(f.st||'')===x[0]?'on':''}" data-act="tf-st" data-st="${x[0]}">${x[1]} <em>${cn[x[0]]}</em></button>`).join('')}</div><div class="d2f">${sel('cat','Category',Object.keys(CATS).map(c=>[c,CATS[c].n]))}${sel('pri','긴급도',['P1','P2','P3','P4'].map(p=>[p,p+' · '+PRI[p]]))}${sel('team','팀',GROUPS.map(g=>[g,g]))}${sel('staff','담당자',STAFF.map(s=>[s.name,s.name+' · '+s.group]))}${active?`<button class="d2clr" data-act="tf-clear">✕ 필터 해제</button>`:''}</div><div class="panel" style="padding:6px 10px">${tTable(pg.slice(list),'조건에 맞는 Ticket이 없습니다.','tk')}${list.length?pg.html:''}</div></div></div></main>`;
@@ -1441,9 +1441,9 @@ const A={
   dclose(){S.detail=null;render();},
   'tk-ok'(e,d){const t=tById(d.id);setStatus(t,'CLS','문의자 해결 확인');const i=S.inqs.find(x=>x.id===t.inq);if(i){i.state='담당자 이관';}render({bottom:true});toast('해결 확인이 기록되었어요.');},
   'tk-no'(e,d){openModal('아직 해결되지 않았어요',`<p class="small muted">상황을 알려 주시면 담당자가 다시 확인해요. <span class="tag gray">제안</span> 이 흐름은 팀 합의 전 제안이에요.</p><div class="field"><label for="m-r">남은 증상</label><textarea class="ta" id="m-r" placeholder="예) 안내대로 했지만 같은 오류가 나요"></textarea></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="tk-no2" data-id="${d.id}">다시 확인 요청</button></div>`);},
-  'tk-no2'(e,d){const r=val('m-r').trim();if(!r){toast('남은 증상을 적어 주세요.');return;}const t=tById(d.id);reopenCard(t,r);setStatus(t,'IP','문의자 미해결 · 재확인 요청');{const i=S.inqs.find(x=>x.id===t.inq);if(i)i.msgs.push({r:'a',id:S.seq.msg++,html:'<p>다시 확인을 요청했어요. 담당자가 재확인하고 있어요. 아래 카드에서 새 진행 상황을 볼 수 있어요.</p>',card:'ticket',tid:t.receipt});}slack(t,'담당자','문의자가 해결되지 않았다고 알렸습니다.');closeModal();render({bottom:true});},
+  'tk-no2'(e,d){const r=val('m-r').trim();if(!r){toast('남은 증상을 적어 주세요.');return;}const t=tById(d.id);reopenCard(t,r);setStatus(t,'WIP','문의자 미해결 · 재확인 요청');{const i=S.inqs.find(x=>x.id===t.inq);if(i)i.msgs.push({r:'a',id:S.seq.msg++,html:'<p>다시 확인을 요청했어요. 담당자가 재확인하고 있어요. 아래 카드에서 새 진행 상황을 볼 수 있어요.</p>',card:'ticket',tid:t.receipt});}slack(t,'담당자','문의자가 해결되지 않았다고 알렸습니다.');closeModal();render({bottom:true});},
   of(e,d){S.opsFilter=d.f;render();},
-  'st-ip'(e,d){setStatus(tById(d.id),'IP');render();toast('처리를 시작했어요.');},
+  'st-wip'(e,d){setStatus(tById(d.id),'WIP');render();toast('처리를 시작했어요.');},
   'st-fin'(e,d){openModal('처리 결과 등록',`<p class="small muted">문의자에게 보이는 내용이에요. 비밀번호·인증번호는 적지 마세요.</p><div class="field"><label for="m-res">처리 결과</label><textarea class="ta" id="m-res" placeholder="어떤 원인을 어떻게 조치했는지 적어 주세요"></textarea></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="st-fin2" data-id="${d.id}">등록하고 해결 확인 요청</button></div>`);},
   'st-fin2'(e,d){const r=val('m-res').trim();if(!r){toast('처리 결과를 입력해 주세요.');return;}const t=tById(d.id);t.result=r;setStatus(t,'FIN','처리 결과 등록');closeModal();render();toast('문의자에게 해결 확인을 요청했어요.');},
   'msg-open'(e,d){openModal('문의자에게 메시지',`<p class="small muted">문서상 AI 중개 양방향 소통은 Could 범위라서 이 기능은 <b>제안</b>이에요.</p><div class="field"><label for="m-k">종류</label><select class="sel" id="m-k"><option>추가 정보 요청</option><option>일반 메시지</option></select></div><div class="field"><label for="m-t">내용</label><textarea class="ta" id="m-t"></textarea></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="msg-send" data-id="${d.id}">보내기</button></div>`);},
@@ -1528,7 +1528,7 @@ document.addEventListener('input',ev=>{const el=ev.target;if(el.dataset&&el.data
   AI.forEach((a,k)=>{const kb=KB[a[0]]||KB.SYS;S.inqs.push({id:'INQ-A'+k,owner:'HS1001',title:a[1],state:'AI 해결',cat:a[0],intake:{},msgs:[{r:'u',t:a[1]},{r:'a',html:'<p>안내드린 방법으로 해결되었어요.</p>'},{r:'u',t:'해결됐어요.'}],step:'closed',when:(2+k*3)+'일 전',unread:0,guide:{g:kb.g,v:kb.v}});});
   [['미확인','VPN 인증서 갱신이 필요한가요','NET','6일 전'],['미확인','메일 용량 확대 문의','SYS','17일 전'],['미해결 종료','프린터 드라이버 설치가 안 돼요','HW','23일 전'],['미해결 종료','사내 메신저 알림이 안 와요','SYS','31일 전']].forEach((x,k)=>S.inqs.push({id:'INQ-U'+k,owner:'HS1001',title:x[1],state:x[0],cat:x[2],intake:{},msgs:[{r:'u',t:x[1]},{r:'a',html:'<p>근거 있는 안내를 찾지 못했어요.</p>'}],step:'closed',when:x[3],unread:0}));
   /* 담당자 처리 Ticket 연결 */
-  const cls=S.tickets.filter(t=>t.status==='CLS'&&!t.inq),fin=S.tickets.filter(t=>t.status==='FIN'&&!t.inq),act=S.tickets.filter(t=>(t.status==='IP'||t.status==='RDY')&&!t.inq);
+  const cls=S.tickets.filter(t=>t.status==='CLS'&&!t.inq),fin=S.tickets.filter(t=>t.status==='FIN'&&!t.inq),act=S.tickets.filter(t=>(t.status==='WIP'||t.status==='RDY')&&!t.inq);
   const link=(t,k,when)=>{const id='INQ-T'+k;t.inq=id;t.req='HS1001';t.reqName='김서연';S.inqs.push({id,owner:'HS1001',title:t.title,state:'담당자 이관',cat:t.cat,intake:{},msgs:[{r:'u',t:t.title},{r:'a',html:'<p>해결되지 않아 담당자에게 연결했어요.</p>'}],step:'submitted',when,unread:0,ticketId:t.receipt});};
   cls.slice(0,16).forEach((t,k)=>link(t,k,(4+k*2)+'일 전'));
   fin.slice(0,3).forEach((t,k)=>link(t,100+k,(1+k)+'일 전'));
@@ -1540,7 +1540,7 @@ S.inqs.push(
   {id:'INQ-S1',owner:'HS1001',title:'VPN 연결이 자주 끊겨요',state:'접수 완료',cat:'NET',intake:{},msgs:[{r:'u',t:'재택근무 중 VPN이 자주 끊겨요.'},{r:'a',html:'<p>VPN 안내를 드렸지만 해결되지 않아 담당자에게 연결했어요.</p>'}],step:'submitted',when:'어제',unread:0,ticketId:'RCPT-1041'},
   {id:'INQ-S2',owner:'HS1001',title:'계정 잠금 해제 방법',state:'AI 해결',cat:'ACC',intake:{},msgs:[{r:'u',t:'계정이 잠겼어요.'},{r:'a',html:'<p>5회 실패 시 10분 후 자동 해제돼요.</p>'},{r:'u',t:'해결됐어요.'}],step:'closed',when:'3일 전',unread:0}
 );
-S.tickets.unshift({receipt:'RCPT-1041',id:'ITS-1520',title:'VPN 연결이 자주 끊겨요',cat:'NET',p:'P3',why:['개인 업무 일부 지장, 대체 방법 있음'],group:'네트워크팀',req:'HS1001',reqName:'김서연',assignee:'김담당',jira:'완료',asg:'완료',status:'IP',hours:2,day:0,created:'어제',result:'',msgs:[],draft:{issue:'재택근무 중 VPN이 자주 끊김',impact:'저만 안 되고 메일 업무는 가능',tried:'재접속과 재시작',ai:'IT-NET-001 VPN 접속 장애 대응 가이드 v2 안내 후에도 해결되지 않음'},inq:'INQ-S1',hist:[{t:'어제',who:'ITssue',what:'김담당 담당자 배정 · 자동배정'},{t:'어제',who:'ITssue',what:'Jira Ticket 생성 · ITS-1520'},{t:'어제',who:'김서연',what:'최종 확인 · ITssue 접수 저장 · RCPT-1041'}]});
+S.tickets.unshift({receipt:'RCPT-1041',id:'ITS-1520',title:'VPN 연결이 자주 끊겨요',cat:'NET',p:'P3',why:['개인 업무 일부 지장, 대체 방법 있음'],group:'네트워크팀',req:'HS1001',reqName:'김서연',assignee:'김담당',jira:'완료',asg:'완료',status:'WIP',hours:2,day:0,created:'어제',result:'',msgs:[],draft:{issue:'재택근무 중 VPN이 자주 끊김',impact:'저만 안 되고 메일 업무는 가능',tried:'재접속과 재시작',ai:'IT-NET-001 VPN 접속 장애 대응 가이드 v2 안내 후에도 해결되지 않음'},inq:'INQ-S1',hist:[{t:'어제',who:'ITssue',what:'김담당 담당자 배정 · 자동배정'},{t:'어제',who:'ITssue',what:'Jira Ticket 생성 · ITS-1520'},{t:'어제',who:'김서연',what:'최종 확인 · ITssue 접수 저장 · RCPT-1041'}]});
 S.acctHist=[{t:'10.15 14:20',who:'최관리',target:'HS1488 · '+(S.accounts.find(a=>a.id==='HS1488')||{name:'-'}).name,what:'이용 제한',why:'보안 교육 미이수 (재교육 후 해제 예정)'},{t:'10.14 09:05',who:'최관리',target:'HS1107 · 김담당',what:'승인',why:'담당자 권한 부여 요청 확인'},{t:'10.12 16:42',who:'최관리',target:'HS2210 · '+(S.accounts.find(a=>a.id==='HS2210')||{name:'-'}).name,what:'계정 추가',why:'신규 입사자 등록 (승인 대기)'}];
 S.sec=secSeed();
 (function(){const T=S.tickets;
