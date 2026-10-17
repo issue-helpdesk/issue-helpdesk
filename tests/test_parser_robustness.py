@@ -304,3 +304,72 @@ def test_nested_table_text_is_kept():
     body = ' '.join([e.text for e in doc.elements] + [c for e in doc.tables() for r in e.rows for c in r])
     assert '그림 3.1.' in body
     assert doc.quality['coverage'] >= 0.98
+
+
+# ---------------------------------------------------------------- 검토(PR #21)에서 나온 사각지대
+
+def test_quality_reread_failure_is_not_raw_exception(monkeypatch):
+    """누락 검사용 다시 읽기가 실패해도 날 예외가 아니라 경고가 붙은 결과가 나온다."""
+    from app.rag.parser import quality
+
+    def boom(path, fmt):
+        raise TypeError('odd color')
+    monkeypatch.setattr(quality, 'raw_pieces', boom)
+    doc = parse(final('SW/guide/IT-SW-002_*.md'))
+    assert doc.elements and any('누락 검사를 하지 못함' in w for w in doc.warnings)
+
+
+def _toc_doc(body_count, level=2):
+    from app.rag.parser.common import _drop_toc
+    from app.rag.parser.models import Element, ParsedDocument
+    d = ParsedDocument(path='x.pdf', format='pdf', title='t')
+    d.elements = [Element('heading', '목차', level=1, page=2),
+                  *[Element('paragraph', f'{i}. 항목 ........ {i}', page=2) for i in range(1, 6)],
+                  *[Element('heading' if i % 5 == 0 else 'paragraph', f'본문 {i} ' + '가' * 80, level=level if i % 5 == 0 else None, page=2)
+                    for i in range(body_count)]]
+    _drop_toc(d)
+    return d
+
+
+def test_toc_without_chapter_headings_is_not_swallowed():
+    """목차 뒤에 장 제목(level 1)이 없어도 본문을 통째로 목차로 빼지 않는다."""
+    d = _toc_doc(60)
+    assert sum(e.text.startswith('본문') for e in d.elements) == 60
+    assert any('목차로 보지 않고' in w for w in d.warnings)
+
+
+def test_short_toc_still_dropped():
+    d = _toc_doc(0)
+    assert d.elements == [] and [w for w, *_ in d.dropped].count('toc') == 5
+
+
+def test_toc_ends_after_next_page():
+    from app.rag.parser.common import _drop_toc
+    from app.rag.parser.models import Element, ParsedDocument
+    d = ParsedDocument(path='x.pdf', format='pdf', title='t')
+    d.elements = [Element('heading', '목차', level=1, page=2), Element('paragraph', '1. 개요 .... 3', page=2),
+                  Element('paragraph', '본문 첫 문단', page=4)]
+    _drop_toc(d)
+    assert [e.text for e in d.elements] == ['본문 첫 문단']
+
+
+@pytest.mark.parametrize('rows, want', [
+    ([['대상', '전 직원']], False),                                   # 본문 표
+    ([['버전', '변경 내용'], ['v1.0', '처음 작성']], False),            # 개정 표
+    ([['키워드', 'VPN, 접속']], True),                                 # 한 줄짜리 키워드 표
+    ([['문서 번호', 'IT-SW-002', '버전', 'v2.0']], True),               # 문서 정보 표
+])
+def test_info_table_rule(rows, want):
+    from app.rag.parser.common import _is_info_table
+    assert _is_info_table(rows) is want
+
+
+def test_footer_band_keeps_tables_and_records_images():
+    from app.rag.parser.slides import Item, _body
+    H = 540
+    items = [Item('text', 40, 100, 300, 20, text='본문 문장입니다.'),
+             Item('table', 40, H - 30, 300, 20, rows=[['연락처', '1234']]),
+             Item('image', 600, H - 30, 60, 20, name='logo.png')]
+    out = _body(2, items, None, H)
+    assert any(e.kind == 'table' for e in out)
+    assert any(e.kind == 'dropped' and e.meta.get('why') == 'band_image' and e.text == 'logo.png' for e in out)

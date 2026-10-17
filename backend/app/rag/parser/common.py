@@ -25,6 +25,9 @@ INFO_MAP = {
     '포함 시나리오': 'scenarios', '관련 FAQ': 'faqs', '키워드': 'keywords',
 }
 LIST_META = ('scenarios', 'faqs', 'keywords')
+SINGLE_INFO_KEYS = {'키워드', '관련 FAQ'}         # 이 이름 하나만 있는 한 줄짜리 표도 문서 정보로 본다
+TOC_MAX_ELEMENTS = 40    # 목차로 뺄 수 있는 요소 수·글자 수 상한 (정리본·정리 전 343개 문서의 목차는 최대 8개·754자)
+TOC_MAX_CHARS = 3000
 
 TOC_TITLES = ('Contents', 'CONTENTS', '목차')
 SKIP_TITLES = ('문서 정보',) + TOC_TITLES          # 본문 제목으로 남기지 않는 쪽 제목
@@ -110,17 +113,46 @@ def normalize_headings(doc: ParsedDocument) -> None:
 
 
 def _drop_toc(doc: ParsedDocument) -> None:
-    """'문서 정보'·'Contents' 쪽 제목을 빼고, 'Contents'·'목차' 뒤는 다음 장 제목까지 뺀다."""
-    out, in_toc = [], False
+    """'문서 정보'·'Contents' 쪽 제목을 빼고, 'Contents'·'목차' 뒤는 다음 장 제목까지 뺀다.
+
+    목차는 다음 장 제목이 나오거나, 목차가 시작된 쪽의 다음 쪽을 넘어가면 끝난 것으로 본다.
+    그래도 TOC_MAX_ELEMENTS·TOC_MAX_CHARS 를 넘으면 목차가 아니라 본문으로 보고 되살린다
+    (장 제목이 없는 문서에서 목차 뒤 본문이 통째로 '정당한 제외'가 되는 것을 막는다)."""
+    out: list[Element] = []
+    toc: list[Element] | None = None       # 목차로 볼 후보 (아직 빼지 않음)
+    start_page = None
+
+    def close(keep: bool) -> None:
+        nonlocal toc
+        if toc is None:
+            return
+        if keep:
+            out.extend(toc)
+            doc.warnings.append(f'목차 제목 뒤 내용이 {len(toc)}개 요소로 길어 목차로 보지 않고 본문에 남김')
+        else:
+            for x in toc:
+                _drop(doc, 'toc', x)
+        toc = None
+
     for e in doc.elements:
         if e.kind == 'heading' and e.text in SKIP_TITLES:
-            in_toc = e.text in TOC_TITLES
+            close(False)
             _drop(doc, 'skip_title', e)
-        elif in_toc and not (e.kind == 'heading' and e.level is not None and e.level <= 1):
-            _drop(doc, 'toc', e)
-        else:
-            in_toc = False if e.kind == 'heading' else in_toc
-            out.append(e)
+            if e.text in TOC_TITLES:
+                toc, start_page = [], e.page
+            continue
+        if toc is not None:
+            chapter = e.kind == 'heading' and e.level is not None and e.level <= 1
+            next_pages = start_page is not None and e.page is not None and e.page > start_page + 1
+            if chapter or next_pages:
+                close(False)
+            else:
+                toc.append(e)
+                if len(toc) > TOC_MAX_ELEMENTS or sum(len(x.text or '') for x in toc) > TOC_MAX_CHARS:
+                    close(True)
+                continue
+        out.append(e)
+    close(False)
     doc.elements = out
 
 
@@ -231,8 +263,10 @@ def extract_meta(doc: ParsedDocument, safe: bool = False) -> None:
 
 
 def _is_info_table(rows: list[list[str]]) -> bool:
-    """문서 정보 표: '항목 | 값' 쌍의 항목 이름이 문서 정보 이름인 것이 하나라도 있으면 (키워드 표처럼 한 줄짜리 포함)."""
-    return any(r[k].strip() in INFO_MAP and r[k + 1].strip() for r in rows for k in range(0, len(r) - 1, 2))
+    """문서 정보 표: '항목 | 값' 쌍의 항목 이름 중 문서 정보 이름이 두 개 이상이거나, 한 줄짜리 키워드·관련 FAQ 표.
+    '| 대상 | 전 직원 |'·'| 버전 | 변경 내용 |' 같은 본문 표를 문서 정보로 빼지 않게 한 개짜리는 좁게 본다."""
+    keys = {r[k].strip() for r in rows for k in range(0, len(r) - 1, 2) if r[k].strip() in INFO_MAP and r[k + 1].strip()}
+    return len(keys) >= 2 or (bool(keys) and keys <= SINGLE_INFO_KEYS and len(rows) <= 2)
 
 
 def _read_info(rows: list[list[str]], info: dict) -> bool:

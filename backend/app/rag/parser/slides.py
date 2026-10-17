@@ -145,7 +145,8 @@ def _body(page_no: int, items: list[Item], title: Item | None, H: float, safe: b
             if not safe and (footer or header):
                 dropped.append(_dropped(it, 'band', page_no))        # 꼬리말·제목 띠의 장 표시
                 continue
-        elif not safe and it.y > H - FOOTER_BAND:
+        elif not safe and it.kind == 'image' and it.y > H - FOOTER_BAND:
+            dropped.append(Element('dropped', it.name, page=page_no, meta={'why': 'band_image'}))   # 바닥 띠 그림(로고 등). 표는 본문에 남긴다
             continue
         inside = [b for b in boxes if _inside(b, it)]
         it.box = min(inside, key=lambda b: b.w * b.h) if inside else None

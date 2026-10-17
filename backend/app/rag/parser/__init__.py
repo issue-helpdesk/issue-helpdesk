@@ -114,7 +114,12 @@ def _parse_checked(path: str, ext: str, safe: bool | None) -> ParsedDocument:
 
     reader = _reader(ext)
     doc = _run(reader, path, bool(safe))
-    pieces = raw_pieces(path, doc.format)
+    try:
+        pieces = raw_pieces(path, doc.format)
+    except Exception as ex:      # 누락 검사용 다시 읽기가 실패해도 파싱 결과는 돌려준다 (ParseError 가 아닌 예외를 밖으로 내지 않는다)
+        log.exception('누락 검사 실패 %s', path)
+        doc.warnings.append(f'원문 대비 누락 검사를 하지 못함 ({type(ex).__name__}) — 빠진 내용이 있을 수 있음')
+        pieces = []
     q = assess(doc, pieces)
     mode = 'safe' if safe else 'layout'
     if safe is None and not q['ok']:
