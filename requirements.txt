@@ -1,6 +1,9 @@
 # Python 3.12
 psycopg[binary]==3.3.6
 python-dotenv==1.2.4
+alembic==1.20.0
+SQLAlchemy==2.1.5
+pgvector==0.5.1
 # 가이드 문서 파싱 (backend/app/rag/parser)
 python-docx==1.2.0
 python-pptx==1.0.2
