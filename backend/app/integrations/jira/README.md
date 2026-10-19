@@ -99,4 +99,5 @@ python backend/app/integrations/jira/smoke_check.py --create   # 위 + 새 시�
 **확인**
 
 - 테스트 21개 통과.
-- 실제 ITSD에 시험 접수 1건(`RCPT-TEST-0001` → ITSD-353)을 만들고, Jira 응답으로 `check_saved()` = `{}`, 접수번호 검색으로 ITSD-353을 찾고, 같은 접수로 다시 부르면 새로 만들지 않음(`created: False`)을 확인했습니다. API 토큰이 없어 요청 본문은 같은 것을 로그인 세션으로 보냈습니다. 토큰 인증 경로는 아직 실제로 확인하지 않았습니다.
+- 2026-10-19: 실제 ITSD에 시험 접수 1건(`RCPT-TEST-0001` → ITSD-353)을 만들고, `check_saved()` = `{}`, 접수번호 검색, 같은 접수 재호출 시 `created: False`를 확인했습니다. 이때는 API 토큰이 없어 같은 요청 본문을 로그인 세션으로 보냈습니다.
+- 2026-10-20: 본인 API 토큰으로 `smoke_check.py --create`를 실행해 토큰 인증(`/myself`), 기존 티켓 검색·저장값 비교, 새 티켓 생성(`RCPT-TEST-10200010` → ITSD-354), 같은 접수 재호출 시 `created: False`까지 모두 통과했습니다. 시험 티켓 ITSD-353·354는 확인 후 Jira에서 지웁니다.
