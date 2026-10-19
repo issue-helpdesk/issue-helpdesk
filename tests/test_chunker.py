@@ -162,9 +162,27 @@ def test_chunk_row():
     r = chunk_row(c)
     assert r['content'] == c.body and r['heading_path'] == '3. 항목별 안내 > 3.1 유료 프로그램 라이선스 신청'
     assert r['location'].startswith('3.1 · p.') and r['unit_key'] == 'IT-SW-002@v2.0/item:3.1' and r['chunk_type'] == 'ITEM'
-    assert r['inquiry_type_codes'] == ['SW-02'] and r['meta']['team'] == '엔드포인트지원팀'
+    assert set(r) == {'heading_path', 'location', 'content', 'seq', 'unit_key', 'chunk_type', 'part', 'meta'}
+    m = r['meta']
+    assert (m['inquiry_type_codes'], m['section_no'], m['team']) == (['SW-02'], '3.1', '엔드포인트지원팀')
+    assert m['page_start'] and m['page_start'] <= m['page_end']
     faq = chunk_row(next(c for c in chunks_of('IT-SW-002')[1] if c.unit_key.endswith('FAQ-035')))
     assert faq['location'] == '4 · FAQ-035'
+
+
+def test_meta_keys_fixed():
+    """meta 키는 계약대로 항상 같다 (청크_메타데이터.md 5장)."""
+    keys = {'section_no', 'inquiry_type_codes', 'page_start', 'page_end', 'props', 'subheadings', 'faq_ids',
+            'images', 'handling', 'team', 'escalation_teams', 'urgency'}
+    for doc_no in ('IT-SW-002', 'IT-NET-003-M', 'IT-STD-002'):
+        assert all(set(chunk_row(c)['meta']) == keys for c in chunks_of(doc_no)[1])
+
+
+def test_part_unique_within_unit():
+    """UNIQUE(version_id, unit_key, part) 를 걸 수 있다: 한 문서 안에서 (unit_key, part)가 겹치지 않는다."""
+    for doc_no in manifest():
+        cs = chunks_of(doc_no)[1]
+        assert len({(c.unit_key, c.part) for c in cs}) == len(cs), doc_no
 
 
 def test_unit_keys():

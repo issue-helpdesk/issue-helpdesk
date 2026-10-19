@@ -141,7 +141,11 @@ def version_row(doc: ParsedDocument, source_path: str = '', registration: dict |
 
 
 def chunk_row(c: Chunk) -> dict:
-    """document_chunks 한 행. 임베딩 입력은 c.text (document_chunk_embeddings.source_text)."""
+    """document_chunks 한 행. 임베딩 입력은 c.text (document_chunk_embeddings.source_text).
+
+    전용 칸은 SQL 조회·정렬·제약에 쓰는 것만 둔다 (seq·unit_key·chunk_type·part). 나머지는 meta 에 넣는다.
+    chunk_key(문서@버전#순번)·parts(같은 unit_key 행 수)·content_hash(sha1(content))는 저장하지 않고 계산한다.
+    """
     pages = f'p.{c.page_start}-{c.page_end}' if c.page_start else ''
     faq = c.unit_key.rsplit(':', 1)[-1] if c.chunk_type == 'faq' and ':FAQ-' in c.unit_key else ''
     return {
@@ -149,12 +153,12 @@ def chunk_row(c: Chunk) -> dict:
         'location': ' · '.join(x for x in (c.section_no, faq, pages) if x),   # 출처 표시: 문서 번호 + 이 값
         'content': c.body,
         # 아래는 추가 요청 칸 (청크_메타데이터.md 6장)
-        'seq': c.seq, 'chunk_key': c.chunk_key, 'unit_key': c.unit_key,
+        'seq': c.seq, 'unit_key': c.unit_key,
         'chunk_type': c.chunk_type.upper(),                                   # ITEM·CHAPTER·FAQ·PREFACE
-        'section_no': c.section_no or None, 'part': c.part, 'parts': c.parts,
-        'page_start': c.page_start, 'page_end': c.page_end,
-        'inquiry_type_codes': c.inquiry_type_codes, 'content_hash': c.content_hash,
-        'meta': {'props': c.props, 'subheadings': c.subheadings, 'faq_ids': c.faq_ids, 'images': c.images,
+        'part': c.part,
+        'meta': {'section_no': c.section_no, 'inquiry_type_codes': c.inquiry_type_codes,
+                 'page_start': c.page_start, 'page_end': c.page_end,
+                 'props': c.props, 'subheadings': c.subheadings, 'faq_ids': c.faq_ids, 'images': c.images,
                  'handling': c.handling, 'team': c.team, 'escalation_teams': c.escalation_teams, 'urgency': c.urgency},
     }
 
