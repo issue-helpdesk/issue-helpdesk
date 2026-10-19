@@ -8,7 +8,17 @@
 import { request, sleep } from '../core/apiClient'
 import { SERVICEDESK, USE_MOCK } from '../core/config'
 import { tokenStore } from '../core/tokenStore'
-import { MOCK_ACCOUNTS, MOCK_PASSWORD } from './mock/accounts'
+import {
+  addFail,
+  clearFails,
+  lockAccount,
+  lockExpired,
+  MAX_FAILS,
+  minutesLeft,
+  MOCK_ACCOUNTS,
+  MOCK_PASSWORD,
+  unlockAccount,
+} from './mock/accounts'
 import { fail, ok, type ApiResult, type LoginData, type LoginRequest, type User } from './types'
 
 /** 가짜 토큰의 접두어. 'mock.HS1001' 처럼 사번을 담아 me() 에서 사용자를 찾는다. */
@@ -24,15 +34,32 @@ async function mockLogin(req: LoginRequest, skipPassword = false): Promise<ApiRe
   await sleep(350) // 서버 응답 지연 흉내
 
   const acc = findAccount(req.employeeId)
+
+  // 잠김은 10분이 지나면 다음 로그인 시도 때 자동으로 풀린다
+  if (acc && acc.status === '잠김' && lockExpired(acc.id)) unlockAccount(acc)
+
+  // 잠긴 동안에는 올바른 비밀번호여도 로그인할 수 없다
+  if (acc && acc.status === '잠김') {
+    return fail(
+      'ACCOUNT_LOCKED',
+      `로그인 ${MAX_FAILS}회 실패로 잠긴 계정이에요. 약 ${minutesLeft(acc.id)}분 후 자동으로 해제돼요. 급하면 서비스데스크로 문의해 주세요. (${SERVICEDESK})`,
+    )
+  }
+
   if (!acc || (!skipPassword && req.password !== MOCK_PASSWORD)) {
+    // 정상 계정이 연속으로 5회 틀리면 잠근다
+    if (acc && acc.status === '정상' && addFail(acc.id) >= MAX_FAILS) {
+      lockAccount(acc)
+      return fail('ACCOUNT_LOCKED', `로그인 ${MAX_FAILS}회 실패로 계정이 잠겼어요. 10분 후 자동으로 해제돼요. 급하면 서비스데스크로 문의해 주세요. (${SERVICEDESK})`)
+    }
     return fail('INVALID_CREDENTIALS', '사번 또는 비밀번호를 확인해 주세요.')
   }
-  if (acc.status === '승인 대기') {
-    return fail('ACCOUNT_PENDING', '아직 ITssue 이용 승인이 완료되지 않았어요. 서비스데스크 관리자의 승인 후 이용할 수 있어요.')
-  }
+
   if (acc.status === '이용 제한') {
     return fail('ACCOUNT_RESTRICTED', `이용이 제한된 계정이에요. 서비스데스크로 문의해 주세요. (${SERVICEDESK})`)
   }
+
+  clearFails(acc.id) // 로그인에 성공하면 연속 실패 기록을 지운다
   return ok({ accessToken: MOCK_PREFIX + acc.id, user: acc })
 }
 
