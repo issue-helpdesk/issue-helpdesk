@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Mapping
 
 import httpx
@@ -21,7 +22,7 @@ DEFAULT_TIMEOUT = 10.0  # 초
 class JiraError(Exception):
     """Jira 호출 실패. 연동 상태 기록·관리자 재처리에 쓸 이유와 재시도 가능 여부를 담는다.
 
-    reason: timeout · network · auth · invalid_fields · not_found · rate_limited · server_error · unexpected
+    reason: timeout · network · result_unknown · auth · invalid_fields · not_found · rate_limited · server_error · unexpected
     """
 
     def __init__(self, reason: str, message: str, *, retryable: bool, status_code: int | None = None):
@@ -31,7 +32,8 @@ class JiraError(Exception):
         self.status_code = status_code
 
     def to_dict(self) -> dict[str, Any]:
-        return {"status": "FAILED", "reason": self.reason, "retryable": self.retryable, "message": str(self)}
+        status = "VERIFYING" if self.reason == "result_unknown" else "FAILED"
+        return {"status": status, "reason": self.reason, "retryable": self.retryable, "message": str(self)}
 
 
 class JiraClient:
@@ -80,7 +82,8 @@ class JiraClient:
         """접수 1건을 ITSD 티켓으로 만든다.
 
         같은 접수번호의 티켓이 이미 있으면 새로 만들지 않고 그 티켓을 돌려준다(created=False).
-        그래서 시간 초과로 결과가 불명확했던 건도 다시 부르면 중복 없이 처리된다 (설계서 10.1).
+        검색 반영 지연·동시 요청까지 원자적으로 막지는 않는다. 백엔드 작업 잠금이 필요하다.
+        생성 응답이 불명확하면 result_unknown을 반환한다. 기존 생성 여부 확인 전 재생성하지 않는다.
         자동 재시도는 하지 않는다. JiraError.retryable 을 보고 연동 작업(integration_jobs)이 정한다.
         """
         try:
@@ -92,24 +95,38 @@ class JiraClient:
         if existing:
             return {**existing, "created": False}
 
-        data = self._request("POST", "/rest/api/3/issue", json={"fields": fields})
+        try:
+            data = self._request("POST", "/rest/api/3/issue", json={"fields": fields})
+        except JiraError as e:
+            if e.reason in ("timeout", "network", "server_error"):
+                raise JiraError(
+                    "result_unknown", "Jira 생성 결과를 확인해야 합니다. 기존 이슈 확인 전 재생성하지 마세요.",
+                    retryable=False, status_code=e.status_code,
+                ) from e
+            raise
         return {**self._result(data["id"], data["key"]), "created": True}
 
     def find_by_receipt(self, receipt_no: str) -> dict[str, Any] | None:
         """ITssue 접수번호로 이미 만든 티켓을 찾는다. 없으면 None."""
         field = self.mapping["fields"]["receipt_no"]["jira"]           # customfield_10113
         number = field.removeprefix("customfield_")
-        jql = f'project = "{self.mapping["project"]["key"]}" AND cf[{number}] ~ "\\"{receipt_no}\\""'
-        data = self._request(
-            "POST",
-            "/rest/api/3/search/jql",
-            json={"jql": jql + " ORDER BY created ASC", "fields": [field], "maxResults": 20},
-        )
-        for issue in data.get("issues", []):
-            # 글자 검색은 비슷한 번호도 찾으므로 값이 정확히 같은지 다시 본다
-            if (issue.get("fields") or {}).get(field) == receipt_no:
-                return self._result(issue["id"], issue["key"])
-        return None
+        phrase = '"' + receipt_no.replace('\\', '\\\\').replace('"', '\\"') + '"'
+        jql = f'project = "{self.mapping["project"]["key"]}" AND cf[{number}] ~ {json.dumps(phrase, ensure_ascii=False)}'
+        query = {"jql": jql + " ORDER BY created ASC", "fields": [field], "maxResults": 20}
+        seen_tokens: set[str] = set()
+        while True:
+            data = self._request("POST", "/rest/api/3/search/jql", json=query)
+            for issue in data.get("issues", []):
+                # 글자 검색은 비슷한 번호도 찾으므로 모든 페이지에서 정확히 대조한다.
+                if (issue.get("fields") or {}).get(field) == receipt_no:
+                    return self._result(issue["id"], issue["key"])
+            token = data.get("nextPageToken")
+            if data.get("isLast") is True or not token:
+                return None
+            if token in seen_tokens:
+                raise JiraError("unexpected", "Jira 검색 페이지가 반복되어 생성하지 않았습니다.", retryable=False)
+            seen_tokens.add(token)
+            query["nextPageToken"] = token
 
     def check_auth(self) -> dict[str, Any]:
         """토큰이 맞는지 확인한다. 토큰 주인 계정의 이름·accountId를 돌려준다(이 계정이 티켓 보고자가 된다)."""

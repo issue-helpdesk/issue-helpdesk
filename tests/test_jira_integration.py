@@ -221,3 +221,55 @@ def test_wrong_token_is_auth_error():
     with make_client(lambda req: httpx.Response(401, text="Unauthorized")) as c, pytest.raises(JiraError) as e:
         c.check_auth()
     assert e.value.reason == "auth" and e.value.retryable is False
+
+
+def test_existing_receipt_on_second_page_is_reused():
+    calls = []
+
+    def handler(req):
+        calls.append(req.url.path)
+        assert req.url.path == "/rest/api/3/search/jql"
+        query = json.loads(req.content)
+        if "nextPageToken" not in query:
+            return httpx.Response(200, json={"issues": [], "nextPageToken": "page-2", "isLast": False})
+        assert query["nextPageToken"] == "page-2"
+        return httpx.Response(200, json={"issues": [
+            {"id": "7", "key": "ITSD-7", "fields": {"customfield_10113": "RCPT-0001"}}], "isLast": True})
+
+    with make_client(handler) as c:
+        assert c.create_ticket(TICKET)["created"] is False
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("failure", ["timeout", "network", "server_error"])
+def test_uncertain_create_is_verifying_and_cannot_be_blindly_retried(failure):
+    def handler(req):
+        if req.url.path == "/rest/api/3/search/jql":
+            return httpx.Response(200, json={"issues": []})
+        if failure == "timeout":
+            raise httpx.ReadTimeout("response lost after creation", request=req)
+        if failure == "network":
+            raise httpx.ReadError("connection lost after creation", request=req)
+        return httpx.Response(503, json={"errorMessages": ["upstream unavailable"]})
+
+    with make_client(handler) as c, pytest.raises(JiraError) as e:
+        c.create_ticket(TICKET)
+    assert e.value.reason == "result_unknown"
+    assert e.value.to_dict()["status"] == "VERIFYING"
+    assert e.value.retryable is False
+
+
+def test_long_receipt_is_rejected_before_it_can_be_truncated():
+    with pytest.raises(MappingError, match="receipt_no"):
+        to_jira_fields({**TICKET, "receipt_no": "X" * 256})
+
+
+def test_read_only_smoke_check_does_not_recreate_deleted_fixture():
+    from app.integrations.jira.smoke_check import check
+
+    def handler(req):
+        assert req.url.path == "/rest/api/3/search/jql", "기본 점검은 생성 요청을 보내면 안 됨"
+        return httpx.Response(200, json={"issues": []})
+
+    with make_client(handler) as c:
+        assert check(c, TICKET) is True

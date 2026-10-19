@@ -32,12 +32,13 @@ with JiraClient.from_env() as jira:
         result = jira.create_ticket(ticket)
         # → tickets.jira_key = result["jira_key"], jira_sync_status = SYNCED
     except JiraError as e:
-        # 접수 기록은 지우지 않는다. e.to_dict() → {"status": "FAILED", "reason": "timeout", "retryable": True, ...}
-        # → jira_sync_status = NEEDS_ADMIN (07 API 계약서 4장)
+        # 접수 기록은 지우지 않는다.
+        # result_unknown → jira_sync_status=VERIFYING. 생성 여부 확인 전 자동 재생성 금지.
+        # 그 밖의 실패 → 오류별 재시도 또는 NEEDS_ADMIN (07 API 계약서 4장)
         ...
 ```
 
-- **중복 방지**: 만들기 전에 `ITssue 접수번호`(customfield_10113)로 먼저 찾습니다. 이미 있으면 새로 만들지 않고 그 티켓을 돌려줍니다(`created: False`). 시간 초과 뒤 다시 불러도 중복이 생기지 않습니다(설계서 10.1).
+- **중복 확인**: 만들기 전에 `ITssue 접수번호`(customfield_10113)로 검색의 모든 페이지를 확인합니다. 이미 있으면 새로 만들지 않고 그 티켓을 돌려줍니다(`created: False`). 생성 요청의 시간 초과·통신 오류·서버 오류는 `result_unknown`, `status=VERIFYING`, `retryable=False`로 반환합니다. 검색 반영 지연·동시 요청까지 원자적으로 막는 것은 아니므로, 백엔드는 접수별 작업 잠금·유일 제약과 결과 대조를 구현해야 합니다.
 - **선택 항목**: `request_kind`(INCIDENT·REQUEST·QUESTION), `impact_scope`(PERSONAL·DEPARTMENT·COMPANY), `target_system`, `inquiry_type_code`, `inquiry_type_name`, `category_name`, `requester_employee_no`, `requester_name`, `requester_department_name`, `assignee_name`. 외부 전송 정책(설계서 12장)에서 허용한 것만 넘깁니다.
 - **접수 내용**: `description`이 없으면 초안 항목 `summary`·`onset`·`business_impact`·`tried_actions`·`ai_summary`를 제목을 붙여 이어 씁니다. 접수 내용 칸(customfield_10130)은 255자까지이고, 전체 글은 Jira 기본 설명란에 들어갑니다.
 - **고정값**: 접수 채널 `챗봇`(CHATBOT), 처리 유형 `티켓`(TICKET), 이슈 유형 `작업`(TASK).
@@ -67,8 +68,9 @@ python backend/app/integrations/jira/smoke_check.py            # 인증 + 기존
 python backend/app/integrations/jira/smoke_check.py --create   # 위 + 새 시험 티켓 1건
 ```
 
-`결과: 모두 통과`가 나오면 토큰 인증·검색·저장값·중복 방지가 모두 맞는 것입니다. `--create`로 만든 시험 티켓은 확인 후 Jira에서 지웁니다.
-새 티켓은 Jira 검색에 잡히기까지 몇 초 걸릴 수 있습니다. 만들자마자 같은 접수로 다시 부르면 중복이 생길 수 있으니, 재시도는 몇 초 뒤에 합니다.
+기본 실행은 인증·검색·존재하는 시험 티켓의 저장값만 확인합니다. 시험 티켓을 삭제했어도 다시 만들지 않으며 저장값 비교는 생략했다고 표시합니다. 생성·중복 확인은 `--create`를 지정했을 때만 시험합니다. 새 티켓이 검색에 나타나지 않으면 생성 함수를 재호출하지 않고 점검을 중단합니다. 시험 티켓은 확인 후 Jira에서 지웁니다.
+
+단순히 몇 초 기다린 것만으로 재생성이 안전해지지는 않습니다. 결과 불명 상태는 기존 생성 여부를 대조하고, 확인할 수 없으면 관리자 확인 대상으로 유지합니다.
 
 ## 변경 기록
 
@@ -101,3 +103,10 @@ python backend/app/integrations/jira/smoke_check.py --create   # 위 + 새 시�
 - 테스트 21개 통과.
 - 2026-10-19: 실제 ITSD에 시험 접수 1건(`RCPT-TEST-0001` → ITSD-353)을 만들고, `check_saved()` = `{}`, 접수번호 검색, 같은 접수 재호출 시 `created: False`를 확인했습니다. 이때는 API 토큰이 없어 같은 요청 본문을 로그인 세션으로 보냈습니다.
 - 2026-10-20: 본인 API 토큰으로 `smoke_check.py --create`를 실행해 토큰 인증(`/myself`), 기존 티켓 검색·저장값 비교, 새 티켓 생성(`RCPT-TEST-10200010` → ITSD-354), 같은 접수 재호출 시 `created: False`까지 모두 통과했습니다. 시험 티켓 ITSD-353·354는 확인 후 Jira에서 지웁니다.
+
+### 2026-10-20 · PR 리뷰 보완
+
+- 검색 다음 페이지에서 발견한 접수도 재사용하고, 접수번호를 255자로 잘라 저장하지 않도록 검사합니다.
+- 생성 결과 불명은 VERIFYING으로 구분하고 자동 재생성을 금지합니다. 조회 실패의 재시도 가능 여부와 분리합니다.
+- 기본 점검은 조회만 수행하며, 삭제된 시험 티켓을 다시 생성하지 않습니다.
+- 모의 응답 회귀 시험을 포함한 테스트 27개 통과. 위 실제 Jira 점검 기록과 로컬 회귀 검증 범위를 구분합니다.

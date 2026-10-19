@@ -78,6 +78,8 @@ def to_jira_fields(ticket: Mapping[str, Any], m: Mapping[str, Any] | None = None
             values[key] = values[source]
 
     max_len = create["text_max_length"]
+    if len(values["receipt_no"]) > max_len:
+        raise MappingError(f"receipt_no는 {max_len}자를 넘을 수 없습니다. 접수번호를 잘라 저장하지 않습니다.")
     issue_type = _option(m, "issue_type", create["issue_type"])
     out: dict[str, Any] = {
         "project": {"key": m["project"]["key"]},

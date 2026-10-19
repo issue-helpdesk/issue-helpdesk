@@ -33,14 +33,27 @@ EXISTING = {
 }
 
 
-def check(jira: JiraClient, ticket: dict) -> bool:
-    result = jira.create_ticket(ticket)
-    action = "새로 만듦" if result["created"] else "이미 있어 그대로 돌려줌"
+def check(jira: JiraClient, ticket: dict, *, create: bool = False) -> bool:
+    result = jira.create_ticket(ticket) if create else jira.find_by_receipt(ticket["receipt_no"])
+    if result is None:
+        print("  기존 시험 티켓 없음: 검색 확인만 통과 (새로 만들지 않음)")
+        return True
+    action = "새로 만듦" if result.get("created") else "기존 티켓 조회"
     print(f"  {ticket['receipt_no']} → {result['jira_key']} ({action})  {result['jira_url']}")
     diffs = jira.check_saved(result["jira_key"], ticket)
     print(f"  저장값 비교: {'차이 없음' if not diffs else diffs}")
-    if result["created"]:
-        time.sleep(5)  # 새 티켓이 Jira 검색에 잡히기까지 몇 초 걸린다
+    if not create:
+        return not diffs
+    # 검색 인덱스에 나타나기 전에는 생성 함수를 다시 호출하지 않는다.
+    again = None
+    for _ in range(5):
+        again = jira.find_by_receipt(ticket["receipt_no"])
+        if again:
+            break
+        time.sleep(1)
+    if again is None:
+        print("  검색 반영 대기: 중복 생성 시험을 중단했습니다. 기존 생성 여부부터 확인하세요.")
+        return False
     again = jira.create_ticket(ticket)
     print(f"  같은 접수로 다시 호출: {again['jira_key']}, created={again['created']} (False 여야 중복 없음)")
     return not diffs and again["created"] is False and again["jira_key"] == result["jira_key"]
@@ -58,7 +71,7 @@ def main() -> int:
             if "--create" in sys.argv:
                 stamp = datetime.now().strftime("%m%d%H%M")
                 print("3. 새 시험 접수 생성")
-                ok = check(jira, {**EXISTING, "receipt_no": f"RCPT-TEST-{stamp}"}) and ok
+                ok = check(jira, {**EXISTING, "receipt_no": f"RCPT-TEST-{stamp}"}, create=True) and ok
     except JiraError as e:
         print(f"실패: {e.to_dict()}")
         return 1
