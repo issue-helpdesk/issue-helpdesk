@@ -51,10 +51,10 @@ FAQ_CHAPTER = '자주 묻는 질문'
 # \b 는 한글도 단어 글자로 봐서 'FAQ-012를'을 못 찾는다. 영문·숫자만 경계로 본다
 SCENARIO_RE = re.compile(r'(?<![A-Za-z0-9])[A-Z]{2,3}-\d{2}(?!\d)')
 FAQ_RE = re.compile(r'(?<![A-Za-z0-9])FAQ-\d{3}(?!\d)')
-CHAPTER_NO_RE = re.compile(r'^\d{1,2}\.\s*')
 TEAM_RE = re.compile(r'[가-힣A-Za-z]+팀(?![가-힣])|서비스데스크')   # 'OO팀'(팀장은 아님)과 서비스데스크
 SECTION_NO_RE = re.compile(r'^(\d{1,2}(?:\.\d{1,2})?)\.?\s')
-SENTENCE_RE = re.compile(r'(?<=[.!?])\s+|\n+')
+SENTENCE_RE = re.compile(r'(?<=[.!?])\s+')
+SKIP_PREFIX_RE = re.compile(r'^(?:\d{1,2}\.\s*|부록\s*·\s*)')   # '6. 개정 이력'·'부록 · 개정 이력'
 
 
 @dataclass
@@ -132,7 +132,7 @@ def version_row(doc: ParsedDocument, source_path: str = '', registration: dict |
         'transfer_policy': transfer_policy(reg.get('transfer_policy')),
         # 아래는 추가 요청 칸 (청크_메타데이터.md 6장)
         'effective_date': m.get('effective_date', '') or None,
-        'keywords': list(m.get('keywords', [])),
+        'keywords': _as_list(m.get('keywords')),
         'parser_version': PARSER_VERSION,
         'chunker_version': CHUNKER_VERSION,
         'ingest_meta': {'parse_mode': doc.quality.get('mode', ''), 'parse_coverage': doc.quality.get('coverage'),
@@ -146,8 +146,10 @@ def chunk_row(c: Chunk) -> dict:
     전용 칸은 SQL 조회·정렬·제약에 쓰는 것만 둔다 (seq·unit_key·chunk_type·part). 나머지는 meta 에 넣는다.
     chunk_key(문서@버전#순번)·parts(같은 unit_key 행 수)·content_hash(sha1(content))는 저장하지 않고 계산한다.
     """
-    pages = f'p.{c.page_start}-{c.page_end}' if c.page_start else ''
-    faq = c.unit_key.rsplit(':', 1)[-1] if c.chunk_type == 'faq' and ':FAQ-' in c.unit_key else ''
+    pages = '' if not c.page_start else f'p.{c.page_start}' if c.page_start == c.page_end else f'p.{c.page_start}-{c.page_end}'
+    faq = ''
+    if c.chunk_type == 'faq':                           # FAQ 번호, 없으면 질문 앞부분으로 구분한다
+        faq = c.unit_key.rsplit(':', 1)[-1] if ':FAQ-' in c.unit_key else _short(_question(c.body), 20)
     return {
         'heading_path': ' > '.join(c.heading_path),
         'location': ' · '.join(x for x in (c.section_no, faq, pages) if x),   # 출처 표시: 문서 번호 + 이 값
@@ -175,18 +177,18 @@ def transfer_policy(value) -> str:
 
 def chunk_document(doc: ParsedDocument) -> list[Chunk]:
     """문서 하나를 청크 목록으로 나눈다."""
-    out: list[Chunk] = []
     units: list[list[Chunk]] = []
     for kind, chapter, item, pieces in _units(doc):
-        if CHAPTER_NO_RE.sub('', chapter) in SKIP_CHAPTERS:      # '6. 개정 이력'과 그 아래 절까지
+        if SKIP_PREFIX_RE.sub('', chapter).startswith(SKIP_CHAPTERS):   # '6. 개정 이력'·'부록 · 개정 이력'과 그 아래 절까지
             continue
         if not any(e.kind != 'heading' for e in pieces):
             continue
         props = [tuple(p) for p in (item.meta.get('props') or [])] if item else []
         path = [t for t in (chapter, item.text if item else '') if t]
         if FAQ_CHAPTER in chapter and kind in ('chapter', 'item'):  # '5.1 계정' 같은 FAQ 하위 절도 질문 단위로
-            for qa in _split_faq(pieces):
-                units.append([_make(doc, 'faq', path, props, _atoms(qa), 1, 1)])
+            for qa in _split_faq(pieces):                    # 긴 답변은 항목과 같은 길이 규칙으로 나눈다
+                parts = _pack(_atoms(qa))
+                units.append([_make(doc, 'faq', path, props, atoms, i, len(parts)) for i, atoms in enumerate(parts, 1)])
             continue
         parts = _pack(_atoms(pieces))
         units.append([_make(doc, kind, path, props, atoms, i, len(parts)) for i, atoms in enumerate(parts, 1)])
@@ -199,17 +201,16 @@ def chunk_document(doc: ParsedDocument) -> list[Chunk]:
 
 
 def _assign_unit_keys(units: list[list[Chunk]]) -> None:
-    """unit_key = 문서@버전/종류:키. 항목·장은 절 번호, FAQ는 FAQ 번호(없으면 장 안 순번 q01),
-    서문은 1. 절 번호가 없거나 겹치면 문서 안 단위 순번(u07)으로 대신한다."""
+    """unit_key = 문서@버전/종류:키. 항목·장은 절 번호, FAQ는 질문 줄의 FAQ 번호, 번호가 없으면 질문 글의 지문
+    (q-1a2b3c4d. 순번이 아니라서 앞에 질문이 늘어도 바뀌지 않는다), 서문은 1.
+    절 번호가 없거나 겹치면 문서 안 단위 순번(u07)으로 대신한다 (이때는 순서가 바뀌면 키도 바뀐다)."""
     used: set[str] = set()
-    faq_no = 0
     for n, unit in enumerate(units, 1):
         c = unit[0]
         if c.chunk_type == 'faq':
-            faq_no += 1
-            q_line = next((ln for ln in c.body.split('\n') if ln.startswith('Q.')), '')
-            m = FAQ_RE.search(q_line)                           # 질문 줄의 번호만 (답변 속 참조 번호는 아님)
-            key = m.group(0) if m else f'q{faq_no:02d}'
+            q = _question(c.body)
+            m = FAQ_RE.search(q)                                # 질문 줄의 번호만 (답변 속 참조 번호는 아님)
+            key = m.group(0) if m else (f'q-{_sha1(q)[:8]}' if q else '')
         elif c.chunk_type == 'preface':
             key = '1'
         else:
@@ -299,10 +300,12 @@ def _atoms(pieces: list[Element]) -> list[_Atom]:
             sub = e.text
             out.append(_Atom(f'### {e.text}', e.page, sub))
         elif e.kind == 'table':
-            rows = [_row(r) for r in e.rows or [] if any(c.strip() for c in r)]
-            if not rows:
+            cells = [r for r in e.rows or [] if any(c.strip() for c in r)]
+            if not cells:
                 continue
-            for part in _table_parts(rows):
+            width = max(len(r) for r in cells)
+            rows = [_row(r, width) for r in cells]
+            for part in _table_parts(rows, width):
                 out.append(_Atom(part, e.page, sub))
         elif e.kind == 'image':
             out.append(_Atom(f'[그림] {e.text}'.rstrip(), e.page, sub, e.meta.get('name', '')))
@@ -318,8 +321,13 @@ def _split_long(text: str) -> list[str]:
     """MAX_CHARS 를 넘는 문단(구조 없이 읽힌 문서에서 생긴다)은 문장 단위로 TARGET_CHARS 안팎씩 나눈다."""
     if len(text) <= MAX_CHARS:
         return [text]
+    segs: list[tuple[str, str]] = []                    # (조각, 앞 조각과 이을 글자). 줄바꿈은 지킨다
+    for line in text.split('\n'):
+        for i, s in enumerate(SENTENCE_RE.split(line)):
+            if s:
+                segs.append((s, '\n' if i == 0 else ' '))
     out, cur = [], ''
-    for s in SENTENCE_RE.split(text):
+    for s, joint in segs:
         if len(s) > MAX_CHARS:                          # 마침표 없이 긴 글은 그냥 자른다
             if cur:                                     # 앞에 모아 둔 문장이 먼저 나가야 순서가 맞다
                 out.append(cur)
@@ -330,20 +338,23 @@ def _split_long(text: str) -> list[str]:
         if cur and len(cur) + len(s) + 1 > TARGET_CHARS:
             out.append(cur)
             cur = ''
-        cur = f'{cur} {s}' if cur else s
+        cur = f'{cur}{joint}{s}' if cur else s
     return out + [cur] if cur else out
 
 
-def _row(cells: list[str]) -> str:
-    return '| ' + ' | '.join(c.replace('\n', ' ').strip() for c in cells) + ' |'
+def _row(cells: list[str], width: int) -> str:
+    """표 한 행. 칸 안의 '|'는 '\\|'로 바꾸고, 짧은 행은 빈 칸으로 채운다."""
+    cells = [c.replace('\n', ' ').replace('|', '\\|').strip() for c in cells] + [''] * (width - len(cells))
+    return '| ' + ' | '.join(cells) + ' |'
 
 
-def _table_parts(rows: list[str]) -> list[str]:
-    """긴 표는 행 단위로 나누고 나뉜 조각마다 머리 행을 반복한다."""
-    whole = '\n'.join(rows)
+def _table_parts(rows: list[str], width: int) -> list[str]:
+    """머리 행 뒤에 구분 행(|---|)을 넣는다. 긴 표는 행 단위로 나누고 나뉜 조각마다 머리 행을 반복한다."""
+    head = rows[0] + '\n|' + '---|' * width
+    whole = '\n'.join([head] + rows[1:])
     if len(whole) <= MAX_CHARS or len(rows) < 3:
         return [whole]
-    head, parts, cur = rows[0], [], []
+    parts, cur = [], []
     for r in rows[1:]:
         if cur and len(head) + sum(len(x) + 1 for x in cur) + len(r) > TARGET_CHARS:
             parts.append('\n'.join([head] + cur))
@@ -427,6 +438,24 @@ def _teams(value: str) -> list[str]:
     return list(dict.fromkeys(TEAM_RE.findall(value or '')))
 
 
+def _question(body: str) -> str:
+    """FAQ 청크 본문의 질문 줄 ('Q. …'). 앞에 분류 소제목이 올 수 있다."""
+    return next((ln for ln in body.split('\n') if ln.startswith('Q.')), '')
+
+
+def _short(text: str, n: int) -> str:
+    return text if len(text) <= n else text[:n].rstrip() + '…'
+
+
+def _as_list(value) -> list[str]:
+    """문서 머리말의 목록 값. 'VPN, 접속'처럼 글자 하나로 오면 쉼표로 나눈다 (글자 단위로 쪼개지 않게)."""
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [x.strip() for x in value.split(',') if x.strip()]
+    return [str(x) for x in value]
+
+
 def _sha1(s: str) -> str:
     return hashlib.sha1(s.encode('utf-8')).hexdigest()
 
@@ -492,6 +521,10 @@ def main(argv=None) -> int:
             chunks = chunk_document(parse(path))
         except ParseError as ex:
             print(f'[ERROR] {name}: {ex}')
+            failed += 1
+            continue
+        except Exception as ex:                         # 한 문서 때문에 전체가 멈추지 않게
+            print(f'[ERROR] {name}: {type(ex).__name__}: {ex}')
             failed += 1
             continue
         total += chunks

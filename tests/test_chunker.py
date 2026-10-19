@@ -192,7 +192,8 @@ def test_unit_keys():
     assert by['IT-SW-002@v2.0#004'] == 'IT-SW-002@v2.0/item:3.1'
     assert 'IT-SW-002@v2.0/chapter:부록' in by.values()
     faqs = [c.unit_key for c in cs if c.chunk_type == 'faq']
-    assert faqs == ['IT-SW-002@v2.0/faq:FAQ-023', 'IT-SW-002@v2.0/faq:FAQ-035', 'IT-SW-002@v2.0/faq:q03']
+    assert faqs[:2] == ['IT-SW-002@v2.0/faq:FAQ-023', 'IT-SW-002@v2.0/faq:FAQ-035']
+    assert re.fullmatch(r'IT-SW-002@v2\.0/faq:q-[0-9a-f]{8}', faqs[2])     # 번호 없는 질문은 질문 글의 지문
     assert unit_ref(faqs[0]) == 'IT-SW-002/faq:FAQ-023'
 
 
@@ -323,3 +324,54 @@ def test_revision_history_skipped(title):
     cs = chunk_document(_doc(_h('1. 개요', 1), _p('개요 본문'), _h(title, 1), _p('v1.0 처음 작성'),
                              _h('6.1 세부', 2), _p('v1.1 고침')))
     assert [c.heading_path for c in cs] == [['1. 개요']]
+
+
+# ── 검토(PR #22)에서 나온 지적 ──────────────────────────────────
+
+def test_long_faq_answer_is_split():
+    """긴 FAQ 답변도 항목과 같은 길이 규칙으로 나뉘고 같은 unit_key 를 갖는다."""
+    answer = ' '.join(f'{i}번째 답변 문장입니다.' for i in range(400))
+    cs = chunk_document(_doc(_h('4. 자주 묻는 질문', 1), _p('Q. 아주 긴 질문'), _p('A. ' + answer)))
+    assert len(cs) > 1 and all(c.char_count <= MAX_CHARS + HEAD_ROOM for c in cs)
+    assert len({c.unit_key for c in cs}) == 1 and [c.part for c in cs] == list(range(1, len(cs) + 1))
+
+
+def test_faq_key_stable_when_question_added():
+    """번호 없는 FAQ 앞에 질문이 하나 늘어도 뒤 질문의 unit_key 는 그대로다."""
+    base = [_h('4. 자주 묻는 질문', 1), _p('Q. 둘째 질문'), _p('A. 답')]
+    before = chunk_document(_doc(*base))[0].unit_key
+    after = chunk_document(_doc(base[0], _p('Q. 새 질문'), _p('A. 새 답'), *base[1:]))[1].unit_key
+    assert before == after
+
+
+def test_table_pipes_separator_and_short_rows():
+    rows = [['항목', '값', '비고'], ['명령', 'a | b', ''], ['짧은 행']]
+    c = chunk_document(_doc(_h('1. 표', 1), Element('table', rows=rows)))[0]
+    lines = c.body.split('\n')
+    assert lines[:2] == ['| 항목 | 값 | 비고 |', '|---|---|---|']
+    assert lines[2] == r'| 명령 | a \| b |  |' and lines[3] == '| 짧은 행 |  |  |'
+
+
+def test_long_paragraph_keeps_line_breaks():
+    text = '\n'.join(f'{i}번 줄 명령 실행' + ' 가' * 60 for i in range(30))
+    cs = chunk_document(_doc(_p(text)))
+    assert len(cs) > 1 and all('\n' in c.body for c in cs)
+    assert re.findall(r'(\d+)번 줄', '\n'.join(c.body for c in cs)) == [str(i) for i in range(30)]
+
+
+def test_keywords_string_is_not_split_into_letters():
+    d = _doc(meta={'doc_no': 'IT-T-001', 'version': 'v1.0', 'keywords': 'VPN, 접속'})
+    assert version_row(d)['keywords'] == ['VPN', '접속']
+
+
+@pytest.mark.parametrize('title', ['부록 · 개정 이력', '6. 개정 이력 (Revision History)'])
+def test_revision_history_variants_skipped(title):
+    cs = chunk_document(_doc(_h('1. 개요', 1), _p('개요 본문'), _h(title, 1), _p('v1.0 처음 작성')))
+    assert [c.heading_path for c in cs] == [['1. 개요']]
+
+
+def test_faq_location_without_number():
+    cs = chunk_document(_doc(_h('4. 자주 묻는 질문', 1), _p('Q. 메일이 안 보여요'), _p('A. 답'),
+                             _p('Q. 프린터가 안 돼요'), _p('A. 답')))
+    locs = [chunk_row(c)['location'] for c in cs]
+    assert len(set(locs)) == 2 and locs[0].startswith('4 · Q. 메일이')
