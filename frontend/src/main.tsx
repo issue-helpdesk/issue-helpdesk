@@ -20,6 +20,8 @@ import '@fontsource/ibm-plex-mono/latin-500.css'
 import './assets/tokens.css'
 import './assets/base.css'
 import './assets/components.css'
+import './assets/layout.css'
+import './assets/chat.css'
 import App from './App.tsx'
 import { AuthProvider } from './core/session.tsx'
 

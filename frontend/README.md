@@ -24,15 +24,25 @@ npm run dev                  # http://localhost:5173
 
 ## 현재 만든 화면
 
-- `/login` 로그인 (사번 로그인 · SSO 탭 · 계정 상태 안내) + 로그인 전 상담 패널 *(제안 기능)*
-- `/new` · `/queue` · `/dash` 로그인 후 첫 화면 자리표시 (문의자 · 담당자 · 관리자). 이후 화면을 만들면서 교체합니다.
+- `/login` 로그인 (사번 로그인 · SSO 탭 · 잠김·이용 제한 안내) + 로그인 전 상담 패널 *(제안 기능)*
+  - 계정 상태는 정상 · 잠김 · 이용 제한입니다. 로그인 5회 실패 시 잠기고 10분 후 자동으로 풀립니다. 시연(mock)에서도 같은 규칙으로 동작합니다.
+  - 회원가입 기능은 없습니다. 신규 입사자 계정은 관리자가 만들어 제공합니다.
+- 문의자 화면 틀 (사이드바 + 본문). 담당자·관리자도 같은 틀을 쓰며 메뉴만 역할에 따라 더해집니다.
+  - `/new` 새 문의: 챗봇 시작 화면 (인사말 · 입력창 · 분류 칩 · 추천 카드). 보내면 문의가 만들어지고 대화 화면으로 이동합니다.
+  - `/chat/:id` 문의 대화: 부족한 정보 확인 → 긴급 징후 시 바로 담당자 연결 제안 → Guide 우선 안내(출처 버튼) → 부족하면 과거 처리 이력("과거 처리 사례 참고") → 둘 다 없으면 지원 범위 밖 → 해결 확인 → 접수 초안 확인·수정 → 접수번호 발급 → 진행 카드(접수·담당자 배정·처리 중·해결 완료) → 해결 여부 확인. 종료된 상담(AI 해결·미확인·미해결 종료)은 읽기 전용이며 "대화 이어가기"로 다시 엽니다.
+  - `/faq` FAQ *(제안 기능)*: 열람 허용된 Guide 기반 목록, 열면 답변과 출처, "상담하기"로 새 문의에 질문을 채워 이동
+  - 사이드바: 메뉴 · 최근 문의(확인하지 않은 답변 수) · 사용자 정보 · 로그아웃. 860px 이하에서는 메뉴 버튼으로 여닫습니다.
+- `/list` 문의 내역 · `/queue` 처리할 문의 · `/dash` 대시보드는 자리표시입니다. 화면을 만들면서 교체합니다.
+- 대화 화면의 "접수 상세" 보기(Ticket 상세 패널)와 첨부 파일은 아직 없습니다.
 
 ## mock과 실제 API
 
 `VITE_USE_MOCK`이 `false`가 아니면 가짜 응답으로 동작합니다. 백엔드 연동(3단계) 전까지의 기본값입니다.
 
 - 가짜 계정은 프로토타입과 같습니다(비밀번호 `demo`). 로그인 화면의 "시연용 바로 로그인" 버튼은 mock일 때만 보입니다.
-- 연동할 때는 `src/api/`의 어댑터(`auth.ts`, `consult.ts`)만 고칩니다. 화면 코드는 건드리지 않습니다.
+- 연동할 때는 `src/api/`의 어댑터(`auth.ts`, `consult.ts`, `faq.ts`, `inquiries.ts`, `chat.ts`)만 고칩니다. 화면 코드는 건드리지 않습니다.
+- 대화 mock(`src/api/mock/chatEngine.ts`)은 프로토타입의 정해진 규칙(정규식)으로 답하므로 같은 입력에는 항상 같은 답이 나옵니다. 접수 후 Jira 번호 생성 → 담당자 배정 → 처리 시작 → 처리 결과 등록은 시연용 타이머로 진행되고, 해결 확인은 문의자가 직접 누릅니다. 새로고침하면 처음 상태로 돌아갑니다.
+- 시연 전용 동작(`(시연) 응답 없이 시간 경과`, 접수 저장 실패 `mockConfig.saveFail`)은 mock일 때만 있습니다.
 - 개발 중 `/api` 요청은 Vite가 `VITE_DEV_PROXY_TARGET`(기본 `http://localhost:8000`)으로 넘기므로 CORS 설정 없이도 호출할 수 있습니다. 브라우저에서 FastAPI를 직접 호출한다면 백엔드에서 CORS를 허용해야 합니다.
 
 ### API 계약 (제안 · 백엔드 담당 확정 필요)
@@ -41,12 +51,23 @@ npm run dev                  # http://localhost:5173
 
 | 호출 | 요청 | 성공 `data` | 실패 `error.code` |
 | --- | --- | --- | --- |
-| `POST /auth/login` | `{ employeeId, password }` | `{ accessToken, user: { id, name, dept, role, status } }` | `INVALID_CREDENTIALS`, `ACCOUNT_PENDING`, `ACCOUNT_RESTRICTED` |
+| `POST /auth/login` | `{ employeeId, password }` | `{ accessToken, user: { id, name, dept, role, status } }` | `INVALID_CREDENTIALS`, `ACCOUNT_LOCKED`, `ACCOUNT_RESTRICTED` |
 | `GET /users/me` | - | `user` | `UNAUTHORIZED` |
 | `POST /public/consult` *(제안 기능)* | `{ message }` | `{ paragraphs: string[], source?: string }` | - |
+| `GET /faqs` *(제안 기능)* | - | `Faq[]` (`id, category, question, answer, source`) | - |
+| `GET /inquiries` | - | `InquirySummary[]` (`id, title, stateLabel, stateKind, unread, when`) | - |
+| `POST /inquiries` | `{ text }` | `Inquiry` (아래 참고) | - |
+| `GET /inquiries/{id}` | - | `Inquiry` (열면 새 답변 표시가 지워짐) | `INQUIRY_NOT_FOUND` |
+| `POST /inquiries/{id}/messages` | `{ text }` | `Inquiry` (접수 후에는 담당자에게 가는 추가 메시지) | `INQUIRY_NOT_FOUND` |
+| `POST /inquiries/{id}/replies` | `{ messageId, action, arg? }` | `Inquiry` | `INQUIRY_NOT_FOUND` |
+| `POST /inquiries/{id}/draft/edit` | `{ issue, impact, tried }` | `Inquiry` (분류·긴급도 재판단 결과 `draftNote`) | `INQUIRY_NOT_FOUND` |
+| `POST /inquiries/{id}/draft/confirm` · `/draft/cancel` | - | `Inquiry` (확인하면 접수번호 `ticket.receipt` 발급) | `INQUIRY_NOT_FOUND` |
+| `POST /inquiries/{id}/resolve` · `/reject` · `/reopen` | `/reject`만 `{ reason }` | `Inquiry` | `INQUIRY_NOT_FOUND` |
 
-- `role`은 `user` · `staff` · `admin`, `status`는 `승인` · `승인 대기` · `이용 제한`입니다. 필드 이름(camelCase 여부)은 협의 후 어댑터에서 맞춥니다.
+- `role`은 `user` · `staff` · `admin`, `status`는 `정상` · `잠김` · `이용 제한`입니다. (DB 값과의 대응: 정상=`ACTIVE`, 잠김=`LOCKED`, 이용 제한=`INACTIVE`) 필드 이름(camelCase 여부)은 협의 후 어댑터에서 맞춥니다.
 - 화면은 `error.message`를 그대로 보여 주므로 문구는 사용자가 읽을 수 있는 한국어로 내려 주세요.
+- 대화 동작은 모두 갱신된 `Inquiry` 전체를 돌려주는 형태입니다. 타입은 `src/api/chatTypes.ts`(메시지는 HTML이 아니라 `blocks`로 구조화, **굵게**만 지원)에 있습니다. 접수 이후 진행(Jira 생성·배정·처리)은 서버에서 일어나므로 화면은 `GET /inquiries/{id}`를 4초마다 다시 읽습니다. 실시간(SSE·WebSocket)으로 바꾸려면 `chat.ts`의 `watchChat`만 고치면 됩니다.
+- 이 대화 계약과 검색 순서(Guide 우선 → 과거 이력), 긴급도 규칙은 시스템 설계서·SRS와 백엔드 담당(A)이 확정한 값에 맞춰 조정합니다.
 
 ### 토큰 보관
 
@@ -69,14 +90,20 @@ frontend/
 │  │  ├─ session.tsx      로그인 상태 (AuthProvider, useAuth)
 │  │  ├─ roles.ts         역할별 첫 화면·이름
 │  │  └─ router.tsx       경로 정의, 로그인 필요 영역
-│  ├─ api/              백엔드 API 어댑터와 타입 (types.ts, auth.ts, consult.ts, mock/)
-│  ├─ ui/               공통 UI 조각 (Logo, Icon, RichText …)
-│  ├─ views/            화면 (login/, HomePlaceholder …)
-│  └─ assets/           tokens.css(디자인 토큰), base.css(기본 규칙), components.css(컴포넌트 규칙)
+│  ├─ api/              백엔드 API 어댑터와 타입 (types.ts, chatTypes.ts, catalog.ts, auth.ts, consult.ts, faq.ts, inquiries.ts, chat.ts, mock/)
+│  ├─ ui/               공통 UI 조각 (AppShell, Sidebar, Topbar, Composer, Modal, StateBadge, Logo, Icon, RichText …)
+│  ├─ views/            화면 (login/, inquiry/, faq/, HomePlaceholder)
+│  └─ assets/           tokens.css(디자인 토큰), base.css(기본 규칙), components.css(컴포넌트 규칙), layout.css(사이드바·본문 틀), chat.css(대화·접수 초안·진행 카드)
 └─ tests/               Vitest 설정과 테스트 (backend/tests 와 같은 방식)
 ```
 
 새 화면은 `views/`에 만들고 `core/router.tsx`에 경로를 추가합니다. 여러 화면이 함께 쓰는 조각은 `ui/`로 올립니다. 코드 주석은 한글로 답니다.
+
+## 배포 (Vercel)
+
+- Vercel 프로젝트 설정: Root Directory `frontend`, Framework Preset `Vite`, Node.js 24.x, Production Branch `develop`.
+- `vercel.json`은 `/chat/INQ-1` 같은 화면 주소에서 새로고침해도 404가 나지 않도록 모든 경로를 `index.html`로 보냅니다. (정적 파일은 먼저 그대로 제공됩니다)
+- 환경 변수를 넣지 않으면 mock(가상 데이터)으로 동작합니다. 백엔드(EC2)를 연결할 때는 `VITE_USE_MOCK=false`와 `/api` 전달 방법(rewrite 또는 HTTPS 주소)을 정해야 합니다.
 
 ## 사용 라이브러리와 라이선스
 
