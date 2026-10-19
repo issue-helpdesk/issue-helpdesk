@@ -99,6 +99,12 @@ frontend/
 
 새 화면은 `views/`에 만들고 `core/router.tsx`에 경로를 추가합니다. 여러 화면이 함께 쓰는 조각은 `ui/`로 올립니다. 코드 주석은 한글로 답니다.
 
+## 배포 (Vercel)
+
+- Vercel 프로젝트 설정: Root Directory `frontend`, Framework Preset `Vite`, Node.js 24.x, Production Branch `develop`.
+- `vercel.json`은 `/chat/INQ-1` 같은 화면 주소에서 새로고침해도 404가 나지 않도록 모든 경로를 `index.html`로 보냅니다. (정적 파일은 먼저 그대로 제공됩니다)
+- 환경 변수를 넣지 않으면 mock(가상 데이터)으로 동작합니다. 백엔드(EC2)를 연결할 때는 `VITE_USE_MOCK=false`와 `/api` 전달 방법(rewrite 또는 HTTPS 주소)을 정해야 합니다.
+
 ## 사용 라이브러리와 라이선스
 
 설치한 라이브러리는 `package.json`에 범위, `package-lock.json`에 정확한 버전이 기록됩니다. `package-lock.json`은 반드시 함께 커밋합니다. 라이브러리를 추가하면 아래 표에도 한 줄을 추가해 주세요.
