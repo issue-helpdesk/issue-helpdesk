@@ -20,3 +20,7 @@ __pycache__/
 
 .venv/
 .pytest_cache/
+
+# 프런트엔드 (Node)
+node_modules/
+frontend/dist/
