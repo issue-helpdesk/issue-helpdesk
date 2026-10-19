@@ -69,7 +69,7 @@ class Chunk:
     heading_path: list[str]       # ['3. 항목별 안내', '3.1 유료 프로그램 라이선스 신청']
     text: str                     # 머리말 + 본문 = 임베딩 입력 = 답변 근거
     body: str = ''                # 본문만
-    unit_key: str = ''             # IT-SW-002@v2.0§item:3.1. 나뉜 조각끼리 같다
+    unit_key: str = ''             # IT-SW-002@v2.0/item:3.1. 나뉜 조각끼리 같다
     part: int = 1                 # 긴 항목을 나눴을 때 몇 번째 조각인지
     parts: int = 1
     subheadings: list[str] = field(default_factory=list)   # 들어 있는 소제목 (이런 경우·조치 방법 …)
@@ -195,7 +195,7 @@ def chunk_document(doc: ParsedDocument) -> list[Chunk]:
 
 
 def _assign_unit_keys(units: list[list[Chunk]]) -> None:
-    """unit_key = 문서@버전§종류:키. 항목·장은 절 번호, FAQ는 FAQ 번호(없으면 장 안 순번 q01),
+    """unit_key = 문서@버전/종류:키. 항목·장은 절 번호, FAQ는 FAQ 번호(없으면 장 안 순번 q01),
     서문은 1. 절 번호가 없거나 겹치면 문서 안 단위 순번(u07)으로 대신한다."""
     used: set[str] = set()
     faq_no = 0
@@ -210,18 +210,18 @@ def _assign_unit_keys(units: list[list[Chunk]]) -> None:
             key = '1'
         else:
             key = c.section_no
-        uid = f'{c.doc_no}@{c.version}§{c.chunk_type}:{key}'
+        uid = f'{c.doc_no}@{c.version}/{c.chunk_type}:{key}'
         if not key or uid in used:
-            uid = f'{c.doc_no}@{c.version}§{c.chunk_type}:u{n:02d}'
+            uid = f'{c.doc_no}@{c.version}/{c.chunk_type}:u{n:02d}'
         used.add(uid)
         for x in unit:
             x.unit_key = uid
 
 
 def unit_ref(unit_key: str) -> str:
-    """버전을 뺀 단위 참조 (평가 정답·피드백처럼 오래 가는 참조용). IT-SW-003@v2.0§item:3.1 → IT-SW-003§item:3.1"""
-    head, _, tail = unit_key.partition('§')
-    return f'{head.split("@", 1)[0]}§{tail}'
+    """버전을 뺀 단위 참조 (평가 정답·피드백처럼 오래 가는 참조용). IT-SW-003@v2.0/item:3.1 → IT-SW-003/item:3.1"""
+    head, _, tail = unit_key.partition('/')
+    return f'{head.split("@", 1)[0]}/{tail}'
 
 
 def duplicate_groups(chunks: list[Chunk]) -> list[list[Chunk]]:

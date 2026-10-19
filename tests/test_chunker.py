@@ -161,21 +161,21 @@ def test_chunk_row():
     c = next(c for c in cs if c.section_no == '3.1')
     r = chunk_row(c)
     assert r['content'] == c.body and r['heading_path'] == '3. 항목별 안내 > 3.1 유료 프로그램 라이선스 신청'
-    assert r['location'].startswith('3.1 · p.') and r['unit_key'] == 'IT-SW-002@v2.0§item:3.1' and r['chunk_type'] == 'ITEM'
+    assert r['location'].startswith('3.1 · p.') and r['unit_key'] == 'IT-SW-002@v2.0/item:3.1' and r['chunk_type'] == 'ITEM'
     assert r['inquiry_type_codes'] == ['SW-02'] and r['meta']['team'] == '엔드포인트지원팀'
     faq = chunk_row(next(c for c in chunks_of('IT-SW-002')[1] if c.unit_key.endswith('FAQ-035')))
     assert faq['location'] == '4 · FAQ-035'
 
 
 def test_unit_keys():
-    """unit_key = 문서@버전§종류:키. 항목·장은 절 번호, FAQ는 질문의 FAQ 번호, 없으면 순번."""
+    """unit_key = 문서@버전/종류:키. 항목·장은 절 번호, FAQ는 질문의 FAQ 번호, 없으면 순번."""
     _, cs = chunks_of('IT-SW-002')
     by = {c.chunk_key: c.unit_key for c in cs}
-    assert by['IT-SW-002@v2.0#004'] == 'IT-SW-002@v2.0§item:3.1'
-    assert 'IT-SW-002@v2.0§chapter:부록' in by.values()
+    assert by['IT-SW-002@v2.0#004'] == 'IT-SW-002@v2.0/item:3.1'
+    assert 'IT-SW-002@v2.0/chapter:부록' in by.values()
     faqs = [c.unit_key for c in cs if c.chunk_type == 'faq']
-    assert faqs == ['IT-SW-002@v2.0§faq:FAQ-023', 'IT-SW-002@v2.0§faq:FAQ-035', 'IT-SW-002@v2.0§faq:q03']
-    assert unit_ref(faqs[0]) == 'IT-SW-002§faq:FAQ-023'
+    assert faqs == ['IT-SW-002@v2.0/faq:FAQ-023', 'IT-SW-002@v2.0/faq:FAQ-035', 'IT-SW-002@v2.0/faq:q03']
+    assert unit_ref(faqs[0]) == 'IT-SW-002/faq:FAQ-023'
 
 
 def test_split_parts_share_unit():
@@ -189,7 +189,7 @@ def test_split_parts_share_unit():
             assert [c.part for c in parts] == list(range(1, parts[0].parts + 1))
             assert len({tuple(c.heading_path) for c in parts}) == 1
         assert validate(cs) == []
-    item = [c for c in chunks_of('IT-SW-003')[1] if c.unit_key == 'IT-SW-003@v2.0§item:3.1']
+    item = [c for c in chunks_of('IT-SW-003')[1] if c.unit_key == 'IT-SW-003@v2.0/item:3.1']
     assert len(item) == 3 and '해결 확인' in item[-1].subheadings
 
 
@@ -264,7 +264,7 @@ def test_long_run_keeps_sentence_order():
 
 def test_ids_found_before_korean_particle():
     cs = chunk_document(_doc(_h('4. 자주 묻는 질문', 1), _p('Q. 메일이 안 보여요 FAQ-012를 보세요'), _p('A. 답변입니다.')))
-    assert cs[0].faq_ids == ['FAQ-012'] and cs[0].unit_key.endswith('§faq:FAQ-012')
+    assert cs[0].faq_ids == ['FAQ-012'] and cs[0].unit_key.endswith('/faq:FAQ-012')
     item = Element('heading', '3.1 항목', level=2, meta={'props': [['문의 유형', 'SW-02와 SW-03']]})
     cs = chunk_document(_doc(_h('3. 항목별 안내', 1), item, _p('본문')))
     assert cs[0].inquiry_type_codes == ['SW-02', 'SW-03']
@@ -277,7 +277,7 @@ def test_faq_subheading_goes_with_next_question():
                              _h('계정', 3), _p('Q. 둘째 질문 (FAQ-002)'), _p('A. 둘째 답')))
     assert [c.chunk_type for c in cs] == ['faq', 'faq']
     assert '### 계정' not in cs[0].body and cs[1].body.startswith('### 계정\nQ. 둘째')
-    assert cs[1].subheadings == ['계정'] and cs[1].unit_key.endswith('§faq:FAQ-002')
+    assert cs[1].subheadings == ['계정'] and cs[1].unit_key.endswith('/faq:FAQ-002')
 
 
 def test_faq_subsections_split_per_question():
