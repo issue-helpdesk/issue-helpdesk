@@ -1,0 +1,14 @@
+/* 기본 규칙: 리셋, 글꼴, 포커스 링 (design/ITssue-Prototype.html 기준) */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:var(--font);background:var(--canvas);color:var(--ink);font-size:14px;line-height:1.5;word-break:keep-all;overflow-wrap:anywhere;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+h1,h2,h3,h4,p{margin:0}
+.mono{font-family:var(--mono)}
+.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.lg{display:block;max-width:100%;height:auto}
+:focus-visible{outline:2px solid var(--o600);outline-offset:2px;border-radius:8px}
+:root[data-theme="dark"] :focus-visible{outline-color:#FFA566}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) :focus-visible{outline-color:#FFA566}}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
