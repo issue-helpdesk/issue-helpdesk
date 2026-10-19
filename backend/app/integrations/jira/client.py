@@ -111,6 +111,11 @@ class JiraClient:
                 return self._result(issue["id"], issue["key"])
         return None
 
+    def check_auth(self) -> dict[str, Any]:
+        """토큰이 맞는지 확인한다. 토큰 주인 계정의 이름·accountId를 돌려준다(이 계정이 티켓 보고자가 된다)."""
+        me = self._request("GET", "/rest/api/3/myself")
+        return {"account_id": me.get("accountId"), "display_name": me.get("displayName")}
+
     def get_issue(self, issue_key: str, fields: list[str] | None = None) -> dict[str, Any]:
         params = {"fields": ",".join(fields)} if fields else None
         return self._request("GET", f"/rest/api/3/issue/{issue_key}", params=params)

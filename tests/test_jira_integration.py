@@ -205,3 +205,19 @@ def test_from_env_requires_all_three(monkeypatch):
     with pytest.raises(JiraError, match="JIRA_EMAIL"):
         JiraClient.from_env()
     get_jira_settings.cache_clear()
+
+
+def test_check_auth_returns_token_owner():
+    def handler(req: httpx.Request):
+        assert req.url.path == "/rest/api/3/myself"
+        assert req.headers["authorization"].startswith("Basic ")
+        return httpx.Response(200, json={"accountId": "abc", "displayName": "토큰 주인"})
+
+    with make_client(handler) as c:
+        assert c.check_auth() == {"account_id": "abc", "display_name": "토큰 주인"}
+
+
+def test_wrong_token_is_auth_error():
+    with make_client(lambda req: httpx.Response(401, text="Unauthorized")) as c, pytest.raises(JiraError) as e:
+        c.check_auth()
+    assert e.value.reason == "auth" and e.value.retryable is False

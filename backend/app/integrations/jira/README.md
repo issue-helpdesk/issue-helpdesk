@@ -10,7 +10,8 @@
 |---|---|
 | `field_mapping.yaml` | 필드·선택값·컴포넌트 ID(`fields`·`options`)와 생성 규칙(`create`). Jira 설정이 바뀌면 이 파일만 고칩니다. |
 | `mapper.py` | 접수 데이터 → Jira 생성 요청(`fields`) 변환. 네트워크 없음 |
-| `client.py` | 중복 확인 → 생성 → `{jira_issue_id, jira_key, jira_url, created}` 반환, 저장값 확인 |
+| `client.py` | 중복 확인 → 생성 → `{jira_issue_id, jira_key, jira_url, created}` 반환, 저장값 확인, 토큰 확인(`check_auth`) |
+| `smoke_check.py` | 실제 Jira에 붙여 보는 점검 스크립트 (아래 "시험") |
 
 ## 사용법
 
@@ -59,7 +60,15 @@ Jira Cloud는 이메일 + API 토큰으로 인증합니다. 토큰은 저장소�
 pytest tests/test_jira_integration.py      # 실제 Jira를 부르지 않음 (가짜 응답)
 ```
 
-실제 Jira 1건 확인 순서: `.env` 설정 → `create_ticket(테스트 접수)` → `check_saved(키, 테스트 접수)`가 `{}`인지 확인 → Jira에서 테스트 티켓 삭제.
+실제 Jira 점검 (루트 `.env`에 Jira 변수 3개를 넣은 뒤, 저장소 루트에서):
+
+```bash
+python backend/app/integrations/jira/smoke_check.py            # 인증 + 기존 시험 티켓 확인 (새로 만들지 않음)
+python backend/app/integrations/jira/smoke_check.py --create   # 위 + 새 시험 티켓 1건
+```
+
+`결과: 모두 통과`가 나오면 토큰 인증·검색·저장값·중복 방지가 모두 맞는 것입니다. `--create`로 만든 시험 티켓은 확인 후 Jira에서 지웁니다.
+새 티켓은 Jira 검색에 잡히기까지 몇 초 걸릴 수 있습니다. 만들자마자 같은 접수로 다시 부르면 중복이 생길 수 있으니, 재시도는 몇 초 뒤에 합니다.
 
 ## 변경 기록
 
@@ -74,7 +83,8 @@ pytest tests/test_jira_integration.py      # 실제 Jira를 부르지 않음 (�
 | `backend/app/integrations/jira/mapper.py` | 접수 데이터 → Jira `fields` 변환, 접수 내용 조합, 필수·코드값 검사 |
 | `backend/app/integrations/jira/client.py` | 중복 확인(접수번호 검색) · 생성 · 결과 반환 · `check_saved` · 오류를 `reason`·`retryable`로 분류 |
 | `backend/app/integrations/jira/README.md` | 이 문서 |
-| `tests/test_jira_integration.py` | 19개 시험 (변환·코드값·조합·255자·중복·시간 초과·400 오류·저장값 비교·환경 변수·taxonomy 일치) |
+| `backend/app/integrations/jira/smoke_check.py` | 실제 Jira 점검 스크립트 (토큰 인증 → 기존 시험 티켓 확인 → `--create` 시 새 1건) |
+| `tests/test_jira_integration.py` | 21개 시험 (변환·코드값·조합·255자·중복·시간 초과·400 오류·저장값 비교·환경 변수·taxonomy 일치·토큰 확인) |
 
 **수정**
 
@@ -88,5 +98,5 @@ pytest tests/test_jira_integration.py      # 실제 Jira를 부르지 않음 (�
 
 **확인**
 
-- 테스트 19개 통과.
+- 테스트 21개 통과.
 - 실제 ITSD에 시험 접수 1건(`RCPT-TEST-0001` → ITSD-353)을 만들고, Jira 응답으로 `check_saved()` = `{}`, 접수번호 검색으로 ITSD-353을 찾고, 같은 접수로 다시 부르면 새로 만들지 않음(`created: False`)을 확인했습니다. API 토큰이 없어 요청 본문은 같은 것을 로그인 세션으로 보냈습니다. 토큰 인증 경로는 아직 실제로 확인하지 않았습니다.
