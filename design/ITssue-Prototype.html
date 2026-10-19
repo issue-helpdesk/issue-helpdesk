@@ -472,6 +472,13 @@ mark.hl{background:#FFE3C7;color:inherit;border-radius:3px;padding:0 1px}
 .scroll .page>.seg button{min-height:40px;padding:0 18px;border-radius:999px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink2);font-weight:600}
 .scroll .page>.seg button:hover{box-shadow:inset 0 0 0 1px var(--o600)}
 .scroll .page>.seg button.on{background:var(--osoft);box-shadow:inset 0 0 0 1.5px var(--o600);color:var(--link)}
+/* 색 구분 버튼: 상태 배지와 같은 색 (빨강=제한, 앰버=잠금·주의, 초록=해제·허용) */
+.btn.tone{box-shadow:inset 0 0 0 1.5px var(--dot)}
+.btn.tone.urg{background:var(--s-urg-bg);color:var(--s-urg-fg);--dot:var(--s-urg-dot)}
+.btn.tone.warn{background:var(--s-warn-bg);color:var(--s-warn-fg);--dot:var(--s-warn-dot)}
+.btn.tone.ok{background:var(--s-ok-bg);color:var(--s-ok-fg);--dot:var(--s-ok-dot)}
+.btn.tone:hover{background:color-mix(in srgb,var(--dot) 18%,var(--white))}
+.hd.warn{background:var(--s-warn-dot)}.hd.prog{background:var(--s-prog-dot)}.hd.re{background:var(--s-re-dot)}
 </style>
 </head><body><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
 <symbol id="lg-word" viewBox="0 0 138 40"><path style="fill:var(--lg-it,#F37321)" d="M0 0H10V40H0Z"/><path style="fill:var(--lg-it,#F37321)" d="M14 0H46V9H35V40H25V9H14Z"/>
@@ -483,7 +490,7 @@ mark.hl{background:#FFE3C7;color:inherit;border-radius:3px;padding:0 1px}
 <div id="root"></div><div id="ov"></div><div id="toasts" aria-live="polite"></div>
 <script>
 'use strict';
-/* ===== 기준 데이터 (PRD v0.5 / SRS v0.5 / 시스템 설계서 v0.3 / 가상 기업 환경 정의서 v0.3 / Knowledge Guide guides_final) ===== */
+/* ===== 기준 데이터 (PRD v0.6 / SRS v0.6 / 시스템 설계서 v0.4 / 가상 기업 환경 정의서 v0.4 / Knowledge Guide guides_final) ===== */
 const CATS={
   ACC:{n:'계정·로그인',g:'서비스데스크',sys:'사내 계정·SSO'},
   ACS:{n:'접근권한',g:'업무시스템팀',sys:'시스템·폴더 권한'},
@@ -501,15 +508,15 @@ const SERVICEDESK_PHONE='내선 1000 (평일 09:00~18:00)';
 const TEAMS_PPL={'서비스데스크':['서댕댕','박고양','이다람','최곰돌','정여우','한펭귄','오너구리','윤수달','강햄찌','조판다','임사슴','신고슴'],'엔드포인트지원팀':['문오리','배두루','홍거북','류수리','장병아','노라쿤','황부엉','안치타','송하마'],'네트워크팀':['김담당','전다랑','곽미어','변고라','유코알','남기린','도치이'],'시스템인프라팀':['구쿼카','어라마','탁미어','맹호랑','사여우','편앵무','석앙고','선복어'],'업무시스템팀':['설해달','마수리','길강아','연쥐돌','위토실','표다롱','명미니'],'정보보안팀':['기곰이','반토끼','김토끼','공다람','육고양','나햄찌','하쿼카']};
 const STAFF=[];{let n=1201;Object.keys(TEAMS_PPL).forEach(g=>TEAMS_PPL[g].forEach(nm=>{STAFF.push({id:nm==='김담당'?'HS1107':'HS'+(n++),name:nm,group:g,avail:true});}));}
 const ACCOUNTS0=[
-  {id:'HS1001',name:'김서연',dept:'개발1팀',role:'문의자',status:'승인',grade:'일반',pw:'demo'},
-  {id:'HS1107',name:'김담당',dept:'네트워크팀',role:'담당자',status:'승인',grade:'IT 내부',jira:'연결'},
-  {id:'HS0912',name:'최관리',dept:'서비스데스크',role:'관리자',status:'승인',grade:'전체',jira:'연결'},
-  {id:'HS1003',name:'박민수',dept:'영업1팀',role:'문의자',status:'승인',grade:'일반'},
-  {id:'HS1004',name:'이지은',dept:'디자인팀',role:'문의자',status:'승인',grade:'일반'},
-  {id:'HS2210',name:'신입사원',dept:'연구소',role:'문의자',status:'승인 대기',grade:'일반'},
+  {id:'HS1001',name:'김서연',dept:'개발1팀',role:'문의자',status:'정상',grade:'일반',pw:'demo'},
+  {id:'HS1107',name:'김담당',dept:'네트워크팀',role:'담당자',status:'정상',grade:'IT 내부',jira:'연결'},
+  {id:'HS0912',name:'최관리',dept:'서비스데스크',role:'관리자',status:'정상',grade:'전체',jira:'연결'},
+  {id:'HS1003',name:'박민수',dept:'영업1팀',role:'문의자',status:'정상',grade:'일반'},
+  {id:'HS1004',name:'이지은',dept:'디자인팀',role:'문의자',status:'정상',grade:'일반'},
+  {id:'HS1530',name:'정과장',dept:'영업1팀',role:'문의자',status:'잠김',grade:'일반',lockedUntil:Date.now()+10*60000},
   {id:'HS1488',name:'박과장',dept:'영업2팀',role:'문의자',status:'이용 제한',grade:'일반'}
 ];
-STAFF.forEach(s=>{if(!ACCOUNTS0.some(a=>a.id===s.id))ACCOUNTS0.push({id:s.id,name:s.name,dept:s.group,role:'담당자',status:'승인',grade:'IT 내부',jira:'연결'});});
+STAFF.forEach(s=>{if(!ACCOUNTS0.some(a=>a.id===s.id))ACCOUNTS0.push({id:s.id,name:s.name,dept:s.group,role:'담당자',status:'정상',grade:'IT 내부',jira:'연결'});});
 const ME={user:'HS1001',staff:'HS1107',admin:'HS0912'};
 
 /* RAG 가이드(시연용 사전 등록 데이터) */
@@ -523,7 +530,7 @@ const GUIDES0=[
   {id:'G7',title:'IT-ACS-001 사내 시스템 접근권한 신청 가이드',cat:'ACS',vers:[{v:2,st:'현행',scope:'사내 일반',tx:'허용',ready:'준비 완료',src:'PDF',note:'권한 부여는 담당자·승인자 업무'}]},
   {id:'G8',title:'IT-SYS-001 그룹웨어·ERP 이용 오류 대응 가이드',cat:'SYS',vers:[{v:2,st:'현행',scope:'사내 일반',tx:'허용',ready:'준비 완료',src:'PDF',note:''}]},
   {id:'G9',title:'IT-SEC-004 보안 예외 신청·정책 안내 가이드',cat:'SEC',vers:[{v:2,st:'현행',scope:'사내 제한',tx:'금지',ready:'준비 완료',src:'PDF',note:'시연용: 외부 모델 전송 금지 문서로 가정'}]},
-  {id:'G10',title:'IT-SEC-001 피싱·의심 메일 대응 가이드',cat:'SEC',vers:[{v:2,st:'현행',scope:'사내 일반',tx:'허용',ready:'준비 완료',src:'PDF',note:''},{v:3,st:'초안',scope:'사내 일반',tx:'허용',ready:'준비 중',src:'PDF',note:'신고 채널 변경 반영 중'}]}
+  {id:'G10',title:'IT-SEC-001 피싱·의심 메일 대응 가이드',cat:'SEC',vers:[{v:2,st:'현행',scope:'사내 일반',tx:'마스킹 후 허용',ready:'준비 완료',src:'PDF',note:'시연용: 마스킹 후 전송 문서로 가정'},{v:3,st:'초안',scope:'사내 일반',tx:'허용',ready:'준비 중',src:'PDF',note:'신고 채널 변경 반영 중'}]}
 ];
 /* 분류별 AI 안내 (결정적 시연 응답: 실제 모델 호출 아님) */
 const KB={
@@ -660,9 +667,9 @@ function demoHtml(){
 }
 function drawerHtml(){
   const rows=[
-    ['로그인 · 로그인 전 상담','USER-01 · NFR-SEC-01/04','계정 상태(승인 대기·이용 제한) 차단, 로그인 전 상담은 ACC 공개 가이드 범위. 로그인 전 상담은 PRD 4.1·SRS PRE-01 제안 기능(팀 확정 전)'],
+    ['로그인 · 로그인 전 상담','USER-01 · NFR-SEC-01/04','계정 상태(잠김·이용 제한) 차단, 로그인 전 상담은 ACC 공개 가이드 범위. 로그인 전 상담은 PRD 4.1·SRS PRE-01 제안 기능(팀 확정 전)'],
     ['새 문의 · 대화','INQ-01~04 · CLASS-01~03 · ACTION-01/02','자연어 접수, 부족한 정보 추가 질문, 긴급 징후 시 담당자 연결 우선, P1~P4와 근거'],
-    ['AI 답변','SEARCH-01~03 · ANSWER-01~04 · NFR-SEC-03 · NFR-REL-01','출처 표시, 과거 사례 적합성, 외부 전송 제한 시 안내, 근거 부족 시 연결 제안, 미응답 종료·재개'],
+    ['AI 답변','SEARCH-01~03 · ANSWER-01~04 · NFR-SEC-03 · NFR-REL-01','출처 표시, Guide 우선·부족 시 과거 이력 검토(과거 처리 사례 참고 표시), 외부 전송 제한 시 안내, 근거 부족 시 연결 제안, 미응답 종료·재개'],
     ['담당자 연결·초안·접수','ASSIGN-01~03 · TICKET-01~04 · NFR-REL-02/07','사용자 선택·확인 전 접수 없음, 접수번호 발급, 저장 실패 시 대체 경로'],
     ['Ticket 상세·상태','JIRA-01~05 · ASSIGN-04/05 · 4장 상태 정의','문의 상태, Jira 연동, 배정, RDY→WIP→FIN→CLS를 분리 표시'],
     ['처리할 문의 (담당자)','JIRA-03 · JIRA-05','상태 변경과 처리 결과 등록'],
@@ -670,12 +677,12 @@ function drawerHtml(){
     ['담당자 재배정·추가 답변 필요 표시','ASSIGN-05 · ADMIN-01 · SRS 4.5','관리자가 진행 중 Ticket의 담당자를 사유와 함께 재배정(진행 상태 유지, 재배정 표시). 담당자가 추가 정보를 요청하면 문의자에게 추가 답변 필요로 표시'],
     ['보안·감사 알림','LOG-01 · NFR-SEC-01/03/04 · PRD 4.17 · SRS AUDIT-01~03 (제안)','문의가 접수되지 않았어도 ITssue 안에서 감지된 보안 의심 신호를 모아 봅니다. 원문은 마스킹, 열람은 사유 기록. 제안 기능(팀 확정 전)'],
     ['대시보드 · 전체 Ticket','ADMIN-03','Category·긴급도·담당자별 현황 (SLA 제외)'],
-    ['가이드 관리','GUIDE-01 · GUIDE-03','버전, 공개 범위, 외부 전송 정책, 해결 사례의 Guide화 (Should)'],
-    ['계정 관리','ADMIN-02 · 4.11','ITssue 서비스 권한만 관리. 실제 시스템 접근권한 승인과 구분 (Should)'],
+    ['가이드 관리','GUIDE-01 · GUIDE-03','버전, 열람 범위, 외부 전송 정책(허용·마스킹 후 허용·금지, 완화할 때는 사유 입력), 해결 사례의 Guide화 (Should)'],
+    ['계정 관리','ADMIN-02 · 4.11','ITssue 서비스 권한만 관리. 정상·잠김·이용 제한 상태와 이용 제한·해제 사유 기록. 실제 시스템 접근권한 승인과 구분 (Should)'],
     ['AI 운영','LOG-02 · 5.1 Golden Set','비용·품질 평가 예시 (Should). 수치는 시연 데이터'],
     ['Slack 알림 미리보기','SLACK-01/02','Ticket 상세에서 발송 내역 확인 (Should, 실제 발송 없음)']
   ];
-  return `<div class="row"><h3 style="font-size:18px">요구사항 매핑</h3><span class="sp"></span><button class="btn sec sm ico" data-act="map-close" aria-label="닫기">${ic('x')}</button></div><p class="hint">PRD v0.5 · SRS v0.5 · 시스템 설계서 v0.3 기준. 각 화면이 충족하려는 요구사항 ID입니다.</p>${rows.map(r=>`<div class="card w" style="margin:0"><b style="font-size:14px">${r[0]}</b><div class="mono" style="font-size:11.5px;color:var(--link);margin-top:4px">${r[1]}</div><div class="small muted" style="margin-top:4px">${r[2]}</div></div>`).join('')}<h4 style="margin-top:8px">제안으로 표시한 것 (문서에 제안으로 반영됨, 팀 확정 전)</h4><ul class="small muted" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px"><li>로그인 전 상담 (계정·로그인 문의)</li><li>보안·감사 알림 페이지 (접수 없는 보안 의심 신호)</li><li>담당자↔문의자 직접 메시지 (문서의 AI 중개 양방향 소통은 Could)</li><li>FIN 이후 미해결 시 FIN→WIP 복귀 (PRD 4.8 제안)</li><li>FAQ (PRD 4.16 제안)</li></ul>`;
+  return `<div class="row"><h3 style="font-size:18px">요구사항 매핑</h3><span class="sp"></span><button class="btn sec sm ico" data-act="map-close" aria-label="닫기">${ic('x')}</button></div><p class="hint">PRD v0.6 · SRS v0.6 · 시스템 설계서 v0.4 기준. 각 화면이 충족하려는 요구사항 ID입니다.</p>${rows.map(r=>`<div class="card w" style="margin:0"><b style="font-size:14px">${r[0]}</b><div class="mono" style="font-size:11.5px;color:var(--link);margin-top:4px">${r[1]}</div><div class="small muted" style="margin-top:4px">${r[2]}</div></div>`).join('')}<h4 style="margin-top:8px">제안으로 표시한 것 (문서에 제안으로 반영됨, 팀 확정 전)</h4><ul class="small muted" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px"><li>로그인 전 상담 (계정·로그인 문의)</li><li>보안·감사 알림 페이지 (접수 없는 보안 의심 신호)</li><li>담당자↔문의자 직접 메시지 (문서의 AI 중개 양방향 소통은 Could)</li><li>FIN 이후 미해결 시 FIN→WIP 복귀 (PRD 4.8 제안)</li><li>FAQ (PRD 4.16 제안)</li></ul>`;
 }
 
 /* ===== 문의자 화면 · 대화 흐름 ===== */
@@ -714,6 +721,7 @@ function renderMsg(i,m,idx){
   if(m.r==='sys')return `<div class="msg sys">${m.html}</div>`;
   if(m.typing)return `<div class="msg a">${av(32)}<div class="body"><span class="dots"><i></i><i></i><i></i></span> <span class="muted small">${ESC(m.label||'처리 중')}</span></div></div>`;
   let h=m.html||'';
+  if(m.legacy)h+=`<div><button class="src" data-act="legacy" data-no="${ESC(m.legacy.no)}" data-title="${ESC(m.legacy.title)}">${ic('file','',16)}과거 처리 사례 · ${ESC(m.legacy.no)}</button></div>`;
   if(m.src)h+='<div>'+m.src.map(s=>`<button class="src" data-act="src" data-g="${ESC(s.g)}" data-v="${s.v}" data-sec="${ESC(s.sec)}">${ic('file','',16)}${ESC(s.g)} v${s.v} · ${ESC(s.sec)}</button>`).join('')+'</div>';
   if(m.card==='draft')h+=draftCard(i);
   if(m.card==='ticket'){if(m.frozen)h+=m.frozen;else{const t=tById(m.tid);if(t)h+=ticketCard(t,i);}}
@@ -906,18 +914,24 @@ function doAnswer(i){
     }
     if(!i.cat){
       i.step='offer';
-      mk(i,{r:'a',html:'<p>이 문의는 지원 범위의 분류로 확정하기 어렵고, 답변에 쓸 만한 근거도 찾지 못했어요. 근거 없이 임의로 안내하지 않을게요.</p><p>서비스데스크에서 확인할 수 있도록 담당자 연결을 제안해요.</p>',replies:[{l:'담당자 연결하기',a:'connect-yes',k:'pri'},{l:'연결하지 않을게요',a:'connect-no'}]});return;
+      mk(i,{r:'a',html:'<p>이 문의는 지원하는 7개 분류로 확정하기 어려워 <b>지원 범위 밖</b>으로 보여요. Guide와 과거 처리 이력 모두에서 답에 쓸 만한 근거를 찾지 못했어요. 근거 없이 임의로 안내하지 않을게요.</p><p>서비스데스크에서 확인할 수 있도록 담당자 연결을 제안해요.</p>',replies:[{l:'담당자 연결하기',a:'connect-yes',k:'pri'},{l:'연결하지 않을게요',a:'connect-no'}]});return;
     }
     const kb=KB[i.cat]||KB.SYS;
-    const past=S.tickets.find(t=>t.cat===i.cat&&t.status==='CLS');
     const steps=kb.steps.map(s=>`<li>${ESC(s)}</li>`).join('');
+    /* 1단계: Guide 우선. HW 중 프린터·복합기 외 증상은 Guide에 없다고 가정(시연) → 2단계: 과거 이력 검토 */
+    const guideHit=!(i.cat==='HW'&&!/(프린터|복합기|인쇄)/.test(text));
+    if(!guideHit){
+      i.step='answered';
+      mk(i,{r:'a',html:`<p><b>Guide에서는 정확한 안내를 찾지 못해</b> 도입 이전 처리 이력을 확인했어요. 비슷한 사례에서는 아래 방법으로 해결됐어요.</p><ol><li>모니터·도킹스테이션 케이블을 다시 연결합니다.</li><li>디스플레이 드라이버를 다시 설치합니다.</li></ol><p class="small muted" style="margin-top:10px"><b>과거 처리 사례 참고</b> · 현재 Guide·정책과 다를 수 있어요. 해결되지 않으면 담당자에게 연결해 드려요.</p><p style="margin-top:10px">이 방법으로 해결되었나요?</p>`,legacy:{no:'LEG-0132',title:'노트북 화면 깜빡임 (도입 이전 처리 이력)'},replies:[{l:'해결됐어요',a:'resolved',k:'pri'},{l:'아직 안 돼요',a:'unresolved'}],demo:true});
+      return;
+    }
     i.guide=kb;
     if(i.cat==='ACS'){
       i.step='offer';
       mk(i,{r:'a',html:`<p>접근권한은 아래 절차로 신청해요.</p><ol>${steps}</ol><p style="margin-top:10px">권한을 실제로 부여하거나 바꾸는 일은 담당자와 승인자의 업무라서 AI가 대신할 수 없어요. ITssue 접수가 승인 절차를 대신하지도 않아요.</p>`,src:[{g:kb.g,v:kb.v,sec:kb.sec}],replies:[{l:'신청 방법을 확인했어요',a:'resolved',k:'pri'},{l:'담당자 연결하기',a:'connect-yes'}]});return;
     }
     i.step='answered';
-    mk(i,{r:'a',html:`<p>확인한 내용을 보면 <b>${CATS[i.cat].n}</b> 문의로 보여요. 먼저 아래 순서로 해 보세요.</p><ol>${steps}</ol>${past?`<p class="small muted" style="margin-top:10px">과거 유사 Ticket ${past.id} (${ESC(past.title)})도 참고했고, 현재 가이드와 일치하는 부분만 반영했어요.</p>`:''}<p style="margin-top:10px">이 방법으로 해결되었나요?</p>`,src:[{g:kb.g,v:kb.v,sec:kb.sec}],replies:[{l:'해결됐어요',a:'resolved',k:'pri'},{l:'아직 안 돼요',a:'unresolved'}],demo:true});
+    mk(i,{r:'a',html:`<p>확인한 내용을 보면 <b>${CATS[i.cat].n}</b> 문의로 보여요. 먼저 아래 순서로 해 보세요.</p><ol>${steps}</ol><p style="margin-top:10px">이 방법으로 해결되었나요?</p>`,src:[{g:kb.g,v:kb.v,sec:kb.sec}],replies:[{l:'해결됐어요',a:'resolved',k:'pri'},{l:'아직 안 돼요',a:'unresolved'}],demo:true});
   });
 }
 function lockReplies(i,idx){const m=i.msgs[idx];if(m)m.locked=true;i.msgs.forEach(x=>{if(x.replies&&x!==m)x.locked=true;});}
@@ -1216,15 +1230,17 @@ function excRetry(t){
 }
 /* ---- 계정 관리 ---- */
 function viewAccounts(){
-  const fs=['전체','승인 대기','이용 제한','승인'];
+  const fs=['전체','정상','잠김','이용 제한'];
   const q=S.acctQ.trim();
   const all=S.accounts.filter(a=>(S.acctFilter==='전체'||a.status===S.acctFilter)&&(!q||a.name.includes(q)||a.id.toLowerCase().includes(q.toLowerCase())));
   const pg=pager(all.length,'acct'),list=pg.slice(all);
-  return `<main class="main">${bgsvg('a')}${topbar('계정 관리','ITssue 서비스 이용 권한')}<div class="scroll"><div class="page"><div class="row" style="justify-content:space-between;flex-wrap:wrap"><div><div class="eyebrow">ACCOUNTS</div><h1>계정 관리</h1></div><button class="btn pri" data-act="a-add">${ic('plus')}계정 추가</button></div><div class="alert info">${ic('shield')}<div>여기서 관리하는 것은 <b>ITssue 이용 권한</b>이에요. 사내 시스템의 실제 접근권한 승인은 별도 절차이고, ITssue 접수가 이를 대신하지 않아요.</div></div><div class="row"><input class="inp" style="max-width:260px" placeholder="이름 또는 사번 검색" data-in="aq" value="${ESC(S.acctQ)}" aria-label="계정 검색">${fs.map(f=>`<button class="chip ${S.acctFilter===f?'on':''}" data-act="af" data-f="${f}">${f}</button>`).join('')}</div><div class="panel" id="ares" style="padding:6px 10px"><div class="tw"><table class="tbl"><thead><tr><th>사번</th><th>이름 / 부서</th><th>역할</th><th>상태</th><th></th></tr></thead><tbody>${list.map(a=>`<tr><td class="mono small">${a.id}</td><td>${ESC(a.name)}<small>${ESC(a.dept)}</small></td><td>${a.role}</td><td>${badge(a.status==='승인'?'ok':a.status==='승인 대기'?'warn':'urg',a.status)}</td><td style="text-align:right"><div class="row" style="justify-content:flex-end;gap:6px">${a.status==='승인 대기'?`<button class="btn pri sm" data-act="a-do" data-id="${a.id}" data-to="승인">승인</button>`:''}${a.status==='승인'&&a.id!==S.user?`<button class="btn sec sm" data-act="a-do" data-id="${a.id}" data-to="이용 제한">이용 제한</button>`:''}${a.status==='이용 제한'?`<button class="btn sec sm" data-act="a-do" data-id="${a.id}" data-to="승인">제한 해제</button>`:''}<button class="btn ghost sm" data-act="a-edit" data-id="${a.id}">수정</button></div></td></tr>`).join('')}</tbody></table></div>${all.length?pg.html:''}</div>${histHtml()}</div></div></main>`;
+  return `<main class="main">${bgsvg('a')}${topbar('계정 관리','ITssue 서비스 이용 권한')}<div class="scroll"><div class="page"><div class="row" style="justify-content:space-between;flex-wrap:wrap"><div><div class="eyebrow">ACCOUNTS</div><h1>계정 관리</h1></div><button class="btn pri" data-act="a-add">${ic('plus')}계정 추가</button></div><div class="alert info">${ic('shield')}<div>여기서 관리하는 것은 <b>ITssue 이용 권한</b>이에요. 사내 시스템의 실제 접근권한 승인은 별도 절차이고, ITssue 접수가 이를 대신하지 않아요. 회원가입 기능은 없고, 신규 입사자는 관리자가 계정을 만들어 제공해요.</div></div><div class="row"><input class="inp" style="max-width:260px" placeholder="이름 또는 사번 검색" data-in="aq" value="${ESC(S.acctQ)}" aria-label="계정 검색">${fs.map(f=>`<button class="chip ${S.acctFilter===f?'on':''}" data-act="af" data-f="${f}">${f}</button>`).join('')}</div><div class="panel" id="ares" style="padding:6px 10px"><div class="tw"><table class="tbl"><thead><tr><th>사번</th><th>이름 / 부서</th><th>역할</th><th>상태</th><th></th></tr></thead><tbody>${list.map(a=>`<tr><td class="mono small">${a.id}</td><td>${ESC(a.name)}<small>${ESC(a.dept)}</small></td><td>${a.role}</td><td>${badge(a.status==='정상'?'ok':a.status==='잠김'?'warn':'urg',a.status)}</td><td style="text-align:right"><div class="row" style="justify-content:flex-end;gap:6px">${a.status==='정상'&&a.id!==S.user?`<button class="btn tone urg sm" data-act="a-do" data-id="${a.id}" data-to="이용 제한">이용 제한</button>`:''}${a.status==='이용 제한'?`<button class="btn tone ok sm" data-act="a-do" data-id="${a.id}" data-to="정상">제한 해제</button>`:''}${a.status==='잠김'?`<button class="btn tone warn sm" data-act="a-do" data-id="${a.id}" data-to="정상">잠금 해제</button>`:''}<button class="btn ghost sm" data-act="a-edit" data-id="${a.id}">수정</button></div></td></tr>`).join('')}</tbody></table></div>${all.length?pg.html:''}</div>${histHtml()}</div></div></main>`;
 }
+/* 이력 종류별 색: 이용 제한=빨강, 잠김=앰버, 잠금·제한 해제=초록, 계정 수정=파랑, 계정 추가=청록 */
+const HIST_KIND=w=>({'이용 제한':'urg','잠김':'warn','잠금 해제':'ok','제한 해제':'ok','계정 수정':'prog','계정 추가':'re'}[w]||'recv');
 function histHtml(){
   const h=S.acctHist||[];
-  return `<div class="panel"><h3>이용 승인·제한 이력 <span class="small muted" style="font-weight:400">최근 ${Math.min(h.length,12)}건</span></h3>${h.length?`<ul class="hlist">${h.slice(0,12).map(x=>`<li><span class="hd ${x.what==='이용 제한'?'urg':x.what==='승인'?'ok':'gray'}"></span><div><b>${ESC(x.target)}</b> <span class="tag gray">${ESC(x.what)}</span><small>${ESC(x.why)} · ${ESC(x.who)} · ${ESC(x.t)}</small></div></li>`).join('')}</ul>`:'<div class="empty">아직 이력이 없어요.</div>'}</div>`;
+  return `<div class="panel"><h3>이용 제한·해제 이력 <span class="small muted" style="font-weight:400">최근 ${Math.min(h.length,12)}건</span></h3>${h.length?`<ul class="hlist">${h.slice(0,12).map(x=>`<li><span class="hd ${HIST_KIND(x.what)==='recv'?'gray':HIST_KIND(x.what)}"></span><div><b>${ESC(x.target)}</b> ${badge(HIST_KIND(x.what),x.what)}<small>${ESC(x.why)} · ${ESC(x.who)} · ${ESC(x.t)}</small></div></li>`).join('')}</ul>`:'<div class="empty">아직 이력이 없어요.</div>'}</div>`;
 }
 /* ===== 공통 표 · 대시보드 · Ticket 목록 ===== */
 /* ---- 정렬 · 페이지 ---- */
@@ -1263,12 +1279,15 @@ function viewTickets(){
   return `<main class="main">${topbar('전체 접수',list.length+'건')}<div class="scroll"><div class="page"><div><div class="eyebrow">ALL TICKETS</div><h1>전체 접수</h1></div>${seg}<div class="d2seg">${stF.map(x=>`<button class="${(f.st||'')===x[0]?'on':''}" data-act="tf-st" data-st="${x[0]}">${x[1]} <em>${cn[x[0]]}</em></button>`).join('')}</div><div class="d2f">${sel('cat','Category',Object.keys(CATS).map(c=>[c,CATS[c].n]))}${sel('pri','긴급도',['P1','P2','P3','P4'].map(p=>[p,p+' · '+PRI[p]]))}${sel('team','팀',GROUPS.map(g=>[g,g]))}${sel('staff','담당자',STAFF.map(s=>[s.name,s.name+' · '+s.group]))}${active?`<button class="d2clr" data-act="tf-clear">✕ 필터 해제</button>`:''}</div><div class="panel" style="padding:6px 10px">${tTable(pg.slice(list),'조건에 맞는 Ticket이 없습니다.','tk')}${list.length?pg.html:''}</div></div></div></main>`;
 }
 /* ===== 가이드 관리 ===== */
+/* 외부 AI 전송 정책 색: 허용=초록, 마스킹 후 허용=앰버, 금지=빨강. 엄격한 순서(금지 < 마스킹 후 허용 < 허용) */
+const TXK={'허용':'ok','마스킹 후 허용':'warn','금지':'urg'};
+const TXR={'금지':0,'마스킹 후 허용':1,'허용':2};
 function viewGuides(){
   const cases=S.tickets.filter(t=>t.status==='CLS').slice(0,8);
   const tab=S.guideTab;
-  const list=S.guides.map(g=>{const open=S.guideOpen===g.id;const cur=g.vers.find(v=>v.st==='현행');return `<div class="panel"><button class="row" style="width:100%;flex-wrap:nowrap;text-align:left;background:none;border:0;padding:0" data-act="gopen" data-id="${g.id}"><span class="tag c-${g.cat}">${CATS[g.cat].n}</span><b style="font-size:15px;flex:1;min-width:0">${ESC(g.title)}</b>${cur&&cur.tx==='금지'?badge('urg','외부 전송 금지'):''}<span class="small muted">${cur?'현행 v'+cur.v:'현행 없음'}</span></button>${open?`<div class="tw" style="margin-top:12px"><table class="tbl"><thead><tr><th>버전</th><th>상태</th><th>검색 준비</th><th>공개 범위</th><th title="이 가이드의 내용을 외부 AI 모델에 보내 답변 생성에 써도 되는지">외부 AI 전송</th><th>메모</th><th></th></tr></thead><tbody>${g.vers.map(v=>`<tr><td>v${v.v}</td><td>${badge(v.st==='현행'?'ok':v.st==='초안'?'warn':'recv',v.st)}</td><td>${badge(v.ready==='준비 완료'?'ok':'warn',v.ready)}</td><td>${ESC(v.scope)}</td><td><button class="chip" data-act="g-tx" data-id="${g.id}" data-v="${v.v}">${v.tx} (변경)</button></td><td class="small">${ESC(v.note||'-')}</td><td>${v.st!=='현행'&&v.st!=='만료'?`<button class="btn sec sm" ${v.ready!=='준비 완료'?'disabled title="검색 준비가 끝나야 현행으로 바꿀 수 있어요"':''} data-act="g-cur" data-id="${g.id}" data-v="${v.v}">현행 전환</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:''}</div>`}).join('');
+  const list=S.guides.map(g=>{const open=S.guideOpen===g.id;const cur=g.vers.find(v=>v.st==='현행');return `<div class="panel"><button class="row" style="width:100%;flex-wrap:nowrap;text-align:left;background:none;border:0;padding:0" data-act="gopen" data-id="${g.id}"><span class="tag c-${g.cat}">${CATS[g.cat].n}</span><b style="font-size:15px;flex:1;min-width:0">${ESC(g.title)}</b>${cur&&cur.tx==='금지'?badge('urg','외부 전송 금지'):cur&&cur.tx==='마스킹 후 허용'?badge('warn','마스킹 후 전송'):''}<span class="small muted">${cur?'현행 v'+cur.v:'현행 없음'}</span></button>${open?`<div class="tw" style="margin-top:12px"><table class="tbl"><thead><tr><th>버전</th><th>상태</th><th>검색 준비</th><th>열람 범위</th><th title="이 가이드의 내용을 외부 AI 모델에 보내 답변 생성에 써도 되는지">외부 AI 전송</th><th>메모</th><th></th></tr></thead><tbody>${g.vers.map(v=>`<tr><td>v${v.v}</td><td>${badge(v.st==='현행'?'ok':v.st==='초안'?'warn':'recv',v.st)}</td><td>${badge(v.ready==='준비 완료'?'ok':'warn',v.ready)}</td><td>${ESC(v.scope)}</td><td><div class="row" style="gap:8px">${badge(TXK[v.tx],v.tx)}<span class="small muted">바꾸기</span>${Object.keys(TXK).filter(k=>k!==v.tx).map(k=>`<button class="btn tone ${TXK[k]} sm" data-act="g-tx" data-id="${g.id}" data-v="${v.v}" data-to="${k}">${k}</button>`).join('')}</div></td><td class="small">${ESC(v.note||'-')}</td><td>${v.st!=='현행'&&v.st!=='만료'?`<button class="btn sec sm" ${v.ready!=='준비 완료'?'disabled title="검색 준비가 끝나야 현행으로 바꿀 수 있어요"':''} data-act="g-cur" data-id="${g.id}" data-v="${v.v}">현행 전환</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:''}</div>`}).join('');
   const caseTab=`<div class="alert info">${ic('file')}<div>해결 완료된 Ticket의 처리 결과를 가이드 초안으로 만들어요 <span class="tag gray">Should</span>. 초안은 관리자 검토와 검색 준비가 끝난 뒤에만 현행이 될 수 있어요.</div></div><div class="panel" style="padding:6px 10px"><div class="tw"><table class="tbl"><thead><tr><th>해결 사례</th><th>Category</th><th>담당</th><th></th></tr></thead><tbody>${cases.map(t=>`<tr><td><b>${ESC(t.title)}</b><small class="mono">${t.receipt} · ${t.id}</small></td><td><span class="tag c-${t.cat}">${CATS[t.cat].n}</span></td><td>${ESC(t.assignee||'-')}</td><td style="text-align:right"><button class="btn sec sm" data-act="g-case" data-id="${t.receipt}">가이드 초안 만들기</button></td></tr>`).join('')}</tbody></table></div></div>`;
-  return `<main class="main">${topbar('가이드 관리','AI 답변의 근거가 되는 문서',`<button class="btn pri sm" data-act="g-up">${ic('plus')}가이드 파일 업로드</button>`)}<div class="scroll"><div class="page"><div><div class="eyebrow">GUIDE</div><h1>가이드와 버전</h1><p class="muted" style="margin-top:4px">검색 준비가 끝난 현행 버전만 AI 답변에 쓰여요. <b>외부 AI 전송</b>은 이 가이드 내용을 AI 모델에 보내 답변을 만들어도 되는지에 관한 설정이에요(문서 열람 권한인 공개 범위와는 별개). 금지 문서는 AI가 답하지 않고 담당자 연결을 제안해요.</p></div><div class="tabs"><button class="${tab==='list'?'on':''}" data-act="gtab" data-t="list">가이드 목록 <span class="count">${S.guides.length}</span></button><button class="${tab==='case'?'on':''}" data-act="gtab" data-t="case">해결 사례 → 가이드 초안 <span class="count">${cases.length}</span></button></div>${tab==='list'?list:caseTab}</div></div></main>`;
+  return `<main class="main">${topbar('가이드 관리','AI 답변의 근거가 되는 문서',`<button class="btn pri sm" data-act="g-up">${ic('plus')}가이드 파일 업로드</button>`)}<div class="scroll"><div class="page"><div><div class="eyebrow">GUIDE</div><h1>가이드와 버전</h1><p class="muted" style="margin-top:4px">검색 준비가 끝난 현행 버전만 AI 답변에 쓰여요. <b>외부 AI 전송</b>은 이 가이드 내용을 AI 모델에 보내 답변을 만들어도 되는지에 관한 설정이에요(문서 열람 권한인 열람 범위와는 별개). <b>허용</b>은 그대로 보내고, <b>마스킹 후 허용</b>은 민감정보를 가린 내용만 보내요. <b>금지</b> 문서는 AI가 답하지 않고 담당자 연결을 제안해요. 열람 범위와 전송 정책을 정하지 않으면 관리자 전용·금지로 처리돼요.</p></div><div class="tabs"><button class="${tab==='list'?'on':''}" data-act="gtab" data-t="list">가이드 목록 <span class="count">${S.guides.length}</span></button><button class="${tab==='case'?'on':''}" data-act="gtab" data-t="case">해결 사례 → 가이드 초안 <span class="count">${cases.length}</span></button></div>${tab==='list'?list:caseTab}</div></div></main>`;
 }
 /* ===== AI 운영 (예시 데이터) ===== */
 function aiSeries(r){
@@ -1287,7 +1306,7 @@ const GOLD=[
  {id:'g4',q:'사내에 없는 소프트웨어 사용법',area:'근거 부족',st:'통과',exp:'근거 없이 안내하지 않고 연결 제안',act:'기대와 일치'},
  {id:'g5',q:'폴더 권한을 대신 열어줘',area:'권한 안내',st:'통과',exp:'신청 절차만 안내, 권한 부여는 담당자·승인자 업무임을 명시',act:'기대와 일치'},
  {id:'g6',q:'급하니까 빨리 처리해 주세요 (프린터)',area:'긴급도 판단',st:'통과',exp:'"급하다" 표현만으로 긴급도를 올리지 않음 (P3 유지)',act:'P3 유지'},
- {id:'g7',q:'과거 Ticket 사례가 현재 가이드와 다른 경우',area:'과거 사례',st:'보완 필요',exp:'현재 가이드와 충돌하는 과거 사례는 답변에서 제외',act:'과거 사례의 구 절차(v1)를 그대로 인용한 사례가 2건 발견됨',fix:'만료 버전 Guide를 색인에서 제외하는 규칙 점검, 과거 Ticket의 사용 가능 기준 보강',owner:'가이드 관리자'},
+ {id:'g7',q:'과거 이력 사례가 현재 가이드와 다른 경우',area:'과거 사례',st:'보완 필요',exp:'현재 가이드와 충돌하는 과거 사례는 답변에서 제외',act:'과거 사례의 구 절차(v1)를 그대로 인용한 사례가 2건 발견됨',fix:'만료 버전 Guide를 색인에서 제외하는 규칙 점검, 과거 이력의 사용 가능 기준 보강',owner:'가이드 관리자'},
  {id:'g8',q:'피싱 메일 링크를 눌렀어요',area:'긴급도 판단',st:'통과',exp:'긴급 징후로 담당자 연결 우선, 최소 P2',act:'P2, 정보보안팀 추천'},
  {id:'g9',q:'노트북 화면이 깜빡이고 가끔 꺼져요',area:'분류',st:'보완 필요',exp:'HW·업무 PC로 분류',act:'SW로 분류된 사례 3건 (증상에 "화면" 단독 사용 시)',fix:'HW 분류 예시 질의 보강, 분류 규칙에 증상+장비 조합 추가',owner:'서비스데스크'},
  {id:'g10',q:'비밀번호를 대화창에 입력하는 경우',area:'민감정보',st:'검토 필요',exp:'입력 중단 안내와 마스킹 저장',act:'안내는 표시되나 일부 패턴(숫자 6자리)은 마스킹되지 않음',fix:'인증번호 패턴 마스킹 규칙 추가',owner:'정보보안팀'},
@@ -1307,7 +1326,7 @@ function viewAI(){
   <div class="row" style="justify-content:space-between"><div class="seg">${[['day','일'],['month','월'],['year','연도']].map(x=>`<button class="${r===x[0]?'on':''}" data-act="ar" data-r="${x[0]}">${x[1]}</button>`).join('')}</div><span class="hint">${rl}</span></div>
   <div class="kpis"><div class="kpi"><div class="l">기간 내 AI 상담</div><div class="v"><b>${sum.tot.toLocaleString()}</b><span>건</span></div></div><div class="kpi"><div class="l">AI 해결률</div><div class="v"><b>${Math.round(sum.ai/sum.tot*100)}</b><span>%</span></div></div><div class="kpi"><div class="l">추정 비용 (기간 합계)</div><div class="v"><b>$${sum.cost.toFixed(1)}</b></div></div><div class="kpi"><div class="l">${{day:'오늘',month:'이번 달',year:'올해'}[r]} 예산 사용</div><div class="v"><b>${pct}</b><span>%</span></div><div class="bar ${pct>90?'urg':''}" style="margin-top:8px"><i style="width:${Math.min(100,pct)}%"></i></div><div class="d">$${last.cost.toFixed(1)} / 예산 $${last.budget}</div></div></div>
   <div class="panel"><h3>상담 건수와 비용</h3><div class="lgd"><span><i style="background:var(--s-re-dot)"></i>AI 해결</span><span><i style="background:var(--o500)"></i>담당자 연결·기타</span></div><div class="tw"><div style="display:flex;gap:${ser.length>8?8:18}px;align-items:flex-end;height:190px;margin-top:10px;min-width:${ser.length>8?ser.length*44:0}px">${ser.map(s=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end" title="${s.l}: ${s.tot}건 · $${s.cost}"><span class="small muted">${s.tot}</span><div style="width:100%;max-width:40px;display:flex;flex-direction:column;gap:2px"><div style="background:var(--o500);border-radius:6px 6px 2px 2px;height:${Math.round((s.tot-s.ai)/mx*130)}px"></div><div style="background:var(--s-re-dot);border-radius:2px;height:${Math.round(s.ai/mx*130)}px"></div></div><span class="small muted">${s.l}</span><span class="small mono" style="font-size:11px">$${s.cost>=100?Math.round(s.cost):s.cost}</span></div>`).join('')}</div></div></div>
-  <div class="panel"><div class="row" style="justify-content:space-between"><h3>Golden Set 평가 <span class="tag gray">예시</span></h3><span class="small muted">통과 ${pass} / ${GOLD.length} · 보완 필요 ${GOLD.length-pass}</span></div><div class="row" style="margin:12px 0">${['전체','보완 필요','검토 필요','통과'].map(f=>`<button class="chip ${gf===f?'on':''}" data-act="gf" data-f="${f}">${f}</button>`).join('')}</div>${gl.map(g=>{const o=S.goldOpen===g.id;return `<div class="gold ${o?'open':''}"><button class="grow" data-act="gold" data-id="${g.id}"><span class="tag gray">${g.area}</span><b>${ESC(g.q)}</b>${badge(g.st==='통과'?'ok':g.st==='검토 필요'?'warn':'urg',g.st)}<span class="chv" aria-hidden="true">${ic('chevron')}</span></button>${o?`<div class="gb"><dl class="dl"><dt>기대 결과</dt><dd>${ESC(g.exp)}</dd><dt>실제 결과</dt><dd>${ESC(g.act)}</dd>${g.fix?`<dt>보완할 점</dt><dd><b>${ESC(g.fix)}</b></dd><dt>담당</dt><dd>${g.owner}</dd>`:''}</dl>${g.fix?`<div class="row"><button class="btn sec sm" data-act="go" data-v="guides">가이드 관리로 이동</button></div>`:''}</div>`:''}</div>`}).join('')}</div></div></div></main>`;
+  <div class="panel"><div class="row" style="justify-content:space-between"><h3>Golden Set 평가 <span class="tag gray">예시</span> <span class="tag gray">Could</span></h3><span class="small muted">통과 ${pass} / ${GOLD.length} · 보완 필요 ${GOLD.length-pass}</span></div><div class="row" style="margin:12px 0">${['전체','보완 필요','검토 필요','통과'].map(f=>`<button class="chip ${gf===f?'on':''}" data-act="gf" data-f="${f}">${f}</button>`).join('')}</div>${gl.map(g=>{const o=S.goldOpen===g.id;return `<div class="gold ${o?'open':''}"><button class="grow" data-act="gold" data-id="${g.id}"><span class="tag gray">${g.area}</span><b>${ESC(g.q)}</b>${badge(g.st==='통과'?'ok':g.st==='검토 필요'?'warn':'urg',g.st)}<span class="chv" aria-hidden="true">${ic('chevron')}</span></button>${o?`<div class="gb"><dl class="dl"><dt>기대 결과</dt><dd>${ESC(g.exp)}</dd><dt>실제 결과</dt><dd>${ESC(g.act)}</dd>${g.fix?`<dt>보완할 점</dt><dd><b>${ESC(g.fix)}</b></dd><dt>담당</dt><dd>${g.owner}</dd>`:''}</dl>${g.fix?`<div class="row"><button class="btn sec sm" data-act="go" data-v="guides">가이드 관리로 이동</button></div>`:''}</div>`:''}</div>`}).join('')}</div></div></div></main>`;
 }
 
 /* ===== 보안·감사 알림 (제안) ===== */
@@ -1350,7 +1369,7 @@ function viewLogin(){
   const msgs=S.pre.msgs.map(m=>m.r==='u'?`<div class="msg u">${ESC(m.t)}</div>`:`<div class="msg a">${av(32)}<div class="body">${m.html}</div></div>`).join('');
   const roleBtn=(id,l)=>`<button class="btn sec sm" data-act="quick-login" data-id="${id}">${l}</button>`;
   const idTab=S.loginTab==='id';
-  return `<div class="login">${bg}<div class="lf"><div>${logo(124)}</div><div class="form"><div class="eyebrow">IT HELPDESK</div><h1>IT 문제, 먼저 물어보세요</h1><p class="muted" style="margin:10px 0 22px;line-height:24px">AI가 먼저 답하고, 해결되지 않으면 담당자에게 바로 연결해 드려요.</p><div class="seg" role="tablist" style="margin-bottom:16px"><button role="tab" class="${idTab?'on':''}" data-act="ltab" data-t="id">사번 로그인</button><button role="tab" class="${!idTab?'on':''}" data-act="ltab" data-t="sso">SSO 로그인</button></div>${idTab?`<form data-form="login" style="display:flex;flex-direction:column;gap:14px"><div class="field"><label for="lg-id">사번</label><input class="inp ${S.loginErr?'err':''}" id="lg-id" name="id" autocomplete="username" placeholder="예) HS1001" value="HS1001"></div><div class="field"><label for="lg-pw">비밀번호</label><input class="inp ${S.loginErr?'err':''}" id="lg-pw" name="pw" type="password" autocomplete="current-password" value="demo"></div>${S.loginErr?`<div class="errtx" role="alert">${S.loginErr}</div>`:''}<button class="btn pri block" type="submit" style="min-height:48px">로그인</button><div class="hint">시연 계정 비밀번호는 demo 입니다. 계정 5회 실패 시 잠기고 10분 후 해제됩니다.</div></form>`:`<div style="display:flex;flex-direction:column;gap:14px"><div class="alert info">${ic('shield')}<div>사내 SSO와 MFA로 인증하는 화면이에요. 이 프로토타입에서는 인증을 연결하지 않았어요.</div></div><button class="btn pri block" data-act="quick-login" data-id="HS1001" style="min-height:48px">SSO로 계속하기 (시연)</button></div>`}<div class="roles"><small>시연용 바로 로그인</small>${roleBtn('HS1001','문의자')}${roleBtn('HS1107','담당자')}${roleBtn('HS0912','관리자')}${roleBtn('HS2210','승인 대기 계정')}${roleBtn('HS1488','이용 제한 계정')}</div></div><div class="hint">© HanwhaSystems 가상 기업 · 프로토타입</div></div><div class="rt"><div class="lpop" role="region" aria-label="로그인 전 상담"><div class="row" style="flex-wrap:nowrap">${av(36)}<div><b>로그인이 안 되시나요?</b><div class="small muted">로그인 전에도 계정·로그인 문의는 답해 드려요 <span class="tag gray">제안</span></div></div></div><div class="th" id="prethread">${msgs||`<div class="msg a">${av(32)}<div class="body">로그인 전에는 <b>계정 잠금, 비밀번호, SSO·MFA</b> 안내만 도와드려요. 접수는 로그인 후에 할 수 있어요.</div></div>`}</div><div class="replies">${['계정이 잠겼어요','비밀번호를 재설정하고 싶어요','SSO·MFA 인증이 안 돼요'].map(c=>`<button class="chip" data-act="pre-ask" data-t="${c}">${c}</button>`).join('')}</div><div class="composer"><textarea id="pre-in" rows="1" placeholder="로그인 문제를 적어 주세요" aria-label="로그인 전 상담 입력" data-in="pre"></textarea><button class="btn ico pri" data-act="pre-send" aria-label="보내기">${ic('send')}</button></div><div class="hint" style="margin-top:8px">${MAIL_NOTE} 로그인 전에는 Ticket을 만들지 않아요.</div></div></div></div>`;
+  return `<div class="login">${bg}<div class="lf"><div>${logo(124)}</div><div class="form"><div class="eyebrow">IT HELPDESK</div><h1>IT 문제, 먼저 물어보세요</h1><p class="muted" style="margin:10px 0 22px;line-height:24px">AI가 먼저 답하고, 해결되지 않으면 담당자에게 바로 연결해 드려요.</p><div class="seg" role="tablist" style="margin-bottom:16px"><button role="tab" class="${idTab?'on':''}" data-act="ltab" data-t="id">사번 로그인</button><button role="tab" class="${!idTab?'on':''}" data-act="ltab" data-t="sso">SSO 로그인</button></div>${idTab?`<form data-form="login" style="display:flex;flex-direction:column;gap:14px"><div class="field"><label for="lg-id">사번</label><input class="inp ${S.loginErr?'err':''}" id="lg-id" name="id" autocomplete="username" placeholder="예) HS1001" value="HS1001"></div><div class="field"><label for="lg-pw">비밀번호</label><input class="inp ${S.loginErr?'err':''}" id="lg-pw" name="pw" type="password" autocomplete="current-password" value="demo"></div>${S.loginErr?`<div class="errtx" role="alert">${S.loginErr}</div>`:''}<button class="btn pri block" type="submit" style="min-height:48px">로그인</button><div class="hint">시연 계정 비밀번호는 demo 입니다. 계정 5회 실패 시 잠기고 10분 후 해제됩니다.</div></form>`:`<div style="display:flex;flex-direction:column;gap:14px"><div class="alert info">${ic('shield')}<div>사내 SSO와 MFA로 인증하는 화면이에요. 이 프로토타입에서는 인증을 연결하지 않았어요.</div></div><button class="btn pri block" data-act="quick-login" data-id="HS1001" style="min-height:48px">SSO로 계속하기 (시연)</button></div>`}<div class="roles"><small>시연용 바로 로그인</small>${roleBtn('HS1001','문의자')}${roleBtn('HS1107','담당자')}${roleBtn('HS0912','관리자')}${roleBtn('HS1488','이용 제한 계정')}${roleBtn('HS1530','잠김 계정')}</div></div><div class="hint">© 한화시스템 ICT 가상 기업 · 프로토타입</div></div><div class="rt"><div class="lpop" role="region" aria-label="로그인 전 상담"><div class="row" style="flex-wrap:nowrap">${av(36)}<div><b>로그인이 안 되시나요?</b><div class="small muted">로그인 전에도 계정·로그인 문의는 답해 드려요 <span class="tag gray">제안</span></div></div></div><div class="th" id="prethread">${msgs||`<div class="msg a">${av(32)}<div class="body">로그인 전에는 <b>계정 잠금, 비밀번호, SSO·MFA</b> 안내만 도와드려요. 접수는 로그인 후에 할 수 있어요.</div></div>`}</div><div class="replies">${['계정이 잠겼어요','비밀번호를 재설정하고 싶어요','SSO·MFA 인증이 안 돼요'].map(c=>`<button class="chip" data-act="pre-ask" data-t="${c}">${c}</button>`).join('')}</div><div class="composer"><textarea id="pre-in" rows="1" placeholder="로그인 문제를 적어 주세요" aria-label="로그인 전 상담 입력" data-in="pre"></textarea><button class="btn ico pri" data-act="pre-send" aria-label="보내기">${ic('send')}</button></div><div class="hint" style="margin-top:8px">${MAIL_NOTE} 로그인 전에는 Ticket을 만들지 않아요.</div></div></div></div>`;
 }
 function preReply(t){
   if(RE.sec.test(t))return '<p>보안 사고가 의심되면 <b>로그인 후 새 문의</b>에서 담당자 연결을 요청해 주세요. 로그인할 수 없는 상황이면 서비스데스크로 바로 연락해 주세요.</p><p class="small muted">서비스데스크 '+SERVICEDESK_PHONE+'</p>';
@@ -1366,15 +1385,27 @@ function preAsk(t){
 }
 function doLogin(id,pw,skipPw){
   const a=S.accounts.find(x=>x.id.toLowerCase()===String(id).trim().toLowerCase());
-  if(!a||(!skipPw&&a.pw&&a.pw!==pw)||(!skipPw&&!a.pw&&pw!=='demo')){S.loginErr='사번 또는 비밀번호를 확인해 주세요.';if(a){S.failN=(S.failN||0)+1;if(S.failN>=3){addSec('로그인 반복 실패','중간',a.id,S.failN+'회 연속 실패 (5회 시 잠금)','실패 '+S.failN+'회','반복 실패 감지');S.failN=0;}}render();return;}
-  if(a.status==='승인 대기'){S.loginErr='아직 ITssue 이용 승인이 완료되지 않았어요. 서비스데스크 관리자의 승인 후 이용할 수 있어요.';render();return;}
+  /* 잠김은 10분이 지나면 자동으로 풀린다 */
+  if(a&&a.status==='잠김'&&a.lockedUntil&&Date.now()>=a.lockedUntil){a.status='정상';delete a.lockedUntil;a.fails=0;S.acctHist.unshift({t:NOW(),who:'시스템',target:a.id+' · '+a.name,what:'잠금 해제',why:'10분 경과 (자동 해제)'});}
+  if(a&&a.status==='잠김'){const left=Math.max(1,Math.ceil(((a.lockedUntil||Date.now())-Date.now())/60000));S.loginErr='로그인 5회 실패로 잠긴 계정이에요. 약 '+left+'분 후 자동으로 해제돼요. 급하면 서비스데스크로 문의해 주세요. ('+SERVICEDESK_PHONE+')';render();return;}
+  if(!a||(!skipPw&&a.pw&&a.pw!==pw)||(!skipPw&&!a.pw&&pw!=='demo')){
+    S.loginErr='사번 또는 비밀번호를 확인해 주세요.';
+    if(a){
+      a.fails=(a.fails||0)+1;
+      if(a.fails===3)addSec('로그인 반복 실패','중간',a.id,'3회 연속 실패 (5회 시 잠금)','실패 3회','반복 실패 감지');
+      if(a.fails>=5&&a.status==='정상'){a.status='잠김';a.lockedUntil=Date.now()+10*60000;a.fails=0;addSec('로그인 반복 실패','중간',a.id,'5회 연속 실패로 계정 잠금','실패 5회','5회 실패 잠금');S.acctHist.unshift({t:NOW(),who:'시스템',target:a.id+' · '+a.name,what:'잠김',why:'로그인 5회 실패 (10분 후 자동 해제)'});S.loginErr='로그인 5회 실패로 계정이 잠겼어요. 10분 후 자동으로 해제돼요. 급하면 서비스데스크로 문의해 주세요. ('+SERVICEDESK_PHONE+')';}
+    }
+    render();return;
+  }
   if(a.status==='이용 제한'){addSec('이용 제한 계정 접속 시도','낮음',a.id,'이용 제한 상태 계정으로 로그인 시도','로그인 시도 차단','이용 제한 계정 시도');S.loginErr='이용이 제한된 계정이에요. 서비스데스크로 문의해 주세요. ('+SERVICEDESK_PHONE+')';render();return;}
+  a.fails=0;
   S.loginErr='';S.user=a.id;S.role=a.role==='관리자'?'admin':a.role==='담당자'?'staff':'user';
   S.view={n:S.role==='admin'?'dash':S.role==='staff'?'queue':'new'};S.detail=null;log('로그인');render();
 }
 
 /* ===== 이벤트 · 핸들러 ===== */
 const val=id=>(document.getElementById(id)||{}).value||'';
+function setTx(g,v,to,why){const from=v.tx;v.tx=to;log('외부 전송 정책 변경 · '+g.id+' v'+v.v+' '+from+' → '+to+(why?' · 사유: '+why:''));render();toast('외부 전송 정책을 '+to+(to==='금지'?'로':'으로')+' 바꿨어요.');}
 const A={
   go(e,d){S.view={n:d.v};S.detail=null;S.navOpen=false;if(d.v==='list'||d.v==='new'){}render();},
   nav(){S.navOpen=!S.navOpen;render();},
@@ -1421,6 +1452,7 @@ const A={
   prefill(e,d){const ta=document.getElementById('cmp');ta.value=d.t;ta.focus();autosize(ta);},
   attach(){toast('첨부 파일은 이 프로토타입에서 동작하지 않아요. 화면 캡처 첨부는 접수 후 담당자와 주고받는 흐름에서 다룰 예정이에요.');},
   send(){const ta=document.getElementById('cmp');const t=ta.value;if(!t.trim())return;ta.value='';S.compose[key()]='';sendText(t);},
+  legacy(e,d){openModal('과거 처리 사례 · '+d.no,`<p class="small muted">도입 이전 처리 이력 (읽기 전용, 시연용 가상 데이터)</p><div class="card w"><b>${ESC(d.title)}</b><dl class="dl" style="margin-top:8px"><dt>증상</dt><dd>노트북 화면이 깜빡이고 가끔 꺼짐</dd><dt>해결 방법</dt><dd>디스플레이 케이블 재연결, 드라이버 재설치</dd><dt>활용 기준</dt><dd>현재 Guide·운영 정책과 충돌하지 않을 때만 참고하고, 충돌하면 Guide를 우선해요.</dd></dl></div><div class="acts"><button class="btn pri" data-act="close">닫기</button></div>`);},
   src(e,d){openModal(d.g+' v'+d.v,`<p class="small muted">출처 미리보기 (시연용)</p><div class="card w"><b>${ESC(d.sec)}</b><p style="margin-top:6px;line-height:24px">${ESC((Object.values(KB).find(k=>k.g===d.g)||{steps:['요약 내용']}).steps.join(' '))}</p></div><div class="acts"><button class="btn pri" data-act="close">닫기</button></div>`);},
   reply(e,d){const i=S.inqs.find(x=>x.id===d.id);if(i)reply(i,d.r,d.arg,+d.mi);},
   timeout(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;lockReplies(i,+d.mi);i.state='미확인';i.step='closed';log('응답 없음 · 미확인 종료 · '+i.id,'시스템');mk(i,{r:'sys',html:'일정 시간 응답이 없어 상담을 종료했어요. 해결된 것으로 처리하지 않았어요.'});render({bottom:true});},
@@ -1465,7 +1497,7 @@ const A={
   'faq-add2'(){const q=val('m-q').trim(),a=val('m-a').trim();if(!q||!a){toast('질문 제목과 답변을 입력해 주세요.');return;}S.faqs.unshift({c:val('m-c'),q,a,src:val('m-s')});log('FAQ 등록 · '+q);closeModal();render();toast('FAQ를 등록했어요. 문의자 FAQ 화면에 바로 보여요.');},
   'faq-del'(e,d){const f=S.faqs.splice(+d.k,1)[0];log('FAQ 삭제 · '+f.q);render();toast('FAQ를 삭제했어요.');},
   gtab(e,d){S.guideTab=d.t;render();},
-  'g-up'(){openModal('가이드 파일 업로드',`<p class="small muted">PDF·DOCX·PPTX·MD 파일을 올리면 검색 준비(텍스트 추출·색인)를 거쳐 사용할 수 있어요. 이 프로토타입은 파일명만 읽고 내용은 처리하지 않아요.</p><div class="field"><label for="m-f">파일</label><input class="inp" type="file" id="m-f" accept=".pdf,.docx,.pptx,.md,.txt" data-in="gfile" style="padding:9px 12px"></div><div class="field"><label for="m-t">가이드 제목</label><input class="inp" id="m-t"></div><div class="field"><label for="m-c">Category</label><select class="sel" id="m-c">${Object.keys(CATS).map(c=>`<option value="${c}">${CATS[c].n}</option>`).join('')}</select></div><div class="field"><label for="m-sc">공개 범위</label><select class="sel" id="m-sc"><option>사내 일반</option><option>사내 제한</option></select></div><div class="field"><label for="m-tx">외부 모델 전송</label><select class="sel" id="m-tx"><option>허용</option><option>금지</option></select></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="g-up2">업로드</button></div>`);},
+  'g-up'(){openModal('가이드 파일 업로드',`<p class="small muted">PDF·DOCX·PPTX·MD 파일을 올리면 검색 준비(텍스트 추출·색인)를 거쳐 사용할 수 있어요. 이 프로토타입은 파일명만 읽고 내용은 처리하지 않아요.</p><div class="field"><label for="m-f">파일</label><input class="inp" type="file" id="m-f" accept=".pdf,.docx,.pptx,.md,.txt" data-in="gfile" style="padding:9px 12px"></div><div class="field"><label for="m-t">가이드 제목</label><input class="inp" id="m-t"></div><div class="field"><label for="m-c">Category</label><select class="sel" id="m-c">${Object.keys(CATS).map(c=>`<option value="${c}">${CATS[c].n}</option>`).join('')}</select></div><div class="field"><label for="m-sc">열람 범위</label><select class="sel" id="m-sc"><option>관리자 전용</option><option>사내 제한</option><option>사내 일반</option></select></div><div class="field"><label for="m-tx">외부 모델 전송</label><select class="sel" id="m-tx"><option>금지</option><option>마스킹 후 허용</option><option>허용</option></select></div><div class="hint">정하지 않으면 가장 제한적인 값(관리자 전용·금지)이 적용돼요.</div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="g-up2">업로드</button></div>`);},
   'g-up2'(){const f=document.getElementById('m-f').files[0];const t=val('m-t').trim();if(!f){toast('파일을 선택해 주세요.');return;}if(!t){toast('가이드 제목을 입력해 주세요.');return;}const ext=(f.name.split('.').pop()||'').toUpperCase();const g={id:'G'+(S.guides.length+1),title:t,cat:val('m-c'),vers:[{v:1,st:'초안',scope:val('m-sc'),tx:val('m-tx'),ready:'준비 중',src:ext,note:'업로드 · '+f.name}]};S.guides.push(g);S.guideTab='list';S.guideOpen=g.id;log('가이드 업로드 · '+f.name);closeModal();render();toast('업로드했어요. 검색 준비 중이에요.');later(()=>{g.vers[0].ready='준비 완료';render();toast('검색 준비가 끝났어요. 현행으로 전환할 수 있어요.');},2800);},
   gold(e,d){S.goldOpen=S.goldOpen===d.id?null:d.id;render();},
   gf(e,d){S.goldF=d.f;render();},
@@ -1481,14 +1513,18 @@ const A={
   dsel(e,d){S.dashSel[S.dashMode]=d.k;S.dashMember=null;render();},
   dmem(e,d){S.dashMember=S.dashMember===d.n?null:d.n;render();},
   gopen(e,d){S.guideOpen=S.guideOpen===d.id?null:d.id;render();},
-  'g-tx'(e,d){const g=S.guides.find(x=>x.id===d.id);const v=g.vers.find(x=>x.v===+d.v);v.tx=v.tx==='허용'?'금지':'허용';log('외부 전송 정책 변경 · '+g.id+' v'+v.v+' → '+v.tx);render();toast('외부 전송 정책을 '+v.tx+'으로 바꿨어요.');},
+  'g-tx'(e,d){const g=S.guides.find(x=>x.id===d.id);const v=g.vers.find(x=>x.v===+d.v);
+    /* 더 느슨해지는 변경(금지→마스킹·허용, 마스킹→허용)은 확인과 사유를 받는다 */
+    if(TXR[d.to]>TXR[v.tx]){openModal('외부 전송 정책 변경',`<p class="small muted">${ESC(g.title)} v${v.v} · ${v.tx} → ${d.to}</p><div class="alert warn">${ic('alert')}<div>이 가이드 내용이 이전보다 넓게 외부 AI 모델에 전달될 수 있어요. 변경 사유를 남겨 주세요.</div></div><div class="field"><label for="m-w">변경 사유 (필수)</label><input class="inp" id="m-w" placeholder="예) 개인정보 없음을 확인함"></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="g-tx2" data-id="${d.id}" data-v="${d.v}" data-to="${d.to}">변경</button></div>`);return;}
+    setTx(g,v,d.to,'');},
+  'g-tx2'(e,d){const w=val('m-w').trim();if(!w){toast('변경 사유를 입력해 주세요.');return;}const g=S.guides.find(x=>x.id===d.id);const v=g.vers.find(x=>x.v===+d.v);closeModal();setTx(g,v,d.to,w);},
   'g-cur'(e,d){const g=S.guides.find(x=>x.id===d.id);g.vers.forEach(v=>{if(v.st==='현행')v.st='만료';});g.vers.find(x=>x.v===+d.v).st='현행';log('현행 전환 · '+g.id+' v'+d.v);render();toast('현행 버전을 바꿨어요.');},
   'g-case'(e,d){const t=tById(d.id);const g={id:'G'+(S.guides.length+1),title:t.title+' (해결 사례 초안)',cat:t.cat,vers:[{v:1,st:'초안',scope:'사내 제한',tx:'허용',ready:'준비 중',src:'Ticket',note:t.receipt+' 해결 사례에서 생성'}]};S.guides.push(g);S.guideOpen=g.id;render();toast('가이드 초안을 만들었어요. 검토 후 현행으로 전환하세요.');},
   af(e,d){S.acctFilter=d.f;S.page.acct=1;render();},
-  'a-do'(e,d){openModal(d.to==='승인'?'계정 승인·해제':'이용 제한',`<div class="field"><label for="m-w">사유 (필수)</label><input class="inp" id="m-w"></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="a-do2" data-id="${d.id}" data-to="${d.to}">확인</button></div>`);},
-  'a-do2'(e,d){const w=val('m-w').trim();if(!w){toast('사유를 입력해 주세요.');return;}const a=S.accounts.find(x=>x.id===d.id);const prev=a.status;a.status=d.to;log('계정 '+d.to+' · '+a.id+' · '+w);S.acctHist.unshift({t:NOW(),who:me().name,target:a.id+' · '+a.name,what:d.to==='승인'?(prev==='이용 제한'?'제한 해제':'승인'):d.to,why:w});closeModal();render();},
-  'a-add'(){openModal('계정 추가',`<div class="field"><label for="m-i">사번</label><input class="inp" id="m-i"></div><div class="field"><label for="m-n">이름</label><input class="inp" id="m-n"></div><div class="field"><label for="m-d">부서</label><input class="inp" id="m-d"></div><div class="field"><label for="m-ro">역할</label><select class="sel" id="m-ro"><option>문의자</option><option>담당자</option><option>관리자</option></select></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="a-add2">추가</button></div>`);},
-  'a-add2'(){const id=val('m-i').trim().toUpperCase(),n=val('m-n').trim();if(!id||!n){toast('사번과 이름을 입력해 주세요.');return;}if(S.accounts.some(a=>a.id===id)){toast('이미 있는 사번이에요.');return;}S.accounts.push({id,name:n,dept:val('m-d')||'-',role:val('m-ro'),status:'승인',grade:'일반'});log('계정 추가 · '+id);S.acctHist.unshift({t:NOW(),who:me().name,target:id+' · '+n,what:'계정 추가',why:'신규 등록 ('+val('m-ro')+')'});closeModal();render();},
+  'a-do'(e,d){openModal(d.to==='정상'?'제한·잠금 해제':'이용 제한',`<div class="field"><label for="m-w">사유 (필수)</label><input class="inp" id="m-w"></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="a-do2" data-id="${d.id}" data-to="${d.to}">확인</button></div>`);},
+  'a-do2'(e,d){const w=val('m-w').trim();if(!w){toast('사유를 입력해 주세요.');return;}const a=S.accounts.find(x=>x.id===d.id);const prev=a.status;a.status=d.to;if(d.to==='정상'){delete a.lockedUntil;a.fails=0;}log('계정 '+d.to+' · '+a.id+' · '+w);S.acctHist.unshift({t:NOW(),who:me().name,target:a.id+' · '+a.name,what:d.to==='정상'?(prev==='잠김'?'잠금 해제':'제한 해제'):d.to,why:w});closeModal();render();},
+  'a-add'(){openModal('계정 추가',`<p class="small muted">회원가입 기능은 없어요. 계정을 만들면 임시 비밀번호를 등록 휴대폰으로 전달하고, 첫 로그인에서 비밀번호를 바꿔요.</p><div class="field"><label for="m-i">사번</label><input class="inp" id="m-i"></div><div class="field"><label for="m-n">이름</label><input class="inp" id="m-n"></div><div class="field"><label for="m-d">부서</label><input class="inp" id="m-d"></div><div class="field"><label for="m-ro">역할</label><select class="sel" id="m-ro"><option>문의자</option><option>담당자</option><option>관리자</option></select></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="a-add2">추가</button></div>`);},
+  'a-add2'(){const id=val('m-i').trim().toUpperCase(),n=val('m-n').trim();if(!id||!n){toast('사번과 이름을 입력해 주세요.');return;}if(S.accounts.some(a=>a.id===id)){toast('이미 있는 사번이에요.');return;}S.accounts.push({id,name:n,dept:val('m-d')||'-',role:val('m-ro'),status:'정상',grade:'일반'});log('계정 추가 · '+id);S.acctHist.unshift({t:NOW(),who:me().name,target:id+' · '+n,what:'계정 추가',why:'신규 등록 ('+val('m-ro')+')'});closeModal();render();},
   'a-edit'(e,d){const a=S.accounts.find(x=>x.id===d.id);openModal('계정 수정',`<div class="field"><label for="m-n">이름</label><input class="inp" id="m-n" value="${ESC(a.name)}"></div><div class="field"><label for="m-d">부서</label><input class="inp" id="m-d" value="${ESC(a.dept)}"></div><div class="field"><label for="m-ro">역할</label><select class="sel" id="m-ro">${['문의자','담당자','관리자'].map(r=>`<option ${r===a.role?'selected':''}>${r}</option>`).join('')}</select></div><div class="field"><label for="m-w">수정 사유 (필수)</label><input class="inp" id="m-w"></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="a-edit2" data-id="${d.id}">저장</button></div>`);},
   'a-edit2'(e,d){const w=val('m-w').trim();if(!w){toast('수정 사유를 입력해 주세요.');return;}const a=S.accounts.find(x=>x.id===d.id);a.name=val('m-n')||a.name;a.dept=val('m-d')||a.dept;a.role=val('m-ro');log('계정 수정 · '+a.id+' · '+w);closeModal();render();}
 };
@@ -1541,7 +1577,7 @@ S.inqs.push(
   {id:'INQ-S2',owner:'HS1001',title:'계정 잠금 해제 방법',state:'AI 해결',cat:'ACC',intake:{},msgs:[{r:'u',t:'계정이 잠겼어요.'},{r:'a',html:'<p>5회 실패 시 10분 후 자동 해제돼요.</p>'},{r:'u',t:'해결됐어요.'}],step:'closed',when:'3일 전',unread:0}
 );
 S.tickets.unshift({receipt:'RCPT-1041',id:'ITS-1520',title:'VPN 연결이 자주 끊겨요',cat:'NET',p:'P3',why:['개인 업무 일부 지장, 대체 방법 있음'],group:'네트워크팀',req:'HS1001',reqName:'김서연',assignee:'김담당',jira:'완료',asg:'완료',status:'WIP',hours:2,day:0,created:'어제',result:'',msgs:[],draft:{issue:'재택근무 중 VPN이 자주 끊김',impact:'저만 안 되고 메일 업무는 가능',tried:'재접속과 재시작',ai:'IT-NET-001 VPN 접속 장애 대응 가이드 v2 안내 후에도 해결되지 않음'},inq:'INQ-S1',hist:[{t:'어제',who:'ITssue',what:'김담당 담당자 배정 · 자동배정'},{t:'어제',who:'ITssue',what:'Jira Ticket 생성 · ITS-1520'},{t:'어제',who:'김서연',what:'최종 확인 · ITssue 접수 저장 · RCPT-1041'}]});
-S.acctHist=[{t:'10.15 14:20',who:'최관리',target:'HS1488 · '+(S.accounts.find(a=>a.id==='HS1488')||{name:'-'}).name,what:'이용 제한',why:'보안 교육 미이수 (재교육 후 해제 예정)'},{t:'10.14 09:05',who:'최관리',target:'HS1107 · 김담당',what:'승인',why:'담당자 권한 부여 요청 확인'},{t:'10.12 16:42',who:'최관리',target:'HS2210 · '+(S.accounts.find(a=>a.id==='HS2210')||{name:'-'}).name,what:'계정 추가',why:'신규 입사자 등록 (승인 대기)'}];
+S.acctHist=[{t:'10.15 14:20',who:'최관리',target:'HS1488 · '+(S.accounts.find(a=>a.id==='HS1488')||{name:'-'}).name,what:'이용 제한',why:'보안 교육 미이수 (재교육 후 해제 예정)'},{t:'10.14 09:05',who:'최관리',target:'HS1107 · 김담당',what:'계정 수정',why:'담당자 역할 부여 요청 확인'},{t:'10.12 16:42',who:'최관리',target:'HS1003 · 박민수',what:'계정 추가',why:'신규 입사자 계정 생성 · 임시 비밀번호 전달'}];
 S.sec=secSeed();
 (function(){const T=S.tickets;
  const a=T[3];a.day=0;a.jira='확인 필요';a.id=null;a.status=null;a.asg='대기';a.assignee=null;a.excWhy='Jira 생성 요청 응답 시간 초과 · 생성 여부 확인 필요';a.excNext='기존 Ticket 존재 여부 확인 후 중복 없이 재처리';a.excOwner='서비스데스크 관리자';a.exAt=Date.now()-47*60000;a.hist=[{t:'10.16 13:55',who:'ITssue',what:'Jira 생성 요청 시간 초과 · 서비스데스크 관리자 확인 대상'},{t:'10.16 13:54',who:a.reqName,what:'최종 확인 · ITssue 접수 저장 · '+a.receipt}];
