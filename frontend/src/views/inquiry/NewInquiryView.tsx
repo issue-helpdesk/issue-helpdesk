@@ -3,10 +3,11 @@
  *
  * 인사말, 문의 입력창, 자주 묻는 분류 칩, 추천 FAQ 카드를 보여 준다.
  * 칩이나 카드를 누르면 입력창에 문장이 채워지고, 사용자가 확인한 뒤 보낸다.
- * 보내기 이후의 대화 흐름은 다음 단계에서 만든다. (지금은 안내 문구만 보여 준다)
+ * 보내면 문의가 만들어지고 대화 화면(/chat/:id)으로 이동한다.
  */
 import { useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { startChat } from '../../api/chat'
 import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
 import { Icon, type IconName } from '../../ui/Icon'
@@ -42,6 +43,8 @@ export function NewInquiryView() {
   const prefill = state?.prefill
   const [text, setText] = useState(prefill ?? '')
   const [notice, setNotice] = useState('')
+  const [sending, setSending] = useState(false)
+  const navigate = useNavigate()
 
   // 같은 화면에서 다른 FAQ 로 다시 들어오면(전달된 문장이 바뀌면) 입력창 내용을 새 문장으로 바꾼다
   const [lastPrefill, setLastPrefill] = useState(prefill)
@@ -56,10 +59,18 @@ export function NewInquiryView() {
     setNotice('')
   }
 
-  function send() {
-    if (!text.trim()) return
-    // TODO: 대화 화면 연결 (다음 단계). 지금은 입력을 그대로 두고 안내만 한다.
-    setNotice('대화 화면은 다음 단계에서 연결할게요. 입력한 내용은 그대로 두었어요.')
+  async function send() {
+    if (!text.trim() || sending || !user) return
+    setSending(true)
+    setNotice('')
+    const r = await startChat(user, text.trim())
+    setSending(false)
+    if (r.ok) {
+      navigate(`/chat/${r.data.id}`)
+    } else {
+      // 실패하면 쓴 내용은 그대로 두고 안내만 한다
+      setNotice(r.error.message)
+    }
   }
 
   if (!user) return null
@@ -95,7 +106,7 @@ export function NewInquiryView() {
           <h1>무엇을 도와드릴까요?</h1>
 
           <div style={{ width: '100%', maxWidth: 720 }}>
-            <Composer value={text} onChange={setText} onSend={send} placeholder="겪고 있는 문제를 편하게 적어 주세요" />
+            <Composer value={text} onChange={setText} onSend={send} disabled={sending} placeholder="겪고 있는 문제를 편하게 적어 주세요" />
           </div>
           {notice && (
             <div className="hint" role="status" style={{ marginTop: 10 }}>

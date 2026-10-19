@@ -68,7 +68,7 @@ export interface Faq {
 }
 
 /** 문의 진행 표시 상태. 사이드바 최근 문의와 문의 내역에 쓴다. (PRD 4.8 화면 표시 상태) */
-export type InquiryStateKind = 'progress' | 'assigned' | 'received' | 'resolved' | 'ai' | 'warn'
+export type InquiryStateKind = 'progress' | 'assigned' | 'received' | 'resolved' | 'ai' | 'warn' | 'need'
 
 /** 문의 한 건 요약 (사이드바 최근 문의) */
 export interface InquirySummary {

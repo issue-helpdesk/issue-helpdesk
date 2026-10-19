@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { listMyInquiries } from '../api/inquiries'
+import { watchMyInquiries } from '../api/inquiries'
 import type { InquirySummary, Role } from '../api/types'
 import { ROLE_LABEL } from '../core/roles'
 import { useAuth } from '../core/session'
@@ -43,17 +43,11 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   const { pathname } = useLocation()
   const [recent, setRecent] = useState<InquirySummary[]>([])
 
-  // 최근 문의 목록을 불러온다
+  // 최근 문의 목록을 불러오고, 새 문의나 진행 상황이 바뀔 때마다 다시 받는다
   const userId = user?.id
   useEffect(() => {
     if (!userId) return
-    let alive = true // 화면이 사라진 뒤에는 상태를 바꾸지 않기 위한 표시
-    listMyInquiries(userId).then((r) => {
-      if (alive && r.ok) setRecent(r.data)
-    })
-    return () => {
-      alive = false
-    }
+    return watchMyInquiries(userId, setRecent)
   }, [userId])
 
   if (!user) return null

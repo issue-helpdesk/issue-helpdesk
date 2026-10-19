@@ -104,13 +104,12 @@ describe('새 문의 (챗봇 시작 화면)', () => {
     expect(await screen.findByRole('button', { name: '보내기' }, SLOW)).toBeDisabled()
   })
 
-  it('Enter 로 보내면 안내가 나오고 입력 내용은 그대로 남는다', async () => {
+  it('Enter 로 보내면 문의가 만들어지고 대화 화면으로 이동한다', async () => {
     const user = userEvent.setup()
     renderAs('HS1001')
     const box = await screen.findByLabelText('메시지 입력', {}, SLOW)
     await user.type(box, 'VPN이 안 돼요{Enter}')
-    expect(screen.getByRole('status')).toHaveTextContent('대화 화면은 다음 단계에서 연결할게요')
-    expect(box).toHaveValue('VPN이 안 돼요')
+    expect(await screen.findByText('VPN이 안 돼요', { selector: '.msg.u' }, SLOW)).toBeInTheDocument()
   })
 
   it('Shift+Enter 는 보내지 않고 줄바꿈이다', async () => {

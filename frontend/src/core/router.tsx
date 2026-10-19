@@ -8,6 +8,7 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AppShell } from '../ui/AppShell'
 import { FaqView } from '../views/faq/FaqView'
 import { HomePlaceholder } from '../views/HomePlaceholder'
+import { ChatView } from '../views/inquiry/ChatView'
 import { NewInquiryView } from '../views/inquiry/NewInquiryView'
 import { LoginView } from '../views/login/LoginView'
 import { HOME_BY_ROLE } from './roles'
@@ -43,7 +44,7 @@ export function AppRoutes() {
           {/* 문의 (모든 역할 공통) */}
           <Route path="/new" element={<NewInquiryView />} />
           <Route path="/list" element={<HomePlaceholder title="문의 내역" />} />
-          <Route path="/chat/:id" element={<HomePlaceholder title="문의 대화" />} />
+          <Route path="/chat/:id" element={<ChatView />} />
           <Route path="/faq" element={<FaqView />} />
           {/* 담당자·관리자. 화면을 만들면 HomePlaceholder 를 실제 화면으로 바꾼다 */}
           <Route path="/queue" element={<HomePlaceholder title="처리할 문의" />} />
