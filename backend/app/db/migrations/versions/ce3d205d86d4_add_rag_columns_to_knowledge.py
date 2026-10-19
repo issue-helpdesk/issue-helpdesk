@@ -55,7 +55,11 @@ def upgrade() -> None:
         update document_chunks c
            set seq = 1,
                unit_key = d.doc_code || '@' || v.version || '/faq:' || d.doc_code,
-               chunk_type = 'FAQ'
+               chunk_type = 'FAQ',
+               meta = jsonb_build_object(                -- meta 계약의 키를 모두 넣는다 (backend/app/rag/청크_메타데이터.md)
+                   'section_no', '', 'inquiry_type_codes', '[]'::jsonb, 'page_start', null, 'page_end', null,
+                   'props', '{}'::jsonb, 'subheadings', '[]'::jsonb, 'faq_ids', jsonb_build_array(d.doc_code),
+                   'images', '[]'::jsonb, 'handling', '', 'team', '', 'escalation_teams', '[]'::jsonb, 'urgency', '')
           from document_versions v
           join knowledge_documents d on d.id = v.document_id
          where v.id = c.version_id and c.seq is null
@@ -63,16 +67,10 @@ def upgrade() -> None:
     # 적재(임베딩)가 끝나지 않은 버전은 현행일 수 없다 (아래 ④의 규칙)
     op.execute("update document_versions set is_current = false where is_current and ingest_status <> 'DONE'")
 
-    # ③ 검사. 하나라도 걸리면 예외로 멈추고 아무것도 반영하지 않는다
+    # ③ 검사. 이전 스키마에는 "현행은 문서마다 하나" 규칙이 없었으므로, 현행이 둘 이상이면 어느 것을 남길지
+    #    정할 수 없어 멈춘다 (청크 칸의 빈 값·중복은 ②의 검사와 ④의 NOT NULL·UNIQUE 가 막는다)
     op.execute("""
         do $$ begin
-          if exists (select 1 from document_chunks
-                      where seq is null or unit_key is null or chunk_type is null) then
-            raise exception '빈 값이 남은 document_chunks 행이 있음 (FAQ 외 청크가 이미 들어 있는지 확인)';
-          end if;
-          if exists (select 1 from document_chunks group by version_id, seq having count(*) > 1) then
-            raise exception '한 버전 안에 같은 seq 가 둘 이상';
-          end if;
           if exists (select 1 from document_versions where is_current
                       group by document_id having count(*) > 1) then
             raise exception '현행 버전이 둘 이상인 문서가 있음';
@@ -111,6 +109,12 @@ def downgrade() -> None:
     """
     op.drop_constraint(op.f('ck_document_versions_current_needs_done'), 'document_versions', type_='check')
     op.drop_index(op.f('uq_document_versions_one_current'), table_name='document_versions')
+    # 이전 코드(시드)는 FAQ 버전을 늘 현행으로 둔다. upgrade 가 현행에서 내린 PENDING FAQ 를 되돌린다
+    op.execute("""
+        update document_versions v set is_current = true
+          from knowledge_documents d
+         where d.id = v.document_id and d.doc_type = 'FAQ' and not v.is_current and v.ingest_status = 'PENDING'
+    """)
 
     op.drop_constraint(op.f('ck_knowledge_documents_doc_type'), 'knowledge_documents', type_='check')
     op.create_check_constraint(op.f('ck_knowledge_documents_doc_type'), 'knowledge_documents',

@@ -88,7 +88,7 @@ def test_migration_sql_offline():
     out = subprocess.run([sys.executable, '-m', 'alembic', 'upgrade', '2793dd581cae:head', '--sql'],
                          cwd=os.path.join(ROOT, 'backend'), env=env, capture_output=True, text=True,
                          encoding='utf-8', check=True).stdout
-    steps = ['ADD COLUMN seq INTEGER', 'FAQ가 아닌 문서의 청크', "chunk_type = 'FAQ'", '빈 값이 남은',
+    steps = ['ADD COLUMN seq INTEGER', 'FAQ가 아닌 문서의 청크', "chunk_type = 'FAQ'", '현행 버전이 둘 이상',
              'ALTER COLUMN seq SET NOT NULL', 'uq_document_versions_one_current',
              'ck_document_versions_current_needs_done', 'COMMIT']
     pos = [out.find(s) for s in steps]

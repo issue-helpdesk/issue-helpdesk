@@ -55,10 +55,10 @@ def db():
             conn.execute('create table document_chunk_embeddings (chunk_id bigint not null references document_chunks (id) '
                          'on delete cascade, model text not null, primary key (chunk_id, model))')
         saved = {k: os.environ.get(k) for k in ('DATABASE_URL', 'SEED_INITIAL_PASSWORD')}
-        os.environ.update(DATABASE_URL=url, SEED_INITIAL_PASSWORD='verify-only')
-        seed = load_seed()
-        seed.load(seed.build(), False)
         try:
+            os.environ.update(DATABASE_URL=url, SEED_INITIAL_PASSWORD='verify-only')
+            seed = load_seed()
+            seed.load(seed.build(), False)
             yield seed, url
         finally:
             for k, v in saved.items():
@@ -93,10 +93,14 @@ def run(seed, change=None):
     seed.load(p, False)
 
 
+TOUCHED = ('FAQ-001', 'FAQ-002', 'FAQ-003', 'FAQ-005')     # 아래 테스트들이 상태를 바꾸는 FAQ (순서와 무관하게 보려고 뺀다)
+
+
 def test_new_faq_is_pending_and_not_current(db):
     _, url = db
-    rows = q(url, 'select is_current, ingest_status from document_versions')
-    assert len(rows) == 40 and set(rows) == {(False, 'PENDING')}
+    rows = q(url, 'select v.is_current, v.ingest_status from document_versions v join knowledge_documents d '
+                  'on d.id = v.document_id where d.doc_code <> all(%s)', list(TOUCHED))
+    assert len(rows) == 36 and set(rows) == {(False, 'PENDING')}
     assert all('inquiry_type_codes' in m and 'urgency' in m for (m,) in q(url, 'select meta from document_chunks'))
 
 
@@ -171,7 +175,21 @@ def test_migration_fills_old_faq_rows():
         old_rows(url, 'FAQ', 1)
         assert alembic(url, 'head').returncode == 0
         assert q(url, 'select seq, unit_key, chunk_type, part from document_chunks') == [(1, 'X-001@1.0/faq:X-001', 'FAQ', 1)]
+        (meta,), = q(url, 'select meta from document_chunks')
+        assert set(meta) == set(load_seed().EMPTY_META) and meta['faq_ids'] == ['X-001']   # meta 계약의 키가 다 있다
         assert q(url, 'select is_current from document_versions') == [(False,)]      # PENDING 은 현행에서 내려간다
+
+
+def test_downgrade_restores_old_faq_current():
+    """되돌리면 이전 코드가 기대하는 상태(FAQ 버전은 현행)로 돌아간다."""
+    with fresh_database() as url:
+        assert alembic(url, BASE_REV).returncode == 0
+        old_rows(url, 'FAQ', 1)
+        assert alembic(url, 'head').returncode == 0
+        env = {**os.environ, 'DATABASE_URL': url, 'PYTHONIOENCODING': 'utf-8'}
+        subprocess.run([sys.executable, '-m', 'alembic', 'downgrade', '-1'], cwd=os.path.join(ROOT, 'backend'),
+                       env=env, check=True, capture_output=True)
+        assert q(url, 'select is_current from document_versions') == [(True,)]
 
 
 @pytest.mark.parametrize('doc_type, chunks, message', [

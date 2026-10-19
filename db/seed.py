@@ -317,30 +317,33 @@ def load(p, reset_passwords):
 
         # FAQ 청크 (버전마다 1개, seq=1). 임베딩 입력(질문 + 본문)이 그대로면 다시 쓰지 않는다:
         # 지우고 다시 넣으면 청크 id 가 바뀌고 임베딩이 같이 지워지는데 버전은 DONE·현행으로 남는다
-        has_embeddings = cur.execute("select to_regclass('public.document_chunk_embeddings')").fetchone()[0]
-        reingest = []
+        has_embeddings = cur.execute("select to_regclass('document_chunk_embeddings')").fetchone()[0]
+        fields = ["unit_key", "chunk_type", "part", "location", "meta", "heading_path", "content"]
+        old = {(vid, seq): row for vid, seq, *row in cur.execute(
+            f"select version_id, seq, id, {', '.join(fields)} from document_chunks where version_id = any(%s)",
+            (list(version.values()),)).fetchall()}
+        inserts, updates, reingest = [], [], []
         for c in r["document_chunks"]:
             vid = version[doc[c["doc_code"]]]
-            meta = Jsonb(c["meta"])
-            old = cur.execute("select id, heading_path, content from document_chunks where version_id = %s and seq = %s",
-                              (vid, c["seq"])).fetchone()
-            if old is None:
-                cur.execute("insert into document_chunks (version_id, seq, unit_key, chunk_type, part, heading_path, "
-                            "location, content, meta) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                            (vid, c["seq"], c["unit_key"], c["chunk_type"], c["part"], c["heading_path"],
-                             c["location"], c["content"], meta))
+            new = [c[f] for f in fields]
+            if (vid, c["seq"]) not in old:
+                inserts.append((vid, c["seq"], *new[:4], Jsonb(c["meta"]), *new[5:]))
                 continue
-            chunk_id, old_heading, old_content = old
-            cur.execute("update document_chunks set unit_key = %s, chunk_type = %s, part = %s, location = %s, "
-                        "meta = %s, heading_path = %s, content = %s where id = %s",
-                        (c["unit_key"], c["chunk_type"], c["part"], c["location"], meta, c["heading_path"],
-                         c["content"], chunk_id))
-            if (old_heading, old_content) != (c["heading_path"], c["content"]):   # 임베딩 입력이 바뀜
-                if has_embeddings:
-                    cur.execute("delete from document_chunk_embeddings where chunk_id = %s", (chunk_id,))
-                cur.execute("update document_versions set is_current = false, ingest_status = 'PENDING', "
-                            "ingest_error = null where id = %s", (vid,))
-                reingest.append(c["doc_code"])
+            chunk_id, *cur_vals = old[(vid, c["seq"])]
+            if cur_vals == new:                         # 바뀐 것이 없으면 행을 다시 쓰지 않는다
+                continue
+            updates.append((*new[:4], Jsonb(c["meta"]), *new[5:], chunk_id))
+            if cur_vals[5:] != new[5:]:                 # 임베딩 입력(질문·본문)이 바뀜 → 다시 적재 대상
+                reingest.append((c["doc_code"], vid, chunk_id))
+        cur.executemany(f"insert into document_chunks (version_id, seq, {', '.join(fields)}) "
+                        f"values ({', '.join(['%s'] * (len(fields) + 2))})", inserts)
+        cur.executemany(f"update document_chunks set {', '.join(f'{f} = %s' for f in fields)} where id = %s", updates)
+        if reingest:
+            if has_embeddings:
+                cur.execute("delete from document_chunk_embeddings where chunk_id = any(%s)", ([x[2] for x in reingest],))
+            cur.execute("update document_versions set is_current = false, ingest_status = 'PENDING', ingest_error = null "
+                        "where id = any(%s)", ([x[1] for x in reingest],))
+            reingest = [x[0] for x in reingest]
         if reingest:
             print(f"[확인] 임베딩 입력이 바뀌어 다시 적재 대상(PENDING)으로 돌린 FAQ {len(reingest)}건: "
                   + ", ".join(reingest[:10]) + (" …" if len(reingest) > 10 else ""))
