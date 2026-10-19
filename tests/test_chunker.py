@@ -234,7 +234,7 @@ def test_validate_catches_problems():
 
 def test_baseline_matches_guides_final():
     """정리본 md 57종의 문서별 청크 수·항목 수·단위 수가 기준표와 같다 (파싱 누락·규칙 변경 감지)."""
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'backend', 'app', 'rag', 'chunk_baseline.json')
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'backend', 'app', 'rag', 'chunker', 'baseline.json')
     with open(path, encoding='utf-8') as f:
         want = json.load(f)
     assert want['chunker_version'] == CHUNKER_VERSION

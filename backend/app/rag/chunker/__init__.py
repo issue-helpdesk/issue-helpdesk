@@ -32,9 +32,9 @@ import os
 import re
 from dataclasses import asdict, dataclass, field
 
-from .parser import PARSER_VERSION
-from .parser.common import CIRCLED, NUM_RE
-from .parser.models import Element, ParsedDocument
+from ..parser import PARSER_VERSION
+from ..parser.common import CIRCLED, NUM_RE
+from ..parser.models import Element, ParsedDocument
 
 CHUNKER_VERSION = '1.0'  # 청크 경계·글이 바뀌는 수정을 하면 올린다 (chunk_key 는 같은 버전 안에서만 안정적)
 TRANSFER_POLICIES = ('ALLOWED', 'MASKED', 'BLOCKED')    # document_versions.transfer_policy
@@ -488,7 +488,7 @@ def preview(chunks: list[Chunk]) -> str:
 
 
 def baseline(chunks: list[Chunk]) -> dict[str, dict]:
-    """문서별 청크 수·항목 수·단위 수. 정리본 기준표(chunk_baseline.json)와 비교해 파싱 누락을 잡는다."""
+    """문서별 청크 수·항목 수·단위 수. 정리본 기준표(chunker/baseline.json)와 비교해 파싱 누락을 잡는다."""
     out: dict[str, dict] = {}
     for c in chunks:
         b = out.setdefault(c.doc_no, {'chunks': 0, 'items': 0, 'units': set()})
@@ -503,8 +503,8 @@ def main(argv=None) -> int:
     import argparse
     import logging
 
-    from .parser import ParseError, parse
-    from .parser.__main__ import iter_files
+    from ..parser import ParseError, parse
+    from ..parser.__main__ import iter_files
 
     ap = argparse.ArgumentParser(prog='python -m app.rag.chunker')
     ap.add_argument('paths', nargs='+')
@@ -545,6 +545,3 @@ def main(argv=None) -> int:
             f.write('\n')
     return 1 if failed else 0
 
-
-if __name__ == '__main__':
-    raise SystemExit(main())
