@@ -174,10 +174,6 @@ def build():
 
     # FAQ → 문서 1건 = 버전 1건 = 청크 1건 (새 버전은 PENDING·비현행. 임베딩 뒤 적재 스크립트가 현행으로 켠다)
     view, transfer = FAQ_POLICY
-    faq_types = {}                                      # FAQ 번호 → 그 FAQ를 쓰는 세부 유형 (taxonomy 시나리오의 faq)
-    for s in tax["scenarios"]:
-        for faq_id in filter(None, (x.strip() for x in str(s.get("faq") or "").split(","))):
-            faq_types.setdefault(faq_id, []).append(s["id"])
     for f in faqs:
         p.ref(cat_codes, f["category_code"], f"faq {f['faq_id']}")
         r["knowledge_documents"].append({"doc_code": f["faq_id"], "doc_type": "FAQ", "title": f["question"],
@@ -190,7 +186,7 @@ def build():
             "doc_code": f["faq_id"], "heading_path": f["question"], "location": f["faq_id"],
             "content": f"Q. {f['question']}\nA. {f['answer']}\n키워드: {keywords}",
             "seq": 1, "unit_key": f"{f['faq_id']}@{FAQ_VERSION}/faq:{f['faq_id']}", "chunk_type": "FAQ", "part": 1,
-            "meta": {**EMPTY_META, "faq_ids": [f["faq_id"]], "inquiry_type_codes": faq_types.get(f["faq_id"], [])}})
+            "meta": {**EMPTY_META, "faq_ids": [f["faq_id"]]}})
 
     # 도입 이전 문의 이력 (문의자 개인은 넣지 않고 부서만 남긴다)
     member_by_name = {a["name"]: a["emp_id"] for a in assignees}

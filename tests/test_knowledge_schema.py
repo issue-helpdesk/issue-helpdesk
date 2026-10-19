@@ -79,7 +79,6 @@ def test_seed_faq_rows_follow_contract():
         assert c['seq'] == 1 and c['part'] == 1 and c['chunk_type'] == 'FAQ'
         assert c['unit_key'] == f"{c['doc_code']}@{seed.FAQ_VERSION}/faq:{c['doc_code']}"
         assert c['meta']['faq_ids'] == [c['doc_code']]
-    assert sum(bool(c['meta']['inquiry_type_codes']) for c in faqs) >= 35   # taxonomy 시나리오의 faq 연결
 
 
 def test_migration_sql_offline():
