@@ -1,9 +1,9 @@
 # ITssue → Jira 필드·선택값 매핑
 #
 # 출처: 노션 WBS M5-1-1 "Jira 필드 정의 및 데이터셋·AI 출력 스키마 매핑"
-# 현재 대상: ITSD (Jira Software). 프로젝트·작업 생성 메타를 2026-10-19에 조회해 반영.
+# 현재 대상: ITSD = IT Service Desk (Jira Software). 프로젝트·작업 생성 메타를 2026-10-19에 조회해 반영.
 # 과거 검증: ITS-351 ~ ITS-700은 이전 ITS 프로젝트의 이관 검증 기록이다.
-# 현재 ITSD의 신규 접수용 생성 API는 아직 실제 생성 시험 전 (M5-1-2 · M5-1-4).
+# 신규 접수 생성: 2026-10-19 시험 1건(ITSD-353)으로 저장값 일치 확인 (M5-1-2). 아래 create 절 참고.
 #
 # 키 이름은 06 테이블 설계서의 DB 컬럼 이름(기준 이름)을 쓴다. (docs/07.API_계약서.md)
 #   dataset_column: 과거 데이터셋(dataset/data/history.csv) 컬럼명. 이관 스크립트만 이 이름을 쓴다.
@@ -292,3 +292,37 @@ options:
       CLS: { value: CLS, id: "10066" }
 
 # 일반 Jira 생성에는 JSM request_type(customfield_10010)을 전송하지 않는다.
+
+# ---------------------------------------------------------------- 신규 접수 생성 규칙
+# mapper.py 가 이 절을 읽어 ITSD(IT Service Desk) 티켓 생성 요청을 만든다.
+# 위 fields·options 는 그대로 쓰고, 생성할 때만 필요한 값을 여기에 둔다.
+
+create:
+  issue_type: TASK                 # options.issue_type
+  browse_path: /browse/            # 티켓 주소 = JIRA_BASE_URL + browse_path + 키
+
+  # 접수 데이터에 반드시 있어야 하는 키
+  required: [receipt_no, title, category_code, urgency, group_name]
+
+  # 항상 같은 값 (07 API 계약서 5장)
+  constants:
+    channel: CHATBOT
+    handling_type: TICKET
+
+  # 입력에 없고 다른 키에서 계산하는 값
+  derived:
+    urgency_label: urgency         # P1~P4 → 긴급도 옵션
+
+  # 생성 요청에 넣지 않는 키 (이관 전용이거나 생성 후 전환으로 맞추는 값)
+  skip: [created_at, resolved_at, work_status]
+
+  # Jira 짧은 텍스트 칸 최대 글자 수. 넘으면 자르고 전체는 기본 description(ADF)에 남긴다.
+  text_max_length: 255
+
+  # description 이 없으면 아래 초안 항목을 제목과 함께 이어 붙여 접수 내용으로 쓴다.
+  description_parts:
+    summary: 문의 요약
+    onset: 발생 시점
+    business_impact: 업무 영향
+    tried_actions: 시도한 조치
+    ai_summary: AI 안내 내용

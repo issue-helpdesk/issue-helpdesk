@@ -200,7 +200,7 @@ describe('접수 흐름 (API)', () => {
     expect(done.draftState).toBe('confirmed')
     await settle()
     const after = await get(d.id)
-    expect(after.ticket?.jiraKey).toMatch(/^ITS-\d+$/)
+    expect(after.ticket?.jiraKey).toMatch(/^ITSD-\d+$/)
     expect(after.ticket).toMatchObject({ workStatus: 'RDY', assignStatus: 'ASSIGNED', jiraSyncStatus: 'SYNCED', assigneeName: '김담당', groupName: '네트워크팀' })
     expect(after.status).toBe('HANDED_OFF')
   })

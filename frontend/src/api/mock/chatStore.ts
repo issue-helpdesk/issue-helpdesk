@@ -83,7 +83,7 @@ export function later(ms: number, fn: () => void) {
 }
 
 export const nextRcpt = () => `RCPT-${seq.rcpt++}`
-export const nextIts = () => `ITS-${seq.its++}`
+export const nextIts = () => `ITSD-${seq.its++}`
 
 /** 메시지를 대화 끝에 붙이고 번호를 매긴다 */
 export function push(inq: Inquiry, m: Omit<ChatMessage, 'id'>): ChatMessage {
