@@ -36,7 +36,21 @@ def upgrade() -> None:
     op.add_column('document_chunks', sa.Column('meta', postgresql.JSONB(astext_type=sa.Text()),
                                                server_default=sa.text("'{}'::jsonb"), nullable=False))
 
-    # ② 기존 행 채우기. 지금 들어 있는 청크는 FAQ 시드뿐이다 (버전 하나에 청크 하나)
+    # ② 기존 행 채우기. 지금 들어 있는 청크는 FAQ 시드뿐이다 (버전 하나에 청크 하나).
+    #    그 밖의 청크(가이드·매뉴얼, 또는 버전에 청크가 여럿)가 있으면 FAQ로 잘못 채우지 않도록 먼저 멈춘다
+    op.execute("""
+        do $$ begin
+          if exists (select 1 from document_chunks c
+                       join document_versions v on v.id = c.version_id
+                       join knowledge_documents d on d.id = v.document_id
+                      where d.doc_type <> 'FAQ') then
+            raise exception 'FAQ가 아닌 문서의 청크가 이미 있어 자동으로 채울 수 없음. 그 청크를 지우고 다시 적재하거나 직접 채운 뒤 올린다';
+          end if;
+          if exists (select 1 from document_chunks group by version_id having count(*) > 1) then
+            raise exception '청크가 둘 이상인 버전이 있어 seq 를 자동으로 정할 수 없음';
+          end if;
+        end $$
+    """)
     op.execute("""
         update document_chunks c
            set seq = 1,
