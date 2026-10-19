@@ -8,7 +8,8 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { watchMyInquiries } from '../api/inquiries'
-import type { InquirySummary, Role } from '../api/types'
+import type { InquirySummary, ServiceRole } from '../api/types'
+import { formatRelative } from '../core/format'
 import { ROLE_LABEL } from '../core/roles'
 import { useAuth } from '../core/session'
 import { Icon, type IconName } from './Icon'
@@ -29,9 +30,9 @@ const INQUIRY_MENU: NavItem[] = [
 ]
 
 /** 역할별로 더해지는 메뉴 (문의자는 없음) */
-const EXTRA_MENU: Partial<Record<Role, { group: string; items: NavItem[] }>> = {
-  staff: { group: '업무', items: [{ to: '/queue', label: '처리할 문의', icon: 'file' }] },
-  admin: { group: '운영', items: [{ to: '/dash', label: '대시보드', icon: 'home' }] },
+const EXTRA_MENU: Partial<Record<ServiceRole, { group: string; items: NavItem[] }>> = {
+  AGENT: { group: '업무', items: [{ to: '/queue', label: '처리할 문의', icon: 'file' }] },
+  ADMIN: { group: '운영', items: [{ to: '/dash', label: '대시보드', icon: 'home' }] },
 }
 
 /** 이름 끝 두 글자를 프로필 동그라미에 보여 준다 */
@@ -44,15 +45,15 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   const [recent, setRecent] = useState<InquirySummary[]>([])
 
   // 최근 문의 목록을 불러오고, 새 문의나 진행 상황이 바뀔 때마다 다시 받는다
-  const userId = user?.id
+  const employeeNo = user?.employeeNo
   useEffect(() => {
-    if (!userId) return
-    return watchMyInquiries(userId, setRecent)
-  }, [userId])
+    if (!employeeNo) return
+    return watchMyInquiries(employeeNo, setRecent)
+  }, [employeeNo])
 
   if (!user) return null
 
-  const extra = EXTRA_MENU[user.role]
+  const extra = EXTRA_MENU[user.serviceRole]
   const unread = recent.reduce((sum, i) => sum + i.unread, 0)
 
   const go = (to: string) => {
@@ -103,7 +104,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
                       <i style={{ background: `var(--s-${tone}-dot)` }} />
                       {i.stateLabel}
                     </span>{' '}
-                    · {i.when}
+                    · {formatRelative(i.updatedAt)}
                   </small>
                 </button>
               )
@@ -117,7 +118,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
         <div>
           <div className="nm">{user.name}</div>
           <small>
-            {user.dept} · {ROLE_LABEL[user.role]}
+            {user.departmentName} · {ROLE_LABEL[user.serviceRole]}
           </small>
         </div>
         <button

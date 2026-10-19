@@ -1,25 +1,27 @@
 /**
- * API 계약 타입 (제안).
- * 백엔드(A)가 확정한 값에 맞춰 이 파일과 어댑터(auth.ts, consult.ts)만 고친다.
+ * API 계약 타입.
+ * 이름과 값은 06 테이블 설계서의 DB 컬럼·코드 값을 따르고, JSON 키만 camelCase 로 쓴다. (docs/07.API_계약서.md)
+ * 한글 표시는 catalog.ts 의 라벨표에서만 붙인다.
  */
+import type { CategoryCode, GuideSource } from './chatTypes'
 
-/** 사용자 역할: 문의자 / 담당자(IT 운영) / 관리자 */
-export type Role = 'user' | 'staff' | 'admin'
+/** 서비스 권한 (users.service_role): 문의자 / 담당자(IT 운영) / 관리자 */
+export type ServiceRole = 'EMPLOYEE' | 'AGENT' | 'ADMIN'
 
-/**
- * 서비스 계정 상태 (SRS 4.6). 잠김·이용 제한 계정은 로그인할 수 없다.
- * DB 값(`06 테이블 설계서`)과의 대응: 정상=ACTIVE, 잠김=LOCKED, 이용 제한=INACTIVE
- */
-export type AccountStatus = '정상' | '잠김' | '이용 제한'
+/** 서비스 계정 상태 (users.account_status, SRS 4.6). 잠김·이용 제한 계정은 로그인할 수 없다. */
+export type AccountStatus = 'ACTIVE' | 'LOCKED' | 'INACTIVE'
 
 export interface User {
-  /** 사번 (예: HS1001) */
-  id: string
+  /** 사용자 ID (users.id) */
+  id: number
+  /** 사번 (users.employee_no, 예: EMP-1001). 로그인 ID 로 쓴다. */
+  employeeNo: string
   name: string
-  /** 소속 부서 */
-  dept: string
-  role: Role
-  status: AccountStatus
+  departmentId: number | null
+  /** 소속 부서 이름 (departments.name) */
+  departmentName: string
+  serviceRole: ServiceRole
+  accountStatus: AccountStatus
 }
 
 /** 성공 응답 */
@@ -31,14 +33,19 @@ export interface ApiOk<T> {
 /** 실패 응답. message 는 사용자에게 그대로 보여 줄 수 있는 한국어 문구여야 한다. */
 export interface ApiFail {
   ok: false
-  error: { code: string; message: string }
+  error: {
+    code: string
+    message: string
+    /** ACCOUNT_LOCKED 일 때 잠금이 풀리는 시각 (ISO 8601) */
+    lockedUntil?: string
+  }
 }
 
 export type ApiResult<T> = ApiOk<T> | ApiFail
 
 export interface LoginRequest {
   /** 사번 */
-  employeeId: string
+  employeeNo: string
   password: string
 }
 
@@ -52,39 +59,42 @@ export interface LoginData {
 export interface ConsultReply {
   /** 문단 목록. **굵게** 표시를 지원한다. */
   paragraphs: string[]
-  /** 근거 Guide 출처. 예: "IT-ACC-001 사내 SSO 로그인 오류 대응 가이드 v2 · 3.2" */
-  source?: string
+  /** 근거 Guide 출처. 문의 화면 답변과 같은 형태 */
+  sources: GuideSource[]
 }
 
 /** FAQ 한 건 (제안 기능, PRD 4.16 · SRS FAQ-01). 열람이 허용된 Guide를 출처로 한다. */
 export interface Faq {
+  /** 문서 코드 (예: FAQ-001) */
   id: string
-  /** 분류 코드 (ACC · ACS · NET · SW · HW · SYS · SEC) */
-  category: string
+  categoryCode: CategoryCode
   question: string
   answer: string
-  /** 근거 Guide 출처. 예: "IT-NET-001 VPN 접속 장애 대응 가이드 v2 · 3.1" */
-  source: string
+  /** 근거 Guide 출처 */
+  sources: GuideSource[]
 }
 
-/** 문의 진행 표시 상태. 사이드바 최근 문의와 문의 내역에 쓴다. (PRD 4.8 화면 표시 상태) */
-export type InquiryStateKind = 'progress' | 'assigned' | 'received' | 'resolved' | 'ai' | 'warn' | 'need'
+/**
+ * 문의 진행 표시 상태. 사이드바 최근 문의와 문의 내역에 쓴다. (PRD 4.8 화면 표시 상태)
+ * needs_reply · reassigned · awaiting_confirm 은 SRS 4.x 의 보조 상태 값을 그대로 쓴다.
+ */
+export type InquiryStateKind = 'progress' | 'assigned' | 'received' | 'resolved' | 'ai' | 'warn' | 'needs_reply' | 'reassigned' | 'awaiting_confirm'
 
 /** 문의 한 건 요약 (사이드바 최근 문의) */
 export interface InquirySummary {
-  id: string
+  id: number
   title: string
   /** 화면에 보일 상태 이름 (예: 처리 중, 해결 완료, AI 해결, 미확인) */
   stateLabel: string
   stateKind: InquiryStateKind
   /** 확인하지 않은 담당자 답변 수. 0 이면 표시하지 않는다. */
   unread: number
-  /** 최근 활동 (예: 어제, 3일 전) */
-  when: string
+  /** 최근 활동 시각 (ISO 8601). '어제' 같은 표시는 화면에서 계산한다. */
+  updatedAt: string
 }
 
 /** 성공 응답을 만드는 도우미 */
 export const ok = <T,>(data: T): ApiOk<T> => ({ ok: true, data })
 
 /** 실패 응답을 만드는 도우미 */
-export const fail = (code: string, message: string): ApiFail => ({ ok: false, error: { code, message } })
+export const fail = (code: string, message: string, extra?: { lockedUntil?: string }): ApiFail => ({ ok: false, error: { code, message, ...extra } })

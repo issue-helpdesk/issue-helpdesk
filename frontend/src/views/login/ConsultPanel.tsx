@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { askPreLogin } from '../../api/consult'
 import type { ConsultReply } from '../../api/types'
+import { sourceLabel } from '../../core/format'
 import { Icon } from '../../ui/Icon'
 import { Avatar } from '../../ui/Logo'
 import { RichText } from '../../ui/RichText'
@@ -25,6 +26,7 @@ const INTRO: Msg[] = [
     id: 2,
     role: 'ai',
     reply: {
+      sources: [],
       paragraphs: [
         '로그인 전에는 **계정 잠금, 비밀번호, SSO·MFA** 안내만 도와드려요. 어떤 증상인지 아래에서 고르거나 직접 적어 주세요. 접수는 로그인 후에 할 수 있어요.',
       ],
@@ -59,7 +61,7 @@ export function ConsultPanel() {
 
     const r = await askPreLogin(t)
     // 실패하면 서버 오류 문구를 답변처럼 보여 준다
-    const reply: ConsultReply = r.ok ? r.data : { paragraphs: [r.error.message] }
+    const reply: ConsultReply = r.ok ? r.data : { paragraphs: [r.error.message], sources: [] }
 
     // "처리 중" 표시를 지우고 실제 답변으로 바꾼다
     setMsgs((m) => [...m.filter((x) => x.id !== tid), { id: nextId.current++, role: 'ai', reply }])
@@ -106,12 +108,12 @@ export function ConsultPanel() {
                   <p key={i}><RichText text={p} /></p>
                 ))}
                 {/* 근거로 쓴 Guide 출처 (SRS ANSWER-01) */}
-                {m.reply.source && (
-                  <button className="src" type="button" title="출처 Guide">
+                {m.reply.sources.map((s) => (
+                  <button className="src" type="button" title="출처 Guide" key={`${s.docCode}-${s.section}`}>
                     <Icon name="file" size={16} />
-                    {m.reply.source}
+                    {sourceLabel(s)}
                   </button>
-                )}
+                ))}
               </div>
             </div>
           )

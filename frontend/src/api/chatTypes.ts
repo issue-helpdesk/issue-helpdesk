@@ -1,6 +1,6 @@
 /**
- * 문의 대화(챗봇) API 계약 타입 (제안).
- * 백엔드(A)가 확정한 값에 맞춰 이 파일과 어댑터(chat.ts)만 고친다.
+ * 문의 대화(챗봇) API 계약 타입.
+ * 이름과 값은 06 테이블 설계서의 DB 컬럼·코드 값을 따르고, JSON 키만 camelCase 로 쓴다. (docs/07.API_계약서.md)
  *
  * 답변 본문은 HTML 이 아니라 구조화된 블록으로 주고받는다. 화면이 React 요소로만 그리므로
  * 서버가 준 문구에 스크립트가 섞여 있어도 실행되지 않는다. (**굵게** 표시만 지원)
@@ -9,25 +9,35 @@
 /** 문의 분류 7종 (PRD 4.3) */
 export type CategoryCode = 'ACC' | 'ACS' | 'NET' | 'SW' | 'HW' | 'SYS' | 'SEC'
 
-/** 긴급도 P1(긴급) ~ P4(낮음) */
-export type Priority = 'P1' | 'P2' | 'P3' | 'P4'
+/** 긴급도 P1(긴급) ~ P4(낮음) (urgency) */
+export type Urgency = 'P1' | 'P2' | 'P3' | 'P4'
 
 /**
- * 문의(대화) 자체의 상태.
- * 접수 이후의 진행 단계는 Ticket 상태(RDY → WIP → FIN → CLS)가 따로 나타낸다.
+ * 문의(대화) 자체의 상태 (inquiries.status). 한글 표시는 catalog.ts 의 INQUIRY_STATUS_LABEL.
+ * 접수 이후의 진행 단계는 Ticket 업무 상태(RDY → WIP → FIN → CLS)가 따로 나타낸다.
  */
-export type InquiryState = '진행 중' | 'AI 해결' | '미확인' | '미해결 종료' | '접수 완료' | '담당자 이관'
+export type InquiryStatus = 'IN_PROGRESS' | 'AI_RESOLVED' | 'UNCONFIRMED' | 'CLOSED_UNRESOLVED' | 'RECEIVED' | 'HANDED_OFF'
 
 /** 대화 진행 단계 (화면이 입력창·버튼을 정할 때 쓴다) */
 export type ChatStep = 'collect' | 'answering' | 'answered' | 'offer' | 'draft' | 'submitted' | 'closed'
 
-/** Ticket 상태: 처리 대기 → 처리 중 → 해결 확인 대기 → 해결 완료 (06 설계서의 RDY/WIP/FIN/CLS) */
-export type TicketStatus = 'RDY' | 'WIP' | 'FIN' | 'CLS'
+/** Ticket 업무 상태 (tickets.work_status): 처리 대기 → 처리 중 → 해결 확인 대기 → 해결 완료 */
+export type WorkStatus = 'RDY' | 'WIP' | 'FIN' | 'CLS'
 
-/** 답변에 붙는 근거 Guide 출처 */
+/** 배정 상태 (tickets.assign_status) */
+export type AssignStatus = 'PENDING' | 'ASSIGNED' | 'NEEDS_ADMIN'
+
+/** Jira 연동 상태 (tickets.jira_sync_status) */
+export type JiraSyncStatus = 'PENDING' | 'VERIFYING' | 'SYNCED' | 'NEEDS_ADMIN'
+
+/** 답변에 붙는 근거 Guide 출처. 문의 화면·로그인 전 상담·FAQ 가 같은 형태를 쓴다. */
 export interface GuideSource {
-  guide: string
-  version: number
+  /** 문서 코드 (knowledge_documents.doc_code, 예: IT-NET-001) */
+  docCode: string
+  /** 문서 제목 */
+  title: string
+  /** 문서 버전 (document_versions.version, 예: v2) */
+  version: string
   section: string
   /** 출처 미리보기에 보여 줄 요약 */
   excerpt: string
@@ -46,7 +56,7 @@ export type ChatBlock =
   | { type: 'p'; text: string; muted?: boolean }
   | { type: 'ol'; items: string[] }
   /** 긴급 징후 요약 카드 */
-  | { type: 'urgent'; group: string; priority: Priority; why: string[] }
+  | { type: 'urgent'; groupName: string; urgency: Urgency; urgencyReasons: string[] }
 
 /** 답변 아래 빠른 응답 버튼이 보내는 동작 */
 export type ReplyAction = 'quick' | 'resolved' | 'unresolved' | 'connect-yes' | 'connect-no' | 'noop'
@@ -84,33 +94,39 @@ export interface ChatMessage {
   ticketSnapshot?: Ticket
   /** staff 메시지 */
   from?: string
-  group?: string
+  groupName?: string
   kind?: string
-  time?: string
+  /** 메시지 시각 (ISO 8601) */
+  createdAt?: string
 }
 
 /** 접수 초안 (문의자가 확인·수정한 뒤에만 접수된다) */
 export interface Draft {
   title: string
-  category: CategoryCode | null
-  system: string
-  issue: string
+  categoryCode: CategoryCode | null
+  targetSystem: string
+  /** 문의 요약 (ticket_drafts.summary) */
+  summary: string
+  /** 발생 시점. DB 컬럼 없이 Jira 접수 내용에만 넣는다. */
   onset: string
-  impact: string
-  tried: string
-  /** AI 안내 요약 */
-  ai: string
-  priority: Priority
-  priorityWhy: string[]
+  /** 업무 영향 (business_impact) */
+  businessImpact: string
+  triedActions: string
+  /** AI 안내 요약. DB 컬럼 없이 Jira 접수 내용에만 넣는다. */
+  aiSummary: string
+  urgency: Urgency
+  /** 긴급도 근거. DB urgency_reason 에는 줄바꿈으로 합쳐 저장한다. */
+  urgencyReasons: string[]
   /** 추천 담당 그룹 */
-  group: string
+  groupId: number | null
+  groupName: string
 }
 
 /** 초안에서 문의자가 고칠 수 있는 항목 */
 export interface DraftEdit {
-  issue: string
-  impact: string
-  tried: string
+  summary: string
+  businessImpact: string
+  triedActions: string
 }
 
 export type DraftState = 'view' | 'confirmed' | 'cancel'
@@ -118,34 +134,40 @@ export type DraftState = 'view' | 'confirmed' | 'cancel'
 /** 접수된 Ticket 중 문의자에게 보이는 정보 */
 export interface Ticket {
   /** 접수번호 RCPT-#### */
-  receipt: string
-  /** Jira Ticket 번호 ITS-####. 생성 전에는 null */
-  jiraId: string | null
+  receiptNo: string
+  /** Jira 이슈 키 ITS-####. 생성 전에는 null */
+  jiraKey: string | null
   title: string
-  category: CategoryCode | null
-  priority: Priority
-  group: string
-  assignee: string | null
-  /** 담당자 배정 전에는 null */
-  status: TicketStatus | null
-  created: string
-  /** 담당자가 등록한 처리 결과 */
-  result: string
+  categoryCode: CategoryCode | null
+  urgency: Urgency
+  groupId: number | null
+  groupName: string
+  assigneeId: number | null
+  assigneeName: string | null
+  /** 업무 상태. Jira 생성 직후 RDY, Jira 생성 전에는 null */
+  workStatus: WorkStatus | null
+  /** 배정 여부는 업무 상태와 따로 나타낸다 */
+  assignStatus: AssignStatus
+  jiraSyncStatus: JiraSyncStatus
+  /** 접수 시각 (ISO 8601) */
+  createdAt: string
+  /** 담당자가 등록한 처리 결과 (tickets.resolution_note) */
+  resolutionNote: string
   /** 담당자가 추가 정보를 요청해 문의자의 답변을 기다리는 중 */
   needReply: boolean
 }
 
 export interface Inquiry {
-  /** 문의 번호 */
-  id: string
+  /** 문의 ID (inquiries.id). 화면에는 보이지 않고, 문의자에게는 접수번호만 보인다. */
+  id: number
   title: string
-  state: InquiryState
+  status: InquiryStatus
   step: ChatStep
-  category: CategoryCode | null
+  categoryCode: CategoryCode | null
   /** 확인하지 않은 담당자 답변 수 */
   unread: number
-  /** 최근 활동 표시 (예: 방금, 어제) */
-  when: string
+  /** 최근 활동 시각 (ISO 8601). '어제' 같은 표시는 화면에서 계산한다. */
+  updatedAt: string
   messages: ChatMessage[]
   draft: Draft | null
   draftState: DraftState

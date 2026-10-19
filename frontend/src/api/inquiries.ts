@@ -13,10 +13,10 @@ import { ok, type ApiResult, type InquirySummary } from './types'
 const POLL_MS = 8000
 
 /** 로그인한 사용자의 문의 목록 (최근 활동 순). 서버는 토큰으로 사용자를 구분한다. */
-export async function listMyInquiries(userId: string): Promise<ApiResult<InquirySummary[]>> {
+export async function listMyInquiries(employeeNo: string): Promise<ApiResult<InquirySummary[]>> {
   if (USE_MOCK) {
     await sleep(150) // 응답 지연 흉내
-    return ok(recordsOf(userId).map((r) => toSummary(r.inquiry)))
+    return ok(recordsOf(employeeNo).map((r) => toSummary(r.inquiry)))
   }
   return request<InquirySummary[]>('/inquiries')
 }
@@ -25,9 +25,9 @@ export async function listMyInquiries(userId: string): Promise<ApiResult<Inquiry
  * 문의 목록이 바뀔 때마다 알려 준다. (새 문의, 담당자 진행 상황, 새 답변 표시)
  * 모의 모드에서는 저장소 변경을, 서버 모드에서는 주기적 조회를 쓴다. 돌려주는 함수를 부르면 구독이 끝난다.
  */
-export function watchMyInquiries(userId: string, onChange: (list: InquirySummary[]) => void): () => void {
+export function watchMyInquiries(employeeNo: string, onChange: (list: InquirySummary[]) => void): () => void {
   const load = () => {
-    listMyInquiries(userId).then((r) => {
+    listMyInquiries(employeeNo).then((r) => {
       if (r.ok) onChange(r.data)
     })
   }

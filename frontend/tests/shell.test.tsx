@@ -27,7 +27,7 @@ function renderAs(userId: string, path = '/new') {
 
 describe('사이드바', () => {
   it('문의자는 새 문의 · 문의 내역 · FAQ 메뉴와 사용자 정보가 보인다', async () => {
-    renderAs('HS1001')
+    renderAs('EMP-1001')
     const nav = await screen.findByRole('navigation', { name: '주 메뉴' }, SLOW)
     expect(within(nav).getByRole('button', { name: /새 문의/ })).toHaveAttribute('aria-current', 'page')
     expect(within(nav).getByRole('button', { name: /문의 내역/ })).toBeInTheDocument()
@@ -38,15 +38,15 @@ describe('사이드바', () => {
   })
 
   it('담당자에게는 업무 메뉴, 관리자에게는 운영 메뉴가 더해진다', async () => {
-    const { unmount } = renderAs('HS1107')
+    const { unmount } = renderAs('EMP-1107')
     expect(await screen.findByRole('button', { name: '처리할 문의' }, SLOW)).toBeInTheDocument()
     unmount()
-    renderAs('HS0912')
+    renderAs('EMP-0912')
     expect(await screen.findByRole('button', { name: '대시보드' }, SLOW)).toBeInTheDocument()
   })
 
   it('최근 문의와 확인하지 않은 답변 수를 보여 준다', async () => {
-    renderAs('HS1001')
+    renderAs('EMP-1001')
     expect(await screen.findByText('VPN 연결이 자주 끊겨요', {}, SLOW)).toBeInTheDocument()
     // 문의 내역 메뉴 옆의 읽지 않은 수
     const list = screen.getByRole('button', { name: /문의 내역/ })
@@ -54,14 +54,14 @@ describe('사이드바', () => {
   })
 
   it('문의가 없는 계정은 최근 문의 영역을 보여 주지 않는다', async () => {
-    renderAs('HS1003')
+    renderAs('EMP-1003')
     await screen.findByRole('navigation', { name: '주 메뉴' }, SLOW)
     expect(screen.queryByText('최근 문의')).not.toBeInTheDocument()
   })
 
   it('로그아웃하면 로그인 화면으로 돌아간다', async () => {
     const user = userEvent.setup()
-    renderAs('HS1001')
+    renderAs('EMP-1001')
     await user.click(await screen.findByRole('button', { name: '로그아웃' }, SLOW))
     expect(screen.getByRole('heading', { name: 'IT 문제, 먼저 물어보세요' })).toBeInTheDocument()
     expect(tokenStore.get()).toBeNull()
@@ -69,7 +69,7 @@ describe('사이드바', () => {
 
   it('좁은 화면의 메뉴 버튼으로 사이드바를 열고 닫는다', async () => {
     const user = userEvent.setup()
-    const { container } = renderAs('HS1001', '/faq')
+    const { container } = renderAs('EMP-1001', '/faq')
     await screen.findByRole('heading', { name: 'FAQ' }, SLOW)
     const app = container.querySelector('.app')
     expect(app).not.toHaveClass('nav-open')
@@ -83,7 +83,7 @@ describe('사이드바', () => {
 
 describe('새 문의 (챗봇 시작 화면)', () => {
   it('인사말과 입력창, 분류 칩, 추천 카드가 보인다', async () => {
-    renderAs('HS1001')
+    renderAs('EMP-1001')
     expect(await screen.findByText('김서연님, 안녕하세요', {}, SLOW)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '무엇을 도와드릴까요?' })).toBeInTheDocument()
     expect(screen.getByLabelText('메시지 입력')).toBeInTheDocument()
@@ -93,20 +93,20 @@ describe('새 문의 (챗봇 시작 화면)', () => {
 
   it('칩을 누르면 입력창에 문장만 채워지고 바로 보내지지 않는다', async () => {
     const user = userEvent.setup()
-    renderAs('HS1001')
+    renderAs('EMP-1001')
     await user.click(await screen.findByRole('button', { name: /계정·로그인/ }, SLOW))
     expect(screen.getByLabelText('메시지 입력')).toHaveValue('계정이 잠겼어요')
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('입력이 비어 있으면 보내기 버튼이 막혀 있다', async () => {
-    renderAs('HS1001')
+    renderAs('EMP-1001')
     expect(await screen.findByRole('button', { name: '보내기' }, SLOW)).toBeDisabled()
   })
 
   it('Enter 로 보내면 문의가 만들어지고 대화 화면으로 이동한다', async () => {
     const user = userEvent.setup()
-    renderAs('HS1001')
+    renderAs('EMP-1001')
     const box = await screen.findByLabelText('메시지 입력', {}, SLOW)
     await user.type(box, 'VPN이 안 돼요{Enter}')
     expect(await screen.findByText('VPN이 안 돼요', { selector: '.msg.u' }, SLOW)).toBeInTheDocument()
@@ -114,7 +114,7 @@ describe('새 문의 (챗봇 시작 화면)', () => {
 
   it('Shift+Enter 는 보내지 않고 줄바꿈이다', async () => {
     const user = userEvent.setup()
-    renderAs('HS1001')
+    renderAs('EMP-1001')
     const box = await screen.findByLabelText('메시지 입력', {}, SLOW)
     await user.type(box, '첫 줄{Shift>}{Enter}{/Shift}둘째 줄')
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
@@ -122,7 +122,7 @@ describe('새 문의 (챗봇 시작 화면)', () => {
   })
 
   it('첨부 버튼은 준비 중이라 막혀 있다', async () => {
-    renderAs('HS1001')
+    renderAs('EMP-1001')
     expect(await screen.findByRole('button', { name: '첨부 파일 (준비 중)' }, SLOW)).toBeDisabled()
   })
 })
@@ -130,7 +130,7 @@ describe('새 문의 (챗봇 시작 화면)', () => {
 describe('FAQ', () => {
   it('사이드바에서 FAQ 로 이동하면 목록과 분류가 보인다', async () => {
     const user = userEvent.setup()
-    renderAs('HS1001')
+    renderAs('EMP-1001')
     await user.click(await screen.findByRole('button', { name: 'FAQ' }, SLOW))
     expect(await screen.findByText('VPN에 연결할 수 없다고 나와요.', {}, SLOW)).toBeInTheDocument()
     expect(screen.getAllByText('계정·로그인').length).toBeGreaterThan(0)
@@ -139,7 +139,7 @@ describe('FAQ', () => {
 
   it('FAQ 를 열면 답변과 근거 Guide 출처가 보인다', async () => {
     const user = userEvent.setup()
-    renderAs('HS1001', '/faq')
+    renderAs('EMP-1001', '/faq')
     await user.click(await screen.findByText('계정이 잠겼어요. 어떻게 해야 하나요?', {}, SLOW))
     expect(screen.getByText(/10분 후 자동으로 해제돼요/)).toBeInTheDocument()
     expect(screen.getByText(/IT-ACC-001 사내 SSO 로그인 오류 대응 가이드 v2 · 3\.2/)).toBeInTheDocument()
@@ -147,7 +147,7 @@ describe('FAQ', () => {
 
   it('"상담하기"를 누르면 새 문의 입력창에 그 질문이 채워진다', async () => {
     const user = userEvent.setup()
-    renderAs('HS1001', '/faq')
+    renderAs('EMP-1001', '/faq')
     await user.click(await screen.findByText('업무용 프로그램은 어디서 설치하나요?', {}, SLOW))
     const buttons = screen.getAllByRole('button', { name: '해결되지 않았어요 · 상담하기' })
     // 열린 항목(세 번째)의 버튼을 누른다

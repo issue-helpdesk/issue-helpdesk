@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom'
 import { listFaqs } from '../../api/faq'
 import { CATEGORY_NAME } from '../../api/mock/faqs'
 import type { ApiResult, Faq } from '../../api/types'
+import { sourceLabel } from '../../core/format'
 import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
 
@@ -74,7 +75,7 @@ export function FaqView() {
           {faqs?.map((f) => (
             <details key={f.id} className="panel faq" style={{ padding: 0 }}>
               <summary>
-                <span className={`tag c-${f.category}`}>{CATEGORY_NAME[f.category] ?? f.category}</span>
+                <span className={`tag c-${f.categoryCode}`}>{CATEGORY_NAME[f.categoryCode] ?? f.categoryCode}</span>
                 <b>{f.question}</b>
                 <span className="chv" aria-hidden="true">
                   <Icon name="chevron" />
@@ -84,7 +85,7 @@ export function FaqView() {
                 {f.answer}
                 {/* 근거로 쓴 Guide 출처 (SRS ANSWER-01) */}
                 <div className="small muted" style={{ marginTop: 6 }}>
-                  출처: {f.source}
+                  출처: {f.sources.map(sourceLabel).join(', ')}
                 </div>
                 <div className="row" style={{ marginTop: 12 }}>
                   <button type="button" className="btn sec sm" onClick={() => navigate('/new', { state: { prefill: f.question } })}>

@@ -9,10 +9,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { cancelChatDraft, confirmChatDraft, editDraft, getChat, rejectChat, reopenChat, replyChat, resolveChat, sendChat, timeoutChat, watchChat } from '../../api/chat'
-import type { DraftEdit, GuideSource, Inquiry, LegacyCase } from '../../api/chatTypes'
+import type { DraftEdit, GuideSource, Inquiry, InquiryStatus, LegacyCase } from '../../api/chatTypes'
 import { inquiryState } from '../../api/inquiryState'
 import type { ApiResult } from '../../api/types'
 import { SERVICEDESK } from '../../core/config'
+import { sourceLabel } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
 import { Modal } from '../../ui/Modal'
@@ -23,20 +24,21 @@ import { MessageItem, type ChatActions } from './MessageItem'
 const NOTE = '비밀번호·인증번호·API 키는 입력하지 마세요. 상담 기록은 처리·운영 목적으로 활용될 수 있어요.'
 
 /** 종료된 상담 상태별 안내 문구 */
-const CLOSED_WHY: Record<string, string> = {
-  'AI 해결': 'AI 안내로 해결된 문의입니다.',
-  미확인: '응답이 없어 상담이 종료된 문의입니다. 해결된 것으로 처리하지 않았어요.',
-  '미해결 종료': '담당자 연결 없이 종료된 문의입니다. 해결된 것으로 기록하지 않았어요.',
+const CLOSED_WHY: Partial<Record<InquiryStatus, string>> = {
+  AI_RESOLVED: 'AI 안내로 해결된 문의입니다.',
+  UNCONFIRMED: '응답이 없어 상담이 종료된 문의입니다. 해결된 것으로 처리하지 않았어요.',
+  CLOSED_UNRESOLVED: '담당자 연결 없이 종료된 문의입니다. 해결된 것으로 기록하지 않았어요.',
 }
 
 type ModalState = { kind: 'source'; source: GuideSource } | { kind: 'legacy'; legacy: LegacyCase } | { kind: 'reject' } | null
 
 export function ChatView() {
-  const { id = '' } = useParams()
+  const { id: idParam = '' } = useParams()
+  const id = Number(idParam)
   const { user } = useAuth()
-  const userId = user?.id
+  const employeeNo = user?.employeeNo
   // 어느 문의를 불러왔는지 함께 기억해, 다른 문의로 옮겼을 때 이전 내용이 잠깐 보이지 않게 한다
-  const [loaded, setLoaded] = useState<{ id: string; data: Inquiry | null } | null>(null)
+  const [loaded, setLoaded] = useState<{ id: number; data: Inquiry | null } | null>(null)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -46,19 +48,19 @@ export function ChatView() {
 
   // 문의를 불러오고, 이후 바뀔 때마다(답변 도착, 담당자 진행) 다시 받는다
   useEffect(() => {
-    if (!userId || !id) return
+    if (!employeeNo || !id) return
     let alive = true // 화면이 사라진 뒤에는 상태를 바꾸지 않기 위한 표시
-    getChat(id, userId).then((r) => {
+    getChat(id, employeeNo).then((r) => {
       if (alive) setLoaded({ id, data: r.ok ? r.data : null })
     })
-    const stop = watchChat(id, userId, (r) => {
+    const stop = watchChat(id, employeeNo, (r) => {
       if (alive && r.ok) setLoaded({ id, data: r.data })
     })
     return () => {
       alive = false
       stop()
     }
-  }, [id, userId])
+  }, [id, employeeNo])
 
   const inquiry = loaded?.id === id ? loaded.data : undefined // undefined=불러오는 중, null=없음
   const count = inquiry?.messages.length ?? 0
@@ -67,7 +69,7 @@ export function ChatView() {
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [count, inquiry?.ticket?.status])
+  }, [count, inquiry?.ticket?.workStatus, inquiry?.ticket?.assignStatus])
 
   /** 동작을 보내고 돌아온 문의로 화면을 바꾼다. 실패하면 안내 문구를 보여 준다. */
   const apply = useCallback(
@@ -87,14 +89,14 @@ export function ChatView() {
   )
 
   const actions: ChatActions | null = useMemo(() => {
-    if (!userId) return null
+    if (!employeeNo) return null
     return {
-      reply: (req) => void apply(replyChat(id, userId, req)),
-      timeout: (messageId) => void apply(timeoutChat(id, userId, messageId)),
-      confirmDraft: () => void apply(confirmChatDraft(id, userId)),
-      saveDraft: (edit: DraftEdit) => apply(editDraft(id, userId, edit)),
-      cancelDraft: () => void apply(cancelChatDraft(id, userId)),
-      resolve: () => void apply(resolveChat(id, userId)),
+      reply: (req) => void apply(replyChat(id, employeeNo, req)),
+      timeout: (messageId) => void apply(timeoutChat(id, employeeNo, messageId)),
+      confirmDraft: () => void apply(confirmChatDraft(id, employeeNo)),
+      saveDraft: (edit: DraftEdit) => apply(editDraft(id, employeeNo, edit)),
+      cancelDraft: () => void apply(cancelChatDraft(id, employeeNo)),
+      resolve: () => void apply(resolveChat(id, employeeNo)),
       reject: () => {
         setReason('')
         setModal({ kind: 'reject' })
@@ -103,7 +105,7 @@ export function ChatView() {
       showLegacy: (legacy) => setModal({ kind: 'legacy', legacy }),
       servicedesk: SERVICEDESK,
     }
-  }, [apply, id, userId])
+  }, [apply, id, employeeNo])
 
   if (!user || !actions) return null
 
@@ -139,22 +141,22 @@ export function ChatView() {
 
   async function send() {
     const v = text.trim()
-    if (!v || busy || !userId) return
+    if (!v || busy || !employeeNo) return
     setText('')
-    const ok = await apply(sendChat(id, userId, v))
+    const ok = await apply(sendChat(id, employeeNo, v))
     if (!ok) setText(v) // 실패하면 쓴 내용을 되돌려 놓는다
   }
 
   async function submitReject() {
-    if (!reason.trim() || !userId) return
-    if (await apply(rejectChat(id, userId, reason))) setModal(null)
+    if (!reason.trim() || !employeeNo) return
+    if (await apply(rejectChat(id, employeeNo, reason))) setModal(null)
   }
 
   return (
     <main className="main">
       <Topbar
         title={inquiry.title}
-        sub={t ? `${t.receipt}${t.jiraId ? ` · ${t.jiraId}` : ''}` : inquiry.id}
+        sub={t ? `${t.receiptNo}${t.jiraKey ? ` · ${t.jiraKey}` : ''}` : undefined}
         right={<StateBadge tone={state.tone} label={state.label} />}
       />
 
@@ -174,8 +176,8 @@ export function ChatView() {
         )}
         {closed ? (
           <div className="composer" style={{ justifyContent: 'space-between', padding: '12px 16px 12px 20px' }}>
-            <span className="muted">{CLOSED_WHY[inquiry.state] ?? '종료된 문의입니다.'}</span>
-            <button type="button" className="btn pri sm" disabled={busy} onClick={() => void apply(reopenChat(id, userId!))}>
+            <span className="muted">{CLOSED_WHY[inquiry.status] ?? '종료된 문의입니다.'}</span>
+            <button type="button" className="btn pri sm" disabled={busy} onClick={() => void apply(reopenChat(id, employeeNo!))}>
               대화 이어가기
             </button>
           </div>
@@ -188,7 +190,7 @@ export function ChatView() {
       </div>
 
       {modal?.kind === 'source' && (
-        <Modal title={`${modal.source.guide} v${modal.source.version}`} onClose={() => setModal(null)}>
+        <Modal title={sourceLabel(modal.source)} onClose={() => setModal(null)}>
           <p className="small muted">출처 미리보기 (시연)</p>
           <div className="card w">
             <b>{modal.source.section}</b>

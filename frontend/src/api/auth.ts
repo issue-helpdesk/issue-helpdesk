@@ -12,6 +12,7 @@ import {
   addFail,
   clearFails,
   lockAccount,
+  lockedUntilIso,
   lockExpired,
   MAX_FAILS,
   minutesLeft,
@@ -21,46 +22,49 @@ import {
 } from './mock/accounts'
 import { fail, ok, type ApiResult, type LoginData, type LoginRequest, type User } from './types'
 
-/** 가짜 토큰의 접두어. 'mock.HS1001' 처럼 사번을 담아 me() 에서 사용자를 찾는다. */
+/** 가짜 토큰의 접두어. 'mock.EMP-1001' 처럼 사번을 담아 me() 에서 사용자를 찾는다. */
 const MOCK_PREFIX = 'mock.'
 
 /** 사번으로 가짜 계정을 찾는다 (대소문자·앞뒤 공백 무시). */
 function findAccount(id: string) {
-  return MOCK_ACCOUNTS.find((a) => a.id.toLowerCase() === id.trim().toLowerCase())
+  return MOCK_ACCOUNTS.find((a) => a.employeeNo.toLowerCase() === id.trim().toLowerCase())
 }
 
 /** 가짜 로그인. 실제 서버처럼 계정 상태에 따라 실패 사유를 다르게 돌려준다. */
 async function mockLogin(req: LoginRequest, skipPassword = false): Promise<ApiResult<LoginData>> {
   await sleep(350) // 서버 응답 지연 흉내
 
-  const acc = findAccount(req.employeeId)
+  const acc = findAccount(req.employeeNo)
 
   // 잠김은 10분이 지나면 다음 로그인 시도 때 자동으로 풀린다
-  if (acc && acc.status === '잠김' && lockExpired(acc.id)) unlockAccount(acc)
+  if (acc && acc.accountStatus === 'LOCKED' && lockExpired(acc.employeeNo)) unlockAccount(acc)
 
   // 잠긴 동안에는 올바른 비밀번호여도 로그인할 수 없다
-  if (acc && acc.status === '잠김') {
+  if (acc && acc.accountStatus === 'LOCKED') {
     return fail(
       'ACCOUNT_LOCKED',
-      `로그인 ${MAX_FAILS}회 실패로 잠긴 계정이에요. 약 ${minutesLeft(acc.id)}분 후 자동으로 해제돼요. 급하면 서비스데스크로 문의해 주세요. (${SERVICEDESK})`,
+      `로그인 ${MAX_FAILS}회 실패로 잠긴 계정이에요. 약 ${minutesLeft(acc.employeeNo)}분 후 자동으로 해제돼요. 급하면 서비스데스크로 문의해 주세요. (${SERVICEDESK})`,
+      { lockedUntil: lockedUntilIso(acc.employeeNo) },
     )
   }
 
   if (!acc || (!skipPassword && req.password !== MOCK_PASSWORD)) {
     // 정상 계정이 연속으로 5회 틀리면 잠근다
-    if (acc && acc.status === '정상' && addFail(acc.id) >= MAX_FAILS) {
+    if (acc && acc.accountStatus === 'ACTIVE' && addFail(acc.employeeNo) >= MAX_FAILS) {
       lockAccount(acc)
-      return fail('ACCOUNT_LOCKED', `로그인 ${MAX_FAILS}회 실패로 계정이 잠겼어요. 10분 후 자동으로 해제돼요. 급하면 서비스데스크로 문의해 주세요. (${SERVICEDESK})`)
+      return fail('ACCOUNT_LOCKED', `로그인 ${MAX_FAILS}회 실패로 계정이 잠겼어요. 10분 후 자동으로 해제돼요. 급하면 서비스데스크로 문의해 주세요. (${SERVICEDESK})`, {
+        lockedUntil: lockedUntilIso(acc.employeeNo),
+      })
     }
     return fail('INVALID_CREDENTIALS', '사번 또는 비밀번호를 확인해 주세요.')
   }
 
-  if (acc.status === '이용 제한') {
-    return fail('ACCOUNT_RESTRICTED', `이용이 제한된 계정이에요. 서비스데스크로 문의해 주세요. (${SERVICEDESK})`)
+  if (acc.accountStatus === 'INACTIVE') {
+    return fail('ACCOUNT_INACTIVE', `이용이 제한된 계정이에요. 서비스데스크로 문의해 주세요. (${SERVICEDESK})`)
   }
 
-  clearFails(acc.id) // 로그인에 성공하면 연속 실패 기록을 지운다
-  return ok({ accessToken: MOCK_PREFIX + acc.id, user: acc })
+  clearFails(acc.employeeNo) // 로그인에 성공하면 연속 실패 기록을 지운다
+  return ok({ accessToken: MOCK_PREFIX + acc.employeeNo, user: acc })
 }
 
 /** 가짜 사용자 조회: 저장된 가짜 토큰에서 사번을 읽어 계정을 돌려준다. */
@@ -79,13 +83,13 @@ export const authApi = {
 
   /** SSO 로그인. 실제 SSO 연동 방식이 미확정이라 시연(mock)에서만 동작한다. */
   loginSso(): Promise<ApiResult<LoginData>> {
-    if (USE_MOCK) return mockLogin({ employeeId: 'HS1001', password: MOCK_PASSWORD }, true)
+    if (USE_MOCK) return mockLogin({ employeeNo: 'EMP-1001', password: MOCK_PASSWORD }, true)
     return Promise.resolve(fail('SSO_NOT_READY', 'SSO 로그인은 준비 중이에요. 사번으로 로그인해 주세요.'))
   },
 
   /** 시연 전용: 비밀번호 없이 계정을 골라 로그인 */
   mockQuickLogin(id: string): Promise<ApiResult<LoginData>> {
-    return mockLogin({ employeeId: id, password: MOCK_PASSWORD }, true)
+    return mockLogin({ employeeNo: id, password: MOCK_PASSWORD }, true)
   },
 
   /** 현재 로그인한 사용자 조회 (새로고침 후 로그인 유지 확인에 사용) */

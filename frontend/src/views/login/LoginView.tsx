@@ -48,13 +48,13 @@ export function LoginView() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('id')
   // 시연(mock)일 때만 입력칸을 미리 채워 둔다
-  const [employeeId, setEmployeeId] = useState(USE_MOCK ? 'HS1001' : '')
+  const [employeeNo, setEmployeeNo] = useState(USE_MOCK ? 'EMP-1001' : '')
   const [password, setPassword] = useState(USE_MOCK ? MOCK_PASSWORD : '')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
   // 이미 로그인한 상태로 이 화면에 오면 첫 화면으로 보낸다
-  if (!loading && user) return <Navigate to={HOME_BY_ROLE[user.role]} replace />
+  if (!loading && user) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
 
   /** 로그인 요청을 실행하고, 성공이면 이동, 실패면 사유를 보여 준다. */
   async function run(p: Promise<ApiResult<LoginData>>) {
@@ -62,18 +62,18 @@ export function LoginView() {
     setError('')
     const r = await p
     setBusy(false)
-    if (r.ok) navigate(HOME_BY_ROLE[r.data.user.role], { replace: true })
+    if (r.ok) navigate(HOME_BY_ROLE[r.data.user.serviceRole], { replace: true })
     else setError(r.error.message)
   }
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (busy) return // 중복 전송 방지
-    if (!employeeId.trim() || !password) {
+    if (!employeeNo.trim() || !password) {
       setError('사번과 비밀번호를 입력해 주세요.')
       return
     }
-    void run(login({ employeeId: employeeId.trim(), password }))
+    void run(login({ employeeNo: employeeNo.trim(), password }))
   }
 
   const idTab = tab === 'id'
@@ -110,9 +110,9 @@ export function LoginView() {
                   id="lg-id"
                   name="id"
                   autoComplete="username"
-                  placeholder="예) HS1001"
-                  value={employeeId}
-                  onChange={(e) => setEmployeeId(e.target.value)}
+                  placeholder="예) EMP-1001"
+                  value={employeeNo}
+                  onChange={(e) => setEmployeeNo(e.target.value)}
                   aria-invalid={!!error}
                   aria-describedby={error ? 'lg-err' : undefined}
                 />

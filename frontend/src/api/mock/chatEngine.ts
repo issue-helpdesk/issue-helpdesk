@@ -8,6 +8,7 @@
  *   → Guide 우선 검색 → 부족하면 도입 이전 처리 이력 → 둘 다 없으면 지원 범위 밖
  *   → 해결 확인(해결됐어요 / 아직 안 돼요) → 접수 초안 확인·수정 → 접수(RCPT 번호) → Jira·담당자 배정 진행
  */
+import { nowIso } from '../../core/format'
 import { CATEGORIES, FALLBACK_GROUP } from '../catalog'
 import type {
   CategoryCode,
@@ -17,7 +18,7 @@ import type {
   GuideSource,
   Inquiry,
   LegacyCase,
-  Priority,
+  Urgency,
   ReplyRequest,
   Ticket,
 } from '../chatTypes'
@@ -27,7 +28,6 @@ import {
   nextIts,
   nextRcpt,
   notify,
-  nowLabel,
   push,
   createRecord,
   type IntakeKey,
@@ -61,65 +61,66 @@ export function detectCategory(t: string): CategoryCode | null {
 }
 
 /** 긴급도 P1~P4 와 판단 근거 (PRD 4.5). "급하다"는 표현만으로는 올리지 않는다. */
-export function calcPriority(text: string): { priority: Priority; why: string[] } {
+export function calcUrgency(text: string): { urgency: Urgency; urgencyReasons: string[] } {
   const why: string[] = []
-  let priority: Priority = 'P3'
+  let urgency: Urgency = 'P3'
   const sec = RE.sec.test(text)
   const multi = RE.multi.test(text)
   const stop = RE.stop.test(text)
   if (sec) {
-    priority = 'P2'
+    urgency = 'P2'
     why.push('보안 사고 의심은 최소 P2')
     if (RE.wide.test(text)) {
-      priority = 'P1'
+      urgency = 'P1'
       why.push('다수 사용자·광범위한 보안 대응 필요')
     }
   } else if (multi && stop) {
-    priority = 'P1'
+    urgency = 'P1'
     why.push('여러 사용자의 업무 중단 정황')
   } else if (/(전면|모두 중단|업무.{0,6}(불가|중단)|아무것도 못|아예)/.test(text) && !/(대체|가능)/.test(text)) {
-    priority = 'P2'
+    urgency = 'P2'
     why.push('개인 업무 전면 중단')
   } else if (/(문의|신청|궁금|알려|방법)/.test(text) && !stop) {
-    priority = 'P4'
+    urgency = 'P4'
     why.push('현재 업무 지장 없는 문의·사전 신청')
   } else {
     why.push('개인 업무 일부 지장, 대체 방법 있음')
   }
   if (/(급해|빨리|급합니다)/.test(text)) why.push('"급하다"는 표현만으로 상향하지 않음')
-  return { priority, why }
+  return { urgency, urgencyReasons: why }
 }
 
 /* ------------------------------------------------------------------ 확인 질문 */
 const QUESTIONS: Record<IntakeKey, { ask: string; chips: string[] }> = {
-  system: { ask: '어느 시스템이나 프로그램에서 문제가 발생했나요?', chips: ['VPN', '사내 로그인(SSO)', '업무용 프로그램', '프린터'] },
-  issue: { ask: '어떤 작업을 할 때 어떤 증상이 나타나나요? 오류 문구가 있으면 함께 알려 주세요.', chips: ['접속할 때 인증 오류가 나요', '작업 중에 계속 끊겨요'] },
+  targetSystem: { ask: '어느 시스템이나 프로그램에서 문제가 발생했나요?', chips: ['VPN', '사내 로그인(SSO)', '업무용 프로그램', '프린터'] },
+  summary: { ask: '어떤 작업을 할 때 어떤 증상이 나타나나요? 오류 문구가 있으면 함께 알려 주세요.', chips: ['접속할 때 인증 오류가 나요', '작업 중에 계속 끊겨요'] },
   onset: { ask: '언제부터 발생했나요? 정확히 모르면 모른다고 알려 주세요.', chips: ['오늘 오전부터요', '어제부터요', '방금부터요'] },
-  impact: {
+  businessImpact: {
     ask: '영향받는 인원과 업무 중단 정도를 알려 주세요. 쓸 수 있는 대체 방법이 있나요?',
     chips: ['저만 안 되고 메일 업무는 가능해요', '저만 안 되고 업무가 모두 중단됐어요', '팀원 여러 명이 같은 증상이에요'],
   },
-  tried: { ask: '이미 시도한 조치가 있나요? 아직 없다면 그대로 알려 주세요.', chips: ['재접속과 재시작을 해봤어요', '아직 시도하지 않았어요'] },
+  triedActions: { ask: '이미 시도한 조치가 있나요? 아직 없다면 그대로 알려 주세요.', chips: ['재접속과 재시작을 해봤어요', '아직 시도하지 않았어요'] },
 }
-const ORDER: IntakeKey[] = ['system', 'issue', 'onset', 'impact', 'tried']
+const ORDER: IntakeKey[] = ['targetSystem', 'summary', 'onset', 'businessImpact', 'triedActions']
 
 /* ------------------------------------------------------------------ Guide 요약 (guides_final 기준) */
 export interface GuideEntry {
+  /** 문서 코드와 제목 (예: IT-NET-001 VPN 접속 장애 대응 가이드) */
   guide: string
-  version: number
+  version: string
   section: string
   steps: string[]
 }
 export const GUIDES: Record<CategoryCode, GuideEntry> = {
   NET: {
     guide: 'IT-NET-001 VPN 접속 장애 대응 가이드',
-    version: 2,
+    version: 'v2',
     section: '3.1',
     steps: ['VPN 클라이언트를 최신 버전으로 업데이트하거나 다시 설치합니다.', 'PC를 재부팅한 뒤 VPN에 다시 연결합니다.', '공용 Wi-Fi라면 휴대폰 핫스팟에 연결해 다시 시도합니다.'],
   },
   ACC: {
     guide: 'IT-ACC-001 사내 SSO 로그인 오류 대응 가이드',
-    version: 2,
+    version: 'v2',
     section: '3.2',
     steps: [
       '10분을 기다리면 잠금이 자동으로 풀립니다. 급하면 [지금 잠금 해제 (본인 인증)]를 누릅니다.',
@@ -129,7 +130,7 @@ export const GUIDES: Record<CategoryCode, GuideEntry> = {
   },
   SW: {
     guide: 'IT-SW-001 업무용 SW 설치 가이드',
-    version: 2,
+    version: 'v2',
     section: '3.1',
     steps: [
       '사내 IT 포털(hanwha-admin)에 사번으로 로그인해 [소프트웨어 센터]를 엽니다.',
@@ -139,32 +140,35 @@ export const GUIDES: Record<CategoryCode, GuideEntry> = {
   },
   HW: {
     guide: 'IT-HW-003 프린터·복합기 이용 가이드',
-    version: 2,
+    version: 'v2',
     section: '3.1',
     steps: ['복합기 화면에 오류가 있는지 확인합니다.', 'PC [설정] > [프린터 및 스캐너]에서 인쇄 대기열을 열어 문서를 모두 취소합니다.', 'PC를 재부팅한 뒤 다시 인쇄합니다.'],
   },
   ACS: {
     guide: 'IT-ACS-001 사내 시스템 접근권한 신청 가이드',
-    version: 2,
+    version: 'v2',
     section: '3.1',
     steps: ['그룹웨어에 로그인해 [IT 요청] > [권한 신청]을 엽니다.', '대상 시스템·메뉴(폴더 위치), 필요한 작업, 신청 이유와 사용 기간을 적고 팀장 승인을 요청합니다.'],
   },
   SYS: {
     guide: 'IT-SYS-001 그룹웨어·ERP 이용 오류 대응 가이드',
-    version: 2,
+    version: 'v2',
     section: '3.1',
     steps: ['첨부파일을 붙인 문서에서 생기는 오류라면 파일 이름의 특수문자(#, %, & 등)를 지우거나 바꿉니다.', '파일을 다시 첨부하고 다시 시도합니다.', '오류 코드가 표시되면 기록해 둡니다.'],
   },
   // 정보보안 분류는 일반 Guide 안내 대신 긴급 흐름으로 가며, 안내가 필요할 때를 위해 시스템 가이드로 대신한다
   SEC: {
     guide: 'IT-SYS-001 그룹웨어·ERP 이용 오류 대응 가이드',
-    version: 2,
+    version: 'v2',
     section: '3.1',
     steps: ['첨부파일을 붙인 문서에서 생기는 오류라면 파일 이름의 특수문자(#, %, & 등)를 지우거나 바꿉니다.', '파일을 다시 첨부하고 다시 시도합니다.', '오류 코드가 표시되면 기록해 둡니다.'],
   },
 }
 
-export const toSource = (g: GuideEntry): GuideSource => ({ guide: g.guide, version: g.version, section: g.section, excerpt: g.steps.join(' ') })
+export const toSource = (g: GuideEntry): GuideSource => {
+  const [docCode, ...rest] = g.guide.split(' ')
+  return { docCode, title: rest.join(' '), version: g.version, section: g.section, excerpt: g.steps.join(' ') }
+}
 
 /** Guide 에 없는 증상을 보여 주기 위한 시연용 과거 처리 이력 (읽기 전용) */
 const LEGACY_CASE: LegacyCase = {
@@ -174,14 +178,45 @@ const LEGACY_CASE: LegacyCase = {
   solution: '디스플레이 케이블 재연결, 드라이버 재설치',
 }
 
-/** 담당 그룹별 시연용 담당자 후보 (design 프로토타입의 담당자 이름 일부) */
-const STAFF_BY_GROUP: Record<string, string[]> = {
-  서비스데스크: ['서댕댕', '박고양', '이다람'],
-  엔드포인트지원팀: ['문오리', '배두루', '홍거북'],
-  네트워크팀: ['김담당', '전다랑', '곽미어'],
-  시스템인프라팀: ['구쿼카', '어라마', '탁미어'],
-  업무시스템팀: ['설해달', '마수리', '길강아'],
-  정보보안팀: ['기곰이', '반토끼', '김토끼'],
+/** 시연용 담당 그룹 ID (support_groups.id) */
+export const GROUP_ID: Record<string, number> = {
+  서비스데스크: 1,
+  엔드포인트지원팀: 2,
+  네트워크팀: 3,
+  시스템인프라팀: 4,
+  업무시스템팀: 5,
+  정보보안팀: 6,
+}
+
+/** 그룹 이름으로 groupId·groupName 짝을 만든다 */
+export const groupOf = (groupName: string) => ({ groupId: GROUP_ID[groupName] ?? null, groupName })
+
+/** 담당 그룹별 시연용 담당자 후보 (design 프로토타입의 담당자 이름 일부, id 는 users.id 자리) */
+const STAFF_BY_GROUP: Record<string, { id: number; name: string }[]> = {
+  서비스데스크: [
+    { id: 101, name: '서댕댕' },
+    { id: 102, name: '박고양' },
+  ],
+  엔드포인트지원팀: [
+    { id: 201, name: '문오리' },
+    { id: 202, name: '배두루' },
+  ],
+  네트워크팀: [
+    { id: 2, name: '김담당' },
+    { id: 302, name: '전다랑' },
+  ],
+  시스템인프라팀: [
+    { id: 401, name: '구쿼카' },
+    { id: 402, name: '어라마' },
+  ],
+  업무시스템팀: [
+    { id: 501, name: '설해달' },
+    { id: 502, name: '마수리' },
+  ],
+  정보보안팀: [
+    { id: 601, name: '기곰이' },
+    { id: 602, name: '반토끼' },
+  ],
 }
 
 /* ------------------------------------------------------------------ 보조 함수 */
@@ -191,7 +226,7 @@ const p = (text: string, muted = false): ChatBlock => ({ type: 'p', text, muted:
 function allText(rec: StoreRecord): string {
   const it = rec.internal.intake
   const users = rec.inquiry.messages.filter((m) => m.role === 'user').map((m) => m.text ?? '')
-  const vals = [it.system, it.issue, it.onset, it.impact, it.tried, it.extra].filter((v): v is string => typeof v === 'string')
+  const vals = [it.targetSystem, it.summary, it.onset, it.businessImpact, it.triedActions, it.extra].filter((v): v is string => typeof v === 'string')
   return users.join(' ') + ' ' + vals.join(' ')
 }
 
@@ -234,18 +269,18 @@ const connectReplies = (): ChatReply[] => [
 /* ------------------------------------------------------------------ 정보 수집 */
 function absorb(rec: StoreRecord, text: string, initial: boolean) {
   const it = rec.internal.intake
-  const cat = rec.inquiry.category
-  if (!it.system && cat && cat !== 'SEC') it.system = CATEGORIES[cat].system
+  const cat = rec.inquiry.categoryCode
+  if (!it.targetSystem && cat && cat !== 'SEC') it.targetSystem = CATEGORIES[cat].targetSystem
   // 문장 단위로 나눠 각 항목에 해당하는 말을 찾는다
   const parts = text
     .split(/(?<=[.!?。])\s+|(?<=요)\s+(?=[가-힣])/)
     .map((x) => x.trim())
     .filter(Boolean)
   parts.forEach((s, n) => {
-    if (!it.issue && n === 0 && s.length >= 6 && /(오류|실패|잠|불가|안 ?돼|안 ?되|끊|멈|느려|중단|못|없어|필요|실행|화면|설치|인쇄|접속|신청|눌렀)/.test(s)) it.issue = s
+    if (!it.summary && n === 0 && s.length >= 6 && /(오류|실패|잠|불가|안 ?돼|안 ?되|끊|멈|느려|중단|못|없어|필요|실행|화면|설치|인쇄|접속|신청|눌렀)/.test(s)) it.summary = s
     if (!it.onset && /(오늘|어제|방금|오전|오후|부터|\d+\s*시|\d+\s*분\s*전|그제)/.test(s)) it.onset = s
-    if (!it.impact && /(저만|본인|팀원|전체|여러|\d+\s*명|업무.{0,6}(가능|불가|중단|어려)|대체)/.test(s)) it.impact = s
-    if (!it.tried && /(재시작|재접속|재부팅|해봤|해 봤|시도.{0,4}(없|안)|아직.{0,4}(안|않))/.test(s)) it.tried = s
+    if (!it.businessImpact && /(저만|본인|팀원|전체|여러|\d+\s*명|업무.{0,6}(가능|불가|중단|어려)|대체)/.test(s)) it.businessImpact = s
+    if (!it.triedActions && /(재시작|재접속|재부팅|해봤|해 봤|시도.{0,4}(없|안)|아직.{0,4}(안|않))/.test(s)) it.triedActions = s
   })
   // 방금 물어본 항목에 대한 답이면 그대로 받아 둔다
   const pending = rec.internal.pending
@@ -264,7 +299,7 @@ function askNext(rec: StoreRecord) {
   const { inquiry, internal } = rec
   internal.pending = k
   inquiry.step = 'collect'
-  const chips = k === 'system' && inquiry.category ? [CATEGORIES[inquiry.category].system] : QUESTIONS[k].chips
+  const chips = k === 'targetSystem' && inquiry.categoryCode ? [CATEGORIES[inquiry.categoryCode].targetSystem] : QUESTIONS[k].chips
   const blocks: ChatBlock[] = []
   if (!internal.intake.asked) blocks.push(p('정확히 안내해 드리려고 몇 가지만 확인할게요.'))
   blocks.push(p(QUESTIONS[k].ask))
@@ -276,13 +311,13 @@ function askNext(rec: StoreRecord) {
 function urgentFlow(rec: StoreRecord) {
   const { inquiry, internal } = rec
   inquiry.step = 'offer'
-  inquiry.category = inquiry.category ?? 'SEC'
+  inquiry.categoryCode = inquiry.categoryCode ?? 'SEC'
   internal.urgent = true
-  const pr = calcPriority(allText(rec))
+  const pr = calcUrgency(allText(rec))
   const sec = RE.sec.test(allText(rec))
   const blocks: ChatBlock[] = [p('**긴급 대응이 필요한 징후**가 확인되었어요. 일반 검색과 답변을 기다리지 않고 담당자 연결을 먼저 제안해요.')]
   if (sec) blocks.push(p('의심스러운 링크·첨부파일은 더 열지 마시고, 계정 정보는 어디에도 입력하지 마세요.'))
-  blocks.push({ type: 'urgent', group: CATEGORIES[inquiry.category].group, priority: pr.priority, why: pr.why })
+  blocks.push({ type: 'urgent', groupName: CATEGORIES[inquiry.categoryCode].groupName, urgency: pr.urgency, urgencyReasons: pr.urgencyReasons })
   blocks.push(p('실제 사고 여부와 필요한 조치는 담당자가 확인해요. 연결하면 현재 확인된 내용으로 초안을 만들고, 확인하신 뒤에만 접수돼요.', true))
   push(inquiry, { role: 'assistant', blocks, replies: connectReplies() })
 }
@@ -303,7 +338,7 @@ function doAnswer(rec: StoreRecord) {
       })
       return
     }
-    const cat = inquiry.category
+    const cat = inquiry.categoryCode
     if (!cat) {
       inquiry.step = 'offer'
       push(inquiry, {
@@ -334,7 +369,7 @@ function doAnswer(rec: StoreRecord) {
       })
       return
     }
-    internal.guideLabel = `${guide.guide} v${guide.version}`
+    internal.guideLabel = `${guide.guide} ${guide.version}`
     if (cat === 'ACS') {
       // 권한은 AI 가 부여하지 않는다. 신청 절차만 안내한다
       inquiry.step = 'offer'
@@ -378,7 +413,7 @@ export function handle(rec: StoreRecord, raw: string, initial: boolean) {
   const sensitive = SENSITIVE.test(raw)
   const text = sensitive ? maskSensitive(raw) : raw
   push(inquiry, { role: 'user', text })
-  inquiry.when = '방금'
+  inquiry.updatedAt = nowIso()
   if (sensitive) push(inquiry, { role: 'sys', text: '비밀번호·인증번호는 입력하지 마세요. 입력된 값은 마스킹해서 저장해요.' })
 
   if (inquiry.step === 'draft') {
@@ -401,8 +436,8 @@ export function handle(rec: StoreRecord, raw: string, initial: boolean) {
   }
   // 수집 단계: 분류와 정보를 갱신하고, 긴급 징후가 있으면 바로 연결을 제안한다
   const c = detectCategory(text)
-  if (c && !inquiry.category) inquiry.category = c
-  if (RE.sec.test(text) && inquiry.category !== 'SEC') inquiry.category = 'SEC'
+  if (c && !inquiry.categoryCode) inquiry.categoryCode = c
+  if (RE.sec.test(text) && inquiry.categoryCode !== 'SEC') inquiry.categoryCode = 'SEC'
   absorb(rec, text, initial)
   internal.pending = null
   lockReplies(inquiry)
@@ -429,14 +464,14 @@ export function applyReply(rec: StoreRecord, req: ReplyRequest) {
       return
     case 'resolved':
       push(inquiry, { role: 'user', text: '해결됐어요.' })
-      inquiry.state = 'AI 해결'
+      inquiry.status = 'AI_RESOLVED'
       inquiry.step = 'closed'
       push(inquiry, { role: 'assistant', blocks: [p('다행이에요! 이 문의는 **AI 해결**로 기록했어요. 다른 문제가 생기면 새 문의를 시작해 주세요.')] })
       return
     case 'unresolved': {
       push(inquiry, { role: 'user', text: '아직 안 돼요.' })
       inquiry.step = 'offer'
-      const group = CATEGORIES[inquiry.category ?? 'ACC'].group
+      const group = CATEGORIES[inquiry.categoryCode ?? 'ACC'].groupName
       push(inquiry, {
         role: 'assistant',
         blocks: [p(`담당자 확인이 필요해 보여요. **${group}**에 연결할까요?`), p('연결하면 지금까지의 문의와 시도한 조치를 정리한 **접수 초안**을 먼저 보여드려요. 초안을 확인하기 전에는 접수되지 않아요.')],
@@ -446,7 +481,7 @@ export function applyReply(rec: StoreRecord, req: ReplyRequest) {
     }
     case 'connect-no':
       push(inquiry, { role: 'user', text: '연결하지 않을게요.' })
-      inquiry.state = '미해결 종료'
+      inquiry.status = 'CLOSED_UNRESOLVED'
       inquiry.step = 'closed'
       push(inquiry, { role: 'assistant', blocks: [p('담당자 연결 없이 상담을 종료했어요. 이 문의는 **미해결 종료**로 남고, 해결된 것으로 기록하지 않아요. 문의 내역에서 언제든 다시 열 수 있어요.')] })
       return
@@ -460,21 +495,21 @@ export function applyReply(rec: StoreRecord, req: ReplyRequest) {
 /* ------------------------------------------------------------------ 접수 초안 · 접수 */
 function buildDraft(rec: StoreRecord) {
   const { inquiry, internal } = rec
-  const pr = calcPriority(allText(rec))
-  const cat = inquiry.category
+  const pr = calcUrgency(allText(rec))
+  const cat = inquiry.categoryCode
   const it = internal.intake
   inquiry.draft = {
-    title: `${cat ? CATEGORIES[cat].system : 'IT'} 지원 문의`,
-    category: cat,
-    system: it.system ?? (cat ? CATEGORIES[cat].system : '확인 필요'),
-    issue: it.issue ?? inquiry.messages.find((m) => m.role === 'user')?.text ?? '',
+    title: `${cat ? CATEGORIES[cat].targetSystem : 'IT'} 지원 문의`,
+    categoryCode: cat,
+    targetSystem: it.targetSystem ?? (cat ? CATEGORIES[cat].targetSystem : '확인 필요'),
+    summary: it.summary ?? inquiry.messages.find((m) => m.role === 'user')?.text ?? '',
     onset: it.onset ?? '확인 필요',
-    impact: it.impact ?? (internal.urgent ? '긴급 징후 확인 · 추가 확인은 담당자가 진행' : '확인 필요'),
-    tried: it.tried ?? '확인 필요',
-    ai: internal.guideLabel ? `${internal.guideLabel} 안내 후에도 해결되지 않음` : internal.urgent ? '긴급 징후로 안내 없이 연결' : 'AI 안내 없음',
-    priority: pr.priority,
-    priorityWhy: pr.why,
-    group: cat ? CATEGORIES[cat].group : FALLBACK_GROUP,
+    businessImpact: it.businessImpact ?? (internal.urgent ? '긴급 징후 확인 · 추가 확인은 담당자가 진행' : '확인 필요'),
+    triedActions: it.triedActions ?? '확인 필요',
+    aiSummary: internal.guideLabel ? `${internal.guideLabel} 안내 후에도 해결되지 않음` : internal.urgent ? '긴급 징후로 안내 없이 연결' : 'AI 안내 없음',
+    urgency: pr.urgency,
+    urgencyReasons: pr.urgencyReasons,
+    ...groupOf(cat ? CATEGORIES[cat].groupName : FALLBACK_GROUP),
   }
   inquiry.step = 'draft'
   inquiry.draftState = 'view'
@@ -487,23 +522,23 @@ export function saveDraft(rec: StoreRecord, edit: DraftEdit) {
   const { inquiry, internal } = rec
   const d = inquiry.draft
   if (!d || inquiry.draftState !== 'view' || inquiry.step !== 'draft') return
-  const beforeP = d.priority
-  const beforeCat = d.category
-  d.issue = edit.issue.trim() || d.issue
-  d.impact = edit.impact.trim() || d.impact
-  d.tried = edit.tried.trim() || d.tried
-  const txt = `${d.issue} ${d.impact} ${d.tried}`
+  const beforeP = d.urgency
+  const beforeCat = d.categoryCode
+  d.summary = edit.summary.trim() || d.summary
+  d.businessImpact = edit.businessImpact.trim() || d.businessImpact
+  d.triedActions = edit.triedActions.trim() || d.triedActions
+  const txt = `${d.summary} ${d.businessImpact} ${d.triedActions}`
   const c = detectCategory(txt)
-  if (c && c !== d.category && RE.sec.test(txt)) {
-    d.category = c
-    d.group = CATEGORIES[c].group
+  if (c && c !== d.categoryCode && RE.sec.test(txt)) {
+    d.categoryCode = c
+    Object.assign(d, groupOf(CATEGORIES[c].groupName))
   }
-  const pr = calcPriority(`${txt} ${internal.urgent ? '의심' : ''} ${allText(rec)}`)
-  d.priority = pr.priority
-  d.priorityWhy = pr.why
-  const changed = beforeP !== d.priority || beforeCat !== d.category
+  const pr = calcUrgency(`${txt} ${internal.urgent ? '의심' : ''} ${allText(rec)}`)
+  d.urgency = pr.urgency
+  d.urgencyReasons = pr.urgencyReasons
+  const changed = beforeP !== d.urgency || beforeCat !== d.categoryCode
   inquiry.draftNote = changed
-    ? `수정한 내용을 반영해 ${beforeP !== d.priority ? `긴급도를 ${beforeP}에서 ${d.priority}(으)로` : ''}${beforeCat !== d.category ? ` 분류를 ${d.category ?? ''}(으)로` : ''} 다시 판단했어요. 변경된 내용으로 다시 확인해 주세요.`
+    ? `수정한 내용을 반영해 ${beforeP !== d.urgency ? `긴급도를 ${beforeP}에서 ${d.urgency}(으)로` : ''}${beforeCat !== d.categoryCode ? ` 분류를 ${d.categoryCode ?? ''}(으)로` : ''} 다시 판단했어요. 변경된 내용으로 다시 확인해 주세요.`
     : '수정 내용을 반영했어요. 최종 접수 전에 한 번 더 확인해 주세요.'
 }
 
@@ -511,7 +546,7 @@ export function saveDraft(rec: StoreRecord, edit: DraftEdit) {
 export function cancelDraft(rec: StoreRecord) {
   const { inquiry } = rec
   if (inquiry.step !== 'draft') return
-  inquiry.state = '미해결 종료'
+  inquiry.status = 'CLOSED_UNRESOLVED'
   inquiry.step = 'closed'
   inquiry.draftState = 'cancel'
   push(inquiry, { role: 'sys', text: '접수하지 않고 종료했어요' })
@@ -530,24 +565,28 @@ export function confirmDraft(rec: StoreRecord) {
   inquiry.draftState = 'confirmed'
   push(inquiry, { role: 'user', text: '이 내용으로 접수해 주세요.' })
   const t: Ticket = {
-    receipt: nextRcpt(),
-    jiraId: null,
+    receiptNo: nextRcpt(),
+    jiraKey: null,
     title: d.title,
-    category: d.category,
-    priority: d.priority,
-    group: d.group,
-    assignee: null,
-    status: null,
-    created: nowLabel(),
-    result: '',
+    categoryCode: d.categoryCode,
+    urgency: d.urgency,
+    groupId: d.groupId,
+    groupName: d.groupName,
+    assigneeId: null,
+    assigneeName: null,
+    workStatus: null,
+    assignStatus: 'PENDING',
+    jiraSyncStatus: 'PENDING',
+    createdAt: nowIso(),
+    resolutionNote: '',
     needReply: false,
   }
   inquiry.ticket = t
-  inquiry.state = '접수 완료'
+  inquiry.status = 'RECEIVED'
   inquiry.step = 'submitted'
   push(inquiry, {
     role: 'assistant',
-    blocks: [p(`접수되었어요. 접수번호는 **${t.receipt}** 입니다. 담당자 연결을 진행하고 있어요. 진행 상황은 아래 카드에서 바로 볼 수 있어요.`)],
+    blocks: [p(`접수되었어요. 접수번호는 **${t.receiptNo}** 입니다. 담당자 연결을 진행하고 있어요. 진행 상황은 아래 카드에서 바로 볼 수 있어요.`)],
     card: 'ticket',
   })
   runPipeline(rec)
@@ -556,23 +595,28 @@ export function confirmDraft(rec: StoreRecord) {
 /* ------------------------------------------------------------------ 접수 이후 진행 (시연용 타이머) */
 const wait = (ms: number) => ms * mockConfig.pipelineScale
 
-/** Jira Ticket 생성 → 담당자 배정 → (자동 진행이 켜져 있으면) 처리 시작 → 처리 결과 등록 */
+/**
+ * Jira Ticket 생성(업무 상태 RDY) → 담당자 배정(배정 상태 ASSIGNED) → (자동 진행이 켜져 있으면) 처리 시작 → 처리 결과 등록.
+ * 업무 상태는 Jira 생성 직후 RDY 가 되고, 배정 여부는 배정 상태가 따로 나타낸다. (docs/07.API_계약서.md 상태 전환)
+ */
 function runPipeline(rec: StoreRecord) {
   const t = rec.inquiry.ticket
   if (!t) return
   later(wait(1000), () => {
-    t.jiraId = nextIts()
+    t.jiraKey = nextIts()
+    t.jiraSyncStatus = 'SYNCED'
+    t.workStatus = 'RDY'
     notify()
     later(wait(1000), () => {
       assign(rec)
       notify()
       if (mockConfig.autoRun) {
         later(wait(2600), () => {
-          if (t.status !== 'RDY') return
+          if (t.workStatus !== 'RDY') return
           setStatus(rec, 'WIP')
           notify()
           later(wait(3200), () => {
-            if (t.status !== 'WIP') return
+            if (t.workStatus !== 'WIP') return
             registerResult(rec)
             notify()
           })
@@ -587,65 +631,66 @@ function assign(rec: StoreRecord) {
   const { inquiry } = rec
   const t = inquiry.ticket
   if (!t) return
-  const cand = STAFF_BY_GROUP[t.group] ?? STAFF_BY_GROUP[FALLBACK_GROUP]
-  t.assignee = cand[0]
-  t.status = 'RDY'
-  inquiry.state = '담당자 이관'
-  inquiry.when = '방금'
+  const cand = STAFF_BY_GROUP[t.groupName] ?? STAFF_BY_GROUP[FALLBACK_GROUP]
+  t.assigneeId = cand[0].id
+  t.assigneeName = cand[0].name
+  t.assignStatus = 'ASSIGNED'
+  inquiry.status = 'HANDED_OFF'
+  inquiry.updatedAt = nowIso()
 }
 
 /** 상태를 바꾸고, 문의자가 이 문의를 보고 있지 않다면 새 답변 표시를 올린다 */
-function setStatus(rec: StoreRecord, status: Ticket['status']) {
+function setStatus(rec: StoreRecord, status: Ticket['workStatus']) {
   const t = rec.inquiry.ticket
   if (!t) return
-  t.status = status
-  rec.inquiry.when = '방금'
+  t.workStatus = status
+  rec.inquiry.updatedAt = nowIso()
   if (status === 'WIP' || status === 'FIN') rec.inquiry.unread += 1
 }
 
 function registerResult(rec: StoreRecord) {
   const t = rec.inquiry.ticket
   if (!t) return
-  t.result = t.category === 'NET' ? '인증 정보를 재동기화했습니다. VPN Client를 다시 실행하고 접속해 주세요.' : '원인을 확인하고 조치를 완료했습니다. 같은 작업을 다시 진행해 주세요.'
+  t.resolutionNote = t.categoryCode === 'NET' ? '인증 정보를 재동기화했습니다. VPN Client를 다시 실행하고 접속해 주세요.' : '원인을 확인하고 조치를 완료했습니다. 같은 작업을 다시 진행해 주세요.'
   setStatus(rec, 'FIN')
 }
 
 /** 시연: 담당자 처리를 한 단계 앞으로 진행한다 (RDY → WIP → FIN) */
 export function advanceTicket(rec: StoreRecord) {
   const t = rec.inquiry.ticket
-  if (!t?.status) return
-  if (t.status === 'RDY') setStatus(rec, 'WIP')
-  else if (t.status === 'WIP') registerResult(rec)
+  if (!t?.workStatus || t.assignStatus !== 'ASSIGNED') return
+  if (t.workStatus === 'RDY') setStatus(rec, 'WIP')
+  else if (t.workStatus === 'WIP') registerResult(rec)
 }
 
 /** 문의자가 "해결됐어요"를 눌러 Ticket 을 종료한다 */
 export function confirmResolved(rec: StoreRecord) {
   const t = rec.inquiry.ticket
-  if (!t || t.status !== 'FIN') return
-  t.status = 'CLS'
-  rec.inquiry.state = '담당자 이관'
-  rec.inquiry.when = '방금'
+  if (!t || t.workStatus !== 'FIN') return
+  t.workStatus = 'CLS'
+  rec.inquiry.status = 'HANDED_OFF'
+  rec.inquiry.updatedAt = nowIso()
 }
 
 /** 문의자가 "아직 해결되지 않았어요"와 남은 증상을 보내면 담당자가 다시 확인한다 */
 export function denyResolved(rec: StoreRecord, reason: string) {
   const { inquiry } = rec
   const t = inquiry.ticket
-  if (!t || t.status !== 'FIN' || !reason.trim()) return
+  if (!t || t.workStatus !== 'FIN' || !reason.trim()) return
   // 지난 진행 카드는 그대로 남기고, 새 진행 카드를 아래에 붙인다
   const old = [...inquiry.messages].reverse().find((m) => m.card === 'ticket' && !m.ticketSnapshot)
   if (old) old.ticketSnapshot = { ...t }
   push(inquiry, { role: 'user', text: reason.trim(), kind: '미해결 사유' })
-  t.status = 'WIP'
-  t.result = ''
-  inquiry.when = '방금'
+  t.workStatus = 'WIP'
+  t.resolutionNote = ''
+  inquiry.updatedAt = nowIso()
   push(inquiry, { role: 'assistant', blocks: [p('다시 확인을 요청했어요. 담당자가 재확인하고 있어요. 아래 카드에서 새 진행 상황을 볼 수 있어요.')], card: 'ticket' })
 }
 
 /** 접수 이후 문의자가 남긴 추가 메시지: 담당자에게 전달된다 */
 export function sendToStaff(rec: StoreRecord, text: string) {
   push(rec.inquiry, { role: 'user', text, kind: '추가 메시지' })
-  rec.inquiry.when = '방금'
+  rec.inquiry.updatedAt = nowIso()
 }
 
 /** 시연: 문의자가 응답하지 않아 상담이 종료된다. 해결된 것으로 처리하지 않는다. */
@@ -654,7 +699,7 @@ export function timeoutInquiry(rec: StoreRecord, messageId: number) {
   const m = inquiry.messages.find((x) => x.id === messageId)
   if (!m?.replies || m.locked || inquiry.step === 'closed') return
   lockReplies(inquiry)
-  inquiry.state = '미확인'
+  inquiry.status = 'UNCONFIRMED'
   inquiry.step = 'closed'
   push(inquiry, { role: 'sys', text: '응답 시간 경과로 상담을 종료했어요. 해결된 것으로 처리하지 않았어요.' })
 }
@@ -663,7 +708,7 @@ export function timeoutInquiry(rec: StoreRecord, messageId: number) {
 export function reopenInquiry(rec: StoreRecord) {
   const { inquiry } = rec
   if (inquiry.step !== 'closed') return
-  inquiry.state = '진행 중'
+  inquiry.status = 'IN_PROGRESS'
   inquiry.step = 'offer'
   inquiry.draftState = 'view'
   lockReplies(inquiry)
