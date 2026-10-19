@@ -25,7 +25,11 @@ npm run dev                  # http://localhost:5173
 ## 현재 만든 화면
 
 - `/login` 로그인 (사번 로그인 · SSO 탭 · 계정 상태 안내) + 로그인 전 상담 패널 *(제안 기능)*
-- `/new` · `/queue` · `/dash` 로그인 후 첫 화면 자리표시 (문의자 · 담당자 · 관리자). 이후 화면을 만들면서 교체합니다.
+- 문의자 화면 틀 (사이드바 + 본문). 담당자·관리자도 같은 틀을 쓰며 메뉴만 역할에 따라 더해집니다.
+  - `/new` 새 문의: 챗봇 시작 화면 (인사말 · 입력창 · 분류 칩 · 추천 카드). 보내기 이후 대화 흐름은 다음 단계입니다.
+  - `/faq` FAQ *(제안 기능)*: 열람 허용된 Guide 기반 목록, 열면 답변과 출처, "상담하기"로 새 문의에 질문을 채워 이동
+  - 사이드바: 메뉴 · 최근 문의(확인하지 않은 답변 수) · 사용자 정보 · 로그아웃. 860px 이하에서는 메뉴 버튼으로 여닫습니다.
+- `/list` 문의 내역 · `/chat/:id` 문의 대화 · `/queue` 처리할 문의 · `/dash` 대시보드는 자리표시입니다. 화면을 만들면서 교체합니다.
 
 ## mock과 실제 API
 
@@ -44,6 +48,8 @@ npm run dev                  # http://localhost:5173
 | `POST /auth/login` | `{ employeeId, password }` | `{ accessToken, user: { id, name, dept, role, status } }` | `INVALID_CREDENTIALS`, `ACCOUNT_PENDING`, `ACCOUNT_RESTRICTED` |
 | `GET /users/me` | - | `user` | `UNAUTHORIZED` |
 | `POST /public/consult` *(제안 기능)* | `{ message }` | `{ paragraphs: string[], source?: string }` | - |
+| `GET /faqs` *(제안 기능)* | - | `Faq[]` (`id, category, question, answer, source`) | - |
+| `GET /inquiries` | - | `InquirySummary[]` (`id, title, stateLabel, stateKind, unread, when`) | - |
 
 - `role`은 `user` · `staff` · `admin`, `status`는 `승인` · `승인 대기` · `이용 제한`입니다. 필드 이름(camelCase 여부)은 협의 후 어댑터에서 맞춥니다.
 - 화면은 `error.message`를 그대로 보여 주므로 문구는 사용자가 읽을 수 있는 한국어로 내려 주세요.
@@ -70,9 +76,9 @@ frontend/
 │  │  ├─ roles.ts         역할별 첫 화면·이름
 │  │  └─ router.tsx       경로 정의, 로그인 필요 영역
 │  ├─ api/              백엔드 API 어댑터와 타입 (types.ts, auth.ts, consult.ts, mock/)
-│  ├─ ui/               공통 UI 조각 (Logo, Icon, RichText …)
-│  ├─ views/            화면 (login/, HomePlaceholder …)
-│  └─ assets/           tokens.css(디자인 토큰), base.css(기본 규칙), components.css(컴포넌트 규칙)
+│  ├─ ui/               공통 UI 조각 (AppShell, Sidebar, Topbar, Composer, Logo, Icon, RichText …)
+│  ├─ views/            화면 (login/, inquiry/, faq/, HomePlaceholder)
+│  └─ assets/           tokens.css(디자인 토큰), base.css(기본 규칙), components.css(컴포넌트 규칙), layout.css(사이드바·본문 틀)
 └─ tests/               Vitest 설정과 테스트 (backend/tests 와 같은 방식)
 ```
 

@@ -53,6 +53,33 @@ export interface ConsultReply {
   source?: string
 }
 
+/** FAQ 한 건 (제안 기능, PRD 4.16 · SRS FAQ-01). 열람이 허용된 Guide를 출처로 한다. */
+export interface Faq {
+  id: string
+  /** 분류 코드 (ACC · ACS · NET · SW · HW · SYS · SEC) */
+  category: string
+  question: string
+  answer: string
+  /** 근거 Guide 출처. 예: "IT-NET-001 VPN 접속 장애 대응 가이드 v2 · 3.1" */
+  source: string
+}
+
+/** 문의 진행 표시 상태. 사이드바 최근 문의와 문의 내역에 쓴다. (PRD 4.8 화면 표시 상태) */
+export type InquiryStateKind = 'progress' | 'assigned' | 'received' | 'resolved' | 'ai' | 'warn'
+
+/** 문의 한 건 요약 (사이드바 최근 문의) */
+export interface InquirySummary {
+  id: string
+  title: string
+  /** 화면에 보일 상태 이름 (예: 처리 중, 해결 완료, AI 해결, 미확인) */
+  stateLabel: string
+  stateKind: InquiryStateKind
+  /** 확인하지 않은 담당자 답변 수. 0 이면 표시하지 않는다. */
+  unread: number
+  /** 최근 활동 (예: 어제, 3일 전) */
+  when: string
+}
+
 /** 성공 응답을 만드는 도우미 */
 export const ok = <T,>(data: T): ApiOk<T> => ({ ok: true, data })
 
