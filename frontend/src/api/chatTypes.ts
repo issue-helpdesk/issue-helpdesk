@@ -135,7 +135,7 @@ export type DraftState = 'view' | 'confirmed' | 'cancel'
 export interface Ticket {
   /** 접수번호 RCPT-#### */
   receiptNo: string
-  /** Jira 이슈 키 ITS-####. 생성 전에는 null */
+  /** Jira 이슈 키 ITSD-####. 생성 전에는 null */
   jiraKey: string | null
   title: string
   categoryCode: CategoryCode | null
