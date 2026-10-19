@@ -83,12 +83,14 @@ def test_seed_faq_rows_follow_contract():
 
 
 def test_migration_sql_offline():
-    """DB 없이 마이그레이션 SQL을 만든다: 칸 추가 → 기존 행 채우기 → 검사 → 제약 순서, 한 트랜잭션."""
+    """DB 없이 마이그레이션 SQL을 만든다: 칸 추가 → 채울 수 있는 행인지 검사 → 기존 행 채우기 → 검사 → 제약 순서,
+    한 트랜잭션."""
     env = {**os.environ, 'DATABASE_URL': 'postgresql://u:p@localhost/offline', 'PYTHONIOENCODING': 'utf-8'}
     out = subprocess.run([sys.executable, '-m', 'alembic', 'upgrade', '2793dd581cae:head', '--sql'],
                          cwd=os.path.join(ROOT, 'backend'), env=env, capture_output=True, text=True,
                          encoding='utf-8', check=True).stdout
-    steps = ['ADD COLUMN seq INTEGER', "chunk_type = 'FAQ'", 'raise exception', 'ALTER COLUMN seq SET NOT NULL',
-             'uq_document_versions_one_current', 'ck_document_versions_current_needs_done', 'COMMIT']
+    steps = ['ADD COLUMN seq INTEGER', 'FAQ가 아닌 문서의 청크', "chunk_type = 'FAQ'", '빈 값이 남은',
+             'ALTER COLUMN seq SET NOT NULL', 'uq_document_versions_one_current',
+             'ck_document_versions_current_needs_done', 'COMMIT']
     pos = [out.find(s) for s in steps]
     assert all(i >= 0 for i in pos) and pos == sorted(pos), dict(zip(steps, pos))
