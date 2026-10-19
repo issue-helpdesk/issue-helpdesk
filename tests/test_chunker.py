@@ -5,8 +5,8 @@ import re
 
 import pytest
 
-from app.rag.chunker import (CHUNKER_VERSION, ITEM_UNIT_MAX, MAX_CHARS, baseline, chunk_document, document_record,
-                             duplicate_groups, unit_ref, validate)
+from app.rag.chunker import (CHUNKER_VERSION, ITEM_UNIT_MAX, MAX_CHARS, baseline, chunk_document, chunk_row, document_row,
+                             duplicate_groups, unit_ref, validate, version_row)
 from app.rag.parser import parse
 from app.rag.parser.models import Element, ParsedDocument
 from test_parser import FORMATS, SAMPLES, manifest
@@ -49,7 +49,7 @@ def test_item_chunk():
     assert c.heading_path == ['3. 항목별 안내', '3.1 유료 프로그램 라이선스 신청']
     assert c.text.startswith('SW 라이선스 신청·인증 가이드 > 3. 항목별 안내 > 3.1 유료 프로그램 라이선스 신청\n문의 유형: SW-02')
     assert {'신청 방법', '작성 예시', '문의 시 알려 주실 정보'} <= set(c.subheadings)
-    assert c.scenario_ids == ['SW-02'] and c.faq_ids == ['FAQ-023']
+    assert c.inquiry_type_codes == ['SW-02'] and c.faq_ids == ['FAQ-023']
     assert c.handling == '신청·승인 후 처리' and c.team == '엔드포인트지원팀'
     assert c.images == ['sw002_license_form.png']
     assert (c.doc_no, c.version, c.access_level, c.category, c.doc_type) == ('IT-SW-002', 'v2.0', '사내 일반', 'SW', 'guide')
@@ -63,7 +63,7 @@ def test_chunk_kinds_and_skips():
     paths = [c.heading_path[0] for c in cs]
     assert '개정 이력' not in paths and '목차' not in paths
     assert [c.seq for c in cs] == list(range(1, len(cs) + 1))
-    assert len({c.chunk_id for c in cs}) == len(cs) and cs[0].chunk_id == 'IT-SW-002@v2.0#001'
+    assert len({c.chunk_key for c in cs}) == len(cs) and cs[0].chunk_key == 'IT-SW-002@v2.0#001'
     assert all(c.char_count == len(c.text) for c in cs)
 
 
@@ -129,66 +129,84 @@ def test_duplicate_groups_kept():
     assert all(len({c.content_hash for c in g}) == 1 for g in groups)
 
 
-def test_document_record():
+def test_document_and_version_rows():
+    """knowledge_documents·document_versions 행 (칸 이름·값은 docs/06.테이블_설계서.md)."""
     doc, _ = chunks_of('IT-NET-003-M', 'pdf')
-    r = document_record(doc, registration={'external_send': 'deny', 'rag_target': True})
-    assert r['doc_no'] == 'IT-NET-003-M' and r['doc_type'] == 'manual' and r['access_level'] == '사내 제한'
-    assert r['external_send'] == 'deny' and r['rag_target'] is True and 'is_active' not in r
-    assert r['source_format'] == 'pdf' and r['parse_mode'] == 'layout'
-    assert r['scenarios'] and r['version'] == 'v2.0'
-    assert r['chunker_version'] == CHUNKER_VERSION and r['parser_version']
+    d = document_row(doc)
+    assert (d['doc_code'], d['doc_type'], d['category_code'], d['pair_doc_code']) == ('IT-NET-003-M', 'MANUAL', 'NET', 'IT-NET-003')
+    v = version_row(doc, registration={'transfer_policy': 'MASKED'})
+    assert (v['version'], v['file_format'], v['view_scope'], v['transfer_policy']) == ('v2.0', 'PDF', 'AGENT', 'MASKED')
+    assert 'is_current' not in v and 'ingest_status' not in v            # 적재 스크립트·활성화 함수가 정한다
+    assert v['chunker_version'] == CHUNKER_VERSION and v['parser_version'] and v['ingest_meta']['parse_mode'] == 'layout'
+    std = chunks_of('IT-STD-002')[0]
+    assert document_row(std)['category_code'] is None and document_row(std)['doc_type'] == 'STANDARD'
+    assert version_row(std)['view_scope'] == 'ALL'
 
 
-def test_external_send_not_inferred():
-    """외부 전송은 열람 등급으로 정하지 않는다. 등록 값이 없거나 모르는 값이면 unconfirmed."""
+def test_transfer_policy_not_inferred():
+    """외부 전송은 열람 등급으로 정하지 않는다. 등록 값이 없거나 모르는 값이면 BLOCKED."""
     doc, _ = chunks_of('IT-SW-002')
     assert doc.meta['access_level'] == '사내 일반'
-    assert document_record(doc)['external_send'] == 'unconfirmed'
-    assert document_record(doc, registration={'external_send': 'yes'})['external_send'] == 'unconfirmed'
-    assert document_record(doc, registration={'external_send': 'allow'})['external_send'] == 'allow'
-    assert document_record(doc, registration={'rag_target': False})['rag_target'] is False
+    assert version_row(doc)['transfer_policy'] == 'BLOCKED'
+    assert version_row(doc, registration={'transfer_policy': 'allow'})['transfer_policy'] == 'BLOCKED'
+    assert version_row(doc, registration={'transfer_policy': 'ALLOWED'})['transfer_policy'] == 'ALLOWED'
 
 
-def test_unit_ids():
-    """unit_id = 문서@버전§종류:키. 항목·장은 절 번호, FAQ는 질문의 FAQ 번호, 없으면 순번."""
+def test_unknown_access_level_is_narrowest():
+    assert version_row(_doc(meta={'doc_no': 'IT-T-001', 'version': 'v1.0', 'access_level': '대외비'}))['view_scope'] == 'ADMIN'
+
+
+def test_chunk_row():
+    _, cs = chunks_of('IT-SW-002', 'pdf')
+    c = next(c for c in cs if c.section_no == '3.1')
+    r = chunk_row(c)
+    assert r['content'] == c.body and r['heading_path'] == '3. 항목별 안내 > 3.1 유료 프로그램 라이선스 신청'
+    assert r['location'].startswith('3.1 · p.') and r['unit_key'] == 'IT-SW-002@v2.0§item:3.1' and r['chunk_type'] == 'ITEM'
+    assert r['inquiry_type_codes'] == ['SW-02'] and r['meta']['team'] == '엔드포인트지원팀'
+    faq = chunk_row(next(c for c in chunks_of('IT-SW-002')[1] if c.unit_key.endswith('FAQ-035')))
+    assert faq['location'] == '4 · FAQ-035'
+
+
+def test_unit_keys():
+    """unit_key = 문서@버전§종류:키. 항목·장은 절 번호, FAQ는 질문의 FAQ 번호, 없으면 순번."""
     _, cs = chunks_of('IT-SW-002')
-    by = {c.chunk_id: c.unit_id for c in cs}
+    by = {c.chunk_key: c.unit_key for c in cs}
     assert by['IT-SW-002@v2.0#004'] == 'IT-SW-002@v2.0§item:3.1'
     assert 'IT-SW-002@v2.0§chapter:부록' in by.values()
-    faqs = [c.unit_id for c in cs if c.chunk_type == 'faq']
+    faqs = [c.unit_key for c in cs if c.chunk_type == 'faq']
     assert faqs == ['IT-SW-002@v2.0§faq:FAQ-023', 'IT-SW-002@v2.0§faq:FAQ-035', 'IT-SW-002@v2.0§faq:q03']
     assert unit_ref(faqs[0]) == 'IT-SW-002§faq:FAQ-023'
 
 
 def test_split_parts_share_unit():
-    """나뉜 조각은 같은 unit_id, 나뉘지 않은 단위끼리는 unit_id 가 겹치지 않는다."""
+    """나뉜 조각은 같은 unit_key, 나뉘지 않은 단위끼리는 unit_key 가 겹치지 않는다."""
     for doc_no in ('IT-SW-003', 'IT-STD-002'):
         _, cs = chunks_of(doc_no)
         units = {}
         for c in cs:
-            units.setdefault(c.unit_id, []).append(c)
+            units.setdefault(c.unit_key, []).append(c)
         for parts in units.values():
             assert [c.part for c in parts] == list(range(1, parts[0].parts + 1))
             assert len({tuple(c.heading_path) for c in parts}) == 1
         assert validate(cs) == []
-    item = [c for c in chunks_of('IT-SW-003')[1] if c.unit_id == 'IT-SW-003@v2.0§item:3.1']
+    item = [c for c in chunks_of('IT-SW-003')[1] if c.unit_key == 'IT-SW-003@v2.0§item:3.1']
     assert len(item) == 3 and '해결 확인' in item[-1].subheadings
 
 
 def test_hashes():
-    """content_hash 는 본문, embed_hash 는 임베딩 입력(머리말 + 본문). 제목만 바뀌면 embed_hash 만 바뀐다."""
+    """content_hash 는 본문만 본다. 임베딩 입력(text = 머리말 + 본문)은 제목이 바뀌면 같이 바뀐다."""
     doc, cs = chunks_of('IT-SW-002')
     doc.meta['title'] = '바뀐 제목'
     cs2 = chunk_document(doc)
     for a, b in zip(cs, cs2):
-        assert a.content_hash == b.content_hash and a.embed_hash != b.embed_hash
+        assert a.content_hash == b.content_hash and a.text != b.text
         assert a.text.endswith(a.body)
 
 
 def test_validate_catches_problems():
     _, cs = chunks_of('IT-SW-003')
     assert validate([]) == ['청크가 없음']
-    assert any('조각 번호' in p for p in validate([c for c in cs if c.chunk_id != 'IT-SW-003@v2.0#005']))
+    assert any('조각 번호' in p for p in validate([c for c in cs if c.chunk_key != 'IT-SW-003@v2.0#005']))
     big = chunk_document(_doc(Element('heading', '3. 항목별 안내', level=1), Element('heading', '3.1 긴 항목', level=2),
                               *[Element('paragraph', f'{i}번 문단입니다. ' + '가' * 300) for i in range(20)]))
     assert sum(len(c.body) for c in big) > ITEM_UNIT_MAX
@@ -209,7 +227,7 @@ def test_manual_item_props():
     """매뉴얼 항목: team 은 1차 처리 팀, 이관 대상은 escalation_teams (가이드의 담당 부서 자리)."""
     _, cs = chunks_of('IT-NET-003-M')
     c = next(c for c in cs if c.section_no == '3.1')
-    assert (c.scenario_ids, c.urgency, c.access_level) == (['NET-03'], 'P1', '사내 제한')
+    assert (c.inquiry_type_codes, c.urgency, c.access_level) == (['NET-03'], 'P1', '사내 제한')
     assert (c.team, c.escalation_teams) == ('서비스데스크', ['네트워크팀'])
 
 
@@ -246,12 +264,12 @@ def test_long_run_keeps_sentence_order():
 
 def test_ids_found_before_korean_particle():
     cs = chunk_document(_doc(_h('4. 자주 묻는 질문', 1), _p('Q. 메일이 안 보여요 FAQ-012를 보세요'), _p('A. 답변입니다.')))
-    assert cs[0].faq_ids == ['FAQ-012'] and cs[0].unit_id.endswith('§faq:FAQ-012')
+    assert cs[0].faq_ids == ['FAQ-012'] and cs[0].unit_key.endswith('§faq:FAQ-012')
     item = Element('heading', '3.1 항목', level=2, meta={'props': [['문의 유형', 'SW-02와 SW-03']]})
     cs = chunk_document(_doc(_h('3. 항목별 안내', 1), item, _p('본문')))
-    assert cs[0].scenario_ids == ['SW-02', 'SW-03']
+    assert cs[0].inquiry_type_codes == ['SW-02', 'SW-03']
     assert chunk_document(_doc(_h('1. 개요', 1), Element('heading', '1.1 x', level=2, meta={'props': [['문의 유형', 'IT-SW-002']]}),
-                               _p('본문')))[0].scenario_ids == []     # 문서 번호의 일부는 시나리오가 아니다
+                               _p('본문')))[0].inquiry_type_codes == []     # 문서 번호의 일부는 시나리오가 아니다
 
 
 def test_faq_subheading_goes_with_next_question():
@@ -259,7 +277,7 @@ def test_faq_subheading_goes_with_next_question():
                              _h('계정', 3), _p('Q. 둘째 질문 (FAQ-002)'), _p('A. 둘째 답')))
     assert [c.chunk_type for c in cs] == ['faq', 'faq']
     assert '### 계정' not in cs[0].body and cs[1].body.startswith('### 계정\nQ. 둘째')
-    assert cs[1].subheadings == ['계정'] and cs[1].unit_id.endswith('§faq:FAQ-002')
+    assert cs[1].subheadings == ['계정'] and cs[1].unit_key.endswith('§faq:FAQ-002')
 
 
 def test_faq_subsections_split_per_question():
@@ -269,7 +287,7 @@ def test_faq_subsections_split_per_question():
     assert [c.chunk_type for c in cs] == ['faq'] * 3
     assert all(c.body.count('Q. ') == 1 for c in cs)
     assert cs[2].heading_path == ['5. 자주 묻는 질문', '5.2 메일']
-    assert len({c.unit_id for c in cs}) == 3
+    assert len({c.unit_key for c in cs}) == 3
 
 
 def test_subheading_not_left_alone_at_part_end():
