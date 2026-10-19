@@ -5,17 +5,18 @@
  * 저장소는 문의 데이터와 함께 대화 엔진이 쓰는 내부 상태(수집한 정보, 긴급 여부 등)를 가진다.
  * 내부 상태는 API 응답에 포함하지 않는다.
  */
+import { nowIso } from '../../core/format'
 import type { CategoryCode, ChatMessage, Inquiry, Ticket } from '../chatTypes'
 
 /** 문의 수집 단계에서 모으는 항목 (순서대로 묻는다) */
-export type IntakeKey = 'system' | 'issue' | 'onset' | 'impact' | 'tried'
+export type IntakeKey = 'targetSystem' | 'summary' | 'onset' | 'businessImpact' | 'triedActions'
 
 export interface Intake {
-  system?: string
-  issue?: string
+  targetSystem?: string
+  summary?: string
   onset?: string
-  impact?: string
-  tried?: string
+  businessImpact?: string
+  triedActions?: string
   /** 답변 이후 문의자가 덧붙인 내용 */
   extra?: string
   /** 외부 전송이 제한되는 문서 질의 여부 */
@@ -26,6 +27,7 @@ export interface Intake {
 
 /** 응답에 포함되지 않는 엔진 내부 상태 */
 export interface Internal {
+  /** 문의자 사번 (users.employee_no) */
   owner: string
   ownerName: string
   intake: Intake
@@ -53,7 +55,7 @@ export const mockConfig = {
   saveFail: false,
 }
 
-const records = new Map<string, Record_>()
+const records = new Map<number, Record_>()
 const listeners = new Set<() => void>()
 let timers: ReturnType<typeof setTimeout>[] = []
 
@@ -80,13 +82,6 @@ export function later(ms: number, fn: () => void) {
   timers.push(t)
 }
 
-/** 현재 시각 표시 (예: 10.19 14:05) */
-export function nowLabel(): string {
-  const d = new Date()
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
-}
-
 export const nextRcpt = () => `RCPT-${seq.rcpt++}`
 export const nextIts = () => `ITS-${seq.its++}`
 
@@ -97,15 +92,15 @@ export function push(inq: Inquiry, m: Omit<ChatMessage, 'id'>): ChatMessage {
   return msg
 }
 
-export function createRecord(owner: string, ownerName: string, title: string, fixedId?: string): Record_ {
+export function createRecord(owner: string, ownerName: string, title: string, fixedId?: number): Record_ {
   const inquiry: Inquiry = {
-    id: fixedId ?? `INQ-${seq.inq++}`,
+    id: fixedId ?? seq.inq++,
     title,
-    state: '진행 중',
+    status: 'IN_PROGRESS',
     step: 'collect',
-    category: null as CategoryCode | null,
+    categoryCode: null as CategoryCode | null,
     unread: 0,
-    when: '방금',
+    updatedAt: nowIso(),
     messages: [],
     draft: null,
     draftState: 'view',
@@ -117,7 +112,7 @@ export function createRecord(owner: string, ownerName: string, title: string, fi
   return rec
 }
 
-export function getRecord(id: string): Record_ | undefined {
+export function getRecord(id: number): Record_ | undefined {
   return records.get(id)
 }
 

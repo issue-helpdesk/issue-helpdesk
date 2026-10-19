@@ -2,9 +2,10 @@
  * 대화 메시지 한 줄. 문의자·AI·담당자·시스템 안내를 역할에 맞게 그린다.
  * 본문은 구조화된 블록을 React 요소로만 그리며, HTML 로 해석하지 않는다.
  */
-import { PRIORITY_LABEL } from '../../api/catalog'
+import { URGENCY_LABEL } from '../../api/catalog'
 import type { ChatBlock, ChatMessage, DraftEdit, GuideSource, Inquiry, LegacyCase, ReplyRequest } from '../../api/chatTypes'
 import { USE_MOCK } from '../../core/config'
+import { formatDateTime, sourceLabel } from '../../core/format'
 import { Icon } from '../../ui/Icon'
 import { Avatar } from '../../ui/Logo'
 import { RichText } from '../../ui/RichText'
@@ -52,15 +53,15 @@ function Block({ b }: { b: ChatBlock }) {
     <div className="card w">
       <dl className="dl" style={{ margin: 0 }}>
         <dt>추천 담당 그룹</dt>
-        <dd>{b.group}</dd>
+        <dd>{b.groupName}</dd>
         <dt>긴급도</dt>
         <dd>
-          <span className={`pri-${b.priority.toLowerCase()}`}>
-            {b.priority} · {PRIORITY_LABEL[b.priority]}
+          <span className={`pri-${b.urgency.toLowerCase()}`}>
+            {b.urgency} · {URGENCY_LABEL[b.urgency]}
           </span>
         </dd>
         <dt>판단 근거</dt>
-        <dd>{b.why.join(' · ')}</dd>
+        <dd>{b.urgencyReasons.join(' · ')}</dd>
       </dl>
     </div>
   )
@@ -86,9 +87,9 @@ export function MessageItem({ inquiry, message: m, busy, actions }: Props) {
         <div className="body">
           <div className="sh">
             <b>{(m.from ?? '').replace(' 담당자', '')}</b>
-            <span className="tag stf">담당자{m.group ? ` · ${m.group}` : ''}</span>
+            <span className="tag stf">담당자{m.groupName ? ` · ${m.groupName}` : ''}</span>
             <span className="small muted">
-              {m.kind} · {m.time}
+              {m.kind}{m.createdAt ? ` · ${formatDateTime(m.createdAt)}` : ''}
             </span>
           </div>
           <div className="sb">{m.text}</div>
@@ -129,7 +130,7 @@ export function MessageItem({ inquiry, message: m, busy, actions }: Props) {
         {m.sources && (
           <div>
             {m.sources.map((s) => (
-              <SourceButton key={`${s.guide}${s.section}`} source={s} onOpen={actions.showSource} />
+              <SourceButton key={`${s.docCode}${s.section}`} source={s} onOpen={actions.showSource} />
             ))}
           </div>
         )}
@@ -197,7 +198,7 @@ function SourceButton({ source: s, onOpen }: { source: GuideSource; onOpen: (s: 
   return (
     <button type="button" className="src" onClick={() => onOpen(s)}>
       <Icon name="file" size={16} />
-      {s.guide} v{s.version} · {s.section}
+      {sourceLabel(s)}
     </button>
   )
 }

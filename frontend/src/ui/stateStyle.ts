@@ -11,5 +11,7 @@ export const STATE_TONE: Record<InquiryStateKind, string> = {
   resolved: 'ok', // 해결 완료
   ai: 'ok', // AI 해결
   warn: 'warn', // 미확인 · 주의
-  need: 'need', // 추가 답변 필요 · 해결 확인 대기
+  needs_reply: 'need', // 추가 답변 필요
+  reassigned: 're', // 재배정
+  awaiting_confirm: 'need', // 해결 확인 대기
 }

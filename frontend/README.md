@@ -47,24 +47,27 @@ npm run dev                  # http://localhost:5173
 
 ### API 계약 (제안 · 백엔드 담당 확정 필요)
 
+이름과 값은 06 테이블 설계서의 DB 컬럼·코드 값을 따르고 JSON 키만 camelCase 로 씁니다. 전체 계약은 [`docs/07.API_계약서.md`](../docs/07.API_계약서.md)를 기준으로 합니다.
+
 응답은 성공 `{ "ok": true, "data": ... }`, 실패 `{ "ok": false, "error": { "code": "...", "message": "..." } }` 형식을 가정합니다. 인증은 `Authorization: Bearer <JWT>`입니다.
 
 | 호출 | 요청 | 성공 `data` | 실패 `error.code` |
 | --- | --- | --- | --- |
-| `POST /auth/login` | `{ employeeId, password }` | `{ accessToken, user: { id, name, dept, role, status } }` | `INVALID_CREDENTIALS`, `ACCOUNT_LOCKED`, `ACCOUNT_RESTRICTED` |
+| `POST /auth/login` | `{ employeeNo, password }` | `{ accessToken, user: { id, employeeNo, name, departmentId, departmentName, serviceRole, accountStatus } }` | `INVALID_CREDENTIALS`, `ACCOUNT_LOCKED`(+`lockedUntil`), `ACCOUNT_INACTIVE` |
 | `GET /users/me` | - | `user` | `UNAUTHORIZED` |
-| `POST /public/consult` *(제안 기능)* | `{ message }` | `{ paragraphs: string[], source?: string }` | - |
-| `GET /faqs` *(제안 기능)* | - | `Faq[]` (`id, category, question, answer, source`) | - |
-| `GET /inquiries` | - | `InquirySummary[]` (`id, title, stateLabel, stateKind, unread, when`) | - |
+| `POST /public/consult` *(제안 기능)* | `{ message }` | `{ paragraphs: string[], sources: GuideSource[] }` | - |
+| `GET /faqs` *(제안 기능)* | - | `Faq[]` (`id, categoryCode, question, answer, sources`) | - |
+| `GET /inquiries` | - | `InquirySummary[]` (`id, title, stateLabel, stateKind, unread, updatedAt`) | - |
 | `POST /inquiries` | `{ text }` | `Inquiry` (아래 참고) | - |
 | `GET /inquiries/{id}` | - | `Inquiry` (열면 새 답변 표시가 지워짐) | `INQUIRY_NOT_FOUND` |
 | `POST /inquiries/{id}/messages` | `{ text }` | `Inquiry` (접수 후에는 담당자에게 가는 추가 메시지) | `INQUIRY_NOT_FOUND` |
 | `POST /inquiries/{id}/replies` | `{ messageId, action, arg? }` | `Inquiry` | `INQUIRY_NOT_FOUND` |
-| `POST /inquiries/{id}/draft/edit` | `{ issue, impact, tried }` | `Inquiry` (분류·긴급도 재판단 결과 `draftNote`) | `INQUIRY_NOT_FOUND` |
-| `POST /inquiries/{id}/draft/confirm` · `/draft/cancel` | - | `Inquiry` (확인하면 접수번호 `ticket.receipt` 발급) | `INQUIRY_NOT_FOUND` |
+| `POST /inquiries/{id}/draft/edit` | `{ summary, businessImpact, triedActions }` | `Inquiry` (분류·긴급도 재판단 결과 `draftNote`) | `INQUIRY_NOT_FOUND` |
+| `POST /inquiries/{id}/draft/confirm` · `/draft/cancel` | - | `Inquiry` (확인하면 접수번호 `ticket.receiptNo` 발급) | `INQUIRY_NOT_FOUND` |
 | `POST /inquiries/{id}/resolve` · `/reject` · `/reopen` | `/reject`만 `{ reason }` | `Inquiry` | `INQUIRY_NOT_FOUND` |
 
-- `role`은 `user` · `staff` · `admin`, `status`는 `정상` · `잠김` · `이용 제한`입니다. (DB 값과의 대응: 정상=`ACTIVE`, 잠김=`LOCKED`, 이용 제한=`INACTIVE`) 필드 이름(camelCase 여부)은 협의 후 어댑터에서 맞춥니다.
+- `serviceRole`은 `EMPLOYEE` · `AGENT` · `ADMIN`, `accountStatus`는 `ACTIVE` · `LOCKED` · `INACTIVE`처럼 DB 값을 그대로 받습니다. 한글 표시는 `src/api/catalog.ts`·`src/core/roles.ts`의 라벨표에서만 붙입니다.
+- 시각은 ISO 8601로 받고 '어제' 같은 표시는 `src/core/format.ts`에서 계산합니다.
 - 화면은 `error.message`를 그대로 보여 주므로 문구는 사용자가 읽을 수 있는 한국어로 내려 주세요.
 - 대화 동작은 모두 갱신된 `Inquiry` 전체를 돌려주는 형태입니다. 타입은 `src/api/chatTypes.ts`(메시지는 HTML이 아니라 `blocks`로 구조화, **굵게**만 지원)에 있습니다. 접수 이후 진행(Jira 생성·배정·처리)은 서버에서 일어나므로 화면은 `GET /inquiries/{id}`를 4초마다 다시 읽습니다. 실시간(SSE·WebSocket)으로 바꾸려면 `chat.ts`의 `watchChat`만 고치면 됩니다.
 - 이 대화 계약과 검색 순서(Guide 우선 → 과거 이력), 긴급도 규칙은 시스템 설계서·SRS와 백엔드 담당(A)이 확정한 값에 맞춰 조정합니다.

@@ -9,14 +9,14 @@ import { describe, expect, it } from 'vitest'
 import App from '../src/App'
 import { advanceChat, cancelChatDraft, confirmChatDraft, editDraft, getChat, reopenChat, rejectChat, replyChat, resolveChat, sendChat, startChat, timeoutChat } from '../src/api/chat'
 import type { Inquiry } from '../src/api/chatTypes'
-import { calcPriority, detectCategory } from '../src/api/mock/chatEngine'
+import { calcUrgency, detectCategory } from '../src/api/mock/chatEngine'
 import { mockConfig } from '../src/api/mock/chatStore'
 import type { ApiResult } from '../src/api/types'
 import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
 
 const SLOW = { timeout: 3000 }
-const USER = { id: 'HS1003', name: '박민수' }
+const USER = { employeeNo: 'EMP-1003', name: '박민수' }
 
 /** 예약된 시연 동작(답변 준비, 접수 이후 진행)이 끝나길 기다린다 */
 const settle = () => new Promise<void>((r) => setTimeout(r, 30))
@@ -28,7 +28,7 @@ async function data(p: Promise<ApiResult<Inquiry>>): Promise<Inquiry> {
   return r.data
 }
 
-const get = async (id: string, user = USER.id) => data(getChat(id, user))
+const get = async (id: number, user = USER.employeeNo) => data(getChat(id, user))
 
 /** 정보를 한 번에 모두 알려 바로 안내가 나오는 VPN 문의 */
 const FULL_VPN = 'VPN이 자꾸 끊겨요. 어제부터 안 돼요. 저만 안 되고 메일 업무는 가능해요. 재접속해 봤어요.'
@@ -36,8 +36,8 @@ const FULL_VPN = 'VPN이 자꾸 끊겨요. 어제부터 안 돼요. 저만 안 �
 const last = (inq: Inquiry) => inq.messages[inq.messages.length - 1]
 
 /** 가짜 토큰으로 로그인한 상태에서 지정한 주소를 그린다. */
-function renderAs(userId: string, path: string) {
-  tokenStore.set(`mock.${userId}`)
+function renderAs(employeeNo: string, path: string) {
+  tokenStore.set(`mock.${employeeNo}`)
   return render(
     <MemoryRouter initialEntries={[path]}>
       <AuthProvider>
@@ -57,19 +57,19 @@ describe('분류와 긴급도 규칙', () => {
   })
 
   it('보안 사고 의심은 최소 P2, 광범위하면 P1 이다', () => {
-    expect(calcPriority('피싱 링크를 눌렀어요').priority).toBe('P2')
-    expect(calcPriority('피싱 링크를 전 직원이 눌렀어요').priority).toBe('P1')
+    expect(calcUrgency('피싱 링크를 눌렀어요').urgency).toBe('P2')
+    expect(calcUrgency('피싱 링크를 전 직원이 눌렀어요').urgency).toBe('P1')
   })
 
   it('여러 사용자의 업무 중단은 P1, 단순 문의는 P4 이다', () => {
-    expect(calcPriority('팀원 30명이 접속 불가예요').priority).toBe('P1')
-    expect(calcPriority('폴더 권한 신청 방법을 알려 주세요').priority).toBe('P4')
+    expect(calcUrgency('팀원 30명이 접속 불가예요').urgency).toBe('P1')
+    expect(calcUrgency('폴더 권한 신청 방법을 알려 주세요').urgency).toBe('P4')
   })
 
   it('"급하다"는 말만으로는 긴급도를 올리지 않는다', () => {
-    const r = calcPriority('VPN이 가끔 끊겨요 빨리 해결해 주세요')
-    expect(r.priority).toBe('P3')
-    expect(r.why.join(' ')).toContain('상향하지 않음')
+    const r = calcUrgency('VPN이 가끔 끊겨요 빨리 해결해 주세요')
+    expect(r.urgency).toBe('P3')
+    expect(r.urgencyReasons.join(' ')).toContain('상향하지 않음')
   })
 })
 
@@ -80,7 +80,7 @@ describe('대화 흐름 (API)', () => {
     expect(q1.blocks?.map((b) => (b.type === 'p' ? b.text : '')).join(' ')).toContain('몇 가지만 확인')
     expect(q1.replies?.every((r) => r.action === 'quick')).toBe(true)
 
-    const b = await data(replyChat(a.id, USER.id, { messageId: q1.id, action: 'quick', arg: q1.replies![0].arg }))
+    const b = await data(replyChat(a.id, USER.employeeNo, { messageId: q1.id, action: 'quick', arg: q1.replies![0].arg }))
     await settle()
     expect(b.messages.filter((m) => m.role === 'user')).toHaveLength(2)
   })
@@ -90,7 +90,7 @@ describe('대화 흐름 (API)', () => {
     await settle()
     const inq = await get(a.id)
     const answer = last(inq)
-    expect(answer.sources?.[0].guide).toContain('IT-NET-001')
+    expect(answer.sources?.[0]).toMatchObject({ docCode: 'IT-NET-001', version: 'v2', section: '3.1' })
     expect(answer.legacy).toBeUndefined()
     expect(answer.replies?.map((r) => r.action)).toEqual(['resolved', 'unresolved'])
   })
@@ -108,8 +108,8 @@ describe('대화 흐름 (API)', () => {
     const a = await data(startChat(USER, FULL_VPN))
     await settle()
     const ans = last(await get(a.id))
-    const done = await data(replyChat(a.id, USER.id, { messageId: ans.id, action: 'resolved' }))
-    expect(done.state).toBe('AI 해결')
+    const done = await data(replyChat(a.id, USER.employeeNo, { messageId: ans.id, action: 'resolved' }))
+    expect(done.status).toBe('AI_RESOLVED')
     expect(done.step).toBe('closed')
   })
 
@@ -117,16 +117,16 @@ describe('대화 흐름 (API)', () => {
     const a = await data(startChat(USER, FULL_VPN))
     await settle()
     const ans = last(await get(a.id))
-    await data(replyChat(a.id, USER.id, { messageId: ans.id, action: 'resolved' }))
-    const again = await data(replyChat(a.id, USER.id, { messageId: ans.id, action: 'unresolved' }))
-    expect(again.state).toBe('AI 해결')
+    await data(replyChat(a.id, USER.employeeNo, { messageId: ans.id, action: 'resolved' }))
+    const again = await data(replyChat(a.id, USER.employeeNo, { messageId: ans.id, action: 'unresolved' }))
+    expect(again.status).toBe('AI_RESOLVED')
     expect(again.messages.filter((m) => m.role === 'user' && m.text === '아직 안 돼요.')).toHaveLength(0)
   })
 
   it('보안 사고 의심은 일반 검색 없이 담당자 연결부터 제안한다', async () => {
     const a = await data(startChat(USER, '피싱 메일의 링크를 눌렀어요'))
     const m = last(a)
-    expect(m.blocks?.some((b) => b.type === 'urgent' && b.priority === 'P2' && b.group === '정보보안팀')).toBe(true)
+    expect(m.blocks?.some((b) => b.type === 'urgent' && b.urgency === 'P2' && b.groupName === '정보보안팀')).toBe(true)
     expect(m.replies?.map((r) => r.action)).toEqual(['connect-yes', 'connect-no'])
     expect(m.sources).toBeUndefined()
   })
@@ -143,7 +143,7 @@ describe('대화 흐름 (API)', () => {
     const a = await data(startChat(USER, '공유 폴더 접근권한이 필요해요. 오늘부터 필요해요. 저만 필요해요. 아직 안 해봤어요.'))
     await settle()
     const ans = last(await get(a.id))
-    expect(ans.sources?.[0].guide).toContain('IT-ACS-001')
+    expect(ans.sources?.[0].docCode).toBe('IT-ACS-001')
     expect(JSON.stringify(ans.blocks)).toContain('AI가 대신할 수 없어요')
   })
 
@@ -156,7 +156,7 @@ describe('대화 흐름 (API)', () => {
 
   it('다른 사용자의 문의는 열 수 없다', async () => {
     const a = await data(startChat(USER, FULL_VPN))
-    const r = await getChat(a.id, 'HS1004')
+    const r = await getChat(a.id, 'EMP-1004')
     expect(r.ok).toBe(false)
   })
 
@@ -164,11 +164,11 @@ describe('대화 흐름 (API)', () => {
     const a = await data(startChat(USER, FULL_VPN))
     await settle()
     const ans = last(await get(a.id))
-    const closed = await data(timeoutChat(a.id, USER.id, ans.id))
-    expect(closed.state).toBe('미확인')
+    const closed = await data(timeoutChat(a.id, USER.employeeNo, ans.id))
+    expect(closed.status).toBe('UNCONFIRMED')
     expect(closed.step).toBe('closed')
-    const reopened = await data(reopenChat(a.id, USER.id))
-    expect(reopened.state).toBe('진행 중')
+    const reopened = await data(reopenChat(a.id, USER.employeeNo))
+    expect(reopened.status).toBe('IN_PROGRESS')
     expect(last(reopened).replies?.map((r) => r.action)).toContain('connect-yes')
   })
 })
@@ -179,8 +179,8 @@ describe('접수 흐름 (API)', () => {
     const a = await data(startChat(USER, text))
     await settle()
     const ans = last(await get(a.id))
-    const offer = await data(replyChat(a.id, USER.id, { messageId: ans.id, action: 'unresolved' }))
-    const draft = await data(replyChat(a.id, USER.id, { messageId: last(offer).id, action: 'connect-yes' }))
+    const offer = await data(replyChat(a.id, USER.employeeNo, { messageId: ans.id, action: 'unresolved' }))
+    const draft = await data(replyChat(a.id, USER.employeeNo, { messageId: last(offer).id, action: 'connect-yes' }))
     return draft
   }
 
@@ -188,71 +188,71 @@ describe('접수 흐름 (API)', () => {
     const d = await toDraft()
     expect(d.step).toBe('draft')
     expect(d.ticket).toBeNull()
-    expect(d.draft).toMatchObject({ category: 'NET', group: '네트워크팀', priority: 'P3' })
+    expect(d.draft).toMatchObject({ categoryCode: 'NET', groupName: '네트워크팀', urgency: 'P3' })
     expect(last(d).card).toBe('draft')
   })
 
   it('초안을 확인하면 접수번호가 생기고, Jira 번호 생성 → 담당자 배정이 이어진다', async () => {
     const d = await toDraft()
-    const done = await data(confirmChatDraft(d.id, USER.id))
-    expect(done.ticket?.receipt).toMatch(/^RCPT-\d+$/)
-    expect(done.state).toBe('접수 완료')
+    const done = await data(confirmChatDraft(d.id, USER.employeeNo))
+    expect(done.ticket?.receiptNo).toMatch(/^RCPT-\d+$/)
+    expect(done.status).toBe('RECEIVED')
     expect(done.draftState).toBe('confirmed')
     await settle()
     const after = await get(d.id)
-    expect(after.ticket?.jiraId).toMatch(/^ITS-\d+$/)
-    expect(after.ticket).toMatchObject({ status: 'RDY', assignee: '김담당', group: '네트워크팀' })
-    expect(after.state).toBe('담당자 이관')
+    expect(after.ticket?.jiraKey).toMatch(/^ITS-\d+$/)
+    expect(after.ticket).toMatchObject({ workStatus: 'RDY', assignStatus: 'ASSIGNED', jiraSyncStatus: 'SYNCED', assigneeName: '김담당', groupName: '네트워크팀' })
+    expect(after.status).toBe('HANDED_OFF')
   })
 
   it('접수 저장에 실패하면 접수 완료로 안내하지 않고 초안을 보존한다', async () => {
     const d = await toDraft()
     mockConfig.saveFail = true
-    const r = await data(confirmChatDraft(d.id, USER.id))
+    const r = await data(confirmChatDraft(d.id, USER.employeeNo))
     expect(r.ticket).toBeNull()
     expect(last(r).card).toBe('savefail')
     expect(r.draftState).toBe('view')
     // 다시 시도하면 접수된다
     mockConfig.saveFail = false
-    const retry = await data(confirmChatDraft(d.id, USER.id))
-    expect(retry.ticket?.receipt).toBeTruthy()
+    const retry = await data(confirmChatDraft(d.id, USER.employeeNo))
+    expect(retry.ticket?.receiptNo).toBeTruthy()
   })
 
   it('초안을 고치면 긴급도를 다시 판단하고 변경을 알린다', async () => {
     const d = await toDraft()
-    const edited = await data(editDraft(d.id, USER.id, { issue: d.draft!.issue, impact: '전 직원 50명이 접속 불가예요', tried: d.draft!.tried }))
-    expect(edited.draft?.priority).toBe('P1')
+    const edited = await data(editDraft(d.id, USER.employeeNo, { summary: d.draft!.summary, businessImpact: '전 직원 50명이 접속 불가예요', triedActions: d.draft!.triedActions }))
+    expect(edited.draft?.urgency).toBe('P1')
     expect(edited.draftNote).toContain('P3에서 P1')
   })
 
   it('접수하지 않고 종료하면 미해결 종료로 남고 Ticket 은 만들지 않는다', async () => {
     const d = await toDraft()
-    const r = await data(cancelChatDraft(d.id, USER.id))
-    expect(r.state).toBe('미해결 종료')
+    const r = await data(cancelChatDraft(d.id, USER.employeeNo))
+    expect(r.status).toBe('CLOSED_UNRESOLVED')
     expect(r.ticket).toBeNull()
   })
 
   it('처리 결과가 등록되면 문의자가 해결을 확인해 종료한다', async () => {
     const d = await toDraft()
-    await data(confirmChatDraft(d.id, USER.id))
+    await data(confirmChatDraft(d.id, USER.employeeNo))
     await settle()
     // 담당자 처리 시연: 처리 대기 → 처리 중 → 해결 확인 대기
-    await data(advanceChat(d.id, USER.id))
-    const fin = await data(advanceChat(d.id, USER.id))
-    expect(fin.ticket?.status).toBe('FIN')
-    expect(fin.ticket?.result).toBeTruthy()
-    const cls = await data(resolveChat(d.id, USER.id))
-    expect(cls.ticket?.status).toBe('CLS')
+    await data(advanceChat(d.id, USER.employeeNo))
+    const fin = await data(advanceChat(d.id, USER.employeeNo))
+    expect(fin.ticket?.workStatus).toBe('FIN')
+    expect(fin.ticket?.resolutionNote).toBeTruthy()
+    const cls = await data(resolveChat(d.id, USER.employeeNo))
+    expect(cls.ticket?.workStatus).toBe('CLS')
   })
 
   it('아직 해결되지 않았다고 알리면 사유와 함께 다시 처리 중으로 돌아간다', async () => {
     const d = await toDraft()
-    await data(confirmChatDraft(d.id, USER.id))
+    await data(confirmChatDraft(d.id, USER.employeeNo))
     await settle()
-    await data(advanceChat(d.id, USER.id))
-    await data(advanceChat(d.id, USER.id))
-    const re = await data(rejectChat(d.id, USER.id, '같은 오류가 계속 나요'))
-    expect(re.ticket?.status).toBe('WIP')
+    await data(advanceChat(d.id, USER.employeeNo))
+    await data(advanceChat(d.id, USER.employeeNo))
+    const re = await data(rejectChat(d.id, USER.employeeNo, '같은 오류가 계속 나요'))
+    expect(re.ticket?.workStatus).toBe('WIP')
     expect(re.messages.some((m) => m.role === 'user' && m.text === '같은 오류가 계속 나요')).toBe(true)
     // 지난 진행 카드는 기록으로 남고, 새 진행 카드가 붙는다
     expect(re.messages.filter((m) => m.card === 'ticket' && m.ticketSnapshot)).toHaveLength(1)
@@ -261,18 +261,18 @@ describe('접수 흐름 (API)', () => {
 
   it('사유 없이는 다시 확인을 요청할 수 없다', async () => {
     const d = await toDraft()
-    await data(confirmChatDraft(d.id, USER.id))
+    await data(confirmChatDraft(d.id, USER.employeeNo))
     await settle()
-    await data(advanceChat(d.id, USER.id))
-    await data(advanceChat(d.id, USER.id))
-    const same = await data(rejectChat(d.id, USER.id, '   '))
-    expect(same.ticket?.status).toBe('FIN')
+    await data(advanceChat(d.id, USER.employeeNo))
+    await data(advanceChat(d.id, USER.employeeNo))
+    const same = await data(rejectChat(d.id, USER.employeeNo, '   '))
+    expect(same.ticket?.workStatus).toBe('FIN')
   })
 
   it('접수 이후 보낸 메시지는 담당자에게 전달되는 추가 메시지다', async () => {
     const d = await toDraft()
-    await data(confirmChatDraft(d.id, USER.id))
-    const r = await data(sendChat(d.id, USER.id, '오후에는 외근이에요'))
+    await data(confirmChatDraft(d.id, USER.employeeNo))
+    const r = await data(sendChat(d.id, USER.employeeNo, '오후에는 외근이에요'))
     expect(last(r)).toMatchObject({ role: 'user', text: '오후에는 외근이에요', kind: '추가 메시지' })
   })
 })
@@ -280,7 +280,7 @@ describe('접수 흐름 (API)', () => {
 describe('대화 화면', () => {
   it('새 문의를 보내면 대화 화면으로 이동해 확인 질문을 보여 준다', async () => {
     const user = userEvent.setup()
-    renderAs('HS1003', '/new')
+    renderAs('EMP-1003', '/new')
     await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), 'VPN이 끊겨요')
     await user.click(screen.getByRole('button', { name: '보내기' }))
     expect(await screen.findByText(/몇 가지만 확인할게요/, {}, SLOW)).toBeInTheDocument()
@@ -291,7 +291,7 @@ describe('대화 화면', () => {
 
   it('안내를 받고 해결됐어요를 누르면 종료 안내와 "대화 이어가기"가 보인다', async () => {
     const user = userEvent.setup()
-    renderAs('HS1003', '/new')
+    renderAs('EMP-1003', '/new')
     await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
     await user.click(screen.getByRole('button', { name: '보내기' }))
     expect(await screen.findByText(/IT-NET-001 VPN 접속 장애 대응 가이드 v2 · 3.1/, {}, SLOW)).toBeInTheDocument()
@@ -302,7 +302,7 @@ describe('대화 화면', () => {
 
   it('출처 버튼을 누르면 출처 미리보기 창이 열리고 Esc 로 닫힌다', async () => {
     const user = userEvent.setup()
-    renderAs('HS1003', '/new')
+    renderAs('EMP-1003', '/new')
     await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
     await user.click(screen.getByRole('button', { name: '보내기' }))
     await user.click(await screen.findByRole('button', { name: /IT-NET-001/ }, SLOW))
@@ -314,7 +314,7 @@ describe('대화 화면', () => {
 
   it('담당자 연결 → 초안 확인 → 접수하면 접수번호와 진행 카드가 보인다', async () => {
     const user = userEvent.setup()
-    renderAs('HS1003', '/new')
+    renderAs('EMP-1003', '/new')
     await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
     await user.click(screen.getByRole('button', { name: '보내기' }))
     await user.click(await screen.findByRole('button', { name: '아직 안 돼요' }, SLOW))
@@ -328,13 +328,13 @@ describe('대화 화면', () => {
 
   it('초안에서 "수정할게요"로 고치고 반영하면 안내 문구가 보인다', async () => {
     const user = userEvent.setup()
-    renderAs('HS1003', '/new')
+    renderAs('EMP-1003', '/new')
     await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
     await user.click(screen.getByRole('button', { name: '보내기' }))
     await user.click(await screen.findByRole('button', { name: '아직 안 돼요' }, SLOW))
     await user.click(await screen.findByRole('button', { name: '담당자 연결하기' }, SLOW))
     await user.click(await screen.findByRole('button', { name: '수정할게요' }, SLOW))
-    const impact = screen.getByLabelText('영향 범위·업무 영향')
+    const impact = screen.getByLabelText('업무 영향')
     await user.clear(impact)
     await user.type(impact, '전 직원 50명이 접속 불가예요')
     await user.click(screen.getByRole('button', { name: '수정 반영하기' }))
@@ -342,7 +342,7 @@ describe('대화 화면', () => {
   })
 
   it('접수된 문의(시연 데이터)를 열면 진행 카드·담당자 메시지가 보이고 새 답변 표시가 지워진다', async () => {
-    renderAs('HS1001', '/chat/INQ-S1')
+    renderAs('EMP-1001', '/chat/101')
     expect(await screen.findByRole('list', { name: '접수 진행 단계' }, SLOW)).toBeInTheDocument()
     expect(screen.getByText(/김담당 담당자가 처리하고 있어요/)).toBeInTheDocument()
     expect(screen.getByText(/VPN 서버 쪽 인증 정보를 확인하고 있어요/)).toBeInTheDocument()
@@ -353,10 +353,10 @@ describe('대화 화면', () => {
 
   it('해결 확인 대기 카드에서 아직 해결되지 않았어요를 누르면 사유 입력 창이 열린다', async () => {
     const user = userEvent.setup()
-    renderAs('HS1001', '/chat/INQ-S1')
+    renderAs('EMP-1001', '/chat/101')
     await screen.findByRole('list', { name: '접수 진행 단계' }, SLOW)
     // 담당자 처리 시연: 처리 중 → 해결 확인 대기
-    await advanceChat('INQ-S1', 'HS1001')
+    await advanceChat(101, 'EMP-1001')
     await user.click(await screen.findByRole('button', { name: '아직 해결되지 않았어요' }, SLOW))
     const send = screen.getByRole('button', { name: '다시 확인 요청' })
     expect(send).toBeDisabled() // 사유를 쓰기 전에는 보낼 수 없다
@@ -367,7 +367,7 @@ describe('대화 화면', () => {
 
   it('종료된 문의(미확인)는 입력창 대신 안내와 "대화 이어가기"를 보여 준다', async () => {
     const user = userEvent.setup()
-    renderAs('HS1001', '/chat/INQ-U0')
+    renderAs('EMP-1001', '/chat/103')
     expect((await screen.findAllByText(/해결된 것으로 처리하지 않았어요/, {}, SLOW)).length).toBeGreaterThan(0)
     expect(screen.queryByLabelText('메시지 입력')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '대화 이어가기' }))
@@ -376,7 +376,7 @@ describe('대화 화면', () => {
   })
 
   it('없는 문의 주소는 안내 문구를 보여 준다', async () => {
-    renderAs('HS1001', '/chat/INQ-NONE')
+    renderAs('EMP-1001', '/chat/9999')
     expect(await screen.findByText(/문의를 찾을 수 없어요/, {}, SLOW)).toBeInTheDocument()
   })
 })

@@ -34,16 +34,16 @@ const notFound = () => fail('INQUIRY_NOT_FOUND', '문의를 찾을 수 없어요
 /** 화면이 안전하게 쓰도록 복사본을 돌려준다 */
 const snapshot = (rec: StoreRecord): Inquiry => structuredClone(rec.inquiry)
 
-/** 사번이 소유한 문의만 다룬다. 서버에서는 토큰으로 소유자를 확인한다. */
-function own(id: string, userId: string): StoreRecord | undefined {
+/** 사번(employeeNo)이 소유한 문의만 다룬다. 서버에서는 토큰으로 소유자를 확인한다. */
+function own(id: number, employeeNo: string): StoreRecord | undefined {
   const rec = getRecord(id)
-  return rec && rec.internal.owner === userId ? rec : undefined
+  return rec && rec.internal.owner === employeeNo ? rec : undefined
 }
 
 /** 모의 동작 하나를 실행하고 갱신된 문의를 돌려준다 */
-async function mockAct(id: string, userId: string, act: (rec: StoreRecord) => void): Promise<ApiResult<Inquiry>> {
+async function mockAct(id: number, employeeNo: string, act: (rec: StoreRecord) => void): Promise<ApiResult<Inquiry>> {
   await sleep(120) // 응답 지연 흉내
-  const rec = own(id, userId)
+  const rec = own(id, employeeNo)
   if (!rec) return notFound()
   act(rec)
   notify() // 사이드바와 열려 있는 대화 화면이 바뀐 내용을 다시 읽는다
@@ -51,10 +51,10 @@ async function mockAct(id: string, userId: string, act: (rec: StoreRecord) => vo
 }
 
 /** 새 문의를 시작한다 */
-export async function startChat(user: { id: string; name: string }, text: string): Promise<ApiResult<Inquiry>> {
+export async function startChat(user: { employeeNo: string; name: string }, text: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK) {
     await sleep(120)
-    const inq = startInquiry(user.id, user.name, text)
+    const inq = startInquiry(user.employeeNo, user.name, text)
     notify() // 사이드바 최근 문의에 새 문의가 나타난다
     return ok(structuredClone(inq))
   }
@@ -62,10 +62,10 @@ export async function startChat(user: { id: string; name: string }, text: string
 }
 
 /** 문의 상세를 읽는다. 열면 새 답변 표시가 지워진다. */
-export async function getChat(id: string, userId: string): Promise<ApiResult<Inquiry>> {
+export async function getChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK) {
     await sleep(60)
-    const rec = own(id, userId)
+    const rec = own(id, employeeNo)
     if (!rec) return notFound()
     if (rec.inquiry.unread > 0) {
       rec.inquiry.unread = 0
@@ -80,10 +80,10 @@ export async function getChat(id: string, userId: string): Promise<ApiResult<Inq
  * 문의가 바뀔 때마다 알려 준다. 모의 모드에서는 저장소 변경을, 서버 모드에서는 주기적 조회를 쓴다.
  * 돌려주는 함수를 부르면 구독이 끝난다.
  */
-export function watchChat(id: string, userId: string, onChange: (r: ApiResult<Inquiry>) => void): () => void {
+export function watchChat(id: number, employeeNo: string, onChange: (r: ApiResult<Inquiry>) => void): () => void {
   if (USE_MOCK) {
     const off = subscribe(() => {
-      const rec = own(id, userId)
+      const rec = own(id, employeeNo)
       // 이 화면을 보고 있으니 새 답변 표시는 바로 지운다
       if (rec) {
         rec.inquiry.unread = 0
@@ -98,9 +98,9 @@ export function watchChat(id: string, userId: string, onChange: (r: ApiResult<In
   return () => clearInterval(timer)
 }
 
-export function sendChat(id: string, userId: string, text: string): Promise<ApiResult<Inquiry>> {
+export function sendChat(id: number, employeeNo: string, text: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK) {
-    return mockAct(id, userId, (rec) => {
+    return mockAct(id, employeeNo, (rec) => {
       // 접수 이후에는 담당자에게 가는 메시지이고, 답변을 준비하는 중에는 새 메시지를 받지 않는다
       if (rec.inquiry.ticket) sendToStaff(rec, text)
       else if (rec.inquiry.step !== 'answering' && rec.inquiry.step !== 'closed') handle(rec, text, false)
@@ -109,49 +109,49 @@ export function sendChat(id: string, userId: string, text: string): Promise<ApiR
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/messages`, { text })
 }
 
-export function replyChat(id: string, userId: string, req: ReplyRequest): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, userId, (rec) => applyReply(rec, req))
+export function replyChat(id: number, employeeNo: string, req: ReplyRequest): Promise<ApiResult<Inquiry>> {
+  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => applyReply(rec, req))
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/replies`, req)
 }
 
-export function editDraft(id: string, userId: string, edit: DraftEdit): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, userId, (rec) => saveDraft(rec, edit))
+export function editDraft(id: number, employeeNo: string, edit: DraftEdit): Promise<ApiResult<Inquiry>> {
+  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => saveDraft(rec, edit))
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/draft/edit`, edit)
 }
 
-export function confirmChatDraft(id: string, userId: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, userId, (rec) => confirmDraft(rec))
+export function confirmChatDraft(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
+  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => confirmDraft(rec))
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/draft/confirm`)
 }
 
-export function cancelChatDraft(id: string, userId: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, userId, (rec) => cancelDraft(rec))
+export function cancelChatDraft(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
+  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => cancelDraft(rec))
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/draft/cancel`)
 }
 
-export function resolveChat(id: string, userId: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, userId, (rec) => confirmResolved(rec))
+export function resolveChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
+  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => confirmResolved(rec))
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/resolve`)
 }
 
-export function rejectChat(id: string, userId: string, reason: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, userId, (rec) => denyResolved(rec, reason))
+export function rejectChat(id: number, employeeNo: string, reason: string): Promise<ApiResult<Inquiry>> {
+  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => denyResolved(rec, reason))
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/reject`, { reason })
 }
 
-export function reopenChat(id: string, userId: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, userId, (rec) => reopenInquiry(rec))
+export function reopenChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
+  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => reopenInquiry(rec))
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/reopen`)
 }
 
 /** 시연 전용: 응답 없이 시간이 지난 상황 (실제 서버에서는 서버가 정해진 시간 후 처리한다) */
-export function timeoutChat(id: string, userId: string, messageId: number): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, userId, (rec) => timeoutInquiry(rec, messageId))
+export function timeoutChat(id: number, employeeNo: string, messageId: number): Promise<ApiResult<Inquiry>> {
+  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => timeoutInquiry(rec, messageId))
   return Promise.resolve(fail('NOT_SUPPORTED', '시연 전용 기능이에요.'))
 }
 
 /** 시연 전용: 담당자 처리를 한 단계 앞으로 보낸다 */
-export function advanceChat(id: string, userId: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, userId, (rec) => advanceTicket(rec))
+export function advanceChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
+  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => advanceTicket(rec))
   return Promise.resolve(fail('NOT_SUPPORTED', '시연 전용 기능이에요.'))
 }

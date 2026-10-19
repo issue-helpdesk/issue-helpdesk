@@ -29,7 +29,7 @@ function RequireAuth() {
 function Landing() {
   const { user, loading } = useAuth()
   if (loading) return null
-  return <Navigate to={user ? HOME_BY_ROLE[user.role] : '/login'} replace />
+  return <Navigate to={user ? HOME_BY_ROLE[user.serviceRole] : '/login'} replace />
 }
 
 export function AppRoutes() {

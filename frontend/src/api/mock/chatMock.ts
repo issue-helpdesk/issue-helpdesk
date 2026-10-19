@@ -1,10 +1,11 @@
 /**
  * 시연용 문의 시작 데이터와 초기화.
- * 문의자 김서연(HS1001)에게 네 건의 문의가 있다. (design/ITssue-Prototype.html 의 사이드바 최근 문의와 같은 상태)
+ * 문의자 김서연(EMP-1001)에게 네 건의 문의가 있다. (design/ITssue-Prototype.html 의 사이드바 최근 문의와 같은 상태)
  * 다른 계정은 빈 목록으로 시작한다.
  */
 import type { ChatBlock, Draft, Ticket } from '../chatTypes'
-import { GUIDES, toSource } from './chatEngine'
+import { daysAgoIso } from '../../core/format'
+import { GUIDES, groupOf, toSource } from './chatEngine'
 import { cancelTimers, clearRecords, createRecord, notify, push, resetSeq } from './chatStore'
 
 const p = (text: string): ChatBlock => ({ type: 'p', text })
@@ -19,38 +20,41 @@ export function resetChatMock() {
 }
 
 function seed() {
-  const OWNER = 'HS1001'
+  const OWNER = 'EMP-1001'
   const NAME = '김서연'
 
-  /* INQ-S1: VPN 연결 문제로 접수된 뒤 담당자가 처리 중 (새 답변 1건) */
+  /* 문의 101: VPN 연결 문제로 접수된 뒤 담당자가 처리 중 (새 답변 1건) */
   {
-    const { inquiry } = createRecord(OWNER, NAME, 'VPN 연결이 자주 끊겨요', 'INQ-S1')
+    const { inquiry } = createRecord(OWNER, NAME, 'VPN 연결이 자주 끊겨요', 101)
     const g = GUIDES.NET
     const ticket: Ticket = {
-      receipt: 'RCPT-1041',
-      jiraId: 'ITS-1520',
+      receiptNo: 'RCPT-1041',
+      jiraKey: 'ITS-1520',
       title: 'VPN·네트워크 지원 문의',
-      category: 'NET',
-      priority: 'P3',
-      group: '네트워크팀',
-      assignee: '김담당',
-      status: 'WIP',
-      created: '10.18 09:12',
-      result: '',
+      categoryCode: 'NET',
+      urgency: 'P3',
+      ...groupOf('네트워크팀'),
+      assigneeId: 2,
+      assigneeName: '김담당',
+      workStatus: 'WIP',
+      assignStatus: 'ASSIGNED',
+      jiraSyncStatus: 'SYNCED',
+      createdAt: daysAgoIso(1),
+      resolutionNote: '',
       needReply: false,
     }
     const draft: Draft = {
       title: ticket.title,
-      category: 'NET',
-      system: 'VPN·네트워크',
-      issue: 'VPN 연결이 자주 끊겨요.',
+      categoryCode: 'NET',
+      targetSystem: 'VPN·네트워크',
+      summary: 'VPN 연결이 자주 끊겨요.',
       onset: '어제부터요.',
-      impact: '저만 안 되고 메일 업무는 가능해요.',
-      tried: '재접속과 재시작을 해봤어요.',
-      ai: `${g.guide} v${g.version} 안내 후에도 해결되지 않음`,
-      priority: 'P3',
-      priorityWhy: ['개인 업무 일부 지장, 대체 방법 있음'],
-      group: '네트워크팀',
+      businessImpact: '저만 안 되고 메일 업무는 가능해요.',
+      triedActions: '재접속과 재시작을 해봤어요.',
+      aiSummary: `${g.guide} ${g.version} 안내 후에도 해결되지 않음`,
+      urgency: 'P3',
+      urgencyReasons: ['개인 업무 일부 지장, 대체 방법 있음'],
+      ...groupOf('네트워크팀'),
     }
     push(inquiry, { role: 'user', text: 'VPN 연결이 자주 끊겨요' })
     push(inquiry, {
@@ -68,19 +72,19 @@ function seed() {
     push(inquiry, { role: 'assistant', blocks: [p('지금까지 확인한 내용을 정리했어요. 맞는지 확인하고, 필요하면 수정해 주세요.')], card: 'draft' })
     push(inquiry, { role: 'user', text: '이 내용으로 접수해 주세요.' })
     push(inquiry, { role: 'assistant', blocks: [p('접수되었어요. 접수번호는 **RCPT-1041** 입니다. 담당자 연결을 진행하고 있어요. 진행 상황은 아래 카드에서 바로 볼 수 있어요.')], card: 'ticket' })
-    push(inquiry, { role: 'staff', from: '김담당 담당자', group: '네트워크팀', kind: '처리 안내', time: '10.18 10:40', text: 'VPN 서버 쪽 인증 정보를 확인하고 있어요. 곧 결과를 알려 드릴게요.' })
-    inquiry.state = '담당자 이관'
+    push(inquiry, { role: 'staff', from: '김담당 담당자', groupName: '네트워크팀', kind: '처리 안내', createdAt: daysAgoIso(1), text: 'VPN 서버 쪽 인증 정보를 확인하고 있어요. 곧 결과를 알려 드릴게요.' })
+    inquiry.status = 'HANDED_OFF'
     inquiry.step = 'submitted'
     inquiry.draft = draft
     inquiry.draftState = 'confirmed'
     inquiry.ticket = ticket
     inquiry.unread = 1
-    inquiry.when = '어제'
+    inquiry.updatedAt = daysAgoIso(1)
   }
 
-  /* INQ-S2: AI 안내로 해결 */
+  /* 문의 102: AI 안내로 해결 */
   {
-    const { inquiry } = createRecord(OWNER, NAME, '계정 잠금 해제 방법', 'INQ-S2')
+    const { inquiry } = createRecord(OWNER, NAME, '계정 잠금 해제 방법', 102)
     const g = GUIDES.ACC
     push(inquiry, { role: 'user', text: '계정 잠금 해제 방법' })
     push(inquiry, {
@@ -95,15 +99,15 @@ function seed() {
     })
     push(inquiry, { role: 'user', text: '해결됐어요.' })
     push(inquiry, { role: 'assistant', blocks: [p('다행이에요! 이 문의는 **AI 해결**로 기록했어요. 다른 문제가 생기면 새 문의를 시작해 주세요.')] })
-    inquiry.state = 'AI 해결'
+    inquiry.status = 'AI_RESOLVED'
     inquiry.step = 'closed'
-    inquiry.category = 'ACC'
-    inquiry.when = '3일 전'
+    inquiry.categoryCode = 'ACC'
+    inquiry.updatedAt = daysAgoIso(3)
   }
 
-  /* INQ-U0: 응답이 없어 종료됨 (해결된 것으로 처리하지 않음) */
+  /* 문의 103: 응답이 없어 종료됨 (해결된 것으로 처리하지 않음) */
   {
-    const { inquiry } = createRecord(OWNER, NAME, 'VPN 인증서 갱신이 필요한가요', 'INQ-U0')
+    const { inquiry } = createRecord(OWNER, NAME, 'VPN 인증서 갱신이 필요한가요', 103)
     const g = GUIDES.NET
     push(inquiry, { role: 'user', text: 'VPN 인증서 갱신이 필요한가요' })
     push(inquiry, {
@@ -117,36 +121,39 @@ function seed() {
       locked: true,
     })
     push(inquiry, { role: 'sys', text: '응답 시간 경과로 상담을 종료했어요. 해결된 것으로 처리하지 않았어요.' })
-    inquiry.state = '미확인'
+    inquiry.status = 'UNCONFIRMED'
     inquiry.step = 'closed'
-    inquiry.category = 'NET'
-    inquiry.when = '6일 전'
+    inquiry.categoryCode = 'NET'
+    inquiry.updatedAt = daysAgoIso(6)
   }
 
-  /* INQ-T0: 담당자 처리 후 해결 확인까지 끝난 문의 */
+  /* 문의 104: 담당자 처리 후 해결 확인까지 끝난 문의 */
   {
-    const { inquiry } = createRecord(OWNER, NAME, '노트북 화면 깜빡임', 'INQ-T0')
+    const { inquiry } = createRecord(OWNER, NAME, '노트북 화면 깜빡임', 104)
     const ticket: Ticket = {
-      receipt: 'RCPT-1030',
-      jiraId: 'ITS-1509',
+      receiptNo: 'RCPT-1030',
+      jiraKey: 'ITS-1509',
       title: 'PC·주변기기 지원 문의',
-      category: 'HW',
-      priority: 'P3',
-      group: '엔드포인트지원팀',
-      assignee: '문오리',
-      status: 'CLS',
-      created: '10.11 14:02',
-      result: '디스플레이 드라이버를 다시 설치했습니다.',
+      categoryCode: 'HW',
+      urgency: 'P3',
+      ...groupOf('엔드포인트지원팀'),
+      assigneeId: 201,
+      assigneeName: '문오리',
+      workStatus: 'CLS',
+      assignStatus: 'ASSIGNED',
+      jiraSyncStatus: 'SYNCED',
+      createdAt: daysAgoIso(8),
+      resolutionNote: '디스플레이 드라이버를 다시 설치했습니다.',
       needReply: false,
     }
     push(inquiry, { role: 'user', text: '노트북 화면 깜빡임' })
     push(inquiry, { role: 'assistant', blocks: [p('접수되었어요. 접수번호는 **RCPT-1030** 입니다. 담당자 연결을 진행하고 있어요. 진행 상황은 아래 카드에서 바로 볼 수 있어요.')], card: 'ticket' })
-    inquiry.state = '담당자 이관'
+    inquiry.status = 'HANDED_OFF'
     inquiry.step = 'submitted'
-    inquiry.category = 'HW'
+    inquiry.categoryCode = 'HW'
     inquiry.ticket = ticket
     inquiry.draftState = 'confirmed'
-    inquiry.when = '8일 전'
+    inquiry.updatedAt = daysAgoIso(8)
   }
 }
 

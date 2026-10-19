@@ -3,7 +3,7 @@
  * 고치면 분류·긴급도를 다시 판단해 그 결과를 안내한다.
  */
 import { useState, type ReactNode } from 'react'
-import { CATEGORIES, PRIORITY_LABEL } from '../../api/catalog'
+import { CATEGORIES, URGENCY_LABEL } from '../../api/catalog'
 import type { Draft, DraftEdit, DraftState } from '../../api/chatTypes'
 import { Icon } from '../../ui/Icon'
 import { StateBadge } from '../../ui/StateBadge'
@@ -24,11 +24,11 @@ interface Props {
 
 export function DraftCard({ draft: d, state, note, active, busy, onConfirm, onSave, onCancel }: Props) {
   const [editing, setEditing] = useState(false)
-  const [fields, setFields] = useState<DraftEdit>({ issue: d.issue, impact: d.impact, tried: d.tried })
+  const [fields, setFields] = useState<DraftEdit>({ summary: d.summary, businessImpact: d.businessImpact, triedActions: d.triedActions })
   const canAct = active && state === 'view'
 
   const startEdit = () => {
-    setFields({ issue: d.issue, impact: d.impact, tried: d.tried })
+    setFields({ summary: d.summary, businessImpact: d.businessImpact, triedActions: d.triedActions })
     setEditing(true)
   }
   const save = async () => {
@@ -66,36 +66,36 @@ export function DraftCard({ draft: d, state, note, active, busy, onConfirm, onSa
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
           <div className="field">
             <label htmlFor="d-issue">문의 내용</label>
-            <textarea className="ta" id="d-issue" style={{ minHeight: 72 }} value={fields.issue} onChange={(e) => setFields({ ...fields, issue: e.target.value })} />
+            <textarea className="ta" id="d-issue" style={{ minHeight: 72 }} value={fields.summary} onChange={(e) => setFields({ ...fields, summary: e.target.value })} />
           </div>
           <div className="field">
-            <label htmlFor="d-impact">영향 범위·업무 영향</label>
-            <input className="inp" id="d-impact" value={fields.impact} onChange={(e) => setFields({ ...fields, impact: e.target.value })} />
+            <label htmlFor="d-impact">업무 영향</label>
+            <input className="inp" id="d-impact" value={fields.businessImpact} onChange={(e) => setFields({ ...fields, businessImpact: e.target.value })} />
           </div>
           <div className="field">
             <label htmlFor="d-tried">시도한 조치</label>
-            <input className="inp" id="d-tried" value={fields.tried} onChange={(e) => setFields({ ...fields, tried: e.target.value })} />
+            <input className="inp" id="d-tried" value={fields.triedActions} onChange={(e) => setFields({ ...fields, triedActions: e.target.value })} />
           </div>
         </div>
       ) : (
         <dl className="dl">
-          {row('문의 내용', d.issue)}
-          {row('대상 시스템', d.system)}
+          {row('문의 내용', d.summary)}
+          {row('대상 시스템', d.targetSystem)}
           {row('발생 시점', d.onset)}
-          {row('영향 범위·업무 영향', d.impact)}
-          {row('시도한 조치', d.tried)}
-          {row('AI 안내', d.ai)}
-          {row('Category', d.category ? `${d.category} · ${CATEGORIES[d.category].name}` : '미분류 · 서비스데스크 확인')}
+          {row('업무 영향', d.businessImpact)}
+          {row('시도한 조치', d.triedActions)}
+          {row('AI 안내', d.aiSummary)}
+          {row('Category', d.categoryCode ? `${d.categoryCode} · ${CATEGORIES[d.categoryCode].name}` : '미분류 · 서비스데스크 확인')}
           {row(
             '긴급도',
             <>
-              <span className={`pri-${d.priority.toLowerCase()}`}>
-                {d.priority} · {PRIORITY_LABEL[d.priority]}
+              <span className={`pri-${d.urgency.toLowerCase()}`}>
+                {d.urgency} · {URGENCY_LABEL[d.urgency]}
               </span>{' '}
-              <span className="small muted">{d.priorityWhy.join(' · ')}</span>
+              <span className="small muted">{d.urgencyReasons.join(' · ')}</span>
             </>,
           )}
-          {row('추천 담당 그룹', d.group)}
+          {row('추천 담당 그룹', d.groupName)}
         </dl>
       )}
 
