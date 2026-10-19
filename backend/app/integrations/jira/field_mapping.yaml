@@ -1,0 +1,240 @@
+# ITssue → Jira 필드·선택값 매핑 (현재 버전)
+#
+# 출처: 노션 WBS M5-1-1 "Jira 필드 정의 및 데이터셋·AI 출력 스키마 매핑" (2026-10-18, 실제 Jira에서 조회한 값)
+# 검증 범위: history.csv 티켓 350건(ITS-351 ~ ITS-700) 이관·전수 대조 완료 (M5-1-4, 불일치 0건)
+#            신규 접수용 생성 API에서 같은 값이 통하는지는 아직 시험 전 (M5-1-2 · M5-1-4)
+#
+# 키 이름은 지금 데이터셋(dataset/data/history.csv) 컬럼명을 그대로 쓴다.
+# 백엔드 DB 컬럼·프론트 타입과의 키 정리는 노션 S3 "키값 정합성 수정안"에서 확인 후 따로 반영한다.
+#
+# 사이트 주소·계정·API 토큰 같은 비밀 값은 이 파일에 넣지 않고 .env 로 관리한다.
+
+version: "2026-10-18"
+
+project:
+  key: ITS
+  id: "10006"
+  service_desk_id: "5"        # Jira Service Management
+
+# ---------------------------------------------------------------- 필드
+# source: 값을 가져오는 곳 (history.csv 컬럼, 직원 데이터 등)
+# type:   Jira 데이터 유형 (string · datetime · option · status · object)
+# required: Jira 생성 메타 기준 필수 여부 (업무상 필수값은 미합의)
+
+fields:
+  inquiry_id:
+    jira: customfield_10113
+    label: ITssue 접수번호
+    type: string
+    required: false
+    note: 중복 생성 확인 키. 이관 건 값은 INQ-2026-xxxxx
+  created_at:
+    jira: customfield_10115
+    label: 생성일자
+    type: datetime
+    required: false
+    note: 원 접수일시. Jira 기본 '만듦'은 이관 시각이라 쓰지 않음
+  channel:
+    jira: customfield_10123
+    label: 접수 채널
+    type: string
+    required: false
+  handling_type:
+    jira: customfield_10124
+    label: 처리 유형
+    type: string
+    required: false
+  requester_id:
+    jira: customfield_10114
+    label: 문의자 사번
+    type: string
+    required: false
+  requester_name:
+    jira: customfield_10121
+    label: 문의자 이름
+    type: string
+    required: false
+    source: employees.csv name (requester_id로 조회)
+  requester_dept:
+    jira: customfield_10119
+    label: 문의자 부서
+    type: string
+    required: false
+  ticket_type:
+    jira: customfield_10120
+    label: 티켓 유형
+    type: string
+    required: false
+    note: 장애 / 요청 / 문의 (issuetype 은 options.ticket_type 참고)
+  category_code:
+    jira: customfield_10117
+    label: IT 문의 분류
+    type: option
+    required: false
+  category:
+    jira: customfield_10125
+    label: 분류명
+    type: string
+    required: false
+  subcategory:
+    jira: customfield_10126
+    label: 세부 분류
+    type: string
+    required: false
+  scenario_id:
+    jira: customfield_10127
+    label: 시나리오 ID
+    type: string
+    required: false
+  tool:
+    jira: customfield_10128
+    label: 대상 도구
+    type: string
+    required: false
+  urgency:
+    jira: customfield_10129
+    label: 우선순위 등급
+    type: string
+    required: false
+    note: P1 ~ P4 그대로 저장. 기본 priority 는 options.urgency 참고
+  urgency_label:
+    jira: customfield_10084
+    label: 긴급도
+    type: option
+    required: false
+  impact_scope:
+    jira: customfield_10118
+    label: 영향 범위
+    type: option
+    required: false
+  title:
+    jira: summary
+    label: 요약
+    type: string
+    required: true
+  description:
+    jira: customfield_10130
+    label: 접수 내용
+    type: string
+    required: false
+    note: 기본 description 은 ADF 객체라 글자 그대로는 이 칸에 저장
+  status:
+    jira: status
+    label: 상태
+    type: status
+    required: false
+    note: 생성 메타에 없음. 생성 후 전환(transition)으로 맞춤
+  assigned_team:
+    jira: customfield_10131
+    label: 담당 팀
+    type: string
+    required: false
+    note: components 에도 같은 팀을 넣음 (options.assigned_team)
+  assignee:
+    jira: customfield_10122
+    label: 처리 담당자
+    type: string
+    required: false
+    note: 담당자 이름 문자열. Jira 기본 assignee(실제 계정)와는 별개이며 아직 연결 안 됨
+  resolved_at:
+    jira: customfield_10116
+    label: 완료일자
+    type: datetime
+    required: false
+  root_cause:
+    jira: customfield_10132
+    label: 원인
+    type: string
+    required: false
+  resolution:
+    jira: customfield_10133
+    label: 처리 내용
+    type: string
+    required: false
+  prevention:
+    jira: customfield_10134
+    label: 재발 방지
+    type: string
+    required: false
+  related_faq:
+    jira: customfield_10135
+    label: 관련 FAQ
+    type: string
+    required: false
+
+# ---------------------------------------------------------------- 선택값
+# 데이터셋 값 → Jira 저장값과 옵션(객체) ID
+
+options:
+  category_code:
+    field: customfield_10117
+    values:
+      ACC: { value: ACC, id: "10282" }
+      ACS: { value: ACS, id: "10283" }
+      NET: { value: NET, id: "10284" }
+      SW:  { value: SW,  id: "10285" }
+      HW:  { value: HW,  id: "10286" }
+      SYS: { value: SYS, id: "10287" }
+      SEC: { value: SEC, id: "10288" }
+
+  impact_scope:
+    field: customfield_10118
+    values:
+      개인: { value: 개인, id: "10289" }
+      부서: { value: 부서, id: "10290" }
+      전사: { value: 전사, id: "10291" }
+
+  urgency_label:
+    field: customfield_10084
+    values:
+      긴급: { value: Critical, id: "10192" }
+      높음: { value: High,     id: "10193" }
+      보통: { value: Medium,   id: "10194" }
+      낮음: { value: Low,      id: "10195" }
+
+  urgency:
+    field: priority
+    values:
+      P1: { value: Highest, id: "1" }
+      P2: { value: High,    id: "2" }
+      P3: { value: Medium,  id: "3" }
+      P4: { value: Low,     id: "4" }
+
+  assigned_team:
+    field: components
+    values:
+      서비스데스크:     { value: 서비스데스크,     id: "10054" }
+      엔드포인트지원팀: { value: 엔드포인트지원팀, id: "10055" }
+      네트워크팀:       { value: 네트워크팀,       id: "10056" }
+      시스템인프라팀:   { value: 시스템인프라팀,   id: "10057" }
+      업무시스템팀:     { value: 업무시스템팀,     id: "10058" }
+      정보보안팀:       { value: 정보보안팀,       id: "10059" }
+
+  ticket_type:
+    field: issuetype
+    values:
+      장애: { value: "[System] Incident",        id: "10036" }
+      요청: { value: "[System] Service request", id: "10034" }
+      문의: { value: "[System] Service request", id: "10034" }
+
+  status:
+    field: status
+    values:
+      RDY: { value: RDY, id: "10063" }
+      WIP: { value: WIP, id: "10064" }
+      FIN: { value: FIN, id: "10065" }
+      CLS: { value: CLS, id: "10066" }
+
+# JSM 요청 유형: ticket_type 과 category_code 를 함께 보고 정한다 (위에서부터 먼저 맞는 규칙 적용)
+request_type:
+  field: customfield_10010
+  rules:
+    - when: { ticket_type: [요청, 문의] }
+      value: Get IT help
+      id: "41"
+    - when: { ticket_type: [장애], category_code: [HW] }
+      value: Report broken hardware
+      id: "49"
+    - when: { ticket_type: [장애] }
+      value: Report a system problem
+      id: "48"
