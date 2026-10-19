@@ -250,7 +250,7 @@ keywords: ["가이드 분류", "문서 번호", "열람 등급", "사내 일반"
 | 사내 주소 | *.hanwha-ict.example, 사내 IT 포털 hanwha-admin | hanwha-admin.example(SW)과 hanwha-ict.example(그 외)을 함께 씀 → 포털 이름으로 정의 |
 | IT 요청 경로 | 그룹웨어 > IT 요청 (= 사내 IT 포털 [IT 요청]) | SW 문서만 hanwha-admin > [IT 요청] |
 | 연락처 | ITssue 챗봇 기본, IT 헬프데스크 내선 1000 (평일 09:00~18:00), 정보보안팀 내선 1119 | SW 문서는 운영시간 미확정, ACS 문서는 "사내 공지된 연락처"로만 씀 |
-| 티켓 상태 | RDY → IP → FIN → CLS (PRD·SRS·설계서) | 팀원 문서는 RDY → IP → FIN → CLS |
+| 티켓 상태 | RDY → WIP → FIN → CLS (PRD·SRS·설계서) | 팀원 문서는 RDY → WIP → FIN → CLS |
 | 처리 구분 | 사용자 직접 조치 / 신청·승인 후 처리 / IT 담당자 처리 / 즉시 신고·이관 | ACC·SEC는 3색 처리 구분과 처리 주체를 따로, 나머지는 처리 주체만 씀 |
 | 부서이동·퇴사 | 발령 다음 날 자동 반영 / 퇴사일 18시 비활성화 / 메일 30일 팀장 전달 (FAQ-004·035) | ACS 문서는 "고정 시각을 보장하지 않음" |
 | 담당자용 문서 번호 | IT-{분류}-{번호}-M | ACS만 -OPS |

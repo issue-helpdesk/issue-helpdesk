@@ -31,8 +31,11 @@ TEXT_RULES = [
     (r'IT IT 헬프데스크', 'IT 헬프데스크'),
     (r'SW 실행·업데이트 오류 가이드', '업무용 SW 실행·오류 대응 가이드'),
     (r'개발서버 접근권한 가이드', '개발·검증 서버 접근권한 가이드'),
-    (r'RDY\s*→\s*WIP\s*→\s*FIN(?!\s*→)', 'RDY → IP → FIN → CLS'),
-    (r'(?<![A-Za-z])WIP(?![A-Za-z])', 'IP'),
+    # 업무 상태 문맥만 정규화한다. 네트워크 주소(IP) 등은 바꾸지 않는다.
+    (r'RDY\s*→\s*(?:IP|WIP)\s*→\s*FIN(?!\s*→)', 'RDY → WIP → FIN → CLS'),
+    (r'(RDY\s*→\s*)IP(?=\s*→\s*FIN)', r'\1WIP'),
+    (r'(상태를\s+)IP(?=로)', r'\1WIP'),
+    (r'(INQ-\d{4}-\d+\s*\()IP(?=\))', r'\1WIP'),
     (r'  +', ' '),
 ]
 DROP_SENTENCE = [
