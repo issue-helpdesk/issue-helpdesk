@@ -1,6 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, Identity, UniqueConstraint, func, text
+from sqlalchemy import CheckConstraint, ForeignKey, Identity, Index, Integer, UniqueConstraint, func, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -12,7 +13,7 @@ TRANSFER_POLICY = "transfer_policy in ('ALLOWED', 'MASKED', 'BLOCKED')"
 class KnowledgeDocument(Base):
     __tablename__ = "knowledge_documents"
     __table_args__ = (
-        CheckConstraint("doc_type in ('GUIDE', 'FAQ', 'MANUAL')", name="doc_type"),
+        CheckConstraint("doc_type in ('GUIDE', 'FAQ', 'MANUAL', 'STANDARD')", name="doc_type"),   # STANDARD: 공통 기준
     )
 
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)
@@ -33,6 +34,9 @@ class DocumentVersion(Base):
         CheckConstraint(VIEW_SCOPE, name="view_scope"),
         CheckConstraint(TRANSFER_POLICY, name="transfer_policy"),
         CheckConstraint("ingest_status in ('PENDING', 'DONE', 'FAILED')", name="ingest_status"),
+        # 현행 버전은 문서마다 최대 하나, 적재가 끝난 버전만 현행 (SRS GUIDE-05)
+        CheckConstraint("not is_current or ingest_status = 'DONE'", name="current_needs_done"),
+        Index("uq_document_versions_one_current", "document_id", unique=True, postgresql_where=text("is_current")),
     )
 
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)
@@ -50,13 +54,25 @@ class DocumentVersion(Base):
 
 
 class DocumentChunk(Base):
+    """검색 단위. 칸 설명과 meta 계약은 backend/app/rag/청크_메타데이터.md, 행은 app.rag.chunker.chunk_row()."""
     __tablename__ = "document_chunks"
+    __table_args__ = (
+        UniqueConstraint("version_id", "seq", name="uq_document_chunks_version_id_seq"),
+        UniqueConstraint("version_id", "unit_key", "part", name="uq_document_chunks_version_id_unit_key_part"),
+        CheckConstraint("chunk_type in ('ITEM', 'CHAPTER', 'FAQ', 'PREFACE')", name="chunk_type"),
+        CheckConstraint("part >= 1", name="part"),
+    )
 
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)
     version_id: Mapped[int] = mapped_column(ForeignKey("document_versions.id"))
     heading_path: Mapped[str | None]
     location: Mapped[str | None]
     content: Mapped[str]
+    seq: Mapped[int] = mapped_column(Integer)                        # 문서 안 순번
+    unit_key: Mapped[str] = mapped_column(index=True)                # 같은 항목·장·질문의 조각 묶음
+    chunk_type: Mapped[str]                                          # ITEM·CHAPTER·FAQ·PREFACE
+    part: Mapped[int] = mapped_column(Integer, server_default=text("1"))           # 묶음 안 조각 번호
+    meta: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))  # 원문 메모 (키 고정)
 
 
 class LegacyInquiry(Base):
