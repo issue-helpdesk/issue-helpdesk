@@ -6,8 +6,11 @@
 /** 사용자 역할: 문의자 / 담당자(IT 운영) / 관리자 */
 export type Role = 'user' | 'staff' | 'admin'
 
-/** 서비스 계정 상태 (SRS 4.6). 승인 대기·이용 제한 계정은 로그인할 수 없다. */
-export type AccountStatus = '승인' | '승인 대기' | '이용 제한'
+/**
+ * 서비스 계정 상태 (SRS 4.6). 잠김·이용 제한 계정은 로그인할 수 없다.
+ * DB 값(`06 테이블 설계서`)과의 대응: 정상=ACTIVE, 잠김=LOCKED, 이용 제한=INACTIVE
+ */
+export type AccountStatus = '정상' | '잠김' | '이용 제한'
 
 export interface User {
   /** 사번 (예: HS1001) */

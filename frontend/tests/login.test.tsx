@@ -8,6 +8,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import App from '../src/App'
 import { AuthProvider } from '../src/core/session'
+import { expireLockForDemo } from '../src/api/mock/accounts'
 import { tokenStore } from '../src/core/tokenStore'
 
 // 가짜 서버 지연(0.35~0.8초)을 기다리기 위한 넉넉한 대기 시간
@@ -61,11 +62,67 @@ describe('로그인 화면', () => {
     expect(tokenStore.get()).toBeNull()
   })
 
-  it('승인 대기 계정은 승인 후 이용하라고 안내한다', async () => {
+  it('잠긴 계정은 로그인할 수 없고 남은 시간과 서비스데스크 연락처를 안내한다', async () => {
     const user = userEvent.setup()
     renderApp()
-    await user.click(screen.getByRole('button', { name: '승인 대기 계정' }))
-    expect(await screen.findByRole('alert', {}, SLOW)).toHaveTextContent('이용 승인이 완료되지 않았어요')
+    await user.click(screen.getByRole('button', { name: '잠김 계정' }))
+    const alert = await screen.findByRole('alert', {}, SLOW)
+    expect(alert).toHaveTextContent('잠긴 계정이에요')
+    expect(alert).toHaveTextContent('분 후 자동으로 해제')
+    expect(alert).toHaveTextContent('내선 1000')
+    expect(tokenStore.get()).toBeNull()
+  })
+
+  it('비밀번호를 5회 틀리면 계정이 잠기고, 이후에는 올바른 비밀번호도 막는다', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    const pw = screen.getByLabelText('비밀번호')
+    await user.clear(pw)
+    await user.type(pw, 'wrong')
+    for (let k = 1; k <= 5; k++) {
+      await user.click(screen.getByRole('button', { name: '로그인' }))
+      const alert = await screen.findByRole('alert', {}, SLOW)
+      if (k < 5) expect(alert).toHaveTextContent('사번 또는 비밀번호를 확인해 주세요.')
+      else expect(alert).toHaveTextContent('5회 실패로 계정이 잠겼어요')
+      await screen.findByRole('button', { name: '로그인' }, SLOW) // 요청이 끝나 버튼이 다시 활성화될 때까지
+    }
+    // 올바른 비밀번호로 시도해도 잠긴 동안은 로그인할 수 없다
+    await user.clear(pw)
+    await user.type(pw, 'demo')
+    await user.click(screen.getByRole('button', { name: '로그인' }))
+    expect(await screen.findByRole('alert', {}, SLOW)).toHaveTextContent('잠긴 계정이에요')
+    expect(tokenStore.get()).toBeNull()
+  }, 20000)
+
+  it('4회까지 틀려도 잠기지 않고, 올바르게 입력하면 로그인된다', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    const pw = screen.getByLabelText('비밀번호')
+    await user.clear(pw)
+    await user.type(pw, 'wrong')
+    for (let k = 1; k <= 4; k++) {
+      await user.click(screen.getByRole('button', { name: '로그인' }))
+      await screen.findByRole('alert', {}, SLOW)
+      await screen.findByRole('button', { name: '로그인' }, SLOW)
+    }
+    await user.clear(pw)
+    await user.type(pw, 'demo')
+    await user.click(screen.getByRole('button', { name: '로그인' }))
+    expect(await screen.findByRole('heading', { name: '새 문의' }, SLOW)).toBeInTheDocument()
+  }, 20000)
+
+  it('잠금 후 10분이 지나면 다시 로그인할 수 있다', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    expireLockForDemo('HS1530') // 10분이 지난 것처럼 만든다
+    await user.click(screen.getByRole('button', { name: '잠김 계정' }))
+    expect(await screen.findByRole('heading', { name: '새 문의' }, SLOW)).toBeInTheDocument()
+    expect(tokenStore.get()).toBe('mock.HS1530')
+  })
+
+  it('로그인 화면에 승인 대기 계정 버튼은 없다', () => {
+    renderApp()
+    expect(screen.queryByRole('button', { name: /승인 대기/ })).not.toBeInTheDocument()
   })
 
   it('역할에 따라 첫 화면이 다르다 (담당자=처리할 문의, 관리자=대시보드)', async () => {

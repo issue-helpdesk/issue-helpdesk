@@ -24,7 +24,9 @@ npm run dev                  # http://localhost:5173
 
 ## 현재 만든 화면
 
-- `/login` 로그인 (사번 로그인 · SSO 탭 · 계정 상태 안내) + 로그인 전 상담 패널 *(제안 기능)*
+- `/login` 로그인 (사번 로그인 · SSO 탭 · 잠김·이용 제한 안내) + 로그인 전 상담 패널 *(제안 기능)*
+  - 계정 상태는 정상 · 잠김 · 이용 제한입니다. 로그인 5회 실패 시 잠기고 10분 후 자동으로 풀립니다. 시연(mock)에서도 같은 규칙으로 동작합니다.
+  - 회원가입 기능은 없습니다. 신규 입사자 계정은 관리자가 만들어 제공합니다.
 - 문의자 화면 틀 (사이드바 + 본문). 담당자·관리자도 같은 틀을 쓰며 메뉴만 역할에 따라 더해집니다.
   - `/new` 새 문의: 챗봇 시작 화면 (인사말 · 입력창 · 분류 칩 · 추천 카드). 보내기 이후 대화 흐름은 다음 단계입니다.
   - `/faq` FAQ *(제안 기능)*: 열람 허용된 Guide 기반 목록, 열면 답변과 출처, "상담하기"로 새 문의에 질문을 채워 이동
@@ -45,13 +47,13 @@ npm run dev                  # http://localhost:5173
 
 | 호출 | 요청 | 성공 `data` | 실패 `error.code` |
 | --- | --- | --- | --- |
-| `POST /auth/login` | `{ employeeId, password }` | `{ accessToken, user: { id, name, dept, role, status } }` | `INVALID_CREDENTIALS`, `ACCOUNT_PENDING`, `ACCOUNT_RESTRICTED` |
+| `POST /auth/login` | `{ employeeId, password }` | `{ accessToken, user: { id, name, dept, role, status } }` | `INVALID_CREDENTIALS`, `ACCOUNT_LOCKED`, `ACCOUNT_RESTRICTED` |
 | `GET /users/me` | - | `user` | `UNAUTHORIZED` |
 | `POST /public/consult` *(제안 기능)* | `{ message }` | `{ paragraphs: string[], source?: string }` | - |
 | `GET /faqs` *(제안 기능)* | - | `Faq[]` (`id, category, question, answer, source`) | - |
 | `GET /inquiries` | - | `InquirySummary[]` (`id, title, stateLabel, stateKind, unread, when`) | - |
 
-- `role`은 `user` · `staff` · `admin`, `status`는 `승인` · `승인 대기` · `이용 제한`입니다. 필드 이름(camelCase 여부)은 협의 후 어댑터에서 맞춥니다.
+- `role`은 `user` · `staff` · `admin`, `status`는 `정상` · `잠김` · `이용 제한`입니다. (DB 값과의 대응: 정상=`ACTIVE`, 잠김=`LOCKED`, 이용 제한=`INACTIVE`) 필드 이름(camelCase 여부)은 협의 후 어댑터에서 맞춥니다.
 - 화면은 `error.message`를 그대로 보여 주므로 문구는 사용자가 읽을 수 있는 한국어로 내려 주세요.
 
 ### 토큰 보관
