@@ -1,8 +1,9 @@
 # ITssue → Jira 필드·선택값 매핑
 #
-# 출처: 노션 WBS M5-1-1 "Jira 필드 정의 및 데이터셋·AI 출력 스키마 매핑" (2026-10-18, 실제 Jira에서 조회한 값)
-# 검증 범위: history.csv 티켓 350건(ITS-351 ~ ITS-700) 이관·전수 대조 완료 (M5-1-4, 불일치 0건)
-#            신규 접수용 생성 API에서 같은 값이 통하는지는 아직 시험 전 (M5-1-2 · M5-1-4)
+# 출처: 노션 WBS M5-1-1 "Jira 필드 정의 및 데이터셋·AI 출력 스키마 매핑"
+# 현재 대상: ITSD (Jira Software). 프로젝트·작업 생성 메타를 2026-10-19에 조회해 반영.
+# 과거 검증: ITS-351 ~ ITS-700은 이전 ITS 프로젝트의 이관 검증 기록이다.
+# 현재 ITSD의 신규 접수용 생성 API는 아직 실제 생성 시험 전 (M5-1-2 · M5-1-4).
 #
 # 키 이름은 06 테이블 설계서의 DB 컬럼 이름(기준 이름)을 쓴다. (docs/07.API_계약서.md)
 #   dataset_column: 과거 데이터셋(dataset/data/history.csv) 컬럼명. 이관 스크립트만 이 이름을 쓴다.
@@ -14,9 +15,9 @@
 version: "2026-10-19"
 
 project:
-  key: ITS
-  id: "10006"
-  service_desk_id: "5"        # Jira Service Management
+  key: ITSD
+  id: "10007"                # Jira Software (이전 HELP 프로젝트의 키 변경)
+  # 일반 Jira이므로 service_desk_id와 JSM 요청 유형은 사용하지 않는다.
 
 # ---------------------------------------------------------------- 필드
 # jira:     Jira 필드 ID
@@ -79,7 +80,7 @@ fields:
     dataset_column: ticket_type
     type: string
     required: false
-    note: 값은 options.request_kind (issuetype 도 같은 표에서 정함)
+    note: 값은 options.request_kind. Jira 기본 issuetype은 options.issue_type의 TASK 사용
   category_code:
     jira: customfield_10117
     label: IT 문의 분류
@@ -246,19 +247,26 @@ options:
   group_name:
     field: components
     values:
-      서비스데스크:     { value: 서비스데스크,     id: "10054" }
-      엔드포인트지원팀: { value: 엔드포인트지원팀, id: "10055" }
-      네트워크팀:       { value: 네트워크팀,       id: "10056" }
-      시스템인프라팀:   { value: 시스템인프라팀,   id: "10057" }
-      업무시스템팀:     { value: 업무시스템팀,     id: "10058" }
-      정보보안팀:       { value: 정보보안팀,       id: "10059" }
+      서비스데스크:     { value: 서비스데스크,     id: "10060" }
+      엔드포인트지원팀: { value: 엔드포인트지원팀, id: "10061" }
+      네트워크팀:       { value: 네트워크팀,       id: "10062" }
+      시스템인프라팀:   { value: 시스템인프라팀,   id: "10063" }
+      업무시스템팀:     { value: 업무시스템팀,     id: "10064" }
+      정보보안팀:       { value: 정보보안팀,       id: "10065" }
 
+  # 업무 유형은 텍스트 필드에 보존한다. Jira 기본 이슈 유형과 구분한다.
   request_kind:
+    field: customfield_10120
+    values:
+      INCIDENT: { label: 장애, value: 장애 }
+      REQUEST:  { label: 요청, value: 요청 }
+      QUESTION: { label: 문의, value: 문의 }
+
+  # 장애·요청·문의 모두 일반 Jira의 작업으로 생성한다.
+  issue_type:
     field: issuetype
     values:
-      INCIDENT: { label: 장애, value: "[System] Incident",        id: "10036" }
-      REQUEST:  { label: 요청, value: "[System] Service request", id: "10034" }
-      QUESTION: { label: 문의, value: "[System] Service request", id: "10034" }
+      TASK: { value: 작업, id: "10032" }
 
   # 문자열 필드라 옵션 ID 가 없다. value 를 그대로 저장한다.
   channel:
@@ -283,16 +291,4 @@ options:
       FIN: { value: FIN, id: "10065" }
       CLS: { value: CLS, id: "10066" }
 
-# JSM 요청 유형: request_kind 와 category_code 를 함께 보고 정한다 (위에서부터 먼저 맞는 규칙 적용)
-request_type:
-  field: customfield_10010
-  rules:
-    - when: { request_kind: [REQUEST, QUESTION] }
-      value: Get IT help
-      id: "41"
-    - when: { request_kind: [INCIDENT], category_code: [HW] }
-      value: Report broken hardware
-      id: "49"
-    - when: { request_kind: [INCIDENT] }
-      value: Report a system problem
-      id: "48"
+# 일반 Jira 생성에는 JSM request_type(customfield_10010)을 전송하지 않는다.
