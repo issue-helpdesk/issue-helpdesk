@@ -9,7 +9,9 @@
  *   → 해결 확인(해결됐어요 / 아직 안 돼요) → 접수 초안 확인·수정 → 접수(RCPT 번호) → Jira·담당자 배정 진행
  */
 import { nowIso } from '../../core/format'
+import { hasMask, MASK_NOTICE, maskSensitive } from '../../core/mask'
 import { CATEGORIES, FALLBACK_GROUP } from '../catalog'
+import { detectInquiryType } from './inquiryTypes'
 import type {
   CategoryCode,
   ChatBlock,
@@ -19,6 +21,7 @@ import type {
   Inquiry,
   LegacyCase,
   Urgency,
+  RejudgedField,
   ReplyRequest,
   Ticket,
 } from '../chatTypes'
@@ -133,7 +136,7 @@ export const GUIDES: Record<CategoryCode, GuideEntry> = {
     version: 'v2',
     section: '3.1',
     steps: [
-      '사내 IT 포털(hanwha-admin)에 사번으로 로그인해 [소프트웨어 센터]를 엽니다.',
+      '사내 IT 포털에 사번으로 로그인해 [소프트웨어 센터]를 엽니다.',
       '프로그램 이름을 검색해 무료·회사 구매 프로그램은 [설치]를 누릅니다. 관리자 비밀번호는 필요 없습니다.',
       '[설치 요청]이 보이는 유료 프로그램은 IT-SW-002 3.1에 따라 라이선스를 신청합니다.',
     ],
@@ -191,6 +194,12 @@ export const GROUP_ID: Record<string, number> = {
 /** 그룹 이름으로 groupId·groupName 짝을 만든다 */
 export const groupOf = (groupName: string) => ({ groupId: GROUP_ID[groupName] ?? null, groupName })
 
+/** 분류와 문장으로 세부 유형 코드·이름 짝을 만든다 (판단하지 못하면 둘 다 null) */
+const typeOf = (cat: CategoryCode | null, text: string) => {
+  const t = detectInquiryType(cat, text)
+  return { inquiryTypeCode: t?.code ?? null, inquiryTypeName: t?.name ?? null }
+}
+
 /** 담당 그룹별 시연용 담당자 후보 (design 프로토타입의 담당자 이름 일부, id 는 users.id 자리) */
 const STAFF_BY_GROUP: Record<string, { id: number; name: string }[]> = {
   서비스데스크: [
@@ -230,10 +239,6 @@ function allText(rec: StoreRecord): string {
   return users.join(' ') + ' ' + vals.join(' ')
 }
 
-/** 비밀번호·인증번호로 보이는 값이 들어 있는지 */
-const SENSITIVE = /(\b\d{6}\b|(?:비밀번호|패스워드|인증번호)는\s*\S+)/
-/** 보이는 값을 가려서 저장한다 */
-const maskSensitive = (t: string) => t.replace(/\b\d{6}\b/g, '●●●●●●').replace(/((?:비밀번호|패스워드|인증번호)는\s*)\S+/g, '$1●●●●')
 
 /** 답변을 준비하는 동안 점 세 개를 보여 주고, 시간이 지나면 실제 답변으로 바꾼다 */
 function typing(rec: StoreRecord, label: string, then: () => void) {
@@ -401,7 +406,9 @@ function doAnswer(rec: StoreRecord) {
 /* ------------------------------------------------------------------ 대화 진입점 */
 /** 새 문의를 만들고 첫 메시지를 처리한다 */
 export function startInquiry(owner: string, ownerName: string, text: string): Inquiry {
-  const title = text.length > 22 ? `${text.slice(0, 22)}…` : text
+  // 제목에도 비밀번호·인증번호 원문이 남지 않게 먼저 가린다
+  const safe = maskSensitive(text).text
+  const title = safe.length > 22 ? `${safe.slice(0, 22)}…` : safe
   const rec = createRecord(owner, ownerName, title)
   handle(rec, text, true)
   return rec.inquiry
@@ -410,11 +417,12 @@ export function startInquiry(owner: string, ownerName: string, text: string): In
 /** 문의자가 메시지를 보낸다. 접수 이후라면 담당자에게 가는 추가 메시지가 된다. */
 export function handle(rec: StoreRecord, raw: string, initial: boolean) {
   const { inquiry, internal } = rec
-  const sensitive = SENSITIVE.test(raw)
-  const text = sensitive ? maskSensitive(raw) : raw
+  // 비밀번호·인증번호로 보이는 값은 대화·초안·로그에 넣기 전에 가린다
+  const masked = maskSensitive(raw)
+  const text = masked.text
   push(inquiry, { role: 'user', text })
   inquiry.updatedAt = nowIso()
-  if (sensitive) push(inquiry, { role: 'sys', text: '비밀번호·인증번호는 입력하지 마세요. 입력된 값은 마스킹해서 저장해요.' })
+  if (masked.hit || hasMask(text)) push(inquiry, { role: 'sys', text: MASK_NOTICE })
 
   if (inquiry.step === 'draft') {
     push(inquiry, { role: 'assistant', blocks: [p('초안의 내용을 바꾸려면 아래 초안에서 **수정할게요**를 눌러 고쳐 주세요. 변경 내용은 접수 전에 다시 확인해 드려요.')] })
@@ -510,6 +518,7 @@ function buildDraft(rec: StoreRecord) {
     urgency: pr.urgency,
     urgencyReasons: pr.urgencyReasons,
     ...groupOf(cat ? CATEGORIES[cat].groupName : FALLBACK_GROUP),
+    ...typeOf(cat, allText(rec)),
   }
   inquiry.step = 'draft'
   inquiry.draftState = 'view'
@@ -524,10 +533,15 @@ export function saveDraft(rec: StoreRecord, edit: DraftEdit) {
   if (!d || inquiry.draftState !== 'view' || inquiry.step !== 'draft') return
   const beforeP = d.urgency
   const beforeCat = d.categoryCode
-  d.summary = edit.summary.trim() || d.summary
-  d.businessImpact = edit.businessImpact.trim() || d.businessImpact
-  d.triedActions = edit.triedActions.trim() || d.triedActions
-  const txt = `${d.summary} ${d.businessImpact} ${d.triedActions}`
+  const beforeType = d.inquiryTypeCode ?? null
+  const beforeGroup = d.groupName
+  // 고친 글에 비밀번호·인증번호가 있으면 저장하기 전에 가린다
+  const clean = (v: string | undefined) => (v ?? '').trim() && maskSensitive((v ?? '').trim()).text
+  d.summary = clean(edit.summary) || d.summary
+  d.onset = clean(edit.onset) || d.onset
+  d.businessImpact = clean(edit.businessImpact) || d.businessImpact
+  d.triedActions = clean(edit.triedActions) || d.triedActions
+  const txt = `${d.summary} ${d.onset} ${d.businessImpact} ${d.triedActions}`
   const c = detectCategory(txt)
   if (c && c !== d.categoryCode && RE.sec.test(txt)) {
     d.categoryCode = c
@@ -536,6 +550,14 @@ export function saveDraft(rec: StoreRecord, edit: DraftEdit) {
   const pr = calcUrgency(`${txt} ${internal.urgent ? '의심' : ''} ${allText(rec)}`)
   d.urgency = pr.urgency
   d.urgencyReasons = pr.urgencyReasons
+  Object.assign(d, typeOf(d.categoryCode, `${txt} ${allText(rec)}`))
+  // 값이 바뀐 항목만 기록해 화면이 "다시 판단됨"을 붙이게 한다
+  const rejudged: RejudgedField[] = []
+  if (d.categoryCode !== beforeCat) rejudged.push('category')
+  if ((d.inquiryTypeCode ?? null) !== beforeType) rejudged.push('inquiryType')
+  if (d.urgency !== beforeP) rejudged.push('urgency')
+  if (d.groupName !== beforeGroup) rejudged.push('group')
+  d.rejudged = rejudged
   const changed = beforeP !== d.urgency || beforeCat !== d.categoryCode
   inquiry.draftNote = changed
     ? `수정한 내용을 반영해 ${beforeP !== d.urgency ? `긴급도를 ${beforeP}에서 ${d.urgency}(으)로` : ''}${beforeCat !== d.categoryCode ? ` 분류를 ${d.categoryCode ?? ''}(으)로` : ''} 다시 판단했어요. 변경된 내용으로 다시 확인해 주세요.`
@@ -644,6 +666,7 @@ function setStatus(rec: StoreRecord, status: Ticket['workStatus']) {
   const t = rec.inquiry.ticket
   if (!t) return
   t.workStatus = status
+  if (status === 'FIN') t.finishedAt = nowIso()
   rec.inquiry.updatedAt = nowIso()
   if (status === 'WIP' || status === 'FIN') rec.inquiry.unread += 1
 }
@@ -668,6 +691,7 @@ export function confirmResolved(rec: StoreRecord) {
   const t = rec.inquiry.ticket
   if (!t || t.workStatus !== 'FIN') return
   t.workStatus = 'CLS'
+  t.closedAt = nowIso()
   rec.inquiry.status = 'HANDED_OFF'
   rec.inquiry.updatedAt = nowIso()
 }
@@ -682,6 +706,7 @@ export function denyResolved(rec: StoreRecord, reason: string) {
   if (old) old.ticketSnapshot = { ...t }
   push(inquiry, { role: 'user', text: reason.trim(), kind: '미해결 사유' })
   t.workStatus = 'WIP'
+  t.finishedAt = null
   t.resolutionNote = ''
   inquiry.updatedAt = nowIso()
   push(inquiry, { role: 'assistant', blocks: [p('다시 확인을 요청했어요. 담당자가 재확인하고 있어요. 아래 카드에서 새 진행 상황을 볼 수 있어요.')], card: 'ticket' })
@@ -689,7 +714,7 @@ export function denyResolved(rec: StoreRecord, reason: string) {
 
 /** 접수 이후 문의자가 남긴 추가 메시지: 담당자에게 전달된다 */
 export function sendToStaff(rec: StoreRecord, text: string) {
-  push(rec.inquiry, { role: 'user', text, kind: '추가 메시지' })
+  push(rec.inquiry, { role: 'user', text: maskSensitive(text).text, kind: '추가 메시지' })
   rec.inquiry.updatedAt = nowIso()
 }
 

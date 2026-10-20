@@ -17,7 +17,10 @@
 .field>label,.lab{font-size:13px;font-weight:600;color:var(--ink2)}
 .inp,.sel,.ta{min-height:44px;width:100%;padding:0 14px;border-radius:12px;border:0;background:var(--field);box-shadow:inset 0 0 0 1px var(--fieldline);font-size:15px}
 .inp:focus,.sel:focus,.ta:focus{outline:2px solid var(--o600);outline-offset:1px;box-shadow:inset 0 0 0 1px var(--o600)}
-.inp.err{box-shadow:inset 0 0 0 1.5px var(--s-urg-dot)}
+.inp.err,.inp[aria-invalid="true"],.ta[aria-invalid="true"],.sel[aria-invalid="true"]{box-shadow:inset 0 0 0 1.5px var(--s-urg-dot)}
+.ferr{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12.5px;font-weight:500;color:var(--s-urg-fg)}
+.ferr::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--s-urg-dot);flex:none}
+.fgt{align-self:flex-start;min-height:44px;padding:0 2px;background:none;border:0;color:var(--o600);font:inherit;font-size:13.5px;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .hint{font-size:12px;color:var(--mute)}.errtx{font-size:12.5px;color:var(--s-urg-fg);font-weight:500}
 .seg{display:inline-flex;gap:2px;padding:3px;border-radius:12px;background:var(--shell)}
 .seg button{border:0;background:transparent;min-height:36px;padding:0 16px;border-radius:9px;font-size:13.5px;font-weight:500;color:var(--mute)}
@@ -47,7 +50,7 @@
 .sp{flex:1}
 .muted{color:var(--mute)}.small{font-size:12.5px}
 .alert{display:flex;gap:10px;padding:12px 14px;border-radius:12px;font-size:13.5px;line-height:20px}
-.alert.warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.alert.info{background:var(--s-asg-bg);color:var(--s-asg-fg)}.alert.err{background:var(--s-urg-bg);color:var(--s-urg-fg)}.alert.ok{background:var(--s-ok-bg);color:var(--s-ok-fg)}
+.alert.warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.alert.info{background:var(--s-info-bg);color:var(--s-info-fg)}.alert.err{background:var(--s-urg-bg);color:var(--s-urg-fg)}.alert.ok{background:var(--s-ok-bg);color:var(--s-ok-fg)}
 .alert .i{margin-top:1px}
 .login{height:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);position:relative;overflow:hidden;background:var(--canvas)}
 .login>.bgsvg{position:absolute;inset:0;pointer-events:none}
@@ -72,14 +75,15 @@
 /* #root 높이 (로그인 화면이 화면 전체를 쓰도록) */
 #root { height: 100%; }
 
-/* v14 디자인: 주요 버튼 색 */
+/* 주요 버튼 색: 오렌지 600 (흰 글자 대비 4.6:1). 오렌지 550은 글자를 올리는 면에 쓰지 않는다 (디자인 가이드) */
 .btn.pri,
-.composer .btn.ico.pri { background: #E56E1B; }
+.composer .btn.ico.pri { background: #C2540A; }
 .btn.pri:hover:not([disabled]),
-.composer .btn.ico.pri:hover:not([disabled]) { background: #C2540A; }
+.composer .btn.ico.pri:hover:not([disabled]) { background: #9C4207; }
 
-/* 로그인 화면 좁은 폭 (프로토타입 860px 이하) */
+/* 로그인 화면 좁은 폭 (프로토타입 860px 이하). 입력 글자는 모바일에서 16px 이상 (디자인 가이드) */
 @media (max-width: 860px) {
+  .inp, .sel, .ta, .lpop .composer textarea { font-size: 16px; }
   .login { grid-template-columns: minmax(0, 1fr); overflow: auto; height: auto; min-height: 100%; }
   .login .lf {
     padding: 24px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));

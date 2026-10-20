@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { askPreLogin } from '../../api/consult'
 import type { ConsultReply } from '../../api/types'
 import { sourceLabel } from '../../core/format'
+import { MASK_NOTICE, maskSensitive } from '../../core/mask'
 import { Icon } from '../../ui/Icon'
 import { Avatar } from '../../ui/Logo'
 import { RichText } from '../../ui/RichText'
@@ -34,7 +35,7 @@ const INTRO: Msg[] = [
   },
 ]
 
-export function ConsultPanel() {
+export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
   const [msgs, setMsgs] = useState<Msg[]>(INTRO)
   const [text, setText] = useState('')
   // 답변을 기다리는 동안은 입력과 중복 전송을 막는다
@@ -50,7 +51,8 @@ export function ConsultPanel() {
 
   /** 질문을 보내고 답변을 받아 대화에 추가한다. */
   async function ask(raw: string) {
-    const t = raw.trim()
+    const masked = maskSensitive(raw.trim())
+    const t = masked.text
     if (!t || busy) return
     const uid = nextId.current++
     const tid = nextId.current++
@@ -61,7 +63,9 @@ export function ConsultPanel() {
 
     const r = await askPreLogin(t)
     // 실패하면 서버 오류 문구를 답변처럼 보여 준다
-    const reply: ConsultReply = r.ok ? r.data : { paragraphs: [r.error.message], sources: [] }
+    const base: ConsultReply = r.ok ? r.data : { paragraphs: [r.error.message], sources: [] }
+    // 비밀번호·인증번호로 보이는 값을 가렸다면 답변 맨 위에서 알린다
+    const reply: ConsultReply = masked.hit ? { ...base, paragraphs: [MASK_NOTICE, ...base.paragraphs] } : base
 
     // "처리 중" 표시를 지우고 실제 답변으로 바꾼다
     setMsgs((m) => [...m.filter((x) => x.id !== tid), { id: nextId.current++, role: 'ai', reply }])
@@ -113,6 +117,14 @@ export function ConsultPanel() {
                     <Icon name="file" size={16} />
                     {sourceLabel(s)}
                   </button>
+                ))}
+                {/* 바로가기 (예: 비밀번호 초기화 창 열기) */}
+                {m.reply.ctas?.map((c) => (
+                  <p key={c.action}>
+                    <button className="btn sec sm" type="button" onClick={() => c.action === 'forgot' && onForgot?.()}>
+                      {c.label}
+                    </button>
+                  </p>
                 ))}
               </div>
             </div>

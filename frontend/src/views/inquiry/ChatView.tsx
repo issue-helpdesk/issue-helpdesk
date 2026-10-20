@@ -22,6 +22,7 @@ import { Topbar } from '../../ui/Topbar'
 import { MessageItem, type ChatActions } from './MessageItem'
 
 const NOTE = '비밀번호·인증번호·API 키는 입력하지 마세요. 상담 기록은 처리·운영 목적으로 활용될 수 있어요.'
+const NO_MESSAGES: ReadonlySet<number> = new Set()
 
 /** 종료된 상담 상태별 안내 문구 */
 const CLOSED_WHY: Partial<Record<InquiryStatus, string>> = {
@@ -64,6 +65,15 @@ export function ChatView() {
 
   const inquiry = loaded?.id === id ? loaded.data : undefined // undefined=불러오는 중, null=없음
   const count = inquiry?.messages.length ?? 0
+
+  // 새로 생긴 AI 답변만 한 번 움직인다. 처음 불러온 메시지와 단순한 다시 그리기에서는 움직이지 않는다.
+  const [known, setKnown] = useState<{ id: number; ids: Set<number>; fresh: Set<number> } | null>(null)
+  if (inquiry) {
+    const ids = inquiry.messages.map((m) => m.id)
+    if (!known || known.id !== id) setKnown({ id, ids: new Set(ids), fresh: new Set() })
+    else if (ids.some((x) => !known.ids.has(x))) setKnown({ id, ids: new Set(ids), fresh: new Set(ids.filter((x) => !known.ids.has(x))) })
+  }
+  const fresh = known?.id === id ? known.fresh : NO_MESSAGES
 
   // 새 메시지가 생기면 맨 아래로 내린다
   useEffect(() => {
@@ -163,7 +173,7 @@ export function ChatView() {
       <div className="scroll" ref={scrollRef}>
         <div className="thread" role="log" aria-live="polite" aria-label="문의 대화">
           {inquiry.messages.map((m) => (
-            <MessageItem key={m.id} inquiry={inquiry} message={m} busy={busy} actions={actions} />
+            <MessageItem key={m.id} inquiry={inquiry} message={m} busy={busy} actions={actions} fresh={fresh.has(m.id)} />
           ))}
         </div>
       </div>

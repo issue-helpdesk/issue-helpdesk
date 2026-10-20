@@ -24,7 +24,7 @@ export const MOCK_FAQS: Faq[] = [
     id: 'FAQ-003',
     categoryCode: 'SW',
     question: '업무용 프로그램은 어디서 설치하나요?',
-    answer: '사내 IT 포털(hanwha-admin)의 소프트웨어 센터에서 설치해요. [설치 요청]이 보이는 유료 프로그램은 라이선스를 신청해야 해요.',
+    answer: '사내 IT 포털의 소프트웨어 센터에서 설치해요. [설치 요청]이 보이는 유료 프로그램은 라이선스를 신청해야 해요.',
     sources: [guideSource('IT-SW-001 업무용 SW 설치 가이드 v2 · 3.1')],
   },
   {

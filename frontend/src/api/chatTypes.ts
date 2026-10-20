@@ -120,11 +120,21 @@ export interface Draft {
   /** 추천 담당 그룹 */
   groupId: number | null
   groupName: string
+  /** 세부 유형 코드와 이름 (예: NET-02 · VPN 접속 불가(개인)). 판단하지 못하면 없음 (inquiry_types.code) */
+  inquiryTypeCode?: string | null
+  inquiryTypeName?: string | null
+  /** 초안을 고친 뒤 다시 판단해서 값이 바뀐 항목. 화면이 "다시 판단됨" 표시를 붙인다. */
+  rejudged?: RejudgedField[]
 }
 
-/** 초안에서 문의자가 고칠 수 있는 항목 */
+/** 초안에서 다시 판단되는 항목 */
+export type RejudgedField = 'category' | 'inquiryType' | 'urgency' | 'group'
+
+/** 초안에서 문의자가 고칠 수 있는 항목 (분류·세부 유형·긴급도·담당 그룹은 이 글로 다시 판단한다) */
 export interface DraftEdit {
   summary: string
+  /** 발생 시점. 문의자가 쓴 말이라 고칠 수 있다. 보내지 않으면 기존 값을 유지한다. */
+  onset?: string
   businessImpact: string
   triedActions: string
 }
@@ -151,6 +161,10 @@ export interface Ticket {
   jiraSyncStatus: JiraSyncStatus
   /** 접수 시각 (ISO 8601) */
   createdAt: string
+  /** 담당자가 처리 결과를 등록한 시각 (해결 확인 대기가 된 때). 아직이면 없음 */
+  finishedAt?: string | null
+  /** 문의자가 해결을 확인해 종료된 시각. 아직이면 없음 */
+  closedAt?: string | null
   /** 담당자가 등록한 처리 결과 (tickets.resolution_note) */
   resolutionNote: string
   /** 담당자가 추가 정보를 요청해 문의자의 답변을 기다리는 중 */

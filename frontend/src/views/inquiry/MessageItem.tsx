@@ -72,9 +72,11 @@ interface Props {
   message: ChatMessage
   busy: boolean
   actions: ChatActions
+  /** 방금 생긴 답변이면 아래에서 올라오며 나타난다 (한 번) */
+  fresh?: boolean
 }
 
-export function MessageItem({ inquiry, message: m, busy, actions }: Props) {
+export function MessageItem({ inquiry, message: m, busy, actions, fresh = false }: Props) {
   if (m.role === 'user') return <div className="msg u">{m.text}</div>
   if (m.role === 'sys') return <div className="msg sys">{m.text}</div>
 
@@ -119,7 +121,7 @@ export function MessageItem({ inquiry, message: m, busy, actions }: Props) {
   const lastDraftId = [...inquiry.messages].reverse().find((x) => x.card === 'draft')?.id
 
   return (
-    <div className="msg a">
+    <div className={`msg a${fresh ? ' rise' : ''}`}>
       <Avatar size={32} />
       <div className="body">
         {m.blocks?.map((b, i) => (
