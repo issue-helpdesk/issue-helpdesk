@@ -572,7 +572,7 @@ input[type="file"][aria-invalid="true"]{outline:2px solid var(--s-urg-dot);outli
 <div id="root"></div><div id="ov"></div><div id="toasts" aria-live="polite"></div>
 <script>
 'use strict';
-/* ===== 기준 데이터 (PRD v0.6 / SRS v0.6 / 시스템 설계서 v0.4 / 가상 기업 환경 정의서 v0.4 / Knowledge Guide guides_final) ===== */
+/* ===== 기준 데이터 (PRD v0.6 / SRS v0.6 / 시스템 설계서 v0.4 / 가상 기업 환경 정의서 v0.4 / Knowledge Guide guides) ===== */
 const CATS={
   ACC:{n:'계정·로그인',g:'서비스데스크',sys:'사내 계정·SSO'},
   ACS:{n:'접근권한',g:'업무시스템팀',sys:'시스템·폴더 권한'},
@@ -615,7 +615,7 @@ const ME={user:'HS1001',staff:'HS1107',admin:'HS0912'};
 
 /* RAG 가이드(시연용 사전 등록 데이터) */
 const GUIDES0=[
-  {id:'G1',title:'IT-NET-001 VPN 접속 장애 대응 가이드',cat:'NET',vers:[{v:2,st:'현행',scope:'사내 일반',tx:'허용',ready:'준비 완료',src:'PDF',note:'guides_final 정리본 (2026-10-16)'},{v:1,st:'만료',scope:'사내 일반',tx:'허용',ready:'준비 완료',src:'PDF',note:'정리 전 팀원 원본'}]},
+  {id:'G1',title:'IT-NET-001 VPN 접속 장애 대응 가이드',cat:'NET',vers:[{v:2,st:'현행',scope:'사내 일반',tx:'허용',ready:'준비 완료',src:'PDF',note:'guides 정리본 (2026-10-16)'},{v:1,st:'만료',scope:'사내 일반',tx:'허용',ready:'준비 완료',src:'PDF',note:'정리 전 팀원 원본'}]},
   {id:'G2',title:'IT-ACC-001 사내 SSO 로그인 오류 대응 가이드',cat:'ACC',vers:[{v:2,st:'현행',scope:'사내 일반',tx:'허용',ready:'준비 완료',src:'PDF',note:'5회 실패 시 잠금, 10분 후 해제'}]},
   {id:'G3',title:'IT-ACC-002 비밀번호 변경·초기화 가이드',cat:'ACC',vers:[{v:2,st:'현행',scope:'사내 일반',tx:'허용',ready:'준비 완료',src:'PDF',note:'12자 이상, 90일마다 변경'}]},
   {id:'G4',title:'IT-ACC-003 MFA 인증 오류 대응 가이드',cat:'ACC',vers:[{v:2,st:'현행',scope:'사내 일반',tx:'허용',ready:'준비 완료',src:'PDF',note:''}]},

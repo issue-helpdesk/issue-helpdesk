@@ -1,5 +1,5 @@
 /**
- * 시연용 FAQ 데이터 (design/ITssue-Prototype.html 과 같은 내용, 출처는 guides_final 실제 문서 기준).
+ * 시연용 FAQ 데이터 (design/ITssue-Prototype.html 과 같은 내용, 출처는 guides 실제 문서 기준).
  * 실제 API(GET /faqs)로 전환(VITE_USE_MOCK=false)하면 쓰이지 않는다.
  */
 import type { Faq } from '../types'

@@ -1,4 +1,4 @@
-"""guides_final/manifest.json: RAG 등록·백엔드 열람 등급 적용에 쓰는 문서 목록."""
+"""guides/manifest.json: RAG 등록·백엔드 열람 등급 적용에 쓰는 문서 목록."""
 import json
 import os
 

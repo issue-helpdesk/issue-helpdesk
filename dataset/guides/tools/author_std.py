@@ -180,7 +180,7 @@ def std002():
     chs = [
         chapter('1', '개요', [
             cols(('목적', ['7개 분류 담당자가 따로 쓴 가이드를 하나의 체계로 정리한 기준과 결과를 남깁니다.', '앞으로 가이드를 새로 쓰거나 고칠 때 같은 기준을 따르게 합니다.']),
-                 ('적용 대상', ['dataset/guides_final 의 모든 문서', '가이드 작성·관리 담당자, 관리자, ITssue 운영·개발']),
+                 ('적용 대상', ['dataset/guides 의 모든 문서', '가이드 작성·관리 담당자, 관리자, ITssue 운영·개발']),
                  ('근거', ['docs 01 기획서 · 02 PRD · 03 SRS · 04 시스템 설계서 · 05 가상 기업 환경정의서', 'dataset (taxonomy·FAQ·문의이력·MAN-00~07)'])),
             note('info', '기준이 서로 다르면 docs 01~05를 먼저 따르고, 그다음 데이터셋(FAQ·taxonomy)을 따릅니다. 팀원 문서끼리 다르면 데이터셋과 맞는 쪽을 씁니다.'),
         ]),
@@ -195,7 +195,7 @@ def std002():
             h('전체 문서 목록'),
             table(['문서 번호', '문서명', '분류', '종류', '열람 등급', '짝 문서', '포함 시나리오'], inv, [2.2, 4.6, 0.9, 2, 1.5, 2, 2.6]),
             h('폴더와 파일'),
-            ul(['dataset/guides_final/{분류}/guide/ — 임직원용 가이드, {분류}/manual/ — 담당자용 매뉴얼, common/ — 분류에 속하지 않는 공통 문서(공통 기준 IT-STD, AI 응대 정책 IT-AI)',
+            ul(['dataset/guides/{분류}/guide/ — 임직원용 가이드, {분류}/manual/ — 담당자용 매뉴얼, common/ — 분류에 속하지 않는 공통 문서(공통 기준 IT-STD, AI 응대 정책 IT-AI)',
                 '문서 하나에 같은 내용의 파일 4개: .pdf · .pptx (장표), .docx (편집용), .md (코드 저장소·RAG 등록용)',
                 '파일 이름: {문서 번호}_{문서명}.{확장자}. 그림은 {분류}/images/',
                 'RAG에는 한 문서에 한 형식만 등록해 같은 내용이 중복 검색되지 않게 합니다 (권장: .md 또는 .pdf).']),
@@ -270,7 +270,7 @@ def std002():
                 ['글꼴', '맑은 고딕 (명령어는 Consolas)'],
             ], [2, 10]),
             h('만드는 방법'),
-            p('원천은 dataset/guides_final/tools/source/{분류}/{문서 번호}.json 입니다. 원천을 고친 뒤 tools 폴더에서 python build.py 를 실행하면 네 형식이 함께 다시 만들어집니다. 자세한 순서는 guides_final/README.md에 있습니다.'),
+            p('원천은 dataset/guides/tools/source/{분류}/{문서 번호}.json 입니다. 원천을 고친 뒤 tools 폴더에서 python build.py 를 실행하면 네 형식이 함께 다시 만들어집니다. 자세한 순서는 guides/README.md에 있습니다.'),
         ]),
     ]
     return {'meta': meta, 'chapters': chs}

@@ -106,7 +106,7 @@ const QUESTIONS: Record<IntakeKey, { ask: string; chips: string[] }> = {
 }
 const ORDER: IntakeKey[] = ['targetSystem', 'summary', 'onset', 'businessImpact', 'triedActions']
 
-/* ------------------------------------------------------------------ Guide 요약 (guides_final 기준) */
+/* ------------------------------------------------------------------ Guide 요약 (guides 기준) */
 export interface GuideEntry {
   /** 문서 코드와 제목 (예: IT-NET-001 VPN 접속 장애 대응 가이드) */
   guide: string
