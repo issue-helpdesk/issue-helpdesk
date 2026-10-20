@@ -1,5 +1,5 @@
 """내용 점검
-  1. 정답셋(eval_inquiries) 문장이 가이드에 들어갔는지: 문의이력·FAQ에 없는 10자 이상 일치
+  1. 정답셋(eval_inquiries) 문장이 가이드에 들어갔는지: 문의이력·FAQ에 없는 9자 이상 일치 (키워드 포함)
   2. 시연·가상 표시 문구, 미확정 표시가 남았는지
 """
 import csv
@@ -30,8 +30,8 @@ for r in csv.DictReader(open(os.path.join(DATA, 'faq.csv'), encoding='utf-8-sig'
 hits = set()
 for r in csv.DictReader(open(os.path.join(DATA, 'eval_inquiries.csv'), encoding='utf-8-sig')):
     q = squash(r['query'])
-    for i in range(len(q) - 9):
-        w = q[i:i + 10]
+    for i in range(len(q) - 8):
+        w = q[i:i + 9]
         if w in allowed:
             continue
         for no, text in corpus.items():
