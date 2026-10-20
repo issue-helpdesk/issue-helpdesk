@@ -78,11 +78,11 @@ h1,h2,h3,h4,p{margin:0}
 .b-ok{background:var(--s-ok-bg);color:var(--s-ok-fg)}.b-ok i{background:var(--s-ok-dot)}
 .b-urg{background:var(--s-urg-bg);color:var(--s-urg-fg)}.b-urg i{background:var(--s-urg-dot)}
 .b-warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.b-warn i{background:var(--s-warn-dot)}
-.count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px 1px;border-radius:999px;background:var(--o600);color:#fff;font-size:11.5px;font-weight:700}
-.tag{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:6px;background:var(--osurf);color:var(--o700);font-size:11px;font-weight:700;letter-spacing:.02em}
+.count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px 1px;border-radius:999px;background:var(--o600);color:#fff;font-size:12px;font-weight:700}
+.tag{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:6px;background:var(--osurf);color:var(--o700);font-size:12px;font-weight:700;letter-spacing:.02em}
 :root[data-theme="dark"] .tag{color:#FFB98A}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tag{color:#FFB98A}}
 .tag.gray{background:var(--shell);color:var(--mute)}
-.pri-p1,.pri-p2,.pri-p3,.pri-p4{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;font-size:11.5px;font-weight:700;font-family:var(--font);letter-spacing:0}
+.pri-p1,.pri-p2,.pri-p3,.pri-p4{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:700;font-family:var(--font);letter-spacing:0}
 .pri-p1{background:var(--s-urg-bg);color:var(--s-urg-fg)}.pri-p2{background:var(--s-warn-bg);color:var(--s-warn-fg)}.pri-p3{background:var(--s-prog-bg);color:var(--s-prog-fg)}.pri-p4{background:var(--s-recv-bg);color:var(--s-recv-fg)}
 
 /* ---- inputs ---- */
@@ -162,7 +162,7 @@ h1,h2,h3,h4,p{margin:0}
 .notice{max-width:760px;margin:8px auto 0;text-align:center;font-size:12px;color:var(--mute)}
 .stepper{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:0;margin-top:14px}
 .stepper .st{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;font-size:12.5px;min-width:0;padding:0 2px}
-.stepper .st b{font-weight:600;line-height:16px}.stepper .st small{font-size:11.5px;color:var(--mute);line-height:14px}
+.stepper .st b{font-weight:600;line-height:16px}.stepper .st small{font-size:12px;color:var(--mute);line-height:14px}
 .stepper .st .n{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--white);box-shadow:inset 0 0 0 2px var(--line);position:relative;z-index:1;color:#fff}
 .stepper .st:not(:first-child)::before{content:"";position:absolute;top:11px;left:-50%;right:50%;height:2px;background:var(--line)}
 .stepper .st.done:not(:first-child)::before,.stepper .st.cur:not(:first-child)::before{background:var(--tone,var(--s-prog-dot))}
@@ -225,7 +225,7 @@ button.kpi:hover{box-shadow:inset 0 0 0 1px var(--o600)}
 .tl li{display:flex;gap:10px}.tl li .i{margin-top:2px}.tl b{font-size:13px;display:block;line-height:18px}.tl small{font-size:12px;color:var(--mute);line-height:16px;display:block}
 .states{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .states>div{background:var(--card);border-radius:12px;padding:10px 12px}
-.states small{display:block;font-size:11.5px;color:var(--mute);margin-bottom:4px}
+.states small{display:block;font-size:12px;color:var(--mute);margin-bottom:4px}
 
 /* ---- login ---- */
 .login{height:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);position:relative;overflow:hidden;background:var(--canvas)}
@@ -278,7 +278,7 @@ button.kpi:hover{box-shadow:inset 0 0 0 1px var(--o600)}
   .login .form h1{font-size:28px;line-height:38px}.lpop{max-height:none}
   .kpis{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.msg.u{max-width:92%}.msg.a .body{max-width:100%}
   .dl{grid-template-columns:84px minmax(0,1fr)}
-  .stepper .st small{font-size:10.5px;line-height:13px;max-width:100%}
+  .stepper .st small{font-size:12px;line-height:13px;max-width:100%}
 }
 .scrim{display:none}
 @media (max-width:860px){.app.nav-open .scrim{display:block;position:fixed;inset:0;background:rgba(10,12,16,.4);z-index:44}}
@@ -343,7 +343,7 @@ button.kpi{cursor:pointer;transition:box-shadow .15s,transform .15s}button.kpi:h
 .msg.staff 
 .d2seg{display:inline-flex;gap:2px;padding:4px;background:var(--track);border-radius:14px;flex-wrap:wrap;align-self:flex-start}
 .d2seg button{border:0;background:transparent;height:36px;padding:0 14px;border-radius:10px;font-size:13.5px;font-weight:600;color:var(--ink2);display:inline-flex;align-items:center;gap:7px;cursor:pointer}
-.d2seg button em{font-style:normal;font-size:11.5px;font-weight:700;color:var(--mute);background:rgba(0,0,0,.06);border-radius:999px;padding:1px 7px}
+.d2seg button em{font-style:normal;font-size:12px;font-weight:700;color:var(--mute);background:rgba(0,0,0,.06);border-radius:999px;padding:1px 7px}
 .d2seg button.on{background:var(--white);color:var(--link);box-shadow:0 1px 3px rgba(60,30,0,.14)}.d2seg button.on em{background:var(--osoft);color:var(--link)}
 .d2f{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .d2p{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 12px 0 14px;border-radius:999px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line);font-size:13.5px;color:var(--ink)}
@@ -352,7 +352,7 @@ button.kpi{cursor:pointer;transition:box-shadow .15s,transform .15s}button.kpi:h
 .d2p:focus-within{outline:2px solid var(--o600);outline-offset:1px}
 .d2p>svg{color:var(--mute);pointer-events:none}.d2p:hover{box-shadow:inset 0 0 0 1px var(--o600)}
 .d2p.act{background:var(--osoft);box-shadow:inset 0 0 0 1.5px var(--o600);color:var(--link);font-weight:600}.d2p.act small{color:var(--link)}
-.d2p .x{border:0;background:none;color:var(--link);font-size:11px;cursor:pointer;padding:4px}
+.d2p .x{border:0;background:none;color:var(--link);font-size:12px;cursor:pointer;padding:4px}
 .d2clr{border:0;background:none;color:var(--link);font-weight:600;font-size:13px;height:38px;padding:0 8px;cursor:pointer}
 .d2th{display:inline-flex;align-items:center;gap:5px;border:0;background:none;font:inherit;font-weight:600;color:inherit;cursor:pointer;padding:3px 6px;margin:-3px -6px;border-radius:8px}
 .d2th i{display:inline-flex;flex-direction:column;gap:1px}.d2th i b{display:block;width:0;height:0;border-left:3.5px solid transparent;border-right:3.5px solid transparent}
@@ -378,8 +378,8 @@ button.srow{cursor:pointer}button.srow:hover{background:var(--osoft)}
 .srow.sel{background:var(--osoft);box-shadow:inset 0 0 0 1.5px var(--o600)}.srow.me{background:var(--s-prog-bg)}
 .srow .sl b{font-size:14px;display:block}.srow .sl small{font-size:12px;color:var(--mute)}
 .sbar{display:flex;gap:2px;height:16px}.sbar>div{border-radius:4px;min-width:3px}
-.sn{text-align:right}.sn b{font-size:16px}.sn small{display:block;font-size:11.5px;color:var(--s-ok-fg)}
-.mebadge{display:inline-block;font-size:11px;font-weight:700;background:var(--s-prog-dot);color:#fff;border-radius:6px;padding:1px 7px;margin-left:6px}
+.sn{text-align:right}.sn b{font-size:16px}.sn small{display:block;font-size:12px;color:var(--s-ok-fg)}
+.mebadge{display:inline-block;font-size:12px;font-weight:700;background:var(--s-prog-dot);color:#fff;border-radius:6px;padding:1px 7px;margin-left:6px}
 .donut{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .dl2{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px;min-width:130px;flex:1}
 .dl2 li{display:flex;align-items:center;gap:8px}.dl2 li i{width:10px;height:10px;border-radius:3px;flex:none}.dl2 li span{flex:1;color:var(--ink2)}.dl2 li b{font-variant-numeric:tabular-nums}
@@ -399,8 +399,8 @@ button.srow{cursor:pointer}button.srow:hover{background:var(--osoft)}
 .ddm{position:absolute;top:calc(100% + 6px);left:0;min-width:100%;width:max-content;max-width:300px;max-height:320px;overflow:auto;background:var(--white);border-radius:14px;box-shadow:0 10px 30px rgba(40,20,0,.18),inset 0 0 0 1px var(--line);padding:6px;z-index:30;display:flex;flex-direction:column;gap:1px}
 .ddm button{border:0;background:none;text-align:left;font:inherit;font-size:13.5px;color:var(--ink);padding:9px 12px;border-radius:9px;cursor:pointer;white-space:nowrap}
 .ddm button:hover{background:var(--osoft);color:var(--link)}.ddm button.sel{background:var(--osoft);color:var(--link);font-weight:700}
-.newr{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:var(--o600);border-radius:999px;padding:1px 8px;margin-left:4px;vertical-align:middle}
-.count.nw{letter-spacing:.03em;font-size:10.5px;font-weight:800;background:var(--s-urg-dot);color:#fff;width:auto;padding:0 8px;margin-right:4px}
+.newr{display:inline-block;font-size:12px;font-weight:700;color:#fff;background:var(--o600);border-radius:999px;padding:1px 8px;margin-left:4px;vertical-align:middle}
+.count.nw{letter-spacing:.03em;font-size:12px;font-weight:800;background:var(--s-urg-dot);color:#fff;width:auto;padding:0 8px;margin-right:4px}
 .hlist{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:2px}
 .hlist li{display:flex;gap:12px;align-items:flex-start;padding:10px 4px;border-top:1px solid var(--line)}.hlist li:first-child{border-top:0}
 .hlist small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
@@ -561,9 +561,30 @@ input[type="file"][aria-invalid="true"]{outline:2px solid var(--s-urg-dot);outli
 /* 로고는 홈으로 가는 버튼: 문의자=새 문의, 담당자=내게 배정된 문의, 관리자=대시보드 */
 .brandbtn{display:block;background:none;border:0;padding:2px 0;margin:0;cursor:pointer;border-radius:8px;color:inherit}
 .brandbtn:hover{opacity:.85}
+
+/* ---- v20 UI 점검 반영 ---- */
+/* 큰 제목이 있는 페이지는 상단바 제목을 숨김 (제목 중복 제거). 조작 버튼이 있으면 상단바는 유지 */
+@media(min-width:1024px){
+  .main:has(.page h1) .top .row:first-child>div{display:none}
+  .main:has(.page h1) .top:not(:has(.row:last-child>*)){display:none}
+}
+/* 시연 도구: 평소엔 작은 원형, 올리거나 포커스하면 펼침 */
+.demo .fab{transition:width .15s,opacity .15s,padding .15s}
+.demo:not(:has(.box)) .fab:not(:hover):not(:focus-visible){width:40px;padding:0;justify-content:center;font-size:0;gap:0;opacity:.6}
+.demo .fab:hover,.demo .fab:focus-visible{opacity:1}
+/* 운영 화면 하단 번짐 제거 */
+.app.ops::before{display:none!important}
+/* 로그인: 상담 카드는 보조 */
+.lpop{box-shadow:0 8px 24px rgba(120,60,10,.08);background:color-mix(in srgb,var(--white) 62%,transparent)}
+@media(min-width:1024px){.lpop{width:min(430px,100%)}}
+/* 문의 내역 결과 수 */
+.d2cnt{margin-left:auto;font-size:13px;color:var(--mute);white-space:nowrap}
+/* 대시보드: 지금 확인할 카드 강조 */
+.kpi.hot{background:var(--osoft);box-shadow:inset 0 0 0 1.5px var(--o500)}
+button.kpi.hot:hover{box-shadow:inset 0 0 0 2px var(--o600)}
 </style>
 </head><body><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
-<symbol id="lg-word" viewBox="0 0 138 40"><path style="fill:var(--lg-it,#F37321)" d="M0 0H10V40H0Z"/><path style="fill:var(--lg-it,#F37321)" d="M14 0H46V9H35V40H25V9H14Z"/>
+<linearGradient id="itg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="46" y2="40"><stop offset="0" stop-color="#FFA24C"/><stop offset=".5" stop-color="#F37321"/><stop offset="1" stop-color="#E4480F"/></linearGradient><symbol id="lg-word" viewBox="0 0 138 40"><path fill="url(#itg)" d="M0 0H10V40H0Z"/><path fill="url(#itg)" d="M14 0H46V9H35V40H25V9H14Z"/>
 <g style="fill:var(--lg-ink,#111827)"><path d="M1.5 15H19.5L21 16.5V21.5H6.5V24.25H21V38.5L19.5 40H1.5L0 38.5V33.5H14.5V30.75H0V16.5Z" transform="translate(42 0)"/><path d="M1.5 15H19.5L21 16.5V21.5H6.5V24.25H21V38.5L19.5 40H1.5L0 38.5V33.5H14.5V30.75H0V16.5Z" transform="translate(65 0)"/><path d="M0 15H7V33.5H17V15H24V38.5L22.5 40H1.5L0 38.5Z" transform="translate(88 0)"/><path fill-rule="evenodd" d="M1.5 15H22.5L24 16.5V30.75H6.5V33.5H24V38.5L22.5 40H1.5L0 38.5V16.5ZM6.5 21.5H17.5V24.25H6.5Z" transform="translate(114 0)"/></g></symbol>
 <symbol id="lg-full" viewBox="0 0 138 54"><use href="#lg-word" x="0" y="0" width="138" height="40"/><path style="fill:var(--lg-ink,#111827);stroke:var(--lg-ink,#111827);stroke-width:.45" transform="translate(31.55 47.6)" d="M0.82 0.00h0.82v0.82h-0.82zM1.64 0.00h0.82v0.82h-0.82zM2.46 0.00h0.82v0.82h-0.82zM0.00 0.82h0.82v0.82h-0.82zM3.28 0.82h0.82v0.82h-0.82zM0.00 1.64h0.82v0.82h-0.82zM3.28 1.64h0.82v0.82h-0.82zM0.00 2.46h0.82v0.82h-0.82zM0.82 2.46h0.82v0.82h-0.82zM1.64 2.46h0.82v0.82h-0.82zM2.46 2.46h0.82v0.82h-0.82zM3.28 2.46h0.82v0.82h-0.82zM0.00 3.28h0.82v0.82h-0.82zM3.28 3.28h0.82v0.82h-0.82zM0.00 4.10h0.82v0.82h-0.82zM3.28 4.10h0.82v0.82h-0.82zM0.00 4.92h0.82v0.82h-0.82zM3.28 4.92h0.82v0.82h-0.82zM7.40 0.00h0.82v0.82h-0.82zM8.22 0.00h0.82v0.82h-0.82zM9.04 0.00h0.82v0.82h-0.82zM9.86 0.00h0.82v0.82h-0.82zM10.68 0.00h0.82v0.82h-0.82zM9.04 0.82h0.82v0.82h-0.82zM9.04 1.64h0.82v0.82h-0.82zM9.04 2.46h0.82v0.82h-0.82zM9.04 3.28h0.82v0.82h-0.82zM9.04 4.10h0.82v0.82h-0.82zM7.40 4.92h0.82v0.82h-0.82zM8.22 4.92h0.82v0.82h-0.82zM9.04 4.92h0.82v0.82h-0.82zM9.86 4.92h0.82v0.82h-0.82zM10.68 4.92h0.82v0.82h-0.82zM19.00 0.00h0.82v0.82h-0.82zM22.28 0.00h0.82v0.82h-0.82zM19.00 0.82h0.82v0.82h-0.82zM22.28 0.82h0.82v0.82h-0.82zM19.00 1.64h0.82v0.82h-0.82zM22.28 1.64h0.82v0.82h-0.82zM19.00 2.46h0.82v0.82h-0.82zM19.82 2.46h0.82v0.82h-0.82zM20.64 2.46h0.82v0.82h-0.82zM21.46 2.46h0.82v0.82h-0.82zM22.28 2.46h0.82v0.82h-0.82zM19.00 3.28h0.82v0.82h-0.82zM22.28 3.28h0.82v0.82h-0.82zM19.00 4.10h0.82v0.82h-0.82zM22.28 4.10h0.82v0.82h-0.82zM19.00 4.92h0.82v0.82h-0.82zM22.28 4.92h0.82v0.82h-0.82zM26.40 0.00h0.82v0.82h-0.82zM27.22 0.00h0.82v0.82h-0.82zM28.04 0.00h0.82v0.82h-0.82zM28.86 0.00h0.82v0.82h-0.82zM29.68 0.00h0.82v0.82h-0.82zM26.40 0.82h0.82v0.82h-0.82zM26.40 1.64h0.82v0.82h-0.82zM26.40 2.46h0.82v0.82h-0.82zM27.22 2.46h0.82v0.82h-0.82zM28.04 2.46h0.82v0.82h-0.82zM28.86 2.46h0.82v0.82h-0.82zM26.40 3.28h0.82v0.82h-0.82zM26.40 4.10h0.82v0.82h-0.82zM26.40 4.92h0.82v0.82h-0.82zM27.22 4.92h0.82v0.82h-0.82zM28.04 4.92h0.82v0.82h-0.82zM28.86 4.92h0.82v0.82h-0.82zM29.68 4.92h0.82v0.82h-0.82zM33.80 0.00h0.82v0.82h-0.82zM33.80 0.82h0.82v0.82h-0.82zM33.80 1.64h0.82v0.82h-0.82zM33.80 2.46h0.82v0.82h-0.82zM33.80 3.28h0.82v0.82h-0.82zM33.80 4.10h0.82v0.82h-0.82zM33.80 4.92h0.82v0.82h-0.82zM34.62 4.92h0.82v0.82h-0.82zM35.44 4.92h0.82v0.82h-0.82zM36.26 4.92h0.82v0.82h-0.82zM37.08 4.92h0.82v0.82h-0.82zM41.20 0.00h0.82v0.82h-0.82zM42.02 0.00h0.82v0.82h-0.82zM42.84 0.00h0.82v0.82h-0.82zM43.66 0.00h0.82v0.82h-0.82zM41.20 0.82h0.82v0.82h-0.82zM44.48 0.82h0.82v0.82h-0.82zM41.20 1.64h0.82v0.82h-0.82zM44.48 1.64h0.82v0.82h-0.82zM41.20 2.46h0.82v0.82h-0.82zM42.02 2.46h0.82v0.82h-0.82zM42.84 2.46h0.82v0.82h-0.82zM43.66 2.46h0.82v0.82h-0.82zM41.20 3.28h0.82v0.82h-0.82zM41.20 4.10h0.82v0.82h-0.82zM41.20 4.92h0.82v0.82h-0.82zM48.60 0.00h0.82v0.82h-0.82zM49.42 0.00h0.82v0.82h-0.82zM50.24 0.00h0.82v0.82h-0.82zM51.06 0.00h0.82v0.82h-0.82zM48.60 0.82h0.82v0.82h-0.82zM51.88 0.82h0.82v0.82h-0.82zM48.60 1.64h0.82v0.82h-0.82zM51.88 1.64h0.82v0.82h-0.82zM48.60 2.46h0.82v0.82h-0.82zM51.88 2.46h0.82v0.82h-0.82zM48.60 3.28h0.82v0.82h-0.82zM51.88 3.28h0.82v0.82h-0.82zM48.60 4.10h0.82v0.82h-0.82zM51.88 4.10h0.82v0.82h-0.82zM48.60 4.92h0.82v0.82h-0.82zM49.42 4.92h0.82v0.82h-0.82zM50.24 4.92h0.82v0.82h-0.82zM51.06 4.92h0.82v0.82h-0.82zM56.00 0.00h0.82v0.82h-0.82zM56.82 0.00h0.82v0.82h-0.82zM57.64 0.00h0.82v0.82h-0.82zM58.46 0.00h0.82v0.82h-0.82zM59.28 0.00h0.82v0.82h-0.82zM56.00 0.82h0.82v0.82h-0.82zM56.00 1.64h0.82v0.82h-0.82zM56.00 2.46h0.82v0.82h-0.82zM56.82 2.46h0.82v0.82h-0.82zM57.64 2.46h0.82v0.82h-0.82zM58.46 2.46h0.82v0.82h-0.82zM56.00 3.28h0.82v0.82h-0.82zM56.00 4.10h0.82v0.82h-0.82zM56.00 4.92h0.82v0.82h-0.82zM56.82 4.92h0.82v0.82h-0.82zM57.64 4.92h0.82v0.82h-0.82zM58.46 4.92h0.82v0.82h-0.82zM59.28 4.92h0.82v0.82h-0.82zM64.22 0.00h0.82v0.82h-0.82zM65.04 0.00h0.82v0.82h-0.82zM65.86 0.00h0.82v0.82h-0.82zM66.68 0.00h0.82v0.82h-0.82zM63.40 0.82h0.82v0.82h-0.82zM63.40 1.64h0.82v0.82h-0.82zM64.22 2.46h0.82v0.82h-0.82zM65.04 2.46h0.82v0.82h-0.82zM65.86 2.46h0.82v0.82h-0.82zM66.68 3.28h0.82v0.82h-0.82zM66.68 4.10h0.82v0.82h-0.82zM63.40 4.92h0.82v0.82h-0.82zM64.22 4.92h0.82v0.82h-0.82zM65.04 4.92h0.82v0.82h-0.82zM65.86 4.92h0.82v0.82h-0.82zM70.80 0.00h0.82v0.82h-0.82zM74.08 0.00h0.82v0.82h-0.82zM70.80 0.82h0.82v0.82h-0.82zM73.26 0.82h0.82v0.82h-0.82zM70.80 1.64h0.82v0.82h-0.82zM72.44 1.64h0.82v0.82h-0.82zM70.80 2.46h0.82v0.82h-0.82zM71.62 2.46h0.82v0.82h-0.82zM70.80 3.28h0.82v0.82h-0.82zM72.44 3.28h0.82v0.82h-0.82zM70.80 4.10h0.82v0.82h-0.82zM73.26 4.10h0.82v0.82h-0.82zM70.80 4.92h0.82v0.82h-0.82zM74.08 4.92h0.82v0.82h-0.82z"/></symbol>
 <symbol id="lg-acc" viewBox="0 0 150 40"><use href="#lg-word" x="0" y="0" width="138" height="40"/><g style="fill:var(--lg-it,#F37321)"><path d="M140 1h4v4h-4zM144 5h4v4h-4zM140 9h4v4h-4z"/></g></symbol>
@@ -598,6 +619,7 @@ const GROUPS=['서비스데스크','엔드포인트지원팀','네트워크팀',
 const PRI={P1:'긴급',P2:'높음',P3:'보통',P4:'낮음'};
 const PRI_RULE={P1:'전사·여러 부서의 주요 업무 중단 또는 광범위한 보안 대응 필요',P2:'부서 단위 업무 영향, 개인 업무 전면 중단 또는 보안 사고 의심',P3:'개인 업무 일부에 지장이 있으나 허용된 대체 방법으로 진행 가능',P4:'현재 업무 지장이 없는 단순 문의·사전 신청'};
 const TSTAT={RDY:['처리 대기','recv'],WIP:['처리 중','prog'],FIN:['해결 확인 대기','need'],CLS:['해결 완료','ok']};
+const NOTE=(st='')=>(typeof S!=='undefined'&&S.flags&&S.flags.notes)?`<span class="tag gray"${st?` style="${st}"`:''}>제안</span>`:'';
 const SERVICEDESK_PHONE='내선 1000 (평일 09:00~18:00)';
 const TEAMS_PPL={'서비스데스크':['서댕댕','박고양','이다람','최곰돌','정여우','한펭귄','오너구리','윤수달','강햄찌','조판다','임사슴','신고슴'],'엔드포인트지원팀':['문오리','배두루','홍거북','류수리','장병아','노라쿤','황부엉','안치타','송하마'],'네트워크팀':['김담당','전다랑','곽미어','변고라','유코알','남기린','도치이'],'시스템인프라팀':['구쿼카','어라마','탁미어','맹호랑','사여우','편앵무','석앙고','선복어'],'업무시스템팀':['설해달','마수리','길강아','연쥐돌','위토실','표다롱','명미니'],'정보보안팀':['기곰이','반토끼','김토끼','공다람','육고양','나햄찌','하쿼카']};
 const STAFF=[];{let n=1201;Object.keys(TEAMS_PPL).forEach(g=>TEAMS_PPL[g].forEach(nm=>{STAFF.push({id:nm==='김담당'?'HS1107':'HS'+(n++),name:nm,group:g,avail:true});}));}
@@ -664,7 +686,7 @@ const ESC=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const S={
   user:null,role:null,view:{n:'login'},detail:null,navOpen:false,
   accounts:ACCOUNTS0.map(a=>({...a})),tickets:seedTickets(),inqs:[],guides:JSON.parse(JSON.stringify(GUIDES0)),
-  flags:{saveFail:false,jiraFail:false,asgFail:false,autoRun:true},sec:[],secF:{st:'',type:''},secRaw:{},faqs:FAQS.map(f=>({...f})),tf:{},guideTab:'list',goldOpen:null,goldF:'전체',dashPer:'w',dd:null,acctHist:[],sort:{},page:{},dashMode:'team',dashSel:{team:'네트워크팀',cat:'NET'},dashMember:null,aiRange:'month',demoOpen:false,modal:null,drawer:null,
+  flags:{saveFail:false,jiraFail:false,asgFail:false,autoRun:true,notes:false},sec:[],secF:{st:'',type:''},secRaw:{},faqs:FAQS.map(f=>({...f})),tf:{},guideTab:'list',goldOpen:null,goldF:'전체',dashPer:'w',dd:null,acctHist:[],sort:{},page:{},dashMode:'team',dashSel:{team:'네트워크팀',cat:'NET'},dashMember:null,aiRange:'month',demoOpen:false,modal:null,drawer:null,
   compose:{},seq:{rcpt:1042,its:1521,inq:1,msg:1},slack:[],logs:[],timers:[],
   aiSeed:[38,41,44,36,47,40,33],aiLive:0,listFilter:'전체',opsFilter:'all',aiPeriod:'month',guideOpen:'G1',acctFilter:'전체',acctQ:'',
   pre:{msgs:[{r:'u',t:'로그인이 계속 안 돼요.'},{r:'a',html:'<p>로그인 전에는 <b>계정 잠금, 비밀번호, SSO·MFA</b> 안내만 도와드려요. 어떤 증상인지 아래에서 고르거나 직접 적어 주세요. 접수는 로그인 후에 할 수 있어요.</p>'}],busy:false},loginErr:'',loginTab:'id',unread:{},theme:null
@@ -794,7 +816,7 @@ function demoHtml(){
   const ck=(k,l)=>`<label class="sw"><input type="checkbox" data-in="flag" data-k="${k}" ${S.flags[k]?'checked':''}><span>${l}</span></label>`;
   return `<div class="demo"><button class="fab" data-act="demo" aria-expanded="${S.demoOpen}">${ic('dots')}시연 도구</button>${S.demoOpen?`<div class="box" role="region" aria-label="시연 도구">
   <div><h5>역할 전환</h5><div class="seg" style="margin-top:6px">${idBtn('user','문의자')}${idBtn('staff','담당자')}${idBtn('admin','관리자')}</div><div class="hint" style="margin-top:6px">${S.user?'현재: '+ESC(me().name)+' ('+ESC(me().id)+')':'로그인 전'}</div></div>
-  <div><h5>오류 시나리오</h5><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${ck('saveFail','다음 접수에서 ITssue 저장 실패')}${ck('jiraFail','다음 접수에서 Jira 생성 실패·결과 불명확')}${ck('asgFail','다음 접수에서 개인 배정 실패')}<div style="height:1px;background:var(--line)"></div>${ck('autoRun','접수 후 해결 완료까지 자동 진행')}</div></div>
+  <div><h5>오류 시나리오</h5><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${ck('saveFail','다음 접수에서 ITssue 저장 실패')}${ck('jiraFail','다음 접수에서 Jira 생성 실패·결과 불명확')}${ck('asgFail','다음 접수에서 개인 배정 실패')}<div style="height:1px;background:var(--line)"></div>${ck('autoRun','접수 후 해결 완료까지 자동 진행')}${ck('notes','시안 설명 태그(제안) 보이기')}</div></div>
   <div><h5>시간 건너뛰기</h5><div class="hint" style="margin:6px 0">접수한 Ticket을 담당자 처리 단계로 바로 진행합니다.</div><button class="btn sec sm block" data-act="skip">내 Ticket 다음 단계로</button><button class="btn sec sm block" data-act="ask" style="margin-top:8px">담당자가 문의자에게 질문하기</button><button class="btn sec sm block" data-act="answer" style="margin-top:8px">문의자가 그 질문에 답변하기</button></div>
   <div><h5>기준 문서</h5><button class="btn sec sm block" data-act="map" style="margin-top:6px">${ic('file','',18)}요구사항 매핑 보기</button></div>
   <div><h5>화면</h5><div class="seg" style="margin-top:6px"><button data-act="theme" data-t="auto" class="${!S.theme?'on':''}">자동</button><button data-act="theme" data-t="light" class="${S.theme==='light'?'on':''}">라이트</button><button data-act="theme" data-t="dark" class="${S.theme==='dark'?'on':''}">다크</button></div></div>
@@ -936,8 +958,8 @@ function viewList(){
   const cond=!!(q||S.lcat||S.lper||S.listFilter!=='전체');
   const th=(l,k)=>sortTh(l,k,'list');
   const seg=`<div class="d2seg">${filters.map(f=>`<button class="${S.listFilter===f?'on':''}" data-act="lf" data-f="${f}">${f} <em>${cnt(f)}</em></button>`).join('')}</div>`;
-  const bar=S.lopen!==false?`<div class="d2f"><label class="srch${q?' f':''}">${SRCH(18)}<input id="lq" data-in="lq" value="${ESC(S.lq||'')}" placeholder="제목·접수번호·가이드명으로 검색" aria-label="내 문의 검색" autocomplete="off"><span id="lxb">${q?`<button class="x" data-act="l-qclear" aria-label="검색어 지우기">✕</button>`:''}</span></label>${pill('lst','상태',filters.slice(1).map(f=>[f,f+' · '+cnt(f)]),S.listFilter==='전체'?'':S.listFilter)}${pill('lcat','분류',Object.keys(CATS).map(c=>[c,CATS[c].n]),S.lcat)}${pill('lper','기간',PERS,S.lper)}<span id="lclr">${cond?`<button class="d2clr" data-act="l-clear">✕ 조건 해제</button>`:''}</span></div>`:'';
-  return `<main class="main">${bgsvg('l')}${topbar('문의 내역','내 문의의 진행 상태')}<div class="scroll"><div class="page"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-end"><div><div class="eyebrow">MY INQUIRIES</div><h1>내 문의 내역</h1><p class="muted" style="margin-top:4px">진행 중인 문의와 해결된 문의를 상태별로 확인하세요. 종료된 문의도 다시 열어 이어갈 수 있어요.</p></div><button class="icb${S.lopen!==false?' on':''}" data-act="l-toggle" aria-label="검색 열기·닫기" aria-pressed="${S.lopen!==false}">${SRCH(20)}</button></div>${bar}<div class="panel" id="lres" style="padding:6px 10px">${rows.length?`<div class="tw"><table class="tbl"><thead><tr>${th('문의','title')}${th('분류','cat')}${th('상태','status')}<th>접수번호</th>${th('최근 활동','when')}</tr></thead><tbody>${rows.map(i=>{const t=i.ticketId&&tById(i.ticketId);return `<tr><td><button class="lk" data-act="open" data-id="${i.id}">${hl(i.title)}</button>${i.unread?`<small>새 답변 ${i.unread}</small>`:''}</td><td>${i.cat?`<span class="tag c-${i.cat}">${CATS[i.cat].n}</span>`:'<span class="muted small">분류 전</span>'}</td><td>${badge(inqKind(i),inqLabel(i))}</td><td class="mono small">${t?hl(t.receipt)+(t.id?' / '+hl(t.id):''):'-'}</td><td class="muted small">${ESC(i.when)}</td></tr>`}).join('')}</tbody></table></div>${pg.html}`:`<div class="empty">${cond?'조건에 맞는 문의가 없습니다.':'이 상태의 문의가 없습니다.'}</div>`}</div></div></div></main>`;
+  const bar=true?`<div class="d2f"><label class="srch${q?' f':''}">${SRCH(18)}<input id="lq" data-in="lq" value="${ESC(S.lq||'')}" placeholder="제목·접수번호·가이드명으로 검색" aria-label="내 문의 검색" autocomplete="off"><span id="lxb">${q?`<button class="x" data-act="l-qclear" aria-label="검색어 지우기">✕</button>`:''}</span></label>${pill('lst','상태',filters.slice(1).map(f=>[f,f+' · '+cnt(f)]),S.listFilter==='전체'?'':S.listFilter)}${pill('lcat','분류',Object.keys(CATS).map(c=>[c,CATS[c].n]),S.lcat)}${pill('lper','기간',PERS,S.lper)}<span id="lclr" style="display:contents">${cond?`<button class="d2clr" data-act="l-clear">✕ 조건 해제</button>`:''}<span class="d2cnt">${cond?'':'전체 '}${all.length}건</span></span></div>`:'';
+  return `<main class="main">${bgsvg('l')}${topbar('문의 내역','내 문의의 진행 상태')}<div class="scroll"><div class="page"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-end"><div><div class="eyebrow">MY INQUIRIES</div><h1>내 문의 내역</h1><p class="muted" style="margin-top:4px">진행 중인 문의와 해결된 문의를 상태별로 확인하세요. 종료된 문의도 다시 열어 이어갈 수 있어요.</p></div></div>${bar}<div class="panel" id="lres" style="padding:6px 10px">${rows.length?`<div class="tw"><table class="tbl"><thead><tr>${th('문의','title')}${th('분류','cat')}${th('상태','status')}<th>접수번호</th>${th('최근 활동','when')}</tr></thead><tbody>${rows.map(i=>{const t=i.ticketId&&tById(i.ticketId);return `<tr><td><button class="lk" data-act="open" data-id="${i.id}">${hl(i.title)}</button>${i.unread?`<small>새 답변 ${i.unread}</small>`:''}</td><td>${i.cat?`<span class="tag c-${i.cat}">${CATS[i.cat].n}</span>`:'<span class="muted small">분류 전</span>'}</td><td>${badge(inqKind(i),inqLabel(i))}</td><td class="mono small">${t?hl(t.receipt)+(t.id?' / '+hl(t.id):''):'-'}</td><td class="muted small">${ESC(i.when)}</td></tr>`}).join('')}</tbody></table></div>${pg.html}`:`<div class="empty">${cond?'조건에 맞는 문의가 없습니다.':'이 상태의 문의가 없습니다.'}</div>`}</div></div></div></main>`;
 }
 function viewFaq(){
   const adm=S.role==='admin';
@@ -1286,7 +1308,8 @@ function viewDash(){
   const wk=[...Array(7)].map((_,k)=>{const i=6-k;const d=new Date(2026,9,16-i);return {l:['일','월','화','수','목','금','토'][d.getDay()],t:T.filter(t=>t.day===i).length,a:S.aiSeed[k]||0};});
   const mx=Math.max(...wk.map(d=>d.t+d.a),1);
   const pris=['P1','P2','P3','P4'].map(p=>[p,T.filter(t=>t.p===p).length]);
-  const kp=[['전체 접수 (Ticket)',n,'data-act="tf"'],['처리 중 (RDY·WIP)',st('RDY')+st('WIP'),'data-act="tf" data-st="open"'],['해결 확인 대기',st('FIN'),'data-act="tf" data-st="FIN"'],['AI 해결',aiN,'data-act="tf" data-mode="ai"','re'],['연동·배정 확인',ex,'data-act="go" data-v="exc"',ex?'urg':'']];
+  const kp=[['전체 접수 (Ticket)',n,'data-act="tf"'],['처리 중 (RDY·WIP)',st('RDY')+st('WIP'),'data-act="tf" data-st="open"'],['해결 확인 대기',st('FIN'),'data-act="tf" data-st="FIN"'],['AI 해결',aiN,'data-act="tf" data-mode="ai"','re'],['연동·배정 확인',ex,'data-act="go" data-v="exc"',ex?'urg hot':'']];
+  const kpo=[...kp.filter(k=>/hot/.test(k[3]||'')),...kp.filter(k=>!/hot/.test(k[3]||''))];
   const cls=st('CLS');
   const per=S.dashPer,mode=S.dashMode,win=T.filter(t=>inWin(t,per));
   let items,sel=S.dashSel[mode],selLabel,memNames,memFilter,scale,tfAttr;
@@ -1303,7 +1326,7 @@ function viewDash(){
   const seed=[...(sel||'x')].reduce((a,c)=>a+c.charCodeAt(0),0);
   const showMem=S.dashMember&&memNames.includes(S.dashMember)?memberPanel(S.dashMember,win.filter(memFilter)):'';
   return `<main class="main">${topbar('대시보드','Ticket과 AI 해결을 구분해서 보여줘요')}<div class="scroll"><div class="page"><div><div class="eyebrow">OVERVIEW</div><h1>운영 현황</h1><p class="muted" style="margin-top:4px">카드와 막대를 누르면 해당 조건의 목록으로 이동해요. SLA와 담당자 평가용 순위는 이 버전에 포함하지 않았어요.</p></div>
-  <div class="kpis k5">${kp.map(k=>`<button class="kpi ${k[3]||''}" ${k[2]}><div class="l">${k[0]}</div><div class="v"><b>${k[1]}</b><span>건</span></div><div class="d">목록 보기 ›</div></button>`).join('')}</div>
+  <div class="kpis k5">${kpo.map(k=>`<button class="kpi ${k[3]||''}" ${k[2]}><div class="l">${k[0]}</div><div class="v"><b>${k[1]}</b><span>건</span></div>${/hot/.test(k[3]||'')?'<div class="d">지금 확인하기 ›</div>':''}</button>`).join('')}</div>
   <div class="panel"><div class="row" style="justify-content:space-between"><div><h3 style="font-size:17px">진행도</h3><div class="hint">행을 누르면 구성원별 진행도가 아래에 나와요</div></div><div class="row"><div class="seg"><button class="${mode==='team'?'on':''}" data-act="dmode" data-m="team">팀별</button><button class="${mode==='cat'?'on':''}" data-act="dmode" data-m="cat">분류별</button></div>${perCtl('dper')}</div></div>
   <div class="g2" style="margin-top:16px;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)"><div>${legend()}<div class="srows">${rows}</div></div><div><b style="font-size:14px">${ESC(selLabel)} · 접수 추이 (${{d:'일',w:'주',m:'월'}[per]}별)</b><div style="margin-top:10px">${trendHtml(per,seed,scale)}</div></div></div></div>
   <div class="panel"><div class="row" style="justify-content:space-between"><h3>${ESC(selLabel)} · 구성원별 진행도 <span class="tag gray">${memNames.length}명</span></h3><button class="btn ghost sm" ${tfAttr}>Ticket 목록 보기 ›</button></div><div style="margin-top:10px">${legend()}<div class="srows">${mem}</div><div class="hint" style="margin-top:8px">이름을 누르면 개인 현황(도넛)이 나와요. 업무량 확인용이며 평가 순위가 아니에요.</div></div></div>${showMem}
@@ -1370,14 +1393,14 @@ function viewDetail(id){
     if(t.status==='RDY')act=`<button class="btn pri block" data-act="st-wip" data-id="${t.receipt}">처리 시작 (RDY → WIP)</button>`;
     if(t.status==='WIP')act=`<button class="btn pri block" data-act="st-fin" data-id="${t.receipt}">처리 결과 등록 (WIP → FIN)</button>`;
     if(t.status==='FIN')act=`<div class="alert info">${ic('clock')}<div>문의자의 해결 확인을 기다리고 있어요. 미응답만으로 종료(CLS)하지 않아요.</div></div>`;
-    if(t.status)act+=`<button class="btn sec block" data-act="msg-open" data-id="${t.receipt}" style="margin-top:8px">문의자에게 메시지 <span class="tag gray">제안</span></button>`;
+    if(t.status)act+=`<button class="btn sec block" data-act="msg-open" data-id="${t.receipt}" style="margin-top:8px">문의자에게 메시지 ${NOTE()}</button>`;
   }
   if(S.role==='admin'&&(t.jira==='확인 필요'||t.asg==='확인 필요'||t.jira==='결과 확인 중'))act=`<button class="btn pri block" data-act="go" data-v="exc">연동·배정 확인 화면으로</button>`;
   if(S.role==='admin'&&(t.status==='RDY'||t.status==='WIP'))act+=`<button class="btn sec block" data-act="rs-open" data-id="${t.receipt}" style="margin-top:8px">담당자 재배정</button>`;
   const msgs=(t.msgs||[]).map(m=>`<li>${ic(m.from==='문의자'?'user':'chat')}<div><b>${ESC(m.from)} · ${ESC(m.kind)}</b>${ESC(m.t)}<small>${ESC(m.time)}</small></div></li>`).join('');
   const slk=S.slack.filter(s=>s.rc===t.receipt).map(s=>`<li>${ic('bell')}<div><b>→ ${ESC(s.to)}</b>${ESC(s.text)}<small>${ESC(s.t)} · 미리보기 (실제 발송 없음)</small></div></li>`).join('');
   const hist=(t.hist||[]).map(h=>`<li>${ic('clock')}<div><b>${ESC(h.what)}</b><small>${ESC(h.t)} · ${ESC(h.who)}</small></div></li>`).join('');
-  const body=`<div class="dh"><div class="row" style="flex-wrap:nowrap"><div style="min-width:0"><div class="mono small muted">${t.receipt}${t.id?' · '+t.id:''}</div><h3 style="font-size:18px;line-height:26px;margin-top:2px">${ESC(t.title)}</h3></div><span class="sp"></span><button class="btn sec sm ico" data-act="dclose" aria-label="닫기">${ic('x')}</button></div></div><div class="db">${staff?states:ticketSteps(t)}${t.status==='FIN'&&!staff?`<div class="alert info">${ic('check')}<div>${ESC(userMsg(t))}</div></div>`:''}${info}${act}${msgs?`<div><h4>메시지 <span class="tag gray">제안</span></h4><ul class="tl" style="margin-top:10px">${msgs}</ul></div>`:''}${staff&&slk?`<div><h4>Slack 알림 미리보기</h4><ul class="tl" style="margin-top:10px">${slk}</ul></div>`:''}<div><h4>처리 이력</h4><ul class="tl" style="margin-top:10px">${hist||'<li class="muted small">이력이 없습니다.</li>'}</ul></div></div>`;
+  const body=`<div class="dh"><div class="row" style="flex-wrap:nowrap"><div style="min-width:0"><div class="mono small muted">${t.receipt}${t.id?' · '+t.id:''}</div><h3 style="font-size:18px;line-height:26px;margin-top:2px">${ESC(t.title)}</h3></div><span class="sp"></span><button class="btn sec sm ico" data-act="dclose" aria-label="닫기">${ic('x')}</button></div></div><div class="db">${staff?states:ticketSteps(t)}${t.status==='FIN'&&!staff?`<div class="alert info">${ic('check')}<div>${ESC(userMsg(t))}</div></div>`:''}${info}${act}${msgs?`<div><h4>메시지 ${NOTE()}</h4><ul class="tl" style="margin-top:10px">${msgs}</ul></div>`:''}${staff&&slk?`<div><h4>Slack 알림 미리보기</h4><ul class="tl" style="margin-top:10px">${slk}</ul></div>`:''}<div><h4>처리 이력</h4><ul class="tl" style="margin-top:10px">${hist||'<li class="muted small">이력이 없습니다.</li>'}</ul></div></div>`;
   return `<aside class="detail" role="complementary" aria-label="Ticket 상세">${body}</aside>`;
 }
 /* ---- 연동·배정 확인 필요 ---- */
@@ -1518,7 +1541,7 @@ function viewSec(){
   const f=S.secF,L=S.sec.filter(e=>(!f.st||e.st===f.st)&&(!f.type||e.type===f.type));
   const n=s=>S.sec.filter(e=>e.st===s).length;
   const stB=s=>badge(s==='신규'?'urg':s==='확인 중'?'prog':'ok',s);
-  return `<main class="main">${topbar('보안·감사 알림','문의가 접수되지 않았어도 감지된 신호')}<div class="scroll"><div class="page"><div><div class="eyebrow">SECURITY & AUDIT</div><h1>보안·감사 알림 <span class="tag gray" style="vertical-align:middle">제안</span></h1><p class="muted" style="margin-top:4px">ITssue 안에서 일어난 이벤트만 다뤄요. 사내 보안관제를 대체하지 않고, Ticket과도 별도로 관리해요.</p></div>
+  return `<main class="main">${topbar('보안·감사 알림','문의가 접수되지 않았어도 감지된 신호')}<div class="scroll"><div class="page"><div><div class="eyebrow">SECURITY & AUDIT</div><h1>보안·감사 알림 ${NOTE('vertical-align:middle')}</h1><p class="muted" style="margin-top:4px">ITssue 안에서 일어난 이벤트만 다뤄요. 사내 보안관제를 대체하지 않고, Ticket과도 별도로 관리해요.</p></div>
   <div class="kpis"><div class="kpi ${n('신규')?'urg':''}"><div class="l">신규</div><div class="v"><b>${n('신규')}</b><span>건</span></div></div><div class="kpi"><div class="l">확인 중</div><div class="v"><b>${n('확인 중')}</b><span>건</span></div></div><div class="kpi"><div class="l">종결</div><div class="v"><b>${n('종결')}</b><span>건</span></div></div><div class="kpi"><div class="l">심각도 높음 (미종결)</div><div class="v"><b>${S.sec.filter(e=>e.sev==='높음'&&e.st!=='종결').length}</b><span>건</span></div></div></div>
   <div class="alert info">${ic('shield')}<div>원문은 마스킹해서 보여주고, 원문 열람은 <b>사유를 입력</b>해야 하며 열람 기록이 남아요. 대상자에게 자동으로 알리거나 불이익을 주지 않아요. 담당은 정보보안팀(이 프로토타입에서는 관리자 화면에서 확인).</div></div>
   <div class="row">${['','신규','확인 중','종결'].map(s=>`<button class="chip ${f.st===s?'on':''}" data-act="secf" data-k="st" data-v="${s}">${s||'전체'}</button>`).join('')}<select class="sel" style="width:auto;min-width:180px" data-in="secsel" aria-label="유형"><option value="">유형: 전체</option>${SEC_TYPES.map(t=>`<option ${f.type===t?'selected':''}>${t}</option>`).join('')}</select></div>
@@ -1535,7 +1558,7 @@ function viewLogin(){
   const msgs=S.pre.msgs.map(m=>m.r==='u'?`<div class="msg u">${ESC(m.t)}</div>`:`<div class="msg a">${av(32)}<div class="body">${m.html}</div></div>`).join('');
   const roleBtn=(id,l)=>`<button class="btn sec sm" data-act="quick-login" data-id="${id}">${l}</button>`;
   const idTab=S.loginTab==='id';
-  return `<div class="login">${bg}<div class="lf"><div>${logo(124)}</div><div class="form"><div class="eyebrow">IT HELPDESK</div><h1>IT 문제, 먼저 물어보세요</h1><p class="muted" style="margin:10px 0 22px;line-height:24px">AI가 먼저 답하고, 해결되지 않으면 담당자에게 바로 연결해 드려요.</p><div class="seg" role="tablist" style="margin-bottom:16px"><button role="tab" class="${idTab?'on':''}" data-act="ltab" data-t="id">사번 로그인</button><button role="tab" class="${!idTab?'on':''}" data-act="ltab" data-t="sso">SSO 로그인</button></div>${idTab?`<form data-form="login" style="display:flex;flex-direction:column;gap:14px"><div class="field"><label for="lg-id">사번</label><input class="inp ${S.loginErr?'err':''}" id="lg-id" name="id" ${S.loginErr?'aria-invalid="true" aria-describedby="lg-err" ':''}autocomplete="username" placeholder="예) HS1001" value="HS1001"></div><div class="field"><label for="lg-pw">비밀번호</label><input class="inp ${S.loginErr?'err':''}" id="lg-pw" name="pw" type="password" ${S.loginErr?'aria-invalid="true" aria-describedby="lg-err" ':''}autocomplete="current-password" value="demo"></div><button type="button" class="fgt" data-act="forgot">비밀번호를 잊으셨나요?</button>${S.loginErr?`<div class="errtx" id="lg-err" role="alert">${S.loginErr}</div>`:''}<button class="btn pri block" type="submit" style="min-height:48px">로그인</button><div class="hint">시연 계정 비밀번호는 demo 입니다. 계정 5회 실패 시 잠기고 10분 후 해제됩니다.</div></form>`:`<div style="display:flex;flex-direction:column;gap:14px"><div class="alert info">${ic('shield')}<div>사내 SSO와 MFA로 인증하는 화면이에요. 이 프로토타입에서는 인증을 연결하지 않았어요.</div></div><button class="btn pri block" data-act="quick-login" data-id="HS1001" style="min-height:48px">SSO로 계속하기 (시연)</button></div>`}<div class="roles"><small>시연용 바로 로그인</small>${roleBtn('HS1001','문의자')}${roleBtn('HS1107','담당자')}${roleBtn('HS0912','관리자')}${roleBtn('HS1488','이용 제한 계정')}${roleBtn('HS1530','잠김 계정')}</div></div><div class="hint">ICT 가상 기업 프로토타입</div></div><div class="rt"><div class="lpop" role="region" aria-label="로그인 전 상담"><div class="row" style="flex-wrap:nowrap">${av(36)}<div><b>로그인이 안 되시나요?</b><div class="small muted">로그인 전에도 계정·로그인 문의는 답해 드려요 <span class="tag gray">제안</span></div></div></div><div class="th" id="prethread">${msgs||`<div class="msg a">${av(32)}<div class="body">로그인 전에는 <b>계정 잠금, 비밀번호, SSO·MFA</b> 안내만 도와드려요. 접수는 로그인 후에 할 수 있어요.</div></div>`}</div><div class="replies">${['계정이 잠겼어요','비밀번호를 재설정하고 싶어요','SSO·MFA 인증이 안 돼요'].map(c=>`<button class="chip" data-act="pre-ask" data-t="${c}">${c}</button>`).join('')}</div><div class="composer"><textarea id="pre-in" rows="1" placeholder="로그인 문제를 적어 주세요" aria-label="로그인 전 상담 입력" data-in="pre"></textarea><button class="btn ico pri" data-act="pre-send" aria-label="보내기">${ic('send')}</button></div><div class="hint" style="margin-top:8px">${MAIL_NOTE} 로그인 전에는 Ticket을 만들지 않아요.</div></div></div></div>`;
+  return `<div class="login">${bg}<div class="lf"><div>${logo(124)}</div><div class="form"><div class="eyebrow">IT HELPDESK</div><h1>IT 문제, 먼저 물어보세요</h1><p class="muted" style="margin:10px 0 22px;line-height:24px">AI가 먼저 답하고, 해결되지 않으면 담당자에게 바로 연결해 드려요.</p><div class="seg" role="tablist" style="margin-bottom:16px"><button role="tab" class="${idTab?'on':''}" data-act="ltab" data-t="id">사번 로그인</button><button role="tab" class="${!idTab?'on':''}" data-act="ltab" data-t="sso">SSO 로그인</button></div>${idTab?`<form data-form="login" style="display:flex;flex-direction:column;gap:14px"><div class="field"><label for="lg-id">사번</label><input class="inp ${S.loginErr?'err':''}" id="lg-id" name="id" ${S.loginErr?'aria-invalid="true" aria-describedby="lg-err" ':''}autocomplete="username" placeholder="예) HS1001" value="HS1001"></div><div class="field"><label for="lg-pw">비밀번호</label><input class="inp ${S.loginErr?'err':''}" id="lg-pw" name="pw" type="password" ${S.loginErr?'aria-invalid="true" aria-describedby="lg-err" ':''}autocomplete="current-password" value="demo"></div><button type="button" class="fgt" data-act="forgot">비밀번호를 잊으셨나요?</button>${S.loginErr?`<div class="errtx" id="lg-err" role="alert">${S.loginErr}</div>`:''}<button class="btn pri block" type="submit" style="min-height:48px">로그인</button><div class="hint">시연 계정 비밀번호는 demo 입니다. 계정 5회 실패 시 잠기고 10분 후 해제됩니다.</div></form>`:`<div style="display:flex;flex-direction:column;gap:14px"><div class="alert info">${ic('shield')}<div>사내 SSO와 MFA로 인증하는 화면이에요. 이 프로토타입에서는 인증을 연결하지 않았어요.</div></div><button class="btn pri block" data-act="quick-login" data-id="HS1001" style="min-height:48px">SSO로 계속하기 (시연)</button></div>`}<div class="roles"><small>시연용 바로 로그인</small>${roleBtn('HS1001','문의자')}${roleBtn('HS1107','담당자')}${roleBtn('HS0912','관리자')}${roleBtn('HS1488','이용 제한 계정')}${roleBtn('HS1530','잠김 계정')}</div></div><div class="hint">ICT 가상 기업 프로토타입</div></div><div class="rt"><div class="lpop" role="region" aria-label="로그인 전 상담"><div class="row" style="flex-wrap:nowrap">${av(36)}<div><b>로그인이 안 되시나요?</b><div class="small muted">로그인 전에도 계정·로그인 문의는 답해 드려요 ${NOTE()}</div></div></div><div class="th" id="prethread">${msgs||`<div class="msg a">${av(32)}<div class="body">로그인 전에는 <b>계정 잠금, 비밀번호, SSO·MFA</b> 안내만 도와드려요. 접수는 로그인 후에 할 수 있어요.</div></div>`}</div><div class="replies">${['계정이 잠겼어요','비밀번호를 재설정하고 싶어요','SSO·MFA 인증이 안 돼요'].map(c=>`<button class="chip" data-act="pre-ask" data-t="${c}">${c}</button>`).join('')}</div><div class="composer"><textarea id="pre-in" rows="1" placeholder="로그인 문제를 적어 주세요" aria-label="로그인 전 상담 입력" data-in="pre"></textarea><button class="btn ico pri" data-act="pre-send" aria-label="보내기">${ic('send')}</button></div><div class="hint" style="margin-top:8px">${MAIL_NOTE} 로그인 전에는 Ticket을 만들지 않아요.</div></div></div></div>`;
 }
 function preReply(t){
   if(RE.sec.test(t))return '<p>보안 사고가 의심되면 <b>로그인 후 새 문의</b>에서 담당자 연결을 요청해 주세요. 로그인할 수 없는 상황이면 서비스데스크로 바로 연락해 주세요.</p><p class="small muted">서비스데스크 '+SERVICEDESK_PHONE+'</p>';
@@ -1642,7 +1665,7 @@ const A={
   detail(e,d){S.openerD=selOf(e);S.detail=d.id;const t=tById(d.id);if(t)t.newReply=false;render();setTimeout(()=>{const c=document.querySelector('.detail [data-act="dclose"]');if(c)c.focus();},0);},
   dclose(){S.detail=null;render();restoreFocus('openerD');},
   'tk-ok'(e,d){const t=tById(d.id);setStatus(t,'CLS','문의자 해결 확인');const i=S.inqs.find(x=>x.id===t.inq);if(i){i.state='담당자 이관';}render({bottom:true});toast('해결 확인이 기록되었어요.');},
-  'tk-no'(e,d){openModal('아직 해결되지 않았어요',`<p class="small muted">상황을 알려 주시면 담당자가 다시 확인해요. <span class="tag gray">제안</span> 이 흐름은 팀 합의 전 제안이에요.</p><div class="field"><label for="m-r">남은 증상</label><textarea class="ta" id="m-r" placeholder="예) 안내대로 했지만 같은 오류가 나요"></textarea></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="tk-no2" data-id="${d.id}">다시 확인 요청</button></div>`);},
+  'tk-no'(e,d){openModal('아직 해결되지 않았어요',`<p class="small muted">상황을 알려 주시면 담당자가 다시 확인해요. ${NOTE()} 이 흐름은 팀 합의 전 제안이에요.</p><div class="field"><label for="m-r">남은 증상</label><textarea class="ta" id="m-r" placeholder="예) 안내대로 했지만 같은 오류가 나요"></textarea></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="tk-no2" data-id="${d.id}">다시 확인 요청</button></div>`);},
   'tk-no2'(e,d){const r=val('m-r').trim();if(!r){toast('남은 증상을 적어 주세요.');return;}const t=tById(d.id);reopenCard(t,r);setStatus(t,'WIP','문의자 미해결 · 재확인 요청');{const i=S.inqs.find(x=>x.id===t.inq);if(i)i.msgs.push({r:'a',id:S.seq.msg++,html:'<p>다시 확인을 요청했어요. 담당자가 재확인하고 있어요. 아래 카드에서 새 진행 상황을 볼 수 있어요.</p>',card:'ticket',tid:t.receipt});}slack(t,'담당자','문의자가 해결되지 않았다고 알렸습니다.');closeModal();render({bottom:true});},
   of(e,d){S.opsFilter=d.f;render();},
   'st-wip'(e,d){setStatus(tById(d.id),'WIP');render();toast('처리를 시작했어요.');},
