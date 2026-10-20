@@ -228,7 +228,7 @@
       "type": "요청",
       "urg": "P4",
       "team": "업무시스템팀",
-      "manual": "IT-ACS-001, IT-ACS-002 (가이드 정리 필요)",
+      "manual": "IT-ACS-001, IT-ACS-002",
       "faq": "FAQ-004",
       "scope": "개인",
       "tool": "권한관리"
@@ -504,7 +504,7 @@
       "type": "장애",
       "urg": "P2",
       "team": "업무시스템팀",
-      "manual": "IT-SYS-001, IT-SYS-002 (가이드 정리 필요)",
+      "manual": "IT-SYS-001, IT-SYS-002",
       "faq": "",
       "scope": "개인",
       "tool": "ERP"
@@ -540,7 +540,7 @@
       "type": "장애",
       "urg": "P2",
       "team": "업무시스템팀",
-      "manual": "IT-SYS-002, IT-SYS-003 (가이드 정리 필요)",
+      "manual": "IT-SYS-002, IT-SYS-003",
       "faq": "",
       "scope": "부서",
       "tool": "업무 협업 플랫폼(PMS·BI·마케팅 툴)"
