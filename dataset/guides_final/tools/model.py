@@ -33,8 +33,8 @@ import re
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # dataset/guides_final
 SOURCE = os.path.join(ROOT, 'tools', 'source')
 
-COMPANY = '한화시스템 ICT'
-COPYRIGHT = '© HANWHA SYSTEMS ICT'
+COMPANY = '가상 ICT 기업'
+COPYRIGHT = '© 가상 ICT 기업'
 VERSION = 'v2.0'
 DATE = '2026-10-16'
 

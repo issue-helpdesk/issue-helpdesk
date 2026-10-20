@@ -97,7 +97,7 @@
       {
        "title": "적용 환경",
        "items": [
-        "통합 로그인 https://sso.hanwha-ict.example",
+        "통합 로그인 https://sso.ict.example",
         "그룹웨어·ERP·메일·VPN·메신저 (SSO 연동)",
         "Windows / macOS / iOS / Android"
        ]
@@ -609,7 +609,7 @@
       {
        "t": "note",
        "kind": "info",
-       "title": "단축키: macOS는 Command + Shift + Delete. 시크릿 창은 Chrome Ctrl + Shift + N, Edge Ctrl + Shift + P. 주소는 https://sso.hanwha-ict.example 을 직접 입력합니다.",
+       "title": "단축키: macOS는 Command + Shift + Delete. 시크릿 창은 Chrome Ctrl + Shift + N, Edge Ctrl + Shift + P. 주소는 https://sso.ict.example 을 직접 입력합니다.",
        "lines": []
       }
      ]
@@ -914,7 +914,7 @@
      "lines": [
       "비밀번호·인증번호는 누구에게도 알려 주지 않습니다. 헬프데스크·챗봇도 묻지 않습니다.",
       "여러 명이 함께 로그인하지 못하면 캐시 삭제·비밀번호 변경을 반복하지 말고 바로 알립니다.",
-      "로그인 주소는 즐겨찾기 대신 https://sso.hanwha-ict.example 을 직접 입력합니다."
+      "로그인 주소는 즐겨찾기 대신 https://sso.ict.example 을 직접 입력합니다."
      ]
     },
     {
@@ -942,7 +942,7 @@
      "rows": [
       [
        "ITssue 챗봇",
-       "사내 IT 포털(hanwha-admin) 상단 [챗봇 문의]",
+       "사내 IT 포털 상단 [챗봇 문의]",
        "24시간. 모든 IT 문의의 기본 창구입니다. 챗봇이 해결하지 못하면 확인을 거쳐 담당 팀에 티켓으로 접수합니다."
       ],
       [
@@ -962,7 +962,7 @@
       ],
       [
        "메일",
-       "it-helpdesk@hanwha-ict.example",
+       "it-helpdesk@ict.example",
        "일반 IT 문의. 비밀번호·인증번호는 메일로 보내지 않습니다."
       ],
       [
