@@ -39,7 +39,7 @@ keywords: ["가이드 분류", "문서 번호", "열람 등급", "사내 일반"
 
 **적용 대상**
 
-- dataset/guides_final 의 모든 문서
+- dataset/guides 의 모든 문서
 - 가이드 작성·관리 담당자, 관리자, ITssue 운영·개발
 
 **근거**
@@ -125,7 +125,7 @@ keywords: ["가이드 분류", "문서 번호", "열람 등급", "사내 일반"
 
 #### 폴더와 파일
 
-- dataset/guides_final/{분류}/guide/ — 임직원용 가이드, {분류}/manual/ — 담당자용 매뉴얼, common/ — 분류에 속하지 않는 공통 문서(공통 기준 IT-STD, AI 응대 정책 IT-AI)
+- dataset/guides/{분류}/guide/ — 임직원용 가이드, {분류}/manual/ — 담당자용 매뉴얼, common/ — 분류에 속하지 않는 공통 문서(공통 기준 IT-STD, AI 응대 정책 IT-AI)
 - 문서 하나에 같은 내용의 파일 4개: .pdf · .pptx (장표), .docx (편집용), .md (코드 저장소·RAG 등록용)
 - 파일 이름: {문서 번호}_{문서명}.{확장자}. 그림은 {분류}/images/
 - RAG에는 한 문서에 한 형식만 등록해 같은 내용이 중복 검색되지 않게 합니다 (권장: .md 또는 .pdf).
@@ -282,7 +282,7 @@ keywords: ["가이드 분류", "문서 번호", "열람 등급", "사내 일반"
 
 #### 만드는 방법
 
-원천은 dataset/guides_final/tools/source/{분류}/{문서 번호}.json 입니다. 원천을 고친 뒤 tools 폴더에서 python build.py 를 실행하면 네 형식이 함께 다시 만들어집니다. 자세한 순서는 guides_final/README.md에 있습니다.
+원천은 dataset/guides/tools/source/{분류}/{문서 번호}.json 입니다. 원천을 고친 뒤 tools 폴더에서 python build.py 를 실행하면 네 형식이 함께 다시 만들어집니다. 자세한 순서는 guides/README.md에 있습니다.
 
 ## 개정 이력
 

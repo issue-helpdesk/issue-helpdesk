@@ -30,7 +30,7 @@ import json
 import os
 import re
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # dataset/guides_final
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # dataset/guides
 SOURCE = os.path.join(ROOT, 'tools', 'source')
 
 COMPANY = '가상 ICT 기업'

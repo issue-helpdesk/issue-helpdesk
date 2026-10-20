@@ -10,7 +10,7 @@
 ## 폴더
 
 ```
-guides_final/
+guides/
 ├─ ACC/ ACS/ NET/ SW/ HW/ SYS/ SEC/    문의 분류 7개 (구조 동일)
 │   ├─ guide/    임직원용 가이드
 │   ├─ manual/   담당자용 매뉴얼
@@ -78,7 +78,7 @@ guides_final/
 
 ```bash
 pip install python-docx python-pptx reportlab pillow pymupdf
-cd dataset/guides_final/tools
+cd dataset/guides/tools
 python build.py                  # 원천 JSON → pdf·pptx·docx·md 전체 (약 2~3분)
 python build.py IT-ACC-001       # 일부만
 python manifest.py               # manifest.json

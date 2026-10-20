@@ -12,7 +12,7 @@
 | taxonomy.json | 문의 분류 기준 (7개 분류, 50개 시나리오, 긴급도, 담당팀, 사용자·담당자 역할, 대형 장애) | 시나리오 50 | 문의 분류, 긴급도 판단, 담당팀 결정, 화면 권한 구분 |
 | history.csv | 과거 IT 문의 처리 이력 (접수 채널·처리 방식·원인·해결 방법 포함) | 400 | 비슷한 과거 사례 검색, 티켓 건은 Jira 히스토리로 이관 |
 | faq.csv | 자주 묻는 질문과 답변 | 40 | FAQ 게시판, AI 답변 근거 |
-| guides_final/ | 분류별 임직원용 가이드·담당자용 매뉴얼과 공통 기준·정책 (pdf·pptx·docx·md) | 57개 문서 | AI 답변 근거 (RAG 검색 대상) |
+| guides/ | 분류별 임직원용 가이드·담당자용 매뉴얼과 공통 기준·정책 (pdf·pptx·docx·md) | 57개 문서 | AI 답변 근거 (RAG 검색 대상) |
 | employees.csv | 임직원 명단 | 400 | 로그인, 부서·권한 확인 |
 | assignees.csv | IT운영·보안 조직 담당자와 담당 영역 | 50 | 담당자 배정 제안, Jira 연동 |
 | eval_inquiries.csv | AI 평가용 정답셋 (Golden Set) | 50 | AI 답변·분류 정확도 평가 |
@@ -25,7 +25,7 @@
 |---|---|
 | requester_id (예: EMP-1123) | employees.csv의 emp_id → 문의한 사람의 부서·직급 |
 | scenario_id (예: SYS-06) | taxonomy.json의 scenarios → 기본 긴급도·담당팀·관련 가이드 |
-| category_code (예: SYS) | taxonomy.json의 categories, guides_final/SYS |
+| category_code (예: SYS) | taxonomy.json의 categories, guides/SYS |
 | assignee (예: 최하은) | assignees.csv의 name → 담당자의 팀·사번·Jira 계정 |
 | related_faq (예: FAQ-010) | faq.csv의 faq_id |
 
@@ -123,9 +123,9 @@ RDY(배정됨, 작업 전) · WIP(처리 중) · FIN(처리 완료). FIN 397건,
 - assignee_roles: 담당자 역할 4가지 (L1 상담, L2 담당, 팀장, 조직장)
 - major_incidents: 과거 대형 장애 7건
 
-### guides_final/ (가이드·매뉴얼)
+### guides/ (가이드·매뉴얼)
 - 분류별 폴더(ACC·ACS·NET·SW·HW·SYS·SEC)마다 `guide/`(임직원용, 사내 일반)와 `manual/`(담당자용 `-M`, 사내 제한)가 있고, `common/`에 공통 기준(IT-STD)과 AI 응대 정책(IT-AI)이 있습니다.
-- 문서 하나를 pdf·pptx·docx·md 네 형식으로 만들었습니다. 폴더 구성과 열람 등급, 다시 만드는 방법은 `guides_final/README.md`에 있습니다.
+- 문서 하나를 pdf·pptx·docx·md 네 형식으로 만들었습니다. 폴더 구성과 열람 등급, 다시 만드는 방법은 `guides/README.md`에 있습니다.
 - 시나리오마다 증상별 원인과 조치, 재발 방지, 사용자 안내 문구를 정리했고, 내용은 과거 문의 이력의 원인·조치와 FAQ에서 뽑았습니다.
 
 ### faq.csv

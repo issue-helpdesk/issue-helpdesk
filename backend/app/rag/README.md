@@ -27,7 +27,7 @@ version_row(doc, path, row)               # document_versions 한 행. row = man
 ## 확인 명령 (저장소 루트에서)
 
 ```bash
-cd backend && python -m app.rag.chunker ../dataset/guides_final/SW/guide/*.md --out ../참고/chunks   # 문서마다 <이름>.chunks.md 미리보기
+cd backend && python -m app.rag.chunker ../dataset/guides/SW/guide/*.md --out ../참고/chunks   # 문서마다 <이름>.chunks.md 미리보기
 cd backend && python -m app.rag.chunker <md 57종> --baseline app/rag/chunker/baseline.json            # 규칙을 바꾼 뒤 기준표 다시 만들기
 pytest tests/test_chunker.py
 ```

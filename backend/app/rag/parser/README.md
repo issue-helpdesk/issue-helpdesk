@@ -1,7 +1,7 @@
 # 공통 파서 (M2-1-1)
 
 가이드 문서(PPTX·PDF·DOCX·MD·TXT)를 읽어 **같은 모양의 결과**(`ParsedDocument`)로 돌려줍니다.
-기준 문서는 `dataset/guides_final` (원천 JSON 하나에서 네 형식을 만든 정리본)입니다. 청크 나누기(M2-1-2)와 메타데이터(M2-1-3)는 이 결과를 입력으로 씁니다.
+기준 문서는 `dataset/guides` (원천 JSON 하나에서 네 형식을 만든 정리본)입니다. 청크 나누기(M2-1-2)와 메타데이터(M2-1-3)는 이 결과를 입력으로 씁니다.
 
 ## 사용
 
@@ -9,7 +9,7 @@
 from app.rag.parser import parse, ParseError
 
 try:
-    doc = parse('dataset/guides_final/SW/guide/IT-SW-002_SW 라이선스 신청·인증 가이드.md')
+    doc = parse('dataset/guides/SW/guide/IT-SW-002_SW 라이선스 신청·인증 가이드.md')
 except ParseError as e:
     e.reason, e.message   # 'encrypted', '암호가 걸린 문서입니다. …' (업로드 화면에 그대로 보여 줄 수 있음)
 
@@ -23,7 +23,7 @@ doc.warnings    # 쪽 해석 실패, 보수 모드 전환, 누락 의심
 확인 명령 (저장소 루트):
 
 ```bash
-cd backend && python -m app.rag.parser ../dataset/guides_final/SW --out ../참고/parsed   # 미리보기 md (--json 이면 json 도)
+cd backend && python -m app.rag.parser ../dataset/guides/SW --out ../참고/parsed   # 미리보기 md (--json 이면 json 도)
 python tests/check_guides.py                                                                # 원천 JSON 대비 채점 (57종 × 4형식, 약 1분)
 python tests/check_guides.py IT-SW-002 --format pdf --show                                  # 한 문서의 다른 곳 보기
 pytest tests/test_parser.py tests/test_parser_robustness.py
@@ -102,8 +102,8 @@ pytest tests/test_parser.py tests/test_parser_robustness.py
 
 | 묶음 | 파일 | 결과 |
 |---|---|---|
-| guides_final 원천 JSON 채점 | 57종 × 4형식 | 구조 일치 57/57, 내용 포함 1.000, 항목 머리·메타 일치 (네 형식 모두). 본문 순서(md 대비) docx 0.994 · pptx 0.993 · pdf 0.993 |
-| guides_final 누락 감지 | 228 | 모두 배치 모드, 경고 0 |
+| guides 원천 JSON 채점 | 57종 × 4형식 | 구조 일치 57/57, 내용 포함 1.000, 항목 머리·메타 일치 (네 형식 모두). 본문 순서(md 대비) docx 0.994 · pptx 0.993 · pdf 0.993 |
+| guides 누락 감지 | 228 | 모두 배치 모드, 경고 0 |
 | dataset/guides (정리 전, 배치가 다른 문서) | 114 | 오류 0, 16개는 보수 모드로 전환 후 경고 0 (예: HW-001 PDF 2,315자 → 9,422자) |
 | 깨진·특수 파일 | 13종 | 모두 원인 있는 `ParseError` 또는 정상 처리 |
 | 점검 보고서(2026-10-17) 재현 사례 | 5건 | 장 구분 쪽 본문, 그림 뒤 기울임 줄, 서문, 본문 숫자, YAML 목록 — 모두 보존 |
