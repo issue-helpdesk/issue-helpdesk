@@ -1,401 +1,401 @@
 ﻿emp_id,name,division,team,job_title,itssue_role,email,chat_id,pc_os,employment_status
-EMP-1001,이태윤,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1001@hanwha-ict.example,EMP-1001,Windows,재직
-EMP-1002,원상우,경영지원,경영기획팀,팀장,일반 임직원,emp-1002@hanwha-ict.example,EMP-1002,Windows,재직
-EMP-1003,김민지,경영지원,인사팀,팀원,일반 임직원,emp-1003@hanwha-ict.example,EMP-1003,Windows,재직
-EMP-1004,성민경,IT운영·보안,네트워크팀,팀원,IT 운영 담당자,emp-1004@hanwha-ict.example,EMP-1004,Windows,재직
-EMP-1005,최하준,사업·영업,영업2팀,팀원,일반 임직원,emp-1005@hanwha-ict.example,EMP-1005,Windows,재직
-EMP-1006,정서진,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1006@hanwha-ict.example,EMP-1006,Windows,재직
-EMP-1007,정영호,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1007@hanwha-ict.example,EMP-1007,Windows,재직
-EMP-1008,황도현,경영지원,경영기획팀,팀원,일반 임직원,emp-1008@hanwha-ict.example,EMP-1008,Windows,재직
-EMP-1009,도재훈,AI·DX,연구소,팀원,일반 임직원,emp-1009@hanwha-ict.example,EMP-1009,macOS,재직
-EMP-1011,황지안,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1011@hanwha-ict.example,EMP-1011,Windows,재직
-EMP-1012,정지훈,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1012@hanwha-ict.example,EMP-1012,Windows,재직
-EMP-1013,박세희,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1013@hanwha-ict.example,EMP-1013,Windows,재직
-EMP-1014,전미진,사업·영업,영업2팀,팀원,일반 임직원,emp-1014@hanwha-ict.example,EMP-1014,Windows,재직
-EMP-1016,노현준,사업·영업,마케팅팀,팀원,일반 임직원,emp-1016@hanwha-ict.example,EMP-1016,Windows,재직
-EMP-1017,석태윤,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1017@hanwha-ict.example,EMP-1017,Windows,재직
-EMP-1018,허수진,사업·영업,고객지원팀,팀원,일반 임직원,emp-1018@hanwha-ict.example,EMP-1018,Windows,재직
-EMP-1019,허주원,AI·DX,연구소,팀원,일반 임직원,emp-1019@hanwha-ict.example,EMP-1019,macOS,재직
-EMP-1020,임하준,사업·영업,영업2팀,팀원,일반 임직원,emp-1020@hanwha-ict.example,EMP-1020,Windows,재직
-EMP-1021,윤지안,사업·영업,고객지원팀,팀장,일반 임직원,emp-1021@hanwha-ict.example,EMP-1021,Windows,재직
-EMP-1022,임슬기,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1022@hanwha-ict.example,EMP-1022,Windows,재직
-EMP-1023,조수현,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1023@hanwha-ict.example,EMP-1023,Windows,재직
-EMP-1024,김성훈,경영지원,재무팀,팀원,일반 임직원,emp-1024@hanwha-ict.example,EMP-1024,Windows,재직
-EMP-1025,김준영,사업·영업,마케팅팀,팀장,일반 임직원,emp-1025@hanwha-ict.example,EMP-1025,Windows,재직
-EMP-1027,김기현,사업·영업,마케팅팀,팀원,일반 임직원,emp-1027@hanwha-ict.example,EMP-1027,Windows,재직
-EMP-1029,한정우,사업·영업,고객지원팀,팀원,일반 임직원,emp-1029@hanwha-ict.example,EMP-1029,Windows,재직
-EMP-1030,한민재,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1030@hanwha-ict.example,EMP-1030,Windows,재직
-EMP-1031,채민석,사업·영업,마케팅팀,팀원,일반 임직원,emp-1031@hanwha-ict.example,EMP-1031,Windows,재직
-EMP-1032,손채원,ITO·클라우드,생산관리팀,조직장,일반 임직원,emp-1032@hanwha-ict.example,EMP-1032,Windows,재직
-EMP-1033,정시은,경영지원,인사팀,팀원,일반 임직원,emp-1033@hanwha-ict.example,EMP-1033,Windows,재직
-EMP-1034,서수정,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1034@hanwha-ict.example,EMP-1034,Windows,재직
-EMP-1035,우지안,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1035@hanwha-ict.example,EMP-1035,macOS,재직
-EMP-1036,정수호,IT운영·보안,업무시스템팀,팀원,IT 운영 담당자,emp-1036@hanwha-ict.example,EMP-1036,Windows,재직
-EMP-1037,황지윤,사업·영업,영업1팀,팀원,일반 임직원,emp-1037@hanwha-ict.example,EMP-1037,Windows,재직
-EMP-1038,장지훈,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1038@hanwha-ict.example,EMP-1038,Windows,재직
-EMP-1039,최우진,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1039@hanwha-ict.example,EMP-1039,Windows,재직
-EMP-1040,이가윤,사업·영업,영업2팀,팀원,일반 임직원,emp-1040@hanwha-ict.example,EMP-1040,Windows,재직
-EMP-1041,양소윤,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1041@hanwha-ict.example,EMP-1041,Windows,재직
-EMP-1043,명유찬,사업·영업,고객지원팀,팀원,일반 임직원,emp-1043@hanwha-ict.example,EMP-1043,Windows,재직
-EMP-1044,노경민,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1044@hanwha-ict.example,EMP-1044,macOS,재직
-EMP-1045,서민규,AI·DX,연구소,팀원,일반 임직원,emp-1045@hanwha-ict.example,EMP-1045,macOS,재직
-EMP-1046,최소율,사업·영업,마케팅팀,팀원,일반 임직원,emp-1046@hanwha-ict.example,EMP-1046,Windows,재직
-EMP-1047,변수호,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1047@hanwha-ict.example,EMP-1047,Windows,재직
-EMP-1048,박현서,경영지원,재무팀,팀원,일반 임직원,emp-1048@hanwha-ict.example,EMP-1048,Windows,재직
-EMP-1049,정서현,IT운영·보안,네트워크팀,팀원,IT 운영 담당자,emp-1049@hanwha-ict.example,EMP-1049,Windows,재직
-EMP-1050,송서연,AI·DX,연구소,팀원,일반 임직원,emp-1050@hanwha-ict.example,EMP-1050,macOS,재직
-EMP-1052,최다은,경영지원,경영기획팀,팀원,일반 임직원,emp-1052@hanwha-ict.example,EMP-1052,Windows,재직
-EMP-1053,추소윤,AI·DX,연구소,팀원,일반 임직원,emp-1053@hanwha-ict.example,EMP-1053,Windows,재직
-EMP-1054,박윤정,사업·영업,영업2팀,팀원,일반 임직원,emp-1054@hanwha-ict.example,EMP-1054,Windows,재직
-EMP-1055,염가영,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1055@hanwha-ict.example,EMP-1055,Windows,재직
-EMP-1056,장서연,AI·DX,연구소,팀원,일반 임직원,emp-1056@hanwha-ict.example,EMP-1056,macOS,재직
-EMP-1057,이윤아,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1057@hanwha-ict.example,EMP-1057,Windows,재직
-EMP-1058,손성훈,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1058@hanwha-ict.example,EMP-1058,Windows,재직
-EMP-1059,김도현,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1059@hanwha-ict.example,EMP-1059,Windows,재직
-EMP-1061,임승민,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1061@hanwha-ict.example,EMP-1061,Windows,재직
-EMP-1062,임유진,AI·DX,연구소,팀원,일반 임직원,emp-1062@hanwha-ict.example,EMP-1062,Windows,재직
-EMP-1063,권나래,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1063@hanwha-ict.example,EMP-1063,Windows,재직
-EMP-1064,강지호,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1064@hanwha-ict.example,EMP-1064,Windows,재직
-EMP-1065,박예준,경영지원,경영기획팀,조직장,일반 임직원,emp-1065@hanwha-ict.example,EMP-1065,Windows,재직
-EMP-1066,신미진,경영지원,구매팀,팀원,일반 임직원,emp-1066@hanwha-ict.example,EMP-1066,Windows,재직
-EMP-1067,허혜진,경영지원,법무팀,팀원,일반 임직원,emp-1067@hanwha-ict.example,EMP-1067,Windows,재직
-EMP-1069,정서윤,사업·영업,고객지원팀,팀원,일반 임직원,emp-1069@hanwha-ict.example,EMP-1069,Windows,재직
-EMP-1070,서민성,AI·DX,연구소,팀원,일반 임직원,emp-1070@hanwha-ict.example,EMP-1070,macOS,재직
-EMP-1071,심유진,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1071@hanwha-ict.example,EMP-1071,macOS,재직
-EMP-1072,이현정,경영지원,재무팀,팀원,일반 임직원,emp-1072@hanwha-ict.example,EMP-1072,Windows,재직
-EMP-1073,최수아,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1073@hanwha-ict.example,EMP-1073,Windows,재직
-EMP-1075,임태호,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1075@hanwha-ict.example,EMP-1075,Windows,재직
-EMP-1078,오현서,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1078@hanwha-ict.example,EMP-1078,macOS,재직
-EMP-1079,이다인,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1079@hanwha-ict.example,EMP-1079,macOS,재직
-EMP-1081,배예린,사업·영업,영업1팀,팀원,일반 임직원,emp-1081@hanwha-ict.example,EMP-1081,Windows,재직
-EMP-1082,공은서,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1082@hanwha-ict.example,EMP-1082,macOS,재직
-EMP-1083,구주원,AI·DX,연구소,팀원,일반 임직원,emp-1083@hanwha-ict.example,EMP-1083,Windows,재직
-EMP-1085,민수아,AI·DX,연구소,팀원,일반 임직원,emp-1085@hanwha-ict.example,EMP-1085,Windows,재직
-EMP-1086,이윤우,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1086@hanwha-ict.example,EMP-1086,macOS,재직
-EMP-1087,고가윤,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1087@hanwha-ict.example,EMP-1087,Windows,재직
-EMP-1088,명종현,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1088@hanwha-ict.example,EMP-1088,Windows,재직
-EMP-1089,연유준,경영지원,구매팀,팀원,일반 임직원,emp-1089@hanwha-ict.example,EMP-1089,Windows,재직
-EMP-1090,구우진,SI·솔루션사업,디자인팀,팀장,일반 임직원,emp-1090@hanwha-ict.example,EMP-1090,macOS,재직
-EMP-1091,박아름,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1091@hanwha-ict.example,EMP-1091,Windows,재직
-EMP-1092,박경호,사업·영업,마케팅팀,팀원,일반 임직원,emp-1092@hanwha-ict.example,EMP-1092,Windows,재직
-EMP-1093,안지안,AI·DX,연구소,팀원,일반 임직원,emp-1093@hanwha-ict.example,EMP-1093,Windows,재직
-EMP-1094,권경민,사업·영업,고객지원팀,팀원,일반 임직원,emp-1094@hanwha-ict.example,EMP-1094,Windows,재직
-EMP-1096,정소영,경영지원,구매팀,팀원,일반 임직원,emp-1096@hanwha-ict.example,EMP-1096,Windows,재직
-EMP-1099,문윤정,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1099@hanwha-ict.example,EMP-1099,Windows,재직
-EMP-1100,추준우,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1100@hanwha-ict.example,EMP-1100,Windows,재직
-EMP-1101,엄채원,사업·영업,마케팅팀,팀원,일반 임직원,emp-1101@hanwha-ict.example,EMP-1101,Windows,재직
-EMP-1102,김수아,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1102@hanwha-ict.example,EMP-1102,Windows,재직
-EMP-1103,강선영,사업·영업,영업2팀,팀원,일반 임직원,emp-1103@hanwha-ict.example,EMP-1103,Windows,재직
-EMP-1105,나우진,AI·DX,연구소,팀원,일반 임직원,emp-1105@hanwha-ict.example,EMP-1105,macOS,재직
-EMP-1106,최주원,경영지원,경영기획팀,팀원,일반 임직원,emp-1106@hanwha-ict.example,EMP-1106,Windows,재직
-EMP-1107,곽지민,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1107@hanwha-ict.example,EMP-1107,Windows,재직
-EMP-1108,석서준,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1108@hanwha-ict.example,EMP-1108,Windows,재직
-EMP-1109,이가영,IT운영·보안,정보보안팀,팀원,IT 운영 담당자,emp-1109@hanwha-ict.example,EMP-1109,Windows,재직
-EMP-1110,배지민,사업·영업,영업2팀,팀원,일반 임직원,emp-1110@hanwha-ict.example,EMP-1110,Windows,재직
-EMP-1112,백경호,경영지원,경영기획팀,팀원,일반 임직원,emp-1112@hanwha-ict.example,EMP-1112,Windows,재직
-EMP-1113,장슬기,ITO·클라우드,품질관리팀,팀장,일반 임직원,emp-1113@hanwha-ict.example,EMP-1113,Windows,재직
-EMP-1114,이정훈,AI·DX,연구소,팀원,일반 임직원,emp-1114@hanwha-ict.example,EMP-1114,macOS,재직
-EMP-1115,노주희,사업·영업,영업1팀,팀원,일반 임직원,emp-1115@hanwha-ict.example,EMP-1115,Windows,재직
-EMP-1117,변민지,사업·영업,영업2팀,팀원,일반 임직원,emp-1117@hanwha-ict.example,EMP-1117,Windows,재직
-EMP-1118,강준서,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1118@hanwha-ict.example,EMP-1118,macOS,재직
-EMP-1120,이현우,경영지원,구매팀,팀원,일반 임직원,emp-1120@hanwha-ict.example,EMP-1120,Windows,재직
-EMP-1121,유성진,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1121@hanwha-ict.example,EMP-1121,macOS,재직
-EMP-1122,오다인,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1122@hanwha-ict.example,EMP-1122,macOS,재직
-EMP-1123,민혜림,경영지원,구매팀,팀원,일반 임직원,emp-1123@hanwha-ict.example,EMP-1123,Windows,재직
-EMP-1124,송지환,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1124@hanwha-ict.example,EMP-1124,Windows,재직
-EMP-1126,윤다혜,사업·영업,영업1팀,팀원,일반 임직원,emp-1126@hanwha-ict.example,EMP-1126,Windows,재직
-EMP-1127,우정훈,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1127@hanwha-ict.example,EMP-1127,Windows,재직
-EMP-1128,정소윤,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1128@hanwha-ict.example,EMP-1128,Windows,재직
-EMP-1129,설수연,사업·영업,고객지원팀,팀원,일반 임직원,emp-1129@hanwha-ict.example,EMP-1129,Windows,재직
-EMP-1130,권다은,IT운영·보안,업무시스템팀,팀원,IT 운영 담당자,emp-1130@hanwha-ict.example,EMP-1130,Windows,재직
-EMP-1131,박형준,AI·DX,연구소,팀원,일반 임직원,emp-1131@hanwha-ict.example,EMP-1131,macOS,재직
-EMP-1133,전지아,경영지원,구매팀,팀원,일반 임직원,emp-1133@hanwha-ict.example,EMP-1133,Windows,재직
-EMP-1134,박지민,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1134@hanwha-ict.example,EMP-1134,Windows,재직
-EMP-1135,여재현,사업·영업,영업2팀,팀원,일반 임직원,emp-1135@hanwha-ict.example,EMP-1135,Windows,재직
-EMP-1136,소혜림,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1136@hanwha-ict.example,EMP-1136,Windows,재직
-EMP-1137,오서현,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1137@hanwha-ict.example,EMP-1137,macOS,재직
-EMP-1139,곽시은,SI·솔루션사업,개발1팀,조직장,일반 임직원,emp-1139@hanwha-ict.example,EMP-1139,macOS,재직
-EMP-1140,현시윤,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1140@hanwha-ict.example,EMP-1140,Windows,재직
-EMP-1141,김지현,사업·영업,영업2팀,팀원,일반 임직원,emp-1141@hanwha-ict.example,EMP-1141,Windows,재직
-EMP-1142,천우진,사업·영업,고객지원팀,팀원,일반 임직원,emp-1142@hanwha-ict.example,EMP-1142,Windows,재직
-EMP-1143,권유진,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1143@hanwha-ict.example,EMP-1143,Windows,재직
-EMP-1144,장승우,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1144@hanwha-ict.example,EMP-1144,Windows,재직
-EMP-1146,서준호,IT운영·보안,업무시스템팀,팀원,IT 운영 담당자,emp-1146@hanwha-ict.example,EMP-1146,Windows,재직
-EMP-1147,강혜진,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1147@hanwha-ict.example,EMP-1147,Windows,재직
-EMP-1148,장지민,사업·영업,고객지원팀,팀원,일반 임직원,emp-1148@hanwha-ict.example,EMP-1148,Windows,재직
-EMP-1150,장소윤,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1150@hanwha-ict.example,EMP-1150,macOS,재직
-EMP-1151,공서현,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1151@hanwha-ict.example,EMP-1151,Windows,재직
-EMP-1153,윤예린,경영지원,인사팀,팀원,일반 임직원,emp-1153@hanwha-ict.example,EMP-1153,Windows,재직
-EMP-1154,선민성,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1154@hanwha-ict.example,EMP-1154,Windows,재직
-EMP-1155,송가영,사업·영업,영업1팀,팀원,일반 임직원,emp-1155@hanwha-ict.example,EMP-1155,Windows,재직
-EMP-1156,황진혁,IT운영·보안,네트워크팀,팀원,IT 운영 담당자,emp-1156@hanwha-ict.example,EMP-1156,Windows,재직
-EMP-1157,도선영,AI·DX,연구소,팀원,일반 임직원,emp-1157@hanwha-ict.example,EMP-1157,macOS,재직
-EMP-1158,민지호,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1158@hanwha-ict.example,EMP-1158,macOS,재직
-EMP-1160,김예준,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1160@hanwha-ict.example,EMP-1160,macOS,재직
-EMP-1161,진서윤,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1161@hanwha-ict.example,EMP-1161,macOS,재직
-EMP-1162,이승민,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1162@hanwha-ict.example,EMP-1162,Windows,재직
-EMP-1164,남상훈,AI·DX,연구소,팀원,일반 임직원,emp-1164@hanwha-ict.example,EMP-1164,macOS,재직
-EMP-1165,변연우,사업·영업,영업2팀,팀원,일반 임직원,emp-1165@hanwha-ict.example,EMP-1165,Windows,재직
-EMP-1166,유연우,AI·DX,연구소,팀원,일반 임직원,emp-1166@hanwha-ict.example,EMP-1166,Windows,재직
-EMP-1168,구은우,사업·영업,영업1팀,팀원,일반 임직원,emp-1168@hanwha-ict.example,EMP-1168,Windows,재직
-EMP-1169,박서준,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1169@hanwha-ict.example,EMP-1169,Windows,재직
-EMP-1170,노수호,경영지원,인사팀,팀장,일반 임직원,emp-1170@hanwha-ict.example,EMP-1170,Windows,재직
-EMP-1171,박은서,AI·DX,연구소,조직장(팀장 겸),일반 임직원,emp-1171@hanwha-ict.example,EMP-1171,Windows,재직
-EMP-1172,김다은,사업·영업,영업2팀,팀원,일반 임직원,emp-1172@hanwha-ict.example,EMP-1172,Windows,재직
-EMP-1173,유은영,사업·영업,영업2팀,팀장,일반 임직원,emp-1173@hanwha-ict.example,EMP-1173,Windows,재직
-EMP-1174,신혜림,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1174@hanwha-ict.example,EMP-1174,macOS,재직
-EMP-1175,심효진,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1175@hanwha-ict.example,EMP-1175,Windows,재직
-EMP-1176,김현정,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1176@hanwha-ict.example,EMP-1176,macOS,재직
-EMP-1178,이건우,IT운영·보안,서비스데스크,팀장,관리자,emp-1178@hanwha-ict.example,EMP-1178,Windows,재직
-EMP-1179,허소윤,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1179@hanwha-ict.example,EMP-1179,macOS,재직
-EMP-1181,추민규,사업·영업,영업1팀,팀원,일반 임직원,emp-1181@hanwha-ict.example,EMP-1181,Windows,재직
-EMP-1182,문지은,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1182@hanwha-ict.example,EMP-1182,macOS,재직
-EMP-1184,정지환,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1184@hanwha-ict.example,EMP-1184,Windows,재직
-EMP-1185,이성민,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1185@hanwha-ict.example,EMP-1185,Windows,재직
-EMP-1186,조예준,경영지원,법무팀,팀원,일반 임직원,emp-1186@hanwha-ict.example,EMP-1186,Windows,재직
-EMP-1187,안영수,AI·DX,연구소,팀원,일반 임직원,emp-1187@hanwha-ict.example,EMP-1187,Windows,재직
-EMP-1188,이슬기,경영지원,법무팀,팀원,일반 임직원,emp-1188@hanwha-ict.example,EMP-1188,Windows,재직
-EMP-1189,최하린,AI·DX,연구소,팀원,일반 임직원,emp-1189@hanwha-ict.example,EMP-1189,macOS,재직
-EMP-1190,홍준혁,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1190@hanwha-ict.example,EMP-1190,macOS,재직
-EMP-1191,남정우,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1191@hanwha-ict.example,EMP-1191,Windows,재직
-EMP-1192,조윤서,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1192@hanwha-ict.example,EMP-1192,Windows,재직
-EMP-1195,이진우,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1195@hanwha-ict.example,EMP-1195,Windows,재직
-EMP-1196,한민경,AI·DX,연구소,팀원,일반 임직원,emp-1196@hanwha-ict.example,EMP-1196,Windows,재직
-EMP-1197,김경민,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1197@hanwha-ict.example,EMP-1197,Windows,재직
-EMP-1198,최선영,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1198@hanwha-ict.example,EMP-1198,Windows,재직
-EMP-1199,이우진,AI·DX,연구소,팀원,일반 임직원,emp-1199@hanwha-ict.example,EMP-1199,Windows,재직
-EMP-1200,정예지,사업·영업,고객지원팀,팀원,일반 임직원,emp-1200@hanwha-ict.example,EMP-1200,Windows,재직
-EMP-1201,박지원,경영지원,인사팀,팀원,일반 임직원,emp-1201@hanwha-ict.example,EMP-1201,Windows,재직
-EMP-1203,전윤우,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1203@hanwha-ict.example,EMP-1203,Windows,재직
-EMP-1204,윤서아,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1204@hanwha-ict.example,EMP-1204,Windows,재직
-EMP-1205,천다은,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1205@hanwha-ict.example,EMP-1205,Windows,재직
-EMP-1206,지진우,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1206@hanwha-ict.example,EMP-1206,Windows,재직
-EMP-1207,문준영,경영지원,법무팀,팀장,일반 임직원,emp-1207@hanwha-ict.example,EMP-1207,Windows,재직
-EMP-1208,조혜진,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1208@hanwha-ict.example,EMP-1208,macOS,재직
-EMP-1209,하소율,IT운영·보안,시스템인프라팀,팀원,IT 운영 담당자,emp-1209@hanwha-ict.example,EMP-1209,Windows,재직
-EMP-1210,변다혜,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1210@hanwha-ict.example,EMP-1210,Windows,재직
-EMP-1211,이민석,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1211@hanwha-ict.example,EMP-1211,Windows,재직
-EMP-1212,이지아,사업·영업,영업1팀,팀원,일반 임직원,emp-1212@hanwha-ict.example,EMP-1212,Windows,재직
-EMP-1213,권승현,AI·DX,연구소,팀원,일반 임직원,emp-1213@hanwha-ict.example,EMP-1213,macOS,재직
-EMP-1214,우시후,AI·DX,연구소,팀원,일반 임직원,emp-1214@hanwha-ict.example,EMP-1214,macOS,재직
-EMP-1215,추수민,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1215@hanwha-ict.example,EMP-1215,Windows,재직
-EMP-1216,김윤서,IT운영·보안,시스템인프라팀,팀원,IT 운영 담당자,emp-1216@hanwha-ict.example,EMP-1216,Windows,재직
-EMP-1217,송유찬,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1217@hanwha-ict.example,EMP-1217,macOS,재직
-EMP-1219,홍예은,ITO·클라우드,생산관리팀,팀장,일반 임직원,emp-1219@hanwha-ict.example,EMP-1219,Windows,재직
-EMP-1221,이세희,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1221@hanwha-ict.example,EMP-1221,Windows,재직
-EMP-1222,안은정,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1222@hanwha-ict.example,EMP-1222,macOS,재직
-EMP-1223,백지유,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1223@hanwha-ict.example,EMP-1223,Windows,재직
-EMP-1224,임준우,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1224@hanwha-ict.example,EMP-1224,macOS,재직
-EMP-1225,조우진,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1225@hanwha-ict.example,EMP-1225,Windows,재직
-EMP-1227,박주원,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1227@hanwha-ict.example,EMP-1227,macOS,재직
-EMP-1228,표은비,사업·영업,마케팅팀,팀원,일반 임직원,emp-1228@hanwha-ict.example,EMP-1228,Windows,재직
-EMP-1230,조예서,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1230@hanwha-ict.example,EMP-1230,Windows,재직
-EMP-1231,함지유,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1231@hanwha-ict.example,EMP-1231,Windows,재직
-EMP-1232,장다인,AI·DX,연구소,팀원,일반 임직원,emp-1232@hanwha-ict.example,EMP-1232,macOS,재직
-EMP-1233,임재원,IT운영·보안,시스템인프라팀,팀원,IT 운영 담당자,emp-1233@hanwha-ict.example,EMP-1233,Windows,재직
-EMP-1234,배지후,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1234@hanwha-ict.example,EMP-1234,macOS,재직
-EMP-1235,김승우,사업·영업,고객지원팀,팀원,일반 임직원,emp-1235@hanwha-ict.example,EMP-1235,Windows,재직
-EMP-1236,신승우,AI·DX,연구소,팀원,일반 임직원,emp-1236@hanwha-ict.example,EMP-1236,Windows,재직
-EMP-1238,송도윤,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1238@hanwha-ict.example,EMP-1238,macOS,재직
-EMP-1240,이지은,경영지원,인사팀,팀원,일반 임직원,emp-1240@hanwha-ict.example,EMP-1240,Windows,재직
-EMP-1241,한지민,IT운영·보안,시스템인프라팀,팀원,IT 운영 담당자,emp-1241@hanwha-ict.example,EMP-1241,Windows,재직
-EMP-1242,마서윤,AI·DX,연구소,팀원,일반 임직원,emp-1242@hanwha-ict.example,EMP-1242,Windows,재직
-EMP-1243,김영호,사업·영업,고객지원팀,팀원,일반 임직원,emp-1243@hanwha-ict.example,EMP-1243,Windows,재직
-EMP-1244,신다혜,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1244@hanwha-ict.example,EMP-1244,Windows,재직
-EMP-1245,이현서,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1245@hanwha-ict.example,EMP-1245,Windows,재직
-EMP-1246,표효진,경영지원,재무팀,팀장,일반 임직원,emp-1246@hanwha-ict.example,EMP-1246,Windows,재직
-EMP-1248,고형준,AI·DX,연구소,팀원,일반 임직원,emp-1248@hanwha-ict.example,EMP-1248,Windows,재직
-EMP-1249,선민준,AI·DX,연구소,팀원,일반 임직원,emp-1249@hanwha-ict.example,EMP-1249,Windows,재직
-EMP-1250,이예린,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1250@hanwha-ict.example,EMP-1250,Windows,재직
-EMP-1251,설재현,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1251@hanwha-ict.example,EMP-1251,Windows,재직
-EMP-1252,도진우,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1252@hanwha-ict.example,EMP-1252,Windows,재직
-EMP-1253,김한결,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1253@hanwha-ict.example,EMP-1253,macOS,재직
-EMP-1254,최승우,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1254@hanwha-ict.example,EMP-1254,Windows,재직
-EMP-1255,이나래,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1255@hanwha-ict.example,EMP-1255,macOS,재직
-EMP-1257,김효진,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1257@hanwha-ict.example,EMP-1257,macOS,재직
-EMP-1259,심다혜,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1259@hanwha-ict.example,EMP-1259,Windows,재직
-EMP-1260,나다혜,경영지원,재무팀,팀원,일반 임직원,emp-1260@hanwha-ict.example,EMP-1260,Windows,재직
-EMP-1261,김형준,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1261@hanwha-ict.example,EMP-1261,macOS,재직
-EMP-1262,이예서,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1262@hanwha-ict.example,EMP-1262,Windows,재직
-EMP-1263,강하은,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1263@hanwha-ict.example,EMP-1263,Windows,재직
-EMP-1264,장효진,AI·DX,연구소,팀원,일반 임직원,emp-1264@hanwha-ict.example,EMP-1264,macOS,재직
-EMP-1265,연하린,IT운영·보안,시스템인프라팀,팀원,IT 운영 담당자,emp-1265@hanwha-ict.example,EMP-1265,Windows,재직
-EMP-1266,한경아,AI·DX,연구소,팀원,일반 임직원,emp-1266@hanwha-ict.example,EMP-1266,Windows,재직
-EMP-1269,정성민,경영지원,경영기획팀,팀원,일반 임직원,emp-1269@hanwha-ict.example,EMP-1269,Windows,재직
-EMP-1270,오한결,IT운영·보안,정보보안팀,팀장,관리자,emp-1270@hanwha-ict.example,EMP-1270,Windows,재직
-EMP-1271,송지아,AI·DX,연구소,팀원,일반 임직원,emp-1271@hanwha-ict.example,EMP-1271,Windows,재직
-EMP-1272,이서아,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1272@hanwha-ict.example,EMP-1272,Windows,재직
-EMP-1274,박동욱,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1274@hanwha-ict.example,EMP-1274,Windows,재직
-EMP-1278,신유나,IT운영·보안,업무시스템팀,팀원,IT 운영 담당자,emp-1278@hanwha-ict.example,EMP-1278,Windows,재직
-EMP-1279,장재석,사업·영업,영업1팀,팀원,일반 임직원,emp-1279@hanwha-ict.example,EMP-1279,Windows,재직
-EMP-1281,이지민,IT운영·보안,업무시스템팀,팀원,IT 운영 담당자,emp-1281@hanwha-ict.example,EMP-1281,Windows,재직
-EMP-1282,고재현,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1282@hanwha-ict.example,EMP-1282,Windows,재직
-EMP-1284,정아름,AI·DX,연구소,팀원,일반 임직원,emp-1284@hanwha-ict.example,EMP-1284,macOS,재직
-EMP-1285,염나래,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1285@hanwha-ict.example,EMP-1285,Windows,재직
-EMP-1286,하승훈,경영지원,재무팀,팀원,일반 임직원,emp-1286@hanwha-ict.example,EMP-1286,Windows,재직
-EMP-1287,한채은,AI·DX,연구소,팀원,일반 임직원,emp-1287@hanwha-ict.example,EMP-1287,macOS,재직
-EMP-1288,소시후,IT운영·보안,정보보안팀,팀원,IT 운영 담당자,emp-1288@hanwha-ict.example,EMP-1288,Windows,재직
-EMP-1289,박지현,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1289@hanwha-ict.example,EMP-1289,Windows,재직
-EMP-1290,이수아,경영지원,재무팀,팀원,일반 임직원,emp-1290@hanwha-ict.example,EMP-1290,Windows,재직
-EMP-1291,손수호,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1291@hanwha-ict.example,EMP-1291,Windows,재직
-EMP-1293,이다혜,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1293@hanwha-ict.example,EMP-1293,Windows,재직
-EMP-1294,현한결,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1294@hanwha-ict.example,EMP-1294,Windows,재직
-EMP-1295,장시후,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1295@hanwha-ict.example,EMP-1295,macOS,재직
-EMP-1296,이지안,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1296@hanwha-ict.example,EMP-1296,Windows,재직
-EMP-1297,이수민,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1297@hanwha-ict.example,EMP-1297,macOS,재직
-EMP-1298,박서윤,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1298@hanwha-ict.example,EMP-1298,macOS,재직
-EMP-1299,김민서,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1299@hanwha-ict.example,EMP-1299,macOS,재직
-EMP-1300,최지혜,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1300@hanwha-ict.example,EMP-1300,Windows,재직
-EMP-1301,김민경,경영지원,재무팀,팀원,일반 임직원,emp-1301@hanwha-ict.example,EMP-1301,Windows,재직
-EMP-1302,서수연,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1302@hanwha-ict.example,EMP-1302,Windows,재직
-EMP-1304,장하윤,경영지원,재무팀,팀원,일반 임직원,emp-1304@hanwha-ict.example,EMP-1304,Windows,재직
-EMP-1305,선준혁,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1305@hanwha-ict.example,EMP-1305,Windows,재직
-EMP-1307,선선영,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1307@hanwha-ict.example,EMP-1307,Windows,재직
-EMP-1308,권서윤,사업·영업,영업1팀,팀원,일반 임직원,emp-1308@hanwha-ict.example,EMP-1308,Windows,재직
-EMP-1309,김지성,AI·DX,연구소,팀원,일반 임직원,emp-1309@hanwha-ict.example,EMP-1309,Windows,재직
-EMP-1310,장하준,AI·DX,연구소,팀원,일반 임직원,emp-1310@hanwha-ict.example,EMP-1310,macOS,재직
-EMP-1311,유재윤,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1311@hanwha-ict.example,EMP-1311,macOS,재직
-EMP-1312,안재훈,사업·영업,고객지원팀,팀원,일반 임직원,emp-1312@hanwha-ict.example,EMP-1312,Windows,재직
-EMP-1313,설현준,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1313@hanwha-ict.example,EMP-1313,Windows,재직
-EMP-1314,도은지,AI·DX,연구소,팀원,일반 임직원,emp-1314@hanwha-ict.example,EMP-1314,macOS,재직
-EMP-1315,유혜원,사업·영업,고객지원팀,팀원,일반 임직원,emp-1315@hanwha-ict.example,EMP-1315,Windows,재직
-EMP-1316,김태윤,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1316@hanwha-ict.example,EMP-1316,Windows,재직
-EMP-1317,김건우,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1317@hanwha-ict.example,EMP-1317,Windows,재직
-EMP-1318,류재원,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1318@hanwha-ict.example,EMP-1318,Windows,재직
-EMP-1319,오가윤,IT운영·보안,시스템인프라팀,팀원,IT 운영 담당자,emp-1319@hanwha-ict.example,EMP-1319,Windows,재직
-EMP-1320,김하윤,AI·DX,연구소,팀원,일반 임직원,emp-1320@hanwha-ict.example,EMP-1320,Windows,재직
-EMP-1321,박서연,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1321@hanwha-ict.example,EMP-1321,Windows,재직
-EMP-1322,배재석,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1322@hanwha-ict.example,EMP-1322,macOS,재직
-EMP-1323,손예준,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1323@hanwha-ict.example,EMP-1323,Windows,재직
-EMP-1324,이지후,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1324@hanwha-ict.example,EMP-1324,Windows,재직
-EMP-1325,이도윤,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1325@hanwha-ict.example,EMP-1325,Windows,재직
-EMP-1326,김선영,AI·DX,연구소,팀원,일반 임직원,emp-1326@hanwha-ict.example,EMP-1326,macOS,재직
-EMP-1327,천도현,경영지원,인사팀,팀원,일반 임직원,emp-1327@hanwha-ict.example,EMP-1327,Windows,재직
-EMP-1328,권시은,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1328@hanwha-ict.example,EMP-1328,macOS,재직
-EMP-1329,오지윤,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1329@hanwha-ict.example,EMP-1329,macOS,재직
-EMP-1330,백준혁,경영지원,인사팀,팀원,일반 임직원,emp-1330@hanwha-ict.example,EMP-1330,Windows,재직
-EMP-1331,백지후,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1331@hanwha-ict.example,EMP-1331,macOS,재직
-EMP-1332,정주원,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1332@hanwha-ict.example,EMP-1332,Windows,재직
-EMP-1333,임동훈,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1333@hanwha-ict.example,EMP-1333,Windows,재직
-EMP-1334,김서준,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1334@hanwha-ict.example,EMP-1334,Windows,재직
-EMP-1336,최시윤,사업·영업,고객지원팀,팀원,일반 임직원,emp-1336@hanwha-ict.example,EMP-1336,Windows,재직
-EMP-1338,박지유,IT운영·보안,서비스데스크,조직장,관리자,emp-1338@hanwha-ict.example,EMP-1338,Windows,재직
-EMP-1339,하시후,AI·DX,연구소,팀원,일반 임직원,emp-1339@hanwha-ict.example,EMP-1339,macOS,재직
-EMP-1340,주지윤,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1340@hanwha-ict.example,EMP-1340,Windows,재직
-EMP-1342,홍수현,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1342@hanwha-ict.example,EMP-1342,Windows,재직
-EMP-1343,송수연,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1343@hanwha-ict.example,EMP-1343,macOS,재직
-EMP-1344,유채은,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1344@hanwha-ict.example,EMP-1344,Windows,재직
-EMP-1345,박태호,AI·DX,연구소,팀원,일반 임직원,emp-1345@hanwha-ict.example,EMP-1345,Windows,재직
-EMP-1346,차선우,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1346@hanwha-ict.example,EMP-1346,Windows,재직
-EMP-1347,허지환,AI·DX,연구소,팀원,일반 임직원,emp-1347@hanwha-ict.example,EMP-1347,Windows,재직
-EMP-1349,박지아,사업·영업,고객지원팀,팀원,일반 임직원,emp-1349@hanwha-ict.example,EMP-1349,Windows,재직
-EMP-1350,정세희,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1350@hanwha-ict.example,EMP-1350,Windows,재직
-EMP-1351,김재훈,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1351@hanwha-ict.example,EMP-1351,macOS,재직
-EMP-1352,차영호,사업·영업,고객지원팀,팀원,일반 임직원,emp-1352@hanwha-ict.example,EMP-1352,Windows,재직
-EMP-1353,허민석,IT운영·보안,시스템인프라팀,팀장,관리자,emp-1353@hanwha-ict.example,EMP-1353,Windows,재직
-EMP-1354,박채원,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1354@hanwha-ict.example,EMP-1354,Windows,재직
-EMP-1355,차서현,경영지원,재무팀,팀원,일반 임직원,emp-1355@hanwha-ict.example,EMP-1355,Windows,재직
-EMP-1357,박나래,AI·DX,연구소,팀원,일반 임직원,emp-1357@hanwha-ict.example,EMP-1357,Windows,재직
-EMP-1359,박예서,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1359@hanwha-ict.example,EMP-1359,Windows,재직
-EMP-1360,최준혁,AI·DX,연구소,팀원,일반 임직원,emp-1360@hanwha-ict.example,EMP-1360,macOS,재직
-EMP-1361,임하윤,경영지원,인사팀,팀원,일반 임직원,emp-1361@hanwha-ict.example,EMP-1361,Windows,재직
-EMP-1363,박성진,AI·DX,연구소,팀원,일반 임직원,emp-1363@hanwha-ict.example,EMP-1363,macOS,재직
-EMP-1364,노혜림,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1364@hanwha-ict.example,EMP-1364,Windows,재직
-EMP-1365,신현정,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1365@hanwha-ict.example,EMP-1365,macOS,재직
-EMP-1366,서승현,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1366@hanwha-ict.example,EMP-1366,Windows,재직
-EMP-1367,송형준,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1367@hanwha-ict.example,EMP-1367,Windows,재직
-EMP-1368,송성진,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1368@hanwha-ict.example,EMP-1368,Windows,재직
-EMP-1370,조민재,IT운영·보안,네트워크팀,팀원,IT 운영 담당자,emp-1370@hanwha-ict.example,EMP-1370,Windows,재직
-EMP-1371,안종현,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1371@hanwha-ict.example,EMP-1371,Windows,재직
-EMP-1372,우혜림,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1372@hanwha-ict.example,EMP-1372,Windows,재직
-EMP-1374,최시현,AI·DX,연구소,팀원,일반 임직원,emp-1374@hanwha-ict.example,EMP-1374,macOS,재직
-EMP-1375,윤하린,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1375@hanwha-ict.example,EMP-1375,Windows,재직
-EMP-1376,현현정,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1376@hanwha-ict.example,EMP-1376,Windows,재직
-EMP-1377,신서현,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1377@hanwha-ict.example,EMP-1377,Windows,재직
-EMP-1378,최미진,사업·영업,영업1팀,조직장,일반 임직원,emp-1378@hanwha-ict.example,EMP-1378,Windows,재직
-EMP-1380,차다혜,AI·DX,연구소,팀원,일반 임직원,emp-1380@hanwha-ict.example,EMP-1380,Windows,재직
-EMP-1382,유도현,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1382@hanwha-ict.example,EMP-1382,macOS,재직
-EMP-1383,손시은,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1383@hanwha-ict.example,EMP-1383,Windows,재직
-EMP-1384,김은우,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1384@hanwha-ict.example,EMP-1384,macOS,재직
-EMP-1385,김유나,IT운영·보안,네트워크팀,팀장,관리자,emp-1385@hanwha-ict.example,EMP-1385,Windows,재직
-EMP-1386,문혜림,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1386@hanwha-ict.example,EMP-1386,Windows,재직
-EMP-1388,한상훈,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1388@hanwha-ict.example,EMP-1388,Windows,재직
-EMP-1389,최하은,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1389@hanwha-ict.example,EMP-1389,Windows,재직
-EMP-1390,선준호,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1390@hanwha-ict.example,EMP-1390,Windows,재직
-EMP-1391,오상우,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1391@hanwha-ict.example,EMP-1391,Windows,재직
-EMP-1392,명시우,경영지원,구매팀,팀장,일반 임직원,emp-1392@hanwha-ict.example,EMP-1392,Windows,재직
-EMP-1393,장보람,AI·DX,연구소,팀원,일반 임직원,emp-1393@hanwha-ict.example,EMP-1393,macOS,재직
-EMP-1394,문나래,AI·DX,연구소,팀원,일반 임직원,emp-1394@hanwha-ict.example,EMP-1394,macOS,재직
-EMP-1396,설정민,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1396@hanwha-ict.example,EMP-1396,macOS,재직
-EMP-1397,권동욱,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1397@hanwha-ict.example,EMP-1397,macOS,재직
-EMP-1398,구현서,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1398@hanwha-ict.example,EMP-1398,Windows,재직
-EMP-1399,박유찬,AI·DX,연구소,팀원,일반 임직원,emp-1399@hanwha-ict.example,EMP-1399,macOS,재직
-EMP-1400,이윤호,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1400@hanwha-ict.example,EMP-1400,Windows,재직
-EMP-1401,천지환,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1401@hanwha-ict.example,EMP-1401,Windows,재직
-EMP-1402,강선우,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1402@hanwha-ict.example,EMP-1402,macOS,재직
-EMP-1403,류정은,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1403@hanwha-ict.example,EMP-1403,macOS,재직
-EMP-1405,하태윤,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1405@hanwha-ict.example,EMP-1405,macOS,재직
-EMP-1406,이하린,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1406@hanwha-ict.example,EMP-1406,Windows,재직
-EMP-1407,김시은,AI·DX,연구소,팀원,일반 임직원,emp-1407@hanwha-ict.example,EMP-1407,Windows,재직
-EMP-1408,황민석,IT운영·보안,정보보안팀,팀원,IT 운영 담당자,emp-1408@hanwha-ict.example,EMP-1408,Windows,재직
-EMP-1409,이동욱,IT운영·보안,정보보안팀,팀원,IT 운영 담당자,emp-1409@hanwha-ict.example,EMP-1409,Windows,재직
-EMP-1410,차시윤,SI·솔루션사업,개발2팀,팀장,일반 임직원,emp-1410@hanwha-ict.example,EMP-1410,Windows,재직
-EMP-1411,정우진,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1411@hanwha-ict.example,EMP-1411,Windows,재직
-EMP-1412,김주희,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1412@hanwha-ict.example,EMP-1412,Windows,재직
-EMP-1413,김현준,AI·DX,연구소,팀원,일반 임직원,emp-1413@hanwha-ict.example,EMP-1413,macOS,재직
-EMP-1414,강혜원,AI·DX,연구소,팀원,일반 임직원,emp-1414@hanwha-ict.example,EMP-1414,Windows,재직
-EMP-1417,강준혁,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1417@hanwha-ict.example,EMP-1417,Windows,재직
-EMP-1418,강소희,사업·영업,영업2팀,팀원,일반 임직원,emp-1418@hanwha-ict.example,EMP-1418,Windows,재직
-EMP-1419,심준우,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1419@hanwha-ict.example,EMP-1419,Windows,재직
-EMP-1420,석하준,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1420@hanwha-ict.example,EMP-1420,Windows,재직
-EMP-1421,방예은,사업·영업,영업1팀,팀원,일반 임직원,emp-1421@hanwha-ict.example,EMP-1421,Windows,재직
-EMP-1422,고채은,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1422@hanwha-ict.example,EMP-1422,Windows,재직
-EMP-1423,윤재현,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1423@hanwha-ict.example,EMP-1423,Windows,재직
-EMP-1424,김준우,AI·DX,연구소,팀원,일반 임직원,emp-1424@hanwha-ict.example,EMP-1424,macOS,재직
-EMP-1426,김예린,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1426@hanwha-ict.example,EMP-1426,Windows,재직
-EMP-1428,배윤서,AI·DX,연구소,팀원,일반 임직원,emp-1428@hanwha-ict.example,EMP-1428,macOS,재직
-EMP-1429,백예지,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1429@hanwha-ict.example,EMP-1429,macOS,재직
-EMP-1430,공수호,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1430@hanwha-ict.example,EMP-1430,Windows,재직
-EMP-1431,최진우,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1431@hanwha-ict.example,EMP-1431,Windows,재직
-EMP-1432,김태현,IT운영·보안,네트워크팀,팀원,IT 운영 담당자,emp-1432@hanwha-ict.example,EMP-1432,Windows,재직
-EMP-1434,김동현,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1434@hanwha-ict.example,EMP-1434,Windows,재직
-EMP-1435,박현우,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1435@hanwha-ict.example,EMP-1435,Windows,재직
-EMP-1436,윤미경,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1436@hanwha-ict.example,EMP-1436,Windows,재직
-EMP-1437,허예린,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1437@hanwha-ict.example,EMP-1437,macOS,재직
-EMP-1438,함성진,IT운영·보안,네트워크팀,팀원,IT 운영 담당자,emp-1438@hanwha-ict.example,EMP-1438,Windows,재직
-EMP-1439,한지훈,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1439@hanwha-ict.example,EMP-1439,Windows,재직
-EMP-1441,현수진,SI·솔루션사업,개발1팀,팀장,일반 임직원,emp-1441@hanwha-ict.example,EMP-1441,macOS,재직
-EMP-1442,손민석,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1442@hanwha-ict.example,EMP-1442,Windows,재직
-EMP-1443,양대현,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1443@hanwha-ict.example,EMP-1443,Windows,재직
-EMP-1445,고은정,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1445@hanwha-ict.example,EMP-1445,macOS,재직
-EMP-1446,임예준,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1446@hanwha-ict.example,EMP-1446,Windows,재직
-EMP-1447,이윤서,사업·영업,영업1팀,팀장,일반 임직원,emp-1447@hanwha-ict.example,EMP-1447,Windows,재직
-EMP-1448,위동훈,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1448@hanwha-ict.example,EMP-1448,macOS,재직
-EMP-1449,임경아,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1449@hanwha-ict.example,EMP-1449,Windows,재직
-EMP-1450,조은우,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1450@hanwha-ict.example,EMP-1450,macOS,재직
-EMP-1451,명유준,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1451@hanwha-ict.example,EMP-1451,macOS,재직
-EMP-1452,이주원,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1452@hanwha-ict.example,EMP-1452,Windows,재직
-EMP-1453,조지아,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1453@hanwha-ict.example,EMP-1453,macOS,재직
-EMP-1454,주예은,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1454@hanwha-ict.example,EMP-1454,Windows,재직
-EMP-1455,김수빈,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1455@hanwha-ict.example,EMP-1455,Windows,재직
-EMP-1456,김채은,사업·영업,영업1팀,팀원,일반 임직원,emp-1456@hanwha-ict.example,EMP-1456,Windows,재직
-EMP-1457,황재훈,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1457@hanwha-ict.example,EMP-1457,Windows,재직
-EMP-1459,김아름,경영지원,인사팀,팀원,일반 임직원,emp-1459@hanwha-ict.example,EMP-1459,Windows,재직
-EMP-1460,오승현,IT운영·보안,시스템인프라팀,팀원,IT 운영 담당자,emp-1460@hanwha-ict.example,EMP-1460,Windows,재직
-EMP-1461,허시우,IT운영·보안,엔드포인트지원팀,팀장,관리자,emp-1461@hanwha-ict.example,EMP-1461,Windows,재직
-EMP-1462,송예린,IT운영·보안,정보보안팀,팀원,IT 운영 담당자,emp-1462@hanwha-ict.example,EMP-1462,Windows,재직
-EMP-1463,박다인,AI·DX,연구소,팀원,일반 임직원,emp-1463@hanwha-ict.example,EMP-1463,macOS,재직
-EMP-1464,정상훈,IT운영·보안,업무시스템팀,팀장,관리자,emp-1464@hanwha-ict.example,EMP-1464,Windows,재직
-EMP-1465,조채원,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1465@hanwha-ict.example,EMP-1465,Windows,재직
-EMP-1466,한유진,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1466@hanwha-ict.example,EMP-1466,Windows,재직
-EMP-1467,양준우,IT운영·보안,정보보안팀,팀원,IT 운영 담당자,emp-1467@hanwha-ict.example,EMP-1467,Windows,재직
-EMP-1468,차도윤,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1468@hanwha-ict.example,EMP-1468,Windows,재직
-EMP-1469,홍아름,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1469@hanwha-ict.example,EMP-1469,Windows,재직
-EMP-1470,김태호,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1470@hanwha-ict.example,EMP-1470,Windows,재직
-EMP-1471,엄지유,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1471@hanwha-ict.example,EMP-1471,Windows,재직
-EMP-1472,정현서,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1472@hanwha-ict.example,EMP-1472,Windows,재직
-EMP-1473,전지후,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1473@hanwha-ict.example,EMP-1473,Windows,재직
-EMP-1474,박상훈,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1474@hanwha-ict.example,EMP-1474,Windows,재직
-EMP-1476,채은서,경영지원,경영기획팀,팀원,일반 임직원,emp-1476@hanwha-ict.example,EMP-1476,Windows,재직
-EMP-1477,권하은,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1477@hanwha-ict.example,EMP-1477,Windows,재직
-EMP-1480,김정훈,IT운영·보안,업무시스템팀,팀원,IT 운영 담당자,emp-1480@hanwha-ict.example,EMP-1480,Windows,재직
+EMP-1001,이태윤,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1001@ict.example,EMP-1001,Windows,재직
+EMP-1002,원상우,경영지원,경영기획팀,팀장,일반 임직원,emp-1002@ict.example,EMP-1002,Windows,재직
+EMP-1003,김민지,경영지원,인사팀,팀원,일반 임직원,emp-1003@ict.example,EMP-1003,Windows,재직
+EMP-1004,성민경,IT운영·보안,네트워크팀,팀원,IT 운영 담당자,emp-1004@ict.example,EMP-1004,Windows,재직
+EMP-1005,최하준,사업·영업,영업2팀,팀원,일반 임직원,emp-1005@ict.example,EMP-1005,Windows,재직
+EMP-1006,정서진,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1006@ict.example,EMP-1006,Windows,재직
+EMP-1007,정영호,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1007@ict.example,EMP-1007,Windows,재직
+EMP-1008,황도현,경영지원,경영기획팀,팀원,일반 임직원,emp-1008@ict.example,EMP-1008,Windows,재직
+EMP-1009,도재훈,AI·DX,연구소,팀원,일반 임직원,emp-1009@ict.example,EMP-1009,macOS,재직
+EMP-1011,황지안,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1011@ict.example,EMP-1011,Windows,재직
+EMP-1012,정지훈,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1012@ict.example,EMP-1012,Windows,재직
+EMP-1013,박세희,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1013@ict.example,EMP-1013,Windows,재직
+EMP-1014,전미진,사업·영업,영업2팀,팀원,일반 임직원,emp-1014@ict.example,EMP-1014,Windows,재직
+EMP-1016,노현준,사업·영업,마케팅팀,팀원,일반 임직원,emp-1016@ict.example,EMP-1016,Windows,재직
+EMP-1017,석태윤,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1017@ict.example,EMP-1017,Windows,재직
+EMP-1018,허수진,사업·영업,고객지원팀,팀원,일반 임직원,emp-1018@ict.example,EMP-1018,Windows,재직
+EMP-1019,허주원,AI·DX,연구소,팀원,일반 임직원,emp-1019@ict.example,EMP-1019,macOS,재직
+EMP-1020,임하준,사업·영업,영업2팀,팀원,일반 임직원,emp-1020@ict.example,EMP-1020,Windows,재직
+EMP-1021,윤지안,사업·영업,고객지원팀,팀장,일반 임직원,emp-1021@ict.example,EMP-1021,Windows,재직
+EMP-1022,임슬기,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1022@ict.example,EMP-1022,Windows,재직
+EMP-1023,조수현,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1023@ict.example,EMP-1023,Windows,재직
+EMP-1024,김성훈,경영지원,재무팀,팀원,일반 임직원,emp-1024@ict.example,EMP-1024,Windows,재직
+EMP-1025,김준영,사업·영업,마케팅팀,팀장,일반 임직원,emp-1025@ict.example,EMP-1025,Windows,재직
+EMP-1027,김기현,사업·영업,마케팅팀,팀원,일반 임직원,emp-1027@ict.example,EMP-1027,Windows,재직
+EMP-1029,한정우,사업·영업,고객지원팀,팀원,일반 임직원,emp-1029@ict.example,EMP-1029,Windows,재직
+EMP-1030,한민재,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1030@ict.example,EMP-1030,Windows,재직
+EMP-1031,채민석,사업·영업,마케팅팀,팀원,일반 임직원,emp-1031@ict.example,EMP-1031,Windows,재직
+EMP-1032,손채원,ITO·클라우드,생산관리팀,조직장,일반 임직원,emp-1032@ict.example,EMP-1032,Windows,재직
+EMP-1033,정시은,경영지원,인사팀,팀원,일반 임직원,emp-1033@ict.example,EMP-1033,Windows,재직
+EMP-1034,서수정,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1034@ict.example,EMP-1034,Windows,재직
+EMP-1035,우지안,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1035@ict.example,EMP-1035,macOS,재직
+EMP-1036,정수호,IT운영·보안,업무시스템팀,팀원,IT 운영 담당자,emp-1036@ict.example,EMP-1036,Windows,재직
+EMP-1037,황지윤,사업·영업,영업1팀,팀원,일반 임직원,emp-1037@ict.example,EMP-1037,Windows,재직
+EMP-1038,장지훈,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1038@ict.example,EMP-1038,Windows,재직
+EMP-1039,최우진,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1039@ict.example,EMP-1039,Windows,재직
+EMP-1040,이가윤,사업·영업,영업2팀,팀원,일반 임직원,emp-1040@ict.example,EMP-1040,Windows,재직
+EMP-1041,양소윤,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1041@ict.example,EMP-1041,Windows,재직
+EMP-1043,명유찬,사업·영업,고객지원팀,팀원,일반 임직원,emp-1043@ict.example,EMP-1043,Windows,재직
+EMP-1044,노경민,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1044@ict.example,EMP-1044,macOS,재직
+EMP-1045,서민규,AI·DX,연구소,팀원,일반 임직원,emp-1045@ict.example,EMP-1045,macOS,재직
+EMP-1046,최소율,사업·영업,마케팅팀,팀원,일반 임직원,emp-1046@ict.example,EMP-1046,Windows,재직
+EMP-1047,변수호,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1047@ict.example,EMP-1047,Windows,재직
+EMP-1048,박현서,경영지원,재무팀,팀원,일반 임직원,emp-1048@ict.example,EMP-1048,Windows,재직
+EMP-1049,정서현,IT운영·보안,네트워크팀,팀원,IT 운영 담당자,emp-1049@ict.example,EMP-1049,Windows,재직
+EMP-1050,송서연,AI·DX,연구소,팀원,일반 임직원,emp-1050@ict.example,EMP-1050,macOS,재직
+EMP-1052,최다은,경영지원,경영기획팀,팀원,일반 임직원,emp-1052@ict.example,EMP-1052,Windows,재직
+EMP-1053,추소윤,AI·DX,연구소,팀원,일반 임직원,emp-1053@ict.example,EMP-1053,Windows,재직
+EMP-1054,박윤정,사업·영업,영업2팀,팀원,일반 임직원,emp-1054@ict.example,EMP-1054,Windows,재직
+EMP-1055,염가영,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1055@ict.example,EMP-1055,Windows,재직
+EMP-1056,장서연,AI·DX,연구소,팀원,일반 임직원,emp-1056@ict.example,EMP-1056,macOS,재직
+EMP-1057,이윤아,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1057@ict.example,EMP-1057,Windows,재직
+EMP-1058,손성훈,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1058@ict.example,EMP-1058,Windows,재직
+EMP-1059,김도현,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1059@ict.example,EMP-1059,Windows,재직
+EMP-1061,임승민,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1061@ict.example,EMP-1061,Windows,재직
+EMP-1062,임유진,AI·DX,연구소,팀원,일반 임직원,emp-1062@ict.example,EMP-1062,Windows,재직
+EMP-1063,권나래,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1063@ict.example,EMP-1063,Windows,재직
+EMP-1064,강지호,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1064@ict.example,EMP-1064,Windows,재직
+EMP-1065,박예준,경영지원,경영기획팀,조직장,일반 임직원,emp-1065@ict.example,EMP-1065,Windows,재직
+EMP-1066,신미진,경영지원,구매팀,팀원,일반 임직원,emp-1066@ict.example,EMP-1066,Windows,재직
+EMP-1067,허혜진,경영지원,법무팀,팀원,일반 임직원,emp-1067@ict.example,EMP-1067,Windows,재직
+EMP-1069,정서윤,사업·영업,고객지원팀,팀원,일반 임직원,emp-1069@ict.example,EMP-1069,Windows,재직
+EMP-1070,서민성,AI·DX,연구소,팀원,일반 임직원,emp-1070@ict.example,EMP-1070,macOS,재직
+EMP-1071,심유진,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1071@ict.example,EMP-1071,macOS,재직
+EMP-1072,이현정,경영지원,재무팀,팀원,일반 임직원,emp-1072@ict.example,EMP-1072,Windows,재직
+EMP-1073,최수아,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1073@ict.example,EMP-1073,Windows,재직
+EMP-1075,임태호,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1075@ict.example,EMP-1075,Windows,재직
+EMP-1078,오현서,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1078@ict.example,EMP-1078,macOS,재직
+EMP-1079,이다인,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1079@ict.example,EMP-1079,macOS,재직
+EMP-1081,배예린,사업·영업,영업1팀,팀원,일반 임직원,emp-1081@ict.example,EMP-1081,Windows,재직
+EMP-1082,공은서,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1082@ict.example,EMP-1082,macOS,재직
+EMP-1083,구주원,AI·DX,연구소,팀원,일반 임직원,emp-1083@ict.example,EMP-1083,Windows,재직
+EMP-1085,민수아,AI·DX,연구소,팀원,일반 임직원,emp-1085@ict.example,EMP-1085,Windows,재직
+EMP-1086,이윤우,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1086@ict.example,EMP-1086,macOS,재직
+EMP-1087,고가윤,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1087@ict.example,EMP-1087,Windows,재직
+EMP-1088,명종현,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1088@ict.example,EMP-1088,Windows,재직
+EMP-1089,연유준,경영지원,구매팀,팀원,일반 임직원,emp-1089@ict.example,EMP-1089,Windows,재직
+EMP-1090,구우진,SI·솔루션사업,디자인팀,팀장,일반 임직원,emp-1090@ict.example,EMP-1090,macOS,재직
+EMP-1091,박아름,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1091@ict.example,EMP-1091,Windows,재직
+EMP-1092,박경호,사업·영업,마케팅팀,팀원,일반 임직원,emp-1092@ict.example,EMP-1092,Windows,재직
+EMP-1093,안지안,AI·DX,연구소,팀원,일반 임직원,emp-1093@ict.example,EMP-1093,Windows,재직
+EMP-1094,권경민,사업·영업,고객지원팀,팀원,일반 임직원,emp-1094@ict.example,EMP-1094,Windows,재직
+EMP-1096,정소영,경영지원,구매팀,팀원,일반 임직원,emp-1096@ict.example,EMP-1096,Windows,재직
+EMP-1099,문윤정,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1099@ict.example,EMP-1099,Windows,재직
+EMP-1100,추준우,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1100@ict.example,EMP-1100,Windows,재직
+EMP-1101,엄채원,사업·영업,마케팅팀,팀원,일반 임직원,emp-1101@ict.example,EMP-1101,Windows,재직
+EMP-1102,김수아,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1102@ict.example,EMP-1102,Windows,재직
+EMP-1103,강선영,사업·영업,영업2팀,팀원,일반 임직원,emp-1103@ict.example,EMP-1103,Windows,재직
+EMP-1105,나우진,AI·DX,연구소,팀원,일반 임직원,emp-1105@ict.example,EMP-1105,macOS,재직
+EMP-1106,최주원,경영지원,경영기획팀,팀원,일반 임직원,emp-1106@ict.example,EMP-1106,Windows,재직
+EMP-1107,곽지민,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1107@ict.example,EMP-1107,Windows,재직
+EMP-1108,석서준,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1108@ict.example,EMP-1108,Windows,재직
+EMP-1109,이가영,IT운영·보안,정보보안팀,팀원,IT 운영 담당자,emp-1109@ict.example,EMP-1109,Windows,재직
+EMP-1110,배지민,사업·영업,영업2팀,팀원,일반 임직원,emp-1110@ict.example,EMP-1110,Windows,재직
+EMP-1112,백경호,경영지원,경영기획팀,팀원,일반 임직원,emp-1112@ict.example,EMP-1112,Windows,재직
+EMP-1113,장슬기,ITO·클라우드,품질관리팀,팀장,일반 임직원,emp-1113@ict.example,EMP-1113,Windows,재직
+EMP-1114,이정훈,AI·DX,연구소,팀원,일반 임직원,emp-1114@ict.example,EMP-1114,macOS,재직
+EMP-1115,노주희,사업·영업,영업1팀,팀원,일반 임직원,emp-1115@ict.example,EMP-1115,Windows,재직
+EMP-1117,변민지,사업·영업,영업2팀,팀원,일반 임직원,emp-1117@ict.example,EMP-1117,Windows,재직
+EMP-1118,강준서,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1118@ict.example,EMP-1118,macOS,재직
+EMP-1120,이현우,경영지원,구매팀,팀원,일반 임직원,emp-1120@ict.example,EMP-1120,Windows,재직
+EMP-1121,유성진,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1121@ict.example,EMP-1121,macOS,재직
+EMP-1122,오다인,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1122@ict.example,EMP-1122,macOS,재직
+EMP-1123,민혜림,경영지원,구매팀,팀원,일반 임직원,emp-1123@ict.example,EMP-1123,Windows,재직
+EMP-1124,송지환,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1124@ict.example,EMP-1124,Windows,재직
+EMP-1126,윤다혜,사업·영업,영업1팀,팀원,일반 임직원,emp-1126@ict.example,EMP-1126,Windows,재직
+EMP-1127,우정훈,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1127@ict.example,EMP-1127,Windows,재직
+EMP-1128,정소윤,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1128@ict.example,EMP-1128,Windows,재직
+EMP-1129,설수연,사업·영업,고객지원팀,팀원,일반 임직원,emp-1129@ict.example,EMP-1129,Windows,재직
+EMP-1130,권다은,IT운영·보안,업무시스템팀,팀원,IT 운영 담당자,emp-1130@ict.example,EMP-1130,Windows,재직
+EMP-1131,박형준,AI·DX,연구소,팀원,일반 임직원,emp-1131@ict.example,EMP-1131,macOS,재직
+EMP-1133,전지아,경영지원,구매팀,팀원,일반 임직원,emp-1133@ict.example,EMP-1133,Windows,재직
+EMP-1134,박지민,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1134@ict.example,EMP-1134,Windows,재직
+EMP-1135,여재현,사업·영업,영업2팀,팀원,일반 임직원,emp-1135@ict.example,EMP-1135,Windows,재직
+EMP-1136,소혜림,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1136@ict.example,EMP-1136,Windows,재직
+EMP-1137,오서현,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1137@ict.example,EMP-1137,macOS,재직
+EMP-1139,곽시은,SI·솔루션사업,개발1팀,조직장,일반 임직원,emp-1139@ict.example,EMP-1139,macOS,재직
+EMP-1140,현시윤,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1140@ict.example,EMP-1140,Windows,재직
+EMP-1141,김지현,사업·영업,영업2팀,팀원,일반 임직원,emp-1141@ict.example,EMP-1141,Windows,재직
+EMP-1142,천우진,사업·영업,고객지원팀,팀원,일반 임직원,emp-1142@ict.example,EMP-1142,Windows,재직
+EMP-1143,권유진,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1143@ict.example,EMP-1143,Windows,재직
+EMP-1144,장승우,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1144@ict.example,EMP-1144,Windows,재직
+EMP-1146,서준호,IT운영·보안,업무시스템팀,팀원,IT 운영 담당자,emp-1146@ict.example,EMP-1146,Windows,재직
+EMP-1147,강혜진,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1147@ict.example,EMP-1147,Windows,재직
+EMP-1148,장지민,사업·영업,고객지원팀,팀원,일반 임직원,emp-1148@ict.example,EMP-1148,Windows,재직
+EMP-1150,장소윤,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1150@ict.example,EMP-1150,macOS,재직
+EMP-1151,공서현,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1151@ict.example,EMP-1151,Windows,재직
+EMP-1153,윤예린,경영지원,인사팀,팀원,일반 임직원,emp-1153@ict.example,EMP-1153,Windows,재직
+EMP-1154,선민성,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1154@ict.example,EMP-1154,Windows,재직
+EMP-1155,송가영,사업·영업,영업1팀,팀원,일반 임직원,emp-1155@ict.example,EMP-1155,Windows,재직
+EMP-1156,황진혁,IT운영·보안,네트워크팀,팀원,IT 운영 담당자,emp-1156@ict.example,EMP-1156,Windows,재직
+EMP-1157,도선영,AI·DX,연구소,팀원,일반 임직원,emp-1157@ict.example,EMP-1157,macOS,재직
+EMP-1158,민지호,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1158@ict.example,EMP-1158,macOS,재직
+EMP-1160,김예준,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1160@ict.example,EMP-1160,macOS,재직
+EMP-1161,진서윤,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1161@ict.example,EMP-1161,macOS,재직
+EMP-1162,이승민,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1162@ict.example,EMP-1162,Windows,재직
+EMP-1164,남상훈,AI·DX,연구소,팀원,일반 임직원,emp-1164@ict.example,EMP-1164,macOS,재직
+EMP-1165,변연우,사업·영업,영업2팀,팀원,일반 임직원,emp-1165@ict.example,EMP-1165,Windows,재직
+EMP-1166,유연우,AI·DX,연구소,팀원,일반 임직원,emp-1166@ict.example,EMP-1166,Windows,재직
+EMP-1168,구은우,사업·영업,영업1팀,팀원,일반 임직원,emp-1168@ict.example,EMP-1168,Windows,재직
+EMP-1169,박서준,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1169@ict.example,EMP-1169,Windows,재직
+EMP-1170,노수호,경영지원,인사팀,팀장,일반 임직원,emp-1170@ict.example,EMP-1170,Windows,재직
+EMP-1171,박은서,AI·DX,연구소,조직장(팀장 겸),일반 임직원,emp-1171@ict.example,EMP-1171,Windows,재직
+EMP-1172,김다은,사업·영업,영업2팀,팀원,일반 임직원,emp-1172@ict.example,EMP-1172,Windows,재직
+EMP-1173,유은영,사업·영업,영업2팀,팀장,일반 임직원,emp-1173@ict.example,EMP-1173,Windows,재직
+EMP-1174,신혜림,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1174@ict.example,EMP-1174,macOS,재직
+EMP-1175,심효진,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1175@ict.example,EMP-1175,Windows,재직
+EMP-1176,김현정,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1176@ict.example,EMP-1176,macOS,재직
+EMP-1178,이건우,IT운영·보안,서비스데스크,팀장,관리자,emp-1178@ict.example,EMP-1178,Windows,재직
+EMP-1179,허소윤,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1179@ict.example,EMP-1179,macOS,재직
+EMP-1181,추민규,사업·영업,영업1팀,팀원,일반 임직원,emp-1181@ict.example,EMP-1181,Windows,재직
+EMP-1182,문지은,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1182@ict.example,EMP-1182,macOS,재직
+EMP-1184,정지환,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1184@ict.example,EMP-1184,Windows,재직
+EMP-1185,이성민,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1185@ict.example,EMP-1185,Windows,재직
+EMP-1186,조예준,경영지원,법무팀,팀원,일반 임직원,emp-1186@ict.example,EMP-1186,Windows,재직
+EMP-1187,안영수,AI·DX,연구소,팀원,일반 임직원,emp-1187@ict.example,EMP-1187,Windows,재직
+EMP-1188,이슬기,경영지원,법무팀,팀원,일반 임직원,emp-1188@ict.example,EMP-1188,Windows,재직
+EMP-1189,최하린,AI·DX,연구소,팀원,일반 임직원,emp-1189@ict.example,EMP-1189,macOS,재직
+EMP-1190,홍준혁,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1190@ict.example,EMP-1190,macOS,재직
+EMP-1191,남정우,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1191@ict.example,EMP-1191,Windows,재직
+EMP-1192,조윤서,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1192@ict.example,EMP-1192,Windows,재직
+EMP-1195,이진우,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1195@ict.example,EMP-1195,Windows,재직
+EMP-1196,한민경,AI·DX,연구소,팀원,일반 임직원,emp-1196@ict.example,EMP-1196,Windows,재직
+EMP-1197,김경민,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1197@ict.example,EMP-1197,Windows,재직
+EMP-1198,최선영,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1198@ict.example,EMP-1198,Windows,재직
+EMP-1199,이우진,AI·DX,연구소,팀원,일반 임직원,emp-1199@ict.example,EMP-1199,Windows,재직
+EMP-1200,정예지,사업·영업,고객지원팀,팀원,일반 임직원,emp-1200@ict.example,EMP-1200,Windows,재직
+EMP-1201,박지원,경영지원,인사팀,팀원,일반 임직원,emp-1201@ict.example,EMP-1201,Windows,재직
+EMP-1203,전윤우,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1203@ict.example,EMP-1203,Windows,재직
+EMP-1204,윤서아,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1204@ict.example,EMP-1204,Windows,재직
+EMP-1205,천다은,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1205@ict.example,EMP-1205,Windows,재직
+EMP-1206,지진우,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1206@ict.example,EMP-1206,Windows,재직
+EMP-1207,문준영,경영지원,법무팀,팀장,일반 임직원,emp-1207@ict.example,EMP-1207,Windows,재직
+EMP-1208,조혜진,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1208@ict.example,EMP-1208,macOS,재직
+EMP-1209,하소율,IT운영·보안,시스템인프라팀,팀원,IT 운영 담당자,emp-1209@ict.example,EMP-1209,Windows,재직
+EMP-1210,변다혜,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1210@ict.example,EMP-1210,Windows,재직
+EMP-1211,이민석,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1211@ict.example,EMP-1211,Windows,재직
+EMP-1212,이지아,사업·영업,영업1팀,팀원,일반 임직원,emp-1212@ict.example,EMP-1212,Windows,재직
+EMP-1213,권승현,AI·DX,연구소,팀원,일반 임직원,emp-1213@ict.example,EMP-1213,macOS,재직
+EMP-1214,우시후,AI·DX,연구소,팀원,일반 임직원,emp-1214@ict.example,EMP-1214,macOS,재직
+EMP-1215,추수민,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1215@ict.example,EMP-1215,Windows,재직
+EMP-1216,김윤서,IT운영·보안,시스템인프라팀,팀원,IT 운영 담당자,emp-1216@ict.example,EMP-1216,Windows,재직
+EMP-1217,송유찬,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1217@ict.example,EMP-1217,macOS,재직
+EMP-1219,홍예은,ITO·클라우드,생산관리팀,팀장,일반 임직원,emp-1219@ict.example,EMP-1219,Windows,재직
+EMP-1221,이세희,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1221@ict.example,EMP-1221,Windows,재직
+EMP-1222,안은정,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1222@ict.example,EMP-1222,macOS,재직
+EMP-1223,백지유,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1223@ict.example,EMP-1223,Windows,재직
+EMP-1224,임준우,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1224@ict.example,EMP-1224,macOS,재직
+EMP-1225,조우진,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1225@ict.example,EMP-1225,Windows,재직
+EMP-1227,박주원,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1227@ict.example,EMP-1227,macOS,재직
+EMP-1228,표은비,사업·영업,마케팅팀,팀원,일반 임직원,emp-1228@ict.example,EMP-1228,Windows,재직
+EMP-1230,조예서,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1230@ict.example,EMP-1230,Windows,재직
+EMP-1231,함지유,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1231@ict.example,EMP-1231,Windows,재직
+EMP-1232,장다인,AI·DX,연구소,팀원,일반 임직원,emp-1232@ict.example,EMP-1232,macOS,재직
+EMP-1233,임재원,IT운영·보안,시스템인프라팀,팀원,IT 운영 담당자,emp-1233@ict.example,EMP-1233,Windows,재직
+EMP-1234,배지후,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1234@ict.example,EMP-1234,macOS,재직
+EMP-1235,김승우,사업·영업,고객지원팀,팀원,일반 임직원,emp-1235@ict.example,EMP-1235,Windows,재직
+EMP-1236,신승우,AI·DX,연구소,팀원,일반 임직원,emp-1236@ict.example,EMP-1236,Windows,재직
+EMP-1238,송도윤,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1238@ict.example,EMP-1238,macOS,재직
+EMP-1240,이지은,경영지원,인사팀,팀원,일반 임직원,emp-1240@ict.example,EMP-1240,Windows,재직
+EMP-1241,한지민,IT운영·보안,시스템인프라팀,팀원,IT 운영 담당자,emp-1241@ict.example,EMP-1241,Windows,재직
+EMP-1242,마서윤,AI·DX,연구소,팀원,일반 임직원,emp-1242@ict.example,EMP-1242,Windows,재직
+EMP-1243,김영호,사업·영업,고객지원팀,팀원,일반 임직원,emp-1243@ict.example,EMP-1243,Windows,재직
+EMP-1244,신다혜,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1244@ict.example,EMP-1244,Windows,재직
+EMP-1245,이현서,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1245@ict.example,EMP-1245,Windows,재직
+EMP-1246,표효진,경영지원,재무팀,팀장,일반 임직원,emp-1246@ict.example,EMP-1246,Windows,재직
+EMP-1248,고형준,AI·DX,연구소,팀원,일반 임직원,emp-1248@ict.example,EMP-1248,Windows,재직
+EMP-1249,선민준,AI·DX,연구소,팀원,일반 임직원,emp-1249@ict.example,EMP-1249,Windows,재직
+EMP-1250,이예린,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1250@ict.example,EMP-1250,Windows,재직
+EMP-1251,설재현,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1251@ict.example,EMP-1251,Windows,재직
+EMP-1252,도진우,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1252@ict.example,EMP-1252,Windows,재직
+EMP-1253,김한결,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1253@ict.example,EMP-1253,macOS,재직
+EMP-1254,최승우,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1254@ict.example,EMP-1254,Windows,재직
+EMP-1255,이나래,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1255@ict.example,EMP-1255,macOS,재직
+EMP-1257,김효진,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1257@ict.example,EMP-1257,macOS,재직
+EMP-1259,심다혜,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1259@ict.example,EMP-1259,Windows,재직
+EMP-1260,나다혜,경영지원,재무팀,팀원,일반 임직원,emp-1260@ict.example,EMP-1260,Windows,재직
+EMP-1261,김형준,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1261@ict.example,EMP-1261,macOS,재직
+EMP-1262,이예서,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1262@ict.example,EMP-1262,Windows,재직
+EMP-1263,강하은,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1263@ict.example,EMP-1263,Windows,재직
+EMP-1264,장효진,AI·DX,연구소,팀원,일반 임직원,emp-1264@ict.example,EMP-1264,macOS,재직
+EMP-1265,연하린,IT운영·보안,시스템인프라팀,팀원,IT 운영 담당자,emp-1265@ict.example,EMP-1265,Windows,재직
+EMP-1266,한경아,AI·DX,연구소,팀원,일반 임직원,emp-1266@ict.example,EMP-1266,Windows,재직
+EMP-1269,정성민,경영지원,경영기획팀,팀원,일반 임직원,emp-1269@ict.example,EMP-1269,Windows,재직
+EMP-1270,오한결,IT운영·보안,정보보안팀,팀장,관리자,emp-1270@ict.example,EMP-1270,Windows,재직
+EMP-1271,송지아,AI·DX,연구소,팀원,일반 임직원,emp-1271@ict.example,EMP-1271,Windows,재직
+EMP-1272,이서아,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1272@ict.example,EMP-1272,Windows,재직
+EMP-1274,박동욱,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1274@ict.example,EMP-1274,Windows,재직
+EMP-1278,신유나,IT운영·보안,업무시스템팀,팀원,IT 운영 담당자,emp-1278@ict.example,EMP-1278,Windows,재직
+EMP-1279,장재석,사업·영업,영업1팀,팀원,일반 임직원,emp-1279@ict.example,EMP-1279,Windows,재직
+EMP-1281,이지민,IT운영·보안,업무시스템팀,팀원,IT 운영 담당자,emp-1281@ict.example,EMP-1281,Windows,재직
+EMP-1282,고재현,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1282@ict.example,EMP-1282,Windows,재직
+EMP-1284,정아름,AI·DX,연구소,팀원,일반 임직원,emp-1284@ict.example,EMP-1284,macOS,재직
+EMP-1285,염나래,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1285@ict.example,EMP-1285,Windows,재직
+EMP-1286,하승훈,경영지원,재무팀,팀원,일반 임직원,emp-1286@ict.example,EMP-1286,Windows,재직
+EMP-1287,한채은,AI·DX,연구소,팀원,일반 임직원,emp-1287@ict.example,EMP-1287,macOS,재직
+EMP-1288,소시후,IT운영·보안,정보보안팀,팀원,IT 운영 담당자,emp-1288@ict.example,EMP-1288,Windows,재직
+EMP-1289,박지현,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1289@ict.example,EMP-1289,Windows,재직
+EMP-1290,이수아,경영지원,재무팀,팀원,일반 임직원,emp-1290@ict.example,EMP-1290,Windows,재직
+EMP-1291,손수호,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1291@ict.example,EMP-1291,Windows,재직
+EMP-1293,이다혜,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1293@ict.example,EMP-1293,Windows,재직
+EMP-1294,현한결,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1294@ict.example,EMP-1294,Windows,재직
+EMP-1295,장시후,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1295@ict.example,EMP-1295,macOS,재직
+EMP-1296,이지안,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1296@ict.example,EMP-1296,Windows,재직
+EMP-1297,이수민,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1297@ict.example,EMP-1297,macOS,재직
+EMP-1298,박서윤,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1298@ict.example,EMP-1298,macOS,재직
+EMP-1299,김민서,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1299@ict.example,EMP-1299,macOS,재직
+EMP-1300,최지혜,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1300@ict.example,EMP-1300,Windows,재직
+EMP-1301,김민경,경영지원,재무팀,팀원,일반 임직원,emp-1301@ict.example,EMP-1301,Windows,재직
+EMP-1302,서수연,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1302@ict.example,EMP-1302,Windows,재직
+EMP-1304,장하윤,경영지원,재무팀,팀원,일반 임직원,emp-1304@ict.example,EMP-1304,Windows,재직
+EMP-1305,선준혁,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1305@ict.example,EMP-1305,Windows,재직
+EMP-1307,선선영,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1307@ict.example,EMP-1307,Windows,재직
+EMP-1308,권서윤,사업·영업,영업1팀,팀원,일반 임직원,emp-1308@ict.example,EMP-1308,Windows,재직
+EMP-1309,김지성,AI·DX,연구소,팀원,일반 임직원,emp-1309@ict.example,EMP-1309,Windows,재직
+EMP-1310,장하준,AI·DX,연구소,팀원,일반 임직원,emp-1310@ict.example,EMP-1310,macOS,재직
+EMP-1311,유재윤,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1311@ict.example,EMP-1311,macOS,재직
+EMP-1312,안재훈,사업·영업,고객지원팀,팀원,일반 임직원,emp-1312@ict.example,EMP-1312,Windows,재직
+EMP-1313,설현준,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1313@ict.example,EMP-1313,Windows,재직
+EMP-1314,도은지,AI·DX,연구소,팀원,일반 임직원,emp-1314@ict.example,EMP-1314,macOS,재직
+EMP-1315,유혜원,사업·영업,고객지원팀,팀원,일반 임직원,emp-1315@ict.example,EMP-1315,Windows,재직
+EMP-1316,김태윤,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1316@ict.example,EMP-1316,Windows,재직
+EMP-1317,김건우,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1317@ict.example,EMP-1317,Windows,재직
+EMP-1318,류재원,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1318@ict.example,EMP-1318,Windows,재직
+EMP-1319,오가윤,IT운영·보안,시스템인프라팀,팀원,IT 운영 담당자,emp-1319@ict.example,EMP-1319,Windows,재직
+EMP-1320,김하윤,AI·DX,연구소,팀원,일반 임직원,emp-1320@ict.example,EMP-1320,Windows,재직
+EMP-1321,박서연,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1321@ict.example,EMP-1321,Windows,재직
+EMP-1322,배재석,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1322@ict.example,EMP-1322,macOS,재직
+EMP-1323,손예준,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1323@ict.example,EMP-1323,Windows,재직
+EMP-1324,이지후,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1324@ict.example,EMP-1324,Windows,재직
+EMP-1325,이도윤,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1325@ict.example,EMP-1325,Windows,재직
+EMP-1326,김선영,AI·DX,연구소,팀원,일반 임직원,emp-1326@ict.example,EMP-1326,macOS,재직
+EMP-1327,천도현,경영지원,인사팀,팀원,일반 임직원,emp-1327@ict.example,EMP-1327,Windows,재직
+EMP-1328,권시은,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1328@ict.example,EMP-1328,macOS,재직
+EMP-1329,오지윤,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1329@ict.example,EMP-1329,macOS,재직
+EMP-1330,백준혁,경영지원,인사팀,팀원,일반 임직원,emp-1330@ict.example,EMP-1330,Windows,재직
+EMP-1331,백지후,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1331@ict.example,EMP-1331,macOS,재직
+EMP-1332,정주원,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1332@ict.example,EMP-1332,Windows,재직
+EMP-1333,임동훈,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1333@ict.example,EMP-1333,Windows,재직
+EMP-1334,김서준,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1334@ict.example,EMP-1334,Windows,재직
+EMP-1336,최시윤,사업·영업,고객지원팀,팀원,일반 임직원,emp-1336@ict.example,EMP-1336,Windows,재직
+EMP-1338,박지유,IT운영·보안,서비스데스크,조직장,관리자,emp-1338@ict.example,EMP-1338,Windows,재직
+EMP-1339,하시후,AI·DX,연구소,팀원,일반 임직원,emp-1339@ict.example,EMP-1339,macOS,재직
+EMP-1340,주지윤,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1340@ict.example,EMP-1340,Windows,재직
+EMP-1342,홍수현,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1342@ict.example,EMP-1342,Windows,재직
+EMP-1343,송수연,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1343@ict.example,EMP-1343,macOS,재직
+EMP-1344,유채은,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1344@ict.example,EMP-1344,Windows,재직
+EMP-1345,박태호,AI·DX,연구소,팀원,일반 임직원,emp-1345@ict.example,EMP-1345,Windows,재직
+EMP-1346,차선우,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1346@ict.example,EMP-1346,Windows,재직
+EMP-1347,허지환,AI·DX,연구소,팀원,일반 임직원,emp-1347@ict.example,EMP-1347,Windows,재직
+EMP-1349,박지아,사업·영업,고객지원팀,팀원,일반 임직원,emp-1349@ict.example,EMP-1349,Windows,재직
+EMP-1350,정세희,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1350@ict.example,EMP-1350,Windows,재직
+EMP-1351,김재훈,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1351@ict.example,EMP-1351,macOS,재직
+EMP-1352,차영호,사업·영업,고객지원팀,팀원,일반 임직원,emp-1352@ict.example,EMP-1352,Windows,재직
+EMP-1353,허민석,IT운영·보안,시스템인프라팀,팀장,관리자,emp-1353@ict.example,EMP-1353,Windows,재직
+EMP-1354,박채원,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1354@ict.example,EMP-1354,Windows,재직
+EMP-1355,차서현,경영지원,재무팀,팀원,일반 임직원,emp-1355@ict.example,EMP-1355,Windows,재직
+EMP-1357,박나래,AI·DX,연구소,팀원,일반 임직원,emp-1357@ict.example,EMP-1357,Windows,재직
+EMP-1359,박예서,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1359@ict.example,EMP-1359,Windows,재직
+EMP-1360,최준혁,AI·DX,연구소,팀원,일반 임직원,emp-1360@ict.example,EMP-1360,macOS,재직
+EMP-1361,임하윤,경영지원,인사팀,팀원,일반 임직원,emp-1361@ict.example,EMP-1361,Windows,재직
+EMP-1363,박성진,AI·DX,연구소,팀원,일반 임직원,emp-1363@ict.example,EMP-1363,macOS,재직
+EMP-1364,노혜림,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1364@ict.example,EMP-1364,Windows,재직
+EMP-1365,신현정,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1365@ict.example,EMP-1365,macOS,재직
+EMP-1366,서승현,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1366@ict.example,EMP-1366,Windows,재직
+EMP-1367,송형준,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1367@ict.example,EMP-1367,Windows,재직
+EMP-1368,송성진,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1368@ict.example,EMP-1368,Windows,재직
+EMP-1370,조민재,IT운영·보안,네트워크팀,팀원,IT 운영 담당자,emp-1370@ict.example,EMP-1370,Windows,재직
+EMP-1371,안종현,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1371@ict.example,EMP-1371,Windows,재직
+EMP-1372,우혜림,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1372@ict.example,EMP-1372,Windows,재직
+EMP-1374,최시현,AI·DX,연구소,팀원,일반 임직원,emp-1374@ict.example,EMP-1374,macOS,재직
+EMP-1375,윤하린,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1375@ict.example,EMP-1375,Windows,재직
+EMP-1376,현현정,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1376@ict.example,EMP-1376,Windows,재직
+EMP-1377,신서현,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1377@ict.example,EMP-1377,Windows,재직
+EMP-1378,최미진,사업·영업,영업1팀,조직장,일반 임직원,emp-1378@ict.example,EMP-1378,Windows,재직
+EMP-1380,차다혜,AI·DX,연구소,팀원,일반 임직원,emp-1380@ict.example,EMP-1380,Windows,재직
+EMP-1382,유도현,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1382@ict.example,EMP-1382,macOS,재직
+EMP-1383,손시은,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1383@ict.example,EMP-1383,Windows,재직
+EMP-1384,김은우,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1384@ict.example,EMP-1384,macOS,재직
+EMP-1385,김유나,IT운영·보안,네트워크팀,팀장,관리자,emp-1385@ict.example,EMP-1385,Windows,재직
+EMP-1386,문혜림,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1386@ict.example,EMP-1386,Windows,재직
+EMP-1388,한상훈,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1388@ict.example,EMP-1388,Windows,재직
+EMP-1389,최하은,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1389@ict.example,EMP-1389,Windows,재직
+EMP-1390,선준호,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1390@ict.example,EMP-1390,Windows,재직
+EMP-1391,오상우,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1391@ict.example,EMP-1391,Windows,재직
+EMP-1392,명시우,경영지원,구매팀,팀장,일반 임직원,emp-1392@ict.example,EMP-1392,Windows,재직
+EMP-1393,장보람,AI·DX,연구소,팀원,일반 임직원,emp-1393@ict.example,EMP-1393,macOS,재직
+EMP-1394,문나래,AI·DX,연구소,팀원,일반 임직원,emp-1394@ict.example,EMP-1394,macOS,재직
+EMP-1396,설정민,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1396@ict.example,EMP-1396,macOS,재직
+EMP-1397,권동욱,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1397@ict.example,EMP-1397,macOS,재직
+EMP-1398,구현서,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1398@ict.example,EMP-1398,Windows,재직
+EMP-1399,박유찬,AI·DX,연구소,팀원,일반 임직원,emp-1399@ict.example,EMP-1399,macOS,재직
+EMP-1400,이윤호,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1400@ict.example,EMP-1400,Windows,재직
+EMP-1401,천지환,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1401@ict.example,EMP-1401,Windows,재직
+EMP-1402,강선우,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1402@ict.example,EMP-1402,macOS,재직
+EMP-1403,류정은,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1403@ict.example,EMP-1403,macOS,재직
+EMP-1405,하태윤,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1405@ict.example,EMP-1405,macOS,재직
+EMP-1406,이하린,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1406@ict.example,EMP-1406,Windows,재직
+EMP-1407,김시은,AI·DX,연구소,팀원,일반 임직원,emp-1407@ict.example,EMP-1407,Windows,재직
+EMP-1408,황민석,IT운영·보안,정보보안팀,팀원,IT 운영 담당자,emp-1408@ict.example,EMP-1408,Windows,재직
+EMP-1409,이동욱,IT운영·보안,정보보안팀,팀원,IT 운영 담당자,emp-1409@ict.example,EMP-1409,Windows,재직
+EMP-1410,차시윤,SI·솔루션사업,개발2팀,팀장,일반 임직원,emp-1410@ict.example,EMP-1410,Windows,재직
+EMP-1411,정우진,IT운영·보안,엔드포인트지원팀,팀원,IT 운영 담당자,emp-1411@ict.example,EMP-1411,Windows,재직
+EMP-1412,김주희,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1412@ict.example,EMP-1412,Windows,재직
+EMP-1413,김현준,AI·DX,연구소,팀원,일반 임직원,emp-1413@ict.example,EMP-1413,macOS,재직
+EMP-1414,강혜원,AI·DX,연구소,팀원,일반 임직원,emp-1414@ict.example,EMP-1414,Windows,재직
+EMP-1417,강준혁,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1417@ict.example,EMP-1417,Windows,재직
+EMP-1418,강소희,사업·영업,영업2팀,팀원,일반 임직원,emp-1418@ict.example,EMP-1418,Windows,재직
+EMP-1419,심준우,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1419@ict.example,EMP-1419,Windows,재직
+EMP-1420,석하준,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1420@ict.example,EMP-1420,Windows,재직
+EMP-1421,방예은,사업·영업,영업1팀,팀원,일반 임직원,emp-1421@ict.example,EMP-1421,Windows,재직
+EMP-1422,고채은,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1422@ict.example,EMP-1422,Windows,재직
+EMP-1423,윤재현,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1423@ict.example,EMP-1423,Windows,재직
+EMP-1424,김준우,AI·DX,연구소,팀원,일반 임직원,emp-1424@ict.example,EMP-1424,macOS,재직
+EMP-1426,김예린,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1426@ict.example,EMP-1426,Windows,재직
+EMP-1428,배윤서,AI·DX,연구소,팀원,일반 임직원,emp-1428@ict.example,EMP-1428,macOS,재직
+EMP-1429,백예지,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1429@ict.example,EMP-1429,macOS,재직
+EMP-1430,공수호,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1430@ict.example,EMP-1430,Windows,재직
+EMP-1431,최진우,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1431@ict.example,EMP-1431,Windows,재직
+EMP-1432,김태현,IT운영·보안,네트워크팀,팀원,IT 운영 담당자,emp-1432@ict.example,EMP-1432,Windows,재직
+EMP-1434,김동현,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1434@ict.example,EMP-1434,Windows,재직
+EMP-1435,박현우,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1435@ict.example,EMP-1435,Windows,재직
+EMP-1436,윤미경,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1436@ict.example,EMP-1436,Windows,재직
+EMP-1437,허예린,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1437@ict.example,EMP-1437,macOS,재직
+EMP-1438,함성진,IT운영·보안,네트워크팀,팀원,IT 운영 담당자,emp-1438@ict.example,EMP-1438,Windows,재직
+EMP-1439,한지훈,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1439@ict.example,EMP-1439,Windows,재직
+EMP-1441,현수진,SI·솔루션사업,개발1팀,팀장,일반 임직원,emp-1441@ict.example,EMP-1441,macOS,재직
+EMP-1442,손민석,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1442@ict.example,EMP-1442,Windows,재직
+EMP-1443,양대현,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1443@ict.example,EMP-1443,Windows,재직
+EMP-1445,고은정,SI·솔루션사업,디자인팀,팀원,일반 임직원,emp-1445@ict.example,EMP-1445,macOS,재직
+EMP-1446,임예준,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1446@ict.example,EMP-1446,Windows,재직
+EMP-1447,이윤서,사업·영업,영업1팀,팀장,일반 임직원,emp-1447@ict.example,EMP-1447,Windows,재직
+EMP-1448,위동훈,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1448@ict.example,EMP-1448,macOS,재직
+EMP-1449,임경아,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1449@ict.example,EMP-1449,Windows,재직
+EMP-1450,조은우,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1450@ict.example,EMP-1450,macOS,재직
+EMP-1451,명유준,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1451@ict.example,EMP-1451,macOS,재직
+EMP-1452,이주원,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1452@ict.example,EMP-1452,Windows,재직
+EMP-1453,조지아,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1453@ict.example,EMP-1453,macOS,재직
+EMP-1454,주예은,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1454@ict.example,EMP-1454,Windows,재직
+EMP-1455,김수빈,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1455@ict.example,EMP-1455,Windows,재직
+EMP-1456,김채은,사업·영업,영업1팀,팀원,일반 임직원,emp-1456@ict.example,EMP-1456,Windows,재직
+EMP-1457,황재훈,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1457@ict.example,EMP-1457,Windows,재직
+EMP-1459,김아름,경영지원,인사팀,팀원,일반 임직원,emp-1459@ict.example,EMP-1459,Windows,재직
+EMP-1460,오승현,IT운영·보안,시스템인프라팀,팀원,IT 운영 담당자,emp-1460@ict.example,EMP-1460,Windows,재직
+EMP-1461,허시우,IT운영·보안,엔드포인트지원팀,팀장,관리자,emp-1461@ict.example,EMP-1461,Windows,재직
+EMP-1462,송예린,IT운영·보안,정보보안팀,팀원,IT 운영 담당자,emp-1462@ict.example,EMP-1462,Windows,재직
+EMP-1463,박다인,AI·DX,연구소,팀원,일반 임직원,emp-1463@ict.example,EMP-1463,macOS,재직
+EMP-1464,정상훈,IT운영·보안,업무시스템팀,팀장,관리자,emp-1464@ict.example,EMP-1464,Windows,재직
+EMP-1465,조채원,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1465@ict.example,EMP-1465,Windows,재직
+EMP-1466,한유진,IT운영·보안,서비스데스크,팀원,IT 운영 담당자,emp-1466@ict.example,EMP-1466,Windows,재직
+EMP-1467,양준우,IT운영·보안,정보보안팀,팀원,IT 운영 담당자,emp-1467@ict.example,EMP-1467,Windows,재직
+EMP-1468,차도윤,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1468@ict.example,EMP-1468,Windows,재직
+EMP-1469,홍아름,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1469@ict.example,EMP-1469,Windows,재직
+EMP-1470,김태호,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1470@ict.example,EMP-1470,Windows,재직
+EMP-1471,엄지유,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1471@ict.example,EMP-1471,Windows,재직
+EMP-1472,정현서,ITO·클라우드,생산관리팀,팀원,일반 임직원,emp-1472@ict.example,EMP-1472,Windows,재직
+EMP-1473,전지후,ITO·클라우드,품질관리팀,팀원,일반 임직원,emp-1473@ict.example,EMP-1473,Windows,재직
+EMP-1474,박상훈,SI·솔루션사업,개발2팀,팀원,일반 임직원,emp-1474@ict.example,EMP-1474,Windows,재직
+EMP-1476,채은서,경영지원,경영기획팀,팀원,일반 임직원,emp-1476@ict.example,EMP-1476,Windows,재직
+EMP-1477,권하은,SI·솔루션사업,개발1팀,팀원,일반 임직원,emp-1477@ict.example,EMP-1477,Windows,재직
+EMP-1480,김정훈,IT운영·보안,업무시스템팀,팀원,IT 운영 담당자,emp-1480@ict.example,EMP-1480,Windows,재직

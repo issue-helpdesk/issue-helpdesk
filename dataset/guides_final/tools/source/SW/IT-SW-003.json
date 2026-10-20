@@ -1081,7 +1081,7 @@
       },
       {
        "t": "code",
-       "text": "# Python (pip, requests)\nsetx REQUESTS_CA_BUNDLE \"C:\\hanwha\\certs\\hanwha-ict-root.pem\"\nsetx SSL_CERT_FILE \"C:\\hanwha\\certs\\hanwha-ict-root.pem\"\n# Node.js (npm)\nsetx NODE_EXTRA_CA_CERTS \"C:\\hanwha\\certs\\hanwha-ict-root.pem\"\n# git\ngit config --global http.sslCAInfo \"C:/hanwha/certs/hanwha-ict-root.pem\""
+       "text": "# Python (pip, requests)\nsetx REQUESTS_CA_BUNDLE \"C:\\ict\\certs\\ict-root.pem\"\nsetx SSL_CERT_FILE \"C:\\ict\\certs\\ict-root.pem\"\n# Node.js (npm)\nsetx NODE_EXTRA_CA_CERTS \"C:\\ict\\certs\\ict-root.pem\"\n# git\ngit config --global http.sslCAInfo \"C:/ict/certs/ict-root.pem\""
       },
       {
        "t": "h",
@@ -1089,7 +1089,7 @@
       },
       {
        "t": "code",
-       "text": "echo 'export REQUESTS_CA_BUNDLE=/Library/hanwha/certs/hanwha-ict-root.pem' >> ~/.zshrc\necho 'export SSL_CERT_FILE=/Library/hanwha/certs/hanwha-ict-root.pem' >> ~/.zshrc\necho 'export NODE_EXTRA_CA_CERTS=/Library/hanwha/certs/hanwha-ict-root.pem' >> ~/.zshrc\ngit config --global http.sslCAInfo /Library/hanwha/certs/hanwha-ict-root.pem\nsource ~/.zshrc"
+       "text": "echo 'export REQUESTS_CA_BUNDLE=/Library/ict/certs/ict-root.pem' >> ~/.zshrc\necho 'export SSL_CERT_FILE=/Library/ict/certs/ict-root.pem' >> ~/.zshrc\necho 'export NODE_EXTRA_CA_CERTS=/Library/ict/certs/ict-root.pem' >> ~/.zshrc\ngit config --global http.sslCAInfo /Library/ict/certs/ict-root.pem\nsource ~/.zshrc"
       },
       {
        "t": "note",
@@ -1390,7 +1390,7 @@
      "rows": [
       [
        "ITssue 챗봇",
-       "사내 IT 포털(hanwha-admin) 상단 [챗봇 문의]",
+       "사내 IT 포털 상단 [챗봇 문의]",
        "24시간. 모든 IT 문의의 기본 창구입니다. 챗봇이 해결하지 못하면 확인을 거쳐 담당 팀에 티켓으로 접수합니다."
       ],
       [
@@ -1410,7 +1410,7 @@
       ],
       [
        "메일",
-       "it-helpdesk@hanwha-ict.example",
+       "it-helpdesk@ict.example",
        "일반 IT 문의. 비밀번호·인증번호는 메일로 보내지 않습니다."
       ],
       [

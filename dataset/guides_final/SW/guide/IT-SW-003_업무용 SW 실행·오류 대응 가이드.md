@@ -18,7 +18,7 @@ keywords: ["응답 없음", "엑셀이 멈춰요", "안전 모드", "추가 기�
 
 # 업무용 SW 실행·오류 대응 가이드
 
-> 한화시스템 ICT 임직원 IT 안내 · SW·라이선스  
+> 가상 ICT 기업 임직원 IT 안내 · SW·라이선스  
 > IT-SW-003 | 서비스데스크 | 2026-10-16 | v2.0 | **사내 일반** (전 임직원)
 
 ## 목차
@@ -398,21 +398,21 @@ keywords: ["응답 없음", "엑셀이 멈춰요", "안전 모드", "추가 기�
 
 ```
 # Python (pip, requests)
-setx REQUESTS_CA_BUNDLE "C:\hanwha\certs\hanwha-ict-root.pem"
-setx SSL_CERT_FILE "C:\hanwha\certs\hanwha-ict-root.pem"
+setx REQUESTS_CA_BUNDLE "C:\ict\certs\ict-root.pem"
+setx SSL_CERT_FILE "C:\ict\certs\ict-root.pem"
 # Node.js (npm)
-setx NODE_EXTRA_CA_CERTS "C:\hanwha\certs\hanwha-ict-root.pem"
+setx NODE_EXTRA_CA_CERTS "C:\ict\certs\ict-root.pem"
 # git
-git config --global http.sslCAInfo "C:/hanwha/certs/hanwha-ict-root.pem"
+git config --global http.sslCAInfo "C:/ict/certs/ict-root.pem"
 ```
 
 #### macOS (터미널)
 
 ```
-echo 'export REQUESTS_CA_BUNDLE=/Library/hanwha/certs/hanwha-ict-root.pem' >> ~/.zshrc
-echo 'export SSL_CERT_FILE=/Library/hanwha/certs/hanwha-ict-root.pem' >> ~/.zshrc
-echo 'export NODE_EXTRA_CA_CERTS=/Library/hanwha/certs/hanwha-ict-root.pem' >> ~/.zshrc
-git config --global http.sslCAInfo /Library/hanwha/certs/hanwha-ict-root.pem
+echo 'export REQUESTS_CA_BUNDLE=/Library/ict/certs/ict-root.pem' >> ~/.zshrc
+echo 'export SSL_CERT_FILE=/Library/ict/certs/ict-root.pem' >> ~/.zshrc
+echo 'export NODE_EXTRA_CA_CERTS=/Library/ict/certs/ict-root.pem' >> ~/.zshrc
+git config --global http.sslCAInfo /Library/ict/certs/ict-root.pem
 source ~/.zshrc
 ```
 
@@ -548,11 +548,11 @@ A. 사내망에서는 보안 게이트웨이가 트래픽을 검사하므로 개
 
 | 창구 | 연락처 | 이용 기준 |
 | --- | --- | --- |
-| ITssue 챗봇 | 사내 IT 포털(hanwha-admin) 상단 [챗봇 문의] | 24시간. 모든 IT 문의의 기본 창구입니다. 챗봇이 해결하지 못하면 확인을 거쳐 담당 팀에 티켓으로 접수합니다. |
+| ITssue 챗봇 | 사내 IT 포털 상단 [챗봇 문의] | 24시간. 모든 IT 문의의 기본 창구입니다. 챗봇이 해결하지 못하면 확인을 거쳐 담당 팀에 티켓으로 접수합니다. |
 | IT 헬프데스크 (서비스데스크) | 내선 1000 (평일 09:00~18:00) | PC나 챗봇을 쓸 수 없을 때, 여러 사람이 함께 업무를 못 할 때, 본인 확인이 필요한 처리 |
 | 정보보안팀 | 내선 1119 | 링크 클릭·비밀번호 입력·감염 의심·계정 도용·장비 분실처럼 바로 알려야 할 보안 문제 |
 | 메신저 | #it-helpdesk 채널 | 일반 IT 문의 (챗봇을 쓸 수 없을 때) |
-| 메일 | it-helpdesk@hanwha-ict.example | 일반 IT 문의. 비밀번호·인증번호는 메일로 보내지 않습니다. |
+| 메일 | it-helpdesk@ict.example | 일반 IT 문의. 비밀번호·인증번호는 메일로 보내지 않습니다. |
 | 처리 상황 알림 | 사내 메신저 알림 | 접수·담당자 배정·처리 완료를 알려 드립니다. 진행 상황은 [내 요청 현황]에서도 봅니다. |
 
 ## 부록 · 관련 문서 · 용어

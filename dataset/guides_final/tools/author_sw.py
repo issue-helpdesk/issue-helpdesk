@@ -14,7 +14,7 @@ T_EP = '엔드포인트지원팀'
 T_SD = '서비스데스크'
 IMG = lambda n, c, pts=(), nt='': fig(n + '.png', c, pts, nt)
 
-PORTAL_STEPS_NOTE = '사내 IT 포털(hanwha-admin)은 그룹웨어 첫 화면의 [IT 요청] 바로가기로도 들어갑니다.'
+PORTAL_STEPS_NOTE = '사내 IT 포털은 그룹웨어 첫 화면의 [IT 요청] 바로가기로도 들어갑니다.'
 
 COMMON_RELATED = [
     ['IT-SW-001', '업무용 SW 설치 가이드', '프로그램을 설치·제거하거나 설치를 요청할 때'],
@@ -25,7 +25,7 @@ COMMON_RELATED = [
     ['IT-STD-001', 'IT 서비스 운영 기준', '문의 창구, 긴급도와 처리 목표'],
 ]
 SW_TERMS = [
-    ['사내 IT 포털 (hanwha-admin)', '소프트웨어 센터, IT 요청, 내 요청 현황, 장애 공지, 챗봇 문의를 모아 둔 사내 사이트'],
+    ['사내 IT 포털', '소프트웨어 센터, IT 요청, 내 요청 현황, 장애 공지, 챗봇 문의를 모아 둔 사내 사이트'],
     ['소프트웨어 센터', '회사가 검사·허용한 프로그램을 직원이 직접 설치·제거·업데이트하는 메뉴'],
     ['승인 SW / 미승인 SW', '회사가 미리 검사해 소프트웨어 센터에 올린 프로그램 / 아직 검사하지 않은 프로그램'],
     ['관리자 권한', 'PC 설정 변경·임의 설치가 가능한 권한. 보안을 위해 직원에게 주지 않는다'],
@@ -57,7 +57,7 @@ def sw001():
             ['기타 승인 SW', '압축, DB 클라이언트, API 클라이언트', '소프트웨어 센터 (없으면 설치 요청, 3.5)', '대부분 무료'],
         ], [2, 3.4, 5.2, 2]),
         h('검색 결과에 따라 설치 경로가 나뉩니다'),
-        p('사내 IT 포털(hanwha-admin) > [소프트웨어 센터]에서 프로그램 이름을 검색하고, 오른쪽 단추 모양을 봅니다.'),
+        p('사내 IT 포털 > [소프트웨어 센터]에서 프로그램 이름을 검색하고, 오른쪽 단추 모양을 봅니다.'),
         table(['검색 결과', '뜻', '할 일'], [
             ['[설치] 표시', '승인된 무료·회사 구매 프로그램', '바로 설치 (3.1)'],
             ['[설치 요청] 표시', '유료 프로그램', '라이선스 신청 (IT-SW-002 3.1)'],
@@ -70,7 +70,7 @@ def sw001():
             ['지원 OS', '소프트웨어 센터 "지원 OS" 칸에 Win 표시 확인', '"지원 OS" 칸에 Mac 표시 확인 (macOS 14 이상)'],
             ['저장 공간', '파일 탐색기 > 내 PC > C 드라이브 여유 공간 (소프트웨어 센터 오른쪽 위에도 표시)', 'Apple 메뉴 > 시스템 설정 > 일반 > 저장 공간'],
             ['기존 버전', '설정 > 앱 > 설치된 앱, 또는 소프트웨어 센터 [설치됨] 탭', '응용 프로그램 폴더, 또는 소프트웨어 센터 [설치됨] 탭'],
-            ['네트워크', '사내망(유선·hanwha-office Wi-Fi) 또는 VPN 연결 상태', '같음'],
+            ['네트워크', '사내망(유선·ict-office Wi-Fi) 또는 VPN 연결 상태', '같음'],
             ['작업 저장', '설치 후 다시 시작을 요구할 수 있으니 작업 중인 문서를 저장', '같음'],
         ], [2, 5, 5]),
         h('모든 업무 PC에 기본 설치되는 보안 프로그램'),
@@ -98,7 +98,7 @@ def sw001():
         gsec('3.1', '소프트웨어 센터에서 승인 프로그램 설치하기', 'SW-01', SELF, T_EP,
              cases=['업무에 필요한 프로그램을 설치하려는데 관리자 권한이 없다고 나옵니다.', '회사에서 쓰는 코드 편집기를 새 PC에 설치하고 싶습니다.'],
              causes=['업무 PC는 보안을 위해 직원이 직접 아무 프로그램이나 설치할 수 없습니다. 회사가 검사한 프로그램은 소프트웨어 센터에서 설치합니다.'],
-             steps=['브라우저 주소창에 hanwha-admin.example 을 입력하고 회사 계정(사번)으로 로그인합니다. ' + PORTAL_STEPS_NOTE,
+             steps=['브라우저 주소창에 portal.ict.example 을 입력하고 회사 계정(사번)으로 로그인합니다. ' + PORTAL_STEPS_NOTE,
                     '홈 화면에서 [소프트웨어 센터]를 누릅니다. 위쪽 메뉴의 [소프트웨어 센터]로도 들어갑니다.',
                     '검색 칸에 프로그램 이름을 입력합니다. 일부만 입력해도 됩니다 (예: py).',
                     '무료·회사 구매 프로그램은 [설치]를 누릅니다. 관리자 비밀번호는 입력하지 않아도 됩니다.',
@@ -188,7 +188,7 @@ def sw001():
                  ['"설치 실패"', '저장 공간·다시 시작 대기 상태 확인 → 다시 시작 → 다시 설치 (2번 실패하면 챗봇 문의)'],
                  ['"공간이 부족합니다"', '다운로드 폴더·휴지통 정리 / Windows: 설정 > 시스템 > 저장소 > 임시 파일 제거'],
                  ['다른 버전이 설치되어 있음', '[설치됨] 탭에서 [업데이트], 또는 [제거] 후 설치'],
-                 ['소프트웨어 센터 목록이 비어 있음', '사내망(유선·hanwha-office) 또는 VPN 연결 확인 → 새로 고침'],
+                 ['소프트웨어 센터 목록이 비어 있음', '사내망(유선·ict-office) 또는 VPN 연결 확인 → 새로 고침'],
                  ['설치 후 다시 시작을 계속 요구', '작업 저장 후 한 번 더 다시 시작 (3번 이상 반복되면 챗봇 문의)'],
              ], [4, 8])],
              resolved=['상태가 "설치됨"으로 바뀌면 끝난 것입니다.'],
@@ -209,7 +209,7 @@ def sw001():
     return guide(meta, ['소프트웨어 센터에서 승인된 프로그램을 설치·제거·업데이트하는 방법을 안내합니다.',
                         '소프트웨어 센터에 없는 프로그램의 설치를 요청하는 방법과 처리 절차를 안내합니다.'],
                  ['회사 지급 PC를 쓰는 전 임직원이 대상입니다.', '유료 프로그램 라이선스는 IT-SW-002, 설치 후 실행 오류는 IT-SW-003을 봅니다.'],
-                 ['사내 IT 포털(hanwha-admin) > 소프트웨어 센터', 'Windows 10·11 / macOS 14 이상', '사내망 또는 VPN 연결'],
+                 ['사내 IT 포털 > 소프트웨어 센터', 'Windows 10·11 / macOS 14 이상', '사내망 또는 VPN 연결'],
                  ch2, secs, faq, cs, cautions, [r for r in COMMON_RELATED if r[0] != 'IT-SW-001'], SW_TERMS,
                  ch2_title='설치 전 확인 사항', ch3_title='항목별 안내')
 
@@ -356,7 +356,7 @@ def sw002():
     return guide(meta, ['유료 프로그램의 라이선스를 신청하고 정품 인증하는 방법을 안내합니다.',
                         '만료·인증 실패·기기 수 초과 같은 라이선스 문제를 해결하는 방법을 안내합니다.'],
                  ['회사 지급 PC에서 유료 프로그램을 쓰는 전 임직원이 대상입니다.', '프로그램 설치는 IT-SW-001, 실행 오류는 IT-SW-003을 봅니다.'],
-                 ['사내 IT 포털(hanwha-admin) > 소프트웨어 센터, IT 요청, 내 요청 현황', 'Windows / macOS'],
+                 ['사내 IT 포털 > 소프트웨어 센터, IT 요청, 내 요청 현황', 'Windows / macOS'],
                  ch2, secs, faq, cs, cautions, [r for r in COMMON_RELATED if r[0] != 'IT-SW-002'], SW_TERMS[:2] + terms,
                  ch2_title='신청 전 확인 사항', ch3_title='항목별 안내')
 
@@ -492,9 +492,9 @@ def sw003():
                     '터미널을 새로 열고 다시 시도합니다.'],
              figs=[IMG('sw003_ssl_error', '터미널의 SSL 인증서 오류')],
              extra=[h('Windows (PowerShell)'),
-                    code('# Python (pip, requests)\nsetx REQUESTS_CA_BUNDLE "C:\\hanwha\\certs\\hanwha-ict-root.pem"\nsetx SSL_CERT_FILE "C:\\hanwha\\certs\\hanwha-ict-root.pem"\n# Node.js (npm)\nsetx NODE_EXTRA_CA_CERTS "C:\\hanwha\\certs\\hanwha-ict-root.pem"\n# git\ngit config --global http.sslCAInfo "C:/hanwha/certs/hanwha-ict-root.pem"'),
+                    code('# Python (pip, requests)\nsetx REQUESTS_CA_BUNDLE "C:\\ict\\certs\\ict-root.pem"\nsetx SSL_CERT_FILE "C:\\ict\\certs\\ict-root.pem"\n# Node.js (npm)\nsetx NODE_EXTRA_CA_CERTS "C:\\ict\\certs\\ict-root.pem"\n# git\ngit config --global http.sslCAInfo "C:/ict/certs/ict-root.pem"'),
                     h('macOS (터미널)'),
-                    code("echo 'export REQUESTS_CA_BUNDLE=/Library/hanwha/certs/hanwha-ict-root.pem' >> ~/.zshrc\necho 'export SSL_CERT_FILE=/Library/hanwha/certs/hanwha-ict-root.pem' >> ~/.zshrc\necho 'export NODE_EXTRA_CA_CERTS=/Library/hanwha/certs/hanwha-ict-root.pem' >> ~/.zshrc\ngit config --global http.sslCAInfo /Library/hanwha/certs/hanwha-ict-root.pem\nsource ~/.zshrc"),
+                    code("echo 'export REQUESTS_CA_BUNDLE=/Library/ict/certs/ict-root.pem' >> ~/.zshrc\necho 'export SSL_CERT_FILE=/Library/ict/certs/ict-root.pem' >> ~/.zshrc\necho 'export NODE_EXTRA_CA_CERTS=/Library/ict/certs/ict-root.pem' >> ~/.zshrc\ngit config --global http.sslCAInfo /Library/ict/certs/ict-root.pem\nsource ~/.zshrc"),
                     note('info', '경로는 사내 루트 인증서를 설치하면 생기는 위치입니다. 쓰는 도구의 명령만 실행하면 됩니다.'),
                     note('star', 'SSL 검증을 끄는 방법은 쓰지 않습니다', ['오류는 사라지지만 위조된 서버와도 연결되어 계정·소스코드가 새어 나갈 수 있습니다.']),
                     table(['쓰지 않는 명령·설정', '대상'], [['verify=False', 'Python requests'], ['pip --trusted-host', 'pip'], ['npm config set strict-ssl false', 'npm'],

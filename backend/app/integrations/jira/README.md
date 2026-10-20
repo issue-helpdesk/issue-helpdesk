@@ -96,7 +96,7 @@ python backend/app/integrations/jira/smoke_check.py --create   # 위 + 새 시�
 | `backend/app/core/config.py` | `JiraSettings`·`get_jira_settings()` 추가 (`JIRA_BASE_URL`·`JIRA_EMAIL`·`JIRA_API_TOKEN`). 기존 `Settings`는 그대로 |
 | `.env.example` | Jira 환경 변수 3줄 추가 |
 | `requirements.txt` | `httpx==0.28.1`, `PyYAML==6.0.3` 추가 |
-| `docs/04.시스템_설계셔.md` | 8.3 번호 예시 `ITS-1520` → `ITSD-1520`·키 확정 문장, 16.2 `JIRA_EMAIL` 추가, v0.4 업데이트 로그 1줄 |
+| `docs/04.시스템_설계서.md` | 8.3 번호 예시 `ITS-1520` → `ITSD-1520`·키 확정 문장, 16.2 `JIRA_EMAIL` 추가, v0.4 업데이트 로그 1줄 |
 
 **확인**
 

@@ -977,7 +977,7 @@
       ],
       [
        "쪽 꼬리말",
-       "© HANWHA SYSTEMS ICT · 문서 번호 · 열람 등급"
+       "© 가상 ICT 기업 · 문서 번호 · 열람 등급"
       ],
       [
        "문서 정보 표",
@@ -1149,18 +1149,18 @@
      "rows": [
       [
        "회사명",
-       "한화시스템 ICT",
-       "한화시스템 ICT, 한화시스템 ICT"
+       "가상 ICT 기업",
+       "문서마다 회사 이름 표기가 달랐음"
       ],
       [
        "사내 주소",
-       "*.hanwha-ict.example, 사내 IT 포털 hanwha-admin",
-       "hanwha-admin.example(SW)과 hanwha-ict.example(그 외)을 함께 씀 → 포털 이름으로 정의"
+       "*.ict.example, 사내 IT 포털",
+       "portal.ict.example(SW)과 ict.example(그 외)을 함께 씀 → 포털 이름으로 정의"
       ],
       [
        "IT 요청 경로",
        "그룹웨어 > IT 요청 (= 사내 IT 포털 [IT 요청])",
-       "SW 문서만 hanwha-admin > [IT 요청]"
+       "SW 문서만 사내 IT 포털 > [IT 요청]"
       ],
       [
        "연락처",
