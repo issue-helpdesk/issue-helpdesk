@@ -1,0 +1,113 @@
+/* 컴포넌트 규칙: 버튼·입력·칩·메시지·알림·로그인 화면 (design/ITssue-Prototype.html 기준) */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:12px;border:0;font-weight:600;font-size:14px;line-height:20px;white-space:nowrap;transition:background .12s,box-shadow .12s}
+.btn.pri{background:var(--o600);color:#fff}.btn.pri:hover{background:var(--o700)}
+.btn.ink{background:var(--inkbtn);color:var(--onink)}
+.btn.sec{background:var(--white);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--fieldline)}.btn.sec:hover{background:var(--card)}
+.btn.ghost{background:transparent;color:var(--link);padding:0 10px}.btn.ghost:hover{background:var(--osoft)}
+.btn.sm{min-height:36px;padding:0 14px;font-size:13px;border-radius:10px}
+.btn.ico{width:44px;padding:0;border-radius:999px}.btn.ico.sm{width:36px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.block{width:100%}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:8px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line);font-size:13.5px;font-weight:500;border:0;color:var(--ink)}
+.chip:hover{box-shadow:inset 0 0 0 1px var(--o600);color:var(--link)}
+.chip.on{background:var(--osoft);box-shadow:inset 0 0 0 1.5px var(--o600);color:var(--link)}
+.chip .i{width:18px;height:18px}
+.chip[disabled]{opacity:.5;cursor:default}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>label,.lab{font-size:13px;font-weight:600;color:var(--ink2)}
+.inp,.sel,.ta{min-height:44px;width:100%;padding:0 14px;border-radius:12px;border:0;background:var(--field);box-shadow:inset 0 0 0 1px var(--fieldline);font-size:15px}
+.inp:focus,.sel:focus,.ta:focus{outline:2px solid var(--o600);outline-offset:1px;box-shadow:inset 0 0 0 1px var(--o600)}
+.inp.err,.inp[aria-invalid="true"],.ta[aria-invalid="true"],.sel[aria-invalid="true"]{box-shadow:inset 0 0 0 1.5px var(--s-urg-dot)}
+.ferr{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12.5px;font-weight:500;color:var(--s-urg-fg)}
+.ferr::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--s-urg-dot);flex:none}
+.fgt{align-self:flex-start;min-height:44px;padding:0 2px;background:none;border:0;color:var(--o600);font:inherit;font-size:13.5px;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.hint{font-size:12px;color:var(--mute)}.errtx{font-size:12.5px;color:var(--s-urg-fg);font-weight:500}
+.seg{display:inline-flex;gap:2px;padding:3px;border-radius:12px;background:var(--shell)}
+.seg button{border:0;background:transparent;min-height:36px;padding:0 16px;border-radius:9px;font-size:13.5px;font-weight:500;color:var(--mute)}
+.seg button.on{background:var(--white);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
+.av{display:inline-flex;align-items:center;justify-content:center;flex:none;background:#F37321;background-image:linear-gradient(180deg,#FF8F45,#F37321 55%,#E0640D)}
+.av.flat{background-image:none}
+.av svg{--lg-it:#fff}
+.msg.u{align-self:flex-end;max-width:78%;background:var(--bubble);color:var(--onbubble);padding:10px 16px;border-radius:18px 18px 6px 18px;font-size:15px;line-height:24px}
+.msg.a{display:flex;gap:12px;align-items:flex-start}
+.msg.a .body{flex:1;min-width:0;max-width:88%;font-size:15px;line-height:27px}
+.msg.a .body p+p{margin-top:8px}
+.msg.a ol{margin:8px 0 0;padding-left:20px}.msg.a li{margin:2px 0}
+.msg.sys{align-self:center;font-size:12.5px;color:var(--mute);background:var(--shell);padding:4px 12px;border-radius:999px;text-align:center}
+.replies{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.src{display:inline-flex;align-items:center;gap:6px;margin-top:10px;margin-right:6px;min-height:32px;padding:0 12px;border-radius:8px;background:var(--card);border:0;box-shadow:inset 0 0 0 1px var(--line);font-size:12.5px;color:var(--ink2);font-weight:500}
+.src:hover{box-shadow:inset 0 0 0 1px var(--o600)}
+.dots{display:inline-flex;gap:4px;align-items:center;height:20px}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--o500);animation:wave 1s infinite ease-in-out}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes wave{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-4px);opacity:1}}
+@media (prefers-reduced-motion:reduce){.dots i{animation:none}}
+.composer{display:flex;align-items:flex-end;gap:6px;max-width:760px;margin:0 auto;background:var(--white);border-radius:24px;padding:8px 8px 8px 12px;box-shadow:0 12px 40px rgba(156,66,7,.14),0 0 0 1px var(--line)}
+.composer textarea{flex:1;border:0;background:transparent;resize:none;min-height:44px;max-height:140px;padding:10px 6px;font-size:16px;line-height:24px;outline:0}
+.composer .btn.ico.pri{background:var(--o600)}
+.eyebrow{font-size:12px;font-weight:700;color:var(--link);letter-spacing:.04em}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sp{flex:1}
+.muted{color:var(--mute)}.small{font-size:12.5px}
+.alert{display:flex;gap:10px;padding:12px 14px;border-radius:12px;font-size:13.5px;line-height:20px}
+.alert.warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.alert.info{background:var(--s-info-bg);color:var(--s-info-fg)}.alert.err{background:var(--s-urg-bg);color:var(--s-urg-fg)}.alert.ok{background:var(--s-ok-bg);color:var(--s-ok-fg)}
+.alert .i{margin-top:1px}
+.login{height:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);position:relative;overflow:hidden;background:var(--canvas)}
+.login>.bgsvg{position:absolute;inset:0;pointer-events:none}
+.login>div:not(.bgsvg){position:relative;z-index:1}
+.login .lf{display:flex;flex-direction:column;padding:32px 56px 24px;min-height:0;overflow:auto}
+.login .form{flex:1;display:flex;flex-direction:column;justify-content:center;max-width:420px;width:100%;margin:0 auto;gap:0;padding:24px 0}
+.login .form h1{font-size:36px;line-height:46px;font-weight:600;letter-spacing:-.01em;margin-top:8px}
+.login .rt{display:flex;align-items:center;justify-content:center;padding:32px}
+.lpop{width:min(520px,100%);background:color-mix(in srgb,var(--white) 90%,transparent);border-radius:24px;box-shadow:var(--pop);padding:20px 20px 16px;backdrop-filter:blur(20px);display:flex;flex-direction:column;max-height:calc(100vh - 64px)}
+.lpop .th{display:flex;flex-direction:column;gap:12px;overflow:auto;padding:14px 2px 2px;min-height:120px}
+.lpop .composer{box-shadow:inset 0 0 0 1px var(--line);border-radius:16px;margin-top:14px;max-width:none;padding:6px 8px 6px 14px}
+.lpop .composer textarea{font-size:14px;min-height:38px;padding:8px 4px}
+.lpop .msg.a .body{font-size:14px;line-height:23px}.lpop .msg.u{font-size:14px;line-height:22px}
+.roles{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:18px;padding-top:16px;border-top:1px dashed var(--line)}
+.roles small{font-size:12px;color:var(--mute);width:100%}
+.lpop .composer{width:100%}
+.login .seg{display:flex;width:100%}.login .seg button{flex:1}
+.lpop{max-height:min(560px,calc(100vh - 64px))}.lpop .th{flex:1 1 auto;min-height:0;max-height:340px;overflow-y:auto}
+
+/* 프로토타입 스타일 위에 얹는 앱 전용 규칙 */
+
+/* #root 높이 (로그인 화면이 화면 전체를 쓰도록) */
+#root { height: 100%; }
+
+/* 주요 버튼 색: 오렌지 600 (흰 글자 대비 4.6:1). 오렌지 550은 글자를 올리는 면에 쓰지 않는다 (디자인 가이드) */
+.btn.pri,
+.composer .btn.ico.pri { background: #C2540A; }
+.btn.pri:hover:not([disabled]),
+.composer .btn.ico.pri:hover:not([disabled]) { background: #9C4207; }
+
+/* 로그인 화면 좁은 폭 (프로토타입 860px 이하). 입력 글자는 모바일에서 16px 이상 (디자인 가이드) */
+@media (max-width: 860px) {
+  .inp, .sel, .ta, .lpop .composer textarea { font-size: 16px; }
+  .login { grid-template-columns: minmax(0, 1fr); overflow: auto; height: auto; min-height: 100%; }
+  .login .lf {
+    padding: 24px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
+    overflow: visible;
+  }
+  .login .rt { padding: 8px max(16px, env(safe-area-inset-right, 0px)) 32px max(16px, env(safe-area-inset-left, 0px)); }
+  .login .form h1 { font-size: 28px; line-height: 38px; }
+  .lpop { max-height: none; }
+}
+
+/* 로그인 후 자리표시 화면 */
+.placeholder {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 16px;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 32px max(16px, env(safe-area-inset-left, 0px));
+}
+.placeholder h1 { font-size: 28px; line-height: 38px; font-weight: 600; letter-spacing: -0.01em; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

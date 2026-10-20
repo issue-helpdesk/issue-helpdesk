@@ -1,0 +1,290 @@
+{
+ "chunker_version": "1.0",
+ "docs": {
+  "IT-ACC-001": {
+   "chunks": 18,
+   "items": 6,
+   "units": 17
+  },
+  "IT-ACC-001-M": {
+   "chunks": 13,
+   "items": 6,
+   "units": 11
+  },
+  "IT-ACC-002": {
+   "chunks": 15,
+   "items": 5,
+   "units": 15
+  },
+  "IT-ACC-002-M": {
+   "chunks": 11,
+   "items": 5,
+   "units": 10
+  },
+  "IT-ACC-003": {
+   "chunks": 15,
+   "items": 5,
+   "units": 15
+  },
+  "IT-ACC-003-M": {
+   "chunks": 10,
+   "items": 5,
+   "units": 10
+  },
+  "IT-ACS-001": {
+   "chunks": 16,
+   "items": 6,
+   "units": 16
+  },
+  "IT-ACS-001-M": {
+   "chunks": 9,
+   "items": 4,
+   "units": 9
+  },
+  "IT-ACS-002": {
+   "chunks": 13,
+   "items": 4,
+   "units": 13
+  },
+  "IT-ACS-002-M": {
+   "chunks": 8,
+   "items": 3,
+   "units": 8
+  },
+  "IT-ACS-003": {
+   "chunks": 14,
+   "items": 5,
+   "units": 14
+  },
+  "IT-ACS-003-M": {
+   "chunks": 9,
+   "items": 4,
+   "units": 9
+  },
+  "IT-AI-001": {
+   "chunks": 5,
+   "items": 0,
+   "units": 5
+  },
+  "IT-HW-001": {
+   "chunks": 21,
+   "items": 13,
+   "units": 21
+  },
+  "IT-HW-001-M": {
+   "chunks": 18,
+   "items": 13,
+   "units": 18
+  },
+  "IT-HW-002": {
+   "chunks": 15,
+   "items": 7,
+   "units": 15
+  },
+  "IT-HW-002-M": {
+   "chunks": 12,
+   "items": 7,
+   "units": 12
+  },
+  "IT-HW-003": {
+   "chunks": 16,
+   "items": 7,
+   "units": 16
+  },
+  "IT-HW-003-M": {
+   "chunks": 12,
+   "items": 7,
+   "units": 12
+  },
+  "IT-NET-001": {
+   "chunks": 11,
+   "items": 3,
+   "units": 11
+  },
+  "IT-NET-001-M": {
+   "chunks": 8,
+   "items": 3,
+   "units": 8
+  },
+  "IT-NET-002": {
+   "chunks": 16,
+   "items": 7,
+   "units": 16
+  },
+  "IT-NET-002-M": {
+   "chunks": 12,
+   "items": 7,
+   "units": 12
+  },
+  "IT-NET-003": {
+   "chunks": 9,
+   "items": 2,
+   "units": 9
+  },
+  "IT-NET-003-M": {
+   "chunks": 7,
+   "items": 2,
+   "units": 7
+  },
+  "IT-SEC-001": {
+   "chunks": 16,
+   "items": 6,
+   "units": 16
+  },
+  "IT-SEC-001-M": {
+   "chunks": 11,
+   "items": 6,
+   "units": 11
+  },
+  "IT-SEC-002": {
+   "chunks": 14,
+   "items": 4,
+   "units": 14
+  },
+  "IT-SEC-002-M": {
+   "chunks": 9,
+   "items": 4,
+   "units": 9
+  },
+  "IT-SEC-003": {
+   "chunks": 17,
+   "items": 7,
+   "units": 17
+  },
+  "IT-SEC-003-M": {
+   "chunks": 14,
+   "items": 7,
+   "units": 12
+  },
+  "IT-SEC-004": {
+   "chunks": 14,
+   "items": 4,
+   "units": 14
+  },
+  "IT-SEC-004-M": {
+   "chunks": 9,
+   "items": 4,
+   "units": 9
+  },
+  "IT-STD-001": {
+   "chunks": 8,
+   "items": 0,
+   "units": 7
+  },
+  "IT-STD-002": {
+   "chunks": 16,
+   "items": 0,
+   "units": 6
+  },
+  "IT-SW-001": {
+   "chunks": 19,
+   "items": 7,
+   "units": 17
+  },
+  "IT-SW-001-M": {
+   "chunks": 8,
+   "items": 3,
+   "units": 8
+  },
+  "IT-SW-002": {
+   "chunks": 16,
+   "items": 7,
+   "units": 16
+  },
+  "IT-SW-002-M": {
+   "chunks": 9,
+   "items": 4,
+   "units": 9
+  },
+  "IT-SW-003": {
+   "chunks": 20,
+   "items": 8,
+   "units": 17
+  },
+  "IT-SW-003-M": {
+   "chunks": 10,
+   "items": 5,
+   "units": 10
+  },
+  "IT-SYS-001": {
+   "chunks": 13,
+   "items": 5,
+   "units": 12
+  },
+  "IT-SYS-001-M": {
+   "chunks": 10,
+   "items": 5,
+   "units": 10
+  },
+  "IT-SYS-002": {
+   "chunks": 17,
+   "items": 8,
+   "units": 17
+  },
+  "IT-SYS-002-M": {
+   "chunks": 13,
+   "items": 8,
+   "units": 13
+  },
+  "IT-SYS-003": {
+   "chunks": 12,
+   "items": 4,
+   "units": 11
+  },
+  "IT-SYS-003-M": {
+   "chunks": 9,
+   "items": 4,
+   "units": 9
+  },
+  "IT-SYS-004": {
+   "chunks": 14,
+   "items": 5,
+   "units": 14
+  },
+  "IT-SYS-004-M": {
+   "chunks": 10,
+   "items": 5,
+   "units": 10
+  },
+  "IT-SYS-005": {
+   "chunks": 20,
+   "items": 11,
+   "units": 20
+  },
+  "IT-SYS-005-M": {
+   "chunks": 16,
+   "items": 11,
+   "units": 16
+  },
+  "IT-SYS-006": {
+   "chunks": 12,
+   "items": 4,
+   "units": 12
+  },
+  "IT-SYS-006-M": {
+   "chunks": 9,
+   "items": 4,
+   "units": 9
+  },
+  "IT-SYS-007": {
+   "chunks": 11,
+   "items": 4,
+   "units": 11
+  },
+  "IT-SYS-007-M": {
+   "chunks": 9,
+   "items": 4,
+   "units": 9
+  },
+  "IT-SYS-008": {
+   "chunks": 12,
+   "items": 3,
+   "units": 12
+  },
+  "IT-SYS-008-M": {
+   "chunks": 8,
+   "items": 3,
+   "units": 8
+  }
+ }
+}
