@@ -19,7 +19,7 @@ const CATEGORY_CHIPS: [IconName, string, string][] = [
   ['refresh', 'VPN·네트워크', 'VPN이 자꾸 끊겨요'],
   ['file', '소프트웨어 설치', '업무용 프로그램을 설치하고 싶어요'],
   ['help', '프린터·장비', '복합기에서 인쇄가 안 돼요'],
-  ['chat', '메일·협업툴', '전자결재 접속이 안 돼요'],
+  ['chat', '사내 시스템', '전자결재 접속이 안 돼요'],
 ]
 
 /** 추천 FAQ 카드: [제목, 설명, 입력창에 채울 문장] */
@@ -88,7 +88,8 @@ export function NewInquiryView() {
 
         <div className="hero">
           {/* 레트로 창 모양 로고 장식 (디자인 가이드: 소개·시작 화면에만 쓴다) */}
-          <div className="xhero" aria-hidden="true">
+          {/* 화면에 들어올 때 한 번: 창이 열리고 커서가 들어온다 (go) */}
+          <div className="xhero go" aria-hidden="true">
             <div className="xw gh">
               <div className="xb"><i /><i /><i /><span /><b>▢</b><b>✕</b></div>
             </div>

@@ -61,6 +61,15 @@ export interface ConsultReply {
   paragraphs: string[]
   /** 근거 Guide 출처. 문의 화면 답변과 같은 형태 */
   sources: GuideSource[]
+  /** 답변에 붙는 바로가기 버튼 (예: 비밀번호 초기화 창 열기). 없으면 버튼을 그리지 않는다. */
+  ctas?: ConsultCta[]
+}
+
+/** 로그인 전 상담 답변의 바로가기 */
+export interface ConsultCta {
+  label: string
+  /** 화면이 알고 있는 동작 이름. forgot=비밀번호 초기화 창 */
+  action: 'forgot'
 }
 
 /** FAQ 한 건 (제안 기능, PRD 4.16 · SRS FAQ-01). 열람이 허용된 Guide를 출처로 한다. */

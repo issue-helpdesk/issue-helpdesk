@@ -10,7 +10,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { watchMyInquiries } from '../api/inquiries'
 import type { InquirySummary, ServiceRole } from '../api/types'
 import { formatRelative } from '../core/format'
-import { ROLE_LABEL } from '../core/roles'
+import { HOME_BY_ROLE, ROLE_LABEL } from '../core/roles'
 import { useAuth } from '../core/session'
 import { Icon, type IconName } from './Icon'
 import { Logo } from './Logo'
@@ -73,7 +73,10 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   return (
     <aside className="side">
       <div className="brand">
-        <Logo width={112} />
+        {/* 로고는 홈으로 가는 버튼: 문의자=새 문의, 담당자=처리할 문의, 관리자=대시보드 */}
+        <button type="button" className="brandbtn" aria-label="ITssue 홈으로" onClick={() => go(HOME_BY_ROLE[user.serviceRole])}>
+          <Logo width={112} />
+        </button>
       </div>
 
       <nav className="nav" aria-label="주 메뉴">

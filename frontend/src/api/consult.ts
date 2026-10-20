@@ -41,6 +41,7 @@ function mockReply(text: string): ConsultReply {
         '로그인 화면의 **[비밀번호를 잊으셨나요?]**에서 사번과 휴대폰 인증으로 직접 초기화할 수 있어요. 새 비밀번호는 12자 이상이며 90일마다 바꿔야 해요. 비밀번호는 이 창에 입력하지 마세요.',
       ],
       sources: [guideSource('IT-ACC-002 비밀번호 변경·초기화 가이드 v2 · 3.4')],
+      ctas: [{ label: '비밀번호 초기화 열기', action: 'forgot' }],
     }
   }
   if (/(SSO|MFA|OTP|인증)/i.test(t)) {

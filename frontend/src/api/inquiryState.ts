@@ -13,8 +13,9 @@ const TONE_KIND: Record<string, InquiryStateKind> = { recv: 'received', prog: 'p
 export function inquiryState(inq: Inquiry): { label: string; kind: InquiryStateKind; tone: string } {
   const t = inq.ticket
   if (t) {
-    // Jira 생성이나 배정에 실패하면 관리자가 처리한다. 문의자에게는 실패 대신 확인 중으로 안내한다.
-    if (t.jiraSyncStatus === 'NEEDS_ADMIN' || t.assignStatus === 'NEEDS_ADMIN') return { label: '담당자 확인 중', kind: 'assigned', tone: 'asg' }
+    // Jira 생성이나 배정에 실패하거나 생성 결과를 아직 모르면(VERIFYING) 관리자가 확인한다.
+    // 문의자에게는 실패와 불명확을 나누지 않고 모두 확인 중으로 안내한다.
+    if (t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.assignStatus === 'NEEDS_ADMIN') return { label: '담당자 확인 중', kind: 'assigned', tone: 'asg' }
     if (t.needReply) return { label: '추가 답변 필요', kind: 'needs_reply', tone: 'need' }
     if (t.workStatus && t.assignStatus === 'ASSIGNED') {
       const s = WORK_STATUS[t.workStatus]

@@ -16,6 +16,8 @@
 .app{display:grid;grid-template-columns:248px minmax(0,1fr);height:100%;min-height:0}
 .side{background:var(--side);border-right:1px solid var(--line2);padding:20px 12px 14px 16px;display:flex;flex-direction:column;gap:14px;min-height:0;overflow:auto}
 .side .brand{padding:2px 8px 4px}
+.brandbtn{display:block;background:none;border:0;padding:2px 0;margin:0;cursor:pointer;border-radius:8px;color:inherit}
+.brandbtn:hover{opacity:.85}
 .nav{display:flex;flex-direction:column;gap:3px}
 .nav .grp{font-size:12px;font-weight:600;color:var(--mute);padding:10px 12px 4px}
 .nav button{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border-radius:12px;border:0;background:transparent;font-size:14px;font-weight:500;color:var(--ink2);text-align:left}
@@ -36,7 +38,7 @@
 .main{min-width:0;min-height:0;display:flex;flex-direction:column;position:relative;overflow:hidden;background:var(--canvas)}
 .main>*{position:relative;z-index:1}
 .main .bg{position:absolute;inset:0;z-index:0;pointer-events:none}
-.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 32px;border-bottom:1px solid var(--line2);background:color-mix(in srgb,var(--canvas) 72%,transparent);backdrop-filter:blur(8px);flex:none}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 32px;border-bottom:1px solid var(--line2);background:color-mix(in srgb,var(--canvas) 72%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);flex:none}
 .top h2{font-size:16px;line-height:24px;font-weight:600}.top .sub{font-size:12px;color:var(--mute)}
 .top .menu{display:none}
 .scroll{flex:1;min-height:0;overflow:auto}
@@ -63,7 +65,7 @@
 .app{position:relative;background:var(--canvas)}
 .app::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 42% 34% at 22% 104%,var(--ag1),transparent 72%),radial-gradient(ellipse 36% 32% at 78% 104%,var(--ag2),transparent 72%),radial-gradient(ellipse 60% 22% at 50% 110%,var(--ag3),transparent 75%)}
 .main,.ops .main{background:transparent!important}
-.side{background:color-mix(in srgb,var(--white) 62%,transparent)!important;backdrop-filter:blur(16px);border-right:1px solid rgba(17,24,39,.06)!important}
+.side{background:color-mix(in srgb,var(--white) 62%,transparent)!important;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-right:1px solid rgba(17,24,39,.06)!important}
 .faq summary{cursor:pointer;display:flex;gap:12px;align-items:center;list-style:none;padding:16px 20px}.faq summary::-webkit-details-marker{display:none}
 .faq summary b{font-size:15px;font-weight:600;flex:1;min-width:0}
 .faq .chv{width:28px;height:28px;border-radius:8px;background:var(--shell);display:flex;align-items:center;justify-content:center;flex:none;transition:transform .2s}
@@ -91,12 +93,14 @@
 .xhero{position:relative;width:250px;margin:0 auto 6px}.xhero .xm{z-index:2}
 .xs{position:absolute;background:#F37321;display:block}.xs.s1{left:-34px;top:-8px;width:10px;height:10px}.xs.s2{left:-16px;top:-24px;width:6px;height:6px}.xs.s3{right:-30px;bottom:6px;width:8px;height:8px}
 .xhero .xc{position:absolute;right:-2px;bottom:-14px;z-index:3}
-@media (prefers-reduced-motion:no-preference){.xhero .xc{animation:xcur 3.2s ease-in-out infinite}}@keyframes xcur{0%,100%{transform:translate(0,0)}50%{transform:translate(-6px,-4px)}}
+/* 새 문의 첫 화면에 들어올 때 한 번: 창이 열리고(220ms) 커서가 들어온다(500ms) */
+@keyframes xopen{from{opacity:0;transform:translateY(6px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes curin{from{opacity:0;transform:translate(26px,18px)}to{opacity:1;transform:translate(0,0)}}
+@media (prefers-reduced-motion:no-preference){.xhero .xc{animation:xcur 3.2s ease-in-out infinite}.xhero.go .xm{animation:xopen .22s cubic-bezier(.2,.8,.2,1) both}.xhero.go .xc{animation:curin .5s cubic-bezier(.2,.8,.2,1) .15s both,xcur 3.2s ease-in-out .65s infinite}}@keyframes xcur{0%,100%{transform:translate(0,0)}50%{transform:translate(-6px,-4px)}}
 .xmenu{display:none;position:absolute;left:12px;top:12px;z-index:5}@media (max-width:860px){.xmenu{display:inline-flex}}
 
 /* 상단바·본문 여백, 사이드바(좁은 화면에서는 밀어서 여는 방식) — 프로토타입 860px 이하 규칙 */
 #root{height:100vh;height:100dvh}
-.count{background:#E56E1B}
 @media (max-width:860px){
   .app{grid-template-columns:minmax(0,1fr)}
   .side{position:fixed;top:0;left:0;bottom:0;width:272px;z-index:45;transform:translateX(-100%);transition:transform .2s;box-shadow:12px 0 40px rgba(0,0,0,.2)}
@@ -108,11 +112,16 @@
   .hero{padding:24px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
   .hero h1{font-size:28px;line-height:38px}
   .faqs3{grid-template-columns:minmax(0,1fr)}
+  /* 서랍은 본문 위에 불투명하게 올라오고, 닫혀 있으면 키보드 초점도 받지 않는다 */
+  .side{background:var(--white)!important;-webkit-backdrop-filter:none;backdrop-filter:none}
+  .app:not(.nav-open) .side{visibility:hidden}
 }
 @media (prefers-reduced-motion:reduce){.side{transition:none}}
+/* 스크롤바가 생기고 사라져도 폭이 흔들리지 않게 자리를 미리 잡는다 */
+.scroll,.side{scrollbar-gutter:stable}
 
 /* 분류(Category) 태그 색 */
-.tag.c-ACC{background:var(--s-asg-bg);color:var(--s-asg-fg)}.tag.c-ACS{background:var(--s-need-bg);color:var(--s-need-fg)}.tag.c-NET{background:var(--s-prog-bg);color:var(--s-prog-fg)}.tag.c-SW{background:var(--s-re-bg);color:var(--s-re-fg)}.tag.c-HW{background:var(--s-warn-bg);color:var(--s-warn-fg)}.tag.c-SYS{background:var(--osurf);color:var(--o700)}.tag.c-SEC{background:var(--s-urg-bg);color:var(--s-urg-fg)}
+.tag.c-ACC{background:var(--s-info-bg);color:var(--s-info-fg)}.tag.c-ACS{background:var(--s-need-bg);color:var(--s-need-fg)}.tag.c-NET{background:var(--s-prog-bg);color:var(--s-prog-fg)}.tag.c-SW{background:var(--s-re-bg);color:var(--s-re-fg)}.tag.c-HW{background:var(--s-warn-bg);color:var(--s-warn-fg)}.tag.c-SYS{background:var(--osurf);color:var(--o700)}.tag.c-SEC{background:var(--s-urg-bg);color:var(--s-urg-fg)}
 
 /* 새 문의 화면: 본문 안에서 히어로를 세로 가운데에 놓는다 */
 .scroll:has(>.hero){display:flex;flex-direction:column}

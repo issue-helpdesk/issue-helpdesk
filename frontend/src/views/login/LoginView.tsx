@@ -14,6 +14,7 @@ import { useAuth } from '../../core/session'
 import { Icon } from '../../ui/Icon'
 import { Logo } from '../../ui/Logo'
 import { ConsultPanel } from './ConsultPanel'
+import { ForgotModal } from './ForgotModal'
 
 type Tab = 'id' | 'sso'
 
@@ -52,6 +53,8 @@ export function LoginView() {
   const [password, setPassword] = useState(USE_MOCK ? MOCK_PASSWORD : '')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // 비밀번호 초기화 창
+  const [forgotOpen, setForgotOpen] = useState(false)
 
   // 이미 로그인한 상태로 이 화면에 오면 첫 화면으로 보낸다
   if (!loading && user) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
@@ -131,6 +134,10 @@ export function LoginView() {
                   aria-describedby={error ? 'lg-err' : undefined}
                 />
               </div>
+              {/* 로그인할 수 없는 사용자가 복구 경로를 바로 찾을 수 있게 비밀번호 칸 아래에 둔다 */}
+              <button type="button" className="fgt" onClick={() => setForgotOpen(true)}>
+                비밀번호를 잊으셨나요?
+              </button>
               {/* 오류는 입력칸 바로 아래에서 연결해 보여 준다 (디자인 가이드) */}
               {error && (
                 <div className="errtx" id="lg-err" role="alert">
@@ -173,11 +180,12 @@ export function LoginView() {
             </div>
           )}
         </div>
-        <div className="hint">© 한화시스템 ICT 가상 기업</div>
+        <div className="hint">ICT 가상 기업 프로토타입</div>
       </div>
       <div className="rt">
-        <ConsultPanel />
+        <ConsultPanel onForgot={() => setForgotOpen(true)} />
       </div>
+      {forgotOpen && <ForgotModal onClose={() => setForgotOpen(false)} />}
     </div>
   )
 }
