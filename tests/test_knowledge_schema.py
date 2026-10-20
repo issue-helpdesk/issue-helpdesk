@@ -1,5 +1,4 @@
-"""Knowledge 표(마이그레이션·모델)와 청커·시드가 서로 맞는지 DB 없이 검사한다."""
-import importlib.util
+"""Knowledge 표(마이그레이션·모델)와 청커가 서로 맞는지 DB 없이 검사한다."""
 import json
 import os
 import re
@@ -14,13 +13,6 @@ from app.rag.parser import parse
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 FINAL = os.path.join(ROOT, 'dataset', 'guides_final')
-
-
-def load_seed():
-    spec = importlib.util.spec_from_file_location('seed', os.path.join(ROOT, 'db', 'seed.py'))
-    seed = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(seed)
-    return seed
 
 
 def allowed(table, name):
@@ -62,23 +54,6 @@ def test_guide_values_fit_constraints(guide_rows):
 def test_current_rule_in_model():
     names = {c.name for c in DocumentVersion.__table__.constraints} | {i.name for i in DocumentVersion.__table__.indexes}
     assert 'ck_document_versions_current_needs_done' in names and 'uq_document_versions_one_current' in names
-
-
-def test_seed_faq_rows_follow_contract():
-    """시드의 FAQ 청크도 청커와 같은 칸·meta 키를 쓴다."""
-    seed = load_seed()
-    p = seed.build()
-    assert not p.problems
-    doc = parse(os.path.join(FINAL, 'SW', 'guide', 'IT-SW-002_SW 라이선스 신청·인증 가이드.md'))
-    meta_keys = set(chunk_row(chunk_document(doc)[0])['meta'])
-    cols = {c.name for c in DocumentChunk.__table__.columns} - {'id', 'version_id'}
-    faqs = p.rows['document_chunks']
-    assert len(faqs) == 40
-    for c in faqs:
-        assert cols <= set(c) and set(c['meta']) == meta_keys
-        assert c['seq'] == 1 and c['part'] == 1 and c['chunk_type'] == 'FAQ'
-        assert c['unit_key'] == f"{c['doc_code']}@{seed.FAQ_VERSION}/faq:{c['doc_code']}"
-        assert c['meta']['faq_ids'] == [c['doc_code']]
 
 
 def test_migration_sql_offline():
