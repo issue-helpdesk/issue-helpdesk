@@ -11,7 +11,8 @@
   --lg-ink:#111827;--lg-it:#F37321;
   --chart1:#C2540A;--chart2:#374151;--track:#F3F4F6;
   --s-recv-bg:#F3F4F6;--s-recv-fg:#4B5563;--s-recv-dot:#9CA3AF;
-  --s-asg-bg:#E6F4FB;--s-asg-fg:#075985;--s-asg-dot:#0EA5E9;
+  --s-asg-bg:#E6F6F6;--s-asg-fg:#0B5F5F;--s-asg-dot:#0E8A8A;
+  --s-info-bg:#E6F4FB;--s-info-fg:#075985;--s-info-dot:#0EA5E9;
   --s-prog-bg:#EAF1FE;--s-prog-fg:#1B4FC4;--s-prog-dot:#2F6FED;
   --s-need-bg:#F4EEFF;--s-need-fg:#5B21B6;--s-need-dot:#7C3AED;
   --s-re-bg:#E6F6F6;--s-re-fg:#0B5F5F;--s-re-dot:#0E8A8A;
@@ -27,13 +28,13 @@
   --ink:#F3F4F6;--ink2:#D1D5DB;--mute:#AEB4BF;--sec:#9CA3AF;--line:#2B323C;--line2:#232933;--shell:#0F1217;--card:#1A1F27;--side:#12161C;--canvas:#0E1116;--white:#171C23;
   --inkbtn:#F3F4F6;--onink:#111827;--link:#FFA566;--field:#12161C;--fieldline:#6B7280;--bubble:#2A313B;--onbubble:#F3F4F6;--shadow:0 1px 4px rgba(0,0,0,.5);--pop:0 20px 60px rgba(0,0,0,.5);
   --lg-ink:#F3F4F6;--chart1:#FF9A57;--chart2:#C9CED6;--track:#232933;--osurf:#3A2515;--osoft:#241A12;
-  --s-recv-bg:#262C35;--s-recv-fg:#C2C8D2;--s-asg-bg:#0F2A3A;--s-asg-fg:#7CC8F0;--s-prog-bg:#16254A;--s-prog-fg:#8FB0FF;--s-need-bg:#2A1E4A;--s-need-fg:#C4A8FF;--s-re-bg:#0F2E2E;--s-re-fg:#6FD3D3;--s-ok-bg:#0F2E1C;--s-ok-fg:#6FD79A;--s-urg-bg:#3A1714;--s-urg-fg:#FF9A90;--s-warn-bg:#33270A;--s-warn-fg:#F0C25A;
+  --s-recv-bg:#262C35;--s-recv-fg:#C2C8D2;--s-asg-bg:#0F2E2E;--s-asg-fg:#6FD3D3;--s-info-bg:#0F2A3A;--s-info-fg:#7CC8F0;--s-prog-bg:#16254A;--s-prog-fg:#8FB0FF;--s-need-bg:#2A1E4A;--s-need-fg:#C4A8FF;--s-re-bg:#0F2E2E;--s-re-fg:#6FD3D3;--s-ok-bg:#0F2E1C;--s-ok-fg:#6FD79A;--s-urg-bg:#3A1714;--s-urg-fg:#FF9A90;--s-warn-bg:#33270A;--s-warn-fg:#F0C25A;
   --wash:radial-gradient(70% 46% at 24% 0%,#3A2515 0%,rgba(58,37,21,0) 72%);--glow:linear-gradient(180deg,rgba(14,17,22,0),#241A12 55%,#3A2515);color-scheme:dark}}
 :root[data-theme="dark"]{
   --ink:#F3F4F6;--ink2:#D1D5DB;--mute:#AEB4BF;--sec:#9CA3AF;--line:#2B323C;--line2:#232933;--shell:#0F1217;--card:#1A1F27;--side:#12161C;--canvas:#0E1116;--white:#171C23;
   --inkbtn:#F3F4F6;--onink:#111827;--link:#FFA566;--field:#12161C;--fieldline:#6B7280;--bubble:#2A313B;--onbubble:#F3F4F6;--shadow:0 1px 4px rgba(0,0,0,.5);--pop:0 20px 60px rgba(0,0,0,.5);
   --lg-ink:#F3F4F6;--chart1:#FF9A57;--chart2:#C9CED6;--track:#232933;--osurf:#3A2515;--osoft:#241A12;
-  --s-recv-bg:#262C35;--s-recv-fg:#C2C8D2;--s-asg-bg:#0F2A3A;--s-asg-fg:#7CC8F0;--s-prog-bg:#16254A;--s-prog-fg:#8FB0FF;--s-need-bg:#2A1E4A;--s-need-fg:#C4A8FF;--s-re-bg:#0F2E2E;--s-re-fg:#6FD3D3;--s-ok-bg:#0F2E1C;--s-ok-fg:#6FD79A;--s-urg-bg:#3A1714;--s-urg-fg:#FF9A90;--s-warn-bg:#33270A;--s-warn-fg:#F0C25A;
+  --s-recv-bg:#262C35;--s-recv-fg:#C2C8D2;--s-asg-bg:#0F2E2E;--s-asg-fg:#6FD3D3;--s-info-bg:#0F2A3A;--s-info-fg:#7CC8F0;--s-prog-bg:#16254A;--s-prog-fg:#8FB0FF;--s-need-bg:#2A1E4A;--s-need-fg:#C4A8FF;--s-re-bg:#0F2E2E;--s-re-fg:#6FD3D3;--s-ok-bg:#0F2E1C;--s-ok-fg:#6FD79A;--s-urg-bg:#3A1714;--s-urg-fg:#FF9A90;--s-warn-bg:#33270A;--s-warn-fg:#F0C25A;
   --wash:radial-gradient(70% 46% at 24% 0%,#3A2515 0%,rgba(58,37,21,0) 72%);--glow:linear-gradient(180deg,rgba(14,17,22,0),#241A12 55%,#3A2515);color-scheme:dark}
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -128,7 +129,7 @@ h1,h2,h3,h4,p{margin:0}
 .main{min-width:0;min-height:0;display:flex;flex-direction:column;position:relative;overflow:hidden;background:var(--canvas)}
 .main>*{position:relative;z-index:1}
 .main .bg{position:absolute;inset:0;z-index:0;pointer-events:none}
-.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 32px;border-bottom:1px solid var(--line2);background:color-mix(in srgb,var(--canvas) 72%,transparent);backdrop-filter:blur(8px);flex:none}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 32px;border-bottom:1px solid var(--line2);background:color-mix(in srgb,var(--canvas) 72%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);flex:none}
 .top h2{font-size:16px;line-height:24px;font-weight:600}.top .sub{font-size:12px;color:var(--mute)}
 .top .menu{display:none}
 .scroll{flex:1;min-height:0;overflow:auto}
@@ -169,7 +170,7 @@ h1,h2,h3,h4,p{margin:0}
 .stepper .st.cur .n{background:var(--white);box-shadow:inset 0 0 0 2px var(--tone,var(--s-prog-dot))}
 .stepper .st.cur .n::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--tone,var(--s-prog-dot))}
 .stepper .st.todo b{color:var(--mute);font-weight:500}
-.stepper .i{width:14px;height:14px;stroke-width:2.4}
+.stepper .i{width:14px;height:14px;stroke-width:2.6}
 
 /* ---- new inquiry (empty) ---- */
 .hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 32px 56px;gap:0;text-align:center}
@@ -210,7 +211,7 @@ button.kpi:hover{box-shadow:inset 0 0 0 1px var(--o600)}
 .muted{color:var(--mute)}.small{font-size:12.5px}
 .empty{padding:36px 16px;text-align:center;color:var(--mute);font-size:14px}
 .alert{display:flex;gap:10px;padding:12px 14px;border-radius:12px;font-size:13.5px;line-height:20px}
-.alert.warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.alert.info{background:var(--s-asg-bg);color:var(--s-asg-fg)}.alert.err{background:var(--s-urg-bg);color:var(--s-urg-fg)}.alert.ok{background:var(--s-ok-bg);color:var(--s-ok-fg)}
+.alert.warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.alert.info{background:var(--s-info-bg);color:var(--s-info-fg)}.alert.err{background:var(--s-urg-bg);color:var(--s-urg-fg)}.alert.ok{background:var(--s-ok-bg);color:var(--s-ok-fg)}
 .alert .i{margin-top:1px}
 .tabs{display:flex;gap:18px;border-bottom:1px solid var(--line)}
 .tabs button{background:none;border:0;padding:8px 0 10px;font-size:14px;font-weight:500;color:var(--mute);border-bottom:2px solid transparent;margin-bottom:-1px}
@@ -234,7 +235,7 @@ button.kpi:hover{box-shadow:inset 0 0 0 1px var(--o600)}
 .login .form{flex:1;display:flex;flex-direction:column;justify-content:center;max-width:420px;width:100%;margin:0 auto;gap:0;padding:24px 0}
 .login .form h1{font-size:36px;line-height:46px;font-weight:600;letter-spacing:-.01em;margin-top:8px}
 .login .rt{display:flex;align-items:center;justify-content:center;padding:32px}
-.lpop{width:min(520px,100%);background:color-mix(in srgb,var(--white) 90%,transparent);border-radius:24px;box-shadow:var(--pop);padding:20px 20px 16px;backdrop-filter:blur(20px);display:flex;flex-direction:column;max-height:calc(100vh - 64px)}
+.lpop{width:min(520px,100%);background:color-mix(in srgb,var(--white) 90%,transparent);border-radius:24px;box-shadow:var(--pop);padding:20px 20px 16px;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);display:flex;flex-direction:column;max-height:calc(100vh - 64px)}
 .lpop .th{display:flex;flex-direction:column;gap:12px;overflow:auto;padding:14px 2px 2px;min-height:120px}
 .lpop .composer{box-shadow:inset 0 0 0 1px var(--line);border-radius:16px;margin-top:14px;max-width:none;padding:6px 8px 6px 14px}
 .lpop .composer textarea{font-size:14px;min-height:38px;padding:8px 4px}
@@ -277,7 +278,7 @@ button.kpi:hover{box-shadow:inset 0 0 0 1px var(--o600)}
   .login .form h1{font-size:28px;line-height:38px}.lpop{max-height:none}
   .kpis{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.msg.u{max-width:92%}.msg.a .body{max-width:100%}
   .dl{grid-template-columns:84px minmax(0,1fr)}
-  .stepper .st small{display:none}
+  .stepper .st small{font-size:10.5px;line-height:13px;max-width:100%}
 }
 .scrim{display:none}
 @media (max-width:860px){.app.nav-open .scrim{display:block;position:fixed;inset:0;background:rgba(10,12,16,.4);z-index:44}}
@@ -294,12 +295,12 @@ button.kpi:hover{box-shadow:inset 0 0 0 1px var(--o600)}
 .app>.main,.app>.side,.app>.detail{z-index:1}
 .main>svg.bg{display:none}
 .main,.ops .main{background:transparent!important}
-.side{background:color-mix(in srgb,var(--white) 62%,transparent)!important;backdrop-filter:blur(16px);border-right:1px solid rgba(17,24,39,.06)!important}
+.side{background:color-mix(in srgb,var(--white) 62%,transparent)!important;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-right:1px solid rgba(17,24,39,.06)!important}
 /* ---- 로그인 ---- */
 .login .seg{display:flex;width:100%}.login .seg button{flex:1}
 .lpop{max-height:min(560px,calc(100vh - 64px))}.lpop .th{flex:1 1 auto;min-height:0;max-height:340px;overflow-y:auto}
 /* ---- 분류 색 ---- */
-.tag.c-ACC{background:var(--s-asg-bg);color:var(--s-asg-fg)}.tag.c-ACS{background:var(--s-need-bg);color:var(--s-need-fg)}.tag.c-NET{background:var(--s-prog-bg);color:var(--s-prog-fg)}.tag.c-SW{background:var(--s-re-bg);color:var(--s-re-fg)}.tag.c-HW{background:var(--s-warn-bg);color:var(--s-warn-fg)}.tag.c-SYS{background:var(--osurf);color:var(--o700)}.tag.c-SEC{background:var(--s-urg-bg);color:var(--s-urg-fg)}
+.tag.c-ACC{background:var(--s-info-bg);color:var(--s-info-fg)}.tag.c-ACS{background:var(--s-need-bg);color:var(--s-need-fg)}.tag.c-NET{background:var(--s-prog-bg);color:var(--s-prog-fg)}.tag.c-SW{background:var(--s-re-bg);color:var(--s-re-fg)}.tag.c-HW{background:var(--s-warn-bg);color:var(--s-warn-fg)}.tag.c-SYS{background:var(--osurf);color:var(--o700)}.tag.c-SEC{background:var(--s-urg-bg);color:var(--s-urg-fg)}
 /* ---- FAQ ---- */
 .faq summary{cursor:pointer;display:flex;gap:12px;align-items:center;list-style:none;padding:16px 20px}.faq summary::-webkit-details-marker{display:none}
 .faq summary b{font-size:15px;font-weight:600;flex:1;min-width:0}
@@ -427,7 +428,7 @@ mark.hl{background:#FFE3C7;color:inherit;border-radius:3px;padding:0 1px}
 
 .btn.pri,.composer .btn.ico.pri,.count,.newr{background:#E56E1B!important}.btn.pri:hover,.composer .btn.ico.pri:hover{background:#C2540A!important}
 .count.nw{background:var(--s-urg-dot)!important}
-.detail{background:color-mix(in srgb,var(--white) 58%,transparent)!important;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.detail{background:color-mix(in srgb,var(--white) 58%,transparent)!important;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
 .detail .dh{flex:none;background:transparent!important;height:var(--th);box-sizing:border-box;padding:0 24px;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid #D5D9DF}
 .detail .dh h3{font-size:16px!important;line-height:22px!important;margin-top:0!important}
 .detail .db{gap:0;padding:0 24px 24px}
@@ -479,6 +480,87 @@ mark.hl{background:#FFE3C7;color:inherit;border-radius:3px;padding:0 1px}
 .btn.tone.ok{background:var(--s-ok-bg);color:var(--s-ok-fg);--dot:var(--s-ok-dot)}
 .btn.tone:hover{background:color-mix(in srgb,var(--dot) 18%,var(--white))}
 .hd.warn{background:var(--s-warn-dot)}.hd.prog{background:var(--s-prog-dot)}.hd.re{background:var(--s-re-dot)}
+/* ---- 좁은 화면 서랍은 본문 위로 올라오고 불투명 (z-index 덮어쓰기 방지) ---- */
+@media (max-width:860px){.app>.side{z-index:45}}
+@media (max-width:1180px){.app>.detail{z-index:40}}
+@media (max-width:860px){.app .side{background:var(--white)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}}
+@media (max-width:1180px){.app .detail{background:var(--white)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}}
+/* ---- 모션 시안 반영: 모두 1회성, 0.5초 안 (transform·opacity만) ---- */
+:root{--ease:cubic-bezier(.2,.8,.2,1)}
+/* 해결 완료: 원이 초록으로 바뀌고 체크가 그려진 뒤 픽셀 스파크 4개 */
+@keyframes okbg{from{background:var(--line)}to{background:var(--tone,var(--s-ok-dot))}}
+@keyframes drawck{to{stroke-dashoffset:0}}
+@keyframes spark{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--x),var(--y)) scale(.4)}}
+.stepper .st .n .sp{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;background:#F37321;opacity:0;pointer-events:none}
+.stepper .st:last-child.done.chg .n{animation:okbg .12s linear both}
+.stepper .st:last-child.done.chg .n .i path{stroke-dasharray:24;stroke-dashoffset:24;animation:drawck .3s var(--ease) .12s forwards}
+.stepper .st:last-child.done.chg .n .sp{animation:spark .45s var(--ease) .3s forwards}
+/* AI 답변 도착: 말풍선이 6px 아래에서 올라옴 */
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.msg.a.rise .body{animation:rise .18s var(--ease) both}
+/* 새 알림: 벨 한 번 흔들림 + 배지 튀어나옴 */
+@keyframes bellring{0%,100%{transform:rotate(0)}20%{transform:rotate(12deg)}45%{transform:rotate(-12deg)}70%{transform:rotate(7deg)}}
+@keyframes badgepop{0%{transform:scale(0);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1);opacity:1}}
+.nav button.nbr .i{animation:bellring .5s ease-in-out 1;transform-origin:50% 12%}
+.nav button.nbr .count{animation:badgepop .25s var(--ease) .15s both}
+/* 새 문의 첫 화면: 창이 열리고 커서가 들어옴 */
+@keyframes xopen{from{opacity:0;transform:translateY(6px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes curin{from{opacity:0;transform:translate(26px,18px)}to{opacity:1;transform:translate(0,0)}}
+.xhero.go .xm{animation:xopen .22s var(--ease) both}
+.xhero.go .xc{animation:curin .5s var(--ease) .15s both,xcur 3.2s ease-in-out .65s infinite}
+@media (prefers-reduced-motion:reduce){.stepper .st:last-child.done.chg .n,.msg.a.rise .body,.nav button.nbr .i,.nav button.nbr .count,.xhero.go .xm,.xhero.go .xc{animation:none}.stepper .st:last-child.done.chg .n .i path{animation:none;stroke-dashoffset:0}.stepper .st .n .sp{display:none}}
+/* ---- 접수 초안 수정: 보기 화면과 같은 줄 구성 ---- */
+.dl.edit{align-items:start;gap:10px 12px}
+.dl.edit dt.ed{padding-top:10px}.dl.edit dt.ed label{color:var(--mute)}
+.dl.edit .inp,.dl.edit .ta{min-height:38px;font-size:14px}.dl.edit .inp{padding:0 12px}.dl.edit .ta{min-height:64px;padding:8px 12px;line-height:22px}
+.dl .lkd{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;color:var(--ink2)}.dl .lkd>span{min-width:0}
+.lk{flex:none;display:inline-flex;color:var(--mute);margin-top:2px}.lk .i{width:14px;height:14px}
+.hint.lkh{display:flex;align-items:center;gap:6px;margin-top:10px}.hint.lkh .i{width:14px;height:14px;flex:none}
+.tag.chg{margin-left:6px;vertical-align:1px}
+@media (max-width:860px){.dl.edit{grid-template-columns:minmax(0,1fr);gap:2px}.dl.edit dt{padding-top:8px}.dl.edit dt.ed{padding-top:8px}.dl.edit dd{margin-bottom:2px}}
+/* 다시 그려도 왼쪽 메뉴 스크롤 위치를 유지하고, 스크롤바가 생겨도 폭이 흔들리지 않게 자리를 미리 잡는다 */
+.scroll,.side{scrollbar-gutter:stable}
+/* ---- 상세 패널 상태 4칸: 세로 체크리스트 ---- */
+.tn-ok{--tb:var(--s-ok-bg);--tf:var(--s-ok-fg);--td:var(--s-ok-dot);--tt:#fff}
+.tn-prog{--tb:var(--s-prog-bg);--tf:var(--s-prog-fg);--td:var(--s-prog-dot);--tt:#fff}
+.tn-need{--tb:var(--s-need-bg);--tf:var(--s-need-fg);--td:var(--s-need-dot);--tt:#fff}
+.tn-asg{--tb:var(--s-asg-bg);--tf:var(--s-asg-fg);--td:var(--s-asg-dot);--tt:#fff}
+.tn-re{--tb:var(--s-re-bg);--tf:var(--s-re-fg);--td:var(--s-re-dot);--tt:#fff}
+.tn-urg{--tb:var(--s-urg-bg);--tf:var(--s-urg-fg);--td:var(--s-urg-dot);--tt:#fff}
+.tn-warn{--tb:var(--s-warn-bg);--tf:var(--s-warn-fg);--td:var(--s-warn-dot);--tt:#2A1B00}
+.tn-recv{--tb:var(--s-recv-bg);--tf:var(--s-recv-fg);--td:#6B7280;--tt:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tn-ok,:root:not([data-theme="light"]) .tn-prog,:root:not([data-theme="light"]) .tn-need,:root:not([data-theme="light"]) .tn-asg,:root:not([data-theme="light"]) .tn-re,:root:not([data-theme="light"]) .tn-urg,:root:not([data-theme="light"]) .tn-recv{--tt:#0B1020}}
+:root[data-theme="dark"] .tn-ok,:root[data-theme="dark"] .tn-prog,:root[data-theme="dark"] .tn-need,:root[data-theme="dark"] .tn-asg,:root[data-theme="dark"] .tn-re,:root[data-theme="dark"] .tn-urg,:root[data-theme="dark"] .tn-recv{--tt:#0B1020}
+.stlist{display:flex;flex-direction:column;padding-bottom:8px}
+.sx{display:grid;grid-template-columns:22px minmax(0,1fr) auto;column-gap:10px;align-items:center;position:relative;padding:7px 10px}
+.sx+.sx::before{content:"";position:absolute;left:20px;top:-8px;height:16px;width:2px;background:var(--line)}
+.sx .mk{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+.sx .mk .i{width:13px;height:13px;stroke-width:2.6}
+.sx .l,.sx .v{font-size:13px;color:var(--mute);min-width:0}.sx .v{font-weight:500;white-space:nowrap}
+.sx.done .mk{background:var(--s-recv-bg);color:var(--mute)}
+.sx.done .l,.sx.done .v{color:var(--mute);opacity:.85}
+.sx.idle .mk{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.sx.idle .l,.sx.idle .v{color:var(--mute);opacity:.8}
+.sx.live{padding:12px;margin:3px 0;border-radius:14px;background:color-mix(in srgb,var(--tb) 80%,var(--white));box-shadow:inset 0 0 0 1.5px var(--td)}
+.sx.live::before,.sx.live+.sx::before{display:none}
+.sx.live .mk{background:var(--td);color:var(--tt);width:26px;height:26px;margin-left:-2px}
+.sx.live .mk .i{width:14px;height:14px}
+.sx.live .l{font-size:14px;font-weight:700;color:var(--tf)}
+.sx.live .vb{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.sx.live .sxs{grid-column:2/4;margin-top:4px;font-size:12.5px;color:var(--mute);line-height:1.45}
+.sbd{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:var(--td);color:var(--tt);font-size:13px;font-weight:600;white-space:nowrap}
+.sbd i{width:6px;height:6px;border-radius:50%;background:var(--tt)}
+/* ---- 접근성: 오류·복구·초점 ---- */
+.ferr{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12.5px;font-weight:500;color:var(--s-urg-fg)}
+.ferr::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--s-urg-dot);flex:none}
+.inp[aria-invalid="true"],.ta[aria-invalid="true"],.sel[aria-invalid="true"]{box-shadow:inset 0 0 0 1.5px var(--s-urg-dot)}
+input[type="file"][aria-invalid="true"]{outline:2px solid var(--s-urg-dot);outline-offset:2px}
+.fgt{align-self:flex-start;min-height:44px;padding:0 2px;background:none;border:0;color:var(--o600);font:inherit;font-size:13.5px;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.modal:focus,.drawer:focus{outline:none}
+@media (max-width:860px){.app:not(.nav-open) .side{visibility:hidden}}
+/* 로고는 홈으로 가는 버튼: 문의자=새 문의, 담당자=내게 배정된 문의, 관리자=대시보드 */
+.brandbtn{display:block;background:none;border:0;padding:2px 0;margin:0;cursor:pointer;border-radius:8px;color:inherit}
+.brandbtn:hover{opacity:.85}
 </style>
 </head><body><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
 <symbol id="lg-word" viewBox="0 0 138 40"><path style="fill:var(--lg-it,#F37321)" d="M0 0H10V40H0Z"/><path style="fill:var(--lg-it,#F37321)" d="M14 0H46V9H35V40H25V9H14Z"/>
@@ -500,6 +582,18 @@ const CATS={
   SYS:{n:'사내 시스템',g:'업무시스템팀',sys:'ERP·전자결재·인사/근태'},
   SEC:{n:'정보보안',g:'정보보안팀',sys:'메일·보안'}
 };
+/* 세부 유형 (inquiry_types, 데이터셋 시나리오 ID 기준 일부). 코드 NET-02 형태, 표시는 '코드 · 이름' */
+const ITYPES={
+  ACC:[['ACC-04','통합 로그인(SSO) 장애',/SSO|통합 ?로그인|로그인.*(안|불가|오류)/i],['ACC-03','2단계 인증(MFA)',/MFA|OTP|2단계|인증 ?앱/i],['ACC-02','계정 잠금',/잠[겼금]/],['ACC-01','비밀번호 만료·초기화',/비밀번호|패스워드/]],
+  ACS:[['ACS-02','부서 이동·퇴사 권한 변경',/이동|퇴사|발령/],['ACS-01','시스템·폴더 접근권한 신청',/권한|접근/]],
+  NET:[['NET-03','VPN 전사 장애',/(전사|전체|모두|다들).*(VPN|접속)|VPN.*(전사|전체)/i],['NET-02','VPN 접속 불가(개인)',/VPN/i],['NET-01','사내 Wi-Fi',/와이파이|Wi-?Fi/i],['NET-05','유선 LAN',/랜선|유선|LAN/i],['NET-04','인터넷 속도 저하',/인터넷|느려|속도/]],
+  SW:[['SW-06','메일 프로그램 오류',/메일 ?프로그램|아웃룩|Outlook/i],['SW-05','개발도구 인증서 오류',/인증서|개발 ?도구/],['SW-03','오피스 문서 오류',/Excel|엑셀|Word|워드|PowerPoint|오피스|문서/i],['SW-02','라이선스',/라이선스/],['SW-01','SW 설치 요청',/설치|프로그램/]],
+  HW:[['HW-02','부팅 불가·블루스크린',/부팅|블루스크린|켜지지/],['HW-07','인쇄 불가',/프린터|인쇄|복합기/],['HW-03','모니터·도킹',/모니터|도킹|화면/],['HW-01','PC 속도 저하',/느려|속도|버벅/],['HW-04','장비 파손·수리',/파손|고장|수리|깨졌/]],
+  SYS:[['SYS-09','메일 서버 장애',/메일.*(전사|전체|서버)/],['SYS-06','메일 수신 불가',/메일/],['SYS-02','ERP 오류',/ERP/i],['SYS-01','전자결재',/결재/],['SYS-04','인사·근태',/인사|근태/],['SYS-10','메신저·화상회의',/메신저|화상|Teams|줌|Zoom/i],['SYS-13','공유 드라이브 접속 장애',/공유 ?드라이브|파일 ?서버/],['SYS-15','개발 서버·DB',/개발 ?서버|DB/i]],
+  SEC:[['SEC-04','피싱 대량 유입',/(대량|여러|다수).*(피싱|메일)/],['SEC-01','피싱 메일 신고',/피싱|스팸|수상한 ?메일/],['SEC-06','계정 도용 의심',/도용|탈취/],['SEC-02','악성코드·보안 알림',/악성|백신|바이러스|EDR/i],['SEC-05','시스템 무단 접근·침해 의심',/무단|침해/],['SEC-07','웹사이트 차단 해제',/차단/],['SEC-03','매체·반출 예외',/USB|반출|매체/i]]
+};
+const detectSc=(cat,t)=>{const l=ITYPES[cat];if(!l)return null;const h=l.find(x=>x[2].test(t||''));return h?{code:h[0],name:h[1]}:null;};
+const scTxt=sc=>sc?sc.code+' · '+sc.name:'확인 필요';
 const GROUPS=['서비스데스크','엔드포인트지원팀','네트워크팀','시스템인프라팀','업무시스템팀','정보보안팀'];
 const PRI={P1:'긴급',P2:'높음',P3:'보통',P4:'낮음'};
 const PRI_RULE={P1:'전사·여러 부서의 주요 업무 중단 또는 광범위한 보안 대응 필요',P2:'부서 단위 업무 영향, 개인 업무 전면 중단 또는 보안 사고 의심',P3:'개인 업무 일부에 지장이 있으나 허용된 대체 방법으로 진행 가능',P4:'현재 업무 지장이 없는 단순 문의·사전 신청'};
@@ -536,7 +630,7 @@ const GUIDES0=[
 const KB={
   NET:{g:'IT-NET-001 VPN 접속 장애 대응 가이드',v:2,sec:'3.1',steps:['VPN 클라이언트를 최신 버전으로 업데이트하거나 다시 설치합니다.','PC를 재부팅한 뒤 VPN에 다시 연결합니다.','공용 Wi-Fi라면 휴대폰 핫스팟에 연결해 다시 시도합니다.']},
   ACC:{g:'IT-ACC-001 사내 SSO 로그인 오류 대응 가이드',v:2,sec:'3.2',steps:['10분을 기다리면 잠금이 자동으로 풀립니다. 급하면 [지금 잠금 해제 (본인 인증)]를 누릅니다.','비밀번호를 잊었다면 IT-ACC-002 3.4의 셀프 초기화를 합니다. 잠김도 함께 풀립니다.','다시 잠기면 [자격 증명 관리자]의 예전 비밀번호 항목을 지우고 휴대폰 메일 앱·VPN·메신저의 저장 비밀번호도 바꿉니다. 비밀번호와 인증번호는 대화에 입력하지 마세요.']},
-  SW:{g:'IT-SW-001 업무용 SW 설치 가이드',v:2,sec:'3.1',steps:['사내 IT 포털(hanwha-admin)에 사번으로 로그인해 [소프트웨어 센터]를 엽니다.','프로그램 이름을 검색해 무료·회사 구매 프로그램은 [설치]를 누릅니다. 관리자 비밀번호는 필요 없습니다.','[설치 요청]이 보이는 유료 프로그램은 IT-SW-002 3.1에 따라 라이선스를 신청합니다.']},
+  SW:{g:'IT-SW-001 업무용 SW 설치 가이드',v:2,sec:'3.1',steps:['사내 IT 포털에 사번으로 로그인해 [소프트웨어 센터]를 엽니다.','프로그램 이름을 검색해 무료·회사 구매 프로그램은 [설치]를 누릅니다. 관리자 비밀번호는 필요 없습니다.','[설치 요청]이 보이는 유료 프로그램은 IT-SW-002 3.1에 따라 라이선스를 신청합니다.']},
   HW:{g:'IT-HW-003 프린터·복합기 이용 가이드',v:2,sec:'3.1',steps:['복합기 화면에 오류가 있는지 확인합니다.','PC [설정] > [프린터 및 스캐너]에서 인쇄 대기열을 열어 문서를 모두 취소합니다.','PC를 재부팅한 뒤 다시 인쇄합니다.']},
   ACS:{g:'IT-ACS-001 사내 시스템 접근권한 신청 가이드',v:2,sec:'3.1',steps:['그룹웨어에 로그인해 [IT 요청] > [권한 신청]을 엽니다.','대상 시스템·메뉴(폴더 위치), 필요한 작업, 신청 이유와 사용 기간을 적고 팀장 승인을 요청합니다.']},
   SYS:{g:'IT-SYS-001 그룹웨어·ERP 이용 오류 대응 가이드',v:2,sec:'3.1',steps:['첨부파일을 붙인 문서에서 생기는 오류라면 파일 이름의 특수문자(#, %, & 등)를 지우거나 바꿉니다.','파일을 다시 첨부하고 다시 시도합니다.','오류 코드가 표시되면 기록해 둡니다.']}
@@ -544,7 +638,7 @@ const KB={
 const FAQS=[
   {c:'NET',q:'VPN에 연결할 수 없다고 나와요.',a:'VPN 클라이언트를 최신 버전으로 업데이트하고 PC를 재부팅한 뒤 다시 연결해 보세요. 공용 Wi-Fi라면 휴대폰 핫스팟으로 시도해 보세요.',src:'IT-NET-001 VPN 접속 장애 대응 가이드 v2 · 3.1'},
   {c:'ACC',q:'계정이 잠겼어요. 어떻게 해야 하나요?',a:'5회 연속 실패하면 잠기며 10분 후 자동으로 해제돼요. 급하면 [지금 잠금 해제 (본인 인증)]를 누르고, 비밀번호를 잊었다면 셀프 초기화를 이용해 주세요.',src:'IT-ACC-001 사내 SSO 로그인 오류 대응 가이드 v2 · 3.2'},
-  {c:'SW',q:'업무용 프로그램은 어디서 설치하나요?',a:'사내 IT 포털(hanwha-admin)의 소프트웨어 센터에서 설치해요. [설치 요청]이 보이는 유료 프로그램은 라이선스를 신청해야 해요.',src:'IT-SW-001 업무용 SW 설치 가이드 v2 · 3.1'},
+  {c:'SW',q:'업무용 프로그램은 어디서 설치하나요?',a:'사내 IT 포털의 소프트웨어 센터에서 설치해요. [설치 요청]이 보이는 유료 프로그램은 라이선스를 신청해야 해요.',src:'IT-SW-001 업무용 SW 설치 가이드 v2 · 3.1'},
   {c:'HW',q:'복합기 인쇄가 되지 않아요.',a:'복합기 화면의 오류를 확인하고, 인쇄 대기열의 문서를 모두 취소한 뒤 PC를 재부팅해 다시 인쇄해 보세요.',src:'IT-HW-003 프린터·복합기 이용 가이드 v2 · 3.1'},
   {c:'ACS',q:'폴더 접근권한은 어떻게 신청하나요?',a:'그룹웨어 [IT 요청] > [권한 신청]에서 신청하고 팀장 승인을 받아야 해요. ITssue 접수가 승인 절차를 대신하지는 않아요.',src:'IT-ACS-001 사내 시스템 접근권한 신청 가이드 v2 · 3.1'}
 ];
@@ -577,7 +671,7 @@ const S={
 };
 const $=s=>document.querySelector(s);
 const NOW=()=>{const d=new Date();return String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
-const ICO={"search": "<circle cx=\"9\" cy=\"9\" r=\"5.5\"/><path d=\"M13.5 13.5 17 17\"/>", "plus": "<path d=\"M10 4v12M4 10h12\"/>", "paperclip": "<path d=\"M15.5 9.5 9.8 15.2a3.5 3.5 0 0 1-5-5l6-6a2.3 2.3 0 0 1 3.3 3.3l-6 6a1.2 1.2 0 0 1-1.7-1.7l5.3-5.3\"/>", "send": "<path d=\"M17 3 8.5 11.5M17 3l-5.5 14-3-5.5L3 8.5z\"/>", "bell": "<path d=\"M5 14V9a5 5 0 0 1 10 0v5l1.5 2h-13zM8.5 17.5a1.7 1.7 0 0 0 3 0\"/>", "folder": "<path d=\"M3 6.5A1.5 1.5 0 0 1 4.5 5h3.2l1.6 2H15.5A1.5 1.5 0 0 1 17 8.5v6A1.5 1.5 0 0 1 15.5 16h-11A1.5 1.5 0 0 1 3 14.5z\"/>", "file": "<path d=\"M5 3h6l4 4v10H5zM11 3v4h4M7.5 11h5M7.5 14h5\"/>", "user": "<circle cx=\"10\" cy=\"7\" r=\"3.2\"/><path d=\"M4 17c.6-3 3-4.5 6-4.5s5.4 1.5 6 4.5\"/>", "check": "<circle cx=\"10\" cy=\"10\" r=\"7\"/><path d=\"m6.8 10.2 2.2 2.2 4.2-4.6\"/>", "alert": "<circle cx=\"10\" cy=\"10\" r=\"7\"/><path d=\"M10 6.2v4.4M10 13.4v.1\"/>", "chevron": "<path d=\"m8 5 5 5-5 5\"/>", "clock": "<circle cx=\"10\" cy=\"10\" r=\"7\"/><path d=\"M10 6v4.3l2.8 1.7\"/>", "home": "<path d=\"M3.5 9 10 3.5 16.5 9v7.5h-4.2V12H7.7v4.5H3.5z\"/>", "chat": "<path d=\"M4 4.5h12v8H9.5L6 16v-3.5H4z\"/>", "help": "<circle cx=\"10\" cy=\"10\" r=\"7\"/><path d=\"M7.9 8a2.2 2.2 0 1 1 3.3 1.9c-.8.5-1.2.9-1.2 1.8M10 14.2v.1\"/>", "x": "<path d=\"M5 5l10 10M15 5 5 15\"/>", "dots": "<path d=\"M5 10h.01M10 10h.01M15 10h.01\"/>", "shield": "<path d=\"M10 3 16 5.5v4.2c0 3.4-2.4 6-6 7.3-3.6-1.3-6-3.9-6-7.3V5.5z\"/>", "arrow": "<path d=\"M4 10h12M11 5l5 5-5 5\"/>", "refresh": "<path d=\"M16 10a6 6 0 1 1-2-4.5M16 3.5V6h-2.5\"/>"};
+const ICO={"lock": "<rect x=\"4.5\" y=\"9\" width=\"11\" height=\"7.5\" rx=\"2\"/><path d=\"M7 9V6.5a3 3 0 0 1 6 0V9\"/>", "search": "<circle cx=\"9\" cy=\"9\" r=\"5.5\"/><path d=\"M13.5 13.5 17 17\"/>", "plus": "<path d=\"M10 4v12M4 10h12\"/>", "paperclip": "<path d=\"M15.5 9.5 9.8 15.2a3.5 3.5 0 0 1-5-5l6-6a2.3 2.3 0 0 1 3.3 3.3l-6 6a1.2 1.2 0 0 1-1.7-1.7l5.3-5.3\"/>", "send": "<path d=\"M17 3 8.5 11.5M17 3l-5.5 14-3-5.5L3 8.5z\"/>", "bell": "<path d=\"M5 14V9a5 5 0 0 1 10 0v5l1.5 2h-13zM8.5 17.5a1.7 1.7 0 0 0 3 0\"/>", "folder": "<path d=\"M3 6.5A1.5 1.5 0 0 1 4.5 5h3.2l1.6 2H15.5A1.5 1.5 0 0 1 17 8.5v6A1.5 1.5 0 0 1 15.5 16h-11A1.5 1.5 0 0 1 3 14.5z\"/>", "file": "<path d=\"M5 3h6l4 4v10H5zM11 3v4h4M7.5 11h5M7.5 14h5\"/>", "user": "<circle cx=\"10\" cy=\"7\" r=\"3.2\"/><path d=\"M4 17c.6-3 3-4.5 6-4.5s5.4 1.5 6 4.5\"/>", "check": "<circle cx=\"10\" cy=\"10\" r=\"7\"/><path d=\"m6.8 10.2 2.2 2.2 4.2-4.6\"/>", "alert": "<circle cx=\"10\" cy=\"10\" r=\"7\"/><path d=\"M10 6.2v4.4M10 13.4v.1\"/>", "chevron": "<path d=\"m8 5 5 5-5 5\"/>", "clock": "<circle cx=\"10\" cy=\"10\" r=\"7\"/><path d=\"M10 6v4.3l2.8 1.7\"/>", "home": "<path d=\"M3.5 9 10 3.5 16.5 9v7.5h-4.2V12H7.7v4.5H3.5z\"/>", "chat": "<path d=\"M4 4.5h12v8H9.5L6 16v-3.5H4z\"/>", "help": "<circle cx=\"10\" cy=\"10\" r=\"7\"/><path d=\"M7.9 8a2.2 2.2 0 1 1 3.3 1.9c-.8.5-1.2.9-1.2 1.8M10 14.2v.1\"/>", "x": "<path d=\"M5 5l10 10M15 5 5 15\"/>", "dots": "<path d=\"M5 10h.01M10 10h.01M15 10h.01\"/>", "shield": "<path d=\"M10 3 16 5.5v4.2c0 3.4-2.4 6-6 7.3-3.6-1.3-6-3.9-6-7.3V5.5z\"/>", "arrow": "<path d=\"M4 10h12M11 5l5 5-5 5\"/>", "refresh": "<path d=\"M16 10a6 6 0 1 1-2-4.5M16 3.5V6h-2.5\"/>"};
 const ic=(n,c='',sz)=>`<svg class="i ${c}" viewBox="0 0 20 20" aria-hidden="true"${sz?` style="width:${sz}px;height:${sz}px"`:''}>${ICO[n]||''}</svg>`;
 const logo=(w,k='full')=>{const vb={full:[138,54],word:[138,40],acc:[150,40]}[k];return `<svg class="lg" role="img" aria-label="ITssue" width="${w}" height="${(w*vb[1]/vb[0]).toFixed(1)}" viewBox="0 0 ${vb[0]} ${vb[1]}"><use href="#lg-${k}"/></svg>`;};
 const av=(sz=32,flat=false)=>`<span class="av${flat||sz<=32?' flat':''}" style="width:${sz}px;height:${sz}px;border-radius:${Math.max(6,Math.round(sz/4))}px"><svg width="${Math.round(sz*.62)}" height="${Math.round(sz*.54)}" viewBox="0 0 46 40"><use href="#lg-it"/></svg></span>`;
@@ -600,13 +694,38 @@ function render(opts={}){
   if(ta){S.compose[key()]=ta.value;}
   const hadFocus=ta&&document.activeElement===ta;
   const sc=root.querySelector('.scroll');const st=sc?sc.scrollTop:0,keep=sc&&sc.dataset.k===key();
+  const sdEl=root.querySelector('.side'),sdTop=sdEl?sdEl.scrollTop:0;
   root.innerHTML=S.view.n==='login'?viewLogin():shell();
   const ta2=document.getElementById('cmp');
   if(ta2){ta2.value=S.compose[key()]||'';if(hadFocus){ta2.focus();ta2.setSelectionRange(ta2.value.length,ta2.value.length);}autosize(ta2);}
   const sc2=root.querySelector('.scroll');
   if(sc2){sc2.dataset.k=key();if(opts.bottom||(S.view.n==='chat'&&!keep))sc2.scrollTop=sc2.scrollHeight;else if(keep)sc2.scrollTop=st;}
+  const sd2=root.querySelector('.side');if(sd2&&sdTop)sd2.scrollTop=sdTop;
   const pre=root.querySelector('#prethread');if(pre)pre.scrollTop=pre.scrollHeight;
   renderOverlay();
+  animateKpis();animateIn();
+}
+/* 화면에 들어올 때 한 번: 알림 배지가 늘면 벨 흔들기, 새 문의 첫 화면 진입 */
+window.__nb=window.__nb||{};
+function animateIn(){
+  document.querySelectorAll('[data-nb]').forEach(el=>{const k=el.dataset.nb,n=+el.dataset.n,p=window.__nb[k];window.__nb[k]=n;if(p!==undefined&&n>p){const b=el.closest('button');if(b)b.classList.add('nbr');}});
+  S.inqs.forEach(q=>q.msgs.forEach(m=>{m.fresh=false;}));
+  const v=S.view.n;if(v==='new'&&window.__pv!=='new'){const xh=document.querySelector('.xhero');if(xh)xh.classList.add('go');}window.__pv=v;
+}
+/* 대시보드 숫자: 화면에 처음 나올 때 0에서, 값이 바뀌면 이전 값에서 올라간다 (같은 값으로 다시 그릴 땐 움직이지 않음) */
+window.__kpi=window.__kpi||{};
+function animateKpis(){
+  if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  document.querySelectorAll('.kpi .v b').forEach((el,n)=>{
+    const m=String(el.textContent).trim().match(/^(\$?)([\d,]+(?:\.(\d+))?)(.*)$/);if(!m)return;
+    const to=parseFloat(m[2].replace(/,/g,'')),dec=m[3]?m[3].length:0,comma=m[2].includes(','),k=key()+'|'+n;
+    const from=k in window.__kpi?window.__kpi[k]:0;window.__kpi[k]=to;
+    if(from===to)return;
+    const fmt=v=>m[1]+(comma?v.toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec}):v.toFixed(dec))+m[4];
+    const t0=performance.now()+Math.min(n,5)*40,dur=600;el.textContent=fmt(from);
+    const f=t=>{const p=Math.min(1,Math.max(0,(t-t0)/dur)),e=1-Math.pow(1-p,3);el.textContent=fmt(from+(to-from)*e);if(p<1)requestAnimationFrame(f);};
+    requestAnimationFrame(f);
+  });
 }
 function autosize(t){t.style.height='auto';t.style.height=Math.min(140,t.scrollHeight)+'px';}
 
@@ -615,6 +734,8 @@ function navCounts(){
   const mine=S.inqs.filter(i=>i.owner===S.user);
   return {list:mine.filter(i=>i.unread).length};
 }
+/* 보안·감사 알림: 마지막으로 본 뒤 늘어난 만큼 NEW 표시 */
+function secBadge(){const n=S.sec.filter(e=>e.st==='신규').length;if(S.secSeen==null||S.secSeen>n||S.view.n==='sec')S.secSeen=n;const fresh=n>S.secSeen;return n?`<span class="count${fresh?' nw':''}" data-nb="sec" data-n="${n}">${fresh?'NEW ':''}${n}</span>`:'';}
 function shell(){
   const v=S.view.n,acc=me();
   const opsPage=['dash','exc','sec','tickets','guides','accounts','ai'].includes(v);
@@ -625,15 +746,15 @@ function shell(){
   if(S.role==='staff'||S.role==='admin'){
     const q=S.tickets.filter(t=>t.assignee===acc.name&&t.status&&t.status!=='CLS').length;
     nav+=`<div class="grp">${S.role==='admin'?'운영':'업무'}</div>`;
-    if(S.role==='staff'){{const nr=S.tickets.filter(t=>t.assignee===acc.name&&t.newReply).length;nav+=item('queue','file','처리할 문의',(nr?`<span class="count nw" title="문의자 새 답변">NEW ${nr}</span>`:'')+(q?`<span class="count">${q}</span>`:''));}nav+=item('sdash','home','내 대시보드');}
+    if(S.role==='staff'){{const nr=S.tickets.filter(t=>t.assignee===acc.name&&t.newReply).length;nav+=item('queue','file','처리할 문의',(nr?`<span class="count nw" data-nb="queue" data-n="${nr}" title="문의자 새 답변">NEW ${nr}</span>`:'')+(q?`<span class="count">${q}</span>`:''));}nav+=item('sdash','home','내 대시보드');}
     if(S.role==='admin'){
       const ex=excList().length;
-      nav+=item('dash','home','대시보드')+item('exc','alert','연동·배정 확인',ex?`<span class="count">${ex}</span>`:'')+item('sec','bell','보안·감사 알림',S.sec.filter(e=>e.st==='신규').length?`<span class="count">${S.sec.filter(e=>e.st==='신규').length}</span>`:'')+item('tickets','file','전체 Ticket')+item('guides','folder','가이드 관리')+item('accounts','user','계정 관리')+item('ai','shield','AI 운영');
+      nav+=item('dash','home','대시보드')+item('exc','alert','연동·배정 확인',ex?`<span class="count">${ex}</span>`:'')+item('sec','bell','보안·감사 알림',secBadge())+item('tickets','file','전체 문의')+item('guides','folder','가이드 관리')+item('accounts','user','계정 관리')+item('ai','shield','AI 운영');
     }
   }
   const recent=S.inqs.filter(i=>i.owner===S.user).slice().reverse().slice(0,5).map(i=>`<button class="rt ${v==='chat'&&S.view.id===i.id?'on':''}" data-act="open" data-id="${i.id}"><b><span>${ESC(i.title)}</span>${i.unread?'<span class="count">'+i.unread+'</span>':''}</b><small><span class="rs" style="color:var(--s-${inqKind(i)}-fg)"><i style="background:var(--s-${inqKind(i)}-dot)"></i>${ESC(inqLabel(i))}</span> · ${ESC(i.when)}</small></button>`).join('');
   const roleLb={user:'문의자',staff:'담당자',admin:'관리자'}[S.role];
-  const side=`<aside class="side"><div class="brand">${logo(112)}</div><nav class="nav" aria-label="주 메뉴">${nav}</nav>${recent?`<div class="nav"><div class="grp gsr">최근 문의<button class="gic" data-act="l-search" aria-label="내 문의 검색" title="내 문의 검색"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2L17 17"/></svg></button></div><div class="recent">${recent}</div></div>`:''}<div class="who"><span class="pf">${ESC(initials(acc.name))}</span><div><div class="nm">${ESC(acc.name)}</div><small>${ESC(acc.dept)} · ${roleLb}</small></div><button class="btn ghost sm out" data-act="logout" aria-label="로그아웃" title="로그아웃">${ic('arrow')}</button></div></aside>`;
+  const side=`<aside class="side"><div class="brand"><button type="button" class="brandbtn" data-act="home" aria-label="ITssue 홈으로">${logo(112)}</button></div><nav class="nav" aria-label="주 메뉴">${nav}</nav>${recent?`<div class="nav"><div class="grp gsr">최근 문의<button class="gic" data-act="l-search" aria-label="내 문의 검색" title="내 문의 검색"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2L17 17"/></svg></button></div><div class="recent">${recent}</div></div>`:''}<div class="who"><span class="pf">${ESC(initials(acc.name))}</span><div><div class="nm">${ESC(acc.name)}</div><small>${ESC(acc.dept)} · ${roleLb}</small></div><button class="btn ghost sm out" data-act="logout" aria-label="로그아웃" title="로그아웃">${ic('arrow')}</button></div></aside>`;
   let body='',detail='';
   if(v==='new')body=viewNew();else if(v==='chat')body=viewChat();else if(v==='list')body=viewList();else if(v==='faq')body=viewFaq();
   else if(v==='queue')body=viewQueue();else if(v==='sdash')body=viewStaffDash();else if(v==='dash')body=viewDash();else if(v==='exc')body=viewExc();else if(v==='sec')body=viewSec();else if(v==='tickets')body=viewTickets();else if(v==='guides')body=viewGuides();else if(v==='accounts')body=viewAccounts();else if(v==='ai')body=viewAI();
@@ -646,14 +767,28 @@ const bgsvg=(id)=>`<svg class="bg" width="100%" height="100%" viewBox="0 0 1192 
 /* ---- 오버레이: 모달 · 시연 도구 · 드로어 ---- */
 function renderOverlay(){
   const o=$('#ov');let h='';
-  if(S.modal)h+=`<div class="ov" data-act="modal-bg"><div class="modal" role="dialog" aria-modal="true" aria-label="${ESC(S.modal.title)}">${S.modal.html}</div></div>`;
-  if(S.drawer)h+=`<div class="drawer" role="dialog" aria-label="요구사항 매핑">${drawerHtml()}</div>`;
+  if(S.modal)h+=`<div class="ov" data-act="modal-bg"><div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label="${ESC(S.modal.title)}">${S.modal.html}</div></div>`;
+  if(S.drawer)h+=`<div class="drawer" role="dialog" aria-modal="true" tabindex="-1" aria-label="요구사항 매핑">${drawerHtml()}</div>`;
   h+=demoHtml();
   const f=o.querySelector('[data-keep]'); // 시연 도구 스크롤 유지
   o.innerHTML=h;
+  const rt=$('#root');if(rt)rt.inert=!!(S.modal||S.drawer);
 }
-function openModal(title,html){S.modal={title,html:`<h3>${ESC(title)}</h3>${html}`};renderOverlay();setTimeout(()=>{const f=document.querySelector('.modal input,.modal textarea,.modal select');if(f)f.focus();},30);}
-function closeModal(){S.modal=null;renderOverlay();}
+/* 초점: 열기 전 위치를 기억하고, 안에서만 순환하고, 닫으면 돌아간다 */
+/* 입력 오류는 토스트가 아니라 해당 입력 아래에 남기고, 입력과 연결한다 */
+function fieldErr(id,msg){
+  const el=document.getElementById(id);if(!el){toast(msg);return;}
+  el.setAttribute('aria-invalid','true');
+  const eid=id+'-err';let e=document.getElementById(eid);
+  if(!e){e=document.createElement('div');e.id=eid;e.className='ferr';e.setAttribute('role','alert');el.insertAdjacentElement('afterend',e);}
+  e.textContent=msg;el.setAttribute('aria-describedby',eid);
+  setTimeout(()=>{const f=document.querySelector('[aria-invalid="true"]');if(f)f.focus();},0);
+}
+['input','change'].forEach(t=>document.addEventListener(t,ev=>{const el=ev.target;if(el&&el.getAttribute&&el.getAttribute('aria-invalid')==='true'&&String(el.value||'').trim()){el.removeAttribute('aria-invalid');el.removeAttribute('aria-describedby');const e=document.getElementById(el.id+'-err');if(e)e.remove();}}));
+function selOf(el){if(!el||el===document.body||!el.getAttribute)return '';if(el.id)return '#'+el.id;const a=el.getAttribute('data-act');if(!a)return '';let q='[data-act="'+a+'"]';['id','v','r','t','g','k'].forEach(k=>{if(el.dataset&&el.dataset[k]!=null)q+='[data-'+k+'="'+el.dataset[k]+'"]';});return q;}
+function restoreFocus(key){const sel=S[key||'opener'];S[key||'opener']=null;setTimeout(()=>{const el=sel&&document.querySelector(sel);if(el)el.focus();},0);}
+function openModal(title,html){if(!S.modal&&!S.drawer)S.opener=selOf(document.activeElement);S.modal={title,html:`<h3>${ESC(title)}</h3>${html}`};renderOverlay();setTimeout(()=>{const m=document.querySelector('.modal');if(!m)return;const f=m.querySelector('input,textarea,select,button');(f||m).focus();},30);}
+function closeModal(){S.modal=null;renderOverlay();restoreFocus();}
 function demoHtml(){
   const idBtn=(r,l)=>`<button class="${S.role===r?'on':''}" data-act="switch" data-r="${r}">${l}</button>`;
   const ck=(k,l)=>`<label class="sw"><input type="checkbox" data-in="flag" data-k="${k}" ${S.flags[k]?'checked':''}><span>${l}</span></label>`;
@@ -676,7 +811,7 @@ function drawerHtml(){
     ['연동·배정 확인 필요','ADMIN-01 · NFR-REL-04/06 · LOG-01','Jira 미연결 건 조회, 생성 여부 확인 후 재시도, 담당자 지정과 사유 기록'],
     ['담당자 재배정·추가 답변 필요 표시','ASSIGN-05 · ADMIN-01 · SRS 4.5','관리자가 진행 중 Ticket의 담당자를 사유와 함께 재배정(진행 상태 유지, 재배정 표시). 담당자가 추가 정보를 요청하면 문의자에게 추가 답변 필요로 표시'],
     ['보안·감사 알림','LOG-01 · NFR-SEC-01/03/04 · PRD 4.17 · SRS AUDIT-01~03 (제안)','문의가 접수되지 않았어도 ITssue 안에서 감지된 보안 의심 신호를 모아 봅니다. 원문은 마스킹, 열람은 사유 기록. 제안 기능(팀 확정 전)'],
-    ['대시보드 · 전체 Ticket','ADMIN-03','Category·긴급도·담당자별 현황 (SLA 제외)'],
+    ['대시보드 · 전체 문의','ADMIN-03','Category·긴급도·담당자별 현황 (SLA 제외)'],
     ['가이드 관리','GUIDE-01 · GUIDE-03','버전, 열람 범위, 외부 전송 정책(허용·마스킹 후 허용·금지, 완화할 때는 사유 입력), 해결 사례의 Guide화 (Should)'],
     ['계정 관리','ADMIN-02 · 4.11','ITssue 서비스 권한만 관리. 정상·잠김·이용 제한 상태와 이용 제한·해제 사유 기록. 실제 시스템 접근권한 승인과 구분 (Should)'],
     ['AI 운영','LOG-02 · 5.1 Golden Set','비용·품질 평가 예시 (Should). 수치는 시연 데이터'],
@@ -694,7 +829,7 @@ function composerHtml(ph,big){
   return `<div class="composer"><button class="btn ico sm" style="background:transparent;color:var(--mute)" aria-label="첨부 파일" data-act="attach">${ic('paperclip')}</button><textarea id="cmp" rows="1" placeholder="${ESC(ph)}" aria-label="메시지 입력" data-in="cmp"></textarea><button class="btn ico pri" data-act="send" aria-label="보내기">${ic('send')}</button></div>`;
 }
 function viewNew(){
-  const chips=[['shield','계정·로그인','계정이 잠겼어요'],['refresh','VPN·네트워크','VPN이 자꾸 끊겨요'],['file','소프트웨어 설치','업무용 프로그램을 설치하고 싶어요'],['help','프린터·장비','복합기에서 인쇄가 안 돼요'],['chat','메일·협업툴','전자결재 접속이 안 돼요']];
+  const chips=[['shield','계정·로그인','계정이 잠겼어요'],['refresh','VPN·네트워크','VPN이 자꾸 끊겨요'],['file','소프트웨어 설치','업무용 프로그램을 설치하고 싶어요'],['help','프린터·장비','복합기에서 인쇄가 안 돼요'],['chat','사내 시스템','전자결재 접속이 안 돼요']];
   const f=[['비밀번호를 잊었어요','초기화 방법 안내','비밀번호를 잊어버렸어요'],['VPN이 자주 끊겨요','재택 환경 점검','재택근무 중 VPN이 자주 끊겨요'],['폴더 권한이 필요해요','신청 절차 안내','공유 폴더 접근권한을 신청하고 싶어요']];
   return `<main class="main">${bgsvg('n')}<div class="scroll"><button class="btn sec sm ico xmenu" data-act="nav" aria-label="메뉴 열기">${ic('chevron')}</button><div class="hero"><div class="xhero"><div class="xw gh" aria-hidden="true"><div class="xb"><i></i><i></i><i></i><span></span><b>▢</b><b>✕</b></div></div><div class="xw xm"><div class="xb"><i></i><i></i><i></i><span></span><b>▢</b><b>✕</b></div><div class="xy"><svg role="img" aria-label="ITssue" width="170" height="66.5" viewBox="0 0 138 54"><use href="#lg-full"/></svg></div></div><i class="xs s1"></i><i class="xs s2"></i><i class="xs s3"></i><svg class="xc" width="32" height="48" viewBox="0 0 14 21" aria-hidden="true"><use href="#cursor"/></svg></div><div class="hi">${ESC(me().name)}님, 안녕하세요</div><h1>무엇을 도와드릴까요?</h1>${composerHtml('겪고 있는 문제를 편하게 적어 주세요',true)}<div class="cats">${chips.map(c=>`<button class="chip" style="min-height:44px;background:var(--white)" data-act="prefill" data-t="${ESC(c[2])}">${ic(c[0])}${c[1]}</button>`).join('')}</div><div class="faqs3">${f.map(x=>`<button class="faqc" data-act="prefill" data-t="${ESC(x[2])}"><b>${x[0]}</b><small>${x[1]}</small></button>`).join('')}</div><div class="hint" style="margin-top:22px">AI가 먼저 답하고, 해결되지 않으면 담당자에게 바로 연결해 드려요 · ${MAIL_NOTE}</div></div></div></main>`;
 }
@@ -727,14 +862,17 @@ function renderMsg(i,m,idx){
   if(m.card==='ticket'){if(m.frozen)h+=m.frozen;else{const t=tById(m.tid);if(t)h+=ticketCard(t,i);}}
   if(m.card==='savefail')h+=`<div class="alert err" style="margin-top:12px">${ic('alert')}<div><b>접수를 저장하지 못했어요.</b><br>작성한 내용은 그대로 보관했어요. 잠시 후 다시 시도하거나 아래 경로로 접수해 주세요.<br><span class="small">· 서비스데스크 ${SERVICEDESK_PHONE}<br>· 그룹웨어 IT 요청 메뉴</span></div></div>`;
   if(m.replies){const dis=m.locked||!['collect','answered','offer','draft'].includes(i.step)&&false;h+=`<div class="replies">${m.replies.map(r=>`<button class="chip${r.k==='pri'?' on':''}" ${m.locked?'disabled':''} data-act="reply" data-r="${r.a}" data-id="${i.id}" data-mi="${idx}" data-arg="${ESC(r.arg||'')}">${ESC(r.l)}</button>`).join('')}${m.demo&&!m.locked?`<button class="btn ghost sm" data-act="timeout" data-id="${i.id}" data-mi="${idx}">(시연) 응답 없이 시간 경과</button>`:''}</div>`;}
-  return `<div class="msg a">${av(32)}<div class="body">${h}</div></div>`;
+  return `<div class="msg a${m.fresh?' rise':''}">${av(32)}<div class="body">${h}</div></div>`;
 }
 window.__stp=window.__stp||{};
+/* 디자인 가이드의 진행 단계 체크: 원 없이 체크만 (20칸 안에 m5 10.5 → 15 6.8, 선 두께 2.6) */
+const STEP_CK='<svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="m5 10.5 3.2 3.2L15 6.8"/></svg>';
 function stepper(states,tone,subs,key){
   const prev=key&&window.__stp[key];if(key)window.__stp[key]=states.join();const pv=prev?prev.split(','):null;
   const lb=['접수','담당자 배정','처리 중','해결 완료'];
-  return `<div class="stepper" style="--tone:${tone}">${lb.map((l,k)=>`<div class="st ${states[k]}${pv&&pv[k]!==states[k]?' chg':''}"><span class="n">${states[k]==='done'?ic('check'):''}</span><b>${l}</b><small>${ESC(subs[k]||'')}</small></div>`).join('')}</div>`;
+  return `<div class="stepper" style="--tone:${tone}">${lb.map((l,k)=>`<div class="st ${states[k]}${pv&&pv[k]!==states[k]?' chg':''}"><span class="n">${states[k]==='done'?STEP_CK:''}${k===3&&states[k]==='done'&&pv&&pv[k]!==states[k]?'<i class="sp" style="--x:-28px;--y:-24px"></i><i class="sp" style="--x:29px;--y:-20px"></i><i class="sp" style="--x:-24px;--y:23px"></i><i class="sp" style="--x:26px;--y:24px"></i>':''}</span><b>${l}</b><small>${ESC(subs[k]||'')}</small></div>`).join('')}</div>`;
 }
+const stAt=(t,s)=>{const h=(t.hist||[]).find(x=>String(x.what).startsWith('상태 '+s));return h?h.t:'';};
 function ticketSteps(t){
   let st,subs=[t.created||'',t.assignee?t.group:'','',''];
   const asgDone=t.asg==='완료';
@@ -743,10 +881,11 @@ function ticketSteps(t){
   else if(t.status==='WIP')st=['done','done','cur','todo'];
   else if(t.status==='RDY')st=['done','done','cur','todo'];
   else st=['done','cur','todo','todo'];
-  if(asgDone){subs[1]=t.assignee+' 담당'+(t.reassigned?' · 재배정':'');}else subs[1]=t.asg==='확인 필요'||t.jira==='확인 필요'?'운영자 확인 중':'연결 중';
-  subs[2]=t.status==='RDY'?'대기':t.status==='WIP'?'처리 중':t.status==='FIN'||t.status==='CLS'?'완료':'';
-  subs[3]=t.status==='FIN'?'확인 대기':t.status==='CLS'?'확인 완료':'';
-  const tone=t.status==='CLS'?'var(--s-ok-dot)':t.status==='FIN'?'var(--s-need-dot)':'var(--s-prog-dot)';
+  if(asgDone){subs[1]=t.assignee+' 담당'+(t.reassigned?' · 재배정':'');}else subs[1]=t.asg==='확인 필요'||t.jira==='확인 필요'||t.jira==='결과 확인 중'?'운영자 확인 중':'연결 중';
+  subs[2]=t.status==='RDY'?'대기':t.status==='WIP'?'처리 중':t.status==='FIN'||t.status==='CLS'?'완료'+(stAt(t,'FIN')?' · '+stAt(t,'FIN'):''):'';
+  subs[3]=t.status==='FIN'?'확인 대기':t.status==='CLS'?'확인 완료'+(stAt(t,'CLS')?' · '+stAt(t,'CLS'):''):'';
+  /* 진행 단계 색은 현재 단계를 따른다: 배정 중=청록, 처리 중=파랑, 해결 확인 대기=보라, 완료=초록 */
+  const tone=t.status==='CLS'?'var(--s-ok-dot)':t.status==='FIN'?'var(--s-need-dot)':t.status==='WIP'||t.status==='RDY'?'var(--s-prog-dot)':'var(--s-asg-dot)';
   return stepper(st,tone,subs,t.id||t.receipt);
 }
 function userMsg(t){
@@ -755,7 +894,7 @@ function userMsg(t){
   if(t.status==='FIN')return '담당자가 처리 결과를 등록했어요. 해결되었는지 확인해 주세요.';
   if(t.status==='WIP')return `${t.assignee} 담당자가 처리하고 있어요.`;
   if(t.status==='RDY')return `${t.assignee} 담당자(${t.group})에게 배정되었어요. 처리를 기다리고 있어요.`;
-  if(t.jira==='확인 필요'||t.asg==='확인 필요')return '접수는 유지되어 있으며, 운영자가 담당자 연결을 확인하고 있어요. 다시 접수하실 필요는 없어요.';
+  if(t.jira==='확인 필요'||t.jira==='결과 확인 중'||t.asg==='확인 필요')return '접수는 유지되어 있으며, 운영자가 담당자 연결을 확인하고 있어요. 다시 접수하실 필요는 없어요.';
   return '접수되었습니다. 담당자 연결을 진행하고 있어요.';
 }
 function ticketCard(t,i,ro){
@@ -766,9 +905,13 @@ function draftCard(i){
   const d=i.draft;if(!d)return '';
   const done=i.dstate==='confirmed';
   const edit=i.dstate==='edit';
-  const row=(l,v)=>`<dt>${l}</dt><dd>${v}</dd>`;
-  const body=edit?`<div style="display:flex;flex-direction:column;gap:10px;margin-top:12px"><div class="field"><label for="d-issue">문의 내용</label><textarea class="ta" id="d-issue" data-in="d" data-k="issue" style="min-height:72px">${ESC(d.issue)}</textarea></div><div class="field"><label for="d-impact">영향 범위·업무 영향</label><input class="inp" id="d-impact" data-in="d" data-k="impact" value="${ESC(d.impact)}"></div><div class="field"><label for="d-tried">시도한 조치</label><input class="inp" id="d-tried" data-in="d" data-k="tried" value="${ESC(d.tried)}"></div></div>`
-  :`<dl class="dl">${row('문의 내용',ESC(d.issue))}${row('대상 시스템',ESC(d.sys))}${row('발생 시점',ESC(d.onset))}${row('영향 범위·업무 영향',ESC(d.impact))}${row('시도한 조치',ESC(d.tried))}${row('AI 안내',ESC(d.ai))}${row('Category',d.cat?d.cat+' · '+CATS[d.cat].n:'미분류 · 서비스데스크 확인')}${row('긴급도',pbadge(d.p)+' <span class="small muted">'+ESC(d.why.join(' · '))+'</span>')}${row('추천 담당 그룹',ESC(d.group))}</dl>`;
+  /* 수정 화면도 보기 화면과 같은 줄 구성. 고칠 수 있는 3개만 그 자리에서 입력칸이 되고, 나머지는 잠금 표시 */
+  const chg=k=>(d.chg||[]).includes(k)?' <span class="tag chg">다시 판단됨</span>':'';
+  const lk=`<span class="lk" title="자동으로 판단하는 항목" aria-label="자동으로 판단하는 항목">${ic('lock')}</span>`;
+  const row=(l,v,k)=>`<dt>${l}</dt><dd>${v}${chg(k)}</dd>`;
+  const fix=(l,v,k)=>edit?`<dt>${l}</dt><dd class="lkd"><span>${v}${chg(k)}</span>${lk}</dd>`:row(l,v,k);
+  const inp=(l,id,k,ta)=>edit?`<dt class="ed"><label for="d-${id}">${l}</label></dt><dd>${ta?`<textarea class="ta" id="d-${id}" data-in="d" data-k="${id}">${ESC(d[k])}</textarea>`:`<input class="inp" id="d-${id}" data-in="d" data-k="${id}" value="${ESC(d[k])}">`}</dd>`:row(l,ESC(d[k]));
+  const body=`<dl class="dl${edit?' edit':''}">${inp('문의 내용','issue','issue',true)}${fix('대상 시스템',ESC(d.sys))}${inp('발생 시점','onset','onset')}${inp('영향 범위·업무 영향','impact','impact')}${inp('시도한 조치','tried','tried')}${fix('AI 안내',ESC(d.ai))}${fix('분류',d.cat?d.cat+' · '+CATS[d.cat].n:'미분류 · 서비스데스크 확인','cat')}${fix('세부 유형',d.sc?ESC(scTxt(d.sc)):'담당자가 확인해요','sc')}${fix('긴급도',pbadge(d.p)+' <span class="small muted">'+ESC(d.why.join(' · '))+'</span>','p')}${fix('추천 담당 그룹',ESC(d.group),'group')}</dl>${edit?`<p class="hint lkh">${ic('lock')}<span>잠금 표시 항목은 적어 주신 내용으로 자동 판단해요. 내용을 고치면 다시 판단해요.</span></p>`:''}`;
   const acts=done?'':edit?`<div class="replies"><button class="btn pri sm" data-act="d-save" data-id="${i.id}">수정 반영하기</button><button class="btn sec sm" data-act="d-cancel" data-id="${i.id}">취소</button></div>`:`<div class="replies"><button class="btn pri" data-act="d-confirm" data-id="${i.id}">이 내용으로 접수하기</button><button class="btn sec" data-act="d-edit" data-id="${i.id}">수정할게요</button><button class="btn ghost" data-act="d-cancelall" data-id="${i.id}">접수하지 않을래요</button></div>`;
   return `<div class="card w"><div class="row" style="justify-content:space-between"><h4>접수 초안</h4>${done?badge('ok','접수 확인 완료'):badge('warn','확인 대기 · 아직 접수되지 않았어요')}</div>${i.dnote?`<div class="alert warn" style="margin-top:10px">${ic('alert')}<div>${ESC(i.dnote)}</div></div>`:''}${body}${acts}</div>`;
 }
@@ -793,8 +936,8 @@ function viewList(){
   const cond=!!(q||S.lcat||S.lper||S.listFilter!=='전체');
   const th=(l,k)=>sortTh(l,k,'list');
   const seg=`<div class="d2seg">${filters.map(f=>`<button class="${S.listFilter===f?'on':''}" data-act="lf" data-f="${f}">${f} <em>${cnt(f)}</em></button>`).join('')}</div>`;
-  const bar=S.lopen!==false?`<div class="d2f"><label class="srch${q?' f':''}">${SRCH(18)}<input id="lq" data-in="lq" value="${ESC(S.lq||'')}" placeholder="제목·접수번호·가이드명으로 검색" aria-label="내 문의 검색" autocomplete="off"><span id="lxb">${q?`<button class="x" data-act="l-qclear" aria-label="검색어 지우기">✕</button>`:''}</span></label>${pill('lst','상태',filters.slice(1).map(f=>[f,f+' · '+cnt(f)]),S.listFilter==='전체'?'':S.listFilter)}${pill('lcat','Category',Object.keys(CATS).map(c=>[c,CATS[c].n]),S.lcat)}${pill('lper','기간',PERS,S.lper)}<span id="lclr">${cond?`<button class="d2clr" data-act="l-clear">✕ 조건 해제</button>`:''}</span></div>`:'';
-  return `<main class="main">${bgsvg('l')}${topbar('문의 내역','내 문의의 진행 상태')}<div class="scroll"><div class="page"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-end"><div><div class="eyebrow">MY INQUIRIES</div><h1>내 문의 내역</h1><p class="muted" style="margin-top:4px">진행 중인 문의와 해결된 문의를 상태별로 확인하세요. 종료된 문의도 다시 열어 이어갈 수 있어요.</p></div><button class="icb${S.lopen!==false?' on':''}" data-act="l-toggle" aria-label="검색 열기·닫기" aria-pressed="${S.lopen!==false}">${SRCH(20)}</button></div>${bar}<div class="panel" id="lres" style="padding:6px 10px">${rows.length?`<div class="tw"><table class="tbl"><thead><tr>${th('문의','title')}${th('Category','cat')}${th('상태','status')}<th>접수번호</th>${th('최근 활동','when')}</tr></thead><tbody>${rows.map(i=>{const t=i.ticketId&&tById(i.ticketId);return `<tr><td><button class="lk" data-act="open" data-id="${i.id}">${hl(i.title)}</button>${i.unread?`<small>새 답변 ${i.unread}</small>`:''}</td><td>${i.cat?`<span class="tag c-${i.cat}">${CATS[i.cat].n}</span>`:'<span class="muted small">분류 전</span>'}</td><td>${badge(inqKind(i),inqLabel(i))}</td><td class="mono small">${t?hl(t.receipt)+(t.id?' / '+hl(t.id):''):'-'}</td><td class="muted small">${ESC(i.when)}</td></tr>`}).join('')}</tbody></table></div>${pg.html}`:`<div class="empty">${cond?'조건에 맞는 문의가 없습니다.':'이 상태의 문의가 없습니다.'}</div>`}</div></div></div></main>`;
+  const bar=S.lopen!==false?`<div class="d2f"><label class="srch${q?' f':''}">${SRCH(18)}<input id="lq" data-in="lq" value="${ESC(S.lq||'')}" placeholder="제목·접수번호·가이드명으로 검색" aria-label="내 문의 검색" autocomplete="off"><span id="lxb">${q?`<button class="x" data-act="l-qclear" aria-label="검색어 지우기">✕</button>`:''}</span></label>${pill('lst','상태',filters.slice(1).map(f=>[f,f+' · '+cnt(f)]),S.listFilter==='전체'?'':S.listFilter)}${pill('lcat','분류',Object.keys(CATS).map(c=>[c,CATS[c].n]),S.lcat)}${pill('lper','기간',PERS,S.lper)}<span id="lclr">${cond?`<button class="d2clr" data-act="l-clear">✕ 조건 해제</button>`:''}</span></div>`:'';
+  return `<main class="main">${bgsvg('l')}${topbar('문의 내역','내 문의의 진행 상태')}<div class="scroll"><div class="page"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-end"><div><div class="eyebrow">MY INQUIRIES</div><h1>내 문의 내역</h1><p class="muted" style="margin-top:4px">진행 중인 문의와 해결된 문의를 상태별로 확인하세요. 종료된 문의도 다시 열어 이어갈 수 있어요.</p></div><button class="icb${S.lopen!==false?' on':''}" data-act="l-toggle" aria-label="검색 열기·닫기" aria-pressed="${S.lopen!==false}">${SRCH(20)}</button></div>${bar}<div class="panel" id="lres" style="padding:6px 10px">${rows.length?`<div class="tw"><table class="tbl"><thead><tr>${th('문의','title')}${th('분류','cat')}${th('상태','status')}<th>접수번호</th>${th('최근 활동','when')}</tr></thead><tbody>${rows.map(i=>{const t=i.ticketId&&tById(i.ticketId);return `<tr><td><button class="lk" data-act="open" data-id="${i.id}">${hl(i.title)}</button>${i.unread?`<small>새 답변 ${i.unread}</small>`:''}</td><td>${i.cat?`<span class="tag c-${i.cat}">${CATS[i.cat].n}</span>`:'<span class="muted small">분류 전</span>'}</td><td>${badge(inqKind(i),inqLabel(i))}</td><td class="mono small">${t?hl(t.receipt)+(t.id?' / '+hl(t.id):''):'-'}</td><td class="muted small">${ESC(i.when)}</td></tr>`}).join('')}</tbody></table></div>${pg.html}`:`<div class="empty">${cond?'조건에 맞는 문의가 없습니다.':'이 상태의 문의가 없습니다.'}</div>`}</div></div></div></main>`;
 }
 function viewFaq(){
   const adm=S.role==='admin';
@@ -853,10 +996,11 @@ function absorb(i,text,initial){
   if(!initial&&i.pending&&!it[i.pending]&&text.trim().length>=2)it[i.pending]=text;
 }
 function missing(i){return ORDER.filter(k=>!i.intake[k]);}
-const mk=(i,m)=>{m.id=S.seq.msg++;i.msgs.push(m);return m;};
+const mk=(i,m)=>{m.id=S.seq.msg++;m.fresh=!!window.__live&&m.r==='a'&&!m.typing;i.msgs.push(m);return m;};
 function typing(i,label,ms,then){const m=mk(i,{r:'a',typing:true,label});render({bottom:true});later(()=>{i.msgs=i.msgs.filter(x=>x!==m);then();render({bottom:true});},ms);}
 function sendText(text){
   text=text.trim();if(!text)return;
+  text=maskSens(text).t;
   const v=S.view;
   if(v.n==='new'){const i=newInq(text);S.view={n:'chat',id:i.id};handle(i,text,true);return;}
   if(v.n==='chat'){
@@ -867,9 +1011,17 @@ function sendText(text){
   }
 }
 function notifyDemo(){}
+/* 비밀번호·인증번호로 보이는 값은 대화·초안·로그에 넣기 전에 ●로 바꾼다 */
+function maskSens(t){
+  let hit=false;const B='●●●●●●';
+  let o=String(t).replace(/(비밀번호|패스워드|암호|인증번호|인증 번호|보안코드|OTP|PIN|password|passwd|pw)(\s*(?:는|은|이|가|:|=)\s*)([^\s,]+)/gi,(a,k,sep,v)=>{if(/[0-9A-Za-z!@#$%^&*]/.test(v)&&!/^●+$/.test(v)){hit=true;return k+sep+B;}return a;});
+  o=o.replace(/\d{6,}/g,()=>{hit=true;return B;});
+  return {t:o,hit};
+}
 function handle(i,text,initial){
+  const sm=maskSens(text);text=sm.t;
   mk(i,{r:'u',t:text});i.when='방금';
-  if(/(\b\d{6}\b|비밀번호는|비밀번호가|패스워드는|인증번호는)/.test(text)&&/(\d{6}|는\s*\S+)/.test(text)&&/(\d{6}|비밀번호는|패스워드는|인증번호는)/.test(text)){addSec('민감정보 입력','높음',S.user,'대화에 비밀번호·인증번호로 보이는 값 입력 (●●●●●●)',text.replace(/\d/g,'●'),'인증번호·비밀번호 패턴 감지');mk(i,{r:'sys',html:'비밀번호·인증번호는 입력하지 마세요. 입력된 값은 마스킹해서 저장해요.'});}
+  if(sm.hit||/●{3,}/.test(text)){addSec('민감정보 입력','높음',S.user,'대화에 비밀번호·인증번호로 보이는 값 입력 (●●●●●●)',text,'인증번호·비밀번호 패턴 감지');mk(i,{r:'sys',html:'비밀번호·인증번호로 보이는 값은 저장하기 전에 ●로 바꿨어요. 앞으로는 입력하지 마세요.'});}
   if(i.step==='draft'){mk(i,{r:'a',html:'<p>초안의 내용을 바꾸려면 아래 초안에서 <b>수정할게요</b>를 눌러 고쳐 주세요. 변경 내용은 접수 전에 다시 확인해 드려요.</p>'});render({bottom:true});return;}
   if(i.step==='offer'||i.step==='answered'){
     i.intake.extra=(i.intake.extra?i.intake.extra+' ':'')+text;absorb(i,text,false);
@@ -957,19 +1109,21 @@ function reply(i,a,arg,idx){
 }
 function buildDraft(i){
   const pr=calcPrio(i);const cat=i.cat;const it=i.intake;
-  i.draft={title:(cat?CATS[cat].sys:'IT')+' 지원 문의',cat,sys:it.system||(cat?CATS[cat].sys:'확인 필요'),issue:it.issue||i.msgs.find(m=>m.r==='u')?.t||'',onset:it.onset||'확인 필요',impact:it.impact||(i.urgent?'긴급 징후 확인 · 추가 확인은 담당자가 진행':'확인 필요'),tried:it.tried||'확인 필요',ai:i.guide?(i.guide.g+' v'+i.guide.v+' 안내 후에도 해결되지 않음'):(i.urgent?'긴급 징후로 안내 없이 연결':'AI 안내 없음'),p:pr.p,why:pr.why,group:cat?CATS[cat].g:'서비스데스크'};
+  i.draft={title:(cat?CATS[cat].sys:'IT')+' 지원 문의',cat,sys:it.system||(cat?CATS[cat].sys:'확인 필요'),issue:it.issue||i.msgs.find(m=>m.r==='u')?.t||'',onset:it.onset||'확인 필요',impact:it.impact||(i.urgent?'긴급 징후 확인 · 추가 확인은 담당자가 진행':'확인 필요'),tried:it.tried||'확인 필요',ai:i.guide?(i.guide.g+' v'+i.guide.v+' 안내 후에도 해결되지 않음'):(i.urgent?'긴급 징후로 안내 없이 연결':'AI 안내 없음'),p:pr.p,why:pr.why,group:cat?CATS[cat].g:'서비스데스크',sc:cat?detectSc(cat,allText(i)):null};
   i.step='draft';i.dstate='view';i.dnote='';
   mk(i,{r:'a',html:'<p>지금까지 확인한 내용을 정리했어요. 맞는지 확인하고, 필요하면 수정해 주세요.</p>',card:'draft'});
   render({bottom:true});
 }
 function draftSave(i){
-  const d=i.draft;const before=d.p,beforeCat=d.cat;
-  const g=k=>document.getElementById('d-'+k)?.value?.trim();
-  d.issue=g('issue')||d.issue;d.impact=g('impact')||d.impact;d.tried=g('tried')||d.tried;
-  const txt=d.issue+' '+d.impact+' '+d.tried;
+  const d=i.draft;const before=d.p,beforeCat=d.cat,beforeSc=d.sc&&d.sc.code,beforeGroup=d.group;
+  const g=k=>{const v=document.getElementById('d-'+k)?.value?.trim();return v?maskSens(v).t:v;};
+  d.issue=g('issue')||d.issue;d.onset=g('onset')||d.onset;d.impact=g('impact')||d.impact;d.tried=g('tried')||d.tried;
+  const txt=d.issue+' '+d.onset+' '+d.impact+' '+d.tried;
   const c=detectCat(txt);if(c&&c!==d.cat&&RE.sec.test(txt)){d.cat=c;d.group=CATS[c].g;}
+  d.sc=d.cat?detectSc(d.cat,allText(i)+' '+txt):null;
   const pr=calcPrio({msgs:[],intake:{}},txt+' '+(i.urgent?'의심':'')+allText(i));
   d.p=pr.p;d.why=pr.why;
+  d.chg=[];if(d.cat!==beforeCat)d.chg.push('cat');if((d.sc&&d.sc.code)!==beforeSc)d.chg.push('sc');if(d.p!==before)d.chg.push('p');if(d.group!==beforeGroup)d.chg.push('group');
   i.dstate='view';
   i.dnote=(before!==d.p||beforeCat!==d.cat)?`수정한 내용을 반영해 ${before!==d.p?'긴급도를 '+before+'에서 '+d.p+'(으)로':''}${beforeCat!==d.cat?' 분류를 '+(d.cat||'')+'(으)로':''} 다시 판단했어요. 변경된 내용으로 다시 확인해 주세요.`:'수정 내용을 반영했어요. 최종 접수 전에 한 번 더 확인해 주세요.';
   log('접수 초안 수정 · 재검사 · '+i.id,me().name);
@@ -1000,7 +1154,7 @@ function pipeline(t,bypass){
   later(()=>{
     if(S.flags.jiraFail&&!bypass){
       t.jira='결과 확인 중';t.hist.unshift({t:NOW(),who:'ITssue',what:'Jira 생성 요청 시간 초과 · 생성 여부 확인 중'});log('Jira 생성 결과 불명확 · '+t.receipt,'연동 작업');render();
-      later(()=>{t.jira='확인 필요';t.hist.unshift({t:NOW(),who:'ITssue',what:'자동 확인으로 완료하지 못함 · 서비스데스크 관리자 확인 대상'});t.excWhy='Jira 생성 요청 응답 시간 초과 · 생성 여부 확인 필요';t.excNext='기존 Ticket 존재 여부 확인 후 중복 없이 재처리';t.excOwner='서비스데스크 관리자';t.excT=NOW();render();},1500);
+      later(()=>{t.jira='확인 필요';t.hist.unshift({t:NOW(),who:'ITssue',what:'자동 확인으로 완료하지 못함 · 서비스데스크 관리자 확인 대상'});t.excWhy='Jira 생성 요청 응답 시간 초과 · 생성 여부 확인 필요';t.excNext='기존 Ticket 존재 여부 확인 후 중복 없이 재처리';t.excOwner='서비스데스크 관리자';t.excT=NOW();t.exVerify=true;render();},1500);
       return;
     }
     t.id='ITSD-'+(S.seq.its++);t.jira='완료';t.hist.unshift({t:NOW(),who:'ITssue',what:'Jira Ticket 생성 · '+t.id});log('Jira Ticket 생성 · '+t.id,'연동 작업');render();
@@ -1113,12 +1267,12 @@ function donut(parts,center,sub,cls){
   const arcs=parts.filter(p=>p.v).map(p=>{const len=p.v/t*CC;const el=`<circle cx="70" cy="70" r="${R}" fill="none" stroke="${p.c}" stroke-width="18" stroke-dasharray="${Math.max(0,len-2)} ${CC-Math.max(0,len-2)}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"><title>${ESC(p.l)} ${p.v}</title></circle>`;off+=len;return el;}).join('');
   return `<div class="donut ${cls||''}"><svg viewBox="0 0 140 140" width="140" height="140" role="img" aria-label="${ESC(center)}"><circle cx="70" cy="70" r="${R}" fill="none" stroke="var(--track)" stroke-width="18"/>${arcs}<text x="70" y="68" text-anchor="middle" style="font-size:26px;font-weight:700;fill:var(--ink)">${center}</text><text x="70" y="88" text-anchor="middle" style="font-size:11px;fill:var(--mute)">${sub}</text></svg><ul class="dl2">${parts.map(p=>`<li><i style="background:${p.c}"></i><span>${ESC(p.l)}</span><b>${p.v}</b></li>`).join('')}</ul></div>`;
 }
-const CATC={ACC:'var(--s-asg-dot)',ACS:'var(--s-need-dot)',NET:'var(--s-prog-dot)',SW:'var(--s-re-dot)',HW:'var(--s-warn-dot)',SYS:'var(--o500)',SEC:'var(--s-urg-dot)'};
+const CATC={ACC:'var(--s-info-dot)',ACS:'var(--s-need-dot)',NET:'var(--s-prog-dot)',SW:'var(--s-re-dot)',HW:'var(--s-warn-dot)',SYS:'var(--o500)',SEC:'var(--s-urg-dot)'};
 function memberPanel(name,win){
   const l=win.filter(t=>t.assignee===name);const v=cntOf(l);const st=STAFF.find(s=>s.name===name)||{group:''};
   const pc=Object.keys(CATS).map(c=>({l:CATS[c].n,v:l.filter(t=>t.cat===c).length,c:CATC[c]}));
   const label={d:'오늘',w:'최근 7일',m:'최근 30일'}[S.dashPer];
-  return `<div class="panel mp"><div class="row" style="justify-content:space-between"><h3>${ESC(name)} · 개인 현황 <span class="tag gray">${ESC(st.group)}</span> <span class="small muted" style="font-weight:400">${label}</span></h3><button class="btn ghost sm" data-act="dmem" data-n="${ESC(name)}">닫기</button></div><div class="g2 mpg" style="grid-template-columns:1fr 1fr;margin-top:14px"><div class="dbox"><div class="small muted" style="margin-bottom:8px">처리 상태</div>${donut(Object.keys(SC).map(k=>({l:SLB[k],v:v[k],c:SC[k]})),tot(v),'건')}</div><div class="dbox"><div class="small muted" style="margin-bottom:8px">Category</div>${donut(pc,tot(v),'건','cat')}</div></div><div style="margin-top:12px"><button class="btn sec sm" data-act="tf" data-staff="${ESC(name)}">${ESC(name)}님의 Ticket 목록 ›</button></div></div>`;
+  return `<div class="panel mp"><div class="row" style="justify-content:space-between"><h3>${ESC(name)} · 개인 현황 <span class="tag gray">${ESC(st.group)}</span> <span class="small muted" style="font-weight:400">${label}</span></h3><button class="btn ghost sm" data-act="dmem" data-n="${ESC(name)}">닫기</button></div><div class="g2 mpg" style="grid-template-columns:1fr 1fr;margin-top:14px"><div class="dbox"><div class="small muted" style="margin-bottom:8px">처리 상태</div>${donut(Object.keys(SC).map(k=>({l:SLB[k],v:v[k],c:SC[k]})),tot(v),'건')}</div><div class="dbox"><div class="small muted" style="margin-bottom:8px">분류</div>${donut(pc,tot(v),'건','cat')}</div></div><div style="margin-top:12px"><button class="btn sec sm" data-act="tf" data-staff="${ESC(name)}">${ESC(name)}님의 Ticket 목록 ›</button></div></div>`;
 }
 function memberRows(names,win,extra,meName){
   const rows=names.map(n=>({n,v:cntOf(win.filter(t=>t.assignee===n&&extra(t)))}));
@@ -1150,7 +1304,7 @@ function viewDash(){
   const showMem=S.dashMember&&memNames.includes(S.dashMember)?memberPanel(S.dashMember,win.filter(memFilter)):'';
   return `<main class="main">${topbar('대시보드','Ticket과 AI 해결을 구분해서 보여줘요')}<div class="scroll"><div class="page"><div><div class="eyebrow">OVERVIEW</div><h1>운영 현황</h1><p class="muted" style="margin-top:4px">카드와 막대를 누르면 해당 조건의 목록으로 이동해요. SLA와 담당자 평가용 순위는 이 버전에 포함하지 않았어요.</p></div>
   <div class="kpis k5">${kp.map(k=>`<button class="kpi ${k[3]||''}" ${k[2]}><div class="l">${k[0]}</div><div class="v"><b>${k[1]}</b><span>건</span></div><div class="d">목록 보기 ›</div></button>`).join('')}</div>
-  <div class="panel"><div class="row" style="justify-content:space-between"><div><h3 style="font-size:17px">진행도</h3><div class="hint">행을 누르면 구성원별 진행도가 아래에 나와요</div></div><div class="row"><div class="seg"><button class="${mode==='team'?'on':''}" data-act="dmode" data-m="team">팀별</button><button class="${mode==='cat'?'on':''}" data-act="dmode" data-m="cat">Category별</button></div>${perCtl('dper')}</div></div>
+  <div class="panel"><div class="row" style="justify-content:space-between"><div><h3 style="font-size:17px">진행도</h3><div class="hint">행을 누르면 구성원별 진행도가 아래에 나와요</div></div><div class="row"><div class="seg"><button class="${mode==='team'?'on':''}" data-act="dmode" data-m="team">팀별</button><button class="${mode==='cat'?'on':''}" data-act="dmode" data-m="cat">분류별</button></div>${perCtl('dper')}</div></div>
   <div class="g2" style="margin-top:16px;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)"><div>${legend()}<div class="srows">${rows}</div></div><div><b style="font-size:14px">${ESC(selLabel)} · 접수 추이 (${{d:'일',w:'주',m:'월'}[per]}별)</b><div style="margin-top:10px">${trendHtml(per,seed,scale)}</div></div></div></div>
   <div class="panel"><div class="row" style="justify-content:space-between"><h3>${ESC(selLabel)} · 구성원별 진행도 <span class="tag gray">${memNames.length}명</span></h3><button class="btn ghost sm" ${tfAttr}>Ticket 목록 보기 ›</button></div><div style="margin-top:10px">${legend()}<div class="srows">${mem}</div><div class="hint" style="margin-top:8px">이름을 누르면 개인 현황(도넛)이 나와요. 업무량 확인용이며 평가 순위가 아니에요.</div></div></div>${showMem}
   <div class="g2" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)"><div class="panel"><h3>최근 7일 접수</h3><div class="lgd"><span><i style="background:var(--o500)"></i>Ticket</span><span><i style="background:var(--s-re-dot)"></i>AI 해결</span></div><div style="display:flex;gap:10px;align-items:flex-end;height:170px;margin-top:10px">${wk.map(v=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end"><span class="small muted">${v.t+v.a}</span><div style="width:100%;max-width:44px;display:flex;flex-direction:column;gap:2px"><div style="background:var(--s-re-dot);border-radius:6px 6px 2px 2px;height:${Math.round(v.a/mx*110)}px"></div><div style="background:var(--o500);border-radius:2px;height:${Math.round(v.t/mx*110)+3}px"></div></div><span class="small muted">${v.l}</span></div>`).join('')}</div></div>
@@ -1195,9 +1349,21 @@ function viewStaffDash(){
 function viewDetail(id){
   const t=tById(id);if(!t){S.detail=null;return '';}
   const staff=isStaff();
-  const states=staff?`<div class="states"><div><small>문의 상태</small>${badge('asg',inqStateOf(t))}</div><div><small>Jira 연동</small>${badge(jk(t.jira),t.jira)}</div><div><small>배정</small>${badge(jk(t.asg),t.asg)}</div><div><small>Ticket 업무</small>${t.status?tbadge(t.status):badge('recv','시작 전')}${needReply(t)?badge('need','추가 답변 필요'):''}${t.reassigned?badge('re','재배정'):''}</div></div>`:'';
+  /* 상태 4칸: 순서대로 진행되므로 세로 체크리스트. 끝난 줄은 회색 한 줄, 남은 줄만 카드로 올린다 */
+  const stRow=(lv,tn,label,val,sub)=>{
+    if(lv==='done')return `<div class="sx done"><span class="mk">${STEP_CK}</span><span class="l">${label}</span><span class="v">${ESC(val)}</span></div>`;
+    if(lv==='idle')return `<div class="sx idle"><span class="mk"></span><span class="l">${label}</span><span class="v">${ESC(val)}</span></div>`;
+    const mk=tn==='urg'||tn==='warn'?ic('alert'):'<svg class="i" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="4.2" style="fill:currentColor;stroke:none"/></svg>';
+    return `<div class="sx live tn-${tn}"><span class="mk">${mk}</span><span class="l">${label}</span><span class="vb">${val}</span>${sub?`<span class="sxs">${ESC(sub)}</span>`:''}</div>`;
+  };
+  const sb=(tn,l)=>`<span class="sbd tn-${tn}"><i></i>${ESC(l)}</span>`;
+  const jiraRow=t.jira==='완료'?stRow('done','ok','Jira 연동','완료'):t.jira==='결과 확인 중'?stRow('live','warn','Jira 연동',sb('warn','생성 여부 확인 중'),t.excWhy||'생성 결과를 확인하는 중'):t.jira==='확인 필요'&&t.exVerify?stRow('live','warn','Jira 연동',sb('warn','생성 여부 확인 중'),t.excWhy||'생성 결과를 확인하는 중'):t.jira==='확인 필요'?stRow('live','urg','Jira 연동',sb('urg','확인 필요'),t.excWhy||'Jira 생성에 실패했어요'):stRow('live','recv','Jira 연동',sb('recv','대기'),'Jira Ticket을 만드는 중');
+  const asgRow=t.asg==='완료'?stRow('done','ok','배정','완료'):t.asg==='확인 필요'?stRow('live','urg','배정',sb('urg','확인 필요'),t.excWhy||'개인 배정을 확인해야 해요'):t.jira==='완료'?stRow('live','asg','배정',sb('asg','연결 중'),'담당 그룹에서 담당자를 정하는 중'):stRow('idle','recv','배정','대기');
+  const extra=(needReply(t)?sb('need','추가 답변 필요'):'')+(t.reassigned?sb('re','재배정'):'');
+  const tkRow=t.status==='CLS'?stRow('done','ok','Ticket 업무','해결 완료'):t.status==='FIN'?stRow('live','need','Ticket 업무',sb('need','해결 확인 대기')+extra,'문의자 확인을 기다리는 중'):t.status==='WIP'?stRow('live','prog','Ticket 업무',sb('prog','처리 중')+extra,(t.assignee||'')+' 담당'):t.status==='RDY'?stRow('live','recv','Ticket 업무',sb('recv','처리 대기')+extra,(t.assignee||'')+' 담당자가 시작하기를 기다리는 중'):stRow('idle','recv','Ticket 업무','시작 전');
+  const states=staff?`<div class="stlist" aria-label="처리 상태">${stRow('done','ok','문의 상태',inqStateOf(t))}${jiraRow}${asgRow}${tkRow}</div>`:'';
   const d=t.draft;
-  const info=`<dl class="dl"><dt>접수번호</dt><dd class="mono">${t.receipt}</dd><dt>Jira Ticket</dt><dd class="mono">${t.id||'생성 전'}</dd><dt>문의자</dt><dd>${ESC(t.reqName)} (${t.req})</dd><dt>Category</dt><dd>${CATS[t.cat]?t.cat+' · '+CATS[t.cat].n:'미분류'}</dd><dt>긴급도</dt><dd>${pbadge(t.p)}${t.why?'<div class="small muted">'+ESC(t.why.join(' · '))+'</div>':''}</dd><dt>담당 그룹</dt><dd>${ESC(t.group)}</dd><dt>담당자</dt><dd>${ESC(t.assignee||'배정 전')}</dd>${d?`<dt>문의 내용</dt><dd>${ESC(d.issue)}</dd><dt>업무 영향</dt><dd>${ESC(d.impact)}</dd><dt>시도한 조치</dt><dd>${ESC(d.tried)}</dd><dt>AI 안내</dt><dd>${ESC(d.ai)}</dd>`:''}${t.result?`<dt>처리 결과</dt><dd>${ESC(t.result)}</dd>`:''}</dl>`;
+  const info=`<dl class="dl"><dt>접수번호</dt><dd class="mono">${t.receipt}</dd><dt>Jira Ticket</dt><dd class="mono">${t.id||'생성 전'}</dd><dt>문의자</dt><dd>${ESC(t.reqName)} (${t.req})</dd><dt>분류</dt><dd>${CATS[t.cat]?t.cat+' · '+CATS[t.cat].n:'미분류'}</dd>${d&&d.sc?`<dt>세부 유형</dt><dd>${ESC(scTxt(d.sc))}</dd>`:''}<dt>긴급도</dt><dd>${pbadge(t.p)}${t.why?'<div class="small muted">'+ESC(t.why.join(' · '))+'</div>':''}</dd><dt>담당 그룹</dt><dd>${ESC(t.group)}</dd><dt>담당자</dt><dd>${ESC(t.assignee||'배정 전')}</dd>${d?`<dt>문의 내용</dt><dd>${ESC(d.issue)}</dd><dt>업무 영향</dt><dd>${ESC(d.impact)}</dd><dt>시도한 조치</dt><dd>${ESC(d.tried)}</dd><dt>AI 안내</dt><dd>${ESC(d.ai)}</dd>`:''}${t.result?`<dt>처리 결과</dt><dd>${ESC(t.result)}</dd>`:''}</dl>`;
   const mine=t.assignee===me().name;
   let act='';
   if(S.role==='staff'&&mine){
@@ -1218,7 +1384,7 @@ function viewDetail(id){
 function viewExc(){
   const L=excList();
   const el=t=>{const m=Math.max(1,Math.round((Date.now()-(t.exAt||Date.now()))/60000));return (t.exAt?m:12)+'분 경과';};
-  return `<main class="main">${bgsvg('e')}${topbar('연동·배정 확인 필요',L.length+'건')}<div class="scroll"><div class="page"><div><div class="eyebrow">NEEDS ATTENTION</div><h1>확인이 필요한 접수</h1><p class="muted" style="margin-top:4px">Jira 생성이나 개인 배정이 끝나지 않은 접수예요. 접수 자체는 유지되고, 문의자는 다시 접수할 필요가 없어요.</p></div>${L.length?L.map(t=>`<div class="panel"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div style="min-width:0"><div class="mono small muted">${t.receipt}${t.id?' · '+t.id:''}</div><b style="font-size:16px">${ESC(t.title)}</b><div class="small muted" style="margin-top:2px">${ESC(t.reqName)} · ${ESC(t.group)} · ${pbadge(t.p)}</div></div><div class="row" style="gap:6px">${badge(jk(t.jira),'Jira '+t.jira)}${badge(jk(t.asg),'배정 '+t.asg)}</div></div><dl class="dl" style="margin-top:12px"><dt>사유</dt><dd>${ESC(t.excWhy||'Jira 생성 결과 확인 중')}</dd><dt>다음 조치</dt><dd>${ESC(t.excNext||'생성 여부 확인 후 재시도')}</dd><dt>확인 담당</dt><dd>${ESC(t.excOwner||'서비스데스크 관리자')}</dd><dt>경과</dt><dd>${el(t)}</dd></dl><div class="row" style="margin-top:12px">${t.jira!=='완료'?`<button class="btn pri sm" data-act="exc-retry" data-id="${t.receipt}">Jira 생성 확인·재시도</button>`:''}${t.jira==='완료'&&t.asg!=='완료'?`<button class="btn pri sm" data-act="exc-assign" data-id="${t.receipt}">담당자 지정</button>`:''}<button class="btn sec sm" data-act="detail" data-id="${t.receipt}">상세</button></div></div>`).join(''):'<div class="panel"><div class="empty">확인이 필요한 접수가 없습니다.<br><span class="small">시연 도구에서 오류 시나리오를 켜고 문의를 접수해 보세요.</span></div></div>'}</div></div></main>`;
+  return `<main class="main">${bgsvg('e')}${topbar('연동·배정 확인 필요',L.length+'건')}<div class="scroll"><div class="page"><div><div class="eyebrow">NEEDS ATTENTION</div><h1>확인이 필요한 접수</h1><p class="muted" style="margin-top:4px">Jira 생성이나 개인 배정이 끝나지 않은 접수예요. 접수 자체는 유지되고, 문의자는 다시 접수할 필요가 없어요.</p></div>${L.length?L.map(t=>`<div class="panel"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div style="min-width:0"><div class="mono small muted">${t.receipt}${t.id?' · '+t.id:''}</div><b style="font-size:16px">${ESC(t.title)}</b><div class="small muted" style="margin-top:2px">${ESC(t.reqName)} · ${ESC(t.group)} · ${pbadge(t.p)}</div></div><div class="row" style="gap:6px">${badge(jk(t.jira),t.exVerify&&t.jira!=='완료'?'Jira 생성 여부 확인 중':'Jira '+t.jira)}${badge(jk(t.asg),'배정 '+t.asg)}</div></div><dl class="dl" style="margin-top:12px"><dt>사유</dt><dd>${ESC(t.excWhy||'Jira 생성 결과 확인 중')}</dd><dt>다음 조치</dt><dd>${ESC(t.excNext||'생성 여부 확인 후 재시도')}</dd><dt>확인 담당</dt><dd>${ESC(t.excOwner||'서비스데스크 관리자')}</dd><dt>경과</dt><dd>${el(t)}</dd></dl>${t.jira!=='완료'&&t.exVerify?`<div class="alert warn" style="margin-top:12px">${ic('alert')}<div>Jira에 접수번호 <b class="mono">${t.receipt}</b>로 만들어진 Ticket이 있는지 먼저 확인하세요. 확인하기 전에는 다시 만들지 마세요. (중복 생성 방지)</div></div>`:''}<div class="row" style="margin-top:12px">${t.jira!=='완료'?`<button class="btn pri sm" data-act="exc-retry" data-id="${t.receipt}">Jira 생성 확인·재시도</button>`:''}${t.jira==='완료'&&t.asg!=='완료'?`<button class="btn pri sm" data-act="exc-assign" data-id="${t.receipt}">담당자 지정</button>`:''}<button class="btn sec sm" data-act="detail" data-id="${t.receipt}">상세</button></div></div>`).join(''):'<div class="panel"><div class="empty">확인이 필요한 접수가 없습니다.<br><span class="small">시연 도구에서 오류 시나리오를 켜고 문의를 접수해 보세요.</span></div></div>'}</div></div></main>`;
 }
 function excRetry(t){
   t.hist.unshift({t:NOW(),who:me().name,what:'Jira 기존 Ticket 존재 여부 확인 (중복 생성 방지)'});
@@ -1254,7 +1420,7 @@ function pager(total,key){const pages=Math.max(1,Math.ceil(total/PAGE_N));let p=
 const pill=(k,n)=>`<span class="pill ${k}${n?'':' zero'}">${n}</span>`;
 function tTable(list,empty,sk){
   if(!list.length)return `<div class="empty">${empty||'표시할 Ticket이 없습니다.'}</div>`;
-  const H=sk?sortTh('접수번호 / Ticket','receipt',sk)+sortTh('제목','title',sk)+sortTh('Category','cat',sk)+sortTh('긴급도','pri',sk)+sortTh('담당','assignee',sk)+sortTh('상태','status',sk):'<th>접수번호 / Ticket</th><th>제목</th><th>Category</th><th>긴급도</th><th>담당</th><th>상태</th>';
+  const H=sk?sortTh('접수번호 / Ticket','receipt',sk)+sortTh('제목','title',sk)+sortTh('분류','cat',sk)+sortTh('긴급도','pri',sk)+sortTh('담당','assignee',sk)+sortTh('상태','status',sk):'<th>접수번호 / Ticket</th><th>제목</th><th>분류</th><th>긴급도</th><th>담당</th><th>상태</th>';
   return `<div class="tw"><table class="tbl"><thead><tr>${H}</tr></thead><tbody>${list.map(t=>`<tr><td class="mono small">${t.receipt}<br>${t.id||'-'}</td><td><button class="lk" data-act="detail" data-id="${t.receipt}">${ESC(t.title)}</button>${t.newReply?' <span class="newr">새 답변</span>':''}<small>${ESC(t.reqName)}</small></td><td>${CATS[t.cat]?`<span class="tag c-${t.cat}">${CATS[t.cat].n}</span>`:'미분류'}</td><td>${pbadge(t.p)}</td><td>${ESC(t.assignee||'-')}<small>${ESC(t.group)}</small></td><td>${t.status?tbadge(t.status):badge(t.asg==='확인 필요'||t.jira==='확인 필요'?'urg':'asg',t.asg==='확인 필요'||t.jira==='확인 필요'?'확인 필요':'접수 완료')}</td></tr>`).join('')}</tbody></table></div>`;
 }
 const AI_TITLES={ACC:['계정 잠금 해제 방법','비밀번호 변경 주기 문의','MFA 재등록 방법'],NET:['VPN 인증 실패 안내','재택 Wi-Fi 연결 점검'],SW:['프로그램 설치 위치 문의','라이선스 할당 확인'],HW:['복합기 연결 방법','모니터 해상도 설정'],SYS:['전자결재 접속 오류 안내','근태 화면 캐시 삭제'],ACS:['폴더 권한 신청 절차']};
@@ -1267,16 +1433,16 @@ function aiRows(){
 function tfList(){const f=S.tf;return S.tickets.filter(t=>(!f.st||(f.st==='open'?(t.status==='RDY'||t.status==='WIP'):f.st==='none'?!t.status:t.status===f.st))&&(!f.cat||t.cat===f.cat)&&(!f.pri||t.p===f.pri)&&(!f.team||t.group===f.team)&&(!f.staff||t.assignee===f.staff));}
 function viewTickets(){
   const f=S.tf,ai=f.mode==='ai';
-  const seg=`<div class="seg"><button class="${!ai?'on':''}" data-act="tf-mode" data-m="t">Ticket (담당자 처리)</button><button class="${ai?'on':''}" data-act="tf-mode" data-m="ai">AI 해결</button></div>`;
+  const seg=`<div class="seg"><button class="${!ai?'on':''}" data-act="tf-mode" data-m="t">담당자 처리</button><button class="${ai?'on':''}" data-act="tf-mode" data-m="ai">AI로 해결</button></div>`;
   if(ai){const all=sortList(aiRows(),'ai'),pg=pager(all.length,'ai'),rows=pg.slice(all);
-    return `<main class="main">${topbar('전체 접수','AI 해결 '+all.length+'건')}<div class="scroll"><div class="page"><div><div class="eyebrow">ALL INQUIRIES</div><h1>전체 접수</h1></div>${seg}<div class="alert info">${ic('check')}<div>AI 안내만으로 해결되어 Ticket이 만들어지지 않은 문의예요. 담당자 처리 완료(CLS)와는 따로 집계해요.</div></div><div class="panel" style="padding:6px 10px"><div class="tw"><table class="tbl"><thead><tr>${sortTh('문의','title','ai')}${sortTh('Category','cat','ai')}${sortTh('사용한 가이드','guide','ai')}<th>구분</th>${sortTh('시점','when','ai')}</tr></thead><tbody>${rows.map(r=>`<tr><td><b>${ESC(r.title)}</b><small class="mono">${r.id}</small></td><td><span class="tag c-${r.cat}">${CATS[r.cat].n}</span></td><td class="small">${ESC(r.guide)}</td><td>${badge('re','AI 해결')}</td><td class="muted small">${r.when}</td></tr>`).join('')}</tbody></table></div>${pg.html}</div></div></div></main>`;}
+    return `<main class="main">${topbar('전체 문의','AI 해결 '+all.length+'건')}<div class="scroll"><div class="page"><div><div class="eyebrow">ALL INQUIRIES</div><h1>전체 문의</h1></div>${seg}<div class="alert info">${ic('check')}<div>AI 안내만으로 해결되어 Ticket이 만들어지지 않은 문의예요. 담당자 처리 완료(CLS)와는 따로 집계해요.</div></div><div class="panel" style="padding:6px 10px"><div class="tw"><table class="tbl"><thead><tr>${sortTh('문의','title','ai')}${sortTh('분류','cat','ai')}${sortTh('사용한 가이드','guide','ai')}<th>구분</th>${sortTh('시점','when','ai')}</tr></thead><tbody>${rows.map(r=>`<tr><td><b>${ESC(r.title)}</b><small class="mono">${r.id}</small></td><td><span class="tag c-${r.cat}">${CATS[r.cat].n}</span></td><td class="small">${ESC(r.guide)}</td><td>${badge('re','AI 해결')}</td><td class="muted small">${r.when}</td></tr>`).join('')}</tbody></table></div>${pg.html}</div></div></div></main>`;}
   const list=sortList(tfList(),'tk'),pg=pager(list.length,'tk');
   const CHV='<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l5 5 5-5"/></svg>';
   const sel=(k,lb,opts)=>{const on=!!f[k],open=S.dd===k;const cur=on?(opts.find(o=>o[0]===f[k])||['',f[k]])[1]:'전체';return `<span class="d2p ddw${on?' act':''}"><button class="ddb" data-act="dd" data-k="${k}" aria-haspopup="listbox" aria-expanded="${open}"><small>${lb}</small><span>${ESC(cur)}</span></button>${on?`<button class="x" data-act="tf-one" data-k="${k}" aria-label="${lb} 필터 해제">✕</button>`:CHV}${open?`<div class="ddm" role="listbox"><button role="option" class="${!on?'sel':''}" data-act="tf-pick" data-k="${k}" data-v="">전체</button>${opts.map(o=>`<button role="option" class="${f[k]===o[0]?'sel':''}" data-act="tf-pick" data-k="${k}" data-v="${ESC(o[0])}">${ESC(o[1])}</button>`).join('')}</div>`:''}</span>`;};
   const base=S.tickets,cn={'':base.length,none:base.filter(t=>!t.status).length,open:base.filter(t=>t.status==='RDY'||t.status==='WIP').length,FIN:base.filter(t=>t.status==='FIN').length,CLS:base.filter(t=>t.status==='CLS').length};
   const stF=[['','전체'],['none','배정 전'],['open','진행 중'],['FIN','해결 확인 대기'],['CLS','해결 완료']];
   const active=Object.keys(f).filter(k=>k!=='mode'&&k!=='st'&&f[k]).length;
-  return `<main class="main">${topbar('전체 접수',list.length+'건')}<div class="scroll"><div class="page"><div><div class="eyebrow">ALL TICKETS</div><h1>전체 접수</h1></div>${seg}<div class="d2seg">${stF.map(x=>`<button class="${(f.st||'')===x[0]?'on':''}" data-act="tf-st" data-st="${x[0]}">${x[1]} <em>${cn[x[0]]}</em></button>`).join('')}</div><div class="d2f">${sel('cat','Category',Object.keys(CATS).map(c=>[c,CATS[c].n]))}${sel('pri','긴급도',['P1','P2','P3','P4'].map(p=>[p,p+' · '+PRI[p]]))}${sel('team','팀',GROUPS.map(g=>[g,g]))}${sel('staff','담당자',STAFF.map(s=>[s.name,s.name+' · '+s.group]))}${active?`<button class="d2clr" data-act="tf-clear">✕ 필터 해제</button>`:''}</div><div class="panel" style="padding:6px 10px">${tTable(pg.slice(list),'조건에 맞는 Ticket이 없습니다.','tk')}${list.length?pg.html:''}</div></div></div></main>`;
+  return `<main class="main">${topbar('전체 문의',list.length+'건')}<div class="scroll"><div class="page"><div><div class="eyebrow">ALL TICKETS</div><h1>전체 문의</h1></div>${seg}<div class="d2seg">${stF.map(x=>`<button class="${(f.st||'')===x[0]?'on':''}" data-act="tf-st" data-st="${x[0]}">${x[1]} <em>${cn[x[0]]}</em></button>`).join('')}</div><div class="d2f">${sel('cat','분류',Object.keys(CATS).map(c=>[c,CATS[c].n]))}${sel('pri','긴급도',['P1','P2','P3','P4'].map(p=>[p,p+' · '+PRI[p]]))}${sel('team','팀',GROUPS.map(g=>[g,g]))}${sel('staff','담당자',STAFF.map(s=>[s.name,s.name+' · '+s.group]))}${active?`<button class="d2clr" data-act="tf-clear">✕ 필터 해제</button>`:''}</div><div class="panel" style="padding:6px 10px">${tTable(pg.slice(list),'조건에 맞는 Ticket이 없습니다.','tk')}${list.length?pg.html:''}</div></div></div></main>`;
 }
 /* ===== 가이드 관리 ===== */
 /* 외부 AI 전송 정책 색: 허용=초록, 마스킹 후 허용=앰버, 금지=빨강. 엄격한 순서(금지 < 마스킹 후 허용 < 허용) */
@@ -1286,7 +1452,7 @@ function viewGuides(){
   const cases=S.tickets.filter(t=>t.status==='CLS').slice(0,8);
   const tab=S.guideTab;
   const list=S.guides.map(g=>{const open=S.guideOpen===g.id;const cur=g.vers.find(v=>v.st==='현행');return `<div class="panel"><button class="row" style="width:100%;flex-wrap:nowrap;text-align:left;background:none;border:0;padding:0" data-act="gopen" data-id="${g.id}"><span class="tag c-${g.cat}">${CATS[g.cat].n}</span><b style="font-size:15px;flex:1;min-width:0">${ESC(g.title)}</b>${cur&&cur.tx==='금지'?badge('urg','외부 전송 금지'):cur&&cur.tx==='마스킹 후 허용'?badge('warn','마스킹 후 전송'):''}<span class="small muted">${cur?'현행 v'+cur.v:'현행 없음'}</span></button>${open?`<div class="tw" style="margin-top:12px"><table class="tbl"><thead><tr><th>버전</th><th>상태</th><th>검색 준비</th><th>열람 범위</th><th title="이 가이드의 내용을 외부 AI 모델에 보내 답변 생성에 써도 되는지">외부 AI 전송</th><th>메모</th><th></th></tr></thead><tbody>${g.vers.map(v=>`<tr><td>v${v.v}</td><td>${badge(v.st==='현행'?'ok':v.st==='초안'?'warn':'recv',v.st)}</td><td>${badge(v.ready==='준비 완료'?'ok':'warn',v.ready)}</td><td>${ESC(v.scope)}</td><td><div class="row" style="gap:8px">${badge(TXK[v.tx],v.tx)}<span class="small muted">바꾸기</span>${Object.keys(TXK).filter(k=>k!==v.tx).map(k=>`<button class="btn tone ${TXK[k]} sm" data-act="g-tx" data-id="${g.id}" data-v="${v.v}" data-to="${k}">${k}</button>`).join('')}</div></td><td class="small">${ESC(v.note||'-')}</td><td>${v.st!=='현행'&&v.st!=='만료'?`<button class="btn sec sm" ${v.ready!=='준비 완료'?'disabled title="검색 준비가 끝나야 현행으로 바꿀 수 있어요"':''} data-act="g-cur" data-id="${g.id}" data-v="${v.v}">현행 전환</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:''}</div>`}).join('');
-  const caseTab=`<div class="alert info">${ic('file')}<div>해결 완료된 Ticket의 처리 결과를 가이드 초안으로 만들어요 <span class="tag gray">Should</span>. 초안은 관리자 검토와 검색 준비가 끝난 뒤에만 현행이 될 수 있어요.</div></div><div class="panel" style="padding:6px 10px"><div class="tw"><table class="tbl"><thead><tr><th>해결 사례</th><th>Category</th><th>담당</th><th></th></tr></thead><tbody>${cases.map(t=>`<tr><td><b>${ESC(t.title)}</b><small class="mono">${t.receipt} · ${t.id}</small></td><td><span class="tag c-${t.cat}">${CATS[t.cat].n}</span></td><td>${ESC(t.assignee||'-')}</td><td style="text-align:right"><button class="btn sec sm" data-act="g-case" data-id="${t.receipt}">가이드 초안 만들기</button></td></tr>`).join('')}</tbody></table></div></div>`;
+  const caseTab=`<div class="alert info">${ic('file')}<div>해결 완료된 Ticket의 처리 결과를 가이드 초안으로 만들어요 <span class="tag gray">Should</span>. 초안은 관리자 검토와 검색 준비가 끝난 뒤에만 현행이 될 수 있어요.</div></div><div class="panel" style="padding:6px 10px"><div class="tw"><table class="tbl"><thead><tr><th>해결 사례</th><th>분류</th><th>담당</th><th></th></tr></thead><tbody>${cases.map(t=>`<tr><td><b>${ESC(t.title)}</b><small class="mono">${t.receipt} · ${t.id}</small></td><td><span class="tag c-${t.cat}">${CATS[t.cat].n}</span></td><td>${ESC(t.assignee||'-')}</td><td style="text-align:right"><button class="btn sec sm" data-act="g-case" data-id="${t.receipt}">가이드 초안 만들기</button></td></tr>`).join('')}</tbody></table></div></div>`;
   return `<main class="main">${topbar('가이드 관리','AI 답변의 근거가 되는 문서',`<button class="btn pri sm" data-act="g-up">${ic('plus')}가이드 파일 업로드</button>`)}<div class="scroll"><div class="page"><div><div class="eyebrow">GUIDE</div><h1>가이드와 버전</h1><p class="muted" style="margin-top:4px">검색 준비가 끝난 현행 버전만 AI 답변에 쓰여요. <b>외부 AI 전송</b>은 이 가이드 내용을 AI 모델에 보내 답변을 만들어도 되는지에 관한 설정이에요(문서 열람 권한인 열람 범위와는 별개). <b>허용</b>은 그대로 보내고, <b>마스킹 후 허용</b>은 민감정보를 가린 내용만 보내요. <b>금지</b> 문서는 AI가 답하지 않고 담당자 연결을 제안해요. 열람 범위와 전송 정책을 정하지 않으면 관리자 전용·금지로 처리돼요.</p></div><div class="tabs"><button class="${tab==='list'?'on':''}" data-act="gtab" data-t="list">가이드 목록 <span class="count">${S.guides.length}</span></button><button class="${tab==='case'?'on':''}" data-act="gtab" data-t="case">해결 사례 → 가이드 초안 <span class="count">${cases.length}</span></button></div>${tab==='list'?list:caseTab}</div></div></main>`;
 }
 /* ===== AI 운영 (예시 데이터) ===== */
@@ -1369,19 +1535,20 @@ function viewLogin(){
   const msgs=S.pre.msgs.map(m=>m.r==='u'?`<div class="msg u">${ESC(m.t)}</div>`:`<div class="msg a">${av(32)}<div class="body">${m.html}</div></div>`).join('');
   const roleBtn=(id,l)=>`<button class="btn sec sm" data-act="quick-login" data-id="${id}">${l}</button>`;
   const idTab=S.loginTab==='id';
-  return `<div class="login">${bg}<div class="lf"><div>${logo(124)}</div><div class="form"><div class="eyebrow">IT HELPDESK</div><h1>IT 문제, 먼저 물어보세요</h1><p class="muted" style="margin:10px 0 22px;line-height:24px">AI가 먼저 답하고, 해결되지 않으면 담당자에게 바로 연결해 드려요.</p><div class="seg" role="tablist" style="margin-bottom:16px"><button role="tab" class="${idTab?'on':''}" data-act="ltab" data-t="id">사번 로그인</button><button role="tab" class="${!idTab?'on':''}" data-act="ltab" data-t="sso">SSO 로그인</button></div>${idTab?`<form data-form="login" style="display:flex;flex-direction:column;gap:14px"><div class="field"><label for="lg-id">사번</label><input class="inp ${S.loginErr?'err':''}" id="lg-id" name="id" autocomplete="username" placeholder="예) HS1001" value="HS1001"></div><div class="field"><label for="lg-pw">비밀번호</label><input class="inp ${S.loginErr?'err':''}" id="lg-pw" name="pw" type="password" autocomplete="current-password" value="demo"></div>${S.loginErr?`<div class="errtx" role="alert">${S.loginErr}</div>`:''}<button class="btn pri block" type="submit" style="min-height:48px">로그인</button><div class="hint">시연 계정 비밀번호는 demo 입니다. 계정 5회 실패 시 잠기고 10분 후 해제됩니다.</div></form>`:`<div style="display:flex;flex-direction:column;gap:14px"><div class="alert info">${ic('shield')}<div>사내 SSO와 MFA로 인증하는 화면이에요. 이 프로토타입에서는 인증을 연결하지 않았어요.</div></div><button class="btn pri block" data-act="quick-login" data-id="HS1001" style="min-height:48px">SSO로 계속하기 (시연)</button></div>`}<div class="roles"><small>시연용 바로 로그인</small>${roleBtn('HS1001','문의자')}${roleBtn('HS1107','담당자')}${roleBtn('HS0912','관리자')}${roleBtn('HS1488','이용 제한 계정')}${roleBtn('HS1530','잠김 계정')}</div></div><div class="hint">© 한화시스템 ICT 가상 기업 · 프로토타입</div></div><div class="rt"><div class="lpop" role="region" aria-label="로그인 전 상담"><div class="row" style="flex-wrap:nowrap">${av(36)}<div><b>로그인이 안 되시나요?</b><div class="small muted">로그인 전에도 계정·로그인 문의는 답해 드려요 <span class="tag gray">제안</span></div></div></div><div class="th" id="prethread">${msgs||`<div class="msg a">${av(32)}<div class="body">로그인 전에는 <b>계정 잠금, 비밀번호, SSO·MFA</b> 안내만 도와드려요. 접수는 로그인 후에 할 수 있어요.</div></div>`}</div><div class="replies">${['계정이 잠겼어요','비밀번호를 재설정하고 싶어요','SSO·MFA 인증이 안 돼요'].map(c=>`<button class="chip" data-act="pre-ask" data-t="${c}">${c}</button>`).join('')}</div><div class="composer"><textarea id="pre-in" rows="1" placeholder="로그인 문제를 적어 주세요" aria-label="로그인 전 상담 입력" data-in="pre"></textarea><button class="btn ico pri" data-act="pre-send" aria-label="보내기">${ic('send')}</button></div><div class="hint" style="margin-top:8px">${MAIL_NOTE} 로그인 전에는 Ticket을 만들지 않아요.</div></div></div></div>`;
+  return `<div class="login">${bg}<div class="lf"><div>${logo(124)}</div><div class="form"><div class="eyebrow">IT HELPDESK</div><h1>IT 문제, 먼저 물어보세요</h1><p class="muted" style="margin:10px 0 22px;line-height:24px">AI가 먼저 답하고, 해결되지 않으면 담당자에게 바로 연결해 드려요.</p><div class="seg" role="tablist" style="margin-bottom:16px"><button role="tab" class="${idTab?'on':''}" data-act="ltab" data-t="id">사번 로그인</button><button role="tab" class="${!idTab?'on':''}" data-act="ltab" data-t="sso">SSO 로그인</button></div>${idTab?`<form data-form="login" style="display:flex;flex-direction:column;gap:14px"><div class="field"><label for="lg-id">사번</label><input class="inp ${S.loginErr?'err':''}" id="lg-id" name="id" ${S.loginErr?'aria-invalid="true" aria-describedby="lg-err" ':''}autocomplete="username" placeholder="예) HS1001" value="HS1001"></div><div class="field"><label for="lg-pw">비밀번호</label><input class="inp ${S.loginErr?'err':''}" id="lg-pw" name="pw" type="password" ${S.loginErr?'aria-invalid="true" aria-describedby="lg-err" ':''}autocomplete="current-password" value="demo"></div><button type="button" class="fgt" data-act="forgot">비밀번호를 잊으셨나요?</button>${S.loginErr?`<div class="errtx" id="lg-err" role="alert">${S.loginErr}</div>`:''}<button class="btn pri block" type="submit" style="min-height:48px">로그인</button><div class="hint">시연 계정 비밀번호는 demo 입니다. 계정 5회 실패 시 잠기고 10분 후 해제됩니다.</div></form>`:`<div style="display:flex;flex-direction:column;gap:14px"><div class="alert info">${ic('shield')}<div>사내 SSO와 MFA로 인증하는 화면이에요. 이 프로토타입에서는 인증을 연결하지 않았어요.</div></div><button class="btn pri block" data-act="quick-login" data-id="HS1001" style="min-height:48px">SSO로 계속하기 (시연)</button></div>`}<div class="roles"><small>시연용 바로 로그인</small>${roleBtn('HS1001','문의자')}${roleBtn('HS1107','담당자')}${roleBtn('HS0912','관리자')}${roleBtn('HS1488','이용 제한 계정')}${roleBtn('HS1530','잠김 계정')}</div></div><div class="hint">ICT 가상 기업 프로토타입</div></div><div class="rt"><div class="lpop" role="region" aria-label="로그인 전 상담"><div class="row" style="flex-wrap:nowrap">${av(36)}<div><b>로그인이 안 되시나요?</b><div class="small muted">로그인 전에도 계정·로그인 문의는 답해 드려요 <span class="tag gray">제안</span></div></div></div><div class="th" id="prethread">${msgs||`<div class="msg a">${av(32)}<div class="body">로그인 전에는 <b>계정 잠금, 비밀번호, SSO·MFA</b> 안내만 도와드려요. 접수는 로그인 후에 할 수 있어요.</div></div>`}</div><div class="replies">${['계정이 잠겼어요','비밀번호를 재설정하고 싶어요','SSO·MFA 인증이 안 돼요'].map(c=>`<button class="chip" data-act="pre-ask" data-t="${c}">${c}</button>`).join('')}</div><div class="composer"><textarea id="pre-in" rows="1" placeholder="로그인 문제를 적어 주세요" aria-label="로그인 전 상담 입력" data-in="pre"></textarea><button class="btn ico pri" data-act="pre-send" aria-label="보내기">${ic('send')}</button></div><div class="hint" style="margin-top:8px">${MAIL_NOTE} 로그인 전에는 Ticket을 만들지 않아요.</div></div></div></div>`;
 }
 function preReply(t){
   if(RE.sec.test(t))return '<p>보안 사고가 의심되면 <b>로그인 후 새 문의</b>에서 담당자 연결을 요청해 주세요. 로그인할 수 없는 상황이면 서비스데스크로 바로 연락해 주세요.</p><p class="small muted">서비스데스크 '+SERVICEDESK_PHONE+'</p>';
   if(/(잠|잠금|5회|lock)/i.test(t))return '<p>로그인 5회 실패 시 계정이 잠기고 <b>10분 후 자동으로 해제</b>돼요. 해제된 뒤 비밀번호를 정확히 입력해 보세요. 그래도 안 되면 서비스데스크에 연락해 주세요.</p><button class="src">'+ic('file','',16)+'IT-ACC-001 사내 SSO 로그인 오류 대응 가이드 v2 · 3.2</button>';
-  if(/(비밀번호|패스워드|재설정|초기화)/.test(t))return '<p>로그인 화면의 <b>[비밀번호를 잊으셨나요?]</b>에서 사번과 휴대폰 인증으로 직접 초기화할 수 있어요. 새 비밀번호는 12자 이상이며 90일마다 바꿔야 해요. 비밀번호는 이 창에 입력하지 마세요.</p><button class="src">'+ic('file','',16)+'IT-ACC-002 비밀번호 변경·초기화 가이드 v2 · 3.4</button>';
+  if(/(비밀번호|패스워드|재설정|초기화)/.test(t))return '<p>로그인 화면의 <b>[비밀번호를 잊으셨나요?]</b>에서 사번과 휴대폰 인증으로 직접 초기화할 수 있어요. 새 비밀번호는 12자 이상이며 90일마다 바꿔야 해요. 비밀번호는 이 창에 입력하지 마세요.</p><p><button class="btn sec sm" data-act="forgot">비밀번호 초기화 열기</button></p><button class="src">'+ic('file','',16)+'IT-ACC-002 비밀번호 변경·초기화 가이드 v2 · 3.4</button>';
   if(/(SSO|MFA|OTP|인증)/i.test(t))return '<p>OTP 앱의 <b>시간 자동 설정</b>이 켜져 있는지 확인하고, 브라우저를 모두 닫고 다시 시도해 보세요. 기기를 바꿨다면 MFA 재등록이 필요할 수 있어요.</p><button class="src">'+ic('file','',16)+'IT-ACC-003 MFA 인증 오류 대응 가이드 v2 · 3.3</button>';
   return '<p>이 질문은 로그인 전 상담 범위(계정·로그인)를 벗어나요. 근거 없이 안내하지 않을게요. 로그인 후 새 문의로 질문하거나 서비스데스크로 연락해 주세요.</p><p class="small muted">서비스데스크 '+SERVICEDESK_PHONE+'</p>';
 }
 function preAsk(t){
   t=t.trim();if(!t||S.pre.busy)return;
+  const pm=maskSens(t);t=pm.t;
   S.pre.msgs.push({r:'u',t});S.pre.busy=true;S.pre.msgs.push({r:'a',html:'<span class="dots"><i></i><i></i><i></i></span> <span class="muted small">처리 중</span>'});render();
-  later(()=>{S.pre.msgs.pop();S.pre.msgs.push({r:'a',html:preReply(t)});S.pre.busy=false;render();},800);
+  later(()=>{S.pre.msgs.pop();S.pre.msgs.push({r:'a',html:(pm.hit?'<p class="small muted">비밀번호·인증번호로 보이는 값은 ●로 바꿨어요. 앞으로는 입력하지 마세요.</p>':'')+preReply(t)});S.pre.busy=false;render();},800);
 }
 function doLogin(id,pw,skipPw){
   const a=S.accounts.find(x=>x.id.toLowerCase()===String(id).trim().toLowerCase());
@@ -1408,7 +1575,7 @@ const val=id=>(document.getElementById(id)||{}).value||'';
 function setTx(g,v,to,why){const from=v.tx;v.tx=to;log('외부 전송 정책 변경 · '+g.id+' v'+v.v+' '+from+' → '+to+(why?' · 사유: '+why:''));render();toast('외부 전송 정책을 '+to+(to==='금지'?'로':'으로')+' 바꿨어요.');}
 const A={
   go(e,d){S.view={n:d.v};S.detail=null;S.navOpen=false;if(d.v==='list'||d.v==='new'){}render();},
-  nav(){S.navOpen=!S.navOpen;render();},
+  nav(){S.navOpen=!S.navOpen;render();setTimeout(()=>{if(S.navOpen){const b=document.querySelector('.side .nav button');if(b)b.focus();}else{const m=document.querySelector('.top .menu,.xmenu');if(m)m.focus();}},0);},
   open(e,d){const i=S.inqs.find(x=>x.id===d.id);if(i)i.unread=0;S.view={n:'chat',id:d.id};S.navOpen=false;S.detail=null;render({bottom:true});},
   logout(){S.user=null;S.role=null;S.view={n:'login'};S.detail=null;S.timers.forEach(clearTimeout);S.timers=[];render();},
   switch(e,d){const m={user:'HS1001',staff:'HS1107',admin:'HS0912'};doLogin(m[d.r],'',true);},
@@ -1444,11 +1611,14 @@ const A={
   },
   dd(e,d){S.dd=S.dd===d.k?null:d.k;render();},
   'tf-pick'(e,d){if(d.v)S.tf[d.k]=d.v;else delete S.tf[d.k];S.dd=null;S.page.tk=1;render();},
-  map(){S.drawer=true;S.demoOpen=false;render();},
-  'map-close'(){S.drawer=null;renderOverlay();},
+  map(e){S.opener=selOf(e);S.drawer=true;S.demoOpen=false;render();setTimeout(()=>{const d=document.querySelector('.drawer');if(d)(d.querySelector('button')||d).focus();},30);},
+  'map-close'(){S.drawer=null;renderOverlay();restoreFocus();},
   theme(e,d){S.theme=d.t==='auto'?null:d.t;applyTheme();renderOverlay();},
   'modal-bg'(e,d,ev){if(ev.target.classList.contains('ov'))closeModal();},
+  home(){if(!S.user)return;S.view={n:S.role==='admin'?'dash':S.role==='staff'?'queue':'new'};S.detail=null;S.navOpen=false;render();},
   close(){closeModal();},
+  forgot(){openModal('비밀번호 초기화',`<p class="muted small" style="margin:0 0 12px">사번과 휴대폰 인증으로 직접 초기화해요. 새 비밀번호는 인증 뒤에 설정해요.</p><div class="field"><label for="m-fid">사번</label><input class="inp" id="m-fid" autocomplete="username" placeholder="예) HS1001"></div><div class="row" style="margin-top:16px"><button class="btn pri" data-act="forgot-do">휴대폰으로 인증하기</button><button class="btn sec" data-act="close">취소</button></div><p class="hint" style="margin-top:12px">휴대폰이 바뀌었거나 인증이 안 되면 서비스데스크 ${SERVICEDESK_PHONE}로 연락해 주세요.</p>`);},
+  'forgot-do'(){const id=val('m-fid').trim();if(!id){fieldErr('m-fid','사번을 입력해 주세요.');return;}openModal('인증 문자를 보냈어요',`<p style="margin:0 0 12px;line-height:24px">등록된 사번이면 휴대폰으로 인증 문자를 보내드려요. 인증을 마치면 새 비밀번호를 설정할 수 있고, 잠긴 계정이면 잠금도 함께 풀려요.</p><p class="hint">시연: 이 프로토타입은 실제 문자를 보내지 않아요.</p><div class="row" style="margin-top:16px"><button class="btn pri" data-act="close">확인</button></div>`);},
   prefill(e,d){const ta=document.getElementById('cmp');ta.value=d.t;ta.focus();autosize(ta);},
   attach(){toast('첨부 파일은 이 프로토타입에서 동작하지 않아요. 화면 캡처 첨부는 접수 후 담당자와 주고받는 흐름에서 다룰 예정이에요.');},
   send(){const ta=document.getElementById('cmp');const t=ta.value;if(!t.trim())return;ta.value='';S.compose[key()]='';sendText(t);},
@@ -1469,22 +1639,22 @@ const A={
   'l-toggle'(){S.lopen=S.lopen===false;if(S.lopen===false){S.listFilter='전체';S.lq='';S.lcat=undefined;S.lper=undefined;}render();if(S.lopen!==false)setTimeout(()=>{const n=document.getElementById('lq');n&&n.focus();},0);},
   'l-search'(){S.view={n:'list'};S.lopen=true;S.detail=null;S.navOpen=false;render();setTimeout(()=>{const n=document.getElementById('lq');n&&n.focus();},0);},
   'faq-ask'(e,d){S.view={n:'new'};render();setTimeout(()=>{const ta=document.getElementById('cmp');if(ta){ta.value=d.t;autosize(ta);ta.focus();}},0);},
-  detail(e,d){S.detail=d.id;const t=tById(d.id);if(t)t.newReply=false;render();},
-  dclose(){S.detail=null;render();},
+  detail(e,d){S.openerD=selOf(e);S.detail=d.id;const t=tById(d.id);if(t)t.newReply=false;render();setTimeout(()=>{const c=document.querySelector('.detail [data-act="dclose"]');if(c)c.focus();},0);},
+  dclose(){S.detail=null;render();restoreFocus('openerD');},
   'tk-ok'(e,d){const t=tById(d.id);setStatus(t,'CLS','문의자 해결 확인');const i=S.inqs.find(x=>x.id===t.inq);if(i){i.state='담당자 이관';}render({bottom:true});toast('해결 확인이 기록되었어요.');},
   'tk-no'(e,d){openModal('아직 해결되지 않았어요',`<p class="small muted">상황을 알려 주시면 담당자가 다시 확인해요. <span class="tag gray">제안</span> 이 흐름은 팀 합의 전 제안이에요.</p><div class="field"><label for="m-r">남은 증상</label><textarea class="ta" id="m-r" placeholder="예) 안내대로 했지만 같은 오류가 나요"></textarea></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="tk-no2" data-id="${d.id}">다시 확인 요청</button></div>`);},
   'tk-no2'(e,d){const r=val('m-r').trim();if(!r){toast('남은 증상을 적어 주세요.');return;}const t=tById(d.id);reopenCard(t,r);setStatus(t,'WIP','문의자 미해결 · 재확인 요청');{const i=S.inqs.find(x=>x.id===t.inq);if(i)i.msgs.push({r:'a',id:S.seq.msg++,html:'<p>다시 확인을 요청했어요. 담당자가 재확인하고 있어요. 아래 카드에서 새 진행 상황을 볼 수 있어요.</p>',card:'ticket',tid:t.receipt});}slack(t,'담당자','문의자가 해결되지 않았다고 알렸습니다.');closeModal();render({bottom:true});},
   of(e,d){S.opsFilter=d.f;render();},
   'st-wip'(e,d){setStatus(tById(d.id),'WIP');render();toast('처리를 시작했어요.');},
   'st-fin'(e,d){openModal('처리 결과 등록',`<p class="small muted">문의자에게 보이는 내용이에요. 비밀번호·인증번호는 적지 마세요.</p><div class="field"><label for="m-res">처리 결과</label><textarea class="ta" id="m-res" placeholder="어떤 원인을 어떻게 조치했는지 적어 주세요"></textarea></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="st-fin2" data-id="${d.id}">등록하고 해결 확인 요청</button></div>`);},
-  'st-fin2'(e,d){const r=val('m-res').trim();if(!r){toast('처리 결과를 입력해 주세요.');return;}const t=tById(d.id);t.result=r;setStatus(t,'FIN','처리 결과 등록');closeModal();render();toast('문의자에게 해결 확인을 요청했어요.');},
+  'st-fin2'(e,d){const r=val('m-res').trim();if(!r){fieldErr('m-res','처리 결과를 입력해 주세요.');return;}const t=tById(d.id);t.result=r;setStatus(t,'FIN','처리 결과 등록');closeModal();render();toast('문의자에게 해결 확인을 요청했어요.');},
   'msg-open'(e,d){openModal('문의자에게 메시지',`<p class="small muted">문서상 AI 중개 양방향 소통은 Could 범위라서 이 기능은 <b>제안</b>이에요.</p><div class="field"><label for="m-k">종류</label><select class="sel" id="m-k"><option>추가 정보 요청</option><option>일반 메시지</option></select></div><div class="field"><label for="m-t">내용</label><textarea class="ta" id="m-t"></textarea></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="msg-send" data-id="${d.id}">보내기</button></div>`);},
-  'msg-send'(e,d){const x=val('m-t').trim();if(!x){toast('내용을 입력해 주세요.');return;}const t=tById(d.id);tmsg(t,{from:t.assignee+' 담당자',kind:val('m-k'),t:x,time:NOW()});t.hist.unshift({t:NOW(),who:t.assignee,what:'문의자 메시지 · '+val('m-k')});const i=S.inqs.find(y=>y.id===t.inq);if(i)i.unread=(i.unread||0)+1;slack(t,'문의자','담당자 메시지가 도착했습니다.');closeModal();render();toast('보냈어요.');},
+  'msg-send'(e,d){const x=maskSens(val('m-t').trim()).t;if(!x){fieldErr('m-t','내용을 입력해 주세요.');return;}const t=tById(d.id);tmsg(t,{from:t.assignee+' 담당자',kind:val('m-k'),t:x,time:NOW()});t.hist.unshift({t:NOW(),who:t.assignee,what:'문의자 메시지 · '+val('m-k')});const i=S.inqs.find(y=>y.id===t.inq);if(i)i.unread=(i.unread||0)+1;slack(t,'문의자','담당자 메시지가 도착했습니다.');closeModal();render();toast('보냈어요.');},
   'exc-retry'(e,d){excRetry(tById(d.id));},
   'exc-assign'(e,d){const t=tById(d.id);const c=STAFF.filter(s=>s.group===t.group);openModal('담당자 지정',`<p class="small muted">${ESC(t.receipt)} · ${ESC(t.group)}</p><div class="field"><label for="m-s">담당자</label><select class="sel" id="m-s">${c.map(s=>`<option>${s.name}</option>`).join('')}</select></div><div class="field"><label for="m-w">지정 사유 (필수)</label><input class="inp" id="m-w" placeholder="예) 자동배정 실패, 업무량 확인 후 지정"></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="exc-assign2" data-id="${d.id}">지정</button></div>`);},
   'rs-open'(e,d){const t=tById(d.id);const c=STAFF.filter(s=>s.group===t.group&&s.name!==t.assignee);openModal('담당자 재배정',`<p class="small muted">${ESC(t.receipt)} · ${ESC(t.group)} · 현재 ${ESC(t.assignee||'-')}</p><div class="field"><label for="m-s">새 담당자</label><select class="sel" id="m-s">${c.map(s=>`<option>${s.name}</option>`).join('')}</select></div><div class="field"><label for="m-w">재배정 사유 (필수)</label><input class="inp" id="m-w" placeholder="예) 휴가, 업무량 조정"></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="rs-do" data-id="${d.id}">재배정</button></div>`);},
-  'rs-do'(e,d){const w=val('m-w').trim();if(!w){toast('재배정 사유를 입력해 주세요.');return;}const t=tById(d.id);const n=val('m-s');if(!n){toast('새 담당자를 선택해 주세요.');return;}const old=t.assignee;closeModal();t.assignee=n;t.reassigned=true;t.hist.unshift({t:NOW(),who:me().name,what:'재배정 · '+old+' → '+n+' · 사유: '+w});slack(t,'담당자('+n+')','Ticket이 재배정되었습니다 ('+(t.id||t.receipt)+', '+t.p+').');slack(t,'문의자','담당자가 변경되었습니다 ('+n+').');log('담당자 재배정 · '+t.receipt+' '+old+' → '+n+' · '+w);render();toast('재배정했어요. 진행 상태는 그대로 유지돼요.');},
-  'exc-assign2'(e,d){const w=val('m-w').trim();if(!w){toast('지정 사유를 입력해 주세요.');return;}const t=tById(d.id);const n=val('m-s');closeModal();assignTo(t,n,'관리자 지정 · '+w);},
+  'rs-do'(e,d){const w=val('m-w').trim();if(!w){fieldErr('m-w','재배정 사유를 입력해 주세요.');return;}const t=tById(d.id);const n=val('m-s');if(!n){fieldErr('m-s','새 담당자를 선택해 주세요.');return;}const old=t.assignee;closeModal();t.assignee=n;t.reassigned=true;t.hist.unshift({t:NOW(),who:me().name,what:'재배정 · '+old+' → '+n+' · 사유: '+w});slack(t,'담당자('+n+')','Ticket이 재배정되었습니다 ('+(t.id||t.receipt)+', '+t.p+').');slack(t,'문의자','담당자가 변경되었습니다 ('+n+').');log('담당자 재배정 · '+t.receipt+' '+old+' → '+n+' · '+w);render();toast('재배정했어요. 진행 상태는 그대로 유지돼요.');},
+  'exc-assign2'(e,d){const w=val('m-w').trim();if(!w){fieldErr('m-w','지정 사유를 입력해 주세요.');return;}const t=tById(d.id);const n=val('m-s');closeModal();assignTo(t,n,'관리자 지정 · '+w);},
   tf(e,d){S.page.tk=1;S.page.ai=1;S.tf={};['st','cat','pri','team','staff','mode'].forEach(k=>{if(d[k])S.tf[k]=d[k];});S.view={n:'tickets'};S.detail=null;render();},
   'tf-one'(e,d){delete S.tf[d.k];S.page.tk=1;render();},
   'tf-st'(e,d){if(d.st)S.tf.st=d.st;else delete S.tf.st;S.page.tk=1;render();},
@@ -1494,20 +1664,20 @@ const A={
   'tf-mode'(e,d){S.page.ai=1;S.tf={mode:d.m==='ai'?'ai':undefined};render();},
   dteam(e,d){S.dashTeam=S.dashTeam===d.t?null:d.t;render();},
   'faq-add'(){openModal('FAQ 등록',`<div class="field"><label for="m-c">분류</label><select class="sel" id="m-c">${Object.keys(CATS).map(c=>`<option value="${c}">${CATS[c].n}</option>`).join('')}</select></div><div class="field"><label for="m-q">질문 제목</label><input class="inp" id="m-q" placeholder="예) 공용 프린터가 보이지 않아요"></div><div class="field"><label for="m-a">답변</label><textarea class="ta" id="m-a" placeholder="사내 가이드 기준으로 안내해 주세요"></textarea></div><div class="field"><label for="m-s">출처 가이드</label><select class="sel" id="m-s">${S.guides.map(g=>`<option>${ESC(g.title)} v${(g.vers.find(v=>v.st==='현행')||g.vers[0]).v}</option>`).join('')}</select></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="faq-add2">등록</button></div>`);},
-  'faq-add2'(){const q=val('m-q').trim(),a=val('m-a').trim();if(!q||!a){toast('질문 제목과 답변을 입력해 주세요.');return;}S.faqs.unshift({c:val('m-c'),q,a,src:val('m-s')});log('FAQ 등록 · '+q);closeModal();render();toast('FAQ를 등록했어요. 문의자 FAQ 화면에 바로 보여요.');},
+  'faq-add2'(){const q=val('m-q').trim(),a=val('m-a').trim();if(!q||!a){if(!q)fieldErr('m-q','질문 제목을 입력해 주세요.');if(!a)fieldErr('m-a','답변을 입력해 주세요.');return;}S.faqs.unshift({c:val('m-c'),q,a,src:val('m-s')});log('FAQ 등록 · '+q);closeModal();render();toast('FAQ를 등록했어요. 문의자 FAQ 화면에 바로 보여요.');},
   'faq-del'(e,d){const f=S.faqs.splice(+d.k,1)[0];log('FAQ 삭제 · '+f.q);render();toast('FAQ를 삭제했어요.');},
   gtab(e,d){S.guideTab=d.t;render();},
-  'g-up'(){openModal('가이드 파일 업로드',`<p class="small muted">PDF·DOCX·PPTX·MD 파일을 올리면 검색 준비(텍스트 추출·색인)를 거쳐 사용할 수 있어요. 이 프로토타입은 파일명만 읽고 내용은 처리하지 않아요.</p><div class="field"><label for="m-f">파일</label><input class="inp" type="file" id="m-f" accept=".pdf,.docx,.pptx,.md,.txt" data-in="gfile" style="padding:9px 12px"></div><div class="field"><label for="m-t">가이드 제목</label><input class="inp" id="m-t"></div><div class="field"><label for="m-c">Category</label><select class="sel" id="m-c">${Object.keys(CATS).map(c=>`<option value="${c}">${CATS[c].n}</option>`).join('')}</select></div><div class="field"><label for="m-sc">열람 범위</label><select class="sel" id="m-sc"><option>관리자 전용</option><option>사내 제한</option><option>사내 일반</option></select></div><div class="field"><label for="m-tx">외부 모델 전송</label><select class="sel" id="m-tx"><option>금지</option><option>마스킹 후 허용</option><option>허용</option></select></div><div class="hint">정하지 않으면 가장 제한적인 값(관리자 전용·금지)이 적용돼요.</div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="g-up2">업로드</button></div>`);},
-  'g-up2'(){const f=document.getElementById('m-f').files[0];const t=val('m-t').trim();if(!f){toast('파일을 선택해 주세요.');return;}if(!t){toast('가이드 제목을 입력해 주세요.');return;}const ext=(f.name.split('.').pop()||'').toUpperCase();const g={id:'G'+(S.guides.length+1),title:t,cat:val('m-c'),vers:[{v:1,st:'초안',scope:val('m-sc'),tx:val('m-tx'),ready:'준비 중',src:ext,note:'업로드 · '+f.name}]};S.guides.push(g);S.guideTab='list';S.guideOpen=g.id;log('가이드 업로드 · '+f.name);closeModal();render();toast('업로드했어요. 검색 준비 중이에요.');later(()=>{g.vers[0].ready='준비 완료';render();toast('검색 준비가 끝났어요. 현행으로 전환할 수 있어요.');},2800);},
+  'g-up'(){openModal('가이드 파일 업로드',`<p class="small muted">PDF·DOCX·PPTX·MD 파일을 올리면 검색 준비(텍스트 추출·색인)를 거쳐 사용할 수 있어요. 이 프로토타입은 파일명만 읽고 내용은 처리하지 않아요.</p><div class="field"><label for="m-f">파일</label><input class="inp" type="file" id="m-f" accept=".pdf,.docx,.pptx,.md,.txt" data-in="gfile" style="padding:9px 12px"></div><div class="field"><label for="m-t">가이드 제목</label><input class="inp" id="m-t"></div><div class="field"><label for="m-c">분류</label><select class="sel" id="m-c">${Object.keys(CATS).map(c=>`<option value="${c}">${CATS[c].n}</option>`).join('')}</select></div><div class="field"><label for="m-sc">열람 범위</label><select class="sel" id="m-sc"><option>관리자 전용</option><option>사내 제한</option><option>사내 일반</option></select></div><div class="field"><label for="m-tx">외부 모델 전송</label><select class="sel" id="m-tx"><option>금지</option><option>마스킹 후 허용</option><option>허용</option></select></div><div class="hint">정하지 않으면 가장 제한적인 값(관리자 전용·금지)이 적용돼요.</div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="g-up2">업로드</button></div>`);},
+  'g-up2'(){const f=document.getElementById('m-f').files[0];const t=val('m-t').trim();if(!f){fieldErr('m-f','파일을 선택해 주세요.');return;}if(!t){fieldErr('m-t','가이드 제목을 입력해 주세요.');return;}const ext=(f.name.split('.').pop()||'').toUpperCase();const g={id:'G'+(S.guides.length+1),title:t,cat:val('m-c'),vers:[{v:1,st:'초안',scope:val('m-sc'),tx:val('m-tx'),ready:'준비 중',src:ext,note:'업로드 · '+f.name}]};S.guides.push(g);S.guideTab='list';S.guideOpen=g.id;log('가이드 업로드 · '+f.name);closeModal();render();toast('업로드했어요. 검색 준비 중이에요.');later(()=>{g.vers[0].ready='준비 완료';render();toast('검색 준비가 끝났어요. 현행으로 전환할 수 있어요.');},2800);},
   gold(e,d){S.goldOpen=S.goldOpen===d.id?null:d.id;render();},
   gf(e,d){S.goldF=d.f;render();},
   ar(e,d){S.aiRange=d.r;render();},
   secf(e,d){S.secF[d.k]=d.v;render();},
   'sec-open'(e,d){secModal(d.id);},
-  'sec-raw'(e,d){const w=val('m-w').trim();if(!w){toast('열람 사유를 입력해 주세요.');return;}const x=S.sec.find(y=>y.id===d.id);S.secRaw[d.id]=true;x.log.unshift({t:NOW(),who:me().name,what:'원문 열람 · 사유: '+w});log('보안 알림 원문 열람 · '+x.id+' · '+w);secModal(d.id);},
+  'sec-raw'(e,d){const w=val('m-w').trim();if(!w){fieldErr('m-w','열람 사유를 입력해 주세요.');return;}const x=S.sec.find(y=>y.id===d.id);S.secRaw[d.id]=true;x.log.unshift({t:NOW(),who:me().name,what:'원문 열람 · 사유: '+w});log('보안 알림 원문 열람 · '+x.id+' · '+w);secModal(d.id);},
   'sec-do'(e,d){const x=S.sec.find(y=>y.id===d.id);x.st=d.to;x.log.unshift({t:NOW(),who:me().name,what:'확인 시작'});render();secModal(d.id);},
   'sec-end'(e,d){openModal('알림 종결',`<div class="field"><label for="m-w">종결 사유 (필수)</label><input class="inp" id="m-w" placeholder="예) 정상 문의로 확인"></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="sec-end2" data-id="${d.id}">종결</button></div>`);},
-  'sec-end2'(e,d){const w=val('m-w').trim();if(!w){toast('종결 사유를 입력해 주세요.');return;}const x=S.sec.find(y=>y.id===d.id);x.st='종결';x.log.unshift({t:NOW(),who:me().name,what:'종결 · '+w});closeModal();render();toast('종결했어요.');},
+  'sec-end2'(e,d){const w=val('m-w').trim();if(!w){fieldErr('m-w','종결 사유를 입력해 주세요.');return;}const x=S.sec.find(y=>y.id===d.id);x.st='종결';x.log.unshift({t:NOW(),who:me().name,what:'종결 · '+w});closeModal();render();toast('종결했어요.');},
   dper(e,d){S.dashPer=d.p;render();},
   dmode(e,d){S.dashMode=d.m;S.dashMember=null;render();},
   dsel(e,d){S.dashSel[S.dashMode]=d.k;S.dashMember=null;render();},
@@ -1517,16 +1687,16 @@ const A={
     /* 더 느슨해지는 변경(금지→마스킹·허용, 마스킹→허용)은 확인과 사유를 받는다 */
     if(TXR[d.to]>TXR[v.tx]){openModal('외부 전송 정책 변경',`<p class="small muted">${ESC(g.title)} v${v.v} · ${v.tx} → ${d.to}</p><div class="alert warn">${ic('alert')}<div>이 가이드 내용이 이전보다 넓게 외부 AI 모델에 전달될 수 있어요. 변경 사유를 남겨 주세요.</div></div><div class="field"><label for="m-w">변경 사유 (필수)</label><input class="inp" id="m-w" placeholder="예) 개인정보 없음을 확인함"></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="g-tx2" data-id="${d.id}" data-v="${d.v}" data-to="${d.to}">변경</button></div>`);return;}
     setTx(g,v,d.to,'');},
-  'g-tx2'(e,d){const w=val('m-w').trim();if(!w){toast('변경 사유를 입력해 주세요.');return;}const g=S.guides.find(x=>x.id===d.id);const v=g.vers.find(x=>x.v===+d.v);closeModal();setTx(g,v,d.to,w);},
+  'g-tx2'(e,d){const w=val('m-w').trim();if(!w){fieldErr('m-w','변경 사유를 입력해 주세요.');return;}const g=S.guides.find(x=>x.id===d.id);const v=g.vers.find(x=>x.v===+d.v);closeModal();setTx(g,v,d.to,w);},
   'g-cur'(e,d){const g=S.guides.find(x=>x.id===d.id);g.vers.forEach(v=>{if(v.st==='현행')v.st='만료';});g.vers.find(x=>x.v===+d.v).st='현행';log('현행 전환 · '+g.id+' v'+d.v);render();toast('현행 버전을 바꿨어요.');},
   'g-case'(e,d){const t=tById(d.id);const g={id:'G'+(S.guides.length+1),title:t.title+' (해결 사례 초안)',cat:t.cat,vers:[{v:1,st:'초안',scope:'사내 제한',tx:'허용',ready:'준비 중',src:'Ticket',note:t.receipt+' 해결 사례에서 생성'}]};S.guides.push(g);S.guideOpen=g.id;render();toast('가이드 초안을 만들었어요. 검토 후 현행으로 전환하세요.');},
   af(e,d){S.acctFilter=d.f;S.page.acct=1;render();},
   'a-do'(e,d){openModal(d.to==='정상'?'제한·잠금 해제':'이용 제한',`<div class="field"><label for="m-w">사유 (필수)</label><input class="inp" id="m-w"></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="a-do2" data-id="${d.id}" data-to="${d.to}">확인</button></div>`);},
-  'a-do2'(e,d){const w=val('m-w').trim();if(!w){toast('사유를 입력해 주세요.');return;}const a=S.accounts.find(x=>x.id===d.id);const prev=a.status;a.status=d.to;if(d.to==='정상'){delete a.lockedUntil;a.fails=0;}log('계정 '+d.to+' · '+a.id+' · '+w);S.acctHist.unshift({t:NOW(),who:me().name,target:a.id+' · '+a.name,what:d.to==='정상'?(prev==='잠김'?'잠금 해제':'제한 해제'):d.to,why:w});closeModal();render();},
+  'a-do2'(e,d){const w=val('m-w').trim();if(!w){fieldErr('m-w','사유를 입력해 주세요.');return;}const a=S.accounts.find(x=>x.id===d.id);const prev=a.status;a.status=d.to;if(d.to==='정상'){delete a.lockedUntil;a.fails=0;}log('계정 '+d.to+' · '+a.id+' · '+w);S.acctHist.unshift({t:NOW(),who:me().name,target:a.id+' · '+a.name,what:d.to==='정상'?(prev==='잠김'?'잠금 해제':'제한 해제'):d.to,why:w});closeModal();render();},
   'a-add'(){openModal('계정 추가',`<p class="small muted">회원가입 기능은 없어요. 계정을 만들면 임시 비밀번호를 등록 휴대폰으로 전달하고, 첫 로그인에서 비밀번호를 바꿔요.</p><div class="field"><label for="m-i">사번</label><input class="inp" id="m-i"></div><div class="field"><label for="m-n">이름</label><input class="inp" id="m-n"></div><div class="field"><label for="m-d">부서</label><input class="inp" id="m-d"></div><div class="field"><label for="m-ro">역할</label><select class="sel" id="m-ro"><option>문의자</option><option>담당자</option><option>관리자</option></select></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="a-add2">추가</button></div>`);},
-  'a-add2'(){const id=val('m-i').trim().toUpperCase(),n=val('m-n').trim();if(!id||!n){toast('사번과 이름을 입력해 주세요.');return;}if(S.accounts.some(a=>a.id===id)){toast('이미 있는 사번이에요.');return;}S.accounts.push({id,name:n,dept:val('m-d')||'-',role:val('m-ro'),status:'정상',grade:'일반'});log('계정 추가 · '+id);S.acctHist.unshift({t:NOW(),who:me().name,target:id+' · '+n,what:'계정 추가',why:'신규 등록 ('+val('m-ro')+')'});closeModal();render();},
+  'a-add2'(){const id=val('m-i').trim().toUpperCase(),n=val('m-n').trim();if(!id||!n){if(!id)fieldErr('m-i','사번을 입력해 주세요.');if(!n)fieldErr('m-n','이름을 입력해 주세요.');return;}if(S.accounts.some(a=>a.id===id)){toast('이미 있는 사번이에요.');return;}S.accounts.push({id,name:n,dept:val('m-d')||'-',role:val('m-ro'),status:'정상',grade:'일반'});log('계정 추가 · '+id);S.acctHist.unshift({t:NOW(),who:me().name,target:id+' · '+n,what:'계정 추가',why:'신규 등록 ('+val('m-ro')+')'});closeModal();render();},
   'a-edit'(e,d){const a=S.accounts.find(x=>x.id===d.id);openModal('계정 수정',`<div class="field"><label for="m-n">이름</label><input class="inp" id="m-n" value="${ESC(a.name)}"></div><div class="field"><label for="m-d">부서</label><input class="inp" id="m-d" value="${ESC(a.dept)}"></div><div class="field"><label for="m-ro">역할</label><select class="sel" id="m-ro">${['문의자','담당자','관리자'].map(r=>`<option ${r===a.role?'selected':''}>${r}</option>`).join('')}</select></div><div class="field"><label for="m-w">수정 사유 (필수)</label><input class="inp" id="m-w"></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="a-edit2" data-id="${d.id}">저장</button></div>`);},
-  'a-edit2'(e,d){const w=val('m-w').trim();if(!w){toast('수정 사유를 입력해 주세요.');return;}const a=S.accounts.find(x=>x.id===d.id);a.name=val('m-n')||a.name;a.dept=val('m-d')||a.dept;a.role=val('m-ro');log('계정 수정 · '+a.id+' · '+w);closeModal();render();}
+  'a-edit2'(e,d){const w=val('m-w').trim();if(!w){fieldErr('m-w','수정 사유를 입력해 주세요.');return;}const a=S.accounts.find(x=>x.id===d.id);a.name=val('m-n')||a.name;a.dept=val('m-d')||a.dept;a.role=val('m-ro');log('계정 수정 · '+a.id+' · '+w);closeModal();render();}
 };
 function applyTheme(){const r=document.documentElement;if(S.theme)r.setAttribute('data-theme',S.theme);else r.removeAttribute('data-theme');}
 function patch(fn,ids){const tmp=document.createElement('div');tmp.innerHTML=fn();ids.forEach(id=>{const a=document.getElementById(id),b=tmp.querySelector('#'+id);if(a&&b)a.innerHTML=b.innerHTML;});}
@@ -1549,7 +1719,15 @@ document.addEventListener('keydown',ev=>{
     if(el.id==='cmp'){ev.preventDefault();A.send();}
     else if(el.id==='pre-in'){ev.preventDefault();A['pre-send']();}
   }
-  if(ev.key==='Escape'){if(S.modal)closeModal();else if(S.drawer){S.drawer=null;renderOverlay();}}
+  if(ev.key==='Escape'){if(S.modal)closeModal();else if(S.drawer){S.drawer=null;renderOverlay();restoreFocus();}else if(S.navOpen){A.nav();}else if(S.detail){A.dclose();}}
+  if(ev.key==='Tab'&&(S.modal||S.drawer)){
+    const box=document.querySelector(S.modal?'.modal':'.drawer');if(!box)return;
+    const f=[...box.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(x=>x.offsetParent!==null);
+    if(!f.length){ev.preventDefault();box.focus();return;}
+    const first=f[0],last=f[f.length-1],inside=box.contains(document.activeElement);
+    if(ev.shiftKey&&(!inside||document.activeElement===first)){ev.preventDefault();last.focus();}
+    else if(!ev.shiftKey&&(!inside||document.activeElement===last)){ev.preventDefault();first.focus();}
+  }
 });
 document.addEventListener('submit',ev=>{
   const f=ev.target;ev.preventDefault();
@@ -1580,9 +1758,10 @@ S.tickets.unshift({receipt:'RCPT-1041',id:'ITSD-1520',title:'VPN 연결이 자�
 S.acctHist=[{t:'10.15 14:20',who:'최관리',target:'HS1488 · '+(S.accounts.find(a=>a.id==='HS1488')||{name:'-'}).name,what:'이용 제한',why:'보안 교육 미이수 (재교육 후 해제 예정)'},{t:'10.14 09:05',who:'최관리',target:'HS1107 · 김담당',what:'계정 수정',why:'담당자 역할 부여 요청 확인'},{t:'10.12 16:42',who:'최관리',target:'HS1003 · 박민수',what:'계정 추가',why:'신규 입사자 계정 생성 · 임시 비밀번호 전달'}];
 S.sec=secSeed();
 (function(){const T=S.tickets;
- const a=T[3];a.day=0;a.jira='확인 필요';a.id=null;a.status=null;a.asg='대기';a.assignee=null;a.excWhy='Jira 생성 요청 응답 시간 초과 · 생성 여부 확인 필요';a.excNext='기존 Ticket 존재 여부 확인 후 중복 없이 재처리';a.excOwner='서비스데스크 관리자';a.exAt=Date.now()-47*60000;a.hist=[{t:'10.16 13:55',who:'ITssue',what:'Jira 생성 요청 시간 초과 · 서비스데스크 관리자 확인 대상'},{t:'10.16 13:54',who:a.reqName,what:'최종 확인 · ITssue 접수 저장 · '+a.receipt}];
+ const a=T[3];a.day=0;a.jira='확인 필요';a.id=null;a.status=null;a.asg='대기';a.assignee=null;a.exVerify=true;a.excWhy='Jira 생성 요청 응답 시간 초과 · 생성 여부 확인 필요';a.excNext='기존 Ticket 존재 여부 확인 후 중복 없이 재처리';a.excOwner='서비스데스크 관리자';a.exAt=Date.now()-47*60000;a.hist=[{t:'10.16 13:55',who:'ITssue',what:'Jira 생성 요청 시간 초과 · 서비스데스크 관리자 확인 대상'},{t:'10.16 13:54',who:a.reqName,what:'최종 확인 · ITssue 접수 저장 · '+a.receipt}];
  const b=T[8];b.day=0;b.status=null;b.asg='확인 필요';b.assignee=null;b.excWhy='배정 가능한 개인 후보 없음 (그룹 구성원 전원 부재)';b.excNext='담당 그룹을 확인해 담당자를 지정';b.excOwner=b.group+' 관리자';b.exAt=Date.now()-18*60000;b.hist=[{t:'10.16 14:21',who:'ITssue',what:'개인 배정 실패 · '+b.group+' 관리자 확인 대상 (접수·Jira Ticket은 보존)'},{t:'10.16 14:20',who:'ITssue',what:'Jira Ticket 생성 · '+b.id}];})();
 render();
+window.__live=true;
 
 </script>
 </body></html>
