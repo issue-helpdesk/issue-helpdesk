@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, Identity, Index, Integer, UniqueConstraint, func, text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import CheckConstraint, ForeignKey, Identity, Index, Integer, Text, UniqueConstraint, func, text
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -13,7 +13,7 @@ TRANSFER_POLICY = "transfer_policy in ('ALLOWED', 'MASKED', 'BLOCKED')"
 class KnowledgeDocument(Base):
     __tablename__ = "knowledge_documents"
     __table_args__ = (
-        CheckConstraint("doc_type in ('GUIDE', 'FAQ', 'MANUAL', 'STANDARD')", name="doc_type"),   # STANDARD: 공통 기준
+        CheckConstraint("doc_type in ('GUIDE', 'MANUAL', 'STANDARD')", name="doc_type"),   # STANDARD: 공통 기준
     )
 
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)
@@ -105,3 +105,17 @@ class LegacyInquiry(Base):
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     view_scope: Mapped[str] = mapped_column(server_default="ADMIN")
     transfer_policy: Mapped[str] = mapped_column(server_default="BLOCKED")
+
+class Faq(Base):
+    __tablename__ = "faqs"
+
+    id: Mapped[int] = mapped_column(Identity(), primary_key=True)
+    faq_code: Mapped[str] = mapped_column(unique=True)
+    category_code: Mapped[str] = mapped_column(ForeignKey("categories.code"))
+    question: Mapped[str]
+    answer: Mapped[str]
+    keywords: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
+    is_active: Mapped[bool] = mapped_column(server_default=text("true"))
+    updated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime | None]
