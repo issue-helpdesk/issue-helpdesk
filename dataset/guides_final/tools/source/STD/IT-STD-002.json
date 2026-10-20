@@ -1169,8 +1169,8 @@
       ],
       [
        "티켓 상태",
-       "RDY → IP → FIN → CLS (PRD·SRS·설계서)",
-       "팀원 문서는 RDY → IP → FIN → CLS"
+       "RDY → WIP → FIN → CLS (PRD·SRS·설계서)",
+       "팀원 문서는 RDY → WIP → FIN → CLS"
       ],
       [
        "처리 구분",
