@@ -11,9 +11,9 @@
 - 해시는 개발용 임시 방식(솔트 + SHA-256)이다. 정식 해싱 방식이 정해지면 hash_password 만 바꾸고
   --reset-passwords 로 다시 넣는다. 로그인 검증도 같은 방식이어야 한다.
 - 평가셋(eval_inquiries.csv)은 DB에 넣지 않고 파일로 관리한다.
-- FAQ 문서 버전의 열람 범위·외부 전송 정책은 처음 만들 때만 정한다. 이미 있는 버전의 정책·현행 여부·적재 상태는
-  다시 실행해도 건드리지 않는다 (관리자가 바꾼 값과 임베딩이 끝난 상태를 지킨다).
-  FAQ의 임베딩 입력(질문 + 본문)이 바뀐 경우에만 청크를 고치고 그 버전을 다시 적재 대상(PENDING·비현행)으로 돌린다.
+- FAQ는 게시판용 faqs 테이블에 넣는다. Knowledge(검색 대상)에는 넣지 않는다 (가이드 청크에 같은 FAQ가 있다).
+  이미 있는 FAQ의 게시 여부(is_active)는 다시 실행해도 건드리지 않는다 (관리자가 내린 게시글을 되살리지 않는다).
+- 가이드·매뉴얼(knowledge_documents·document_versions·document_chunks)은 이 스크립트가 아니라 가이드 적재 스크립트가 넣는다.
 - 필요한 패키지: psycopg[binary], python-dotenv
 """
 import argparse
@@ -36,12 +36,6 @@ except ImportError:
     pass
 
 KST = "+09:00"               # 데이터셋 시각은 한국 시간이며 시간대 표기가 없다
-FAQ_VERSION = "1.0"
-
-# document_chunks.meta 의 키 (backend/app/rag/청크_메타데이터.md 'meta 계약'). 값이 없어도 키는 항상 넣는다
-EMPTY_META = {"section_no": "", "inquiry_type_codes": [], "page_start": None, "page_end": None, "props": {},
-              "subheadings": [], "faq_ids": [], "images": [], "handling": "", "team": "", "escalation_teams": [],
-              "urgency": ""}
 
 # ---------------------------------------------------------------- 데이터셋 값 → 설계 코드
 
@@ -57,13 +51,12 @@ YN = {"Y": True, "N": False}
 TRIAGE_GROUP = "서비스데스크"   # 담당 그룹이 불확실할 때 확인하는 그룹
 
 # 열람 범위·외부 전송 정책 (팀 확정 전 제안값)
-FAQ_POLICY = ("ALL", "ALLOWED")                 # FAQ는 전 직원 공개용 일반 안내
 LEGACY_POLICY = ("ALL", "MASKED")               # 과거 사례: 문의자 정보는 넣지 않고, 본문은 마스킹 후 전송
 LEGACY_POLICY_BY_CATEGORY = {"SEC": ("AGENT", "BLOCKED")}   # 보안 사고 이력은 담당자만, 외부 전송 금지
 
 # 적재 순서 = 참조되는 테이블이 먼저
 TABLES = ["departments", "users", "categories", "support_groups", "inquiry_types", "support_group_members",
-          "member_skills", "knowledge_documents", "document_versions", "document_chunks", "legacy_inquiries"]
+          "member_skills", "faqs", "legacy_inquiries"]
 
 
 def read_csv(name):
@@ -172,21 +165,12 @@ def build():
         if not ok:
             p.warnings.append(f"inquiry_types {t['code']}: 기본 그룹({t['default_group']})에 배정 가능한 담당자가 없음")
 
-    # FAQ → 문서 1건 = 버전 1건 = 청크 1건 (새 버전은 PENDING·비현행. 임베딩 뒤 적재 스크립트가 현행으로 켠다)
-    view, transfer = FAQ_POLICY
+    # FAQ 게시판
     for f in faqs:
         p.ref(cat_codes, f["category_code"], f"faq {f['faq_id']}")
-        r["knowledge_documents"].append({"doc_code": f["faq_id"], "doc_type": "FAQ", "title": f["question"],
-                                         "category_code": f["category_code"]})
-        r["document_versions"].append({"doc_code": f["faq_id"], "version": FAQ_VERSION,
-                                       "file_path": "dataset/data/faq.csv", "file_format": "TEXT",
-                                       "view_scope": view, "transfer_policy": transfer})
-        keywords = ", ".join(k.strip() for k in f["keywords"].split(",") if k.strip())
-        r["document_chunks"].append({
-            "doc_code": f["faq_id"], "heading_path": f["question"], "location": f["faq_id"],
-            "content": f"Q. {f['question']}\nA. {f['answer']}\n키워드: {keywords}",
-            "seq": 1, "unit_key": f"{f['faq_id']}@{FAQ_VERSION}/faq:{f['faq_id']}", "chunk_type": "FAQ", "part": 1,
-            "meta": {**EMPTY_META, "faq_ids": [f["faq_id"]]}})
+        r["faqs"].append({"faq_code": f["faq_id"], "category_code": f["category_code"], "question": f["question"],
+                          "answer": f["answer"],
+                          "keywords": [k.strip() for k in f["keywords"].split(",") if k.strip()]})
 
     # 도입 이전 문의 이력 (문의자 개인은 넣지 않고 부서만 남긴다)
     member_by_name = {a["name"]: a["emp_id"] for a in assignees}
@@ -236,7 +220,6 @@ def upsert(cur, table, cols, key, rows, keep=()):
 
 def load(p, reset_passwords):
     import psycopg
-    from psycopg.types.json import Jsonb
 
     password = os.environ.get("SEED_INITIAL_PASSWORD")
     if not password:
@@ -300,53 +283,9 @@ def load(p, reset_passwords):
         upsert(cur, "member_skills", ["user_id", "inquiry_type_id"], ["user_id", "inquiry_type_id"],
                [(user[s["employee_no"]], itype[s["inquiry_type"]]) for s in r["member_skills"]])
 
-        upsert(cur, "knowledge_documents", ["doc_code", "doc_type", "title", "category_code"], ["doc_code"],
-               [(d["doc_code"], d["doc_type"], d["title"], d["category_code"]) for d in r["knowledge_documents"]])
-        doc = id_map(cur, "select id, doc_code from knowledge_documents")
-
-        # 정책(view_scope·transfer_policy)과 현행·적재 상태는 처음 만들 때만 정한다.
-        # 이미 있는 버전에서 바꾸면 관리자가 정한 정책과 임베딩이 끝난 상태가 시드를 돌릴 때마다 되돌아간다
-        upsert(cur, "document_versions", ["document_id", "version", "file_path", "file_format", "view_scope",
-                                          "transfer_policy", "is_current", "ingest_status"], ["document_id", "version"],
-               [(doc[v["doc_code"]], v["version"], v["file_path"], v["file_format"], v["view_scope"],
-                 v["transfer_policy"], False, "PENDING") for v in r["document_versions"]],
-               keep=("view_scope", "transfer_policy", "is_current", "ingest_status"))
-        version = {doc_id: vid for vid, doc_id in cur.execute(
-            "select id, document_id from document_versions where version = %s and document_id = any(%s)",
-            (FAQ_VERSION, list(doc.values()))).fetchall()}
-
-        # FAQ 청크 (버전마다 1개, seq=1). 임베딩 입력(질문 + 본문)이 그대로면 다시 쓰지 않는다:
-        # 지우고 다시 넣으면 청크 id 가 바뀌고 임베딩이 같이 지워지는데 버전은 DONE·현행으로 남는다
-        has_embeddings = cur.execute("select to_regclass('document_chunk_embeddings')").fetchone()[0]
-        fields = ["unit_key", "chunk_type", "part", "location", "meta", "heading_path", "content"]
-        old = {(vid, seq): row for vid, seq, *row in cur.execute(
-            f"select version_id, seq, id, {', '.join(fields)} from document_chunks where version_id = any(%s)",
-            (list(version.values()),)).fetchall()}
-        inserts, updates, reingest = [], [], []
-        for c in r["document_chunks"]:
-            vid = version[doc[c["doc_code"]]]
-            new = [c[f] for f in fields]
-            if (vid, c["seq"]) not in old:
-                inserts.append((vid, c["seq"], *new[:4], Jsonb(c["meta"]), *new[5:]))
-                continue
-            chunk_id, *cur_vals = old[(vid, c["seq"])]
-            if cur_vals == new:                         # 바뀐 것이 없으면 행을 다시 쓰지 않는다
-                continue
-            updates.append((*new[:4], Jsonb(c["meta"]), *new[5:], chunk_id))
-            if cur_vals[5:] != new[5:]:                 # 임베딩 입력(질문·본문)이 바뀜 → 다시 적재 대상
-                reingest.append((c["doc_code"], vid, chunk_id))
-        cur.executemany(f"insert into document_chunks (version_id, seq, {', '.join(fields)}) "
-                        f"values ({', '.join(['%s'] * (len(fields) + 2))})", inserts)
-        cur.executemany(f"update document_chunks set {', '.join(f'{f} = %s' for f in fields)} where id = %s", updates)
-        if reingest:
-            if has_embeddings:
-                cur.execute("delete from document_chunk_embeddings where chunk_id = any(%s)", ([x[2] for x in reingest],))
-            cur.execute("update document_versions set is_current = false, ingest_status = 'PENDING', ingest_error = null "
-                        "where id = any(%s)", ([x[1] for x in reingest],))
-            reingest = [x[0] for x in reingest]
-        if reingest:
-            print(f"[확인] 임베딩 입력이 바뀌어 다시 적재 대상(PENDING)으로 돌린 FAQ {len(reingest)}건: "
-                  + ", ".join(reingest[:10]) + (" …" if len(reingest) > 10 else ""))
+        # 게시 여부(is_active)는 넣지 않아 기본값(true)으로 생기고, 이미 있는 FAQ에서는 관리자가 정한 값이 남는다
+        upsert(cur, "faqs", ["faq_code", "category_code", "question", "answer", "keywords"], ["faq_code"],
+               [(f["faq_code"], f["category_code"], f["question"], f["answer"], f["keywords"]) for f in r["faqs"]])
 
         upsert(cur, "legacy_inquiries",
                ["legacy_no", "received_at", "resolved_at", "channel", "handling_type", "requester_department_id",
