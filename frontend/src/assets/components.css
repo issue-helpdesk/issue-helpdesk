@@ -111,3 +111,7 @@
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* 로그인: 상담 카드는 보조. 배경은 연하게, 그림자는 약하게, 데스크톱 폭은 430px */
+.lpop { box-shadow: 0 8px 24px rgba(120, 60, 10, 0.08); background: color-mix(in srgb, var(--white) 62%, transparent); }
+@media (min-width: 1024px) { .lpop { width: min(430px, 100%); } }

@@ -16,3 +16,6 @@ export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undef
 
 /** 서비스데스크 안내 문구 (IT-STD-001). 연결 실패·계정 제한 안내에 쓴다. */
 export const SERVICEDESK = '내선 1000 (평일 09:00~18:00)'
+
+/** 팀 확정 전 기능에 붙이는 "제안" 태그를 보일지. 시안을 설명할 때만 켠다. (디자인 가이드: 실제 화면에는 쓰지 않는다) */
+export const SHOW_PROPOSAL_TAGS = false

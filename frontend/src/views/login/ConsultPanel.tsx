@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { askPreLogin } from '../../api/consult'
 import type { ConsultReply } from '../../api/types'
+import { SHOW_PROPOSAL_TAGS } from '../../core/config'
 import { sourceLabel } from '../../core/format'
 import { MASK_NOTICE, maskSensitive } from '../../core/mask'
 import { Icon } from '../../ui/Icon'
@@ -87,7 +88,7 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
         <div>
           <b>로그인이 안 되시나요?</b>
           <div className="small muted">
-            로그인 전에도 계정·로그인 문의는 답해 드려요 <span className="tag gray">제안</span>
+            로그인 전에도 계정·로그인 문의는 답해 드려요{SHOW_PROPOSAL_TAGS && <> <span className="tag gray">제안</span></>}
           </div>
         </div>
       </div>
