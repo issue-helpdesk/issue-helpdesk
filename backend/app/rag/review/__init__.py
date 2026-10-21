@@ -21,7 +21,7 @@ from ..parser import ParsedDocument, parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..', '..', '..', '..'))
-GUIDES = os.path.join(REPO, 'dataset', 'guides_final')
+GUIDES = os.path.join(REPO, 'dataset', 'guides')
 EVAL_CSV = os.path.join(REPO, 'dataset', 'data', 'eval_inquiries.csv')
 TAXONOMY = os.path.join(REPO, 'dataset', 'data', 'taxonomy.json')
 BASELINE = os.path.join(HERE, '..', 'chunker', 'baseline.json')
@@ -155,7 +155,7 @@ def sheet(reviews: list[Review], name: str, evalset: EvalSet, base: dict | None 
     for r in reviews:
         e = r.entry
         out += [f'## {r.doc_no} {e["title"]} ({e["version"]})', '',
-                f'원문: `dataset/guides_final/{e["files"]["pdf"]}` · 검증 대상 형식: md', '',
+                f'원문: `dataset/guides/{e["files"]["pdf"]}` · 검증 대상 형식: md', '',
                 '### 자동 대조', '', '| 항목 | 문서 | manifest·규칙 | 결과 |', '|---|---|---|---|']
         out += [f'| {a} | {_cell(b)} | {_cell(c)} | {d} |' for a, b, c, d in doc_checks(r, base)]
         hits = _doc_overlaps(r, evalset)

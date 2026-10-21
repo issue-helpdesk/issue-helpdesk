@@ -6,7 +6,7 @@
 2. 분류·열람 권한이 맞는지
 3. 검색 질문 3개와 정답 근거
 
-정리본(`dataset/guides_final`)은 원천 JSON에서 만든 문서라, 1번의 글자 단위 대조는 `tests/check_guides.py`가 이미 합니다 (57종 × 4형식 구조·내용 일치). 사람은 **청크가 항목을 제대로 묶었는지**와 **질문 쓰기**에 시간을 씁니다.
+정리본(`dataset/guides`)은 원천 JSON에서 만든 문서라, 1번의 글자 단위 대조는 `tests/check_guides.py`가 이미 합니다 (57종 × 4형식 구조·내용 일치). 사람은 **청크가 항목을 제대로 묶었는지**와 **질문 쓰기**에 시간을 씁니다.
 
 ## 하는 법
 
@@ -18,7 +18,7 @@ python -m app.rag.review sheet IT-ACC-001 IT-ACC-002 IT-ACS-001 --name D1
 python -m app.rag.review sheet --category SEC --name D6        # 분류 하나 전체
 
 # 2) 단위 본문을 원문과 비교할 미리보기 (커밋하지 않는 폴더에)
-python -m app.rag.chunker "../dataset/guides_final/ACC/guide/IT-ACC-001_사내 SSO 로그인 오류 대응 가이드.md" --out ../작업대/미리보기
+python -m app.rag.chunker "../dataset/guides/ACC/guide/IT-ACC-001_사내 SSO 로그인 오류 대응 가이드.md" --out ../작업대/미리보기
 
 # 3) 질문을 쓴 뒤 점검 (오류가 0이어야 함)
 python -m app.rag.review check ../dataset/guide_review/D1_질문.csv
