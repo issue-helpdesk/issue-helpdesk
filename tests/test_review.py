@@ -49,6 +49,64 @@ def test_doc_checks_catch_manifest_mismatch(manifest, acc001):
     assert {'열람 등급', '포함 시나리오 ↔ 항목 문의 유형'} <= flagged
 
 
+def test_check_questions_uses_sheet_docs_as_targets(manifest, evalset, units, acc001):
+    """양식에서 어떤 문서의 행을 통째로 지워도 검증 시트에 있으면 0개로 잡는다."""
+    from app.rag.review import sheet_docs
+    import tempfile, os
+    md = sheet([acc001], 'T', evalset)
+    with tempfile.NamedTemporaryFile('w', suffix='.md', delete=False, encoding='utf-8') as f:
+        f.write(md)
+    try:
+        assert sheet_docs(f.name) == ['IT-ACC-001']
+    finally:
+        os.remove(f.name)
+    errors, _ = check_questions([], manifest, evalset, units, targets=['IT-ACC-001'])
+    assert errors == ['IT-ACC-001: 질문 0개 (문서마다 3개 이상)']
+
+
+def _scenario_result(review):
+    return next(r[3] for r in doc_checks(review) if r[0] == '포함 시나리오 ↔ 항목 문의 유형')
+
+
+def test_doc_checks_catch_extra_and_unknown_codes(acc001):
+    """항목에만 있는 코드·분류체계에 없는 코드도 '일치'가 아니어야 한다 (리뷰 P2)."""
+    import dataclasses
+    chunks = [dataclasses.replace(c, inquiry_type_codes=list(c.inquiry_type_codes)) for c in acc001.chunks]
+    next(c for c in chunks if c.inquiry_type_codes).inquiry_type_codes.append('ACC-99')
+    bad = type(acc001)(acc001.doc_no, acc001.entry, acc001.doc, chunks)
+    result = _scenario_result(bad)
+    assert result.startswith('⚠') and 'manifest 에 없음: ACC-99' in result and '분류체계에 없는 코드: ACC-99' in result
+
+    extra = type(acc001)(acc001.doc_no, dict(acc001.entry, scenarios=['ACC-02', 'ACC-04', 'ACC-01']), acc001.doc, acc001.chunks)
+    assert '항목에 없음: ACC-01' in _scenario_result(extra) and '분류체계' not in _scenario_result(extra)
+
+
+def test_sheet_command_keeps_filled_sheet(tmp_path):
+    """다시 실행해도 사람이 채운 시트를 덮어쓰지 않는다. --force 일 때만 새로 만든다 (리뷰 P2)."""
+    import runpy
+    import sys
+
+    def run(*args):
+        old = sys.argv
+        sys.argv = ['review', 'sheet', 'IT-ACC-001', '--name', 'T', '--out', str(tmp_path), *args]
+        try:
+            with pytest.raises(SystemExit) as ex:
+                runpy.run_module('app.rag.review', run_name='__main__')
+            assert ex.value.code == 0
+        finally:
+            sys.argv = old
+
+    run()
+    sheet_file, q_file = tmp_path / 'T_검증시트.md', tmp_path / 'T_질문.csv'
+    sheet_file.write_text(sheet_file.read_text(encoding='utf-8').replace('| ☐ |', '| ☑ |', 1), encoding='utf-8')
+    q_file.write_text('사람이 쓴 질문', encoding='utf-8-sig')
+    run()
+    assert '| ☑ |' in sheet_file.read_text(encoding='utf-8')
+    run('--force')
+    assert '| ☑ |' not in sheet_file.read_text(encoding='utf-8')
+    assert q_file.read_text(encoding='utf-8-sig') == '사람이 쓴 질문'   # 질문은 --force 여도 그대로
+
+
 def test_sheet_lists_every_unit(acc001, evalset):
     md = sheet([acc001], 'T', evalset)
     for ref in {unit_ref(c.unit_key) for c in acc001.chunks}:
@@ -86,8 +144,21 @@ def test_check_questions_errors(manifest, evalset, units):
         assert part in text
 
 
-def test_check_questions_blank_template_rows_ignored(manifest, evalset, units):
-    assert check_questions([_q('IT-ACC-001', '', '')], manifest, evalset, units) == ([], [])
+def test_check_questions_blank_template_fails(manifest, evalset, units, acc001):
+    """질문을 하나도 안 쓴 양식은 통과하면 안 된다 (리뷰 P1)."""
+    rows = [dict(r, 번호=str(r['번호'])) for r in question_template([acc001])]
+    errors, _ = check_questions(rows, manifest, evalset, units)
+    assert errors == ['IT-ACC-001: 질문 0개 (문서마다 3개 이상)']
+    assert check_questions([], manifest, evalset, units)[0] == ['문서 번호가 있는 행이 없음 (sheet 명령이 만든 양식을 쓴다)']
+
+
+def test_check_questions_partly_filled_catches_empty_doc(manifest, evalset, units):
+    rows = [_q('IT-ACC-001', '통합 로그인 화면이 계속 처음으로 돌아가요', 'IT-ACC-001/item:3.3'),
+            _q('IT-ACC-001', '로그인 실패를 몇 번 했더니 들어가지지가 않네요', 'IT-ACC-001/item:3.2'),
+            _q('IT-ACC-001', '오래 안 쓴 계정이라 막혔다고 나와요', 'IT-ACC-001/item:3.4'),
+            _q('IT-ACC-002', '', ''), _q('IT-ACC-002', '', '')]
+    errors, _ = check_questions(rows, manifest, evalset, units)
+    assert errors == ['IT-ACC-002: 질문 0개 (문서마다 3개 이상)']
 
 
 def test_all_units_cover_rag_targets(manifest):

@@ -23,6 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..', '..', '..', '..'))
 GUIDES = os.path.join(REPO, 'dataset', 'guides_final')
 EVAL_CSV = os.path.join(REPO, 'dataset', 'data', 'eval_inquiries.csv')
+TAXONOMY = os.path.join(REPO, 'dataset', 'data', 'taxonomy.json')
 BASELINE = os.path.join(HERE, '..', 'chunker', 'baseline.json')
 OUT = os.path.join(REPO, 'dataset', 'guide_review')
 
@@ -32,6 +33,12 @@ ACCESS_BY_TYPE = {'guide': '사내 일반', 'standard': '사내 일반', 'manual
 
 _NORM_RE = re.compile(r'[\s.,?!~·\'"()\[\]]')
 _TOKEN_RE = re.compile(r'[0-9A-Za-z가-힣]{2,}')
+
+
+def known_scenarios(path: str = TAXONOMY) -> set[str]:
+    """분류체계의 문의 유형 코드 50개 (DB inquiry_types 와 같은 원본)."""
+    with open(path, encoding='utf-8') as f:
+        return {s['id'] for s in json.load(f)['scenarios']}
 
 
 def load_manifest(root: str = GUIDES) -> dict[str, dict]:
@@ -109,8 +116,15 @@ def doc_checks(r: Review, base: dict | None = None) -> list[tuple[str, str, str,
     rows.append(('열람 범위 (view_scope)', view_scope(m.get('access_level', '')), '사내 일반=ALL · 사내 제한=AGENT', '정보'))
     found = sorted({x for c in r.chunks for x in c.inquiry_type_codes})
     want = sorted(e.get('scenarios', []))
-    rows.append(('포함 시나리오 ↔ 항목 문의 유형', _show(found), _show(want),
-                 '일치' if not set(want) - set(found) else f'⚠ 항목에 없음: {", ".join(sorted(set(want) - set(found)))}'))
+    diff = []
+    if set(want) - set(found):
+        diff.append(f'항목에 없음: {", ".join(sorted(set(want) - set(found)))}')
+    if set(found) - set(want):
+        diff.append(f'manifest 에 없음: {", ".join(sorted(set(found) - set(want)))}')
+    unknown = sorted((set(found) | set(want)) - known_scenarios())
+    if unknown:
+        diff.append(f'분류체계에 없는 코드: {", ".join(unknown)}')
+    rows.append(('포함 시나리오 ↔ 항목 문의 유형', _show(found), _show(want), '⚠ ' + ' · '.join(diff) if diff else '일치'))
     q = r.doc.quality
     rows.append(('파싱', f'{q.get("mode")} · 포함률 {q.get("coverage")}', '경고 0',
                  '일치' if not r.doc.warnings else f'⚠ 경고 {len(r.doc.warnings)}'))
@@ -213,21 +227,30 @@ def question_template(reviews: list[Review]) -> list[dict]:
 
 # ── 검색 질문 점검 ─────────────────────────────────────────────
 
+def sheet_docs(path: str) -> list[str]:
+    """검증 시트에 들어 있는 문서 번호 ('## IT-ACC-001 …' 제목)."""
+    with open(path, encoding='utf-8') as f:
+        return re.findall(r'^## (IT-[A-Z]+-\d{3}(?:-M)?) ', f.read(), flags=re.M)
+
+
 def check_questions(rows: list[dict], manifest: dict[str, dict], evalset: EvalSet,
-                    units: dict[str, Chunk]) -> tuple[list[str], list[str]]:
+                    units: dict[str, Chunk], targets: list[str] | None = None) -> tuple[list[str], list[str]]:
     """(오류, 경고). 오류가 있으면 평가 도구에 넣지 않는다.
 
     units: unit_ref → 대표 청크 (현재 정리본에서 만든 것). 정답 단위는 ';' 로 여러 개 쓸 수 있다.
+    검증 대상 문서는 targets(검증 시트의 문서) + csv 에 나온 문서 번호 전부다. 질문이 0개인 문서도 센다.
     """
     errors, warnings = [], []
-    per_doc: dict[str, int] = {}
+    per_doc: dict[str, int] = {d: 0 for d in targets or []}
     seen: dict[str, str] = {}
     for i, row in enumerate(rows, start=2):                  # 2 = csv 머리줄 다음
         doc, q = (row.get('문서 번호') or '').strip(), (row.get('질문') or '').strip()
         answers = [a.strip() for a in (row.get('정답 단위') or '').split(';') if a.strip()]
         where = f'{i}행 {doc}'
+        if doc:
+            per_doc.setdefault(doc, 0)
         if not q and not answers:
-            continue                                         # 양식의 빈 줄
+            continue                                         # 양식의 빈 줄 (개수는 아래에서 센다)
         if doc not in manifest:
             errors.append(f'{where}: manifest 에 없는 문서 번호')
         elif not manifest[doc].get('rag_target', True):
@@ -253,6 +276,8 @@ def check_questions(rows: list[dict], manifest: dict[str, dict], evalset: EvalSe
                 if a in units and len(key) >= 10 and key in _norm(units[a].body):
                     warnings.append(f'{where}: 질문이 정답 본문 문장을 그대로 옮김 (사용자 말투로 바꾸면 더 좋은 시험)')
             per_doc[doc] = per_doc.get(doc, 0) + 1
+    if not per_doc:
+        errors.append('문서 번호가 있는 행이 없음 (sheet 명령이 만든 양식을 쓴다)')
     for doc, n in per_doc.items():
         if n < QUESTIONS_PER_DOC:
             errors.append(f'{doc}: 질문 {n}개 (문서마다 {QUESTIONS_PER_DOC}개 이상)')
