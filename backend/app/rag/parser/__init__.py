@@ -2,7 +2,7 @@
 
 PPTX·PDF·DOCX·MD·TXT를 읽어 같은 모양(ParsedDocument)으로 돌려준다:
 제목(수준·경로), 문단, 목록, 표, 그림, 위치(쪽·슬라이드), 문서 메타데이터, 항목 머리 정보(props).
-기준 문서는 dataset/guides_final (원천 JSON 하나에서 네 형식을 만든 정리본)이다.
+기준 문서는 dataset/guides (원천 JSON 하나에서 네 형식을 만든 정리본)이다.
 
     from app.rag.parser import parse, ParseError
     try:

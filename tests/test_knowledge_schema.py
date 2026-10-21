@@ -12,7 +12,7 @@ from app.rag.chunker import chunk_document, chunk_row, document_row
 from app.rag.parser import parse
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
-FINAL = os.path.join(ROOT, 'dataset', 'guides_final')
+FINAL = os.path.join(ROOT, 'dataset', 'guides')
 
 
 def allowed(table, name):

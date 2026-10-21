@@ -78,7 +78,7 @@ JWT는 메모리에 두고, 새로고침을 견디도록 `sessionStorage`에도 
 
 ## 폴더 구조
 
-수업 참고 프로젝트(`hanwha-agent`)의 frontend 구조(`core` · `ui` · `views` · `assets`)를 React에 맞게 옮겼습니다.
+수업 참고 프로젝트의 frontend 구조(`core` · `ui` · `views` · `assets`)를 React에 맞게 옮겼습니다.
 
 ```
 frontend/

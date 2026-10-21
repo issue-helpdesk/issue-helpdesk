@@ -10,13 +10,11 @@ import pytest
 from app.rag.parser import ParseError, parse
 from check_guides import ROOT as FINAL
 
-OLD = os.path.join(os.path.dirname(__file__), '..', 'dataset', 'guides')     # 정리 전 원본 (배치가 다른 문서)
-
 
 def final(rel_glob):
     found = glob.glob(os.path.join(FINAL, rel_glob))
     if not found:
-        pytest.skip('dataset/guides_final 없음')
+        pytest.skip('dataset/guides 없음')
     return found[0]
 
 
@@ -136,19 +134,6 @@ def test_final_guides_keep_layout_mode(rel):
     doc = parse(final(rel))
     assert doc.quality['mode'] == 'layout'
     assert doc.quality['coverage'] >= 0.98
-
-
-def test_foreign_layout_switches_to_safe_mode():
-    """정리본과 배치가 다른 문서(정리 전 HW PDF): 배치 규칙으로는 글자 대부분이 빠지므로 보수 모드로 읽는다."""
-    pdf = glob.glob(os.path.join(OLD, 'HW', 'guide', 'IT-HW-001_*.pdf'))
-    docx = glob.glob(os.path.join(OLD, 'HW', 'guide', 'IT-HW-001_*.docx'))
-    if not pdf or not docx:
-        pytest.skip('dataset/guides 없음')
-    doc = parse(pdf[0])
-    assert doc.quality['mode'] == 'safe'
-    assert doc.quality['coverage'] >= 0.98
-    assert chars(doc) >= 0.8 * chars(parse(docx[0]))
-    assert any('보수 모드' in w for w in doc.warnings)
 
 
 def _assess_after(path, fmt, pick):
@@ -293,17 +278,6 @@ def test_yaml_lists_without_quotes(tmp_path):
     doc = parse(str(p))
     assert doc.meta['scenarios'] == ['ACC-01', 'SEC-01']
     assert doc.meta['faqs'] == ['FAQ-1', 'FAQ-2']
-
-
-def test_nested_table_text_is_kept():
-    """칸 안의 표(그림 + 설명)도 읽는다."""
-    p = glob.glob(os.path.join(OLD, 'SEC', 'guide', 'IT-SEC-001_*.docx'))
-    if not p:
-        pytest.skip('dataset/guides 없음')
-    doc = parse(p[0])
-    body = ' '.join([e.text for e in doc.elements] + [c for e in doc.tables() for r in e.rows for c in r])
-    assert '그림 3.1.' in body
-    assert doc.quality['coverage'] >= 0.98
 
 
 # ---------------------------------------------------------------- 검토(PR #21)에서 나온 사각지대

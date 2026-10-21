@@ -1,4 +1,4 @@
-"""공통 파서(M2-1-1) 테스트. 기준 문서는 dataset/guides_final (원천 JSON 하나에서 pdf·pptx·docx·md를 만든 정리본)."""
+"""공통 파서(M2-1-1) 테스트. 기준 문서는 dataset/guides (원천 JSON 하나에서 pdf·pptx·docx·md를 만든 정리본)."""
 import json
 import os
 import re
@@ -16,7 +16,7 @@ SAMPLES = ['IT-ACC-001', 'IT-SW-002', 'IT-SYS-007', 'IT-NET-003-M', 'IT-STD-001'
 def manifest():
     p = os.path.join(ROOT, 'manifest.json')
     if not os.path.exists(p):
-        pytest.skip('dataset/guides_final 없음')
+        pytest.skip('dataset/guides 없음')
     with open(p, encoding='utf-8') as f:
         return {d['doc_no']: d for d in json.load(f)}
 
