@@ -696,7 +696,7 @@ input[type="file"][aria-invalid="true"]{outline:2px solid var(--s-urg-dot);outli
 .lpop{padding-top:0}
 .lpop .lph{position:absolute;left:0;right:0;top:0;z-index:2;padding:20px 20px 18px;border-radius:24px 24px 0 0;background:linear-gradient(180deg,var(--white) 0%,var(--white) 58%,color-mix(in srgb,var(--white) 78%,transparent) 100%);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .lpop .th{padding-top:84px}
-.app{position:relative}
+.app{position:relative;overflow:hidden}
 .app.has-detail{grid-template-columns:248px minmax(0,1fr)}
 .app .detail{position:absolute;top:0;right:0;bottom:0;width:min(440px,100vw);z-index:40;background:color-mix(in srgb,var(--white) 74%,transparent)!important;-webkit-backdrop-filter:blur(14px)!important;backdrop-filter:blur(14px)!important;box-shadow:-14px 0 40px rgba(60,20,70,.14)}
 .app.has-detail .main>*:not(.bgsvg):not(.top){transform:translateX(-24px)}
@@ -1915,7 +1915,7 @@ const A={
   'l-qclear'(){S.lq='';S.page.list=1;render();setTimeout(()=>{const n=document.getElementById('lq');n&&n.focus();},0);},
   'l-search'(){S.view={n:'list'};S.lopen=true;S.detail=null;S.navOpen=false;render();setTimeout(()=>{const n=document.getElementById('lq');n&&n.focus();},0);},
   'faq-ask'(e,d){S.view={n:'new'};render();setTimeout(()=>{const ta=document.getElementById('cmp');if(ta){ta.value=d.t;autosize(ta);ta.focus();}},0);},
-  detail(e,d){S.openerD=selOf(e);if(!S.detail){S.dEnter=true;setTimeout(()=>{S.dEnter=false},400);}S.detail=d.id;const t=tById(d.id);if(t)t.newReply=false;render();setTimeout(()=>{const c=document.querySelector('.detail [data-act="dclose"]');if(c)c.focus();},0);},
+  detail(e,d){S.openerD=selOf(e);if(!S.detail){S.dEnter=true;setTimeout(()=>{S.dEnter=false},400);}S.detail=d.id;const t=tById(d.id);if(t)t.newReply=false;render();setTimeout(()=>{const c=document.querySelector('.detail [data-act="dclose"]');if(c)c.focus({preventScroll:true});},0);},
   dclose(){const app=document.querySelector('.app.has-detail');if(app&&!S.dLeave&&!(matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches)){S.dLeave=true;app.classList.add('dleave');setTimeout(()=>{S.dLeave=false;S.detail=null;render();restoreFocus('openerD');},230);return;}S.detail=null;render();restoreFocus('openerD');},
   'tk-ok'(e,d){const t=tById(d.id);setStatus(t,'CLS','문의자 해결 확인');const i=S.inqs.find(x=>x.id===t.inq);if(i){i.state='담당자 이관';}render({bottom:true});toast('해결 확인이 기록되었어요.');},
   'tk-no'(e,d){openModal('아직 해결되지 않았어요',`<p class="small muted">상황을 알려 주시면 담당자가 다시 확인해요. <span class="tag gray">제안</span> 이 흐름은 팀 합의 전 제안이에요.</p><div class="field"><label for="m-r">남은 증상</label><textarea class="ta" id="m-r" placeholder="예) 안내대로 했지만 같은 오류가 나요"></textarea></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="tk-no2" data-id="${d.id}">다시 확인 요청</button></div>`);},
