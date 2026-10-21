@@ -212,7 +212,7 @@ def _show(v) -> str:
 
 
 def _short(s: str, n: int) -> str:
-    s = re.sub(r'^\W*Q\W*\s*', '', s).strip()
+    s = re.sub(r'^\W*Q\s*[.:)]\s*', '', s).strip()      # 'Q.' 머리만 지운다 ('QR코드…'의 Q 는 남김)
     return s if len(s) <= n else s[:n] + '…'
 
 

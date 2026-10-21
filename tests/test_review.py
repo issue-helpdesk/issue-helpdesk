@@ -114,6 +114,13 @@ def test_sheet_lists_every_unit(acc001, evalset):
     assert 'Q. 계정이 잠겼어요.' in md                       # FAQ 는 질문으로 구분
 
 
+def test_faq_title_strips_only_q_marker():
+    from app.rag.review import _short
+    assert _short('Q. 계정이 잠겼어요.', 40) == '계정이 잠겼어요.'
+    assert _short('QR코드 인증이 안 돼요', 40) == 'QR코드 인증이 안 돼요'
+    assert _short('Q: ' + '가' * 50, 40) == '가' * 40 + '…'
+
+
 def test_question_template_roundtrip(tmp_path, acc001):
     path = tmp_path / 'q.csv'
     write_questions(path, question_template([acc001]))
