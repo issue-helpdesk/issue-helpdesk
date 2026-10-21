@@ -1,4 +1,4 @@
-"""청크 나누기(M2-1-2)·청크 메타데이터(M2-1-3) 테스트. 기준 문서는 dataset/guides_final."""
+"""청크 나누기(M2-1-2)·청크 메타데이터(M2-1-3) 테스트. 기준 문서는 dataset/guides."""
 import json
 import os
 import re
@@ -16,7 +16,7 @@ HEAD_ROOM = 300      # 머리말(문서 제목 > 장 > 항목 + 항목 머리) �
 
 def chunks_of(doc_no, fmt='md'):
     m = manifest()[doc_no]
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dataset', 'guides_final', m['files'][fmt])
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dataset', 'guides', m['files'][fmt])
     doc = parse(path)
     return doc, chunk_document(doc)
 
@@ -232,7 +232,7 @@ def test_validate_catches_problems():
     assert any('넘음' in p for p in validate(big))
 
 
-def test_baseline_matches_guides_final():
+def test_baseline_matches_guides():
     """정리본 md 57종의 문서별 청크 수·항목 수·단위 수가 기준표와 같다 (파싱 누락·규칙 변경 감지)."""
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'backend', 'app', 'rag', 'chunker', 'baseline.json')
     with open(path, encoding='utf-8') as f:

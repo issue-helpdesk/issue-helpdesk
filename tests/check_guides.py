@@ -1,4 +1,4 @@
-"""guides_final 기준 파서 채점 도구 (개발용, 운영 코드 아님).
+"""guides 기준 파서 채점 도구 (개발용, 운영 코드 아님).
 
 정리본은 원천 JSON(tools/source/{분류}/{문서 번호}.json) 하나에서 pdf·pptx·docx·md를 만든다.
 그래서 원천 JSON을 정답으로 두고, 형식마다 파서 결과를 비교한다. tests/test_parser.py 도 이 채점을 쓴다.
@@ -25,7 +25,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', 'backend'))
 from app.rag.parser import parse  # noqa: E402
 
-ROOT = os.path.abspath(os.path.join(HERE, '..', 'dataset', 'guides_final'))
+ROOT = os.path.abspath(os.path.join(HERE, '..', 'dataset', 'guides'))
 FORMATS = ('md', 'docx', 'pptx', 'pdf')
 
 
