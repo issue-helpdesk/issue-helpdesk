@@ -64,6 +64,35 @@ def test_check_questions_uses_sheet_docs_as_targets(manifest, evalset, units, ac
     assert errors == ['IT-ACC-001: 질문 0개 (문서마다 3개 이상)']
 
 
+def test_coverage_clean_on_real_doc(acc001):
+    from app.rag.review import coverage
+    cov = coverage(acc001.doc, acc001.chunks)
+    assert cov.expected > 100 and cov.missing == [] and cov.out_of_order == []
+
+
+def test_coverage_catches_dropped_text_and_swapped_units(acc001):
+    """청커가 문장을 빠뜨리거나 단위 순서를 바꾸면 잡아야 한다 (헛검사가 아님을 확인)."""
+    import dataclasses
+    from app.rag.review import coverage
+    chunks = [dataclasses.replace(c) for c in acc001.chunks]
+    item = next(c for c in chunks if c.chunk_type == 'item')
+    lines = item.body.splitlines()
+    victim = max(lines, key=len)                                   # 가장 긴 줄 하나를 지운다
+    item.body = '\n'.join(x for x in lines if x != victim)
+    assert victim.removeprefix('- ') in coverage(acc001.doc, chunks).missing   # 본문 줄에는 목록 기호가 붙어 있다
+
+    swapped = [dataclasses.replace(c) for c in acc001.chunks]
+    i = next(k for k, c in enumerate(swapped) if c.chunk_type == 'item')
+    swapped[i], swapped[i + 1] = swapped[i + 1], swapped[i]          # 항목 두 개의 순서를 바꾼다
+    cov = coverage(acc001.doc, swapped)
+    assert cov.out_of_order and not cov.missing
+
+
+def test_doc_checks_shows_coverage_row(acc001):
+    row = next(r for r in doc_checks(acc001) if r[0].startswith('단위 본문'))
+    assert row[3] == '일치'
+
+
 def _scenario_result(review):
     return next(r[3] for r in doc_checks(review) if r[0] == '포함 시나리오 ↔ 항목 문의 유형')
 
