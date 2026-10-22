@@ -14,6 +14,19 @@ const PATHS = {
     </>
   ),
   arrow: <path d="M4 10h12M11 5l5 5-5 5" />,
+  sun: (
+    <>
+      <circle cx="10" cy="10" r="3.4" />
+      <path d="M10 2.5v1.6M10 15.9v1.6M2.5 10h1.6M15.9 10h1.6M4.7 4.7l1.1 1.1M14.2 14.2l1.1 1.1M15.3 4.7l-1.1 1.1M5.8 14.2l-1.1 1.1" />
+    </>
+  ),
+  moon: <path d="M16.5 11.6A6.8 6.8 0 0 1 8.4 3.5a6.8 6.8 0 1 0 8.1 8.1z" />,
+  contrast: (
+    <>
+      <circle cx="10" cy="10" r="6.8" />
+      <path d="M10 3.2v13.6a6.8 6.8 0 0 0 0-13.6z" fill="currentColor" />
+    </>
+  ),
   plus: <path d="M10 4v12M4 10h12" />,
   chat: <path d="M4 4.5h12v8H9.5L6 16v-3.5H4z" />,
   home: <path d="M3.5 9 10 3.5 16.5 9v7.5h-4.2V12H7.7v4.5H3.5z" />,
