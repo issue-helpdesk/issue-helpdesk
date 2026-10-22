@@ -1578,7 +1578,8 @@ function reopenCard(t,reason){
 }
 
 /* ===== 담당자 · 관리자 화면 ===== */
-const excList=()=>S.tickets.filter(t=>t.jira==='확인 필요'||t.jira==='결과 확인 중'||t.asg==='확인 필요');
+const excList=()=>S.tickets.filter(t=>t.jira==='확인 필요'||t.jira==='결과 확인 중'||t.asg==='확인 필요'||t.trn==='NEEDS_ADMIN');
+const TRN_TO={RDY:'처리 대기',WIP:'처리 중',FIN:'해결 확인 대기',CLS:'해결 완료'};
 const inqStateOf=t=>{const i=S.inqs.find(x=>x.id===t.inq);return i?i.state:'접수 완료';};
 const jk=v=>({'완료':'ok','대기':'recv','결과 확인 중':'warn','확인 필요':'urg'}[v]||'recv');
 
@@ -1681,7 +1682,8 @@ function viewDetail(id){
   const asgRow=t.asg==='완료'?stRow('done','ok','배정','완료'):t.asg==='확인 필요'?stRow('live','urg','배정',sb('urg','확인 필요'),t.excWhy||'개인 배정을 확인해야 해요'):t.jira==='완료'?stRow('live','asg','배정',sb('asg','연결 중'),'담당 그룹에서 담당자를 정하는 중'):stRow('idle','recv','배정','대기');
   const extra=(needReply(t)?sb('need','추가 답변 필요'):'')+(t.reassigned?sb('re','재배정'):'');
   const tkRow=t.status==='CLS'?stRow('done','ok','티켓 업무','해결 완료'):t.status==='FIN'?stRow('live','need','티켓 업무',sb('need','해결 확인 대기')+extra,'문의자 확인을 기다리는 중'):t.status==='WIP'?stRow('live','prog','티켓 업무',sb('prog','처리 중')+extra,(t.assignee||'')+' 담당'):t.status==='RDY'?stRow('live','recv','티켓 업무',sb('recv','처리 대기')+extra,(t.assignee||'')+' 담당자가 시작하기를 기다리는 중'):stRow('idle','recv','티켓 업무','시작 전');
-  const states=staff?`<div class="stlist" aria-label="처리 상태">${stRow('done','ok','문의 상태',inqStateOf(t))}${jiraRow}${asgRow}${tkRow}</div>`:'';
+  const trnRow=t.trn==='PENDING'?stRow('live','warn','상태 변경',sb('warn','Jira 반영 확인 중'),(TRN_TO[t.trnTo]||'새 상태')+'(으)로 바꾸는 요청을 Jira에 보냈어요. 확인되면 상태가 바뀝니다.'):t.trn==='NEEDS_ADMIN'?stRow('live','urg','상태 변경',sb('urg','확인 필요'),t.excWhy||'Jira 반영 결과를 확인하지 못했어요. 운영자가 확인하고 있어요.'):'';
+  const states=staff?`<div class="stlist" aria-label="처리 상태">${stRow('done','ok','문의 상태',inqStateOf(t))}${jiraRow}${asgRow}${tkRow}${trnRow}</div>`:'';
   const d=t.draft;
   const info=`<dl class="dl"><dt>접수번호</dt><dd class="mono">${t.receipt}</dd><dt>Jira 티켓</dt><dd class="mono">${t.id||'생성 전'}</dd><dt>문의자</dt><dd>${ESC(t.reqName)} (${t.req})</dd><dt>분류</dt><dd>${CATS[t.cat]?t.cat+' · '+CATS[t.cat].n:'미분류'}</dd>${d&&d.sc?`<dt>세부 유형</dt><dd>${ESC(scTxt(d.sc))}</dd>`:''}<dt>긴급도</dt><dd>${pbadge(t.p)}${t.why?'<div class="small muted">'+ESC(t.why.join(' · '))+'</div>':''}</dd><dt>담당 그룹</dt><dd>${ESC(t.group)}</dd><dt>담당자</dt><dd>${ESC(t.assignee||'배정 전')}</dd>${d?`<dt>문의 내용</dt><dd>${ESC(d.issue)}</dd><dt>업무 영향</dt><dd>${ESC(d.impact)}</dd><dt>시도한 조치</dt><dd>${ESC(d.tried)}</dd><dt>AI 안내</dt><dd>${ESC(d.ai)}</dd>`:''}${t.result?`<dt>처리 결과</dt><dd>${ESC(t.result)}</dd>`:''}</dl>`;
   const mine=t.assignee===me().name;
@@ -1692,7 +1694,7 @@ function viewDetail(id){
     if(t.status==='FIN')act=`<div class="alert info">${ic('clock')}<div>문의자의 해결 확인을 기다리고 있어요. 미응답만으로 종료(CLS)하지 않아요.</div></div>`;
     if(t.status)act+=`<button class="btn sec block" data-act="msg-open" data-id="${t.receipt}" style="margin-top:8px">문의자에게 메시지 <span class="tag gray">제안</span></button>`;
   }
-  if(S.role==='admin'&&(t.jira==='확인 필요'||t.asg==='확인 필요'||t.jira==='결과 확인 중'))act=`<button class="btn pri block" data-act="go" data-v="exc">연동·배정 확인 화면으로</button>`;
+  if(S.role==='admin'&&(t.jira==='확인 필요'||t.asg==='확인 필요'||t.jira==='결과 확인 중'||t.trn==='NEEDS_ADMIN'))act=`<button class="btn pri block" data-act="go" data-v="exc">연동·배정 확인 화면으로</button>`;
   if(S.role==='admin'&&(t.status==='RDY'||t.status==='WIP'))act+=`<button class="btn sec block" data-act="rs-open" data-id="${t.receipt}" style="margin-top:8px">담당자 재배정</button>`;
   const msgs=(t.msgs||[]).map(m=>`<li>${ic(m.from==='문의자'?'user':'chat')}<div><b>${ESC(m.from)} · ${ESC(m.kind)}</b>${ESC(m.t)}<small>${ESC(m.time)}</small></div></li>`).join('');
   const slk=S.slack.filter(s=>s.rc===t.receipt).map(s=>`<li>${ic('bell')}<div><b>→ ${ESC(s.to)}</b>${ESC(s.text)}<small>${ESC(s.t)} · 미리보기 (실제 발송 없음)</small></div></li>`).join('');
@@ -1704,7 +1706,12 @@ function viewDetail(id){
 function viewExc(){
   const L=excList();
   const el=t=>{const m=Math.max(1,Math.round((Date.now()-(t.exAt||Date.now()))/60000));return (t.exAt?m:12)+'분 경과';};
-  return `<main class="main">${bgsvg('e')}${topbar('연동·배정 확인 필요',L.length+'건')}<div class="scroll"><div class="page">${phead('REVIEW REQUIRED','확인이 필요한 접수예요','Jira 이슈 생성이나 담당자 개인 배정이 완료되지 않은 문의예요. 문의는 접수된 상태로 유지돼요.')}${L.length?L.map(t=>`<div class="panel"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div style="min-width:0"><div class="mono small muted">${t.receipt}${t.id?' · '+t.id:''}</div><b style="font-size:16px">${ESC(t.title)}</b><div class="small muted" style="margin-top:2px">${ESC(t.reqName)} · ${ESC(t.group)} · ${pbadge(t.p)}</div></div><div class="row" style="gap:6px">${badge(jk(t.jira),t.exVerify&&t.jira!=='완료'?'Jira 생성 여부 확인 중':'Jira '+t.jira)}${badge(jk(t.asg),'배정 '+t.asg)}</div></div><dl class="dl" style="margin-top:12px"><dt>사유</dt><dd>${ESC(t.excWhy||'Jira 생성 결과 확인 중')}</dd><dt>다음 조치</dt><dd>${ESC(t.excNext||'생성 여부 확인 후 재시도')}</dd><dt>확인 담당</dt><dd>${ESC(t.excOwner||'서비스데스크 관리자')}</dd><dt>경과</dt><dd>${el(t)}</dd></dl>${t.jira!=='완료'&&t.exVerify?`<div class="alert warn" style="margin-top:12px">${ic('alert')}<div>Jira에 접수번호 <b class="mono">${t.receipt}</b>로 만들어진 티켓이 있는지 먼저 확인하세요. 확인하기 전에는 다시 만들지 마세요. (중복 생성 방지)</div></div>`:''}<div class="row" style="margin-top:12px">${t.jira!=='완료'?`<button class="btn pri sm" data-act="exc-retry" data-id="${t.receipt}">Jira 생성 확인·재시도</button>`:''}${t.jira==='완료'&&t.asg!=='완료'?`<button class="btn pri sm" data-act="exc-assign" data-id="${t.receipt}">담당자 지정</button>`:''}<button class="btn sec sm" data-act="detail" data-id="${t.receipt}">상세</button></div></div>`).join(''):'<div class="panel"><div class="empty">확인이 필요한 접수가 없어요.<br><span class="small">시연 도구에서 오류 시나리오를 켜고 문의를 접수해 보세요.</span></div></div>'}</div></div></main>`;
+  return `<main class="main">${bgsvg('e')}${topbar('연동·배정 확인 필요',L.length+'건')}<div class="scroll"><div class="page">${phead('REVIEW REQUIRED','확인이 필요한 접수예요','Jira 이슈 생성, 담당자 개인 배정, 상태 변경의 Jira 반영이 완료되지 않은 문의예요. 문의는 접수된 상태로 유지돼요.')}${L.length?L.map(t=>`<div class="panel"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div style="min-width:0"><div class="mono small muted">${t.receipt}${t.id?' · '+t.id:''}</div><b style="font-size:16px">${ESC(t.title)}</b><div class="small muted" style="margin-top:2px">${ESC(t.reqName)} · ${ESC(t.group)} · ${pbadge(t.p)}</div></div><div class="row" style="gap:6px">${t.trn==='NEEDS_ADMIN'?badge('urg','상태 변경 반영 확인 필요'):badge(jk(t.jira),t.exVerify&&t.jira!=='완료'?'Jira 생성 여부 확인 중':'Jira '+t.jira)+badge(jk(t.asg),'배정 '+t.asg)}</div></div><dl class="dl" style="margin-top:12px"><dt>사유</dt><dd>${ESC(t.excWhy||'Jira 생성 결과 확인 중')}</dd><dt>다음 조치</dt><dd>${ESC(t.excNext||'생성 여부 확인 후 재시도')}</dd><dt>확인 담당</dt><dd>${ESC(t.excOwner||'서비스데스크 관리자')}</dd><dt>경과</dt><dd>${el(t)}</dd></dl>${t.trn==='NEEDS_ADMIN'?`<div class="alert warn" style="margin-top:12px">${ic('alert')}<div>Jira에서 이 티켓의 현재 상태를 먼저 확인하세요. 이미 <b>${TRN_TO[t.trnTo]||'요청한 상태'}</b>로 바뀌어 있으면 다시 반영하지 않고 완료로 처리해요. 상태는 Jira 확인 전에는 바뀌지 않아요.</div></div>`:''}${t.jira!=='완료'&&t.exVerify?`<div class="alert warn" style="margin-top:12px">${ic('alert')}<div>Jira에 접수번호 <b class="mono">${t.receipt}</b>로 만들어진 티켓이 있는지 먼저 확인하세요. 확인하기 전에는 다시 만들지 마세요. (중복 생성 방지)</div></div>`:''}<div class="row" style="margin-top:12px">${t.trn==='NEEDS_ADMIN'?`<button class="btn pri sm" data-act="exc-trn" data-id="${t.receipt}">Jira 상태 확인·다시 반영</button>`:''}${t.jira!=='완료'?`<button class="btn pri sm" data-act="exc-retry" data-id="${t.receipt}">Jira 생성 확인·재시도</button>`:''}${t.jira==='완료'&&t.asg!=='완료'?`<button class="btn pri sm" data-act="exc-assign" data-id="${t.receipt}">담당자 지정</button>`:''}<button class="btn sec sm" data-act="detail" data-id="${t.receipt}">상세</button></div></div>`).join(''):'<div class="panel"><div class="empty">확인이 필요한 접수가 없어요.<br><span class="small">시연 도구에서 오류 시나리오를 켜고 문의를 접수해 보세요.</span></div></div>'}</div></div></main>`;
+}
+function excTrn(t){
+  const to=t.trnTo;t.hist.unshift({t:NOW(),who:me().name,what:'Jira 현재 상태 확인 후 상태 변경 다시 반영'});
+  delete t.trn;delete t.trnTo;delete t.excWhy;delete t.excNext;delete t.excOwner;delete t.exAt;
+  setStatus(t,to,'Jira 반영 확인');log('상태 변경 반영 확인 · '+t.receipt);toast('Jira 반영을 확인했어요. 상태가 '+TRN_TO[to]+'(으)로 바뀌었어요.');render();
 }
 function excRetry(t){
   t.hist.unshift({t:NOW(),who:me().name,what:'Jira 기존 티켓 존재 여부 확인 (중복 생성 방지)'});
@@ -1981,6 +1988,7 @@ const A={
   'msg-open'(e,d){openModal('문의자에게 메시지',`<p class="small muted">문서상 AI 중개 양방향 소통은 Could 범위라서 이 기능은 <b>제안</b>이에요.</p><div class="field"><label for="m-k">종류</label><select class="sel" id="m-k"><option>추가 정보 요청</option><option>일반 메시지</option></select></div><div class="field"><label for="m-t">내용</label><textarea class="ta" id="m-t"></textarea></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="msg-send" data-id="${d.id}">보내기</button></div>`);},
   'msg-send'(e,d){const x=maskSens(val('m-t').trim()).t;if(!x){fieldErr('m-t','내용을 입력해 주세요.');return;}const t=tById(d.id);tmsg(t,{from:t.assignee+' 담당자',kind:val('m-k'),t:x,time:NOW()});t.hist.unshift({t:NOW(),who:t.assignee,what:'문의자 메시지 · '+val('m-k')});const i=S.inqs.find(y=>y.id===t.inq);if(i)i.unread=(i.unread||0)+1;slack(t,'문의자','담당자 메시지가 도착했습니다.');closeModal();render();toast('보냈어요.');},
   'exc-retry'(e,d){excRetry(tById(d.id));},
+  'exc-trn'(e,d){excTrn(tById(d.id));},
   'exc-assign'(e,d){const t=tById(d.id);const c=STAFF.filter(s=>s.group===t.group);openModal('담당자 지정',`<p class="small muted">${ESC(t.receipt)} · ${ESC(t.group)}</p><div class="field"><label for="m-s">담당자</label><select class="sel" id="m-s">${c.map(s=>`<option>${s.name}</option>`).join('')}</select></div><div class="field"><label for="m-w">지정 사유 (필수)</label><input class="inp" id="m-w" placeholder="예) 자동배정 실패, 업무량 확인 후 지정"></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="exc-assign2" data-id="${d.id}">지정</button></div>`);},
   'rs-open'(e,d){const t=tById(d.id);const c=STAFF.filter(s=>s.group===t.group&&s.name!==t.assignee);openModal('담당자 재배정',`<p class="small muted">${ESC(t.receipt)} · ${ESC(t.group)} · 현재 ${ESC(t.assignee||'-')}</p><div class="field"><label for="m-s">새 담당자</label><select class="sel" id="m-s">${c.map(s=>`<option>${s.name}</option>`).join('')}</select></div><div class="field"><label for="m-w">재배정 사유 (필수)</label><input class="inp" id="m-w" placeholder="예) 휴가, 업무량 조정"></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="rs-do" data-id="${d.id}">재배정</button></div>`);},
   'rs-do'(e,d){const w=val('m-w').trim();if(!w){fieldErr('m-w','재배정 사유를 입력해 주세요.');return;}const t=tById(d.id);const n=val('m-s');if(!n){fieldErr('m-s','새 담당자를 선택해 주세요.');return;}const old=t.assignee;closeModal();t.assignee=n;t.reassigned=true;t.hist.unshift({t:NOW(),who:me().name,what:'재배정 · '+old+' → '+n+' · 사유: '+w});slack(t,'담당자('+n+')','티켓이 재배정됐어요 ('+(t.id||t.receipt)+', '+t.p+').');slack(t,'문의자','담당자가 변경됐어요 ('+n+').');log('담당자 재배정 · '+t.receipt+' '+old+' → '+n+' · '+w);render();toast('재배정했어요. 진행 상태는 그대로 유지돼요.');},
@@ -2181,7 +2189,7 @@ function viewStaffDash(){
 }
 function viewDash(){
   const T=S.tickets,c=cntOf(T),exs=excList(),ex=exs.length;
-  const why=t=>t.jira==='확인 필요'?'Jira 연동 확인 필요':t.jira==='결과 확인 중'?'Jira 결과 확인 중':'담당자 배정 확인 필요';
+  const why=t=>t.trn==='NEEDS_ADMIN'?'상태 변경 Jira 반영 확인 필요':t.jira==='확인 필요'?'Jira 연동 확인 필요':t.jira==='결과 확인 중'?'Jira 결과 확인 중':'담당자 배정 확인 필요';
   const un=T.filter(t=>(t.p==='P1'||t.p==='P2')&&t.status!=='CLS').sort((a,b)=>a.p.localeCompare(b.p)||b.day-a.day);
   const p1=un.filter(t=>t.p==='P1').length,p2=un.length-p1;
   const tile=(k,lb,n,st)=>`<button class="sbtn" data-act="tf" data-st="${st}" aria-label="${lb} ${n}건. 전체 문의에서 보기"><span class="l"><i class="dt" style="background:${SC[k]}"></i>${lb}</span><span class="v"><b>${n}</b><small>건</small></span><span class="small muted">전체 문의에서 보기</span></button>`;
@@ -2275,6 +2283,9 @@ S.acctHist=[{t:'10.15 14:20',who:'최관리',target:'HS1488 · '+(S.accounts.fin
 S.sec=secSeed();
 (function(){const T=S.tickets;
  const a=T[3];a.day=0;a.jira='확인 필요';a.id=null;a.status=null;a.asg='대기';a.assignee=null;a.exVerify=true;a.excWhy='Jira 생성 요청 응답 시간 초과 · 생성 여부 확인 필요';a.excNext='기존 티켓 존재 여부 확인 후 중복 없이 재처리';a.excOwner='서비스데스크 관리자';a.exAt=Date.now()-47*60000;a.hist=[{t:'10.16 13:55',who:'ITssue',what:'Jira 생성 요청 시간 초과 · 서비스데스크 관리자 확인 대상'},{t:'10.16 13:54',who:a.reqName,what:'최종 확인 · ITssue 접수 저장 · '+a.receipt}];
+ const wp=T.filter(x=>x!==a&&x!==T[8]&&x.status==='WIP');
+ if(wp[0]){const c=wp[0];c.trn='NEEDS_ADMIN';c.trnTo='FIN';c.excWhy='처리 중 → 해결 확인 대기 변경이 Jira에 반영됐는지 확인하지 못함';c.excNext='Jira 현재 상태 확인 후 필요하면 다시 반영';c.excOwner=c.group+' 관리자';c.exAt=Date.now()-9*60000;c.hist.unshift({t:'10.16 14:30',who:'ITssue',what:'상태 변경(FIN) Jira 반영 확인 실패 · '+c.group+' 관리자 확인 대상'});}
+ if(wp[1]){const c=wp[1];c.trn='PENDING';c.trnTo='FIN';}
  const b=T[8];b.day=0;b.status=null;b.asg='확인 필요';b.assignee=null;b.excWhy='배정 가능한 개인 후보 없음 (그룹 구성원 전원 부재)';b.excNext='담당 그룹을 확인해 담당자를 지정';b.excOwner=b.group+' 관리자';b.exAt=Date.now()-18*60000;b.hist=[{t:'10.16 14:21',who:'ITssue',what:'개인 배정 실패 · '+b.group+' 관리자 확인 대상 (접수·Jira 티켓은 보존)'},{t:'10.16 14:20',who:'ITssue',what:'Jira 티켓 생성 · '+b.id}];})();
 applyTheme();
 render();
