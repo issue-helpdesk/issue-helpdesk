@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { askPreLogin } from '../../api/consult'
 import type { ConsultReply } from '../../api/types'
-import { sourceLabel } from '../../core/format'
+import { sourceFull } from '../../core/format'
 import { MASK_NOTICE, maskSensitive } from '../../core/mask'
 import { Icon } from '../../ui/Icon'
 import { Avatar } from '../../ui/Logo'
@@ -115,7 +115,7 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
                 {m.reply.sources.map((s) => (
                   <button className="src" type="button" title="출처 Guide" key={`${s.docCode}-${s.section}`}>
                     <Icon name="file" size={16} />
-                    {sourceLabel(s)}
+                    {sourceFull(s)}
                   </button>
                 ))}
                 {/* 바로가기 (예: 비밀번호 초기화 창 열기) */}

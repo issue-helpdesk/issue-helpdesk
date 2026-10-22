@@ -8,14 +8,15 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { cancelChatDraft, confirmChatDraft, editDraft, getChat, rejectChat, reopenChat, replyChat, resolveChat, sendChat, timeoutChat, watchChat } from '../../api/chat'
-import type { DraftEdit, GuideSource, Inquiry, InquiryStatus, LegacyCase } from '../../api/chatTypes'
+import { cancelChatDraft, confirmChatDraft, editDraft, getChat, idleWarnChat, rejectChat, reopenChat, replyChat, resolveChat, sendChat, timeoutChat, watchChat } from '../../api/chat'
+import { IDLE_WARN_TEXT, type DraftEdit, type GuideSource, type Inquiry, type InquiryStatus, type LegacyCase } from '../../api/chatTypes'
 import { inquiryState } from '../../api/inquiryState'
 import type { ApiResult } from '../../api/types'
 import { SERVICEDESK } from '../../core/config'
-import { sourceLabel } from '../../core/format'
+import { sourceFull } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
+import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
@@ -27,9 +28,16 @@ const NO_MESSAGES: ReadonlySet<number> = new Set()
 /** 종료된 상담 상태별 안내 문구 */
 const CLOSED_WHY: Partial<Record<InquiryStatus, string>> = {
   AI_RESOLVED: 'AI 안내로 해결된 문의입니다.',
-  UNCONFIRMED: '응답이 없어 상담이 종료된 문의입니다. 해결된 것으로 처리하지 않았어요.',
+  UNCONFIRMED: '응답이 없어 상담이 종료된 문의입니다. 미확인 처리됐어요.',
   CLOSED_UNRESOLVED: '담당자 연결 없이 종료된 문의입니다. 해결된 것으로 기록하지 않았어요.',
 }
+
+/** 버튼으로만 고르는 단계의 입력창 자리표시자와 안내 (docs/09: 입력창을 끄는 단계) */
+const LOCK = {
+  btn: { ph: '위 버튼으로 골라 주세요', why: '해결 여부나 담당자 연결은 버튼으로 골라 주세요. 글은 보낼 수 없어요. ' },
+  draft: { ph: '초안을 확인하고 버튼으로 골라 주세요', why: '접수 초안은 카드의 버튼(접수 · 수정 · 미접수 (종료))으로 골라 주세요. 글은 보낼 수 없어요. ' },
+  fin: { ph: '위 카드의 버튼으로 골라 주세요', why: '해결 여부는 카드의 버튼(해결 · 미해결)으로 골라 주세요. 글은 보낼 수 없어요. ' },
+} as const
 
 type ModalState = { kind: 'source'; source: GuideSource } | { kind: 'legacy'; legacy: LegacyCase } | { kind: 'reject' } | null
 
@@ -103,6 +111,7 @@ export function ChatView() {
     return {
       reply: (req) => void apply(replyChat(id, employeeNo, req)),
       timeout: (messageId) => void apply(timeoutChat(id, employeeNo, messageId)),
+      idleWarn: () => void apply(idleWarnChat(id, employeeNo)),
       confirmDraft: () => void apply(confirmChatDraft(id, employeeNo)),
       saveDraft: (edit: DraftEdit) => apply(editDraft(id, employeeNo, edit)),
       cancelDraft: () => void apply(cancelChatDraft(id, employeeNo)),
@@ -146,8 +155,11 @@ export function ChatView() {
   const closed = inquiry.step === 'closed'
   // 답변을 준비하는 동안에는 새 메시지를 받지 않는다
   const typing = inquiry.messages.some((m) => m.typing)
-  const placeholder = inquiry.ticket ? '담당자에게 추가 내용 남기기' : inquiry.step === 'draft' ? '수정할 내용을 적거나 초안에서 고쳐 주세요' : '메시지를 입력하세요'
   const t = inquiry.ticket
+  // 버튼으로만 고르는 단계: 답변 뒤·연결 제안, 접수 초안 확인, 담당자 처리 완료 뒤 해결 확인
+  const wait = t ? (t.workStatus === 'FIN' ? 'fin' : null) : inquiry.step === 'draft' ? 'draft' : inquiry.step === 'answered' || inquiry.step === 'offer' ? 'btn' : null
+  const lock = wait ? LOCK[wait] : null
+  const placeholder = lock ? lock.ph : t ? '담당자에게 추가 내용 남기기' : '메시지를 입력하세요'
 
   async function send() {
     const v = text.trim()
@@ -179,6 +191,13 @@ export function ChatView() {
       </div>
 
       <div className="composer-wrap">
+        {!closed && inquiry.idleWarned && (
+          <div className="idlebar" role="status">
+            <Icon name="bell" />
+            <span>{IDLE_WARN_TEXT}</span>
+            <u>약 10분</u>
+          </div>
+        )}
         {error && (
           <div className="alert err" role="alert" style={{ maxWidth: 760, margin: '0 auto 10px' }}>
             <div>{error}</div>
@@ -193,14 +212,17 @@ export function ChatView() {
           </div>
         ) : (
           <>
-            <Composer value={text} onChange={setText} onSend={send} placeholder={placeholder} disabled={busy || typing} />
-            <div className="notice">{NOTE}</div>
+            <Composer value={text} onChange={setText} onSend={send} placeholder={placeholder} disabled={busy || typing} locked={!!lock} />
+            <div className="notice">
+              {lock?.why}
+              {NOTE}
+            </div>
           </>
         )}
       </div>
 
       {modal?.kind === 'source' && (
-        <Modal title={sourceLabel(modal.source)} onClose={() => setModal(null)}>
+        <Modal title={sourceFull(modal.source)} onClose={() => setModal(null)}>
           <p className="small muted">출처 미리보기 (시연)</p>
           <div className="card w">
             <b>{modal.source.section}</b>
@@ -237,7 +259,7 @@ export function ChatView() {
       )}
 
       {modal?.kind === 'reject' && (
-        <Modal title="아직 해결되지 않았어요" onClose={() => setModal(null)}>
+        <Modal title="미해결" onClose={() => setModal(null)}>
           <p className="small muted">남은 증상을 알려 주시면 담당자가 다시 확인해요.</p>
           <div className="field">
             <label htmlFor="m-reason">남은 증상</label>
