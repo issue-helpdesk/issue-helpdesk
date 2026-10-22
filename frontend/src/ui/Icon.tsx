@@ -13,6 +13,7 @@ const PATHS = {
       <path d="M10 6.2v4.4M10 13.4v.1" />
     </>
   ),
+  bell: <path d="M5 14V9a5 5 0 0 1 10 0v5l1.5 2h-13zM8.5 17.5a1.7 1.7 0 0 0 3 0" />,
   arrow: <path d="M4 10h12M11 5l5 5-5 5" />,
   sun: (
     <>

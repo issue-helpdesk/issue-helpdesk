@@ -19,6 +19,9 @@ export type Urgency = 'P1' | 'P2' | 'P3' | 'P4'
 export type InquiryStatus = 'IN_PROGRESS' | 'AI_RESOLVED' | 'UNCONFIRMED' | 'CLOSED_UNRESOLVED' | 'RECEIVED' | 'HANDED_OFF'
 
 /** 대화 진행 단계 (화면이 입력창·버튼을 정할 때 쓴다) */
+/** 종료 10분 전 안내 문구 (docs/09 T28). 서버가 시스템 메시지로 보내고, 화면은 입력창 위 띠로도 보여 준다. */
+export const IDLE_WARN_TEXT = '추가 문의사항이 없으면 채팅을 종료하겠습니다.'
+
 export type ChatStep = 'collect' | 'answering' | 'answered' | 'offer' | 'draft' | 'submitted' | 'closed'
 
 /** Ticket 업무 상태 (tickets.work_status): 처리 대기 → 처리 중 → 해결 확인 대기 → 해결 완료 */
@@ -188,6 +191,8 @@ export interface Inquiry {
   /** 초안 수정 후 다시 판단한 결과 안내 */
   draftNote: string
   ticket: Ticket | null
+  /** 종료 10분 전 안내를 보낸 상태. 화면이 입력창 위에 안내 띠를 보여 준다. 문의자가 답하면 해제된다. */
+  idleWarned?: boolean
 }
 
 /** 로그인한 사용자의 문의 한 건 요청: 첫 메시지 */
