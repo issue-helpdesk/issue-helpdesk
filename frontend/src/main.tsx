@@ -24,6 +24,9 @@ import './assets/layout.css'
 import './assets/chat.css'
 import App from './App.tsx'
 import { AuthProvider } from './core/session.tsx'
+import { applyStoredTheme } from './core/theme.ts'
+
+applyStoredTheme()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

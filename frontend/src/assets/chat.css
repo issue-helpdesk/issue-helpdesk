@@ -1,5 +1,5 @@
 /* 대화 화면: 메시지 흐름, 접수 초안·진행 카드, 진행 단계 표시 (design/ITssue-Prototype.html 에서 옮김) */
-.pri-p1,.pri-p2,.pri-p3,.pri-p4{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;font-size:11.5px;font-weight:700;font-family:var(--font);letter-spacing:0}
+.pri-p1,.pri-p2,.pri-p3,.pri-p4{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:700;font-family:var(--font);letter-spacing:0}
 .pri-p1{background:var(--s-urg-bg);color:var(--s-urg-fg)}.pri-p2{background:var(--s-warn-bg);color:var(--s-warn-fg)}.pri-p3{background:var(--s-prog-bg);color:var(--s-prog-fg)}.pri-p4{background:var(--s-recv-bg);color:var(--s-recv-fg)}
 .ta{padding:10px 14px;min-height:88px;resize:vertical;line-height:24px}
 .thread{max-width:820px;width:100%;margin:0 auto;padding:28px 32px 24px;display:flex;flex-direction:column;gap:20px}
@@ -11,7 +11,7 @@
 .composer-wrap{flex:none;padding:30px 32px 20px;background:var(--glow)}
 .stepper{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:0;margin-top:14px}
 .stepper .st{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;font-size:12.5px;min-width:0;padding:0 2px}
-.stepper .st b{font-weight:600;line-height:16px}.stepper .st small{font-size:11.5px;color:var(--mute);line-height:14px}
+.stepper .st b{font-weight:600;line-height:16px}.stepper .st small{font-size:12px;color:var(--mute);line-height:14px}
 .stepper .st .n{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--white);box-shadow:inset 0 0 0 2px var(--line);position:relative;z-index:1;color:#fff}
 .stepper .st:not(:first-child)::before{content:"";position:absolute;top:11px;left:-50%;right:50%;height:2px;background:var(--line)}
 .stepper .st.done:not(:first-child)::before,.stepper .st.cur:not(:first-child)::before{background:var(--tone,var(--s-prog-dot))}
@@ -46,13 +46,13 @@
 .tag.chg{margin-left:6px;vertical-align:1px}
 @media (max-width:860px){
   .dl.edit{grid-template-columns:minmax(0,1fr);gap:2px}.dl.edit dt,.dl.edit dt.ed{padding-top:8px}.dl.edit dd{margin-bottom:2px}
-  .stepper .st small{font-size:10.5px;line-height:13px}
+  .stepper .st small{font-size:12px;line-height:13px}
 }
 /* 모션 (모두 한 번만, 0.5초 안): 해결 완료 = 원이 초록으로 바뀌고, 체크가 그려지고, 픽셀 스파크 4개 */
 @keyframes okbg{from{background:var(--line)}to{background:var(--tone,var(--s-ok-dot))}}
 @keyframes drawck{to{stroke-dashoffset:0}}
 @keyframes spark{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--x),var(--y)) scale(.4)}}
-.stepper .st .n .sp{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;background:#F37321;opacity:0;pointer-events:none}
+.stepper .st .n .sp{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;background:var(--o500);opacity:0;pointer-events:none}
 .stepper .st:last-child.done.chg .n{animation:okbg .12s linear both}
 .stepper .st:last-child.done.chg .n .i path{stroke-dasharray:24;stroke-dashoffset:24;animation:drawck .3s cubic-bezier(.2,.8,.2,1) .12s forwards}
 .stepper .st:last-child.done.chg .n .sp{animation:spark .45s cubic-bezier(.2,.8,.2,1) .3s forwards}

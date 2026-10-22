@@ -13,6 +13,7 @@ import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
 import { Icon } from '../../ui/Icon'
 import { Logo } from '../../ui/Logo'
+import { ThemeSwitch } from '../../ui/ThemeSwitch'
 import { ConsultPanel } from './ConsultPanel'
 import { ForgotModal } from './ForgotModal'
 
@@ -25,15 +26,15 @@ function LoginBackground() {
       <defs>
         <linearGradient id="lbA" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#FFC9A0" stopOpacity="0" />
-          <stop offset="1" stopColor="#FF9A57" stopOpacity=".35" />
+          <stop offset="1" stopColor="#FF8FB8" stopOpacity=".35" />
         </linearGradient>
         <linearGradient id="lbB" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#FFD9BC" stopOpacity=".2" />
-          <stop offset="1" stopColor="#FFB27A" stopOpacity=".7" />
+          <stop offset="1" stopColor="#FFB0CF" stopOpacity=".7" />
         </linearGradient>
         <radialGradient id="lbC" cx=".5" cy="1" r=".9">
-          <stop offset="0" stopColor="#FF9A57" stopOpacity=".55" />
-          <stop offset="1" stopColor="#FF9A57" stopOpacity="0" />
+          <stop offset="0" stopColor="#FF8FB8" stopOpacity=".55" />
+          <stop offset="1" stopColor="#FF8FB8" stopOpacity="0" />
         </radialGradient>
       </defs>
       <polygon points="760,0 1440,0 1440,520 1120,900 560,900" fill="url(#lbA)" />
@@ -84,6 +85,9 @@ export function LoginView() {
   return (
     <div className="login">
       <LoginBackground />
+      <div className="lmode">
+        <ThemeSwitch />
+      </div>
       <div className="lf">
         <div>
           <Logo width={124} />
