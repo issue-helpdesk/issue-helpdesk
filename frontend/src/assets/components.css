@@ -111,3 +111,11 @@
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+/* 로그인: 상담 창 위로 엿보는 잇슈 (위쪽 72%만 보인다). 비밀번호 칸에 있는 동안 눈을 감는다 */
+.lwrap{position:relative;width:min(520px,100%);margin-top:176px}
+.lwrap>.lpop{position:relative;z-index:1;width:100%;max-height:max(380px,min(560px,calc(100vh - 220px)))}
+.peek{position:absolute;right:18px;top:-228px;width:340px;height:340px;z-index:0;pointer-events:none;clip-path:inset(0 0 28% 0)}
+.peek img{position:absolute;inset:0;width:100%;height:100%;display:block}
+.peek .be{transform-origin:40% 56.7%;transition:transform .22s ease-out}
+.peek .ec{position:absolute;inset:0;width:100%;height:100%;opacity:0}.peek.shy .be{opacity:0;transition:none}.peek.shy .ec{opacity:1}
+@media(max-width:860px){.lwrap{margin-top:122px}.peek{width:230px;height:230px;top:-154px;right:14px}}

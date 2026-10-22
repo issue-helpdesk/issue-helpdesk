@@ -35,6 +35,19 @@ describe('로그인 화면', () => {
     expect(tokenStore.get()).toBe('mock.EMP-1001')
   })
 
+  it('비밀번호 칸에 있는 동안에는 엿보는 잇슈가 눈을 감는다', async () => {
+    const user = userEvent.setup()
+    const { container } = renderApp()
+    const peek = container.querySelector('.peek')
+    expect(peek).not.toBeNull()
+    expect(peek).toHaveAttribute('aria-hidden', 'true') // 장식이라 스크린리더에는 숨긴다
+    expect(peek).not.toHaveClass('shy')
+    await user.click(screen.getByLabelText('비밀번호'))
+    expect(peek).toHaveClass('shy')
+    await user.click(screen.getByLabelText('사번'))
+    expect(peek).not.toHaveClass('shy')
+  })
+
   it('비밀번호가 틀리면 오류를 보여 주고 이동하지 않는다', async () => {
     const user = userEvent.setup()
     renderApp()

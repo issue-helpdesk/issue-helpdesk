@@ -13,6 +13,7 @@ import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
 import { Icon } from '../../ui/Icon'
 import { Logo } from '../../ui/Logo'
+import { Mascot } from '../../ui/Mascot'
 import { ThemeSwitch } from '../../ui/ThemeSwitch'
 import { ConsultPanel } from './ConsultPanel'
 import { ForgotModal } from './ForgotModal'
@@ -51,6 +52,7 @@ export function LoginView() {
   const [tab, setTab] = useState<Tab>('id')
   // 시연(mock)일 때만 입력칸을 미리 채워 둔다
   const [employeeNo, setEmployeeNo] = useState(USE_MOCK ? 'EMP-1001' : '')
+  const [pwFocus, setPwFocus] = useState(false)
   const [password, setPassword] = useState(USE_MOCK ? MOCK_PASSWORD : '')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -129,6 +131,8 @@ export function LoginView() {
                 <input
                   className={`inp${error ? ' err' : ''}`}
                   id="lg-pw"
+                  onFocus={() => setPwFocus(true)}
+                  onBlur={() => setPwFocus(false)}
                   name="pw"
                   type="password"
                   autoComplete="current-password"
@@ -187,7 +191,11 @@ export function LoginView() {
         <div className="hint">ICT 가상 기업 프로토타입</div>
       </div>
       <div className="rt">
-        <ConsultPanel onForgot={() => setForgotOpen(true)} />
+        <div className="lwrap">
+          {/* 상담 창 위로 엿보는 잇슈. 비밀번호 칸에 있는 동안 눈을 감는다 */}
+          <Mascot peek shy={pwFocus} />
+          <ConsultPanel onForgot={() => setForgotOpen(true)} />
+        </div>
       </div>
       {forgotOpen && <ForgotModal onClose={() => setForgotOpen(false)} />}
     </div>
