@@ -14,7 +14,7 @@
 .chip .i{width:18px;height:18px}
 .chip[disabled]{opacity:.5;cursor:default}
 .field{display:flex;flex-direction:column;gap:6px}
-.field>label,.lab{font-size:13px;font-weight:600;color:var(--ink2)}
+.field>label{font-size:13px;font-weight:600;color:var(--ink2)}
 .inp,.sel,.ta{min-height:44px;width:100%;padding:0 14px;border-radius:12px;border:0;background:var(--field);box-shadow:inset 0 0 0 1px var(--fieldline);font-size:15px}
 .inp:focus,.sel:focus,.ta:focus{outline:2px solid var(--o600);outline-offset:1px;box-shadow:inset 0 0 0 1px var(--o600)}
 .inp.err,.inp[aria-invalid="true"],.ta[aria-invalid="true"],.sel[aria-invalid="true"]{box-shadow:inset 0 0 0 1.5px var(--s-urg-dot)}

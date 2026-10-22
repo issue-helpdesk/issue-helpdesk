@@ -15,5 +15,5 @@ h1,h2,h3,h4,p{margin:0}
 
 :root[data-theme="dark"] .tag{color:#FFB0CF}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tag{color:#FFB0CF}}
 :root[data-theme="dark"] .who .pf{color:#FFB0CF}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .who .pf{color:#FFB0CF}}
-:root[data-theme="dark"] .btn.pri,:root[data-theme="dark"] .composer .btn.ico.pri,:root[data-theme="dark"] .count:not(.nw){background:#D6336F}:root[data-theme="dark"] .btn.pri:hover,:root[data-theme="dark"] .composer .btn.ico.pri:hover{background:#C42B64}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.pri,:root:not([data-theme="light"]) .composer .btn.ico.pri,:root:not([data-theme="light"]) .count:not(.nw){background:#D6336F}:root:not([data-theme="light"]) .btn.pri:hover,:root:not([data-theme="light"]) .composer .btn.ico.pri:hover{background:#C42B64}}
+:root[data-theme="dark"] .btn.pri,:root[data-theme="dark"] .composer .btn.ico.pri,:root[data-theme="dark"] .count{background:#D6336F}:root[data-theme="dark"] .btn.pri:hover,:root[data-theme="dark"] .composer .btn.ico.pri:hover{background:#C42B64}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.pri,:root:not([data-theme="light"]) .composer .btn.ico.pri,:root:not([data-theme="light"]) .count{background:#D6336F}:root:not([data-theme="light"]) .btn.pri:hover,:root:not([data-theme="light"]) .composer .btn.ico.pri:hover{background:#C42B64}}
