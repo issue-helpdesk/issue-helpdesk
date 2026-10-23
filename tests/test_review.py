@@ -180,6 +180,17 @@ def test_check_questions_errors(manifest, evalset, units):
         assert part in text
 
 
+def test_cross_doc_answer_needs_memo(manifest, evalset, units, acc001):
+    from app.rag.review import all_units
+    both = {**units, **{k: v for k, v in all_units({'IT-ACC-002': manifest['IT-ACC-002']}).items()}}
+    rows = [_q('IT-ACC-001', '비번 기억 안 나면 혼자 초기화 돼?', 'IT-ACC-002/item:3.4'),
+            _q('IT-ACC-001', '로그인 실패를 몇 번 했더니 들어가지지가 않네요', 'IT-ACC-001/item:3.2'),
+            _q('IT-ACC-001', '오래 안 쓴 계정이라 막혔다고 나와요', 'IT-ACC-001/item:3.4')]
+    assert any('다른 문서' in w for w in check_questions(rows, manifest, evalset, both)[1])
+    rows[0]['메모'] = '다른 문서 정답: 초기화는 ACC-002에 있음'
+    assert check_questions(rows, manifest, evalset, both) == ([], [])
+
+
 def test_check_questions_blank_template_fails(manifest, evalset, units, acc001):
     """질문을 하나도 안 쓴 양식은 통과하면 안 된다 (리뷰 P1)."""
     rows = [dict(r, 번호=str(r['번호'])) for r in question_template([acc001])]

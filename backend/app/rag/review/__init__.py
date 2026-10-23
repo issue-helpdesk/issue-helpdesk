@@ -30,6 +30,7 @@ OUT = os.path.join(REPO, 'dataset', 'guide_review')
 
 QUESTION_COLUMNS = ['문서 번호', '번호', '질문', '정답 단위', '작성자', '메모']
 QUESTIONS_PER_DOC = 3
+CROSS_DOC_MEMO = '다른 문서 정답:'      # 메모에 이 표시가 있으면 다른 문서의 정답 단위를 의도한 것으로 본다
 ACCESS_BY_TYPE = {'guide': '사내 일반', 'standard': '사내 일반', 'manual': '사내 제한', 'policy': '사내 제한'}
 
 _NORM_RE = re.compile(r'[\s.,?!~·\'"()\[\]]')
@@ -315,8 +316,8 @@ def check_questions(rows: list[dict], manifest: dict[str, dict], evalset: EvalSe
         for a in answers:
             if a not in units:
                 errors.append(f'{where}: 정답 단위 {a} 가 없음 (검증 시트의 단위 칸에서 복사)')
-            elif not a.startswith(doc + '/'):
-                warnings.append(f'{where}: 정답 단위 {a} 가 다른 문서 (의도한 것이면 메모에 적기)')
+            elif not a.startswith(doc + '/') and CROSS_DOC_MEMO not in (row.get('메모') or ''):
+                warnings.append(f'{where}: 정답 단위 {a} 가 다른 문서 (의도한 것이면 메모에 "{CROSS_DOC_MEMO} <이유>")')
         if q:
             key = _norm(q)
             if key in seen:
