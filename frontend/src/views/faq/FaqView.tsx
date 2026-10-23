@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom'
 import { listFaqs } from '../../api/faq'
 import { CATEGORY_NAME } from '../../api/mock/faqs'
 import type { ApiResult, Faq } from '../../api/types'
-import { sourceLabel } from '../../core/format'
+import { sourceFull } from '../../core/format'
 import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
 
@@ -85,7 +85,7 @@ export function FaqView() {
                 {f.answer}
                 {/* 근거로 쓴 Guide 출처 (SRS ANSWER-01) */}
                 <div className="small muted" style={{ marginTop: 6 }}>
-                  출처: {f.sources.map(sourceLabel).join(', ')}
+                  출처: {f.sources.map(sourceFull).join(', ')}
                 </div>
                 <div className="row" style={{ marginTop: 12 }}>
                   <button type="button" className="btn sec sm" onClick={() => navigate('/new', { state: { prefill: f.question } })}>

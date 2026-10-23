@@ -16,6 +16,7 @@ import { TicketCard } from './TicketCard'
 export interface ChatActions {
   reply: (req: ReplyRequest) => void
   timeout: (messageId: number) => void
+  idleWarn: () => void
   confirmDraft: () => void
   saveDraft: (edit: DraftEdit) => Promise<boolean>
   cancelDraft: () => void
@@ -185,9 +186,16 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false 
             ))}
             {/* 시연 전용: 응답 없이 시간이 지난 상황 */}
             {USE_MOCK && m.demoTimeout && !m.locked && (
-              <button type="button" className="btn ghost sm" disabled={busy} onClick={() => actions.timeout(m.id)}>
-                (시연) 응답 없이 시간 경과
-              </button>
+              <>
+                {!inquiry.idleWarned && (
+                  <button type="button" className="btn ghost sm" disabled={busy} onClick={actions.idleWarn}>
+                    (시연) 종료 10분 전 안내
+                  </button>
+                )}
+                <button type="button" className="btn ghost sm" disabled={busy} onClick={() => actions.timeout(m.id)}>
+                  (시연) 응답 없이 시간 경과
+                </button>
+              </>
             )}
           </div>
         )}
@@ -210,7 +218,7 @@ function LegacyButton({ legacy, onOpen }: { legacy: LegacyCase; onOpen: (l: Lega
     <div>
       <button type="button" className="src" onClick={() => onOpen(legacy)}>
         <Icon name="file" size={16} />
-        과거 처리 사례 · {legacy.no}
+        과거 처리 사례 참고
       </button>
     </div>
   )

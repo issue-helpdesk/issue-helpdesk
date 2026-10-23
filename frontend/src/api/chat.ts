@@ -10,15 +10,15 @@
  *   POST /inquiries/{id}/draft/edit       접수 초안 수정 (분류·긴급도 재판단)
  *   POST /inquiries/{id}/draft/confirm    초안 확인 후 접수
  *   POST /inquiries/{id}/draft/cancel     접수하지 않고 종료
- *   POST /inquiries/{id}/resolve          접수 후 "해결됐어요"
- *   POST /inquiries/{id}/reject           접수 후 "아직 해결되지 않았어요" (사유 필수)
+ *   POST /inquiries/{id}/resolve          접수 후 "해결"
+ *   POST /inquiries/{id}/reject           접수 후 "미해결" (사유 필수)
  *   POST /inquiries/{id}/reopen           종료된 상담 다시 열기
  * 실제 서버에서는 접수 이후 진행(Jira 생성·배정·처리)이 서버에서 일어나므로, 화면은 GET 을 주기적으로 다시 읽는다.
  */
 import { request, sleep } from '../core/apiClient'
 import { USE_MOCK } from '../core/config'
 import type { DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
-import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, timeoutInquiry } from './mock/chatEngine'
+import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, timeoutInquiry, idleWarnInquiry } from './mock/chatEngine'
 import './mock/chatMock'
 import { getRecord, notify, subscribe, type StoreRecord } from './mock/chatStore'
 import { fail, ok, type ApiResult } from './types'
@@ -145,6 +145,11 @@ export function reopenChat(id: number, employeeNo: string): Promise<ApiResult<In
 }
 
 /** 시연 전용: 응답 없이 시간이 지난 상황 (실제 서버에서는 서버가 정해진 시간 후 처리한다) */
+/** 시연: 종료 10분 전 안내를 보낸다 (실제로는 서버가 보내는 시스템 메시지) */
+export function idleWarnChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
+  return mockAct(id, employeeNo, (rec) => idleWarnInquiry(rec))
+}
+
 export function timeoutChat(id: number, employeeNo: string, messageId: number): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK) return mockAct(id, employeeNo, (rec) => timeoutInquiry(rec, messageId))
   return Promise.resolve(fail('NOT_SUPPORTED', '시연 전용 기능이에요.'))

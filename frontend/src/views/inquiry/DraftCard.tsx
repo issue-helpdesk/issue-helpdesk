@@ -162,13 +162,13 @@ export function DraftCard({ draft: d, state, note, active, busy, onConfirm, onSa
           ) : (
             <>
               <button type="button" className="btn pri" disabled={busy} onClick={onConfirm}>
-                이 내용으로 접수하기
+                접수
               </button>
               <button type="button" className="btn sec" disabled={busy} onClick={startEdit}>
-                수정할게요
+                수정
               </button>
               <button type="button" className="btn ghost" disabled={busy} onClick={onCancel}>
-                접수하지 않을래요
+                미접수 (종료)
               </button>
             </>
           )}

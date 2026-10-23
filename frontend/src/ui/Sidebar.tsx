@@ -15,6 +15,7 @@ import { useAuth } from '../core/session'
 import { Icon, type IconName } from './Icon'
 import { Logo } from './Logo'
 import { STATE_TONE } from './stateStyle'
+import { ThemeSwitch } from './ThemeSwitch'
 
 interface NavItem {
   to: string
@@ -115,6 +116,11 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
           </div>
         </div>
       )}
+
+      <div className="modebar">
+        <small>화면 모드</small>
+        <ThemeSwitch />
+      </div>
 
       <div className="who">
         <span className="pf">{initials(user.name)}</span>

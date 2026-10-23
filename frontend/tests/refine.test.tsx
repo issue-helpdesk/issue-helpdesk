@@ -97,12 +97,12 @@ describe('접수 초안 수정', () => {
     renderAt('/new', 'EMP-1003')
     await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
     await user.click(screen.getByRole('button', { name: '보내기' }))
-    await user.click(await screen.findByRole('button', { name: '아직 안 돼요' }, SLOW))
-    await user.click(await screen.findByRole('button', { name: '담당자 연결하기' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '미해결' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '담당자 연결' }, SLOW))
     // 보기 화면: 분류와 세부 유형이 한국어 이름으로 보인다
     expect(await screen.findByText('분류', {}, SLOW)).toBeInTheDocument()
     expect(screen.getByText('NET-02 · VPN 접속 불가(개인)')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '수정할게요' }))
+    await user.click(screen.getByRole('button', { name: '수정' }))
     expect(screen.getByLabelText('문의 내용')).toBeInTheDocument()
     expect(screen.getByLabelText('발생 시점')).toBeInTheDocument()
     expect(screen.getByLabelText('업무 영향')).toBeInTheDocument()
@@ -152,7 +152,7 @@ describe('진행 카드', () => {
     expect(within(stepper).getByText(/완료 · 10\.20 14:20/)).toBeInTheDocument()
     expect(stepper.querySelectorAll('.sp')).toHaveLength(0)
     // 이전 안내에 남은 같은 이름의 버튼은 잠겨 있으므로, 눌 수 있는 버튼만 고른다
-    const resolve = screen.getAllByRole('button', { name: '해결됐어요' }).find((b) => !(b as HTMLButtonElement).disabled)!
+    const resolve = screen.getAllByRole('button', { name: '해결' }).find((b) => !(b as HTMLButtonElement).disabled)!
     await user.click(resolve)
     await screen.findByText(/문의자 확인으로 종료되었어요/, {}, SLOW)
     const after = screen.getByRole('list', { name: '접수 진행 단계' })

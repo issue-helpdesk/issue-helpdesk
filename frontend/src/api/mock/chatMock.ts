@@ -62,15 +62,15 @@ function seed() {
       blocks: [p('확인한 내용을 보면 **VPN·네트워크** 문의로 보여요. 먼저 아래 순서로 해 보세요.'), { type: 'ol', items: g.steps }, p('이 방법으로 해결되었나요?')],
       sources: [toSource(g)],
       replies: [
-        { label: '해결됐어요', action: 'resolved', primary: true },
-        { label: '아직 안 돼요', action: 'unresolved' },
+        { label: '해결', action: 'resolved', primary: true },
+        { label: '미해결', action: 'unresolved' },
       ],
       locked: true,
     })
-    push(inquiry, { role: 'user', text: '아직 안 돼요.' })
-    push(inquiry, { role: 'user', text: '담당자 연결하기' })
+    push(inquiry, { role: 'user', text: '미해결' })
+    push(inquiry, { role: 'user', text: '담당자 연결' })
     push(inquiry, { role: 'assistant', blocks: [p('지금까지 확인한 내용을 정리했어요. 맞는지 확인하고, 필요하면 수정해 주세요.')], card: 'draft' })
-    push(inquiry, { role: 'user', text: '이 내용으로 접수해 주세요.' })
+    push(inquiry, { role: 'user', text: '접수' })
     push(inquiry, { role: 'assistant', blocks: [p('접수되었어요. 접수번호는 **RCPT-1041** 입니다. 담당자 연결을 진행하고 있어요. 진행 상황은 아래 카드에서 바로 볼 수 있어요.')], card: 'ticket' })
     push(inquiry, { role: 'staff', from: '김담당 담당자', groupName: '네트워크팀', kind: '처리 안내', createdAt: daysAgoIso(1), text: 'VPN 서버 쪽 인증 정보를 확인하고 있어요. 곧 결과를 알려 드릴게요.' })
     inquiry.status = 'HANDED_OFF'
@@ -92,12 +92,12 @@ function seed() {
       blocks: [p('확인한 내용을 보면 **계정·로그인** 문의로 보여요. 먼저 아래 순서로 해 보세요.'), { type: 'ol', items: g.steps }, p('이 방법으로 해결되었나요?')],
       sources: [toSource(g)],
       replies: [
-        { label: '해결됐어요', action: 'resolved', primary: true },
-        { label: '아직 안 돼요', action: 'unresolved' },
+        { label: '해결', action: 'resolved', primary: true },
+        { label: '미해결', action: 'unresolved' },
       ],
       locked: true,
     })
-    push(inquiry, { role: 'user', text: '해결됐어요.' })
+    push(inquiry, { role: 'user', text: '해결' })
     push(inquiry, { role: 'assistant', blocks: [p('다행이에요! 이 문의는 **AI 해결**로 기록했어요. 다른 문제가 생기면 새 문의를 시작해 주세요.')] })
     inquiry.status = 'AI_RESOLVED'
     inquiry.step = 'closed'
@@ -105,7 +105,7 @@ function seed() {
     inquiry.updatedAt = daysAgoIso(3)
   }
 
-  /* 문의 103: 응답이 없어 종료됨 (해결된 것으로 처리하지 않음) */
+  /* 문의 103: 응답이 없어 종료됨 (미확인 처리) */
   {
     const { inquiry } = createRecord(OWNER, NAME, 'VPN 인증서 갱신이 필요한가요', 103)
     const g = GUIDES.NET
@@ -115,12 +115,12 @@ function seed() {
       blocks: [p('확인한 내용을 보면 **VPN·네트워크** 문의로 보여요. 먼저 아래 순서로 해 보세요.'), { type: 'ol', items: g.steps }, p('이 방법으로 해결되었나요?')],
       sources: [toSource(g)],
       replies: [
-        { label: '해결됐어요', action: 'resolved', primary: true },
-        { label: '아직 안 돼요', action: 'unresolved' },
+        { label: '해결', action: 'resolved', primary: true },
+        { label: '미해결', action: 'unresolved' },
       ],
       locked: true,
     })
-    push(inquiry, { role: 'sys', text: '응답 시간 경과로 상담을 종료했어요. 해결된 것으로 처리하지 않았어요.' })
+    push(inquiry, { role: 'sys', text: '일정 시간 응답이 없어 상담을 종료했어요. 미확인 처리합니다.' })
     inquiry.status = 'UNCONFIRMED'
     inquiry.step = 'closed'
     inquiry.categoryCode = 'NET'
