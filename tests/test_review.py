@@ -64,6 +64,35 @@ def test_check_questions_uses_sheet_docs_as_targets(manifest, evalset, units, ac
     assert errors == ['IT-ACC-001: 질문 0개 (문서마다 3개 이상)']
 
 
+def test_coverage_clean_on_real_doc(acc001):
+    from app.rag.review import coverage
+    cov = coverage(acc001.doc, acc001.chunks)
+    assert cov.expected > 100 and cov.missing == [] and cov.out_of_order == []
+
+
+def test_coverage_catches_dropped_text_and_swapped_units(acc001):
+    """청커가 문장을 빠뜨리거나 단위 순서를 바꾸면 잡아야 한다 (헛검사가 아님을 확인)."""
+    import dataclasses
+    from app.rag.review import coverage
+    chunks = [dataclasses.replace(c) for c in acc001.chunks]
+    item = next(c for c in chunks if c.chunk_type == 'item')
+    lines = item.body.splitlines()
+    victim = max(lines, key=len)                                   # 가장 긴 줄 하나를 지운다
+    item.body = '\n'.join(x for x in lines if x != victim)
+    assert victim.removeprefix('- ') in coverage(acc001.doc, chunks).missing   # 본문 줄에는 목록 기호가 붙어 있다
+
+    swapped = [dataclasses.replace(c) for c in acc001.chunks]
+    i = next(k for k, c in enumerate(swapped) if c.chunk_type == 'item')
+    swapped[i], swapped[i + 1] = swapped[i + 1], swapped[i]          # 항목 두 개의 순서를 바꾼다
+    cov = coverage(acc001.doc, swapped)
+    assert cov.out_of_order and not cov.missing
+
+
+def test_doc_checks_shows_coverage_row(acc001):
+    row = next(r for r in doc_checks(acc001) if r[0].startswith('단위 본문'))
+    assert row[3] == '일치'
+
+
 def _scenario_result(review):
     return next(r[3] for r in doc_checks(review) if r[0] == '포함 시나리오 ↔ 항목 문의 유형')
 
@@ -149,6 +178,17 @@ def test_check_questions_errors(manifest, evalset, units):
     text = '\n'.join(errors)
     for part in (eid, 'item:9.9 가 없음', '같은 질문', '정답 단위가 비어', 'manifest 에 없는', 'IT-XXX-001: 질문 1개'):
         assert part in text
+
+
+def test_cross_doc_answer_needs_memo(manifest, evalset, units, acc001):
+    from app.rag.review import all_units
+    both = {**units, **{k: v for k, v in all_units({'IT-ACC-002': manifest['IT-ACC-002']}).items()}}
+    rows = [_q('IT-ACC-001', '비번 기억 안 나면 혼자 초기화 돼?', 'IT-ACC-002/item:3.4'),
+            _q('IT-ACC-001', '로그인 실패를 몇 번 했더니 들어가지지가 않네요', 'IT-ACC-001/item:3.2'),
+            _q('IT-ACC-001', '오래 안 쓴 계정이라 막혔다고 나와요', 'IT-ACC-001/item:3.4')]
+    assert any('다른 문서' in w for w in check_questions(rows, manifest, evalset, both)[1])
+    rows[0]['메모'] = '다른 문서 정답: 초기화는 ACC-002에 있음'
+    assert check_questions(rows, manifest, evalset, both) == ([], [])
 
 
 def test_check_questions_blank_template_fails(manifest, evalset, units, acc001):
