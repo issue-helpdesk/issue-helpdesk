@@ -108,3 +108,12 @@ def to_jira_fields(ticket: Mapping[str, Any], m: Mapping[str, Any] | None = None
                 out[opt["field"]] = {"id": entry["id"]}
 
     return out
+
+
+def work_status_from_jira(status_id: Any, m: Mapping[str, Any] | None = None) -> str | None:
+    """Jira 상태 ID → ITssue 업무 상태(RDY·WIP·FIN·CLS). 매핑에 없는 상태면 None."""
+    m = m or load_mapping()
+    for code, entry in m["options"]["work_status"]["values"].items():
+        if str(entry["id"]) == str(status_id):
+            return code
+    return None
