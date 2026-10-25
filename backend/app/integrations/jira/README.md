@@ -184,6 +184,23 @@ event = parse_jira_webhook(payload, delivery_id=headers.get("X-Atlassian-Webhook
 
 - 테스트 62개 통과 (기존 27개 + 새 35개). 실제 Jira는 호출하지 않았습니다.
 
+### 2026-10-26 · `feature/jira-smoke-flow` (실제 Jira 점검 · FIN 전환에 최종 처리 결과 추가)
+
+**추가·수정**
+
+| 파일 | 내용 |
+|---|---|
+| `smoke_check.py` | `--flow` 추가: 테스트 티켓 생성 → 담당자 지정 → 재조회 비교 → RDY→WIP→FIN→CLS 전환, RDY→CLS 건너뛰기 거부와 CLS→WIP 되돌림 차단 확인 |
+| `client.py` | `transition_issue(..., final_result=)` 추가. FIN 으로 옮길 때 최종 처리 결과를 Jira 문서 형식(ADF)으로 함께 보낸다. 비어 있으면 Jira를 부르기 전에 `invalid_fields` |
+| `field_mapping.yaml` | `transition_fields.final_result`(customfield_10069, FIN 필수) 추가 |
+| `tests/test_jira_assignment.py` | FIN 전환 본문 검증, 최종 처리 결과 누락 검증 추가 (테스트 63개) |
+
+**실제 Jira 확인 (본인 토큰, ITHD)**
+
+- 인증, 티켓 생성(저장값 차이 없음), 같은 접수 재호출 시 중복 없음, 담당자 지정 후 재조회 일치(토큰 계정의 담당자 지정 권한 확인), RDY→WIP 전환 정상.
+- RDY→CLS 바로 전환은 거부됨. 전환은 한 단계씩만 가능하다.
+- WIP→FIN 은 최종 처리 결과 없이는 거부됨 → 이번 수정으로 해결. 수정 후 FIN·CLS 전환은 `--flow` 재실행으로 확인한다.
+
 ### 2026-10-26 · `feature/jira-mapping-ithd` (새 사이트 ITHD 기준으로 ID 교체)
 
 **수정**

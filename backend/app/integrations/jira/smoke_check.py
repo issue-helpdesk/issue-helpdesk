@@ -74,18 +74,19 @@ def flow(jira: JiraClient, jira_key: str, my_account_id: str) -> bool:
         print(f"  RDY → CLS 바로 전환: 거부됨 ({e.reason}) — 한 단계씩만 가능")
     for step in ("WIP", "FIN", "CLS"):
         try:
-            res = jira.transition_issue(jira_key, step)
+            res = jira.transition_issue(jira_key, step, final_result="[테스트] 연동 점검용 최종 처리 결과")
             print(f"  → {step}: changed={res['changed']}, Jira 상태={jira.get_work_status(jira_key)['work_status']}")
         except JiraError as e:
             print(f"  → {step}: 실패 {e.to_dict()}")
             ok = False
             break
-    try:
-        jira.transition_issue(jira_key, "WIP")
-        print("  CLS → WIP 되돌리기: 허용됨 (막혀야 함)")
-        ok = False
-    except JiraError as e:
-        print(f"  CLS → WIP 되돌리기: 코드가 막음 ({e.reason})")
+    if jira.get_work_status(jira_key)["work_status"] == "CLS":  # CLS 까지 갔을 때만 되돌림 막기를 본다
+        try:
+            jira.transition_issue(jira_key, "WIP")
+            print("  CLS → WIP 되돌리기: 허용됨 (막혀야 함)")
+            ok = False
+        except JiraError as e:
+            print(f"  CLS → WIP 되돌리기: 코드가 막음 ({e.reason})")
     return ok
 
 
