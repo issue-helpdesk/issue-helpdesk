@@ -14,7 +14,7 @@ from typing import Any, Mapping
 
 import httpx
 
-from .mapper import MappingError, load_mapping, to_jira_fields, work_status_from_jira
+from .mapper import MappingError, _adf, load_mapping, to_jira_fields, work_status_from_jira
 
 DEFAULT_TIMEOUT = 10.0  # 초
 
@@ -184,12 +184,13 @@ class JiraClient:
         return {"work_status": work_status_from_jira(status.get("id"), self.mapping),
                 "status_id": status.get("id"), "status_name": status.get("name")}
 
-    def transition_issue(self, issue_key: str, target: str) -> dict[str, Any]:
+    def transition_issue(self, issue_key: str, target: str, *, final_result: str | None = None) -> dict[str, Any]:
         """Jira 상태를 target(RDY·WIP·FIN·CLS)으로 옮긴다.
 
         먼저 현재 상태를 보고, 이미 target 이면 아무것도 보내지 않는다(changed=False). 그래서 시간 초과 뒤 다시 불러도 안전하다.
         Jira 워크플로가 현재 상태에서 target 으로 바로 가는 전환을 허용하지 않으면 invalid_transition(재시도 불가)이다.
         FIN·CLS 에서 뒤로(WIP·RDY 등) 되돌리는 전환은 Jira 워크플로와 상관없이 막는다(팀 결정). 이미 끝난 일은 새 티켓으로 다룬다.
+        FIN 으로 옮길 때는 final_result(최종 처리 결과)가 필수다. Jira 전환 화면이 요구하며, 비어 있으면 Jira를 부르기 전에 invalid_fields 로 막는다.
         반환: {"changed": bool, "work_status": target}
         """
         values = self.mapping["options"]["work_status"]["values"]
@@ -205,10 +206,19 @@ class JiraClient:
         if current in ("FIN", "CLS") and order.index(target) < order.index(current):
             raise JiraError("invalid_transition", f"{issue_key}는 {current} 상태라 {target}으로 되돌릴 수 없습니다. 새 티켓을 만드세요.",
                             retryable=False)
+        body_fields: dict[str, Any] = {}
+        for spec in self.mapping.get("transition_fields", {}).values():
+            if spec.get("required_for") == target:
+                if not str(final_result or "").strip():
+                    raise JiraError("invalid_fields", f"{target}으로 옮기려면 {spec['label']}가 필요합니다.", retryable=False)
+                body_fields[spec["jira"]] = _adf(str(final_result).strip())
         listed = self._request("GET", f"/rest/api/3/issue/{issue_key}/transitions")
         for t in listed.get("transitions", []):
             if str((t.get("to") or {}).get("id")) == target_id:
-                self._request("POST", f"/rest/api/3/issue/{issue_key}/transitions", json={"transition": {"id": t["id"]}})
+                body: dict[str, Any] = {"transition": {"id": t["id"]}}
+                if body_fields:
+                    body["fields"] = body_fields
+                self._request("POST", f"/rest/api/3/issue/{issue_key}/transitions", json=body)
                 return {"changed": True, "work_status": target}
         raise JiraError("invalid_transition", f"{issue_key}는 현재 상태에서 {target}으로 바로 전환할 수 없습니다.",
                         retryable=False)

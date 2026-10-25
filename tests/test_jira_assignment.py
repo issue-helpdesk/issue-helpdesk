@@ -100,8 +100,19 @@ def _workflow(current_id, transitions):
 def test_transition_finds_transition_by_target_status_id():
     handler, sent = _workflow("10004", [{"id": "21", "to": {"id": "10005"}}, {"id": "31", "to": {"id": "10006"}}])
     with make_client(handler) as c:
-        assert c.transition_issue("ITHD-1", "FIN") == {"changed": True, "work_status": "FIN"}
-    assert sent == [{"transition": {"id": "31"}}]
+        assert c.transition_issue("ITHD-1", "FIN", final_result="재접속 안내") == {"changed": True, "work_status": "FIN"}
+    adf = {"type": "doc", "version": 1, "content": [{"type": "paragraph", "content": [{"type": "text", "text": "재접속 안내"}]}]}
+    assert sent == [{"transition": {"id": "31"}, "fields": {"customfield_10069": adf}}]
+
+
+def test_transition_to_fin_requires_final_result():
+    handler, sent = _workflow("10005", [{"id": "31", "to": {"id": "10006"}}])
+    with make_client(handler) as c:
+        for empty in (None, "", "  "):
+            with pytest.raises(JiraError) as e:
+                c.transition_issue("ITHD-1", "FIN", final_result=empty)
+            assert e.value.reason == "invalid_fields" and not e.value.retryable
+    assert sent == []
 
 
 def test_transition_is_noop_when_already_there():
