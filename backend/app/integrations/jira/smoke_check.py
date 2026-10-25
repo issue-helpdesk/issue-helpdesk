@@ -1,4 +1,4 @@
-"""실제 Jira(ITSD)에 붙여 보는 점검 스크립트. 저장소 루트에서 실행한다.
+"""실제 Jira(ITHD)에 붙여 보는 점검 스크립트. 저장소 루트에서 실행한다.
 
     python backend/app/integrations/jira/smoke_check.py            # 인증 + 기존 시험 티켓 확인 (새로 만들지 않음)
     python backend/app/integrations/jira/smoke_check.py --create   # 위 + 새 시험 티켓 1건 생성
@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))  # backend/
 
 from app.integrations.jira import JiraClient, JiraError  # noqa: E402
 
-# 10.19에 로그인 세션으로 만든 시험 티켓(ITSD-353)과 같은 내용. 있으면 그 티켓을 찾아 돌려줘야 한다.
+# 새 사이트에 같은 접수번호의 시험 티켓이 있으면 그 티켓을 찾아 돌려줘야 한다.
 EXISTING = {
     "receipt_no": "RCPT-TEST-0001",
     "title": "[테스트] Jira 연동 모듈 확인용 — 확인 후 삭제",

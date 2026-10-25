@@ -19,7 +19,7 @@ def get_settings() -> Settings:
     return Settings()
 
 class JiraSettings:
-    """Jira(ITSD = IT Service Desk) 연동 설정. 값은 서버 .env 에만 둔다."""
+    """Jira(ITHD) 연동 설정. 값은 서버 .env 에만 둔다."""
 
     def __init__(self) -> None:
         names = ("JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN")

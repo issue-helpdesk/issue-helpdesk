@@ -1,8 +1,8 @@
-"""ITSD(IT Service Desk)에 티켓을 만들고 Jira가 발급한 ID·키·주소를 돌려준다.
+"""ITHD에 티켓을 만들고 Jira가 발급한 ID·키·주소를 돌려준다.
 
     with JiraClient.from_env() as jira:
         result = jira.create_ticket(ticket)
-        # {"jira_issue_id": "10999", "jira_key": "ITSD-353", "jira_url": "https://…/browse/ITSD-353", "created": True}
+        # {"jira_issue_id": "10999", "jira_key": "ITHD-353", "jira_url": "https://…/browse/ITHD-353", "created": True}
 
 인증정보는 서버 환경 변수(JIRA_BASE_URL · JIRA_EMAIL · JIRA_API_TOKEN)에서만 읽는다.
 """
@@ -79,7 +79,7 @@ class JiraClient:
     # ---------------------------------------------------------------- 공개 함수
 
     def create_ticket(self, ticket: Mapping[str, Any]) -> dict[str, Any]:
-        """접수 1건을 ITSD 티켓으로 만든다.
+        """접수 1건을 ITHD 티켓으로 만든다.
 
         같은 접수번호의 티켓이 이미 있으면 새로 만들지 않고 그 티켓을 돌려준다(created=False).
         검색 반영 지연·동시 요청까지 원자적으로 막지는 않는다. 백엔드 작업 잠금이 필요하다.
@@ -108,7 +108,7 @@ class JiraClient:
 
     def find_by_receipt(self, receipt_no: str) -> dict[str, Any] | None:
         """ITssue 접수번호로 이미 만든 티켓을 찾는다. 없으면 None."""
-        field = self.mapping["fields"]["receipt_no"]["jira"]           # customfield_10113
+        field = self.mapping["fields"]["receipt_no"]["jira"]           # customfield_10043
         number = field.removeprefix("customfield_")
         phrase = '"' + receipt_no.replace('\\', '\\\\').replace('"', '\\"') + '"'
         jql = f'project = "{self.mapping["project"]["key"]}" AND cf[{number}] ~ {json.dumps(phrase, ensure_ascii=False)}'
