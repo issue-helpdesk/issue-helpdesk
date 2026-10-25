@@ -31,7 +31,7 @@
 | 청크 검증 validate() | 문제 없음 | 문제 없음 | 일치 |
 | 단위 본문 ↔ 파싱 결과 (빠짐·순서) | 요소 322개 중 빠짐 0 · 순서 어긋남 0 | 빠짐 0 · 순서 0 | 일치 |
 | 청크 수 기준표 | chunks 18, items 6, units 17 | chunks 18, items 6, units 17 | 일치 |
-| 외부 전송 (transfer_policy) | - | (없음) | 정보: 미정이면 BLOCKED 로 적재 (D 결정 대기) |
+| 외부 전송 (transfer_policy) ↔ 문서 유형 규칙 | ALLOWED | ALLOWED | 일치 |
 
 ### 평가셋 겹침
 
@@ -81,7 +81,7 @@
 | 청크 검증 validate() | 문제 없음 | 문제 없음 | 일치 |
 | 단위 본문 ↔ 파싱 결과 (빠짐·순서) | 요소 299개 중 빠짐 0 · 순서 어긋남 0 | 빠짐 0 · 순서 0 | 일치 |
 | 청크 수 기준표 | chunks 13, items 6, units 11 | chunks 13, items 6, units 11 | 일치 |
-| 외부 전송 (transfer_policy) | - | (없음) | 정보: 미정이면 BLOCKED 로 적재 (D 결정 대기) |
+| 외부 전송 (transfer_policy) ↔ 문서 유형 규칙 | BLOCKED | BLOCKED | 일치 |
 
 ### 평가셋 겹침
 
@@ -125,7 +125,7 @@
 | 청크 검증 validate() | 문제 없음 | 문제 없음 | 일치 |
 | 단위 본문 ↔ 파싱 결과 (빠짐·순서) | 요소 263개 중 빠짐 0 · 순서 어긋남 0 | 빠짐 0 · 순서 0 | 일치 |
 | 청크 수 기준표 | chunks 15, items 5, units 15 | chunks 15, items 5, units 15 | 일치 |
-| 외부 전송 (transfer_policy) | - | (없음) | 정보: 미정이면 BLOCKED 로 적재 (D 결정 대기) |
+| 외부 전송 (transfer_policy) ↔ 문서 유형 규칙 | ALLOWED | ALLOWED | 일치 |
 
 ### 평가셋 겹침
 
@@ -173,7 +173,7 @@
 | 청크 검증 validate() | 문제 없음 | 문제 없음 | 일치 |
 | 단위 본문 ↔ 파싱 결과 (빠짐·순서) | 요소 234개 중 빠짐 0 · 순서 어긋남 0 | 빠짐 0 · 순서 0 | 일치 |
 | 청크 수 기준표 | chunks 11, items 5, units 10 | chunks 11, items 5, units 10 | 일치 |
-| 외부 전송 (transfer_policy) | - | (없음) | 정보: 미정이면 BLOCKED 로 적재 (D 결정 대기) |
+| 외부 전송 (transfer_policy) ↔ 문서 유형 규칙 | BLOCKED | BLOCKED | 일치 |
 
 ### 평가셋 겹침
 
@@ -216,7 +216,7 @@
 | 청크 검증 validate() | 문제 없음 | 문제 없음 | 일치 |
 | 단위 본문 ↔ 파싱 결과 (빠짐·순서) | 요소 258개 중 빠짐 0 · 순서 어긋남 0 | 빠짐 0 · 순서 0 | 일치 |
 | 청크 수 기준표 | chunks 15, items 5, units 15 | chunks 15, items 5, units 15 | 일치 |
-| 외부 전송 (transfer_policy) | - | (없음) | 정보: 미정이면 BLOCKED 로 적재 (D 결정 대기) |
+| 외부 전송 (transfer_policy) ↔ 문서 유형 규칙 | ALLOWED | ALLOWED | 일치 |
 
 ### 평가셋 겹침
 
@@ -264,7 +264,7 @@
 | 청크 검증 validate() | 문제 없음 | 문제 없음 | 일치 |
 | 단위 본문 ↔ 파싱 결과 (빠짐·순서) | 요소 225개 중 빠짐 0 · 순서 어긋남 0 | 빠짐 0 · 순서 0 | 일치 |
 | 청크 수 기준표 | chunks 10, items 5, units 10 | chunks 10, items 5, units 10 | 일치 |
-| 외부 전송 (transfer_policy) | - | (없음) | 정보: 미정이면 BLOCKED 로 적재 (D 결정 대기) |
+| 외부 전송 (transfer_policy) ↔ 문서 유형 규칙 | BLOCKED | BLOCKED | 일치 |
 
 ### 평가셋 겹침
 
