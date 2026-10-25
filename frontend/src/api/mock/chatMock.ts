@@ -29,7 +29,7 @@ function seed() {
     const g = GUIDES.NET
     const ticket: Ticket = {
       receiptNo: 'RCPT-1041',
-      jiraKey: 'ITSD-1520',
+      jiraKey: 'ITHD-1520',
       title: 'VPN·네트워크 지원 문의',
       categoryCode: 'NET',
       urgency: 'P3',
@@ -132,7 +132,7 @@ function seed() {
     const { inquiry } = createRecord(OWNER, NAME, '노트북 화면 깜빡임', 104)
     const ticket: Ticket = {
       receiptNo: 'RCPT-1030',
-      jiraKey: 'ITSD-1509',
+      jiraKey: 'ITHD-1509',
       title: 'PC·주변기기 지원 문의',
       categoryCode: 'HW',
       urgency: 'P3',
