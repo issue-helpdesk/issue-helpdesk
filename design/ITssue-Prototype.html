@@ -877,7 +877,7 @@ function seedTickets(){
     const status=day>=10?'CLS':day>=3?s1[r]:s0[r];
     let k=Math.floor(h/31)%cand.length;if(grp==='네트워크팀'&&i%3===0)k=0;
     const ts=titles[cat];
-    out.push({id:'ITSD-'+(1500-i),receipt:'RCPT-'+String(1500-i).padStart(4,'0'),title:ts[Math.floor(h/13)%ts.length],cat,p:cat==='SEC'?(i%6===0?'P1':'P2'):pri[i%10],group:grp,req:['HS1003','HS1004','HS1001'][i%3],reqName:['박민수','이지은','김서연'][i%3],assignee:cand[k].name,jira:'완료',asg:'완료',status,day,hours:1+((i*7)%9),ai:false,hist:[]});
+    out.push({id:'ITHD-'+(1500-i),receipt:'RCPT-'+String(1500-i).padStart(4,'0'),title:ts[Math.floor(h/13)%ts.length],cat,p:cat==='SEC'?(i%6===0?'P1':'P2'):pri[i%10],group:grp,req:['HS1003','HS1004','HS1001'][i%3],reqName:['박민수','이지은','김서연'][i%3],assignee:cand[k].name,jira:'완료',asg:'완료',status,day,hours:1+((i*7)%9),ai:false,hist:[]});
   }
   return out;
 }
@@ -1524,7 +1524,7 @@ function pipeline(t,bypass){
       later(()=>{t.jira='확인 필요';t.hist.unshift({t:NOW(),who:'ITssue',what:'자동 확인으로 완료하지 못함 · 서비스데스크 관리자 확인 대상'});t.excWhy='Jira 생성 요청 응답 시간 초과 · 생성 여부 확인 필요';t.excNext='기존 티켓 존재 여부 확인 후 중복 없이 재처리';t.excOwner='서비스데스크 관리자';t.excT=NOW();t.exVerify=true;render();},1500);
       return;
     }
-    t.id='ITSD-'+(S.seq.its++);t.jira='완료';t.hist.unshift({t:NOW(),who:'ITssue',what:'Jira 티켓 생성 · '+t.id});log('Jira 티켓 생성 · '+t.id,'연동 작업');render();
+    t.id='ITHD-'+(S.seq.its++);t.jira='완료';t.hist.unshift({t:NOW(),who:'ITssue',what:'Jira 티켓 생성 · '+t.id});log('Jira 티켓 생성 · '+t.id,'연동 작업');render();
     later(()=>{
       const cand=STAFF.filter(s=>s.group===t.group&&s.avail);
       if((S.flags.asgFail&&!bypass)||!cand.length){
@@ -1715,7 +1715,7 @@ function excTrn(t){
 }
 function excRetry(t){
   t.hist.unshift({t:NOW(),who:me().name,what:'Jira 기존 티켓 존재 여부 확인 (중복 생성 방지)'});
-  t.id='ITSD-'+(S.seq.its++);t.jira='완료';t.hist.unshift({t:NOW(),who:me().name,what:'Jira 티켓 생성 · '+t.id+' (재시도)'});
+  t.id='ITHD-'+(S.seq.its++);t.jira='완료';t.hist.unshift({t:NOW(),who:me().name,what:'Jira 티켓 생성 · '+t.id+' (재시도)'});
   log('Jira 재시도 성공 · '+t.receipt);toast('기존 티켓이 없어 새로 생성했어요: '+t.id);
   const cand=STAFF.filter(s=>s.group===t.group&&s.avail);
   if(!t.assignee&&cand.length&&!S.flags.asgFail){cand.sort((a,b)=>load(a.name)-load(b.name));assignTo(t,cand[0].name,'자동배정 · Jira 재시도 후');}
@@ -2278,7 +2278,7 @@ S.inqs.push(
   {id:'INQ-S1',owner:'HS1001',title:'VPN 연결이 자주 끊겨요',state:'접수 완료',cat:'NET',intake:{},msgs:[{r:'u',t:'재택근무 중 VPN이 자주 끊겨요.'},{r:'a',html:'<p>VPN 안내를 드렸지만 해결되지 않아 담당자에게 연결했어요.</p>'}],step:'submitted',when:'어제',unread:0,ticketId:'RCPT-1041'},
   {id:'INQ-S2',owner:'HS1001',title:'계정 잠금 해제 방법',state:'AI 해결',cat:'ACC',intake:{},msgs:[{r:'u',t:'계정이 잠겼어요.'},{r:'a',html:'<p>5회 실패 시 10분 후 자동 해제돼요.</p>'},{r:'u',t:'해결'}],step:'closed',when:'3일 전',unread:0}
 );
-S.tickets.unshift({receipt:'RCPT-1041',id:'ITSD-1520',title:'VPN 연결이 자주 끊겨요',cat:'NET',p:'P3',why:['개인 업무 일부 지장, 대체 방법 있음'],group:'네트워크팀',req:'HS1001',reqName:'김서연',assignee:'김담당',jira:'완료',asg:'완료',status:'WIP',hours:2,day:0,created:'어제',result:'',msgs:[],draft:{issue:'재택근무 중 VPN이 자주 끊김',impact:'저만 안 되고 메일 업무는 가능',tried:'재접속과 재시작',ai:'IT-NET-001 VPN 접속 장애 대응 가이드 v2 안내 후에도 해결되지 않음'},inq:'INQ-S1',hist:[{t:'어제',who:'ITssue',what:'김담당 담당자 배정 · 자동배정'},{t:'어제',who:'ITssue',what:'Jira 티켓 생성 · ITSD-1520'},{t:'어제',who:'김서연',what:'최종 확인 · ITssue 접수 저장 · RCPT-1041'}]});
+S.tickets.unshift({receipt:'RCPT-1041',id:'ITHD-1520',title:'VPN 연결이 자주 끊겨요',cat:'NET',p:'P3',why:['개인 업무 일부 지장, 대체 방법 있음'],group:'네트워크팀',req:'HS1001',reqName:'김서연',assignee:'김담당',jira:'완료',asg:'완료',status:'WIP',hours:2,day:0,created:'어제',result:'',msgs:[],draft:{issue:'재택근무 중 VPN이 자주 끊김',impact:'저만 안 되고 메일 업무는 가능',tried:'재접속과 재시작',ai:'IT-NET-001 VPN 접속 장애 대응 가이드 v2 안내 후에도 해결되지 않음'},inq:'INQ-S1',hist:[{t:'어제',who:'ITssue',what:'김담당 담당자 배정 · 자동배정'},{t:'어제',who:'ITssue',what:'Jira 티켓 생성 · ITHD-1520'},{t:'어제',who:'김서연',what:'최종 확인 · ITssue 접수 저장 · RCPT-1041'}]});
 S.acctHist=[{t:'10.15 14:20',who:'최관리',target:'HS1488 · '+(S.accounts.find(a=>a.id==='HS1488')||{name:'-'}).name,what:'이용 제한',why:'보안 교육 미이수 (재교육 후 해제 예정)'},{t:'10.14 09:05',who:'최관리',target:'HS1107 · 김담당',what:'계정 수정',why:'담당자 역할 부여 요청 확인'},{t:'10.12 16:42',who:'최관리',target:'HS1003 · 박민수',what:'계정 추가',why:'신규 입사자 계정 생성 · 임시 비밀번호 전달'}];
 S.sec=secSeed();
 (function(){const T=S.tickets;

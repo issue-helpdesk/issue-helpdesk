@@ -1,9 +1,9 @@
-# Jira 연동 (ITSD)
+# Jira 연동 (ITHD)
 
-**ITSD = IT Service Desk (IT 서비스 데스크).** ITssue가 티켓을 만드는 Jira Software 스페이스 "ITssue HelpDesk"의 키입니다.
-예전 JSM 프로젝트 `ITS`는 과거 이력 보관용이고, 연동은 `ITSD`만 씁니다. (예전 키 `HELP`는 Jira에 별칭으로만 남아 있습니다.)
+ITssue가 티켓을 만드는 Jira Software 스페이스 「ITssue HelpDesk」(키 `ITHD`, 사이트 `itssuehelpdesk.atlassian.net`)입니다.
+필드·선택값·상태 ID는 이 사이트 기준이며 `field_mapping.yaml`에 있습니다(2026-10-26에 조회해 맞춤).
 
-접수 1건을 받아 ITSD 티켓을 만들고, Jira가 발급한 ID·키·주소를 돌려줍니다.
+접수 1건을 받아 ITHD 티켓을 만들고, Jira가 발급한 ID·키·주소를 돌려줍니다.
 담당자 지정·상태 전환·웹훅 해석·담당자 선정·재시도 판단은 아래 "담당자 배정·상태 전환" 절을 봅니다. 이 모듈은 DB와 API 라우트를 쓰지 않습니다(백엔드가 호출).
 
 | 파일 | 하는 일 |
@@ -43,7 +43,7 @@ with JiraClient.from_env() as jira:
         ...
 ```
 
-- **중복 확인**: 만들기 전에 `ITssue 접수번호`(customfield_10113)로 검색의 모든 페이지를 확인합니다. 이미 있으면 새로 만들지 않고 그 티켓을 돌려줍니다(`created: False`). 생성 요청의 시간 초과·통신 오류·서버 오류는 `result_unknown`, `status=VERIFYING`, `retryable=False`로 반환합니다. 검색 반영 지연·동시 요청까지 원자적으로 막는 것은 아니므로, 백엔드는 접수별 작업 잠금·유일 제약과 결과 대조를 구현해야 합니다.
+- **중복 확인**: 만들기 전에 `ITssue 접수번호`(customfield_10043)로 검색의 모든 페이지를 확인합니다. 이미 있으면 새로 만들지 않고 그 티켓을 돌려줍니다(`created: False`). 생성 요청의 시간 초과·통신 오류·서버 오류는 `result_unknown`, `status=VERIFYING`, `retryable=False`로 반환합니다. 검색 반영 지연·동시 요청까지 원자적으로 막는 것은 아니므로, 백엔드는 접수별 작업 잠금·유일 제약과 결과 대조를 구현해야 합니다.
 - **선택 항목**: `request_kind`(INCIDENT·REQUEST·QUESTION), `impact_scope`(PERSONAL·DEPARTMENT·COMPANY), `target_system`, `inquiry_type_code`, `inquiry_type_name`, `category_name`, `requester_employee_no`, `requester_name`, `requester_department_name`, `assignee_name`. 외부 전송 정책(설계서 12장)에서 허용한 것만 넘깁니다.
 - **접수 내용**: `description`이 없으면 초안 항목 `summary`·`onset`·`business_impact`·`tried_actions`·`ai_summary`를 제목을 붙여 이어 씁니다. 접수 내용 칸(customfield_10130)은 255자까지이고, 전체 글은 Jira 기본 설명란에 들어갑니다.
 - **고정값**: 접수 채널 `챗봇`(CHATBOT), 처리 유형 `티켓`(TICKET), 이슈 유형 `작업`(TASK).
@@ -114,7 +114,7 @@ event = parse_jira_webhook(payload, delivery_id=headers.get("X-Atlassian-Webhook
 - 상태·담당자 값은 웹훅 본문으로 덮어쓰지 않고, 이벤트를 신호로 받아 `get_work_status`·`get_assignee`로 최신값을 읽어 반영합니다(TK-13).
 - 되돌림 금지는 ITssue가 보내는 전환만 막습니다. Jira 화면에서 직접 되돌리는 것은 Jira 워크플로 설정에서 막아야 합니다.
 - 사번 연결표(`jira_accounts.yaml`)는 accountId 칸이 비어 있습니다. 팀원의 Jira 프로필 주소 끝 값을 넣습니다.
-- **실제 Jira로는 아직 테스트하지 않았습니다.** 특히 워크플로가 RDY→CLS처럼 건너뛰는 전환을 허용하는지, 담당자 지정 권한이 토큰 계정에 있는지는 실제 ITSD에서 확인이 필요합니다.
+- **실제 Jira로는 아직 테스트하지 않았습니다.** 특히 워크플로가 RDY→CLS처럼 건너뛰는 전환을 허용하는지, 담당자 지정 권한이 토큰 계정에 있는지는 실제 ITHD에서 확인이 필요합니다.
 
 테스트: `pytest tests/test_jira_assignment.py` (모의 응답 35개).
 
@@ -147,8 +147,8 @@ event = parse_jira_webhook(payload, delivery_id=headers.get("X-Atlassian-Webhook
 **확인**
 
 - 테스트 21개 통과.
-- 2026-10-19: 실제 ITSD에 테스트 접수 1건(`RCPT-TEST-0001` → ITSD-353)을 만들고, `check_saved()` = `{}`, 접수번호 검색, 같은 접수 재호출 시 `created: False`를 확인했습니다. 이때는 API 토큰이 없어 같은 요청 본문을 로그인 세션으로 보냈습니다.
-- 2026-10-20: 본인 API 토큰으로 `smoke_check.py --create`를 실행해 토큰 인증(`/myself`), 기존 티켓 검색·저장값 비교, 새 티켓 생성(`RCPT-TEST-10200010` → ITSD-354), 같은 접수 재호출 시 `created: False`까지 모두 통과했습니다. 테스트 티켓 ITSD-353·354는 확인 후 Jira에서 지웁니다.
+- 2026-10-19(이전 사이트, 키 ITSD): 실제 Jira에 테스트 접수 1건(`RCPT-TEST-0001` → ITSD-353)을 만들고, `check_saved()` = `{}`, 접수번호 검색, 같은 접수 재호출 시 `created: False`를 확인했습니다. 이때는 API 토큰이 없어 같은 요청 본문을 로그인 세션으로 보냈습니다.
+- 2026-10-20(이전 사이트): 본인 API 토큰으로 `smoke_check.py --create`를 실행해 토큰 인증(`/myself`), 기존 티켓 검색·저장값 비교, 새 티켓 생성(`RCPT-TEST-10200010` → ITSD-354), 같은 접수 재호출 시 `created: False`까지 모두 통과했습니다. 테스트 티켓 ITSD-353·354는 확인 후 Jira에서 지웁니다.
 
 ### 2026-10-20 · PR 리뷰 보완
 
@@ -182,3 +182,19 @@ event = parse_jira_webhook(payload, delivery_id=headers.get("X-Atlassian-Webhook
 **확인**
 
 - 테스트 62개 통과 (기존 27개 + 새 35개). 실제 Jira는 호출하지 않았습니다.
+
+### 2026-10-26 · `feature/jira-mapping-ithd` (새 사이트 ITHD 기준으로 ID 교체)
+
+**수정**
+
+| 파일 | 내용 |
+|---|---|
+| `backend/app/integrations/jira/field_mapping.yaml` | 프로젝트 `ITSD`(10007) → `ITHD`(10001). 사용자 지정 필드 24개, 분류·영향 범위·긴급도 선택값, 컴포넌트, 이슈 유형(작업 10010), 상태(RDY 10004 · WIP 10005 · FIN 10006 · CLS 10007) ID를 새 사이트 조회 값으로 교체 |
+| `tests/test_jira_integration.py`, `tests/test_jira_assignment.py` | 위 ID에 맞춰 기대값 변경 |
+| `backend/app/integrations/jira/*.py`, `README.md`, `app/core/config.py`, `.env.example` | 프로젝트 키·필드 번호 표기 변경 |
+| `docs/01~04`, `docs/api/03`, `docs/11`, `design/` 문서·프로토타입, `frontend/` 목업·테스트 | Jira 키 표기 `ITSD` → `ITHD` (예시 번호·목업 데이터만, 동작 변경 없음) |
+
+**확인**
+
+- 테스트 62개 통과(모의 응답). 새 사이트에서 티켓 생성·담당자 지정은 아직 실행하지 않았습니다.
+- 새 사이트에 있는 `최종 처리 결과`(customfield_10069)는 이 PR에서 매핑에 넣지 않았습니다.

@@ -1,4 +1,4 @@
-"""Jira 연동 (ITSD = IT Service Desk, Jira Software 스페이스)."""
+"""Jira 연동 (ITHD, Jira Software 스페이스)."""
 
 from .accounts import account_id_for, load_account_map
 from .assignment import AssignDecision, Member, pick_assignee

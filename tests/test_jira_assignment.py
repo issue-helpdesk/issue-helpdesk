@@ -39,7 +39,7 @@ def test_assign_issue_sends_account_id_and_confirms_by_rereading():
         return j({"fields": {"assignee": {"accountId": "acc-1", "displayName": "김담당"}}})
 
     with make_client(handler) as c:
-        out = c.assign_issue("ITSD-1", "acc-1")
+        out = c.assign_issue("ITHD-1", "acc-1")
     assert out == {"matched": True, "account_id": "acc-1", "actual_account_id": "acc-1"}
     assert [m for m, _ in calls] == ["PUT", "GET"]
 
@@ -51,7 +51,7 @@ def test_assign_issue_reports_mismatch_instead_of_confirming():
         return j({"fields": {"assignee": {"accountId": "someone-else"}}})
 
     with make_client(handler) as c:
-        out = c.assign_issue("ITSD-1", "acc-1")
+        out = c.assign_issue("ITHD-1", "acc-1")
     assert out["matched"] is False and out["actual_account_id"] == "someone-else"
 
 
@@ -61,23 +61,23 @@ def test_assign_issue_timeout_is_retryable_and_empty_account_is_rejected():
 
     with make_client(timeout) as c:
         with pytest.raises(JiraError) as e:
-            c.assign_issue("ITSD-1", "acc-1")
+            c.assign_issue("ITHD-1", "acc-1")
         assert e.value.reason == "timeout" and e.value.retryable
         with pytest.raises(JiraError) as e2:
-            c.assign_issue("ITSD-1", "  ")
+            c.assign_issue("ITHD-1", "  ")
         assert e2.value.reason == "invalid_fields" and not e2.value.retryable
 
 
 def test_assign_issue_400_is_not_retryable():
     with make_client(lambda req: j({"errorMessages": ["user not assignable"]}, 400)) as c:
         with pytest.raises(JiraError) as e:
-            c.assign_issue("ITSD-1", "acc-1")
+            c.assign_issue("ITHD-1", "acc-1")
     assert e.value.reason == "invalid_fields" and not e.value.retryable
 
 
 def test_get_assignee_none_when_unassigned():
     with make_client(lambda req: j({"fields": {"assignee": None}})) as c:
-        assert c.get_assignee("ITSD-1")["account_id"] is None
+        assert c.get_assignee("ITHD-1")["account_id"] is None
 
 
 # ---------------------------------------------------------------- 상태 전환
@@ -98,35 +98,35 @@ def _workflow(current_id, transitions):
 
 
 def test_transition_finds_transition_by_target_status_id():
-    handler, sent = _workflow("10063", [{"id": "21", "to": {"id": "10064"}}, {"id": "31", "to": {"id": "10065"}}])
+    handler, sent = _workflow("10004", [{"id": "21", "to": {"id": "10005"}}, {"id": "31", "to": {"id": "10006"}}])
     with make_client(handler) as c:
-        assert c.transition_issue("ITSD-1", "FIN") == {"changed": True, "work_status": "FIN"}
+        assert c.transition_issue("ITHD-1", "FIN") == {"changed": True, "work_status": "FIN"}
     assert sent == [{"transition": {"id": "31"}}]
 
 
 def test_transition_is_noop_when_already_there():
-    handler, sent = _workflow("10064", [])
+    handler, sent = _workflow("10005", [])
     with make_client(handler) as c:
-        assert c.transition_issue("ITSD-1", "WIP") == {"changed": False, "work_status": "WIP"}
+        assert c.transition_issue("ITHD-1", "WIP") == {"changed": False, "work_status": "WIP"}
     assert sent == []
 
 
 def test_transition_not_allowed_and_unknown_target():
-    handler, _ = _workflow("10063", [{"id": "21", "to": {"id": "10064"}}])
+    handler, _ = _workflow("10004", [{"id": "21", "to": {"id": "10005"}}])
     with make_client(handler) as c:
         with pytest.raises(JiraError) as e:
-            c.transition_issue("ITSD-1", "CLS")
+            c.transition_issue("ITHD-1", "CLS")
         assert e.value.reason == "invalid_transition" and not e.value.retryable
         with pytest.raises(JiraError) as e2:
-            c.transition_issue("ITSD-1", "DONE")
+            c.transition_issue("ITHD-1", "DONE")
         assert e2.value.reason == "invalid_fields"
 
 
 def test_work_status_mapping():
-    assert work_status_from_jira("10063") == "RDY" and work_status_from_jira(10066) == "CLS"
+    assert work_status_from_jira("10004") == "RDY" and work_status_from_jira(10007) == "CLS"
     assert work_status_from_jira("99999") is None
-    with make_client(lambda r: j({"fields": {"status": {"id": "10065", "name": "FIN"}}})) as c:
-        assert c.get_work_status("ITSD-1")["work_status"] == "FIN"
+    with make_client(lambda r: j({"fields": {"status": {"id": "10006", "name": "FIN"}}})) as c:
+        assert c.get_work_status("ITHD-1")["work_status"] == "FIN"
 
 
 # ---------------------------------------------------------------- 웹훅
@@ -135,9 +135,9 @@ def test_work_status_mapping():
 PAYLOAD = {
     "webhookEvent": "jira:issue_updated",
     "timestamp": 1761350000000,
-    "issue": {"key": "ITSD-9"},
+    "issue": {"key": "ITHD-9"},
     "changelog": {"id": "555", "items": [
-        {"field": "status", "from": "10063", "to": "10064", "fromString": "RDY", "toString": "WIP"},
+        {"field": "status", "from": "10004", "to": "10005", "fromString": "RDY", "toString": "WIP"},
         {"field": "assignee", "from": None, "to": "acc-7", "toString": "박서준"},
     ]},
 }
@@ -145,20 +145,20 @@ PAYLOAD = {
 
 def test_parse_webhook_reads_status_and_assignee():
     e = parse_jira_webhook(PAYLOAD)
-    assert e.issue_key == "ITSD-9" and e.status_changed and e.assignee_changed
+    assert e.issue_key == "ITHD-9" and e.status_changed and e.assignee_changed
     assert e.new_work_status == "WIP" and e.new_assignee_account_id == "acc-7"
     assert e.event_id == "changelog:555" and e.timestamp_ms == 1761350000000
 
 
 def test_event_id_priority_and_hash_fallback():
     assert parse_jira_webhook(PAYLOAD, delivery_id="d-1").event_id == "delivery:d-1"
-    bare = {"issue": {"key": "ITSD-9"}}
+    bare = {"issue": {"key": "ITHD-9"}}
     a, b = parse_jira_webhook(bare).event_id, parse_jira_webhook(dict(bare)).event_id
     assert a == b and a.startswith("sha256:")
 
 
 def test_parse_webhook_unassign_and_other_fields():
-    e = parse_jira_webhook({"issue": {"key": "ITSD-1"}, "changelog": {"items": [
+    e = parse_jira_webhook({"issue": {"key": "ITHD-1"}, "changelog": {"items": [
         {"field": "assignee", "from": "acc-7", "to": None}, {"field": "summary", "to": "x"}]}})
     assert e.assignee_changed and e.new_assignee_account_id is None and not e.status_changed
 
@@ -257,20 +257,20 @@ def test_result_unknown_verifies_never_retries_then_escalates():
 # ---------------------------------------------------------------- 되돌림 금지 · 사번-계정 연결표
 
 
-@pytest.mark.parametrize("current, target", [("10065", "WIP"), ("10065", "RDY"), ("10066", "WIP"), ("10066", "FIN")])
+@pytest.mark.parametrize("current, target", [("10006", "WIP"), ("10006", "RDY"), ("10007", "WIP"), ("10007", "FIN")])
 def test_finished_tickets_cannot_go_back(current, target):
     # 워크플로가 허용하더라도(전환 목록에 있어도) ITssue는 되돌리지 않는다
-    handler, sent = _workflow(current, [{"id": "1", "to": {"id": "10064"}}, {"id": "2", "to": {"id": "10063"}}, {"id": "3", "to": {"id": "10065"}}])
+    handler, sent = _workflow(current, [{"id": "1", "to": {"id": "10005"}}, {"id": "2", "to": {"id": "10004"}}, {"id": "3", "to": {"id": "10006"}}])
     with make_client(handler) as c:
         with pytest.raises(JiraError) as e:
-            c.transition_issue("ITSD-1", target)
+            c.transition_issue("ITHD-1", target)
     assert e.value.reason == "invalid_transition" and not e.value.retryable and sent == []
 
 
 def test_forward_transitions_still_allowed_from_fin():
-    handler, sent = _workflow("10065", [{"id": "9", "to": {"id": "10066"}}])
+    handler, sent = _workflow("10006", [{"id": "9", "to": {"id": "10007"}}])
     with make_client(handler) as c:
-        assert c.transition_issue("ITSD-1", "CLS")["changed"] is True
+        assert c.transition_issue("ITHD-1", "CLS")["changed"] is True
     assert sent == [{"transition": {"id": "9"}}]
 
 
