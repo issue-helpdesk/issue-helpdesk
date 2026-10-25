@@ -32,6 +32,7 @@ QUESTION_COLUMNS = ['문서 번호', '번호', '질문', '정답 단위', '작�
 QUESTIONS_PER_DOC = 3
 CROSS_DOC_MEMO = '다른 문서 정답:'      # 메모에 이 표시가 있으면 다른 문서의 정답 단위를 의도한 것으로 본다
 ACCESS_BY_TYPE = {'guide': '사내 일반', 'standard': '사내 일반', 'manual': '사내 제한', 'policy': '사내 제한'}
+TRANSFER_BY_TYPE = {'guide': 'ALLOWED', 'standard': 'ALLOWED', 'manual': 'BLOCKED', 'policy': 'BLOCKED'}   # D 결정 (PR #70)
 
 _NORM_RE = re.compile(r'[\s.,?!~·\'"()\[\]]')
 _TOKEN_RE = re.compile(r'[0-9A-Za-z가-힣]{2,}')
@@ -141,8 +142,9 @@ def doc_checks(r: Review, base: dict | None = None) -> list[tuple[str, str, str,
         got = baseline(r.chunks).get(r.doc_no)
         want_b = base.get(r.doc_no)
         rows.append(('청크 수 기준표', _show(got), _show(want_b), '일치' if got == want_b else '⚠ 다름'))
-    tp = e.get('transfer_policy')
-    rows.append(('외부 전송 (transfer_policy)', '-', tp or '(없음)', '정보: 미정이면 BLOCKED 로 적재 (D 결정 대기)' if not tp else '정보'))
+    tp, want_tp = e.get('transfer_policy'), TRANSFER_BY_TYPE.get(e.get('doc_type', ''), 'BLOCKED')
+    rows.append(('외부 전송 (transfer_policy) ↔ 문서 유형 규칙', tp or '(없음)', want_tp,
+                 '일치' if tp == want_tp else ('⚠ 값 없음 (BLOCKED 로 적재)' if not tp else '⚠ 다름')))
     return rows
 
 

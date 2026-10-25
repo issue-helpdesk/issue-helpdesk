@@ -39,7 +39,16 @@ def test_eval_overlap_exact_and_similar(evalset):
 def test_doc_checks_all_match(acc001):
     rows = doc_checks(acc001, base=None)
     assert [r for r in rows if r[3].startswith('⚠')] == []
-    assert any(r[0] == '외부 전송 (transfer_policy)' for r in rows)
+    assert ('외부 전송 (transfer_policy) ↔ 문서 유형 규칙', 'ALLOWED', 'ALLOWED', '일치') in rows
+
+
+def test_doc_checks_catch_wrong_transfer_policy(acc001):
+    """가이드·공통 기준은 ALLOWED, 매뉴얼은 BLOCKED (D 결정). 다르거나 없으면 잡는다."""
+    def result(entry):
+        bad = type(acc001)(acc001.doc_no, entry, acc001.doc, acc001.chunks)
+        return next(r[3] for r in doc_checks(bad) if r[0].startswith('외부 전송'))
+    assert result(dict(acc001.entry, transfer_policy='BLOCKED')) == '⚠ 다름'
+    assert result({k: v for k, v in acc001.entry.items() if k != 'transfer_policy'}).startswith('⚠ 값 없음')
 
 
 def test_doc_checks_catch_manifest_mismatch(manifest, acc001):
