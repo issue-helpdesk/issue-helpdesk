@@ -2,6 +2,7 @@
 
     python backend/app/integrations/jira/smoke_check.py            # 인증 + 기존 시험 티켓 확인 (새로 만들지 않음)
     python backend/app/integrations/jira/smoke_check.py --create   # 위 + 새 시험 티켓 1건 생성
+    python backend/app/integrations/jira/smoke_check.py --flow     # 위 + 담당자 지정·재조회·상태 전환(RDY→WIP→FIN→CLS)까지 (--create 포함)
 
 필요한 것: 루트 .env 의 JIRA_BASE_URL · JIRA_EMAIL · JIRA_API_TOKEN, pip install -r requirements.txt
 토큰 값은 화면에 출력하지 않는다. 새로 만든 시험 티켓은 확인 후 Jira에서 직접 지운다.
@@ -59,6 +60,35 @@ def check(jira: JiraClient, ticket: dict, *, create: bool = False) -> bool:
     return not diffs and again["created"] is False and again["jira_key"] == result["jira_key"]
 
 
+def flow(jira: JiraClient, jira_key: str, my_account_id: str) -> bool:
+    """생성한 시험 티켓에 ⑤⑥ 단계를 실제로 해 본다: 담당자 지정 → 재조회 비교 → 상태 전환."""
+    ok = True
+    r = jira.assign_issue(jira_key, my_account_id)
+    print(f"  담당자 지정: 요청 {r['account_id'][:12]}… / Jira 값 {str(r['actual_account_id'])[:12]}… → matched={r['matched']}")
+    ok = ok and r["matched"]
+    print(f"  현재 상태: {jira.get_work_status(jira_key)['work_status']}")
+    try:
+        jira.transition_issue(jira_key, "CLS")
+        print("  RDY → CLS 바로 전환: 허용됨 (예상과 다름, 워크플로 확인 필요)")
+    except JiraError as e:
+        print(f"  RDY → CLS 바로 전환: 거부됨 ({e.reason}) — 한 단계씩만 가능")
+    for step in ("WIP", "FIN", "CLS"):
+        try:
+            res = jira.transition_issue(jira_key, step)
+            print(f"  → {step}: changed={res['changed']}, Jira 상태={jira.get_work_status(jira_key)['work_status']}")
+        except JiraError as e:
+            print(f"  → {step}: 실패 {e.to_dict()}")
+            ok = False
+            break
+    try:
+        jira.transition_issue(jira_key, "WIP")
+        print("  CLS → WIP 되돌리기: 허용됨 (막혀야 함)")
+        ok = False
+    except JiraError as e:
+        print(f"  CLS → WIP 되돌리기: 코드가 막음 ({e.reason})")
+    return ok
+
+
 def main() -> int:
     try:
         with JiraClient.from_env() as jira:
@@ -68,10 +98,15 @@ def main() -> int:
             print("2. 기존 시험 접수 확인")
             ok = check(jira, EXISTING)
 
-            if "--create" in sys.argv:
+            if "--create" in sys.argv or "--flow" in sys.argv:
                 stamp = datetime.now().strftime("%m%d%H%M")
                 print("3. 새 시험 접수 생성")
-                ok = check(jira, {**EXISTING, "receipt_no": f"RCPT-TEST-{stamp}"}, create=True) and ok
+                ticket = {**EXISTING, "receipt_no": f"RCPT-TEST-{stamp}"}
+                ok = check(jira, ticket, create=True) and ok
+                if "--flow" in sys.argv:
+                    print("4. 담당자 지정 · 재조회 · 상태 전환")
+                    found = jira.find_by_receipt(ticket["receipt_no"])
+                    ok = flow(jira, found["jira_key"], me["account_id"]) and ok
     except JiraError as e:
         print(f"실패: {e.to_dict()}")
         return 1

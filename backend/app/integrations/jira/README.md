@@ -71,6 +71,7 @@ pytest tests/test_jira_integration.py      # 실제 Jira를 부르지 않음 (�
 ```bash
 python backend/app/integrations/jira/smoke_check.py            # 인증 + 기존 테스트 티켓 확인 (새로 만들지 않음)
 python backend/app/integrations/jira/smoke_check.py --create   # 위 + 새 테스트 티켓 1건
+python backend/app/integrations/jira/smoke_check.py --flow     # 위 + 담당자 지정·재조회·상태 전환(RDY→WIP→FIN→CLS)까지
 ```
 
 기본 실행은 인증·검색·존재하는 테스트 티켓의 저장값만 확인합니다. 테스트 티켓을 삭제했어도 다시 만들지 않으며 저장값 비교는 생략했다고 표시합니다. 생성·중복 확인은 `--create`를 지정했을 때만 테스트합니다. 새 티켓이 검색에 나타나지 않으면 생성 함수를 재호출하지 않고 점검을 중단합니다. 테스트 티켓은 확인 후 Jira에서 지웁니다.
