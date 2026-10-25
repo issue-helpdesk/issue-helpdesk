@@ -192,6 +192,7 @@ event = parse_jira_webhook(payload, delivery_id=headers.get("X-Atlassian-Webhook
 | `backend/app/integrations/jira/field_mapping.yaml` | 프로젝트 `ITSD`(10007) → `ITHD`(10001). 사용자 지정 필드 24개, 분류·영향 범위·긴급도 선택값, 컴포넌트, 이슈 유형(작업 10010), 상태(RDY 10004 · WIP 10005 · FIN 10006 · CLS 10007) ID를 새 사이트 조회 값으로 교체 |
 | `tests/test_jira_integration.py`, `tests/test_jira_assignment.py` | 위 ID에 맞춰 기대값 변경 |
 | `backend/app/integrations/jira/*.py`, `README.md`, `app/core/config.py`, `.env.example` | 프로젝트 키·필드 번호 표기 변경 |
+| `docs/01~04`, `docs/api/03`, `docs/11`, `design/` 문서·프로토타입, `frontend/` 목업·테스트 | Jira 키 표기 `ITSD` → `ITHD` (예시 번호·목업 데이터만, 동작 변경 없음) |
 
 **확인**
 
