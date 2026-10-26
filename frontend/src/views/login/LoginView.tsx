@@ -92,7 +92,7 @@ export function LoginView() {
       </div>
       <div className="lf">
         <div>
-          <Logo width={124} />
+          <Logo width={150} kind="word" />
         </div>
         <div className="form">
           <div className="eyebrow">IT HELPDESK</div>
