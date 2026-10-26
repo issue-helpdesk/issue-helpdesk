@@ -3,7 +3,7 @@
  * 접수 진행 카드가 나오기 전은 기본, 카드부터는 처리 중, 그 카드의 Ticket 이 해결 완료(CLS)이면 완료다.
  */
 import type { Inquiry } from '../../api/chatTypes'
-import type { Pose } from '../../ui/Pav'
+import type { Pose } from '../../ui/poseImages'
 
 /** idx 번째 메시지에 붙는 잇슈의 모습 */
 export function poseOf(inquiry: Inquiry, idx: number): Pose {

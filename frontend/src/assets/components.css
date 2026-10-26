@@ -128,3 +128,4 @@
 .lpop{padding-top:0;-webkit-backdrop-filter:blur(20px)}
 .lpop .lph{position:absolute;left:0;right:0;top:0;z-index:2;padding:20px 20px 18px;border-radius:24px 24px 0 0;background:linear-gradient(180deg,var(--white) 0%,var(--white) 58%,color-mix(in srgb,var(--white) 78%,transparent) 100%);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .lpop .th{padding-top:84px}
+.pose{float:right;position:relative;width:84px;margin:-6px 0 6px 12px}.pose img{display:block;width:100%;height:auto}
