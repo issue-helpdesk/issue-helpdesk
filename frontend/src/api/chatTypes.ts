@@ -19,8 +19,14 @@ export type Urgency = 'P1' | 'P2' | 'P3' | 'P4'
 export type InquiryStatus = 'IN_PROGRESS' | 'AI_RESOLVED' | 'UNCONFIRMED' | 'CLOSED_UNRESOLVED' | 'RECEIVED' | 'HANDED_OFF'
 
 /** 대화 진행 단계 (화면이 입력창·버튼을 정할 때 쓴다) */
-/** 종료 10분 전 안내 문구 (docs/09 T28). 서버가 시스템 메시지로 보내고, 화면은 입력창 위 띠로도 보여 준다. */
-export const IDLE_WARN_TEXT = '추가 문의사항이 없으면 채팅을 종료하겠습니다.'
+/** 응답 없음 안내 종류 (docs/09 6.4): 해결 확인 5시간(h5), 대화 중 이탈 2시간(h2) */
+export type IdleKind = 'h5' | 'h2'
+
+/** 응답 없음 안내 문구. 서버가 시스템 메시지로 보내고, 화면은 입력창 위 띠로도 보여 준다. */
+export const IDLE_TEXT: Record<IdleKind, string> = {
+  h5: '5시간 뒤까지 미확인 시 대화 내용은 삭제됩니다.',
+  h2: '이어서 하지 않으면 대화내역이 사라집니다.',
+}
 
 export type ChatStep = 'collect' | 'answering' | 'answered' | 'offer' | 'draft' | 'submitted' | 'closed'
 
@@ -88,8 +94,6 @@ export interface ChatMessage {
   replies?: ChatReply[]
   /** 이미 응답했거나 지나간 단계여서 버튼을 누를 수 없는 상태 */
   locked?: boolean
-  /** 시연용 "응답 없이 시간 경과" 버튼 표시 */
-  demoTimeout?: boolean
   /** 답변을 준비 중임을 나타내는 점 세 개 표시 */
   typing?: { label: string }
   card?: ChatCard
@@ -191,8 +195,10 @@ export interface Inquiry {
   /** 초안 수정 후 다시 판단한 결과 안내 */
   draftNote: string
   ticket: Ticket | null
-  /** 종료 10분 전 안내를 보낸 상태. 화면이 입력창 위에 안내 띠를 보여 준다. 문의자가 답하면 해제된다. */
-  idleWarned?: boolean
+  /** 삭제 안내를 보낸 상태. 화면이 입력창 위에 안내 띠를 보여 준다. 문의자가 답하면 해제된다. */
+  idleWarned?: IdleKind | null
+  /** 삭제 전에 돌아온 상태. 입력창을 잠그고 "이어서 채팅하기 / 새로운 문의하기"를 고르게 한다. */
+  paused?: boolean
 }
 
 /** 로그인한 사용자의 문의 한 건 요청: 첫 메시지 */
