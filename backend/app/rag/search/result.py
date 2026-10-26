@@ -129,7 +129,7 @@ class LegacyResult:
     @property
     def citation(self) -> str:
         when = f' ({self.resolved_at[:7]})' if self.resolved_at else ''
-        return f'과거 처리 사례 참고 · {self.legacy_no}{when}'      # PRD 4.2 표시 문구
+        return f'과거 사례 {self.legacy_no}{when}'
 
 
 def _check_evidence(evidence, text):

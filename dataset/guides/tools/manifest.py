@@ -5,9 +5,6 @@ import os
 from model import *
 from build import out_dir, base_name
 
-# 외부 모델 전송 정책 (M4-1-3, README "외부 전송 정책"). 열람 등급과 따로 정한다 (IT-STD-002). 모르는 종류는 BLOCKED
-TRANSFER_POLICY = {'guide': 'ALLOWED', 'standard': 'ALLOWED', 'manual': 'BLOCKED', 'policy': 'BLOCKED'}
-
 
 def main():
     rows = []
@@ -20,7 +17,6 @@ def main():
             'version': m['version'], 'effective_date': m['date'], 'pair': m.get('pair', ''),
             'scenarios': m.get('scenarios', []),
             'rag_target': m['doc_type'] in ('guide', 'manual', 'standard'),
-            'transfer_policy': TRANSFER_POLICY.get(m['doc_type'], 'BLOCKED'),
             'files': {e: f'{base}.{e}' for e in ('pdf', 'pptx', 'docx', 'md')},
         })
     with open(os.path.join(ROOT, 'manifest.json'), 'w', encoding='utf-8', newline='\n') as f:

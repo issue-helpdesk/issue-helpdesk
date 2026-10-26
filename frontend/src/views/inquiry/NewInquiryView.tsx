@@ -11,7 +11,6 @@ import { startChat } from '../../api/chat'
 import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
 import { Icon, type IconName } from '../../ui/Icon'
-import { Mascot } from '../../ui/Mascot'
 import { useShell } from '../../ui/shellContext'
 
 /** 자주 묻는 분류 칩: [아이콘, 이름, 입력창에 채울 문장] */
@@ -88,7 +87,21 @@ export function NewInquiryView() {
         </button>
 
         <div className="hero">
-          <Mascot />
+          {/* 레트로 창 모양 로고 장식 (디자인 가이드: 소개·시작 화면에만 쓴다) */}
+          {/* 화면에 들어올 때 한 번: 창이 열리고 커서가 들어온다 (go) */}
+          <div className="xhero go" aria-hidden="true">
+            <div className="xw gh">
+              <div className="xb"><i /><i /><i /><span /><b>▢</b><b>✕</b></div>
+            </div>
+            <div className="xw xm">
+              <div className="xb"><i /><i /><i /><span /><b>▢</b><b>✕</b></div>
+              <div className="xy">
+                <svg width="170" height="66.5" viewBox="0 0 138 54"><use href="#lg-full" /></svg>
+              </div>
+            </div>
+            <i className="xs s1" /><i className="xs s2" /><i className="xs s3" />
+            <svg className="xc" width="32" height="48" viewBox="0 0 14 21"><use href="#cursor" /></svg>
+          </div>
 
           <div className="hi">{user.name}님, 안녕하세요</div>
           <h1>무엇을 도와드릴까요?</h1>

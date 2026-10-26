@@ -1,8 +1,8 @@
-"""ITHD에 티켓을 만들고 Jira가 발급한 ID·키·주소를 돌려준다.
+"""ITSD(IT Service Desk)에 티켓을 만들고 Jira가 발급한 ID·키·주소를 돌려준다.
 
     with JiraClient.from_env() as jira:
         result = jira.create_ticket(ticket)
-        # {"jira_issue_id": "10999", "jira_key": "ITHD-353", "jira_url": "https://…/browse/ITHD-353", "created": True}
+        # {"jira_issue_id": "10999", "jira_key": "ITSD-353", "jira_url": "https://…/browse/ITSD-353", "created": True}
 
 인증정보는 서버 환경 변수(JIRA_BASE_URL · JIRA_EMAIL · JIRA_API_TOKEN)에서만 읽는다.
 """
@@ -14,7 +14,7 @@ from typing import Any, Mapping
 
 import httpx
 
-from .mapper import MappingError, _adf, load_mapping, to_jira_fields, work_status_from_jira
+from .mapper import MappingError, load_mapping, to_jira_fields
 
 DEFAULT_TIMEOUT = 10.0  # 초
 
@@ -22,7 +22,7 @@ DEFAULT_TIMEOUT = 10.0  # 초
 class JiraError(Exception):
     """Jira 호출 실패. 연동 상태 기록·관리자 재처리에 쓸 이유와 재시도 가능 여부를 담는다.
 
-    reason: timeout · network · result_unknown · auth · invalid_fields · invalid_transition · not_found · rate_limited · server_error · unexpected
+    reason: timeout · network · result_unknown · auth · invalid_fields · not_found · rate_limited · server_error · unexpected
     """
 
     def __init__(self, reason: str, message: str, *, retryable: bool, status_code: int | None = None):
@@ -45,7 +45,7 @@ class JiraClient:
         *,
         timeout: float = DEFAULT_TIMEOUT,
         mapping: Mapping[str, Any] | None = None,
-        transport: httpx.BaseTransport | None = None,  # 테스트에서 모의 응답을 끼울 때만
+        transport: httpx.BaseTransport | None = None,  # 테스트에서 가짜 응답을 끼울 때만
     ):
         self.base_url = base_url.rstrip("/")
         self.mapping = mapping or load_mapping()
@@ -79,7 +79,7 @@ class JiraClient:
     # ---------------------------------------------------------------- 공개 함수
 
     def create_ticket(self, ticket: Mapping[str, Any]) -> dict[str, Any]:
-        """접수 1건을 ITHD 티켓으로 만든다.
+        """접수 1건을 ITSD 티켓으로 만든다.
 
         같은 접수번호의 티켓이 이미 있으면 새로 만들지 않고 그 티켓을 돌려준다(created=False).
         검색 반영 지연·동시 요청까지 원자적으로 막지는 않는다. 백엔드 작업 잠금이 필요하다.
@@ -108,7 +108,7 @@ class JiraClient:
 
     def find_by_receipt(self, receipt_no: str) -> dict[str, Any] | None:
         """ITssue 접수번호로 이미 만든 티켓을 찾는다. 없으면 None."""
-        field = self.mapping["fields"]["receipt_no"]["jira"]           # customfield_10043
+        field = self.mapping["fields"]["receipt_no"]["jira"]           # customfield_10113
         number = field.removeprefix("customfield_")
         phrase = '"' + receipt_no.replace('\\', '\\\\').replace('"', '\\"') + '"'
         jql = f'project = "{self.mapping["project"]["key"]}" AND cf[{number}] ~ {json.dumps(phrase, ensure_ascii=False)}'
@@ -155,73 +155,6 @@ class JiraClient:
             if not ok:
                 diffs[field] = (want, got)
         return diffs
-
-    # ---------------------------------------------------------------- 담당자 지정·상태 전환 (M5-1-3·M5-3-1)
-
-    def get_assignee(self, issue_key: str) -> dict[str, Any]:
-        """Jira에 지금 지정된 담당자를 조회한다. 배정 결과 확인(⑥)에 쓴다. 담당자가 없으면 account_id가 None."""
-        fields = self.get_issue(issue_key, ["assignee"])["fields"]
-        who = fields.get("assignee") or {}
-        return {"account_id": who.get("accountId"), "display_name": who.get("displayName")}
-
-    def assign_issue(self, issue_key: str, account_id: str) -> dict[str, Any]:
-        """Jira 담당자를 지정하고, 다시 조회해 요청한 계정과 같은지 비교한다.
-
-        같은 계정으로 다시 불러도 결과가 같아서(멱등) 시간 초과·통신 오류는 retryable=True 로 올린다.
-        반환: {"matched": bool, "account_id": 요청한 계정, "actual_account_id": Jira에 있는 계정}
-        matched=False 이면 ITssue는 배정을 확정하지 않고 예약을 풀어 팀장 확인으로 넘긴다(`docs/11` 2.5).
-        """
-        if not str(account_id or "").strip():
-            raise JiraError("invalid_fields", "담당자 accountId가 비어 있습니다.", retryable=False)
-        account_id = str(account_id).strip()
-        self._request("PUT", f"/rest/api/3/issue/{issue_key}/assignee", json={"accountId": account_id})
-        actual = self.get_assignee(issue_key)["account_id"]
-        return {"matched": actual == account_id, "account_id": account_id, "actual_account_id": actual}
-
-    def get_work_status(self, issue_key: str) -> dict[str, Any]:
-        """Jira 상태를 ITssue 업무 상태(RDY·WIP·FIN·CLS)로 바꿔 돌려준다. 매핑에 없는 상태면 work_status=None."""
-        status = self.get_issue(issue_key, ["status"])["fields"].get("status") or {}
-        return {"work_status": work_status_from_jira(status.get("id"), self.mapping),
-                "status_id": status.get("id"), "status_name": status.get("name")}
-
-    def transition_issue(self, issue_key: str, target: str, *, final_result: str | None = None) -> dict[str, Any]:
-        """Jira 상태를 target(RDY·WIP·FIN·CLS)으로 옮긴다.
-
-        먼저 현재 상태를 보고, 이미 target 이면 아무것도 보내지 않는다(changed=False). 그래서 시간 초과 뒤 다시 불러도 안전하다.
-        Jira 워크플로가 현재 상태에서 target 으로 바로 가는 전환을 허용하지 않으면 invalid_transition(재시도 불가)이다.
-        FIN·CLS 에서 뒤로(WIP·RDY 등) 되돌리는 전환은 Jira 워크플로와 상관없이 막는다(팀 결정). 이미 끝난 일은 새 티켓으로 다룬다.
-        FIN 으로 옮길 때는 final_result(최종 처리 결과)가 필수다. Jira 전환 화면이 요구하며, 비어 있으면 Jira를 부르기 전에 invalid_fields 로 막는다.
-        반환: {"changed": bool, "work_status": target}
-        """
-        values = self.mapping["options"]["work_status"]["values"]
-        if target not in values:
-            raise JiraError("invalid_fields", f"work_status '{target}'는 매핑에 없습니다. 가능한 값: {', '.join(values)}",
-                            retryable=False)
-        target_id = values[target]["id"]
-        current = self.get_work_status(issue_key)["work_status"]
-        if current == target:
-            return {"changed": False, "work_status": target}
-        # 팀 결정: 처리 완료(FIN)·종결(CLS)된 티켓은 되돌리지 않는다. 다시 필요하면 새 접수로 만든다.
-        order = ("RDY", "WIP", "FIN", "CLS")
-        if current in ("FIN", "CLS") and order.index(target) < order.index(current):
-            raise JiraError("invalid_transition", f"{issue_key}는 {current} 상태라 {target}으로 되돌릴 수 없습니다. 새 티켓을 만드세요.",
-                            retryable=False)
-        body_fields: dict[str, Any] = {}
-        for spec in self.mapping.get("transition_fields", {}).values():
-            if spec.get("required_for") == target:
-                if not str(final_result or "").strip():
-                    raise JiraError("invalid_fields", f"{target}으로 옮기려면 {spec['label']}가 필요합니다.", retryable=False)
-                body_fields[spec["jira"]] = _adf(str(final_result).strip())
-        listed = self._request("GET", f"/rest/api/3/issue/{issue_key}/transitions")
-        for t in listed.get("transitions", []):
-            if str((t.get("to") or {}).get("id")) == target_id:
-                body: dict[str, Any] = {"transition": {"id": t["id"]}}
-                if body_fields:
-                    body["fields"] = body_fields
-                self._request("POST", f"/rest/api/3/issue/{issue_key}/transitions", json=body)
-                return {"changed": True, "work_status": target}
-        raise JiraError("invalid_transition", f"{issue_key}는 현재 상태에서 {target}으로 바로 전환할 수 없습니다.",
-                        retryable=False)
 
     # ---------------------------------------------------------------- 내부
 
