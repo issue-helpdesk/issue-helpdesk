@@ -57,6 +57,8 @@ export const mockConfig = {
   autoRun: true,
   /** 접수 저장 실패 시연 */
   saveFail: false,
+  /** 문의를 읽을 때 연결 오류가 나는 시연 ("불러오지 못했어요" 화면) */
+  loadFail: false,
 }
 
 const records = new Map<number, Record_>()

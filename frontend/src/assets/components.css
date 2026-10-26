@@ -129,3 +129,27 @@
 .lpop .lph{position:absolute;left:0;right:0;top:0;z-index:2;padding:20px 20px 18px;border-radius:24px 24px 0 0;background:linear-gradient(180deg,var(--white) 0%,var(--white) 58%,color-mix(in srgb,var(--white) 78%,transparent) 100%);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .lpop .th{padding-top:84px}
 .pose{float:right;position:relative;width:84px;margin:-6px 0 6px 12px}.pose img{display:block;width:100%;height:auto}
+/* 로그인 진행 표시: 요청 중에도 버튼은 흐려지지 않고 그대로 읽힌다. 입력칸은 잠그되(readOnly) 값은 그대로 보인다 */
+.btn[aria-busy="true"]{cursor:progress}
+.btn[aria-disabled="true"]{cursor:progress}
+.btn.pri .dots i{background:#fff}
+.slownote{margin:0;font-size:13px;color:var(--mute)}
+/* 로그인 상태 확인 화면 (새로고침 직후 저장된 로그인을 확인하는 동안) */
+.boot{position:fixed;inset:0;display:grid;place-items:center;background:var(--canvas);z-index:60}
+.boot::after{content:"";position:absolute;left:0;right:0;bottom:0;height:46%;background:var(--glow);pointer-events:none}
+.boot .ld{position:relative;z-index:1;text-align:center;display:grid;justify-items:center;gap:10px}
+.boot .m{width:96px;height:96px;position:relative}
+.boot .m::after{content:"";position:absolute;left:50%;bottom:-8px;width:62%;height:10px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(10,4,30,.35),transparent);animation:bsh 1.8s ease-in-out infinite}
+.boot .m img{width:100%;height:100%;display:block;animation:bfl2 1.8s ease-in-out infinite}
+@keyframes bfl2{0%,100%{translate:0 0}50%{translate:0 -8px}}
+.boot p{margin:0;font-size:14px;color:var(--ink)}
+.boot small{display:block;font-size:12px;color:var(--mute);margin-top:2px}
+@media (prefers-reduced-motion:reduce){.boot .m img,.boot .m::after{animation:none}}
+/* 안내 화면 (문의를 찾을 수 없을 때·불러오지 못했을 때): 가운데에 잇슈, 제목, 설명, 이동 버튼 */
+.emptyst{min-height:100%;display:grid;place-items:center;padding:24px 16px;text-align:center}
+.emptyst>div{max-width:420px}
+.emptyst .pav{display:flex;margin:0 auto 6px}
+.emptyst h3{font-size:18px;line-height:26px}
+.emptyst p{margin:6px 0 16px;font-size:14px;line-height:22px;color:var(--mute)}
+.emptyst .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.emptyst .acts+p{margin:10px 0 0;font-size:12px}

@@ -26,6 +26,18 @@ function renderApp(path = '/login') {
 }
 
 describe('로그인 화면', () => {
+  it('로그인 중에는 누른 버튼만 "로그인 중"으로 바뀌고 입력칸은 값을 지킨 채 잠긴다', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    await user.click(screen.getByRole('button', { name: '로그인' }))
+    const btn = await screen.findByRole('button', { name: /로그인 중/ })
+    expect(btn).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByLabelText('사번')).toHaveAttribute('readonly')
+    expect(screen.getByLabelText('사번')).toHaveValue('EMP-1001')
+    // 끝나면 새 문의 화면으로 간다
+    expect(await screen.findByRole('heading', { name: '새 문의' }, SLOW)).toBeInTheDocument()
+  })
+
   it('시연 계정(문의자)으로 로그인하면 새 문의 화면으로 이동한다', async () => {
     const user = userEvent.setup()
     renderApp()

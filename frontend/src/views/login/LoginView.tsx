@@ -4,7 +4,7 @@
  * 왼쪽: 사번 로그인 / SSO 로그인 탭과 시연용 바로 로그인. 오른쪽: 로그인 전 상담 패널.
  * 로그인에 성공하면 역할별 첫 화면(core/roles.ts)으로 이동한다.
  */
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { MOCK_PASSWORD, MOCK_QUICK_LOGINS } from '../../api/mock/accounts'
 import type { ApiResult, LoginData } from '../../api/types'
@@ -56,18 +56,30 @@ export function LoginView() {
   const [password, setPassword] = useState(USE_MOCK ? MOCK_PASSWORD : '')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // 어느 버튼으로 요청 중인지(그 버튼에만 "로그인 중"을 보인다)와, 3초 넘게 걸리는지
+  const [who, setWho] = useState('')
+  const [slow, setSlow] = useState(false)
   // 비밀번호 초기화 창
   const [forgotOpen, setForgotOpen] = useState(false)
+
+  // 요청이 3초 넘게 걸리면 늦어진다고 알린다
+  useEffect(() => {
+    if (!busy) return
+    const t = setTimeout(() => setSlow(true), 3000)
+    return () => clearTimeout(t)
+  }, [busy])
 
   // 이미 로그인한 상태로 이 화면에 오면 첫 화면으로 보낸다
   if (!loading && user) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
 
   /** 로그인 요청을 실행하고, 성공이면 이동, 실패면 사유를 보여 준다. */
-  async function run(p: Promise<ApiResult<LoginData>>) {
+  async function run(p: Promise<ApiResult<LoginData>>, by: string) {
     setBusy(true)
+    setWho(by)
     setError('')
     const r = await p
     setBusy(false)
+    setSlow(false)
     if (r.ok) navigate(HOME_BY_ROLE[r.data.user.serviceRole], { replace: true })
     else setError(r.error.message)
   }
@@ -79,10 +91,25 @@ export function LoginView() {
       setError('사번과 비밀번호를 입력해 주세요.')
       return
     }
-    void run(login({ employeeNo: employeeNo.trim(), password }))
+    void run(login({ employeeNo: employeeNo.trim(), password }), 'id')
   }
 
   const idTab = tab === 'id'
+
+  /** 요청 중인 버튼은 "로그인 중"과 점 세 개로, 나머지는 원래 글자로 보인다 (크기·색은 그대로) */
+  const label = (by: string, text: string) =>
+    busy && who === by ? (
+      <>
+        로그인 중 <span className="dots" aria-hidden="true"><i /><i /><i /></span>
+      </>
+    ) : (
+      text
+    )
+  const slowNote = busy && slow && (
+    <p className="slownote" role="status">
+      서버 응답이 늦어지고 있어요. 조금만 더 기다려 주세요.
+    </p>
+  )
 
   return (
     <div className="login">
@@ -121,6 +148,7 @@ export function LoginView() {
                   autoComplete="username"
                   placeholder="예) EMP-1001"
                   value={employeeNo}
+                  readOnly={busy}
                   onChange={(e) => setEmployeeNo(e.target.value)}
                   aria-invalid={!!error}
                   aria-describedby={error ? 'lg-err' : undefined}
@@ -137,6 +165,7 @@ export function LoginView() {
                   type="password"
                   autoComplete="current-password"
                   value={password}
+                  readOnly={busy}
                   onChange={(e) => setPassword(e.target.value)}
                   aria-invalid={!!error}
                   aria-describedby={error ? 'lg-err' : undefined}
@@ -152,9 +181,10 @@ export function LoginView() {
                   {error}
                 </div>
               )}
-              <button className="btn pri block" type="submit" disabled={busy} style={{ minHeight: 48 }}>
-                {busy ? '처리 중' : '로그인'}
+              <button className="btn pri block" type="submit" aria-disabled={busy} aria-busy={busy && who === 'id'} style={{ minHeight: 48 }}>
+                {label('id', '로그인')}
               </button>
+              {slowNote}
               <div className="hint">
                 {USE_MOCK && `시연 계정 비밀번호는 ${MOCK_PASSWORD} 입니다. `}계정 5회 실패 시 잠기고 10분 후 해제됩니다.
               </div>
@@ -170,9 +200,10 @@ export function LoginView() {
                   {error}
                 </div>
               )}
-              <button className="btn pri block" type="button" disabled={busy} style={{ minHeight: 48 }} onClick={() => void run(loginSso())}>
-                {USE_MOCK ? 'SSO로 계속하기 (시연)' : 'SSO로 계속하기'}
+              <button className="btn pri block" type="button" aria-disabled={busy} aria-busy={busy && who === 'sso'} style={{ minHeight: 48 }} onClick={() => !busy && void run(loginSso(), 'sso')}>
+                {label('sso', USE_MOCK ? 'SSO로 계속하기 (시연)' : 'SSO로 계속하기')}
               </button>
+              {slowNote}
             </div>
           )}
 
@@ -181,8 +212,8 @@ export function LoginView() {
             <div className="roles">
               <small>시연용 바로 로그인</small>
               {MOCK_QUICK_LOGINS.map((q) => (
-                <button key={q.id} type="button" className="btn sec sm" disabled={busy} onClick={() => void run(mockQuickLogin(q.id))}>
-                  {q.label}
+                <button key={q.id} type="button" className="btn sec sm" aria-disabled={busy} aria-busy={busy && who === q.id} onClick={() => !busy && void run(mockQuickLogin(q.id), q.id)}>
+                  {label(q.id, q.label)}
                 </button>
               ))}
             </div>

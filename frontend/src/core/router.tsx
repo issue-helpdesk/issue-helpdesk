@@ -6,6 +6,7 @@
  */
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AppShell } from '../ui/AppShell'
+import { LoadingScreen } from '../ui/LoadingScreen'
 import { FaqView } from '../views/faq/FaqView'
 import { HomePlaceholder } from '../views/HomePlaceholder'
 import { ChatView } from '../views/inquiry/ChatView'
@@ -20,7 +21,7 @@ import { useAuth } from './session'
  */
 function RequireAuth() {
   const { user, loading } = useAuth()
-  if (loading) return null // 저장된 토큰 확인 중에는 아무것도 그리지 않는다
+  if (loading) return <LoadingScreen /> // 저장된 토큰을 확인하는 동안 (0.3초 넘게 걸릴 때만) 확인 중이라고 알린다
   if (!user) return <Navigate to="/login" replace />
   return <Outlet />
 }
@@ -28,7 +29,7 @@ function RequireAuth() {
 /** 알 수 없는 주소로 오면 로그인 상태에 맞는 첫 화면으로 보낸다. */
 function Landing() {
   const { user, loading } = useAuth()
-  if (loading) return null
+  if (loading) return <LoadingScreen />
   return <Navigate to={user ? HOME_BY_ROLE[user.serviceRole] : '/login'} replace />
 }
 

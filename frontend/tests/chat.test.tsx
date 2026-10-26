@@ -520,8 +520,31 @@ describe('대화 화면', () => {
     expect(screen.getByLabelText('메시지 입력')).toBeInTheDocument()
   })
 
-  it('없는 문의 주소는 안내 문구를 보여 준다', async () => {
+  it('없는 문의 주소는 찾을 수 없다는 안내와 이동 버튼을 보여 준다', async () => {
+    const user = userEvent.setup()
     renderAs('EMP-1001', '/chat/9999')
-    expect(await screen.findByText(/문의를 찾을 수 없어요/, {}, SLOW)).toBeInTheDocument()
+    const box = await screen.findByRole('alert', {}, SLOW)
+    expect(box).toHaveTextContent('문의를 찾을 수 없어요')
+    expect(box).toHaveTextContent('삭제되었거나 볼 수 없는 문의예요')
+    expect(within(box).getByRole('button', { name: '문의 내역 보기' })).toBeInTheDocument()
+    await user.click(within(box).getByRole('button', { name: '새 문의 시작하기' }))
+    expect(await screen.findByRole('heading', { name: '무엇을 도와드릴까요?' }, SLOW)).toBeInTheDocument()
+  })
+
+  it('연결 오류로 못 읽었을 때는 찾을 수 없다고 하지 않고, 다시 불러오기로 복구한다', async () => {
+    const user = userEvent.setup()
+    mockConfig.loadFail = true
+    try {
+      renderAs('EMP-1001', '/chat/101')
+      const box = await screen.findByRole('alert', {}, SLOW)
+      expect(box).toHaveTextContent('문의를 불러오지 못했어요')
+      expect(box).not.toHaveTextContent('찾을 수 없어요')
+      expect(box).toHaveTextContent('내선')
+      mockConfig.loadFail = false
+      await user.click(within(box).getByRole('button', { name: '다시 불러오기' }))
+      expect(await screen.findByRole('list', { name: '접수 진행 단계' }, SLOW)).toBeInTheDocument()
+    } finally {
+      mockConfig.loadFail = false
+    }
   })
 })
