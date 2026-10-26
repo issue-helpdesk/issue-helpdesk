@@ -8,7 +8,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import App from '../src/App'
 import { listMyInquiries } from '../src/api/inquiries'
-import { advanceChat, cancelChatDraft, confirmChatDraft, editDraft, getChat, reopenChat, rejectChat, replyChat, resolveChat, sendChat, startChat, idleBackChat, idleDeleteChat, idleWarnChat, resumeChat } from '../src/api/chat'
+import { advanceChat, isStaleInquiry, cancelChatDraft, confirmChatDraft, editDraft, getChat, reopenChat, rejectChat, replyChat, resolveChat, sendChat, startChat, idleBackChat, idleDeleteChat, idleWarnChat, resumeChat } from '../src/api/chat'
 import type { Inquiry } from '../src/api/chatTypes'
 import { calcUrgency, detectCategory } from '../src/api/mock/chatEngine'
 import { mockConfig } from '../src/api/mock/chatStore'
@@ -136,7 +136,7 @@ describe('대화 흐름 (API)', () => {
     const a = await data(startChat(USER, '업무용 PC에서 USB 반출 예외 신청을 하고 싶어요. 오늘부터 필요해요. 저만 필요해요. 아직 안 해봤어요.'))
     await settle()
     const ans = last(await get(a.id))
-    expect(JSON.stringify(ans.blocks)).toContain('외부 모델로 전송할 수 없는 문서')
+    expect(JSON.stringify(ans.blocks)).toContain('보안 정책에 따라 AI가 직접 안내하기 어려운 내용')
     expect(ans.sources).toBeUndefined()
   })
 
@@ -152,7 +152,7 @@ describe('대화 흐름 (API)', () => {
     const a = await data(startChat(USER, '인증번호는 123456 입니다'))
     const user = a.messages.find((m) => m.role === 'user')!
     expect(user.text).not.toContain('123456')
-    expect(a.messages.some((m) => m.role === 'sys' && m.text?.includes('입력하지 마세요'))).toBe(true)
+    expect(a.messages.some((m) => m.role === 'sys' && m.text?.includes('입력하지 말아 주세요'))).toBe(true)
   })
 
   it('다른 사용자의 문의는 열 수 없다', async () => {
@@ -211,6 +211,15 @@ describe('대화 흐름 (API)', () => {
     expect(resumed.paused).toBe(false)
     expect(resumed.step).toBe(a.step === 'collect' ? 'collect' : resumed.step)
     expect(last(resumed).text).toBe('같은 대화에서 이어서 진행해요.')
+  })
+})
+
+describe('어긋난 요청 오류 (API)', () => {
+  it('지난 버튼·중복 요청 같은 409 오류는 최신 화면으로 다시 그리는 대상이다', () => {
+    expect(isStaleInquiry('INQUIRY_INVALID_STATE')).toBe(true)
+    expect(isStaleInquiry('INQUIRY_CLOSED')).toBe(true)
+    expect(isStaleInquiry('REQUEST_IN_PROGRESS')).toBe(true)
+    expect(isStaleInquiry('INQUIRY_NOT_FOUND')).toBe(false)
   })
 })
 
@@ -373,6 +382,25 @@ describe('대화 화면', () => {
     await user.click(screen.getByRole('button', { name: '이어서 채팅하기' }))
     expect(await screen.findByText('같은 대화에서 이어서 진행해요.', {}, SLOW)).toBeInTheDocument()
     expect(screen.queryByRole('group', { name: '이어서 하기' })).not.toBeInTheDocument()
+  })
+
+  it('초안 단계에서도 2시간 안내가 나가고, 새로운 문의하기를 고르면 이전 문의를 삭제하고 새 문의 화면으로 간다', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1003', '/new')
+    await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
+    await user.click(screen.getByRole('button', { name: '보내기' }))
+    await screen.findByText(/IT-NET-001 3\.1/, {}, SLOW)
+    await user.click(screen.getByRole('button', { name: '미해결' }))
+    await user.click(await screen.findByRole('button', { name: '담당자 연결' }, SLOW))
+    await screen.findByText('접수 초안', {}, SLOW)
+    await waitFor(() => expect(screen.getByRole('button', { name: '응답 없음 안내' })).toBeEnabled(), SLOW)
+    await user.click(screen.getByRole('button', { name: '응답 없음 안내' }))
+    expect(await screen.findByRole('status', {}, SLOW)).toHaveTextContent('이어서 하지 않으면 대화내역이 사라집니다.')
+    await user.click(screen.getByRole('button', { name: '돌아옴 팝업' }))
+    await user.click(await screen.findByRole('button', { name: '새로운 문의하기' }, SLOW))
+    expect(await screen.findByRole('heading', { name: '무엇을 도와드릴까요?' }, SLOW)).toBeInTheDocument()
+    // 이전 문의는 사이드바 최근 문의에서도 사라진다
+    await waitFor(() => expect(screen.queryByRole('button', { name: /VPN.*진행 중/ })).not.toBeInTheDocument(), SLOW)
   })
 
   it('안내 뒤 삭제되면 새 문의 화면으로 돌아간다', async () => {

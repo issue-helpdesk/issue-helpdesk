@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { askPreLogin } from '../../api/consult'
 import type { ConsultReply } from '../../api/types'
 import { sourceFull } from '../../core/format'
-import { MASK_NOTICE, maskSensitive } from '../../core/mask'
+import { MASK_NOTICE, maskNotices, maskSensitive } from '../../core/mask'
 import { Icon } from '../../ui/Icon'
 import { Pav } from '../../ui/Pav'
 import { RichText } from '../../ui/RichText'
@@ -65,7 +65,7 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
     // 실패하면 서버 오류 문구를 답변처럼 보여 준다
     const base: ConsultReply = r.ok ? r.data : { paragraphs: [r.error.message], sources: [] }
     // 비밀번호·인증번호로 보이는 값을 가렸다면 답변 맨 위에서 알린다
-    const reply: ConsultReply = masked.hit ? { ...base, paragraphs: [MASK_NOTICE, ...base.paragraphs] } : base
+    const reply: ConsultReply = masked.hit ? { ...base, paragraphs: [...(maskNotices(masked).length ? maskNotices(masked) : [MASK_NOTICE]).map((n) => n.replace('\n', ' ')), ...base.paragraphs] } : base
 
     // "처리 중" 표시를 지우고 실제 답변으로 바꾼다
     setMsgs((m) => [...m.filter((x) => x.id !== tid), { id: nextId.current++, role: 'ai', reply }])

@@ -11,7 +11,7 @@ import { confirmChatDraft, editDraft, getChat, replyChat, sendChat, startChat } 
 import type { Inquiry } from '../src/api/chatTypes'
 import { getRecord } from '../src/api/mock/chatStore'
 import type { ApiResult } from '../src/api/types'
-import { hasMask, maskSensitive } from '../src/core/mask'
+import { hasMask, MASK_NOTICE, MASK_NOTICE_IDENTITY, maskNotices, maskSensitive } from '../src/core/mask'
 import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
 
@@ -54,9 +54,36 @@ describe('민감정보 가리기', () => {
     expect(maskSensitive('인증번호: 123456').hit).toBe(true)
     expect(maskSensitive('주문번호 12345678 확인').text).toBe('주문번호 ●●●●●● 확인')
     // 비밀번호라는 말만 있는 문장은 값이 없으므로 가리지 않는다
-    expect(maskSensitive('비밀번호를 잊어버렸어요')).toEqual({ text: '비밀번호를 잊어버렸어요', hit: false })
+    expect(maskSensitive('비밀번호를 잊어버렸어요')).toMatchObject({ text: '비밀번호를 잊어버렸어요', hit: false })
     expect(maskSensitive('비밀번호가 안 돼요').hit).toBe(false)
     expect(hasMask('●●●●●●')).toBe(true)
+  })
+
+  it('등급별로 가리고(docs/10 2.3), 휴대폰·이메일·사번·내선번호·IP·0x 오류 코드는 그대로 둔다', () => {
+    // A: 이름 뒤 값(비번·인증코드·pwd), API 키·토큰, 개인 키
+    expect(maskSensitive('비번은 Abc123!').text).toBe('비번은 ●●●●●●')
+    expect(maskSensitive('인증코드: 4821a9').text).toBe('인증코드: ●●●●●●')
+    expect(maskSensitive('토큰은 abcdefghijklmnop1234').secret).toBe(true)
+    expect(maskSensitive('키는 sk-abcdefghijklmnopqrstuvwx 입니다').text).toBe('키는 ●●●●●● 입니다')
+    expect(maskSensitive('-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----').text).toBe('●●●●●●')
+    // 비밀번호일 때만 password 표시 (재설정 포털 안내용)
+    expect(maskSensitive('비밀번호는 abc12345').password).toBe(true)
+    expect(maskSensitive('인증번호: 123456').password).toBe(false)
+    // B: 주민등록번호, 카드번호, 계좌번호
+    expect(maskSensitive('주민번호 900101-1234567').identity).toBe(true)
+    expect(maskSensitive('카드 1234-5678-9012-3456').text).toBe('카드 ●●●●●●')
+    expect(maskSensitive('계좌 110-123-456789').identity).toBe(true)
+    // C 등급과 진단에 필요한 값은 가리지 않는다
+    for (const keep of ['010-1234-5678', 'hong@company.com', 'EMP-1001', '내선 1000', '10.20.30.40', '0x80070005']) {
+      expect(maskSensitive(keep)).toMatchObject({ text: keep, hit: false })
+    }
+  })
+
+  it('가린 종류에 맞는 안내 문구를 만든다 (docs/10 6.1)', () => {
+    expect(maskNotices(maskSensitive('인증번호: 123456'))).toEqual([MASK_NOTICE])
+    expect(maskNotices(maskSensitive('비밀번호는 abc12345'))[0]).toContain('비밀번호 재설정 포털에서 변경해 주세요')
+    expect(maskNotices(maskSensitive('주민번호 900101-1234567'))).toEqual([MASK_NOTICE_IDENTITY])
+    expect(maskNotices(maskSensitive('그냥 문장'))).toEqual([])
   })
 
   it('문의 제목과 대화, 안내 문구 어디에도 원문이 남지 않는다', async () => {
@@ -65,7 +92,7 @@ describe('민감정보 가리기', () => {
     expect(text).not.toContain('abc12345')
     expect(text).not.toContain('123456')
     expect(a.title).toContain('●')
-    expect(a.messages.some((m) => m.role === 'sys' && m.text?.includes('●로 바꿨어요'))).toBe(true)
+    expect(a.messages.some((m) => m.role === 'sys' && m.text?.includes('가림 처리했어요'))).toBe(true)
   })
 
   it('초안을 고칠 때와 접수 후 추가 메시지에서도 가린다', async () => {
@@ -84,9 +111,9 @@ describe('접수 초안 수정', () => {
     const d = await toDraft()
     expect(d.draft).toMatchObject({ inquiryTypeCode: 'NET-02', inquiryTypeName: 'VPN 접속 불가(개인)', urgency: 'P3' })
     const edited = await data(
-      editDraft(d.id, USER.employeeNo, { summary: d.draft!.summary, onset: '어제 오후부터 전사 접속이 안 돼요', businessImpact: d.draft!.businessImpact, triedActions: d.draft!.triedActions }),
+      editDraft(d.id, USER.employeeNo, { summary: d.draft!.summary, occurredAt: '어제 오후부터 전사 접속이 안 돼요', businessImpact: d.draft!.businessImpact, triedActions: d.draft!.triedActions }),
     )
-    expect(edited.draft?.onset).toBe('어제 오후부터 전사 접속이 안 돼요')
+    expect(edited.draft?.occurredAt).toBe('어제 오후부터 전사 접속이 안 돼요')
     expect(edited.draft?.inquiryTypeCode).toBe('NET-03')
     expect(edited.draft?.urgency).toBe('P1')
     expect(edited.draft?.rejudged).toEqual(expect.arrayContaining(['inquiryType', 'urgency']))
@@ -208,7 +235,7 @@ describe('비밀번호 초기화와 모달 초점', () => {
     const box = screen.getByLabelText('로그인 전 상담 입력')
     await user.type(box, '비밀번호는 abc12345 입니다{Enter}')
     const panel = screen.getByRole('region', { name: '로그인 전 상담' })
-    expect(await within(panel).findByText(/●로 바꿨어요/, {}, SLOW)).toBeInTheDocument()
+    expect(await within(panel).findByText(/가림 처리했어요/, {}, SLOW)).toBeInTheDocument()
     expect(within(panel).queryByText(/abc12345/)).not.toBeInTheDocument()
   })
 })

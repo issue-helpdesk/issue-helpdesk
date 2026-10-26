@@ -48,7 +48,7 @@ function seed() {
       categoryCode: 'NET',
       targetSystem: 'VPN·네트워크',
       summary: 'VPN 연결이 자주 끊겨요.',
-      onset: '어제부터요.',
+      occurredAt: '어제부터요.',
       businessImpact: '저만 안 되고 메일 업무는 가능해요.',
       triedActions: '재접속과 재시작을 해봤어요.',
       aiSummary: `${g.guide} ${g.version} 안내 후에도 해결되지 않음`,

@@ -141,6 +141,7 @@ h1,h2,h3,h4,p{margin:0}
 .msg.a .body{flex:1;min-width:0;max-width:88%;font-size:15px;line-height:27px}
 .msg.a .body p+p{margin-top:8px}
 .msg.a ol{margin:8px 0 0;padding-left:20px}.msg.a li{margin:2px 0}
+.msg.sys:has(b){border-radius:14px;text-align:left;max-width:min(560px,100%);padding:10px 16px;font-size:13px;line-height:20px}.msg.sys b{color:var(--ink2)}
 .msg.sys{align-self:center;font-size:12.5px;color:var(--mute);background:var(--shell);padding:4px 12px;border-radius:999px;text-align:center}
 .replies{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .src{display:inline-flex;align-items:center;gap:6px;margin-top:10px;margin-right:6px;min-height:32px;padding:0 12px;border-radius:8px;background:var(--card);border:0;box-shadow:inset 0 0 0 1px var(--line);font-size:12.5px;color:var(--ink2);font-weight:500}
@@ -1122,7 +1123,7 @@ function demoHtml(){
   const ck=(k,l)=>`<label class="sw"><input type="checkbox" data-in="flag" data-k="${k}" ${S.flags[k]?'checked':''}><span>${l}</span></label>`;
   return `<div class="demo"><button class="fab" data-act="demo" aria-expanded="${S.demoOpen}">${ic('dots')}시연 도구</button>${S.demoOpen?`<div class="box" role="region" aria-label="시연 도구">
   <div class="mockbox"><h5>통계 구역 시연</h5><div class="hint" style="margin-top:6px">시연 확인용 도구예요. 서비스 화면이 아니에요.</div><div style="margin-top:8px">${ck('statFail','다음 ‘접수 추이’ 구역 조회 실패 시연')}</div><div class="hint" style="margin:10px 0 4px"><b>구역 조회 기록 (예시)</b></div>${S.loadLog.length?`<ol class="llog">${S.loadLog.slice(0,8).map(x=>`<li><span>${x.t}</span><b>${ESC(x.k)}</b><small>${ESC(x.why)}</small></li>`).join('')}</ol>`:'<div class="hint">아직 없어요</div>'}<div class="hint" style="margin-top:6px">화면이 어느 시점에 어떤 구역을 불러오는지 보여 주는 시안이에요. 실제 API 호출이 아니며 주소와 호출 수를 정한 것도 아니에요.</div></div>
-  <div><h5>응답 없음 시연</h5><div class="hint" style="margin:6px 0">열려 있는 문의 대화 화면에서 눌러요. 답변 뒤는 5시간, 질문·연결 제안·초안은 2시간 기준이에요. 안내를 한 번 보낸 뒤 대화를 삭제해요.</div><button class="btn sec sm block" data-act="idle-warn">안내 보기 (5시간 · 2시간 경과)</button><button class="btn sec sm block" style="margin-top:6px" data-act="idle-del">안내 뒤 대화 삭제 보기</button><button class="btn sec sm block" style="margin-top:6px" data-act="idle-back">2시간 안에 돌아옴 · 팝업 보기</button></div>
+  <div><h5>응답 없음 시연</h5><div class="hint" style="margin:6px 0">열려 있는 문의 대화 화면에서 눌러요. 답변 뒤는 5시간, 질문·연결 제안·초안 확인은 2시간 기준이에요. 안내를 한 번 보낸 뒤 대화를 삭제해요.</div><button class="btn sec sm block" data-act="idle-warn">안내 보기 (5시간 · 2시간 경과)</button><button class="btn sec sm block" style="margin-top:6px" data-act="idle-del">안내 뒤 대화 삭제 보기</button><button class="btn sec sm block" style="margin-top:6px" data-act="idle-back">2시간 안에 돌아옴 · 팝업 보기</button></div>
   <div><h5>긴급 건 시연</h5><div class="hint" style="margin:6px 0">‘피싱 의심 링크를 눌렀어요’로 문의를 시작해 긴급 안내를 볼 수 있어요. 미연결·미접수로 끝나면 안내와 보안 알림 기록이 남아요.</div><button class="btn sec sm block" data-act="demo-urgent" data-m="start">긴급 문의 시작 (연결 제안까지)</button><button class="btn sec sm block" style="margin-top:6px" data-act="demo-urgent" data-m="decline">긴급 · 미연결 (종료)까지 보기</button><button class="btn sec sm block" style="margin-top:6px" data-act="demo-urgent" data-m="cancel">긴급 · 미접수 (종료)까지 보기</button></div>
   <div><h5>역할 전환</h5><div class="seg" style="margin-top:6px">${idBtn('user','문의자')}${idBtn('staff','담당자')}${idBtn('admin','관리자')}</div><div class="hint" style="margin-top:6px">${S.user?'현재: '+ESC(me().name)+' ('+ESC(me().id)+')':'로그인 전'}</div></div>
   <div><h5>오류 시나리오</h5><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${ck('saveFail','다음 접수에서 ITssue 저장 실패')}${ck('jiraFail','다음 접수에서 Jira 생성 실패·결과 불명확')}${ck('asgFail','다음 접수에서 개인 배정 실패')}<div style="height:1px;background:var(--line)"></div>${ck('autoRun','접수 후 해결 완료까지 자동 진행')}</div></div>
@@ -1177,7 +1178,7 @@ function viewChat(){
   const msgs=i.msgs.map((m,idx)=>renderMsg(i,m,idx)).join('');
   const tmsgs='';
   let foot;
-  if(open){const wait4=t?(t.status==='FIN'&&t.req===S.user?'fin':''):(i.step==='draft'?'draft':(i.step==='answered'||i.step==='offer')?'btn':'');const lockIn=!!wait4||!!i.paused;const ph=i.paused?'아래에서 이어갈 방법을 골라 주세요':lockIn?{fin:'위 카드의 버튼으로 골라 주세요',draft:'초안을 확인하고 버튼으로 골라 주세요',btn:'위 버튼으로 골라 주세요'}[wait4]:t?'담당자에게 추가 내용을 남겨 보세요':'메시지를 입력하세요';const why={fin:'해결 여부는 카드의 버튼(해결 · 미해결)으로 골라 주세요. 글은 보낼 수 없어요. ',draft:'접수 초안은 카드의 버튼(접수 · 수정 · 미접수 (종료))으로 골라 주세요. 글은 보낼 수 없어요. ',btn:'해결 여부나 담당자 연결은 버튼으로 골라 주세요. 글은 보낼 수 없어요. '}[wait4]||'';foot=`<div class="composer-wrap">${i.paused&&!t?`<div class="resume" role="group" aria-label="이어서 하기"><div><b>잠시 자리를 비우셨네요</b><span>이어서 채팅하거나, 새로운 문의를 시작할 수 있어요.</span></div><div class="row"><button class="btn pri sm" data-act="resume-go" data-id="${i.id}">이어서 채팅하기</button><button class="btn sec sm" data-act="resume-new">새로운 문의하기</button></div></div>`:i.idleWarned&&!t?`<div class="idlebar" role="status">${ic('bell')}<span>${IDLE_TEXT[i.idleWarned]}</span></div>`:''}${composerHtml(ph,false,lockIn)}<div class="notice">${why}${MAIL_NOTE} 상담 기록은 처리·운영 목적으로 활용될 수 있어요.</div></div>`;}
+  if(open){const wait4=t?(t.status==='FIN'&&t.req===S.user?'fin':''):(i.step==='draft'?'draft':(i.step==='answered'||i.step==='offer')?'btn':'');const lockIn=!!wait4||!!i.paused;const ph=i.paused?'아래에서 이어갈 방법을 골라 주세요':lockIn?{fin:'위 카드의 버튼으로 골라 주세요',draft:'초안을 확인하고 버튼으로 골라 주세요',btn:'위 버튼으로 골라 주세요'}[wait4]:t?'담당자에게 추가 내용을 남겨 보세요':'메시지를 입력하세요';const why={fin:'해결 여부는 카드의 버튼(해결 · 미해결)으로 골라 주세요. 글은 보낼 수 없어요. ',draft:'접수 초안은 카드의 버튼(접수 · 수정 · 미접수 (종료))으로 골라 주세요. 글은 보낼 수 없어요. ',btn:'해결 여부나 담당자 연결은 버튼으로 골라 주세요. 글은 보낼 수 없어요. '}[wait4]||'';foot=`<div class="composer-wrap">${i.paused&&!t?`<div class="resume" role="group" aria-label="이어서 하기"><div><b>잠시 자리를 비우셨네요</b><span>이어서 채팅하거나, 새로운 문의를 시작할 수 있어요.</span></div><div class="row"><button class="btn pri sm" data-act="resume-go" data-id="${i.id}">이어서 채팅하기</button><button class="btn sec sm" data-act="resume-new" data-id="${i.id}">새로운 문의하기</button></div></div>`:i.idleWarned&&!t?`<div class="idlebar" role="status">${ic('bell')}<span>${IDLE_TEXT[i.idleWarned]}</span></div>`:''}${composerHtml(ph,false,lockIn)}<div class="notice">${why}${MAIL_NOTE} 상담 기록은 처리·운영 목적으로 활용될 수 있어요.</div></div>`;}
   else{const why={'AI 해결':'AI 안내로 해결된 문의입니다.','미확인':'응답이 없어 상담이 종료된 문의입니다. 미확인 처리됐어요.','미해결 종료':'담당자 연결 없이 종료된 문의입니다. 해결된 것으로 기록하지 않았어요.'}[i.state];foot=`<div class="composer-wrap"><div class="composer" style="justify-content:space-between;padding:12px 16px 12px 20px"><span class="muted">${why}</span><button class="btn pri sm" data-act="reopen" data-id="${i.id}">대화 이어가기</button></div></div>`;}
   const right=t?`<button class="btn soft sm" data-act="detail" data-id="${t.receipt}">${ic('file','',18)}접수 상세</button>`:'';
   return `<main class="main">${bgsvg('c')}${topbar(i.title,t?t.receipt+(t.id?' · '+t.id:''):i.id,right+badge(inqKind(i),inqLabel(i)),(()=>{let pk='base';for(let k=i.msgs.length-1;k>=0;k--){const m=i.msgs[k];if(m.r==='a'||m.card){pk=poseOf(i,m,k);break}}return `<span class="tlead">${pav(pk)}</span>`})())}<div class="scroll"><div class="thread">${msgs}${tmsgs}</div></div>${foot}</main>`;
@@ -1245,7 +1246,7 @@ function draftCard(i){
   const inp=(l,id,k,ta)=>edit?`<dt class="ed"><label for="d-${id}">${l}</label></dt><dd>${ta?`<textarea class="ta" id="d-${id}" data-in="d" data-k="${id}">${ESC(d[k])}</textarea>`:`<input class="inp" id="d-${id}" data-in="d" data-k="${id}" value="${ESC(d[k])}">`}</dd>`:row(l,ESC(d[k]));
   const body=`<dl class="dl${edit?' edit':''}">${inp('문의 내용','issue','issue',true)}${fix('대상 시스템',ESC(d.sys))}${inp('발생 시점','onset','onset')}${inp('영향 범위·업무 영향','impact','impact')}${inp('시도한 조치','tried','tried')}${fix('AI 안내',ESC(d.ai))}${fix('분류',d.cat?d.cat+' · '+CATS[d.cat].n:'미분류 · 서비스데스크 확인','cat')}${fix('세부 유형',d.sc?ESC(scTxt(d.sc)):'담당자가 확인해요','sc')}${fix('긴급도',pbadge(d.p)+' <span class="small muted">'+ESC(d.why.join(' · '))+'</span>','p')}${fix('추천 담당 그룹',ESC(d.group),'group')}</dl>${edit?`<p class="hint lkh">${ic('lock')}<span>잠금 표시 항목은 적어 주신 내용으로 자동 판단해요. 내용을 고치면 다시 판단해요.</span></p>`:''}`;
   const acts=done?'':edit?`<div class="replies"><button class="btn pri sm" data-act="d-save" data-id="${i.id}">수정 반영하기</button><button class="btn sec sm" data-act="d-cancel" data-id="${i.id}">취소</button></div>`:`<div class="replies"><button class="btn pri" data-act="d-confirm" data-id="${i.id}">접수</button><button class="btn sec" data-act="d-edit" data-id="${i.id}">수정</button><button class="btn sec" data-act="d-cancelall" data-id="${i.id}">미접수 (종료)</button></div>`;
-  return `<div class="card w"><div class="row" style="justify-content:space-between"><h4>접수 초안</h4>${done?badge('ok','접수 확인 완료'):badge('warn','확인 대기 · 아직 접수되지 않았어요')}</div>${i.dnote?`<div class="alert warn" style="margin-top:10px">${ic('alert')}<div>${ESC(i.dnote)}</div></div>`:''}${body}${acts}</div>`;
+  return `<div class="card w"><div class="row" style="justify-content:space-between"><h4>접수 초안</h4>${done?badge('ok','접수 확인 완료'):badge('warn','확인 대기 · 아직 접수되지 않았어요')}</div>${i.dnote?`<div class="alert warn" style="margin-top:10px">${ic('alert')}<div>${i.dnoteT?'<b>'+ESC(i.dnoteT)+'</b> ':''}${ESC(i.dnote)}</div></div>`:''}${body}${acts}</div>`;
 }
 /* ---- 문의 내역 ---- */
 function viewList(){
@@ -1372,27 +1373,38 @@ const idleResume=i=>{i.idleWarned=null;i.paused=false;};
 function typing(i,label,ms,then){const m=mk(i,{r:'a',typing:true,label});render({bottom:true});later(()=>{i.msgs=i.msgs.filter(x=>x!==m);then();render({bottom:true});},ms);}
 function sendText(text){
   text=text.trim();if(!text)return;
-  text=maskSens(text).t;
+  const orig=text;text=maskSens(text).t; // 제목·담당자 메시지에는 가린 글을, 안내 문구를 고르는 handle 에는 원문을 넘긴다
   const v=S.view;
-  if(v.n==='new'){const i=newInq(text);S.view={n:'chat',id:i.id};handle(i,text,true);return;}
+  if(v.n==='new'){const i=newInq(text);S.view={n:'chat',id:i.id};handle(i,orig,true);return;}
   if(v.n==='chat'){
     const i=S.inqs.find(x=>x.id===v.id);if(!i)return;
     const t=i.ticketId&&tById(i.ticketId);
     if(t){tmsg(t,{from:'문의자',kind:'추가 메시지',t:text,time:NOW()});t.hist.unshift({t:NOW(),who:me().name,what:'문의자 메시지 등록'});slack(t,'담당자('+(t.assignee||'-')+')','문의자가 추가 내용을 남겼습니다.');render({bottom:true});toast('담당자에게 전달했어요.');return;}
-    handle(i,text,false);
+    handle(i,orig,false);
   }
 }
-/* 비밀번호·인증번호로 보이는 값은 대화·초안·로그에 넣기 전에 ●로 바꾼다 */
+/* 민감정보 가림 (docs/10 2.3, 화면에서 쓰는 A·B 등급): 비밀정보(비밀번호·인증번호·API 키·개인 키)와 고유식별·금융(주민번호·카드·계좌)은 대화·초안·로그에 넣기 전에 ●로 바꾼다.
+   휴대폰·이메일·사번, 내선번호·IP·0x 오류 코드는 가리지 않는다. frontend/src/core/mask.ts 와 같은 규칙이다 */
 function maskSens(t){
-  let hit=false;const B='●●●●●●';
-  let o=String(t).replace(/(비밀번호|패스워드|암호|인증번호|인증 번호|보안코드|OTP|PIN|password|passwd|pw)(\s*(?:는|은|이|가|:|=)\s*)([^\s,]+)/gi,(a,k,sep,v)=>{if(/[0-9A-Za-z!@#$%^&*]/.test(v)&&!/^●+$/.test(v)){hit=true;return k+sep+B;}return a;});
-  o=o.replace(/\d{6,}/g,()=>{hit=true;return B;});
-  return {t:o,hit};
+  const B='●●●●●●',r={secret:false,password:false,identity:false},kept=[];
+  let o=String(t).replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}|[\w.+-]+@[\w-]+(?:\.[\w-]+)+|EMP-\d{4}|0[xX][0-9a-fA-F]+/g,m=>'\uE000'+(kept.push(m)-1)+'\uE000');
+  o=o.replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g,()=>{r.secret=true;return B;});
+  o=o.replace(/(?:sk-|ghp_|AKIA|xoxb-|Bearer\s+)[A-Za-z0-9._-]{20,}/g,()=>{r.secret=true;return B;});
+  o=o.replace(/(API\s?키|토큰|token|secret)(\s*(?:는|은|이|가|:|=)?\s*)([A-Za-z0-9._-]{16,})/gi,(a,k,sep)=>{r.secret=true;return k+sep+B;});
+  o=o.replace(/(비밀번호|비번|패스워드|암호|인증번호|인증 번호|인증코드|보안코드|OTP|PIN|password|passwd|pwd|pw)(\s*(?:는|은|이|가|:|=)\s*)([^\s,]+)/gi,(a,k,sep,v)=>{if(/[0-9A-Za-z!@#$%^&*]/.test(v)&&!/^●+$/.test(v)){r.secret=true;if(/^(비밀번호|비번|패스워드|암호|password|passwd|pwd|pw)$/i.test(k))r.password=true;return k+sep+B;}return a;});
+  o=o.replace(/\d{6}-\d{7}/g,()=>{r.identity=true;return B;});
+  o=o.replace(/\d{4}([-\s])\d{4}\1\d{4}\1\d{4}/g,()=>{r.identity=true;return B;});
+  o=o.replace(/\d+(?:-\d+)+/g,m=>{if(m.replace(/-/g,'').length<10)return m;r.identity=true;return B;});
+  o=o.replace(/\d{6,}/g,()=>{r.secret=true;return B;});
+  o=o.replace(/\uE000(\d+)\uE000/g,(a,i)=>kept[+i]);
+  return {t:o,hit:r.secret||r.identity,...r};
 }
+/* 가린 종류에 맞는 안내 문구 (docs/10 6.1): 비밀정보(비밀번호면 재설정 포털 안내를 덧붙임) → 고유식별·금융. 첫 줄은 제목 */
+const MASK_NOTICES=m=>{const o=[];if(m.secret)o.push('<b>민감정보가 감지되었어요.</b><br>입력하신 정보는 안전을 위해 ●●●로 가림 처리했어요. 비밀번호나 인증번호는 입력하지 말아 주세요.'+(m.password?' 실제 사용 중인 비밀번호라면 비밀번호 재설정 포털에서 변경해 주세요.':''));if(m.identity)o.push('<b>개인정보가 감지되었어요.</b><br>입력하신 정보는 안전을 위해 ●●●로 가림 처리했어요. 문의에 필요하지 않은 개인정보는 입력하지 말아 주세요.');return o;};
 function handle(i,text,initial){
   idleResume(i);const sm=maskSens(text);text=sm.t;if(sm.hit)i.sens=true;
   mk(i,{r:'u',t:text});i.when='방금';
-  if(sm.hit||/●{3,}/.test(text)){addSec('민감정보 입력','높음',S.user,'대화에 비밀번호·인증번호로 보이는 값 입력 (●●●●●●)',text,'인증번호·비밀번호 패턴 감지');mk(i,{r:'sys',html:'비밀번호·인증번호로 보이는 값은 저장하기 전에 ●로 바꿨어요. 앞으로는 입력하지 마세요.'});}
+  if(sm.hit||/●{3,}/.test(text)){addSec('민감정보 입력','높음',S.user,'대화에 비밀정보·고유식별 정보로 보이는 값 입력 (●●●●●●)',text,'민감정보 패턴 감지');(MASK_NOTICES(sm).length?MASK_NOTICES(sm):MASK_NOTICES({secret:true})).forEach(n=>mk(i,{r:'sys',html:n}));}
   if(i.step==='draft'){mk(i,{r:'a',html:'<p>초안의 내용을 바꾸려면 아래 초안에서 <b>수정</b>을 눌러 고쳐 주세요. 변경 내용은 접수 전에 다시 확인해 드려요.</p>'});render({bottom:true});return;}
   if(i.step==='offer'||i.step==='answered'){
     i.intake.extra=(i.intake.extra?i.intake.extra+' ':'')+text;absorb(i,text,false);
@@ -1433,7 +1445,7 @@ function doAnswer(i){
     const restricted=RE.rest.test(text);
     if(restricted){
       i.step='offer';log('외부 전송 제한으로 답변 차단 · '+i.id,'AI·규칙');addSec('외부 전송 금지 문서 질의','중간',S.user,'전송 금지 문서 질의 (AI 답변 차단, 담당자 연결 제안)',text,'전송 금지 문서 질의');
-      mk(i,{r:'a',html:'<p>관련 가이드를 찾았지만 <b>외부 모델로 전송할 수 없는 문서</b>라서 이 문의는 AI가 안내할 수 없어요. 열람 권한과 외부 전송 허용은 따로 확인하고 있어요.</p><p>담당자에게 연결해 드릴 수 있어요.</p>',replies:[{l:'담당자 연결',a:'connect-yes',k:'pri'},{l:'미연결 (종료)',a:'connect-no'}]});return;
+      mk(i,{r:'a',html:'<p><b>담당자의 확인이 필요한 문의예요.</b></p><p>보안 정책에 따라 AI가 직접 안내하기 어려운 내용이에요. 담당자에게 문의할 수 있도록 도와드릴게요.</p>',replies:[{l:'담당자 연결',a:'connect-yes',k:'pri'},{l:'미연결 (종료)',a:'connect-no'}]});return;
     }
     if(!i.cat){
       i.step='offer';
@@ -1482,13 +1494,14 @@ function reply(i,a,arg,idx){
 function buildDraft(i){
   const pr=calcPrio(i);const cat=i.cat;const it=i.intake;
   i.draft={title:(cat?CATS[cat].sys:'IT')+' 지원 문의',cat,sys:it.system||(cat?CATS[cat].sys:'확인 필요'),issue:it.issue||i.msgs.find(m=>m.r==='u')?.t||'',onset:it.onset||'확인 필요',impact:it.impact||(i.urgent?'긴급 징후 확인 · 추가 확인은 담당자가 진행':'확인 필요'),tried:it.tried||'확인 필요',ai:i.guide?(i.guide.g+' v'+i.guide.v+' 안내 후에도 해결되지 않음'):(i.urgent?'긴급 징후로 안내 없이 연결':'AI 안내 없음'),p:pr.p,why:pr.why,group:cat?CATS[cat].g:'서비스데스크',sc:cat?detectSc(cat,allText(i)):null};
-  i.step='draft';i.dstate='view';i.dnote='';
+  i.step='draft';i.dstate='view';i.dnote='';i.dnoteT='';
   mk(i,{r:'a',html:'<p>지금까지 확인한 내용을 정리했어요. 맞는지 확인하고, 필요하면 수정해 주세요.</p>',card:'draft'});
   render({bottom:true});
 }
 function draftSave(i){
   const d=i.draft;const before=d.p,beforeCat=d.cat,beforeSc=d.sc&&d.sc.code,beforeGroup=d.group;
-  const g=k=>{const v=document.getElementById('d-'+k)?.value?.trim();return v?maskSens(v).t:v;};
+  const fm={secret:false,password:false,identity:false};
+  const g=k=>{const v=document.getElementById('d-'+k)?.value?.trim();if(!v)return v;const m=maskSens(v);fm.secret=fm.secret||m.secret;fm.password=fm.password||m.password;fm.identity=fm.identity||m.identity;return m.t;};
   d.issue=g('issue')||d.issue;d.onset=g('onset')||d.onset;d.impact=g('impact')||d.impact;d.tried=g('tried')||d.tried;
   const txt=d.issue+' '+d.onset+' '+d.impact+' '+d.tried;
   const c=detectCat(txt);if(c&&c!==d.cat&&RE.sec.test(txt)){d.cat=c;d.group=CATS[c].g;}
@@ -1498,6 +1511,7 @@ function draftSave(i){
   d.chg=[];if(d.cat!==beforeCat)d.chg.push('cat');if((d.sc&&d.sc.code)!==beforeSc)d.chg.push('sc');if(d.p!==before)d.chg.push('p');if(d.group!==beforeGroup)d.chg.push('group');
   i.dstate='view';
   i.dnote=(before!==d.p||beforeCat!==d.cat)?`수정한 내용을 반영해 ${before!==d.p?'긴급도를 '+before+'에서 '+d.p+'(으)로':''}${beforeCat!==d.cat?' 분류를 '+(d.cat||'')+'(으)로':''} 다시 판단했어요. 변경된 내용으로 다시 확인해 주세요.`:'수정 내용을 반영했어요. 최종 접수 전에 한 번 더 확인해 주세요.';
+  i.dnoteT='';if(fm.secret||fm.identity){i.dnoteT='민감정보가 가림 처리되었어요.';i.dnote='입력하신 내용에 민감정보가 포함되어 있어 일부 내용을 가렸어요. 접수 전 내용을 확인해 주세요. '+i.dnote;}
   log('접수 초안 수정 · 재검사 · '+i.id,me().name);
   render();
 }
@@ -1888,7 +1902,7 @@ function preAsk(t){
   t=t.trim();if(!t||S.pre.busy)return;
   const pm=maskSens(t);t=pm.t;
   S.pre.msgs.push({r:'u',t});S.pre.busy=true;S.pre.msgs.push({r:'a',html:'<span class="dots"><i></i><i></i><i></i></span> <span class="muted small">처리 중</span>'});render();
-  later(()=>{S.pre.msgs.pop();S.pre.msgs.push({r:'a',html:(pm.hit?'<p class="small muted">비밀번호·인증번호로 보이는 값은 ●로 바꿨어요. 앞으로는 입력하지 마세요.</p>':'')+preReply(t)});S.pre.busy=false;render();},800);
+  later(()=>{S.pre.msgs.pop();S.pre.msgs.push({r:'a',html:(pm.hit?MASK_NOTICES(pm).map(n=>'<p class="small muted">'+n+'</p>').join(''):'')+preReply(t)});S.pre.busy=false;render();},800);
 }
 function doLogin(id,pw,skipPw){
   const a=S.accounts.find(x=>x.id.toLowerCase()===String(id).trim().toLowerCase());
@@ -1971,7 +1985,7 @@ const A={
   'idle-del'(){const i=curChat();if(!i)return;idleDelete(i);},
   'idle-back'(){const i=curChat();if(!i)return;idleBack(i);},
   'resume-go'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;idleResume(i);mk(i,{r:'sys',html:'같은 대화에서 이어서 진행해요.'});render({bottom:true});},
-  'resume-new'(){S.view={n:'new'};S.detail=null;render();},
+  'resume-new'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(i){const keep=!!(i.urgent||i.sens);S.inqs=S.inqs.filter(x=>x!==i);if(keep)S.hiddenInqs=(S.hiddenInqs||[]).concat(i);log('새 문의 선택 · 이전 문의 '+(keep?'숨김(보안·로그 대상)':'삭제')+' · '+i.id,'문의자');}S.view={n:'new'};S.detail=null;render();toast('이전 문의는 끝내고 삭제했어요.');},
   reopen(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.state='진행 중';i.step='offer';mk(i,{r:'a',html:'<p>상담을 다시 열었어요. 해결되지 않았다면 담당자 연결을 도와드릴게요.</p>',replies:[{l:'담당자 연결',a:'connect-yes',k:'pri'},{l:'미연결 (종료)',a:'connect-no'}]});render({bottom:true});},
   'd-confirm'(e,d){submitDraft(S.inqs.find(x=>x.id===d.id));},
   'd-edit'(e,d){const i=S.inqs.find(x=>x.id===d.id);i.dstate='edit';render();},

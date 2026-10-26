@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { cancelChatDraft, confirmChatDraft, editDraft, getChat, idleBackChat, idleDeleteChat, idleWarnChat, rejectChat, reopenChat, replyChat, resolveChat, resumeChat, sendChat, watchChat } from '../../api/chat'
+import { cancelChatDraft, isStaleInquiry, confirmChatDraft, editDraft, getChat, idleBackChat, idleDeleteChat, idleWarnChat, rejectChat, reopenChat, replyChat, resolveChat, resumeChat, sendChat, watchChat } from '../../api/chat'
 import { IDLE_TEXT, type DraftEdit, type GuideSource, type Inquiry, type InquiryStatus, type LegacyCase } from '../../api/chatTypes'
 import { inquiryState } from '../../api/inquiryState'
 import type { ApiResult } from '../../api/types'
@@ -103,12 +103,17 @@ export function ChatView() {
       setBusy(false)
       if (!r.ok) {
         setError(r.error.message)
+        // 지난 버튼·중복 요청 같은 409: 안내만 하고 끝내지 않고 최신 문의로 다시 그린다
+        if (isStaleInquiry(r.error.code) && employeeNo) {
+          const fresh = await getChat(id, employeeNo)
+          if (fresh.ok) setLoaded({ id, data: fresh.data })
+        }
         return false
       }
       setLoaded({ id, data: r.data })
       return true
     },
-    [id],
+    [id, employeeNo],
   )
 
   const actions: ChatActions | null = useMemo(() => {
@@ -214,7 +219,8 @@ export function ChatView() {
               <button type="button" className="btn pri sm" disabled={busy} onClick={() => void apply(resumeChat(id, employeeNo!))}>
                 이어서 채팅하기
               </button>
-              <button type="button" className="btn sec sm" onClick={() => navigate('/new')}>
+              {/* 새 문의를 고르면 이전 문의는 바로 끝내고 삭제한다 (보안·로그 대상은 숨김). 삭제되면 새 문의 화면으로 이동한다. */}
+              <button type="button" className="btn sec sm" disabled={busy} onClick={() => void apply(idleDeleteChat(id, employeeNo!))}>
                 새로운 문의하기
               </button>
             </div>
