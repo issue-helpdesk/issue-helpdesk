@@ -139,3 +139,7 @@
 /* 상단바는 본문 위에 반투명으로 겹쳐 놓는다. 본문 맨 위의 빈 칸이 상단바 높이(--topH)만큼 비켜 준다 */
 .main>.top{position:absolute;top:0;left:0;right:0;z-index:6;background:color-mix(in srgb,var(--canvas) 72%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 .main>.scroll::before{content:"";display:block;flex:none;height:var(--topH,0px)}
+.grp.gsr{display:flex;align-items:center;justify-content:space-between}
+.gic{width:26px;height:26px;border-radius:8px;border:0;background:transparent;color:var(--mute);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.gic:hover{background:var(--osoft);color:var(--link)}
+.nav .gic{padding:0!important;min-height:0!important;height:26px!important;width:26px!important;gap:0!important;margin-right:-4px}.gic svg{flex:none;width:15px;height:15px}

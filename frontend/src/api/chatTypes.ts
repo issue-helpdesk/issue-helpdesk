@@ -187,6 +187,8 @@ export interface Inquiry {
   categoryCode: CategoryCode | null
   /** 확인하지 않은 담당자 답변 수 */
   unread: number
+  /** 문의를 시작한 시각 (ISO 8601) */
+  createdAt?: string
   /** 최근 활동 시각 (ISO 8601). '어제' 같은 표시는 화면에서 계산한다. */
   updatedAt: string
   messages: ChatMessage[]
