@@ -81,7 +81,7 @@ describe('민감정보 가리기', () => {
 
   it('가린 종류에 맞는 안내 문구를 만든다 (docs/10 6.1)', () => {
     expect(maskNotices(maskSensitive('인증번호: 123456'))).toEqual([MASK_NOTICE])
-    expect(maskNotices(maskSensitive('비밀번호는 abc12345'))[0]).toContain('셀프 비밀번호 재설정 포털')
+    expect(maskNotices(maskSensitive('비밀번호는 abc12345'))[0]).toContain('비밀번호 재설정 포털에서 변경해 주세요')
     expect(maskNotices(maskSensitive('주민번호 900101-1234567'))).toEqual([MASK_NOTICE_IDENTITY])
     expect(maskNotices(maskSensitive('그냥 문장'))).toEqual([])
   })
@@ -92,7 +92,7 @@ describe('민감정보 가리기', () => {
     expect(text).not.toContain('abc12345')
     expect(text).not.toContain('123456')
     expect(a.title).toContain('●')
-    expect(a.messages.some((m) => m.role === 'sys' && m.text?.includes('●로 바꿨어요'))).toBe(true)
+    expect(a.messages.some((m) => m.role === 'sys' && m.text?.includes('가림 처리했어요'))).toBe(true)
   })
 
   it('초안을 고칠 때와 접수 후 추가 메시지에서도 가린다', async () => {
@@ -235,7 +235,7 @@ describe('비밀번호 초기화와 모달 초점', () => {
     const box = screen.getByLabelText('로그인 전 상담 입력')
     await user.type(box, '비밀번호는 abc12345 입니다{Enter}')
     const panel = screen.getByRole('region', { name: '로그인 전 상담' })
-    expect(await within(panel).findByText(/●로 바꿨어요/, {}, SLOW)).toBeInTheDocument()
+    expect(await within(panel).findByText(/가림 처리했어요/, {}, SLOW)).toBeInTheDocument()
     expect(within(panel).queryByText(/abc12345/)).not.toBeInTheDocument()
   })
 })

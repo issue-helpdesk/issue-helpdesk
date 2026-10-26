@@ -9,7 +9,7 @@
  *   → 해결 확인(해결 / 미해결) → 접수 초안 확인·수정 → 접수(RCPT 번호) → Jira·담당자 배정 진행
  */
 import { nowIso } from '../../core/format'
-import { hasMask, MASK_NOTICE, maskNotices, maskSensitive } from '../../core/mask'
+import { BLOCKED_NOTICE, hasMask, MASK_NOTICE, MASK_NOTICE_DRAFT, maskNotices, maskSensitive } from '../../core/mask'
 import { CATEGORIES, FALLBACK_GROUP } from '../catalog'
 import { detectInquiryType } from './inquiryTypes'
 import {
@@ -343,7 +343,7 @@ function doAnswer(rec: StoreRecord) {
       inquiry.step = 'offer'
       push(inquiry, {
         role: 'assistant',
-        blocks: [p('이 문의는 **보안 기준상 AI가 직접 안내할 수 없는 내용**이에요. 담당자에게 연결해 드릴게요.'), p('담당자에게 연결해 드릴 수 있어요.')],
+        blocks: [...BLOCKED_NOTICE.split('\n').map((line, i) => p(i === 0 ? `**${line}**` : line)), p('담당자에게 연결해 드릴 수 있어요.')],
         replies: connectReplies(),
       })
       return
@@ -583,8 +583,7 @@ export function saveDraft(rec: StoreRecord, edit: DraftEdit) {
     ? `수정한 내용을 반영해 ${beforeP !== d.urgency ? `긴급도를 ${beforeP}에서 ${d.urgency}(으)로` : ''}${beforeCat !== d.categoryCode ? ` 분류를 ${d.categoryCode ?? ''}(으)로` : ''} 다시 판단했어요. 변경된 내용으로 다시 확인해 주세요.`
     : '수정 내용을 반영했어요. 최종 접수 전에 한 번 더 확인해 주세요.'
   // 고친 글에서 민감정보를 가렸다면 초안 화면에서도 알린다 (docs/10 6.1)
-  const masked = maskNotices(found)
-  if (masked.length) inquiry.draftNote = `${masked.join(' ')} ${inquiry.draftNote}`
+  if (maskNotices(found).length) inquiry.draftNote = `${MASK_NOTICE_DRAFT} ${inquiry.draftNote}`
 }
 
 /** 접수하지 않고 종료한다 */

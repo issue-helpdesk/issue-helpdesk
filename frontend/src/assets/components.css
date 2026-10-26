@@ -33,6 +33,7 @@
 .msg.a .body{flex:1;min-width:0;max-width:88%;font-size:15px;line-height:27px}
 .msg.a .body p+p{margin-top:8px}
 .msg.a ol{margin:8px 0 0;padding-left:20px}.msg.a li{margin:2px 0}
+.msg.sys.note{border-radius:14px;text-align:left;max-width:min(560px,100%);padding:10px 16px;font-size:13px;line-height:20px;display:flex;flex-direction:column;gap:2px}.msg.sys.note b{color:var(--ink2)}
 .msg.sys{align-self:center;font-size:12.5px;color:var(--mute);background:var(--shell);padding:4px 12px;border-radius:999px;text-align:center}
 .replies{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .src{display:inline-flex;align-items:center;gap:6px;margin-top:10px;margin-right:6px;min-height:32px;padding:0 12px;border-radius:8px;background:var(--card);border:0;box-shadow:inset 0 0 0 1px var(--line);font-size:12.5px;color:var(--ink2);font-weight:500}
