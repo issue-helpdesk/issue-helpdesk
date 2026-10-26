@@ -56,6 +56,8 @@ export function ChatView() {
   const [error, setError] = useState('')
   const [modal, setModal] = useState<ModalState>(null)
   const [reason, setReason] = useState('')
+  // 돌아옴 창에서 "새로운 문의하기"를 누르면 삭제 확인 단계로 바뀐다
+  const [confirmNew, setConfirmNew] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // 문의를 불러오고, 이후 바뀔 때마다(답변 도착, 담당자 진행) 다시 받는다
@@ -88,10 +90,41 @@ export function ChatView() {
   }
   const fresh = known?.id === id ? known.fresh : NO_MESSAGES
 
-  // 새 메시지가 생기면 맨 아래로 내린다
+  // 대화는 맨 아래를 따라간다: 아래에 있던 사용자는 새 메시지·이미지·입력창 높이 변화가 있어도 맨 아래에 머문다.
+  // 위로 올려 읽는 중이면 그대로 두고, 내가 글을 보내면 다시 맨 아래로 내린다.
+  const stick = useRef(true)
+  const ready = !!inquiry
+  const lastRole = inquiry?.messages[inquiry.messages.length - 1]?.role
+  useEffect(() => {
+    stick.current = true // 다른 문의를 열면 맨 아래에서 시작한다
+  }, [id])
+  useEffect(() => {
+    if (lastRole === 'user') stick.current = true
+  }, [count, lastRole])
   useEffect(() => {
     const el = scrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
+    if (!el || !ready) return
+    const down = () => {
+      if (stick.current) el.scrollTop = el.scrollHeight
+    }
+    const onScroll = () => {
+      stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(down)
+    ro?.observe(el)
+    const thread = el.querySelector('.thread')
+    if (thread) ro?.observe(thread)
+    down()
+    return () => {
+      el.removeEventListener('scroll', onScroll)
+      ro?.disconnect()
+    }
+  }, [ready, id])
+  // 글이 늘거나 진행 카드가 바뀔 때에도 아래를 따라간다
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el && stick.current) el.scrollTop = el.scrollHeight
   }, [count, inquiry?.ticket?.workStatus, inquiry?.ticket?.assignStatus])
 
   /** 동작을 보내고 돌아온 문의로 화면을 바꾼다. 실패하면 안내 문구를 보여 준다. */
@@ -292,16 +325,30 @@ export function ChatView() {
       )}
 
       {/* 삭제 전에 돌아왔을 때: 화면 가운데 창에서 고를 때까지 뒤 화면은 어둡고 흐리게 막는다 (닫기 없음) */}
-      {paused && (
-        <Modal title="잠시 자리를 비우셨네요" variant="choice" dismissible={false} lead={<Pav size={84} />}>
+      {paused && !confirmNew && (
+        <Modal key="back" title="잠시 자리를 비우셨네요" variant="choice" dismissible={false} lead={<Pav size={84} />}>
           <p>이어서 채팅하거나, 새로운 문의를 시작할 수 있어요.</p>
           <div className="acts">
             <button type="button" className="btn pri" disabled={busy} onClick={() => void apply(resumeChat(id, employeeNo!))}>
               이어서 채팅하기
             </button>
-            {/* 새 문의를 고르면 이전 문의는 바로 끝내고 삭제한다 (보안·로그 대상은 숨김, 접수된 건은 그대로). 삭제되면 새 문의 화면으로 이동한다. */}
-            <button type="button" className="btn sec" disabled={busy} onClick={() => (t ? navigate('/new') : void apply(idleDeleteChat(id, employeeNo!)))}>
+            {/* 접수된 건은 삭제하지 않으므로 확인 없이 새 문의 화면으로 간다. 그 밖에는 삭제 확인 단계를 거친다. */}
+            <button type="button" className="btn sec" disabled={busy} onClick={() => (t ? navigate('/new') : setConfirmNew(true))}>
               새로운 문의하기
+            </button>
+          </div>
+        </Modal>
+      )}
+      {/* 삭제 확인: 삭제는 "삭제하고 새로 문의하기"에서만 일어난다 (보안·로그 대상은 문의자 화면에서만 숨김). 삭제되면 새 문의 화면으로 이동한다. */}
+      {paused && confirmNew && (
+        <Modal key="confirm" title="현재 대화를 삭제할까요?" variant="choice" role="alertdialog" dismissible={false}>
+          <p>새로운 문의하기를 누르면 현재 대화는 삭제됩니다.</p>
+          <div className="acts">
+            <button type="button" className="btn pri" disabled={busy} onClick={() => void apply(idleDeleteChat(id, employeeNo!))}>
+              삭제하고 새로 문의하기
+            </button>
+            <button type="button" className="btn sec" data-autofocus disabled={busy} onClick={() => setConfirmNew(false)}>
+              돌아가기
             </button>
           </div>
         </Modal>

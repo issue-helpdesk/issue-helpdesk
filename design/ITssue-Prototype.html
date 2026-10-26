@@ -790,6 +790,7 @@ button.kpi.kl .go{position:absolute;right:12px;top:14px;color:var(--mute);transi
 small{font-size:12px}
 .composer.off{opacity:.62}.composer.off textarea{cursor:not-allowed}.composer.off .btn[disabled]{cursor:not-allowed}
 .idlebar{display:flex;align-items:center;gap:10px;max-width:760px;margin:0 auto 8px;background:var(--s-warn-bg);color:var(--s-warn-fg);border-radius:12px;padding:10px 14px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--s-warn-dot) 50%,transparent);font-size:13.5px;font-weight:600}.idlebar .i{width:18px;height:18px;flex:none}.idlebar span{flex:1;min-width:0}.ov.rs{background:rgba(24,12,36,.38);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}:root[data-theme="dark"] .ov.rs{background:rgba(5,2,12,.55)}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ov.rs{background:rgba(5,2,12,.55)}}
+.ov.rs.pop{animation:rdbg .16s linear both}.ov.rs.pop .rdlg{animation:rdpop .28s cubic-bezier(.34,1.56,.64,1) both}@keyframes rdbg{from{opacity:0}to{opacity:1}}@keyframes rdpop{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.ov.rs.pop,.ov.rs.pop .rdlg{animation:none}}
 .rdlg{width:min(380px,100%);background:var(--white);color:var(--ink);border-radius:20px;box-shadow:var(--pop),inset 0 0 0 1px var(--line);padding:22px 22px 18px;text-align:center}.rdlg img{width:84px;height:84px;display:block;margin:-6px auto 4px}.rdlg h3{font-size:17px;line-height:26px}.rdlg p{margin:6px 0 16px;font-size:13.5px;line-height:21px;color:var(--mute)}.rdlg .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 </style>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -952,8 +953,21 @@ function render(opts={}){
   const sd2=root.querySelector('.side');if(sd2&&sdTop)sd2.scrollTop=sdTop;
   const pre=root.querySelector('#prethread');if(pre)pre.scrollTop=pre.scrollHeight;
   document.querySelectorAll('.main').forEach(m=>{const t=m.querySelector(':scope>.top');if(t)m.style.setProperty('--topH',t.offsetHeight+'px')});
+  stickBottom(opts.bottom||(S.view.n==='chat'&&!keep));
   renderOverlay();syncDetailModal();
   animateKpis();animateViz();animateIn();
+}
+/* 대화는 맨 아래를 따라간다: 아래에 있던 사용자는 새 메시지·이미지·입력창 높이 변화가 있어도 맨 아래에 머문다. 위로 올려 읽는 중이면 그대로 둔다 */
+let __ro=null;
+function stickBottom(force){
+  if(__ro){__ro.disconnect();__ro=null;}
+  const sc=document.querySelector('.main .scroll');if(!sc||S.view.n!=='chat')return;
+  if(force)S.stick=true;else if(S.stick===undefined)S.stick=true;
+  const gap=()=>sc.scrollHeight-sc.scrollTop-sc.clientHeight;
+  sc.addEventListener('scroll',()=>{S.stick=gap()<80;},{passive:true});
+  const down=()=>{if(S.stick)sc.scrollTop=sc.scrollHeight;};
+  if(window.ResizeObserver){__ro=new ResizeObserver(down);__ro.observe(sc);const th=sc.querySelector('.thread');if(th)__ro.observe(th);}
+  down();
 }
 /* 화면에 들어올 때 한 번: 알림 배지가 늘면 벨 흔들기, 새 문의 첫 화면 진입 */
 window.__nb=window.__nb||{};
@@ -1100,12 +1114,16 @@ function renderOverlay(){
   if(S.modal)h+=`<div class="ov" data-act="modal-bg"><div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label="${ESC(S.modal.title)}">${S.modal.html}</div></div>`;
   if(S.drawer)h+=`<div class="drawer" role="dialog" aria-modal="true" tabindex="-1" aria-label="요구사항 매핑">${drawerHtml()}</div>`;
   const pi=S.view.n==='chat'&&S.inqs.find(x=>x.id===S.view.id&&x.paused);
-  if(pi)h+=`<div class="ov rs"><div class="rdlg" role="dialog" aria-modal="true" aria-labelledby="rs-t" aria-describedby="rs-d"><img src="${PAVIMG.base}" alt="" width="84" height="84"><h3 id="rs-t">잠시 자리를 비우셨네요</h3><p id="rs-d">이어서 채팅하거나, 새로운 문의를 시작할 수 있어요.</p><div class="acts"><button class="btn pri" data-act="resume-go" data-id="${pi.id}">이어서 채팅하기</button><button class="btn sec" data-act="resume-new" data-id="${pi.id}">새로운 문의하기</button></div></div></div>`;
+  const rk=pi?pi.id+':'+(pi.confirmNew?'c':'a'):'',pop=rk!==S.resumeKey;S.resumeKey=rk;
+  if(pi&&!pi.confirmNew)h+=`<div class="ov rs${pop?' pop':''}"><div class="rdlg" role="dialog" aria-modal="true" aria-labelledby="rs-t" aria-describedby="rs-d"><img src="${PAVIMG.base}" alt="" width="84" height="84"><h3 id="rs-t">잠시 자리를 비우셨네요</h3><p id="rs-d">이어서 채팅하거나, 새로운 문의를 시작할 수 있어요.</p><div class="acts"><button class="btn pri" data-act="resume-go" data-id="${pi.id}">이어서 채팅하기</button><button class="btn sec" data-act="resume-new" data-id="${pi.id}">새로운 문의하기</button></div></div></div>`;
+  /* 새로운 문의하기를 누르면 이전 대화가 삭제되므로 한 번 더 확인한다 */
+  if(pi&&pi.confirmNew)h+=`<div class="ov rs${pop?' pop':''}"><div class="rdlg" role="alertdialog" aria-modal="true" aria-labelledby="rs-t" aria-describedby="rs-d"><h3 id="rs-t">현재 대화를 삭제할까요?</h3><p id="rs-d">새로운 문의하기를 누르면 현재 대화는 삭제됩니다.</p><div class="acts"><button class="btn pri" data-act="resume-del" data-id="${pi.id}">삭제하고 새로 문의하기</button><button class="btn sec" data-act="resume-back" data-id="${pi.id}">돌아가기</button></div></div></div>`;
   h+=demoHtml();
   const f=o.querySelector('[data-keep]'); // 시연 도구 스크롤 유지
   o.innerHTML=h;
   const rt=$('#root');if(rt)rt.inert=!!(S.modal||S.drawer||pi);
-  if(pi&&!S.resumeShown){S.resumeShown=true;setTimeout(()=>document.querySelector('.rdlg [data-act="resume-go"]')?.focus(),0);}else if(!pi)S.resumeShown=false;
+  /* 처음 뜰 때는 첫 버튼, 삭제 확인에서는 안전한 "돌아가기"로 초점을 둔다 */
+  if(pop&&pi)setTimeout(()=>document.querySelector(pi.confirmNew?'.rdlg [data-act="resume-back"]':'.rdlg [data-act="resume-go"]')?.focus(),0);
 }
 /* 초점: 열기 전 위치를 기억하고, 안에서만 순환하고, 닫으면 돌아간다 */
 /* 입력 오류는 토스트가 아니라 해당 입력 아래에 남기고, 입력과 연결한다 */
@@ -1374,7 +1392,7 @@ function idleBack(i){
   if(!idleKind(i))return;
   i.paused=true;S.demoOpen=false;render({bottom:true});toast('(시연) 잠시 떠났다가 돌아왔어요.');
 }
-const idleResume=i=>{i.idleWarned=null;i.paused=false;};
+const idleResume=i=>{i.idleWarned=null;i.paused=false;i.confirmNew=false;};
 function typing(i,label,ms,then){const m=mk(i,{r:'a',typing:true,label});render({bottom:true});later(()=>{i.msgs=i.msgs.filter(x=>x!==m);then();render({bottom:true});},ms);}
 function sendText(text){
   text=text.trim();if(!text)return;
@@ -1990,7 +2008,9 @@ const A={
   'idle-del'(){const i=curChat();if(!i)return;idleDelete(i);},
   'idle-back'(){const i=curChat();if(!i)return;idleBack(i);},
   'resume-go'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;idleResume(i);mk(i,{r:'sys',html:'같은 대화에서 이어서 진행해요.'});render({bottom:true});},
-  'resume-new'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(i&&!i.ticketId){const keep=!!(i.urgent||i.sens);S.inqs=S.inqs.filter(x=>x!==i);if(keep)S.hiddenInqs=(S.hiddenInqs||[]).concat(i);log('새 문의 선택 · 이전 문의 '+(keep?'숨김(보안·로그 대상)':'삭제')+' · '+i.id,'문의자');}S.view={n:'new'};S.detail=null;render();toast(i&&!i.ticketId?'이전 문의는 끝내고 삭제했어요.':'접수된 건은 그대로 남아 있어요.');},
+  'resume-new'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;if(i.ticketId){S.view={n:'new'};S.detail=null;render();toast('접수된 건은 그대로 남아 있어요.');return;}i.confirmNew=true;renderOverlay();},
+  'resume-back'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.confirmNew=false;renderOverlay();},
+  'resume-del'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;const keep=!!(i.urgent||i.sens);S.inqs=S.inqs.filter(x=>x!==i);if(keep)S.hiddenInqs=(S.hiddenInqs||[]).concat(i);log('새 문의 선택 · 이전 문의 '+(keep?'숨김(보안·로그 대상)':'삭제')+' · '+i.id,'문의자');S.view={n:'new'};S.detail=null;render();toast('이전 문의는 끝내고 삭제했어요.');},
   reopen(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.state='진행 중';i.step='offer';mk(i,{r:'a',html:'<p>상담을 다시 열었어요. 해결되지 않았다면 담당자 연결을 도와드릴게요.</p>',replies:[{l:'담당자 연결',a:'connect-yes',k:'pri'},{l:'미연결 (종료)',a:'connect-no'}]});render({bottom:true});},
   'd-confirm'(e,d){submitDraft(S.inqs.find(x=>x.id===d.id));},
   'd-edit'(e,d){const i=S.inqs.find(x=>x.id===d.id);i.dstate='edit';render();},
