@@ -8,6 +8,7 @@
 import { useEffect, useRef } from 'react'
 import body from '../assets/mascot/berry-body.webp'
 import eyes from '../assets/mascot/berry-eyes.webp'
+import eyesClosed from '../assets/mascot/berry-eyes-closed.webp'
 
 /** 가만히 있을 때 눈이 가끔 향하는 자리 */
 const GLANCES: [number, number][] = [[-14, 0], [14, 0], [0, -9], [-10, 6], [10, 6], [0, 0]]
@@ -76,12 +77,8 @@ export function Mascot({ peek = false, shy = false }: Props) {
     <div className={peek ? `peek${shy ? ' shy' : ''}` : 'berry'} ref={box} {...(peek ? { 'aria-hidden': true } : { role: 'img', 'aria-label': '잇슈 캐릭터' })}>
       <img className="bb" src={body} alt="" />
       <img className="be" ref={eye} src={eyes} alt="" />
-      {peek && (
-        // 눈을 감은 모습: 비밀번호를 입력하는 동안 눈 이미지 대신 보인다
-        <svg className="ec" viewBox="0 0 720 720" aria-hidden="true">
-          <path d="M205 398Q232 424 259 398M314 408Q341 434 368 408" fill="none" stroke="#43223B" strokeWidth="13" strokeLinecap="round" />
-        </svg>
-      )}
+      {/* 눈을 감은 모습: 비밀번호를 입력하는 동안 눈 뜬 이미지 대신 보인다. 720×720 캔버스 전체를 같은 크기로 겹치며, 눈 뜬 이미지와 달리 포인터를 따라 움직이지 않는다 */}
+      {peek && <img className="ec" src={eyesClosed} alt="" aria-hidden="true" width={720} height={720} />}
     </div>
   )
 }
