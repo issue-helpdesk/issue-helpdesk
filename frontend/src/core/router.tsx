@@ -6,9 +6,11 @@
  */
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AppShell } from '../ui/AppShell'
+import { LoadingScreen } from '../ui/LoadingScreen'
 import { FaqView } from '../views/faq/FaqView'
 import { HomePlaceholder } from '../views/HomePlaceholder'
 import { ChatView } from '../views/inquiry/ChatView'
+import { InquiryListView } from '../views/inquiry/InquiryListView'
 import { NewInquiryView } from '../views/inquiry/NewInquiryView'
 import { LoginView } from '../views/login/LoginView'
 import { HOME_BY_ROLE } from './roles'
@@ -20,7 +22,7 @@ import { useAuth } from './session'
  */
 function RequireAuth() {
   const { user, loading } = useAuth()
-  if (loading) return null // 저장된 토큰 확인 중에는 아무것도 그리지 않는다
+  if (loading) return <LoadingScreen /> // 저장된 토큰을 확인하는 동안 (0.3초 넘게 걸릴 때만) 확인 중이라고 알린다
   if (!user) return <Navigate to="/login" replace />
   return <Outlet />
 }
@@ -28,7 +30,7 @@ function RequireAuth() {
 /** 알 수 없는 주소로 오면 로그인 상태에 맞는 첫 화면으로 보낸다. */
 function Landing() {
   const { user, loading } = useAuth()
-  if (loading) return null
+  if (loading) return <LoadingScreen />
   return <Navigate to={user ? HOME_BY_ROLE[user.serviceRole] : '/login'} replace />
 }
 
@@ -43,7 +45,7 @@ export function AppRoutes() {
         <Route element={<AppShell />}>
           {/* 문의 (모든 역할 공통) */}
           <Route path="/new" element={<NewInquiryView />} />
-          <Route path="/list" element={<HomePlaceholder title="문의 내역" />} />
+          <Route path="/list" element={<InquiryListView />} />
           <Route path="/chat/:id" element={<ChatView />} />
           <Route path="/faq" element={<FaqView />} />
           {/* 담당자·관리자. 화면을 만들면 HomePlaceholder 를 실제 화면으로 바꾼다 */}

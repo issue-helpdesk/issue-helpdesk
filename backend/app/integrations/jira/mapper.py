@@ -1,4 +1,4 @@
-"""접수 데이터를 ITSD(IT Service Desk) 티켓 생성 요청으로 바꾼다.
+"""접수 데이터를 ITHD 티켓 생성 요청으로 바꾼다.
 
 입력 키는 06 테이블 설계서의 DB 컬럼 이름이다 (07 API 계약서 0장).
 어떤 키가 어느 Jira 필드로 가는지는 field_mapping.yaml 의 fields·options·create 절이 정한다.
@@ -86,7 +86,7 @@ def to_jira_fields(ticket: Mapping[str, Any], m: Mapping[str, Any] | None = None
         "issuetype": {"id": issue_type["id"]},
     }
     if description:
-        out["description"] = _adf(description)  # 전체 글. customfield_10130 은 255자까지만
+        out["description"] = _adf(description)  # 전체 글. customfield_10058 은 255자까지만
 
     for key, code in values.items():
         if key in create["skip"] or key not in m["fields"]:
@@ -108,3 +108,12 @@ def to_jira_fields(ticket: Mapping[str, Any], m: Mapping[str, Any] | None = None
                 out[opt["field"]] = {"id": entry["id"]}
 
     return out
+
+
+def work_status_from_jira(status_id: Any, m: Mapping[str, Any] | None = None) -> str | None:
+    """Jira 상태 ID → ITssue 업무 상태(RDY·WIP·FIN·CLS). 매핑에 없는 상태면 None."""
+    m = m or load_mapping()
+    for code, entry in m["options"]["work_status"]["values"].items():
+        if str(entry["id"]) == str(status_id):
+            return code
+    return None

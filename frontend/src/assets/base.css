@@ -9,6 +9,15 @@ h1,h2,h3,h4,p{margin:0}
 .i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .lg{display:block;max-width:100%;height:auto}
 :focus-visible{outline:2px solid var(--o600);outline-offset:2px;border-radius:8px}
-:root[data-theme="dark"] :focus-visible{outline-color:#FFA566}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) :focus-visible{outline-color:#FFA566}}
+:root[data-theme="dark"] :focus-visible{outline-color:#FF8FB8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) :focus-visible{outline-color:#FF8FB8}}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+:root[data-theme="dark"] .tag{color:#FFB0CF}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tag{color:#FFB0CF}}
+:root[data-theme="dark"] .who .pf{color:#FFB0CF}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .who .pf{color:#FFB0CF}}
+:root[data-theme="dark"] .btn.pri,:root[data-theme="dark"] .composer .btn.ico.pri,:root[data-theme="dark"] .count{background:#D6336F}:root[data-theme="dark"] .btn.pri:hover,:root[data-theme="dark"] .composer .btn.ico.pri:hover{background:#C42B64}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.pri,:root:not([data-theme="light"]) .composer .btn.ico.pri,:root:not([data-theme="light"]) .count{background:#D6336F}:root:not([data-theme="light"]) .btn.pri:hover,:root:not([data-theme="light"]) .composer .btn.ico.pri:hover{background:#C42B64}}
+:root[data-theme="dark"]{--lg-it:#F0508C}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--lg-it:#F0508C}}
+:root{--divider:#D5D9DF;--ease:cubic-bezier(.2,.8,.2,1);--hvg:#F3F4F6;--prg:#E5E7EB}
+:root[data-theme="dark"]{--divider:#352C50;--hvg:#26203F;--prg:#2F2750}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--divider:#352C50;--hvg:#26203F;--prg:#2F2750}}
