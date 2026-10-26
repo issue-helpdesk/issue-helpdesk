@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { cancelChatDraft, confirmChatDraft, editDraft, getChat, idleWarnChat, rejectChat, reopenChat, replyChat, resolveChat, sendChat, timeoutChat, watchChat } from '../../api/chat'
+import { cancelChatDraft, isStaleInquiry, confirmChatDraft, editDraft, getChat, idleWarnChat, rejectChat, reopenChat, replyChat, resolveChat, sendChat, timeoutChat, watchChat } from '../../api/chat'
 import { IDLE_WARN_TEXT, type DraftEdit, type GuideSource, type Inquiry, type InquiryStatus, type LegacyCase } from '../../api/chatTypes'
 import { inquiryState } from '../../api/inquiryState'
 import type { ApiResult } from '../../api/types'
@@ -98,12 +98,17 @@ export function ChatView() {
       setBusy(false)
       if (!r.ok) {
         setError(r.error.message)
+        // 지난 버튼·중복 요청 같은 409: 안내만 하고 끝내지 않고 최신 문의로 다시 그린다
+        if (isStaleInquiry(r.error.code) && employeeNo) {
+          const fresh = await getChat(id, employeeNo)
+          if (fresh.ok) setLoaded({ id, data: fresh.data })
+        }
         return false
       }
       setLoaded({ id, data: r.data })
       return true
     },
-    [id],
+    [id, employeeNo],
   )
 
   const actions: ChatActions | null = useMemo(() => {

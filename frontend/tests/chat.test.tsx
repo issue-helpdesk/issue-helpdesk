@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import App from '../src/App'
-import { advanceChat, cancelChatDraft, confirmChatDraft, editDraft, getChat, reopenChat, rejectChat, replyChat, resolveChat, sendChat, startChat, timeoutChat } from '../src/api/chat'
+import { advanceChat, isStaleInquiry, cancelChatDraft, confirmChatDraft, editDraft, getChat, reopenChat, rejectChat, replyChat, resolveChat, sendChat, startChat, timeoutChat } from '../src/api/chat'
 import type { Inquiry } from '../src/api/chatTypes'
 import { calcUrgency, detectCategory } from '../src/api/mock/chatEngine'
 import { mockConfig } from '../src/api/mock/chatStore'
@@ -170,6 +170,15 @@ describe('대화 흐름 (API)', () => {
     const reopened = await data(reopenChat(a.id, USER.employeeNo))
     expect(reopened.status).toBe('IN_PROGRESS')
     expect(last(reopened).replies?.map((r) => r.action)).toContain('connect-yes')
+  })
+})
+
+describe('어긋난 요청 오류 (API)', () => {
+  it('지난 버튼·중복 요청 같은 409 오류는 최신 화면으로 다시 그리는 대상이다', () => {
+    expect(isStaleInquiry('INQUIRY_INVALID_STATE')).toBe(true)
+    expect(isStaleInquiry('INQUIRY_CLOSED')).toBe(true)
+    expect(isStaleInquiry('REQUEST_IN_PROGRESS')).toBe(true)
+    expect(isStaleInquiry('INQUIRY_NOT_FOUND')).toBe(false)
   })
 })
 

@@ -110,8 +110,8 @@ export interface Draft {
   targetSystem: string
   /** 문의 요약 (ticket_drafts.summary) */
   summary: string
-  /** 발생 시점. DB 컬럼 없이 Jira 접수 내용에만 넣는다. */
-  onset: string
+  /** 발생 시점. 사용자 표현 그대로 둔다 (API `occurredAt`, DB `occurred_at`). */
+  occurredAt: string
   /** 업무 영향 (business_impact) */
   businessImpact: string
   triedActions: string
@@ -137,7 +137,7 @@ export type RejudgedField = 'category' | 'inquiryType' | 'urgency' | 'group'
 export interface DraftEdit {
   summary: string
   /** 발생 시점. 문의자가 쓴 말이라 고칠 수 있다. 보내지 않으면 기존 값을 유지한다. */
-  onset?: string
+  occurredAt?: string
   businessImpact: string
   triedActions: string
 }

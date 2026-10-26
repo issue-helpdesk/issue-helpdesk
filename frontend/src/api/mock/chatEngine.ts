@@ -514,7 +514,7 @@ function buildDraft(rec: StoreRecord) {
     categoryCode: cat,
     targetSystem: it.targetSystem ?? (cat ? CATEGORIES[cat].targetSystem : '확인 필요'),
     summary: it.summary ?? inquiry.messages.find((m) => m.role === 'user')?.text ?? '',
-    onset: it.onset ?? '확인 필요',
+    occurredAt: it.onset ?? '확인 필요',
     businessImpact: it.businessImpact ?? (internal.urgent ? '긴급 징후 확인 · 추가 확인은 담당자가 진행' : '확인 필요'),
     triedActions: it.triedActions ?? '확인 필요',
     aiSummary: internal.guideLabel ? `${internal.guideLabel} 안내 후에도 해결되지 않음` : internal.urgent ? '긴급 징후로 안내 없이 연결' : 'AI 안내 없음',
@@ -541,10 +541,10 @@ export function saveDraft(rec: StoreRecord, edit: DraftEdit) {
   // 고친 글에 비밀번호·인증번호가 있으면 저장하기 전에 가린다
   const clean = (v: string | undefined) => (v ?? '').trim() && maskSensitive((v ?? '').trim()).text
   d.summary = clean(edit.summary) || d.summary
-  d.onset = clean(edit.onset) || d.onset
+  d.occurredAt = clean(edit.occurredAt) || d.occurredAt
   d.businessImpact = clean(edit.businessImpact) || d.businessImpact
   d.triedActions = clean(edit.triedActions) || d.triedActions
-  const txt = `${d.summary} ${d.onset} ${d.businessImpact} ${d.triedActions}`
+  const txt = `${d.summary} ${d.occurredAt} ${d.businessImpact} ${d.triedActions}`
   const c = detectCategory(txt)
   if (c && c !== d.categoryCode && RE.sec.test(txt)) {
     d.categoryCode = c
