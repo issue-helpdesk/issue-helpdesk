@@ -949,6 +949,7 @@ function render(opts={}){
   root.innerHTML=S.view.n==='login'?viewLogin():shell();
   const ta2=document.getElementById('cmp');
   if(ta2){ta2.value=S.compose[key()]||'';if(hadFocus){ta2.focus();ta2.setSelectionRange(ta2.value.length,ta2.value.length);}autosize(ta2);}
+  root.querySelectorAll('.composer textarea').forEach(syncSend);
   const sc2=root.querySelector('.scroll');
   if(sc2){sc2.dataset.k=key();if(opts.bottom||(S.view.n==='chat'&&!keep))sc2.scrollTop=sc2.scrollHeight;else if(keep)sc2.scrollTop=st;}
   const sd2=root.querySelector('.side');if(sd2&&sdTop)sd2.scrollTop=sdTop;
@@ -1066,6 +1067,8 @@ function animateViz(){
     once(okey('trend',sv,si,'svg[viewBox]',ctx),()=>lineRise(sv,0));});
 }
 function autosize(t){t.style.height='auto';t.style.height=Math.min(140,t.scrollHeight)+'px';}
+/* 보내기 버튼: 글이 비어 있거나 입력창이 꺼져 있으면 비활성(흐리게), 글자가 들어오면 활성 */
+function syncSend(t){const b=t&&t.closest('.composer')&&t.closest('.composer').querySelector('.btn.ico.pri');if(b)b.disabled=!!t.disabled||!t.value.trim();}
 
 function navCounts(){
   const mine=S.inqs.filter(i=>i.owner===S.user);
@@ -2008,9 +2011,9 @@ const A={
   close(){closeModal();},
   forgot(){openModal('비밀번호 초기화',`<p class="muted small" style="margin:0 0 12px">사번과 휴대폰 인증으로 직접 초기화해요. 새 비밀번호는 인증 뒤에 설정해요.</p><div class="field"><label for="m-fid">사번</label><input class="inp" id="m-fid" autocomplete="username" placeholder="예) HS1001"></div><div class="row" style="margin-top:16px"><button class="btn pri" data-act="forgot-do">휴대폰으로 인증하기</button><button class="btn sec" data-act="close">취소</button></div><p class="hint" style="margin-top:12px">휴대폰이 바뀌었거나 인증이 안 되면 서비스데스크 ${SERVICEDESK_PHONE}로 연락해 주세요.</p>`);},
   'forgot-do'(){const id=val('m-fid').trim();if(!id){fieldErr('m-fid','사번을 입력해 주세요.');return;}openModal('인증 문자를 보냈어요',`<p style="margin:0 0 12px;line-height:24px">등록된 사번이면 휴대폰으로 인증 문자를 보내드려요. 인증을 마치면 새 비밀번호를 설정할 수 있고, 잠긴 계정이면 잠금도 함께 풀려요.</p><p class="hint">시연: 이 프로토타입은 실제 문자를 보내지 않아요.</p><div class="row" style="margin-top:16px"><button class="btn pri" data-act="close">확인</button></div>`);},
-  prefill(e,d){const ta=document.getElementById('cmp');ta.value=d.t;ta.focus();autosize(ta);},
+  prefill(e,d){const ta=document.getElementById('cmp');ta.value=d.t;ta.focus();autosize(ta);syncSend(ta);},
   attach(){toast('첨부 파일은 이 프로토타입에서 동작하지 않아요. 화면 캡처 첨부는 접수 후 담당자와 주고받는 흐름에서 다룰 예정이에요.');},
-  send(){const ta=document.getElementById('cmp');const t=ta.value;if(!t.trim())return;ta.value='';S.compose[key()]='';sendText(t);},
+  send(){const ta=document.getElementById('cmp');const t=ta.value;if(!t.trim())return;ta.value='';S.compose[key()]='';syncSend(ta);sendText(t);},
   legacy(e,d){openModal('과거 처리 사례 · '+d.no,`<p class="small muted">도입 이전 처리 이력 (읽기 전용, 시연용 가상 데이터)</p><div class="card w"><b>${ESC(d.title)}</b><dl class="dl" style="margin-top:8px"><dt>증상</dt><dd>노트북 화면이 깜빡이고 가끔 꺼짐</dd><dt>해결 방법</dt><dd>디스플레이 케이블 재연결, 드라이버 재설치</dd><dt>활용 기준</dt><dd>현재 Guide·운영 정책과 충돌하지 않을 때만 참고하고, 충돌하면 Guide를 우선해요.</dd></dl></div><div class="acts"><button class="btn pri" data-act="close">닫기</button></div>`);},
   src(e,d){openModal(d.g+' v'+d.v,`<p class="small muted">출처 미리보기 (시연용)</p><div class="card w"><b>${ESC(d.sec)}</b><p style="margin-top:6px;line-height:24px">${ESC((Object.values(KB).find(k=>k.g===d.g)||{steps:['요약 내용']}).steps.join(' '))}</p></div><div class="acts"><button class="btn pri" data-act="close">닫기</button></div>`);},
   reply(e,d){const i=S.inqs.find(x=>x.id===d.id);if(i)reply(i,d.r,d.arg,+d.mi);},
@@ -2034,7 +2037,7 @@ const A={
   'l-clear'(){S.listFilter='전체';S.lq='';S.lcat=undefined;S.lper=undefined;S.page.list=1;render();},
   'l-qclear'(){S.lq='';S.page.list=1;render();setTimeout(()=>{const n=document.getElementById('lq');n&&n.focus();},0);},
   'l-search'(){S.view={n:'list'};S.lopen=true;S.detail=null;S.navOpen=false;render();setTimeout(()=>{const n=document.getElementById('lq');n&&n.focus();},0);},
-  'faq-ask'(e,d){S.view={n:'new'};render();setTimeout(()=>{const ta=document.getElementById('cmp');if(ta){ta.value=d.t;autosize(ta);ta.focus();}},0);},
+  'faq-ask'(e,d){S.view={n:'new'};render();setTimeout(()=>{const ta=document.getElementById('cmp');if(ta){ta.value=d.t;autosize(ta);syncSend(ta);ta.focus();}},0);},
   detail(e,d){S.openerD=selOf(e);if(!S.detail){S.dEnter=true;setTimeout(()=>{S.dEnter=false},400);}S.detail=d.id;const t=tById(d.id);if(t)t.newReply=false;render();setTimeout(()=>{const c=document.querySelector('.detail [data-act="dclose"]');if(c)c.focus({preventScroll:true});},0);},
   dclose(){const app=document.querySelector('.app.has-detail');if(app&&!S.dLeave&&!(matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches)){S.dLeave=true;app.classList.add('dleave');setTimeout(()=>{S.dLeave=false;S.detail=null;render();restoreFocus('openerD');},230);return;}S.detail=null;render();restoreFocus('openerD');},
   'tk-ok'(e,d){const t=tById(d.id);setStatus(t,'CLS','문의자 해결 확인');const i=S.inqs.find(x=>x.id===t.inq);if(i){i.state='담당자 이관';}render({bottom:true});toast('해결 확인이 기록되었어요.');},
@@ -2290,6 +2293,7 @@ document.addEventListener('click',ev=>{
 document.addEventListener('input',ev=>{
   const el=ev.target;const k=el.dataset&&el.dataset.in;if(!k)return;
   if(k==='cmp')autosize(el);
+  if(k==='cmp'||k==='pre')syncSend(el);
   if(k==='flag')S.flags[el.dataset.k]=el.checked;
   if(k==='gfile'){const f=el.files[0];const t=document.getElementById('m-t');if(f&&t&&!t.value)t.value=f.name.replace(/\.[^.]+$/,'');}
   if(k==='lq'){S.lq=el.value;S.page.list=1;patch(viewList,['lres','lclr','lxb']);}if(k==='aq'){S.acctQ=el.value;S.page.acct=1;patch(viewAccounts,['ares']);}
