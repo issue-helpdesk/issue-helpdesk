@@ -3,7 +3,7 @@
  * 담당자 배정 여부는 배정 상태(assignStatus)로, 처리 단계는 업무 상태(workStatus)로 본다.
  * Jira 생성이나 배정에 실패하거나 생성 결과를 아직 모를 때(VERIFYING)도 문의자에게는 '담당자 확인 중'으로 안내한다.
  * (docs/07.API_계약서.md 상태 전환)
- * 담당자가 처리 결과를 등록하면(해결 확인 대기) 문의자가 "해결됐어요 / 아직 해결되지 않았어요"를 고른다.
+ * 담당자가 처리 결과를 등록하면(해결 확인 대기) 문의자가 "해결 / 미해결"을 고른다.
  *
  * 색은 현재 단계를 따른다 (디자인 가이드): 담당자 배정 중=청록, 처리 대기·처리 중=파랑, 해결 확인 대기=보라, 해결 완료=초록.
  * 상태가 바뀐 단계만 한 번 움직이고, 해결 완료가 되는 순간에는 체크가 그려지고 스파크가 튄다.
@@ -12,6 +12,7 @@ import { useState, type CSSProperties } from 'react'
 import { WORK_STATUS } from '../../api/catalog'
 import type { Ticket } from '../../api/chatTypes'
 import { formatDateTime } from '../../core/format'
+import { POSE_IMG } from '../../ui/poseImages'
 
 type StepState = 'done' | 'cur' | 'todo'
 
@@ -86,6 +87,10 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
 
   return (
     <div className="card">
+      {/* 카드 오른쪽 위의 잇슈: 처리 중이면 "처리 중 잇슈", 해결 완료면 "완료 잇슈". 상태는 아래 글과 진행 단계가 전한다 */}
+      <div className="pose" aria-hidden="true">
+        <img src={POSE_IMG[t.workStatus === 'CLS' ? 'done' : 'handoff']} alt="" />
+      </div>
       <div className="row" style={{ justifyContent: 'space-between', gap: 8 }}>
         <b style={{ fontSize: 15 }}>{t.title}</b>
         <span className="mono small muted">
@@ -129,10 +134,10 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
       {t.workStatus === 'FIN' && !readOnly && (
         <div className="replies">
           <button type="button" className="chip on" disabled={busy} onClick={onResolve}>
-            해결됐어요
+            해결
           </button>
           <button type="button" className="chip" disabled={busy} onClick={onReject}>
-            아직 해결되지 않았어요
+            미해결
           </button>
         </div>
       )}

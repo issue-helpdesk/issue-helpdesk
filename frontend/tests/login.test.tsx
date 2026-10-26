@@ -26,6 +26,18 @@ function renderApp(path = '/login') {
 }
 
 describe('로그인 화면', () => {
+  it('로그인 중에는 누른 버튼만 "로그인 중"으로 바뀌고 입력칸은 값을 지킨 채 잠긴다', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    await user.click(screen.getByRole('button', { name: '로그인' }))
+    const btn = await screen.findByRole('button', { name: /로그인 중/ })
+    expect(btn).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByLabelText('사번')).toHaveAttribute('readonly')
+    expect(screen.getByLabelText('사번')).toHaveValue('EMP-1001')
+    // 끝나면 새 문의 화면으로 간다
+    expect(await screen.findByRole('heading', { name: '새 문의' }, SLOW)).toBeInTheDocument()
+  })
+
   it('시연 계정(문의자)으로 로그인하면 새 문의 화면으로 이동한다', async () => {
     const user = userEvent.setup()
     renderApp()
@@ -33,6 +45,19 @@ describe('로그인 화면', () => {
     expect(await screen.findByRole('heading', { name: '새 문의' }, SLOW)).toBeInTheDocument()
     expect(screen.getByText(/김서연님/)).toBeInTheDocument()
     expect(tokenStore.get()).toBe('mock.EMP-1001')
+  })
+
+  it('비밀번호 칸에 있는 동안에는 엿보는 잇슈가 눈을 감는다', async () => {
+    const user = userEvent.setup()
+    const { container } = renderApp()
+    const peek = container.querySelector('.peek')
+    expect(peek).not.toBeNull()
+    expect(peek).toHaveAttribute('aria-hidden', 'true') // 장식이라 스크린리더에는 숨긴다
+    expect(peek).not.toHaveClass('shy')
+    await user.click(screen.getByLabelText('비밀번호'))
+    expect(peek).toHaveClass('shy')
+    await user.click(screen.getByLabelText('사번'))
+    expect(peek).not.toHaveClass('shy')
   })
 
   it('비밀번호가 틀리면 오류를 보여 주고 이동하지 않는다', async () => {

@@ -1,7 +1,7 @@
 /* 문의자 화면 틀: 사이드바·상단바·본문·히어로·FAQ·배지 (design/ITssue-Prototype.html 기준) */
 .badge{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
 .badge i{width:6px;height:6px;border-radius:50%;flex:none}
-.badge .lb{transform:translateY(-.08em)}
+.badge .lb{transform:translateY(.06em)}
 .b-recv{background:var(--s-recv-bg);color:var(--s-recv-fg)}.b-recv i{background:var(--s-recv-dot)}
 .b-asg{background:var(--s-asg-bg);color:var(--s-asg-fg)}.b-asg i{background:var(--s-asg-dot)}
 .b-prog{background:var(--s-prog-bg);color:var(--s-prog-fg)}.b-prog i{background:var(--s-prog-dot)}
@@ -10,10 +10,10 @@
 .b-ok{background:var(--s-ok-bg);color:var(--s-ok-fg)}.b-ok i{background:var(--s-ok-dot)}
 .b-urg{background:var(--s-urg-bg);color:var(--s-urg-fg)}.b-urg i{background:var(--s-urg-dot)}
 .b-warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.b-warn i{background:var(--s-warn-dot)}
-.count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px 1px;border-radius:999px;background:var(--o600);color:#fff;font-size:11.5px;font-weight:700}
-.tag{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:6px;background:var(--osurf);color:var(--o700);font-size:11px;font-weight:700;letter-spacing:.02em}
+.count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--o600);color:#fff;font-size:12px;font-weight:700;text-box:trim-both cap alphabetic}
+.tag{display:inline-flex;align-items:center;height:22px;padding:1px 8px 0;border-radius:6px;background:var(--osurf);color:var(--o700);font-size:12px;font-weight:700;letter-spacing:.02em}
 .tag.gray{background:var(--shell);color:var(--mute)}
-.app{display:grid;grid-template-columns:248px minmax(0,1fr);height:100%;min-height:0}
+.app{display:grid;grid-template-columns:248px minmax(0,1fr);height:100%;min-height:0;overflow:hidden}
 .side{background:var(--side);border-right:1px solid var(--line2);padding:20px 12px 14px 16px;display:flex;flex-direction:column;gap:14px;min-height:0;overflow:auto}
 .side .brand{padding:2px 8px 4px}
 .brandbtn{display:block;background:none;border:0;padding:2px 0;margin:0;cursor:pointer;border-radius:8px;color:inherit}
@@ -30,15 +30,14 @@
 .recent .rt:hover{background:var(--shell)}
 .recent .rt.on{background:var(--white);box-shadow:var(--shadow)}
 .recent .rt b{font-size:13px;font-weight:500;display:flex;justify-content:space-between;gap:8px;line-height:20px}
-.recent .rt small{font-size:12px;color:var(--mute);line-height:16px}
+.recent .rt small{font-size:12px;color:var(--mute);line-height:16px;display:flex;align-items:center;gap:4px}
 .who{margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px 6px 2px}
 .who .pf{width:34px;height:34px;border-radius:50%;background:var(--osurf);color:var(--o700);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex:none}
 .who .nm{font-size:13px;font-weight:600;line-height:18px}.who small{font-size:12px;color:var(--mute);display:block;line-height:16px}
-.who .out{margin-left:auto}
+.who .out{margin-left:auto;flex:none;width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:var(--mute);display:flex;align-items:center;justify-content:center;cursor:pointer}
 .main{min-width:0;min-height:0;display:flex;flex-direction:column;position:relative;overflow:hidden;background:var(--canvas)}
 .main>*{position:relative;z-index:1}
-.main .bg{position:absolute;inset:0;z-index:0;pointer-events:none}
-.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 32px;border-bottom:1px solid var(--line2);background:color-mix(in srgb,var(--canvas) 72%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);flex:none}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 32px;border-bottom:1px solid var(--line2);background:color-mix(in srgb,var(--canvas) 72%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);flex:none}
 .top h2{font-size:16px;line-height:24px;font-weight:600}.top .sub{font-size:12px;color:var(--mute)}
 .top .menu{display:none}
 .scroll{flex:1;min-height:0;overflow:auto}
@@ -59,12 +58,12 @@
 .empty{padding:36px 16px;text-align:center;color:var(--mute);font-size:14px}
 .scrim{display:none}
 .recent .rt{align-items:flex-start;width:100%}.recent .rt b{width:100%}
-:root{--ag1:rgba(255,170,110,.62);--ag2:rgba(255,154,87,.5);--ag3:rgba(255,154,87,.45)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ag1:rgba(255,140,70,.2);--ag2:rgba(255,140,70,.16);--ag3:rgba(255,140,70,.14)}}
-:root[data-theme="dark"]{--ag1:rgba(255,140,70,.2);--ag2:rgba(255,140,70,.16);--ag3:rgba(255,140,70,.14)}
-.app{position:relative;background:var(--canvas)}
+:root{--ag1:rgba(240,100,150,.62);--ag2:rgba(240,80,140,.5);--ag3:rgba(240,80,140,.45)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ag1:rgba(240,80,140,.2);--ag2:rgba(240,80,140,.16);--ag3:rgba(240,80,140,.14)}}
+:root[data-theme="dark"]{--ag1:rgba(240,80,140,.2);--ag2:rgba(240,80,140,.16);--ag3:rgba(240,80,140,.14)}
+.app{position:relative;background:var(--canvas);overflow:hidden}
 .app::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 42% 34% at 22% 104%,var(--ag1),transparent 72%),radial-gradient(ellipse 36% 32% at 78% 104%,var(--ag2),transparent 72%),radial-gradient(ellipse 60% 22% at 50% 110%,var(--ag3),transparent 75%)}
-.main,.ops .main{background:transparent!important}
+.main{background:transparent!important}
 .side{background:color-mix(in srgb,var(--white) 62%,transparent)!important;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-right:1px solid rgba(17,24,39,.06)!important}
 .faq summary{cursor:pointer;display:flex;gap:12px;align-items:center;list-style:none;padding:16px 20px}.faq summary::-webkit-details-marker{display:none}
 .faq summary b{font-size:15px;font-weight:600;flex:1;min-width:0}
@@ -73,30 +72,15 @@
 .faq summary:hover .chv{background:var(--osurf);color:var(--link)}
 .faq .fb{padding:0 20px 18px;line-height:26px}
 .rs{display:inline-flex;align-items:center;gap:5px;font-weight:600}.rs i{width:6px;height:6px;border-radius:50%;display:inline-block}
-.tag.stf{background:var(--s-prog-dot);color:#fff}
-.count.nw{letter-spacing:.03em;font-size:10.5px;font-weight:800;background:var(--s-urg-dot);color:#fff;width:auto;padding:0 8px;margin-right:4px}
-.side button>span:not(.count){white-space:nowrap}.count.nw{white-space:nowrap;flex:none}
-.side .count{flex:none;white-space:nowrap}.side button>span:not(.count){min-width:0}
-.grp.gsr{display:flex;align-items:center;justify-content:space-between}
-.count.nw{background:var(--s-urg-dot)!important}
-.side .nav+.nav .grp{padding-top:11px}
+.tag.stf{background:#7656E8;color:#fff}
+.side button>span:not(.count){white-space:nowrap;flex:1;overflow:hidden;text-overflow:ellipsis}
+.side .count{flex:none;white-space:nowrap}.side button>span:not(.count){min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis}
+.side .nav+.nav .grp{padding-top:11px;border-top:1px solid var(--divider)}
 .side .nav+.nav{margin-top:-11px}
 .side .nav .grp{padding:0 12px 4px}
 .side .nav .grp:first-child{padding-top:10px}
-.side .nav .grp:not(:first-child),.side .nav+.nav .grp{border-top:1px solid #D5D9DF;margin-top:4px;padding-top:19px}
-.side .nav+.nav .grp{padding-top:15px!important}
-.xw{position:relative;background:#fff;border:2px solid #111827;border-radius:8px;overflow:hidden;color:#111827;box-shadow:4px 5px 0 rgba(17,24,39,.14)}
-.xw .xb{height:22px;background:#F37321;border-bottom:2px solid #111827;display:flex;align-items:center;gap:5px;padding:0 8px}
-.xw .xb i{width:7px;height:7px;border-radius:50%;background:#fff;display:block}.xw .xb span{flex:1}.xw .xb b{font-size:9px;line-height:1;font-weight:700}
-.xw .xy{display:flex;align-items:center;justify-content:center;padding:16px 12px}
-.xw.gh{box-shadow:none;position:absolute;right:calc(50% - 187px);top:-18px;width:175px;height:95px}.xw.gh .xb{background:#CFE4EE}
-.xhero{position:relative;width:250px;margin:0 auto 6px}.xhero .xm{z-index:2}
-.xs{position:absolute;background:#F37321;display:block}.xs.s1{left:-34px;top:-8px;width:10px;height:10px}.xs.s2{left:-16px;top:-24px;width:6px;height:6px}.xs.s3{right:-30px;bottom:6px;width:8px;height:8px}
-.xhero .xc{position:absolute;right:-2px;bottom:-14px;z-index:3}
-/* 새 문의 첫 화면에 들어올 때 한 번: 창이 열리고(220ms) 커서가 들어온다(500ms) */
-@keyframes xopen{from{opacity:0;transform:translateY(6px) scale(.94)}to{opacity:1;transform:none}}
-@keyframes curin{from{opacity:0;transform:translate(26px,18px)}to{opacity:1;transform:translate(0,0)}}
-@media (prefers-reduced-motion:no-preference){.xhero .xc{animation:xcur 3.2s ease-in-out infinite}.xhero.go .xm{animation:xopen .22s cubic-bezier(.2,.8,.2,1) both}.xhero.go .xc{animation:curin .5s cubic-bezier(.2,.8,.2,1) .15s both,xcur 3.2s ease-in-out .65s infinite}}@keyframes xcur{0%,100%{transform:translate(0,0)}50%{transform:translate(-6px,-4px)}}
+.side .nav .grp:not(:first-child),.side .nav+.nav .grp{border-top:1px solid var(--divider);margin-top:4px;padding-top:19px}
+.side .nav+.nav .grp{padding-top:15px!important;border-top:1px solid var(--divider)}
 .xmenu{display:none;position:absolute;left:12px;top:12px;z-index:5}@media (max-width:860px){.xmenu{display:inline-flex}}
 
 /* 상단바·본문 여백, 사이드바(좁은 화면에서는 밀어서 여는 방식) — 프로토타입 860px 이하 규칙 */
@@ -128,3 +112,34 @@
 .scroll>.hero{flex:1;min-height:0;justify-content:center;padding-top:24px;padding-bottom:96px}
 /* 내용이 화면보다 길면(모바일) 위쪽이 잘리지 않도록 가운데 정렬을 '안전하게' 적용한다 */
 .scroll>.hero{justify-content:safe center}
+
+/* 화면 모드 선택 (라이트·다크·고대비) */
+.tgm{display:inline-flex;gap:2px;padding:3px;border-radius:12px;background:var(--shell)}
+.tgm button{all:unset;box-sizing:border-box;width:36px;height:32px;border-radius:9px;display:grid;place-items:center;cursor:pointer;color:var(--mute)}
+.tgm button:hover:not([disabled]){color:var(--ink)}
+.tgm button[aria-pressed=true]{background:var(--white);color:var(--link);box-shadow:var(--shadow)}
+.tgm button[disabled]{opacity:.45;cursor:not-allowed}
+.tgm button:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+.tgm .i{width:18px;height:18px}
+.modebar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 6px;margin-top:auto}.modebar small{font-size:12px;color:var(--mute)}.modebar+.who{margin-top:0}
+.login>div.lmode:not(.bgsvg){position:absolute;top:24px;right:max(16px,env(safe-area-inset-right,0px));z-index:3}
+.login>.bgsvg{}
+:root[data-theme="dark"] .login>.bgsvg{opacity:.35}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .login>.bgsvg{opacity:.35}}
+
+/* 잇슈 캐릭터: 둥실거리고 바닥 그림자가 함께 작아졌다 커진다 (4.5초 반복) */
+.berry{position:relative;width:340px;height:340px;flex:none;margin-bottom:4px}
+.berry:after{content:"";position:absolute;left:50%;bottom:-14px;width:62%;height:18px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(10,4,30,.38),transparent);pointer-events:none;animation:bsh 4.5s ease-in-out infinite}
+.berry img{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;animation:bfl 4.5s ease-in-out infinite}
+.berry .be{transition:transform .22s ease-out}
+@keyframes bfl{0%,100%{translate:0 0}50%{translate:0 -12px}}
+@keyframes bsh{0%,100%{transform:translateX(-50%) scale(1);opacity:1}50%{transform:translateX(-50%) scale(.84);opacity:.6}}
+@media (prefers-reduced-motion:reduce){.berry img,.berry:after{animation:none}}
+@media (max-width:860px){.berry{width:220px;height:220px}}
+/* 상단바는 본문 위에 반투명으로 겹쳐 놓는다. 본문 맨 위의 빈 칸이 상단바 높이(--topH)만큼 비켜 준다 */
+.main>.top{position:absolute;top:0;left:0;right:0;z-index:6;background:color-mix(in srgb,var(--canvas) 72%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.main>.scroll::before{content:"";display:block;flex:none;height:var(--topH,0px)}
+.grp.gsr{display:flex;align-items:center;justify-content:space-between}
+.gic{width:26px;height:26px;border-radius:8px;border:0;background:transparent;color:var(--mute);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.gic:hover{background:var(--osoft);color:var(--link)}
+.nav .gic{padding:0!important;min-height:0!important;height:26px!important;width:26px!important;gap:0!important;margin-right:-4px}.gic svg{flex:none;width:15px;height:15px}

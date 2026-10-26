@@ -47,6 +47,7 @@ class DocumentVersion(Base):
     view_scope: Mapped[str] = mapped_column(server_default="ADMIN")          # 정책 미지정 시 가장 좁게
     transfer_policy: Mapped[str] = mapped_column(server_default="BLOCKED")
     is_current: Mapped[bool] = mapped_column(server_default=text("false"))
+    activated_at: Mapped[datetime | None]                                   # 처음 현행이 된 시각 (내려가도 보존)
     ingest_status: Mapped[str]
     ingest_error: Mapped[str | None]
     registered_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
