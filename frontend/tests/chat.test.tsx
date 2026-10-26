@@ -8,7 +8,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import App from '../src/App'
 import { listMyInquiries } from '../src/api/inquiries'
-import { advanceChat, cancelChatDraft, confirmChatDraft, editDraft, getChat, reopenChat, rejectChat, replyChat, resolveChat, sendChat, startChat, idleBackChat, idleDeleteChat, idleWarnChat, resumeChat } from '../src/api/chat'
+import { advanceChat, isStaleInquiry, cancelChatDraft, confirmChatDraft, editDraft, getChat, reopenChat, rejectChat, replyChat, resolveChat, sendChat, startChat, idleBackChat, idleDeleteChat, idleWarnChat, resumeChat } from '../src/api/chat'
 import type { Inquiry } from '../src/api/chatTypes'
 import { calcUrgency, detectCategory } from '../src/api/mock/chatEngine'
 import { mockConfig } from '../src/api/mock/chatStore'
@@ -136,7 +136,7 @@ describe('대화 흐름 (API)', () => {
     const a = await data(startChat(USER, '업무용 PC에서 USB 반출 예외 신청을 하고 싶어요. 오늘부터 필요해요. 저만 필요해요. 아직 안 해봤어요.'))
     await settle()
     const ans = last(await get(a.id))
-    expect(JSON.stringify(ans.blocks)).toContain('외부 모델로 전송할 수 없는 문서')
+    expect(JSON.stringify(ans.blocks)).toContain('보안 정책에 따라 AI가 직접 안내하기 어려운 내용')
     expect(ans.sources).toBeUndefined()
   })
 
@@ -152,7 +152,7 @@ describe('대화 흐름 (API)', () => {
     const a = await data(startChat(USER, '인증번호는 123456 입니다'))
     const user = a.messages.find((m) => m.role === 'user')!
     expect(user.text).not.toContain('123456')
-    expect(a.messages.some((m) => m.role === 'sys' && m.text?.includes('입력하지 마세요'))).toBe(true)
+    expect(a.messages.some((m) => m.role === 'sys' && m.text?.includes('입력하지 말아 주세요'))).toBe(true)
   })
 
   it('다른 사용자의 문의는 열 수 없다', async () => {
@@ -211,6 +211,15 @@ describe('대화 흐름 (API)', () => {
     expect(resumed.paused).toBe(false)
     expect(resumed.step).toBe(a.step === 'collect' ? 'collect' : resumed.step)
     expect(last(resumed).text).toBe('같은 대화에서 이어서 진행해요.')
+  })
+})
+
+describe('어긋난 요청 오류 (API)', () => {
+  it('지난 버튼·중복 요청 같은 409 오류는 최신 화면으로 다시 그리는 대상이다', () => {
+    expect(isStaleInquiry('INQUIRY_INVALID_STATE')).toBe(true)
+    expect(isStaleInquiry('INQUIRY_CLOSED')).toBe(true)
+    expect(isStaleInquiry('REQUEST_IN_PROGRESS')).toBe(true)
+    expect(isStaleInquiry('INQUIRY_NOT_FOUND')).toBe(false)
   })
 })
 
@@ -368,11 +377,56 @@ describe('대화 화면', () => {
     expect(bar).toHaveTextContent('5시간 뒤까지 미확인 시 대화 내용은 삭제됩니다.')
     // 시연: 삭제 전에 돌아옴 → 이어서 채팅하기 / 새로운 문의하기
     await user.click(screen.getByRole('button', { name: '돌아옴 팝업' }))
-    expect(await screen.findByRole('group', { name: '이어서 하기' }, SLOW)).toBeInTheDocument()
-    expect(screen.getByLabelText('메시지 입력')).toBeDisabled()
+    // 화면 가운데 창: Esc 로는 닫히지 않고, 두 버튼 중 하나를 골라야 한다
+    expect(await screen.findByRole('dialog', { name: '잠시 자리를 비우셨네요' }, SLOW)).toBeInTheDocument()
+    expect(screen.getByLabelText('메시지 입력', { selector: 'textarea' })).toBeDisabled()
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('dialog', { name: '잠시 자리를 비우셨네요' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '이어서 채팅하기' }))
     expect(await screen.findByText('같은 대화에서 이어서 진행해요.', {}, SLOW)).toBeInTheDocument()
-    expect(screen.queryByRole('group', { name: '이어서 하기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: '잠시 자리를 비우셨네요' })).not.toBeInTheDocument()
+  })
+
+  it('초안 단계에서도 2시간 안내가 나가고, 새로운 문의하기를 고르면 이전 문의를 삭제하고 새 문의 화면으로 간다', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1003', '/new')
+    await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
+    await user.click(screen.getByRole('button', { name: '보내기' }))
+    await screen.findByText(/IT-NET-001 3\.1/, {}, SLOW)
+    await user.click(screen.getByRole('button', { name: '미해결' }))
+    await user.click(await screen.findByRole('button', { name: '담당자 연결' }, SLOW))
+    await screen.findByText('접수 초안', {}, SLOW)
+    await waitFor(() => expect(screen.getByRole('button', { name: '응답 없음 안내' })).toBeEnabled(), SLOW)
+    await user.click(screen.getByRole('button', { name: '응답 없음 안내' }))
+    expect(await screen.findByRole('status', {}, SLOW)).toHaveTextContent('이어서 하지 않으면 대화내역이 사라집니다.')
+    await user.click(screen.getByRole('button', { name: '돌아옴 팝업' }))
+    await user.click(await screen.findByRole('button', { name: '새로운 문의하기' }, SLOW))
+    // 삭제하기 전에 한 번 더 확인한다: 안전한 "돌아가기"에 초점이 가고, 돌아가면 처음 선택으로 돌아온다
+    const confirm = await screen.findByRole('alertdialog', { name: '현재 대화를 삭제할까요?' }, SLOW)
+    expect(confirm).toHaveTextContent('새로운 문의하기를 누르면 현재 대화는 삭제됩니다.')
+    expect(screen.getByRole('button', { name: '돌아가기' })).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: '돌아가기' }))
+    await user.click(await screen.findByRole('button', { name: '새로운 문의하기' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '삭제하고 새로 문의하기' }, SLOW))
+    expect(await screen.findByRole('heading', { name: '무엇을 도와드릴까요?' }, SLOW)).toBeInTheDocument()
+    // 이전 문의는 사이드바 최근 문의에서도 사라진다
+    await waitFor(() => expect(screen.queryByRole('button', { name: /VPN.*진행 중/ })).not.toBeInTheDocument(), SLOW)
+  })
+
+  it('담당자 처리 완료 뒤 해결 확인 단계에서도 안내와 돌아옴 팝업을 볼 수 있고, 접수된 건은 삭제하지 않는다', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1001', '/chat/101')
+    await screen.findByRole('list', { name: '접수 진행 단계' }, SLOW)
+    await advanceChat(101, 'EMP-1001') // 처리 중 → 해결 확인 대기
+    await waitFor(() => expect(screen.getByRole('button', { name: '응답 없음 안내' })).toBeEnabled(), SLOW)
+    expect(screen.queryByRole('button', { name: '안내 뒤 삭제' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '응답 없음 안내' }))
+    expect(await screen.findByRole('status', {}, SLOW)).toHaveTextContent('5시간 뒤까지 미확인 시 대화 내용은 삭제됩니다.')
+    await user.click(screen.getByRole('button', { name: '돌아옴 팝업' }))
+    await user.click(await screen.findByRole('button', { name: '새로운 문의하기' }, SLOW))
+    expect(await screen.findByRole('heading', { name: '무엇을 도와드릴까요?' }, SLOW)).toBeInTheDocument()
+    // 접수된 건은 그대로 남는다
+    expect((await getChat(101, 'EMP-1001')).ok).toBe(true)
   })
 
   it('안내 뒤 삭제되면 새 문의 화면으로 돌아간다', async () => {
@@ -466,8 +520,31 @@ describe('대화 화면', () => {
     expect(screen.getByLabelText('메시지 입력')).toBeInTheDocument()
   })
 
-  it('없는 문의 주소는 안내 문구를 보여 준다', async () => {
+  it('없는 문의 주소는 찾을 수 없다는 안내와 이동 버튼을 보여 준다', async () => {
+    const user = userEvent.setup()
     renderAs('EMP-1001', '/chat/9999')
-    expect(await screen.findByText(/문의를 찾을 수 없어요/, {}, SLOW)).toBeInTheDocument()
+    const box = await screen.findByRole('alert', {}, SLOW)
+    expect(box).toHaveTextContent('문의를 찾을 수 없어요')
+    expect(box).toHaveTextContent('삭제되었거나 볼 수 없는 문의예요')
+    expect(within(box).getByRole('button', { name: '문의 내역 보기' })).toBeInTheDocument()
+    await user.click(within(box).getByRole('button', { name: '새 문의 시작하기' }))
+    expect(await screen.findByRole('heading', { name: '무엇을 도와드릴까요?' }, SLOW)).toBeInTheDocument()
+  })
+
+  it('연결 오류로 못 읽었을 때는 찾을 수 없다고 하지 않고, 다시 불러오기로 복구한다', async () => {
+    const user = userEvent.setup()
+    mockConfig.loadFail = true
+    try {
+      renderAs('EMP-1001', '/chat/101')
+      const box = await screen.findByRole('alert', {}, SLOW)
+      expect(box).toHaveTextContent('문의를 불러오지 못했어요')
+      expect(box).not.toHaveTextContent('찾을 수 없어요')
+      expect(box).toHaveTextContent('내선')
+      mockConfig.loadFail = false
+      await user.click(within(box).getByRole('button', { name: '다시 불러오기' }))
+      expect(await screen.findByRole('list', { name: '접수 진행 단계' }, SLOW)).toBeInTheDocument()
+    } finally {
+      mockConfig.loadFail = false
+    }
   })
 })

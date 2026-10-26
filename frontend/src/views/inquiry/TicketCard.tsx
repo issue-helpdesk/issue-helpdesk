@@ -12,6 +12,7 @@ import { useState, type CSSProperties } from 'react'
 import { WORK_STATUS } from '../../api/catalog'
 import type { Ticket } from '../../api/chatTypes'
 import { formatDateTime } from '../../core/format'
+import { POSE_IMG } from '../../ui/poseImages'
 
 type StepState = 'done' | 'cur' | 'todo'
 
@@ -86,6 +87,10 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
 
   return (
     <div className="card">
+      {/* 카드 오른쪽 위의 잇슈: 처리 중이면 "처리 중 잇슈", 해결 완료면 "완료 잇슈". 상태는 아래 글과 진행 단계가 전한다 */}
+      <div className="pose" aria-hidden="true">
+        <img src={POSE_IMG[t.workStatus === 'CLS' ? 'done' : 'handoff']} alt="" />
+      </div>
       <div className="row" style={{ justifyContent: 'space-between', gap: 8 }}>
         <b style={{ fontSize: 15 }}>{t.title}</b>
         <span className="mono small muted">

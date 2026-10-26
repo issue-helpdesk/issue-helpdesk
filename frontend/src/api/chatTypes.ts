@@ -114,8 +114,8 @@ export interface Draft {
   targetSystem: string
   /** 문의 요약 (ticket_drafts.summary) */
   summary: string
-  /** 발생 시점. DB 컬럼 없이 Jira 접수 내용에만 넣는다. */
-  onset: string
+  /** 발생 시점. 사용자 표현 그대로 둔다 (API `occurredAt`, DB `occurred_at`). */
+  occurredAt: string
   /** 업무 영향 (business_impact) */
   businessImpact: string
   triedActions: string
@@ -141,7 +141,7 @@ export type RejudgedField = 'category' | 'inquiryType' | 'urgency' | 'group'
 export interface DraftEdit {
   summary: string
   /** 발생 시점. 문의자가 쓴 말이라 고칠 수 있다. 보내지 않으면 기존 값을 유지한다. */
-  onset?: string
+  occurredAt?: string
   businessImpact: string
   triedActions: string
 }
@@ -187,6 +187,8 @@ export interface Inquiry {
   categoryCode: CategoryCode | null
   /** 확인하지 않은 담당자 답변 수 */
   unread: number
+  /** 문의를 시작한 시각 (ISO 8601) */
+  createdAt?: string
   /** 최근 활동 시각 (ISO 8601). '어제' 같은 표시는 화면에서 계산한다. */
   updatedAt: string
   messages: ChatMessage[]
@@ -199,11 +201,6 @@ export interface Inquiry {
   idleWarned?: IdleKind | null
   /** 삭제 전에 돌아온 상태. 입력창을 잠그고 "이어서 채팅하기 / 새로운 문의하기"를 고르게 한다. */
   paused?: boolean
-}
-
-/** 로그인한 사용자의 문의 한 건 요청: 첫 메시지 */
-export interface StartInquiryRequest {
-  text: string
 }
 
 /** 빠른 응답 버튼 전송 */

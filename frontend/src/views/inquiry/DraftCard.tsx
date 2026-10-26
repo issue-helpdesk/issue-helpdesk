@@ -26,8 +26,8 @@ interface Props {
 }
 
 /** 수정 화면에서 입력칸이 되는 항목 */
-type EditKey = 'summary' | 'onset' | 'businessImpact' | 'triedActions'
-const toFields = (d: Draft): Required<DraftEdit> => ({ summary: d.summary, onset: d.onset, businessImpact: d.businessImpact, triedActions: d.triedActions })
+type EditKey = 'summary' | 'occurredAt' | 'businessImpact' | 'triedActions'
+const toFields = (d: Draft): Required<DraftEdit> => ({ summary: d.summary, occurredAt: d.occurredAt, businessImpact: d.businessImpact, triedActions: d.triedActions })
 
 export function DraftCard({ draft: d, state, note, active, busy, onConfirm, onSave, onCancel }: Props) {
   const [editing, setEditing] = useState(false)
@@ -115,14 +115,22 @@ export function DraftCard({ draft: d, state, note, active, busy, onConfirm, onSa
       {note && canAct && (
         <div className="alert warn" style={{ marginTop: 10 }} role="status">
           <Icon name="alert" />
-          <div>{note}</div>
+          <div>
+            {note.includes('\n') ? (
+              <>
+                <b>{note.split('\n')[0]}</b> {note.split('\n').slice(1).join(' ')}
+              </>
+            ) : (
+              note
+            )}
+          </div>
         </div>
       )}
 
       <dl className={`dl${editing ? ' edit' : ''}`}>
         {field('문의 내용', 'd-issue', 'summary', true)}
         {locked('대상 시스템', d.targetSystem)}
-        {field('발생 시점', 'd-onset', 'onset')}
+        {field('발생 시점', 'd-onset', 'occurredAt')}
         {field('업무 영향', 'd-impact', 'businessImpact')}
         {field('시도한 조치', 'd-tried', 'triedActions')}
         {locked('AI 안내', d.aiSummary)}

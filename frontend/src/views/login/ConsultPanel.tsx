@@ -8,9 +8,9 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { askPreLogin } from '../../api/consult'
 import type { ConsultReply } from '../../api/types'
 import { sourceFull } from '../../core/format'
-import { MASK_NOTICE, maskSensitive } from '../../core/mask'
+import { MASK_NOTICE, maskNotices, maskSensitive } from '../../core/mask'
 import { Icon } from '../../ui/Icon'
-import { Avatar } from '../../ui/Logo'
+import { Pav } from '../../ui/Pav'
 import { RichText } from '../../ui/RichText'
 
 /** 대화창에 보이는 메시지: 사용자 / AI 답변 / 답변을 기다리는 중(점 세 개) */
@@ -65,7 +65,7 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
     // 실패하면 서버 오류 문구를 답변처럼 보여 준다
     const base: ConsultReply = r.ok ? r.data : { paragraphs: [r.error.message], sources: [] }
     // 비밀번호·인증번호로 보이는 값을 가렸다면 답변 맨 위에서 알린다
-    const reply: ConsultReply = masked.hit ? { ...base, paragraphs: [MASK_NOTICE, ...base.paragraphs] } : base
+    const reply: ConsultReply = masked.hit ? { ...base, paragraphs: [...(maskNotices(masked).length ? maskNotices(masked) : [MASK_NOTICE]).map((n) => n.replace('\n', ' ')), ...base.paragraphs] } : base
 
     // "처리 중" 표시를 지우고 실제 답변으로 바꾼다
     setMsgs((m) => [...m.filter((x) => x.id !== tid), { id: nextId.current++, role: 'ai', reply }])
@@ -82,8 +82,9 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
 
   return (
     <section className="lpop" aria-label="로그인 전 상담">
-      <div className="row" style={{ flexWrap: 'nowrap' }}>
-        <Avatar size={36} />
+      {/* 제목 줄은 대화 위에 떠 있고, 대화가 그 아래로 지나가며 비쳐 보인다 */}
+      <div className="row lph" style={{ flexWrap: 'nowrap' }}>
+        <Pav size={40} />
         <div>
           <b>로그인이 안 되시나요?</b>
           <div className="small muted">
@@ -98,7 +99,7 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
           if (m.role === 'typing')
             return (
               <div className="msg a" key={m.id}>
-                <Avatar size={32} />
+                <Pav />
                 <div className="body">
                   <span className="dots"><i /><i /><i /></span> <span className="muted small">처리 중</span>
                 </div>
@@ -106,7 +107,7 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
             )
           return (
             <div className="msg a" key={m.id}>
-              <Avatar size={32} />
+              <Pav />
               <div className="body">
                 {m.reply.paragraphs.map((p, i) => (
                   <p key={i}><RichText text={p} /></p>

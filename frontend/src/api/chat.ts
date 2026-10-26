@@ -20,7 +20,7 @@ import { USE_MOCK } from '../core/config'
 import type { DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
 import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, idleWarnInquiry, idleDeleteInquiry, idleBackInquiry, resumeInquiry } from './mock/chatEngine'
 import './mock/chatMock'
-import { getRecord, notify, subscribe, type StoreRecord } from './mock/chatStore'
+import { getRecord, mockConfig, notify, subscribe, type StoreRecord } from './mock/chatStore'
 import { fail, ok, type ApiResult } from './types'
 
 /** 실제 서버를 다시 읽는 간격(ms) */
@@ -28,6 +28,13 @@ const POLL_MS = 4000
 
 /** POST 요청 (본문은 JSON 으로 보낸다) */
 const post = <T,>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) })
+
+/**
+ * 화면이 보던 문의와 서버의 문의가 어긋났을 때 서버가 주는 409 오류 (API 02, docs/09 T27).
+ * 지난 버튼·창 두 개·처리 중 중복 요청에서 생기며, 화면은 안내하고 최신 문의로 다시 그린다.
+ */
+const STALE_CODES = new Set(['INQUIRY_INVALID_STATE', 'INQUIRY_CLOSED', 'REQUEST_IN_PROGRESS'])
+export const isStaleInquiry = (code: string) => STALE_CODES.has(code)
 
 const notFound = () => fail('INQUIRY_NOT_FOUND', '문의를 찾을 수 없어요.')
 
@@ -66,6 +73,7 @@ export async function startChat(user: { employeeNo: string; name: string }, text
 export async function getChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK) {
     await sleep(60)
+    if (mockConfig.loadFail) return fail('NETWORK_ERROR', '서버에 연결하지 못했어요.')
     const rec = own(id, employeeNo)
     if (!rec) return notFound()
     if (rec.inquiry.unread > 0) {

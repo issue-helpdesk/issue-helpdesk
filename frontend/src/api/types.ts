@@ -89,10 +89,24 @@ export interface Faq {
  */
 export type InquiryStateKind = 'progress' | 'assigned' | 'received' | 'resolved' | 'ai' | 'warn' | 'needs_reply' | 'reassigned' | 'awaiting_confirm'
 
-/** 문의 한 건 요약 (사이드바 최근 문의) */
+/**
+ * 화면 표시 상태 (API 02 1.2 `displayStatus`). 문의 상태와, 접수 건은 Ticket 업무 상태를 합쳐 정한다.
+ * 문의 내역의 상태 분류는 이 값을 묶어서 만든다.
+ */
+export type DisplayStatus = 'in_progress' | 'ai_resolved' | 'unconfirmed' | 'unresolved' | 'received' | 'assigned' | 'progress' | 'awaiting_confirm' | 'resolved'
+
+/** 문의 한 건 요약 (사이드바 최근 문의, 문의 내역) */
 export interface InquirySummary {
   id: number
   title: string
+  displayStatus: DisplayStatus
+  /** 분류. 아직 판단하지 못했으면 null */
+  categoryCode: CategoryCode | null
+  /** 접수번호·Jira 번호. 접수 전에는 null */
+  receiptNo: string | null
+  jiraKey: string | null
+  /** 문의를 시작한 시각 (ISO 8601) */
+  createdAt: string
   /** 화면에 보일 상태 이름 (예: 처리 중, 해결 완료, AI 해결, 미확인) */
   stateLabel: string
   stateKind: InquiryStateKind
