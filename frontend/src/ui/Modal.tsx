@@ -18,10 +18,12 @@ interface Props {
   /** 'choice': 화면 가운데에서 꼭 하나를 고르는 창 (뒤는 어둡고 흐리게). 제목 위에 lead 를 둘 수 있다 */
   variant?: 'choice'
   lead?: ReactNode
+  /** 되돌릴 수 없는 일을 확인하는 창은 alertdialog 로 알린다 */
+  role?: 'dialog' | 'alertdialog'
   children: ReactNode
 }
 
-export function Modal({ title, onClose = () => {}, dismissible = true, variant, lead, children }: Props) {
+export function Modal({ title, onClose = () => {}, dismissible = true, variant, lead, role = 'dialog', children }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   // 부모가 렌더링될 때마다 새 함수를 넘겨도 초점이 다시 움직이지 않도록 최신 함수만 기억해 둔다
   const closeRef = useRef(onClose)
@@ -34,7 +36,8 @@ export function Modal({ title, onClose = () => {}, dismissible = true, variant, 
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const root = document.getElementById('root')
     root?.setAttribute('inert', '')
-    ;(box?.querySelector<HTMLElement>('input,textarea,select,button') ?? box)?.focus()
+    // 처음 초점: data-autofocus 가 있으면 그곳(삭제 확인의 "돌아가기" 같은 안전한 쪽), 없으면 첫 입력칸·버튼
+    ;(box?.querySelector<HTMLElement>('[data-autofocus]') ?? box?.querySelector<HTMLElement>('input,textarea,select,button') ?? box)?.focus()
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -77,7 +80,7 @@ export function Modal({ title, onClose = () => {}, dismissible = true, variant, 
         if (dismissible && e.target === e.currentTarget) onClose()
       }}
     >
-      <div ref={ref} className={`modal${variant === 'choice' ? ' rdlg' : ''}`} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}>
+      <div ref={ref} className={`modal${variant === 'choice' ? ' rdlg' : ''}`} role={role} aria-modal="true" aria-label={title} tabIndex={-1}>
         {lead}
         <h3>{title}</h3>
         {children}

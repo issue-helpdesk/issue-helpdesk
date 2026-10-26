@@ -136,3 +136,6 @@
 @keyframes bsh{0%,100%{transform:translateX(-50%) scale(1);opacity:1}50%{transform:translateX(-50%) scale(.84);opacity:.6}}
 @media (prefers-reduced-motion:reduce){.berry img,.berry:after{animation:none}}
 @media (max-width:860px){.berry{width:220px;height:220px}}
+/* 상단바는 본문 위에 반투명으로 겹쳐 놓는다. 본문 맨 위의 빈 칸이 상단바 높이(--topH)만큼 비켜 준다 */
+.main>.top{position:absolute;top:0;left:0;right:0;z-index:6;background:color-mix(in srgb,var(--canvas) 72%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.main>.scroll::before{content:"";display:block;flex:none;height:var(--topH,0px)}

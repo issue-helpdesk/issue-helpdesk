@@ -401,6 +401,13 @@ describe('대화 화면', () => {
     expect(await screen.findByRole('status', {}, SLOW)).toHaveTextContent('이어서 하지 않으면 대화내역이 사라집니다.')
     await user.click(screen.getByRole('button', { name: '돌아옴 팝업' }))
     await user.click(await screen.findByRole('button', { name: '새로운 문의하기' }, SLOW))
+    // 삭제하기 전에 한 번 더 확인한다: 안전한 "돌아가기"에 초점이 가고, 돌아가면 처음 선택으로 돌아온다
+    const confirm = await screen.findByRole('alertdialog', { name: '현재 대화를 삭제할까요?' }, SLOW)
+    expect(confirm).toHaveTextContent('새로운 문의하기를 누르면 현재 대화는 삭제됩니다.')
+    expect(screen.getByRole('button', { name: '돌아가기' })).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: '돌아가기' }))
+    await user.click(await screen.findByRole('button', { name: '새로운 문의하기' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '삭제하고 새로 문의하기' }, SLOW))
     expect(await screen.findByRole('heading', { name: '무엇을 도와드릴까요?' }, SLOW)).toBeInTheDocument()
     // 이전 문의는 사이드바 최근 문의에서도 사라진다
     await waitFor(() => expect(screen.queryByRole('button', { name: /VPN.*진행 중/ })).not.toBeInTheDocument(), SLOW)
