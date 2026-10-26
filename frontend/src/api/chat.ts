@@ -20,7 +20,7 @@ import { USE_MOCK } from '../core/config'
 import type { DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
 import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, idleWarnInquiry, idleDeleteInquiry, idleBackInquiry, resumeInquiry } from './mock/chatEngine'
 import './mock/chatMock'
-import { getRecord, notify, subscribe, type StoreRecord } from './mock/chatStore'
+import { getRecord, mockConfig, notify, subscribe, type StoreRecord } from './mock/chatStore'
 import { fail, ok, type ApiResult } from './types'
 
 /** 실제 서버를 다시 읽는 간격(ms) */
@@ -73,6 +73,7 @@ export async function startChat(user: { employeeNo: string; name: string }, text
 export async function getChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK) {
     await sleep(60)
+    if (mockConfig.loadFail) return fail('NETWORK_ERROR', '서버에 연결하지 못했어요.')
     const rec = own(id, employeeNo)
     if (!rec) return notFound()
     if (rec.inquiry.unread > 0) {

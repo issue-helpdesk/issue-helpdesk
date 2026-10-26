@@ -16,6 +16,7 @@ import { SERVICEDESK, USE_MOCK } from '../../core/config'
 import { sourceFull } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
+import { EmptyState } from '../../ui/EmptyState'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { StateBadge } from '../../ui/StateBadge'
@@ -50,7 +51,10 @@ export function ChatView() {
   const { user } = useAuth()
   const employeeNo = user?.employeeNo
   // 어느 문의를 불러왔는지 함께 기억해, 다른 문의로 옮겼을 때 이전 내용이 잠깐 보이지 않게 한다
-  const [loaded, setLoaded] = useState<{ id: number; data: Inquiry | null } | null>(null)
+  // data=null 이면 불러오지 못한 것이다. failed 이면 문의가 없어서가 아니라 연결·서버 문제로 못 읽은 경우다.
+  const [loaded, setLoaded] = useState<{ id: number; data: Inquiry | null; failed?: boolean } | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
+  const seen = useRef(false) // 이 화면에서 문의를 한 번이라도 읽었는지
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -64,19 +68,23 @@ export function ChatView() {
   useEffect(() => {
     if (!employeeNo || !id) return
     let alive = true // 화면이 사라진 뒤에는 상태를 바꾸지 않기 위한 표시
+    seen.current = false
     getChat(id, employeeNo).then((r) => {
-      if (alive) setLoaded({ id, data: r.ok ? r.data : null })
+      if (!alive) return
+      if (r.ok) seen.current = true
+      // 문의가 없는 것(404)과 연결·서버 오류를 나눠서 보여 준다
+      setLoaded({ id, data: r.ok ? r.data : null, failed: !r.ok && r.error.code !== 'INQUIRY_NOT_FOUND' })
     })
     const stop = watchChat(id, employeeNo, (r) => {
       if (alive && r.ok) setLoaded({ id, data: r.data })
-      // 응답 없음으로 삭제되면 대화가 사라지므로 새 문의 화면으로 보낸다
-      else if (alive && !r.ok && r.error.code === 'INQUIRY_NOT_FOUND') navigate('/new', { replace: true })
+      // 보고 있던 대화가 응답 없음으로 삭제되면 새 문의 화면으로 보낸다 (처음부터 없던 문의면 안내 화면을 그대로 둔다)
+      else if (alive && !r.ok && r.error.code === 'INQUIRY_NOT_FOUND' && seen.current) navigate('/new', { replace: true })
     })
     return () => {
       alive = false
       stop()
     }
-  }, [id, employeeNo, navigate])
+  }, [id, employeeNo, navigate, reloadKey])
 
   const inquiry = loaded?.id === id ? loaded.data : undefined // undefined=불러오는 중, null=없음
   const count = inquiry?.messages.length ?? 0
@@ -178,15 +186,52 @@ export function ChatView() {
     )
   }
   if (inquiry === null) {
+    const failed = loaded?.failed
     return (
       <main className="main">
         <Topbar title="문의 대화" />
         <div className="scroll">
-          <div className="page">
-            <div className="panel">
-              <div className="empty">문의를 찾을 수 없어요. 문의 내역에서 다시 선택해 주세요.</div>
-            </div>
-          </div>
+          {failed ? (
+            <EmptyState
+              title="문의를 불러오지 못했어요"
+              actions={
+                <>
+                  <button
+                    type="button"
+                    className="btn pri"
+                    onClick={() => {
+                      setLoaded(null)
+                      setReloadKey((k) => k + 1)
+                    }}
+                  >
+                    다시 불러오기
+                  </button>
+                  <button type="button" className="btn sec" onClick={() => navigate('/new')}>
+                    새 문의 시작하기
+                  </button>
+                </>
+              }
+              note={`계속되면 IT 헬프데스크 ${SERVICEDESK}로 연락해 주세요.`}
+            >
+              연결이 불안정할 수 있어요. 잠시 뒤 다시 시도해 주세요.
+            </EmptyState>
+          ) : (
+            <EmptyState
+              title="문의를 찾을 수 없어요"
+              actions={
+                <>
+                  <button type="button" className="btn pri" onClick={() => navigate('/new')}>
+                    새 문의 시작하기
+                  </button>
+                  <button type="button" className="btn sec" onClick={() => navigate('/list')}>
+                    문의 내역 보기
+                  </button>
+                </>
+              }
+            >
+              삭제되었거나 볼 수 없는 문의예요. 본인이 보낸 문의만 열 수 있어요.
+            </EmptyState>
+          )}
         </div>
       </main>
     )
