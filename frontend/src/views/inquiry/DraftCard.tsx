@@ -115,7 +115,15 @@ export function DraftCard({ draft: d, state, note, active, busy, onConfirm, onSa
       {note && canAct && (
         <div className="alert warn" style={{ marginTop: 10 }} role="status">
           <Icon name="alert" />
-          <div>{note}</div>
+          <div>
+            {note.includes('\n') ? (
+              <>
+                <b>{note.split('\n')[0]}</b> {note.split('\n').slice(1).join(' ')}
+              </>
+            ) : (
+              note
+            )}
+          </div>
         </div>
       )}
 

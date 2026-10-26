@@ -87,12 +87,20 @@ export function maskSensitive(input: string): Masked {
 /** 이미 가려진 글인지 (●가 3개 이상) */
 export const hasMask = (text: string) => /●{3,}/.test(text)
 
-/** 가려졌다고 알릴 때 쓰는 안내 문구 (docs/10 6.1) */
-export const MASK_NOTICE = '비밀번호·인증번호로 보이는 값은 저장하기 전에 ●로 바꿨어요. 앞으로는 입력하지 마세요.'
-export const MASK_NOTICE_PASSWORD = '실제 비밀번호였다면 셀프 비밀번호 재설정 포털에서 바꾸는 것이 안전해요.'
-export const MASK_NOTICE_IDENTITY = '주민등록번호·카드·계좌 번호는 IT 문의에 필요하지 않아 저장하기 전에 ●로 바꿨어요.'
+/**
+ * 가려졌다고 알릴 때 쓰는 안내 문구 (docs/10 6.1). 첫 줄은 제목, 둘째 줄부터는 설명이다.
+ * 화면은 제목을 굵게 보여 준다. 문구는 디자인 가이드 문구 사전과 같게 둔다.
+ */
+export const MASK_NOTICE = '민감정보가 감지되었어요.\n입력하신 정보는 안전을 위해 ●●●로 가림 처리했어요. 비밀번호나 인증번호는 입력하지 말아 주세요.'
+/** 비밀번호로 확인된 경우 위 설명 뒤에 덧붙인다 */
+export const MASK_NOTICE_PASSWORD = '실제 사용 중인 비밀번호라면 비밀번호 재설정 포털에서 변경해 주세요.'
+export const MASK_NOTICE_IDENTITY = '개인정보가 감지되었어요.\n입력하신 정보는 안전을 위해 ●●●로 가림 처리했어요. 문의에 필요하지 않은 개인정보는 입력하지 말아 주세요.'
+/** 접수 초안을 고치는 글에서 가렸을 때 초안 카드 위에 보여 준다 */
+export const MASK_NOTICE_DRAFT = '민감정보가 가림 처리되었어요.\n입력하신 내용에 민감정보가 포함되어 있어 일부 내용을 가렸어요. 접수 전 내용을 확인해 주세요.'
+/** 답에 쓸 근거가 모두 차단되어 AI가 안내할 수 없을 때 */
+export const BLOCKED_NOTICE = '담당자의 확인이 필요한 문의예요.\n보안 정책에 따라 AI가 직접 안내하기 어려운 내용이에요. 담당자에게 문의할 수 있도록 도와드릴게요.'
 
-/** 가린 종류에 맞는 안내 문구들 (비밀정보 → 비밀번호 추가 안내 → 고유식별·금융 순) */
+/** 가린 종류에 맞는 안내 문구들 (비밀정보 → 고유식별·금융 순). 비밀번호였다면 첫 안내에 재설정 안내가 붙는다. */
 export function maskNotices(m: Pick<Masked, 'secret' | 'password' | 'identity'>): string[] {
   const out: string[] = []
   if (m.secret) out.push(m.password ? `${MASK_NOTICE} ${MASK_NOTICE_PASSWORD}` : MASK_NOTICE)

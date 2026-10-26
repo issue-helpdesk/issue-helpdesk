@@ -136,7 +136,7 @@ describe('대화 흐름 (API)', () => {
     const a = await data(startChat(USER, '업무용 PC에서 USB 반출 예외 신청을 하고 싶어요. 오늘부터 필요해요. 저만 필요해요. 아직 안 해봤어요.'))
     await settle()
     const ans = last(await get(a.id))
-    expect(JSON.stringify(ans.blocks)).toContain('보안 기준상 AI가 직접 안내할 수 없는 내용')
+    expect(JSON.stringify(ans.blocks)).toContain('보안 정책에 따라 AI가 직접 안내하기 어려운 내용')
     expect(ans.sources).toBeUndefined()
   })
 
@@ -152,7 +152,7 @@ describe('대화 흐름 (API)', () => {
     const a = await data(startChat(USER, '인증번호는 123456 입니다'))
     const user = a.messages.find((m) => m.role === 'user')!
     expect(user.text).not.toContain('123456')
-    expect(a.messages.some((m) => m.role === 'sys' && m.text?.includes('입력하지 마세요'))).toBe(true)
+    expect(a.messages.some((m) => m.role === 'sys' && m.text?.includes('입력하지 말아 주세요'))).toBe(true)
   })
 
   it('다른 사용자의 문의는 열 수 없다', async () => {

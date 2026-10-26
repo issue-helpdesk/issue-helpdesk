@@ -76,7 +76,17 @@ interface Props {
 
 export function MessageItem({ inquiry, message: m, busy, actions, fresh = false }: Props) {
   if (m.role === 'user') return <div className="msg u">{m.text}</div>
-  if (m.role === 'sys') return <div className="msg sys">{m.text}</div>
+  if (m.role === 'sys') {
+    // 안내 문구는 첫 줄이 제목, 나머지가 설명이다 (민감정보 가림 안내 등)
+    const [head, ...rest] = (m.text ?? '').split('\n')
+    if (!rest.length) return <div className="msg sys">{m.text}</div>
+    return (
+      <div className="msg sys note">
+        <b>{head}</b>
+        <span>{rest.join(' ')}</span>
+      </div>
+    )
+  }
 
   if (m.role === 'staff') {
     return (
