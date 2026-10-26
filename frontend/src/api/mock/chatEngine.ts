@@ -749,7 +749,9 @@ export function sendToStaff(rec: StoreRecord, text: string) {
  * 접수된 건과 끝난 문의에는 쓰지 않는다. 시간·안내 시점은 서버의 환경값이다.
  */
 function idleKind(inquiry: Inquiry): IdleKind | null {
-  if (inquiry.ticket || inquiry.step === 'closed' || inquiry.step === 'submitted') return null
+  // 접수된 건은 담당자 처리 완료 뒤 해결 확인(FIN) 단계에서만 쓴다 (docs/09 6.4 ①). 그 밖의 접수 건과 끝난 문의는 대상이 아니다.
+  if (inquiry.ticket) return inquiry.ticket.workStatus === 'FIN' ? 'h5' : null
+  if (inquiry.step === 'closed' || inquiry.step === 'submitted') return null
   return inquiry.step === 'answered' ? 'h5' : 'h2'
 }
 
@@ -765,7 +767,8 @@ export function idleWarnInquiry(rec: StoreRecord) {
 /** 안내 뒤 대화를 삭제한다. 보안·로그 대상(긴급·민감정보 입력)은 지우지 않고 문의자 화면에서만 숨긴다. */
 export function idleDeleteInquiry(rec: StoreRecord) {
   const { inquiry, internal } = rec
-  if (!idleKind(inquiry)) return
+  // 접수된 건은 삭제하지 않는다 (PRD 4.5). 해결 확인 단계에서는 안내와 돌아옴 팝업만 보여 준다.
+  if (inquiry.ticket || !idleKind(inquiry)) return
   if (internal.urgent || internal.sens) internal.hidden = true
   else removeRecord(inquiry.id)
 }
