@@ -36,7 +36,7 @@ import App from './App.tsx'
 import { AuthProvider } from './core/session.tsx'
 import { applyStoredTheme } from './core/theme.ts'
 
-// 저장된 테마 설정을 적용하는 함수 실행. (화면 붙이기 전에 실행하기 위헤 여기애 배치)
+// 저장된 테마 설정을 적용하는 함수 실행. (화면 붙이기 전에 실행하기 위해 여기에 배치)
 applyStoredTheme()
 
 // 앱을 브라우저에 붙인다.
