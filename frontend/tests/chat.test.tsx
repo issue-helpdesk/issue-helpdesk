@@ -7,7 +7,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import App from '../src/App'
-import { advanceChat, isStaleInquiry, cancelChatDraft, confirmChatDraft, editDraft, getChat, reopenChat, rejectChat, replyChat, resolveChat, sendChat, startChat, timeoutChat } from '../src/api/chat'
+import { listMyInquiries } from '../src/api/inquiries'
+import { advanceChat, isStaleInquiry, cancelChatDraft, confirmChatDraft, editDraft, getChat, reopenChat, rejectChat, replyChat, resolveChat, sendChat, startChat, idleBackChat, idleDeleteChat, idleWarnChat, resumeChat } from '../src/api/chat'
 import type { Inquiry } from '../src/api/chatTypes'
 import { calcUrgency, detectCategory } from '../src/api/mock/chatEngine'
 import { mockConfig } from '../src/api/mock/chatStore'
@@ -160,16 +161,56 @@ describe('대화 흐름 (API)', () => {
     expect(r.ok).toBe(false)
   })
 
-  it('응답 없이 시간이 지나면 미확인으로 종료하고, 이어가기로 다시 연다', async () => {
+  it('종료된 상담은 이어가기로 다시 연다', async () => {
     const a = await data(startChat(USER, FULL_VPN))
     await settle()
     const ans = last(await get(a.id))
-    const closed = await data(timeoutChat(a.id, USER.employeeNo, ans.id))
-    expect(closed.status).toBe('UNCONFIRMED')
+    const offer = await data(replyChat(a.id, USER.employeeNo, { messageId: ans.id, action: 'unresolved' }))
+    const closed = await data(replyChat(a.id, USER.employeeNo, { messageId: last(offer).id, action: 'connect-no' }))
+    expect(closed.status).toBe('CLOSED_UNRESOLVED')
     expect(closed.step).toBe('closed')
     const reopened = await data(reopenChat(a.id, USER.employeeNo))
     expect(reopened.status).toBe('IN_PROGRESS')
     expect(last(reopened).replies?.map((r) => r.action)).toContain('connect-yes')
+  })
+
+  it('답변 뒤 응답이 없으면 5시간 안내를 한 번 보내고, 안내 뒤 대화를 삭제한다', async () => {
+    const a = await data(startChat(USER, FULL_VPN))
+    await settle()
+    const warned = await data(idleWarnChat(a.id, USER.employeeNo))
+    expect(warned.idleWarned).toBe('h5')
+    expect(last(warned).text).toBe('5시간 뒤까지 미확인 시 대화 내용은 삭제됩니다.')
+    // 같은 안내를 다시 보내지 않는다
+    const again = await data(idleWarnChat(a.id, USER.employeeNo))
+    expect(again.messages).toHaveLength(warned.messages.length)
+    await data(idleDeleteChat(a.id, USER.employeeNo))
+    expect((await getChat(a.id, USER.employeeNo)).ok).toBe(false)
+  })
+
+  it('질문 단계에서 응답이 없으면 2시간 안내이고, 긴급·민감정보 문의는 지우지 않고 숨긴다', async () => {
+    const a = await data(startChat(USER, 'VPN이 끊겨요'))
+    await settle()
+    const warned = await data(idleWarnChat(a.id, USER.employeeNo))
+    expect(warned.idleWarned).toBe('h2')
+    expect(last(warned).text).toBe('이어서 하지 않으면 대화내역이 사라집니다.')
+    // 긴급 징후가 있었던 문의는 삭제하지 않고 문의자 화면에서만 숨긴다
+    const u = await data(startChat(USER, '피싱 메일의 링크를 눌렀어요'))
+    await settle()
+    await data(idleDeleteChat(u.id, USER.employeeNo))
+    expect((await getChat(u.id, USER.employeeNo)).ok).toBe(false) // 문의자에게는 보이지 않는다
+    const list = await listMyInquiries(USER.employeeNo)
+    expect(list.ok && list.data.some((x) => x.id === u.id)).toBe(false)
+  })
+
+  it('삭제 전에 돌아오면 입력창을 잠그고, 이어서 하면 같은 대화로 계속한다', async () => {
+    const a = await data(startChat(USER, FULL_VPN))
+    await settle()
+    const back = await data(idleBackChat(a.id, USER.employeeNo))
+    expect(back.paused).toBe(true)
+    const resumed = await data(resumeChat(a.id, USER.employeeNo))
+    expect(resumed.paused).toBe(false)
+    expect(resumed.step).toBe(a.step === 'collect' ? 'collect' : resumed.step)
+    expect(last(resumed).text).toBe('같은 대화에서 이어서 진행해요.')
   })
 })
 
@@ -320,7 +361,7 @@ describe('대화 화면', () => {
     expect(screen.getByRole('button', { name: '대화 이어가기' })).toBeInTheDocument()
   })
 
-  it('답변 뒤에는 입력창이 꺼지고, 종료 10분 전 안내 띠가 보이다가 시간이 지나면 미확인으로 끝난다', async () => {
+  it('답변 뒤에는 입력창이 꺼지고, 5시간 안내 띠가 보이며, 돌아오면 이어서 할지 고른다', async () => {
     const user = userEvent.setup()
     renderAs('EMP-1003', '/new')
     await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
@@ -330,14 +371,27 @@ describe('대화 화면', () => {
     const box = screen.getByLabelText('메시지 입력')
     expect(box).toBeDisabled()
     expect(box).toHaveAttribute('placeholder', '위 버튼으로 골라 주세요')
-    // 시연: 종료 10분 전 안내 → 입력창 위 띠
-    await user.click(screen.getByRole('button', { name: '(시연) 종료 10분 전 안내' }))
-    expect(await screen.findByText('약 10분', {}, SLOW)).toBeInTheDocument()
-    expect(screen.getAllByText('추가 문의사항이 없으면 채팅을 종료하겠습니다.').length).toBeGreaterThan(1)
-    // 시간이 지나면 미확인 처리
-    await user.click(screen.getByRole('button', { name: '(시연) 응답 없이 시간 경과' }))
-    expect(await screen.findByText(/일정 시간 응답이 없어 상담을 종료했어요\. 미확인 처리합니다\./, {}, SLOW)).toBeInTheDocument()
-    expect(screen.queryByText('약 10분')).not.toBeInTheDocument()
+    // 시연: 5시간 안내 → 입력창 위 띠
+    await user.click(screen.getByRole('button', { name: '응답 없음 안내' }))
+    const bar = await screen.findByRole('status', {}, SLOW)
+    expect(bar).toHaveTextContent('5시간 뒤까지 미확인 시 대화 내용은 삭제됩니다.')
+    // 시연: 삭제 전에 돌아옴 → 이어서 채팅하기 / 새로운 문의하기
+    await user.click(screen.getByRole('button', { name: '돌아옴 팝업' }))
+    expect(await screen.findByRole('group', { name: '이어서 하기' }, SLOW)).toBeInTheDocument()
+    expect(screen.getByLabelText('메시지 입력')).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: '이어서 채팅하기' }))
+    expect(await screen.findByText('같은 대화에서 이어서 진행해요.', {}, SLOW)).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: '이어서 하기' })).not.toBeInTheDocument()
+  })
+
+  it('안내 뒤 삭제되면 새 문의 화면으로 돌아간다', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1003', '/new')
+    await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
+    await user.click(screen.getByRole('button', { name: '보내기' }))
+    await screen.findByText(/IT-NET-001 3\.1/, {}, SLOW)
+    await user.click(screen.getByRole('button', { name: '안내 뒤 삭제' }))
+    expect(await screen.findByRole('heading', { name: '무엇을 도와드릴까요?' }, SLOW)).toBeInTheDocument()
   })
 
   it('출처 버튼을 누르면 출처 미리보기 창이 열리고 Esc 로 닫힌다', async () => {

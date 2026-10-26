@@ -18,7 +18,7 @@
 import { request, sleep } from '../core/apiClient'
 import { USE_MOCK } from '../core/config'
 import type { DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
-import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, timeoutInquiry, idleWarnInquiry } from './mock/chatEngine'
+import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, idleWarnInquiry, idleDeleteInquiry, idleBackInquiry, resumeInquiry } from './mock/chatEngine'
 import './mock/chatMock'
 import { getRecord, notify, subscribe, type StoreRecord } from './mock/chatStore'
 import { fail, ok, type ApiResult } from './types'
@@ -44,7 +44,8 @@ const snapshot = (rec: StoreRecord): Inquiry => structuredClone(rec.inquiry)
 /** 사번(employeeNo)이 소유한 문의만 다룬다. 서버에서는 토큰으로 소유자를 확인한다. */
 function own(id: number, employeeNo: string): StoreRecord | undefined {
   const rec = getRecord(id)
-  return rec && rec.internal.owner === employeeNo ? rec : undefined
+  // 보안·로그 대상이라 숨긴 문의(응답 없음 삭제 대상)는 문의자에게 보이지 않는다
+  return rec && rec.internal.owner === employeeNo && !rec.internal.hidden ? rec : undefined
 }
 
 /** 모의 동작 하나를 실행하고 갱신된 문의를 돌려준다 */
@@ -95,7 +96,7 @@ export function watchChat(id: number, employeeNo: string, onChange: (r: ApiResul
       if (rec) {
         rec.inquiry.unread = 0
         onChange(ok(snapshot(rec)))
-      }
+      } else onChange(notFound()) // 삭제되었거나 숨겨진 문의
     })
     return off
   }
@@ -152,14 +153,24 @@ export function reopenChat(id: number, employeeNo: string): Promise<ApiResult<In
 }
 
 /** 시연 전용: 응답 없이 시간이 지난 상황 (실제 서버에서는 서버가 정해진 시간 후 처리한다) */
-/** 시연: 종료 10분 전 안내를 보낸다 (실제로는 서버가 보내는 시스템 메시지) */
+/** 시연: 응답 없음 삭제 안내를 보낸다 (실제로는 서버가 보내는 시스템 메시지) */
 export function idleWarnChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   return mockAct(id, employeeNo, (rec) => idleWarnInquiry(rec))
 }
 
-export function timeoutChat(id: number, employeeNo: string, messageId: number): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => timeoutInquiry(rec, messageId))
-  return Promise.resolve(fail('NOT_SUPPORTED', '시연 전용 기능이에요.'))
+/** 시연: 안내 뒤 대화를 삭제한다 (보안·로그 대상은 숨김) */
+export function idleDeleteChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
+  return mockAct(id, employeeNo, (rec) => idleDeleteInquiry(rec))
+}
+
+/** 시연: 삭제 전에 돌아온 상태 (이어서 채팅하기 / 새로운 문의하기 선택) */
+export function idleBackChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
+  return mockAct(id, employeeNo, (rec) => idleBackInquiry(rec))
+}
+
+/** "이어서 채팅하기": 같은 대화·같은 단계로 계속한다 */
+export function resumeChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
+  return mockAct(id, employeeNo, (rec) => resumeInquiry(rec))
 }
 
 /** 시연 전용: 담당자 처리를 한 단계 앞으로 보낸다 */
