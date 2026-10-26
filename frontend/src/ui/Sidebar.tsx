@@ -141,7 +141,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
             navigate('/login', { replace: true })
           }}
         >
-          <Icon name="arrow" />
+          <Icon name="logout" />
         </button>
       </div>
     </aside>
