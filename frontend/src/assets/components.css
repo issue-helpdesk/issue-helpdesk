@@ -120,3 +120,15 @@
 .peek .be{transform-origin:40% 56.7%;transition:transform .22s ease-out}
 .peek .ec{position:absolute;inset:0;width:100%;height:100%;opacity:0}.peek.shy .be{opacity:0;transition:none}.peek.shy .ec{opacity:1}
 @media(max-width:860px){.lwrap{margin-top:122px}.peek{width:230px;height:230px;top:-154px;right:14px}}
+/* 잇슈 프로필 이미지(답변 아바타·대화 화면 상단), 화면 제목 이미지, 상태 글 */
+.pav{width:40px;height:40px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center;background:none;box-shadow:none}
+.pav img{display:block;max-width:100%;height:auto}
+.tlead{display:inline-flex;flex:none}
+.top .tti{width:56px;height:56px;flex:none;display:block}
+.top .tt{min-width:0}
+@media (max-width:480px){.top .tti{width:40px;height:40px}}
+.pst{font-size:12px;color:var(--mute);margin-bottom:4px}
+/* 로그인 상담 창: 제목 줄이 위에 떠 있고 대화가 그 아래로 비쳐 보인다 */
+.lpop{padding-top:0;-webkit-backdrop-filter:blur(20px)}
+.lpop .lph{position:absolute;left:0;right:0;top:0;z-index:2;padding:20px 20px 18px;border-radius:24px 24px 0 0;background:linear-gradient(180deg,var(--white) 0%,var(--white) 58%,color-mix(in srgb,var(--white) 78%,transparent) 100%);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.lpop .th{padding-top:84px}

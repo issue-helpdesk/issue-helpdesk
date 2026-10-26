@@ -19,8 +19,10 @@ import { Composer } from '../../ui/Composer'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { StateBadge } from '../../ui/StateBadge'
+import { Pav } from '../../ui/Pav'
 import { Topbar } from '../../ui/Topbar'
 import { MessageItem, type ChatActions } from './MessageItem'
+import { latestPose, poseLabel, poseOf } from './pose'
 
 const NOTE = '비밀번호·인증번호·API 키는 입력하지 마세요. 상담 기록은 처리·운영 목적으로 활용될 수 있어요.'
 const NO_MESSAGES: ReadonlySet<number> = new Set()
@@ -165,11 +167,11 @@ export function ChatView() {
   // 버튼으로만 고르는 단계: 답변 뒤·연결 제안, 접수 초안 확인, 담당자 처리 완료 뒤 해결 확인
   const wait = t ? (t.workStatus === 'FIN' ? 'fin' : null) : inquiry.step === 'draft' ? 'draft' : inquiry.step === 'answered' || inquiry.step === 'offer' ? 'btn' : null
   // 삭제 전에 돌아온 상태: 이어서 할지 새로 시작할지 고를 때까지 입력창을 끈다
-  const paused = !!inquiry.paused && !t
+  const paused = !!inquiry.paused
   const lock = paused ? { ph: '아래에서 이어갈 방법을 골라 주세요', why: '' } : wait ? LOCK[wait] : null
   const placeholder = lock ? lock.ph : t ? '담당자에게 추가 내용 남기기' : '메시지를 입력하세요'
   // 시연: 응답 없음 삭제 안내 · 삭제 · 돌아옴. 접수된 건과 끝난 문의에는 쓰지 않는다.
-  const demoIdle = USE_MOCK && !t && !closed && !!employeeNo
+  const demoIdle = USE_MOCK && !closed && !!employeeNo && (!t || t.workStatus === 'FIN')
 
   async function send() {
     const v = text.trim()
@@ -190,41 +192,28 @@ export function ChatView() {
         title={inquiry.title}
         sub={t ? `${t.receiptNo}${t.jiraKey ? ` · ${t.jiraKey}` : ''}` : undefined}
         right={<StateBadge tone={state.tone} label={state.label} />}
+        lead={
+          <span className="tlead">
+            <Pav pose={latestPose(inquiry)} size={44} />
+          </span>
+        }
       />
 
       <div className="scroll" ref={scrollRef}>
         <div className="thread" role="log" aria-live="polite" aria-label="문의 대화">
-          {inquiry.messages.map((m) => (
-            <MessageItem key={m.id} inquiry={inquiry} message={m} busy={busy} actions={actions} fresh={fresh.has(m.id)} />
-          ))}
+          {inquiry.messages.map((m, idx) => {
+            const pose = poseOf(inquiry, idx)
+            return <MessageItem key={m.id} inquiry={inquiry} message={m} busy={busy} actions={actions} fresh={fresh.has(m.id)} pose={pose} poseText={poseLabel(inquiry, idx, pose)} />
+          })}
         </div>
       </div>
 
       <div className="composer-wrap">
-        {paused ? (
-          <div className="resume" role="group" aria-label="이어서 하기">
-            <div>
-              <b>잠시 자리를 비우셨네요</b>
-              <span>이어서 채팅하거나, 새로운 문의를 시작할 수 있어요.</span>
-            </div>
-            <div className="row">
-              <button type="button" className="btn pri sm" disabled={busy} onClick={() => void apply(resumeChat(id, employeeNo!))}>
-                이어서 채팅하기
-              </button>
-              {/* 새 문의를 고르면 이전 문의는 바로 끝내고 삭제한다 (보안·로그 대상은 숨김). 삭제되면 새 문의 화면으로 이동한다. */}
-              <button type="button" className="btn sec sm" disabled={busy} onClick={() => void apply(idleDeleteChat(id, employeeNo!))}>
-                새로운 문의하기
-              </button>
-            </div>
+        {!closed && inquiry.idleWarned && (
+          <div className="idlebar" role="status">
+            <Icon name="bell" />
+            <span>{IDLE_TEXT[inquiry.idleWarned]}</span>
           </div>
-        ) : (
-          !closed &&
-          inquiry.idleWarned && (
-            <div className="idlebar" role="status">
-              <Icon name="bell" />
-              <span>{IDLE_TEXT[inquiry.idleWarned]}</span>
-            </div>
-          )
         )}
         {error && (
           <div className="alert err" role="alert" style={{ maxWidth: 760, margin: '0 auto 10px' }}>
@@ -251,9 +240,11 @@ export function ChatView() {
                 <button type="button" className="btn ghost sm" disabled={busy} onClick={() => void apply(idleWarnChat(id, employeeNo!))}>
                   응답 없음 안내
                 </button>
-                <button type="button" className="btn ghost sm" disabled={busy} onClick={() => void apply(idleDeleteChat(id, employeeNo!))}>
-                  안내 뒤 삭제
-                </button>
+                {!t && (
+                  <button type="button" className="btn ghost sm" disabled={busy} onClick={() => void apply(idleDeleteChat(id, employeeNo!))}>
+                    안내 뒤 삭제
+                  </button>
+                )}
                 <button type="button" className="btn ghost sm" disabled={busy} onClick={() => void apply(idleBackChat(id, employeeNo!))}>
                   돌아옴 팝업
                 </button>
@@ -295,6 +286,22 @@ export function ChatView() {
           <div className="acts">
             <button type="button" className="btn pri" onClick={() => setModal(null)}>
               닫기
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* 삭제 전에 돌아왔을 때: 화면 가운데 창에서 고를 때까지 뒤 화면은 어둡고 흐리게 막는다 (닫기 없음) */}
+      {paused && (
+        <Modal title="잠시 자리를 비우셨네요" variant="choice" dismissible={false} lead={<Pav size={84} />}>
+          <p>이어서 채팅하거나, 새로운 문의를 시작할 수 있어요.</p>
+          <div className="acts">
+            <button type="button" className="btn pri" disabled={busy} onClick={() => void apply(resumeChat(id, employeeNo!))}>
+              이어서 채팅하기
+            </button>
+            {/* 새 문의를 고르면 이전 문의는 바로 끝내고 삭제한다 (보안·로그 대상은 숨김, 접수된 건은 그대로). 삭제되면 새 문의 화면으로 이동한다. */}
+            <button type="button" className="btn sec" disabled={busy} onClick={() => (t ? navigate('/new') : void apply(idleDeleteChat(id, employeeNo!)))}>
+              새로운 문의하기
             </button>
           </div>
         </Modal>

@@ -377,11 +377,14 @@ describe('대화 화면', () => {
     expect(bar).toHaveTextContent('5시간 뒤까지 미확인 시 대화 내용은 삭제됩니다.')
     // 시연: 삭제 전에 돌아옴 → 이어서 채팅하기 / 새로운 문의하기
     await user.click(screen.getByRole('button', { name: '돌아옴 팝업' }))
-    expect(await screen.findByRole('group', { name: '이어서 하기' }, SLOW)).toBeInTheDocument()
-    expect(screen.getByLabelText('메시지 입력')).toBeDisabled()
+    // 화면 가운데 창: Esc 로는 닫히지 않고, 두 버튼 중 하나를 골라야 한다
+    expect(await screen.findByRole('dialog', { name: '잠시 자리를 비우셨네요' }, SLOW)).toBeInTheDocument()
+    expect(screen.getByLabelText('메시지 입력', { selector: 'textarea' })).toBeDisabled()
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('dialog', { name: '잠시 자리를 비우셨네요' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '이어서 채팅하기' }))
     expect(await screen.findByText('같은 대화에서 이어서 진행해요.', {}, SLOW)).toBeInTheDocument()
-    expect(screen.queryByRole('group', { name: '이어서 하기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: '잠시 자리를 비우셨네요' })).not.toBeInTheDocument()
   })
 
   it('초안 단계에서도 2시간 안내가 나가고, 새로운 문의하기를 고르면 이전 문의를 삭제하고 새 문의 화면으로 간다', async () => {
@@ -401,6 +404,22 @@ describe('대화 화면', () => {
     expect(await screen.findByRole('heading', { name: '무엇을 도와드릴까요?' }, SLOW)).toBeInTheDocument()
     // 이전 문의는 사이드바 최근 문의에서도 사라진다
     await waitFor(() => expect(screen.queryByRole('button', { name: /VPN.*진행 중/ })).not.toBeInTheDocument(), SLOW)
+  })
+
+  it('담당자 처리 완료 뒤 해결 확인 단계에서도 안내와 돌아옴 팝업을 볼 수 있고, 접수된 건은 삭제하지 않는다', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1001', '/chat/101')
+    await screen.findByRole('list', { name: '접수 진행 단계' }, SLOW)
+    await advanceChat(101, 'EMP-1001') // 처리 중 → 해결 확인 대기
+    await waitFor(() => expect(screen.getByRole('button', { name: '응답 없음 안내' })).toBeEnabled(), SLOW)
+    expect(screen.queryByRole('button', { name: '안내 뒤 삭제' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '응답 없음 안내' }))
+    expect(await screen.findByRole('status', {}, SLOW)).toHaveTextContent('5시간 뒤까지 미확인 시 대화 내용은 삭제됩니다.')
+    await user.click(screen.getByRole('button', { name: '돌아옴 팝업' }))
+    await user.click(await screen.findByRole('button', { name: '새로운 문의하기' }, SLOW))
+    expect(await screen.findByRole('heading', { name: '무엇을 도와드릴까요?' }, SLOW)).toBeInTheDocument()
+    // 접수된 건은 그대로 남는다
+    expect((await getChat(101, 'EMP-1001')).ok).toBe(true)
   })
 
   it('안내 뒤 삭제되면 새 문의 화면으로 돌아간다', async () => {

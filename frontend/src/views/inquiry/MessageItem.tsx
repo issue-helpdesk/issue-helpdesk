@@ -6,7 +6,7 @@ import { URGENCY_LABEL } from '../../api/catalog'
 import type { ChatBlock, ChatMessage, DraftEdit, GuideSource, Inquiry, LegacyCase, ReplyRequest } from '../../api/chatTypes'
 import { formatDateTime, sourceLabel } from '../../core/format'
 import { Icon } from '../../ui/Icon'
-import { Avatar } from '../../ui/Logo'
+import { Pav, type Pose } from '../../ui/Pav'
 import { RichText } from '../../ui/RichText'
 import { DraftCard } from './DraftCard'
 import { TicketCard } from './TicketCard'
@@ -72,9 +72,12 @@ interface Props {
   actions: ChatActions
   /** 방금 생긴 답변이면 아래에서 올라오며 나타난다 (한 번) */
   fresh?: boolean
+  /** 답변 아바타의 잇슈 모습과, 모습이 바뀐 첫 답변에 붙는 상태 글 */
+  pose?: Pose
+  poseText?: string
 }
 
-export function MessageItem({ inquiry, message: m, busy, actions, fresh = false }: Props) {
+export function MessageItem({ inquiry, message: m, busy, actions, fresh = false, pose = 'base', poseText = '' }: Props) {
   if (m.role === 'user') return <div className="msg u">{m.text}</div>
   if (m.role === 'sys') {
     // 안내 문구는 첫 줄이 제목, 나머지가 설명이다 (민감정보 가림 안내 등)
@@ -112,7 +115,7 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false 
   if (m.typing) {
     return (
       <div className="msg a">
-        <Avatar size={32} />
+        <Pav pose={pose} />
         <div className="body" role="status">
           <span className="dots" aria-hidden="true">
             <i />
@@ -130,8 +133,9 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false 
 
   return (
     <div className={`msg a${fresh ? ' rise' : ''}`}>
-      <Avatar size={32} />
+      <Pav pose={pose} />
       <div className="body">
+        {poseText && <div className="pst">{poseText}</div>}
         {m.blocks?.map((b, i) => (
           <Block key={i} b={b} />
         ))}

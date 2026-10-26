@@ -6,7 +6,8 @@ import type { ReactNode } from 'react'
 import { Icon } from './Icon'
 import { useShell } from './shellContext'
 
-export function Topbar({ title, sub, right }: { title: string; sub?: string; right?: ReactNode }) {
+/** lead: 제목 왼쪽 이미지 (대화 화면의 잇슈, 화면별 제목 이미지) */
+export function Topbar({ title, sub, right, lead }: { title: string; sub?: string; right?: ReactNode; lead?: ReactNode }) {
   const { toggleNav } = useShell()
   return (
     <header className="top">
@@ -14,7 +15,8 @@ export function Topbar({ title, sub, right }: { title: string; sub?: string; rig
         <button className="btn sec sm ico menu" type="button" aria-label="메뉴 열기" onClick={toggleNav}>
           <Icon name="chevron" />
         </button>
-        <div>
+        {lead}
+        <div className="tt">
           <h2>{title}</h2>
           {sub && <div className="sub">{sub}</div>}
         </div>
