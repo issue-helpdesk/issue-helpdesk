@@ -15,6 +15,7 @@ import { useAuth } from '../core/session'
 import { Icon, type IconName } from './Icon'
 import { Logo } from './Logo'
 import { STATE_TONE } from './stateStyle'
+import { ThemeSwitch } from './ThemeSwitch'
 
 interface NavItem {
   to: string
@@ -75,7 +76,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       <div className="brand">
         {/* 로고는 홈으로 가는 버튼: 문의자=새 문의, 담당자=처리할 문의, 관리자=대시보드 */}
         <button type="button" className="brandbtn" aria-label="ITssue 홈으로" onClick={() => go(HOME_BY_ROLE[user.serviceRole])}>
-          <Logo width={112} />
+          <Logo width={118} kind="word" />
         </button>
       </div>
 
@@ -116,6 +117,11 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
         </div>
       )}
 
+      <div className="modebar">
+        <small>화면 모드</small>
+        <ThemeSwitch />
+      </div>
+
       <div className="who">
         <span className="pf">{initials(user.name)}</span>
         <div>
@@ -135,7 +141,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
             navigate('/login', { replace: true })
           }}
         >
-          <Icon name="arrow" />
+          <Icon name="logout" />
         </button>
       </div>
     </aside>

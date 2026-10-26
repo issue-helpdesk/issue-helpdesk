@@ -16,7 +16,8 @@ import os
 import re
 from dataclasses import dataclass
 
-from ..chunker import Chunk, baseline, chunk_document, unit_ref, validate, view_scope
+from ..chunker import (SKIP_CHAPTERS, SKIP_PREFIX_RE, Chunk, _units, baseline, chunk_document, unit_ref, validate,
+                       view_scope)
 from ..parser import ParsedDocument, parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -29,7 +30,9 @@ OUT = os.path.join(REPO, 'dataset', 'guide_review')
 
 QUESTION_COLUMNS = ['문서 번호', '번호', '질문', '정답 단위', '작성자', '메모']
 QUESTIONS_PER_DOC = 3
+CROSS_DOC_MEMO = '다른 문서 정답:'      # 메모에 이 표시가 있으면 다른 문서의 정답 단위를 의도한 것으로 본다
 ACCESS_BY_TYPE = {'guide': '사내 일반', 'standard': '사내 일반', 'manual': '사내 제한', 'policy': '사내 제한'}
+TRANSFER_BY_TYPE = {'guide': 'ALLOWED', 'standard': 'ALLOWED', 'manual': 'BLOCKED', 'policy': 'BLOCKED'}   # D 결정 (PR #70)
 
 _NORM_RE = re.compile(r'[\s.,?!~·\'"()\[\]]')
 _TOKEN_RE = re.compile(r'[0-9A-Za-z가-힣]{2,}')
@@ -131,13 +134,64 @@ def doc_checks(r: Review, base: dict | None = None) -> list[tuple[str, str, str,
     problems = validate(r.chunks)
     rows.append(('청크 검증 validate()', '문제 없음' if not problems else '; '.join(problems), '문제 없음',
                  '일치' if not problems else '⚠ 다름'))
+    cov = coverage(r.doc, r.chunks)
+    bad = [f'빠짐 {len(cov.missing)}'] * bool(cov.missing) + [f'순서 {len(cov.out_of_order)}'] * bool(cov.out_of_order)
+    rows.append(('단위 본문 ↔ 파싱 결과 (빠짐·순서)', f'요소 {cov.expected}개 중 빠짐 {len(cov.missing)} · 순서 어긋남 {len(cov.out_of_order)}',
+                 '빠짐 0 · 순서 0', '일치' if not bad else '⚠ ' + ' · '.join(bad) + ': ' + _short_list(cov.missing + cov.out_of_order)))
     if base is not None:
         got = baseline(r.chunks).get(r.doc_no)
         want_b = base.get(r.doc_no)
         rows.append(('청크 수 기준표', _show(got), _show(want_b), '일치' if got == want_b else '⚠ 다름'))
-    tp = e.get('transfer_policy')
-    rows.append(('외부 전송 (transfer_policy)', '-', tp or '(없음)', '정보: 미정이면 BLOCKED 로 적재 (D 결정 대기)' if not tp else '정보'))
+    tp, want_tp = e.get('transfer_policy'), TRANSFER_BY_TYPE.get(e.get('doc_type', ''), 'BLOCKED')
+    rows.append(('외부 전송 (transfer_policy) ↔ 문서 유형 규칙', tp or '(없음)', want_tp,
+                 '일치' if tp == want_tp else ('⚠ 값 없음 (BLOCKED 로 적재)' if not tp else '⚠ 다름')))
     return rows
+
+
+@dataclass
+class Coverage:
+    expected: int                  # 단위 본문에 들어가야 하는 파싱 요소(표는 칸) 수
+    missing: list[str]             # 어느 단위에도 없는 것
+    out_of_order: list[str]        # 들어 있지만 앞 요소보다 앞에 나온 것
+
+
+_COVER_NORM_RE = re.compile(r'[\s|\\#*\-]')
+
+
+def coverage(doc: ParsedDocument, chunks: list[Chunk]) -> Coverage:
+    """파싱 결과의 본문 요소가 단위 본문에 빠짐없이, 원문 순서대로 들어갔는지 (청커 검사).
+
+    청커가 일부러 빼는 것은 제외한다: 문서·장·항목 제목(머리말로 감), '개정 이력' 장, 제목만 있는 장.
+    표는 칸 하나하나를, 그림은 설명을 찾는다. 비교는 공백·표 구분선·목록 기호를 지우고 한다.
+    """
+    hay = _COVER_NORM_RE.sub('', ''.join(c.body for c in chunks))
+    pieces = []
+    for _, chapter, _, elems in _units(doc):
+        if SKIP_PREFIX_RE.sub('', chapter).startswith(SKIP_CHAPTERS) or not any(e.kind != 'heading' for e in elems):
+            continue
+        for e in elems:
+            if e.kind == 'table':
+                pieces += [c for row in e.rows or [] for c in row]
+            else:
+                pieces.append(e.text)
+    missing, out_of_order, cursor, n = [], [], 0, 0
+    for p in pieces:
+        key = _COVER_NORM_RE.sub('', p)
+        if len(key) < 2:                                  # '-'·'예' 같은 한 글자 칸은 어디에나 있어 의미가 없다
+            continue
+        n += 1
+        pos = hay.find(key, cursor)
+        if pos >= 0:
+            cursor = pos + len(key)
+        elif key in hay:
+            out_of_order.append(p)
+        else:
+            missing.append(p)
+    return Coverage(n, missing, out_of_order)
+
+
+def _short_list(items: list[str], n: int = 3) -> str:
+    return ' / '.join(f'"{_short(x, 30)}"' for x in items[:n]) + (' …' if len(items) > n else '')
 
 
 def sheet(reviews: list[Review], name: str, evalset: EvalSet, base: dict | None = None) -> str:
@@ -147,7 +201,9 @@ def sheet(reviews: list[Review], name: str, evalset: EvalSet, base: dict | None 
            '**확인** 칸과 **문제** 칸은 검증자가 채웁니다.', '',
            '검증 순서 (문서마다)', '',
            '1. **자동 대조**에 ⚠ 가 있으면 원문(pdf)을 보고 어느 쪽이 맞는지 `문제` 칸에 적습니다.',
-           '2. **검색 단위**를 원문과 비교합니다. 빠진 문장·표, 순서 꼬임, 다른 항목과 섞임이 없으면 ☐ 를 ☑ 로 바꿉니다. '
+           '2. **검색 단위**의 경계를 봅니다. 빠짐·순서는 자동 대조의 "단위 본문 ↔ 파싱 결과" 줄이 이미 확인합니다. '
+           '사람은 단위 하나가 한 상황을 온전히 담는지(절차 중간에서 잘리지 않음, 다른 항목 내용이 섞이지 않음, '
+           'FAQ 질문과 답이 한 단위)만 보고 ☐ 를 ☑ 로 바꿉니다. 확인한 사람을 `문제` 칸에 적어도 됩니다. '
            '단위 본문은 `python -m app.rag.chunker <md 파일> --out <폴더>` 미리보기로 봅니다.',
            '3. **평가셋 겹침**이 있으면 그 표현이 `dataset/data/history.csv`·`faq.csv`에도 있는지 봅니다. '
            '있으면 일반 표현이라 괜찮고, 평가셋에만 있으면 고치도록 팀에 알립니다 (평가셋 문장은 검색 자료에 넣지 않음).',
@@ -262,8 +318,8 @@ def check_questions(rows: list[dict], manifest: dict[str, dict], evalset: EvalSe
         for a in answers:
             if a not in units:
                 errors.append(f'{where}: 정답 단위 {a} 가 없음 (검증 시트의 단위 칸에서 복사)')
-            elif not a.startswith(doc + '/'):
-                warnings.append(f'{where}: 정답 단위 {a} 가 다른 문서 (의도한 것이면 메모에 적기)')
+            elif not a.startswith(doc + '/') and CROSS_DOC_MEMO not in (row.get('메모') or ''):
+                warnings.append(f'{where}: 정답 단위 {a} 가 다른 문서 (의도한 것이면 메모에 "{CROSS_DOC_MEMO} <이유>")')
         if q:
             key = _norm(q)
             if key in seen:

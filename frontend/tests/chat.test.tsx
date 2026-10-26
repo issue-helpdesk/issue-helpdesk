@@ -2,12 +2,13 @@
  * 문의 대화 테스트: 대화 엔진 규칙(분류·긴급도·검색 순서) · 접수 흐름 · 대화 화면.
  * 가짜 응답(mock)으로만 실행하며, 시연용 지연은 tests/setup.ts 에서 없앤다.
  */
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import App from '../src/App'
-import { advanceChat, cancelChatDraft, confirmChatDraft, editDraft, getChat, reopenChat, rejectChat, replyChat, resolveChat, sendChat, startChat, timeoutChat } from '../src/api/chat'
+import { listMyInquiries } from '../src/api/inquiries'
+import { advanceChat, isStaleInquiry, cancelChatDraft, confirmChatDraft, editDraft, getChat, reopenChat, rejectChat, replyChat, resolveChat, sendChat, startChat, idleBackChat, idleDeleteChat, idleWarnChat, resumeChat } from '../src/api/chat'
 import type { Inquiry } from '../src/api/chatTypes'
 import { calcUrgency, detectCategory } from '../src/api/mock/chatEngine'
 import { mockConfig } from '../src/api/mock/chatStore'
@@ -104,7 +105,7 @@ describe('대화 흐름 (API)', () => {
     expect(JSON.stringify(answer.blocks)).toContain('과거 처리 사례 참고')
   })
 
-  it('해결됐어요를 누르면 AI 해결로 종료한다', async () => {
+  it('해결을 누르면 AI 해결로 종료한다', async () => {
     const a = await data(startChat(USER, FULL_VPN))
     await settle()
     const ans = last(await get(a.id))
@@ -120,7 +121,7 @@ describe('대화 흐름 (API)', () => {
     await data(replyChat(a.id, USER.employeeNo, { messageId: ans.id, action: 'resolved' }))
     const again = await data(replyChat(a.id, USER.employeeNo, { messageId: ans.id, action: 'unresolved' }))
     expect(again.status).toBe('AI_RESOLVED')
-    expect(again.messages.filter((m) => m.role === 'user' && m.text === '아직 안 돼요.')).toHaveLength(0)
+    expect(again.messages.filter((m) => m.role === 'user' && m.text === '미해결')).toHaveLength(0)
   })
 
   it('보안 사고 의심은 일반 검색 없이 담당자 연결부터 제안한다', async () => {
@@ -135,7 +136,7 @@ describe('대화 흐름 (API)', () => {
     const a = await data(startChat(USER, '업무용 PC에서 USB 반출 예외 신청을 하고 싶어요. 오늘부터 필요해요. 저만 필요해요. 아직 안 해봤어요.'))
     await settle()
     const ans = last(await get(a.id))
-    expect(JSON.stringify(ans.blocks)).toContain('외부 모델로 전송할 수 없는 문서')
+    expect(JSON.stringify(ans.blocks)).toContain('보안 정책에 따라 AI가 직접 안내하기 어려운 내용')
     expect(ans.sources).toBeUndefined()
   })
 
@@ -151,7 +152,7 @@ describe('대화 흐름 (API)', () => {
     const a = await data(startChat(USER, '인증번호는 123456 입니다'))
     const user = a.messages.find((m) => m.role === 'user')!
     expect(user.text).not.toContain('123456')
-    expect(a.messages.some((m) => m.role === 'sys' && m.text?.includes('입력하지 마세요'))).toBe(true)
+    expect(a.messages.some((m) => m.role === 'sys' && m.text?.includes('입력하지 말아 주세요'))).toBe(true)
   })
 
   it('다른 사용자의 문의는 열 수 없다', async () => {
@@ -160,16 +161,76 @@ describe('대화 흐름 (API)', () => {
     expect(r.ok).toBe(false)
   })
 
-  it('응답 없이 시간이 지나면 미확인으로 종료하고, 이어가기로 다시 연다', async () => {
+  it('종료된 상담은 이어가기로 다시 연다', async () => {
     const a = await data(startChat(USER, FULL_VPN))
     await settle()
     const ans = last(await get(a.id))
-    const closed = await data(timeoutChat(a.id, USER.employeeNo, ans.id))
-    expect(closed.status).toBe('UNCONFIRMED')
+    const offer = await data(replyChat(a.id, USER.employeeNo, { messageId: ans.id, action: 'unresolved' }))
+    const closed = await data(replyChat(a.id, USER.employeeNo, { messageId: last(offer).id, action: 'connect-no' }))
+    expect(closed.status).toBe('CLOSED_UNRESOLVED')
     expect(closed.step).toBe('closed')
     const reopened = await data(reopenChat(a.id, USER.employeeNo))
     expect(reopened.status).toBe('IN_PROGRESS')
     expect(last(reopened).replies?.map((r) => r.action)).toContain('connect-yes')
+  })
+
+  it('답변 뒤 응답이 없으면 5시간 안내를 한 번 보내고, 안내 뒤 대화를 삭제한다', async () => {
+    const a = await data(startChat(USER, FULL_VPN))
+    await settle()
+    const warned = await data(idleWarnChat(a.id, USER.employeeNo))
+    expect(warned.idleWarned).toBe('h5')
+    expect(last(warned).text).toBe('5시간 뒤까지 미확인 시 대화 내용은 삭제됩니다.')
+    // 같은 안내를 다시 보내지 않는다
+    const again = await data(idleWarnChat(a.id, USER.employeeNo))
+    expect(again.messages).toHaveLength(warned.messages.length)
+    await data(idleDeleteChat(a.id, USER.employeeNo))
+    expect((await getChat(a.id, USER.employeeNo)).ok).toBe(false)
+  })
+
+  it('질문 단계에서 응답이 없으면 2시간 안내이고, 긴급·민감정보 문의는 지우지 않고 숨긴다', async () => {
+    const a = await data(startChat(USER, 'VPN이 끊겨요'))
+    await settle()
+    const warned = await data(idleWarnChat(a.id, USER.employeeNo))
+    expect(warned.idleWarned).toBe('h2')
+    expect(last(warned).text).toBe('이어서 하지 않으면 대화내역이 사라집니다.')
+    // 긴급 징후가 있었던 문의는 삭제하지 않고 문의자 화면에서만 숨긴다
+    const u = await data(startChat(USER, '피싱 메일의 링크를 눌렀어요'))
+    await settle()
+    await data(idleDeleteChat(u.id, USER.employeeNo))
+    expect((await getChat(u.id, USER.employeeNo)).ok).toBe(false) // 문의자에게는 보이지 않는다
+    const list = await listMyInquiries(USER.employeeNo)
+    expect(list.ok && list.data.some((x) => x.id === u.id)).toBe(false)
+  })
+
+  it('삭제 전에 돌아오면 입력창을 잠그고, 이어서 하면 같은 대화로 계속한다', async () => {
+    const a = await data(startChat(USER, FULL_VPN))
+    await settle()
+    const back = await data(idleBackChat(a.id, USER.employeeNo))
+    expect(back.paused).toBe(true)
+    const resumed = await data(resumeChat(a.id, USER.employeeNo))
+    expect(resumed.paused).toBe(false)
+    expect(resumed.step).toBe(a.step === 'collect' ? 'collect' : resumed.step)
+    expect(last(resumed).text).toBe('같은 대화에서 이어서 진행해요.')
+  })
+})
+
+describe('어긋난 요청 오류 (API)', () => {
+  it('지난 버튼·중복 요청 같은 409 오류는 최신 화면으로 다시 그리는 대상이다', () => {
+    expect(isStaleInquiry('INQUIRY_INVALID_STATE')).toBe(true)
+    expect(isStaleInquiry('INQUIRY_CLOSED')).toBe(true)
+    expect(isStaleInquiry('REQUEST_IN_PROGRESS')).toBe(true)
+    expect(isStaleInquiry('INQUIRY_NOT_FOUND')).toBe(false)
+  })
+})
+
+describe('긴급 건 접수 없이 종료 (API)', () => {
+  it('연결을 거절하면 행동 안내와 내선 1000이 함께 보인다', async () => {
+    const a = await data(startChat(USER, '피싱 메일의 링크를 눌렀어요'))
+    await settle()
+    const offer = last(await get(a.id))
+    const closed = await data(replyChat(a.id, USER.employeeNo, { messageId: offer.id, action: 'connect-no' }))
+    expect(closed.status).toBe('CLOSED_UNRESOLVED')
+    expect(JSON.stringify(last(closed).blocks)).toContain('내선 1000')
   })
 })
 
@@ -200,7 +261,7 @@ describe('접수 흐름 (API)', () => {
     expect(done.draftState).toBe('confirmed')
     await settle()
     const after = await get(d.id)
-    expect(after.ticket?.jiraKey).toMatch(/^ITSD-\d+$/)
+    expect(after.ticket?.jiraKey).toMatch(/^ITHD-\d+$/)
     expect(after.ticket).toMatchObject({ workStatus: 'RDY', assignStatus: 'ASSIGNED', jiraSyncStatus: 'SYNCED', assigneeName: '김담당', groupName: '네트워크팀' })
     expect(after.status).toBe('HANDED_OFF')
   })
@@ -245,7 +306,7 @@ describe('접수 흐름 (API)', () => {
     expect(cls.ticket?.workStatus).toBe('CLS')
   })
 
-  it('아직 해결되지 않았다고 알리면 사유와 함께 다시 처리 중으로 돌아간다', async () => {
+  it('미해결이라고 알리면 사유와 함께 다시 처리 중으로 돌아간다', async () => {
     const d = await toDraft()
     await data(confirmChatDraft(d.id, USER.employeeNo))
     await settle()
@@ -289,15 +350,93 @@ describe('대화 화면', () => {
     expect(await screen.findByRole('button', { name: /VPN이 끊겨요.*진행 중/ }, SLOW)).toBeInTheDocument()
   })
 
-  it('안내를 받고 해결됐어요를 누르면 종료 안내와 "대화 이어가기"가 보인다', async () => {
+  it('안내를 받고 해결을 누르면 종료 안내와 "대화 이어가기"가 보인다', async () => {
     const user = userEvent.setup()
     renderAs('EMP-1003', '/new')
     await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
     await user.click(screen.getByRole('button', { name: '보내기' }))
-    expect(await screen.findByText(/IT-NET-001 VPN 접속 장애 대응 가이드 v2 · 3.1/, {}, SLOW)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '해결됐어요' }))
+    expect(await screen.findByText(/IT-NET-001 3\.1/, {}, SLOW)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '해결' }))
     expect(await screen.findByText(/AI 안내로 해결된 문의입니다/, {}, SLOW)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '대화 이어가기' })).toBeInTheDocument()
+  })
+
+  it('답변 뒤에는 입력창이 꺼지고, 5시간 안내 띠가 보이며, 돌아오면 이어서 할지 고른다', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1003', '/new')
+    await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
+    await user.click(screen.getByRole('button', { name: '보내기' }))
+    await screen.findByText(/IT-NET-001 3\.1/, {}, SLOW)
+    // 해결 · 미해결을 고르는 단계: 글을 쓸 수 없다
+    const box = screen.getByLabelText('메시지 입력')
+    expect(box).toBeDisabled()
+    expect(box).toHaveAttribute('placeholder', '위 버튼으로 골라 주세요')
+    // 시연: 5시간 안내 → 입력창 위 띠
+    await user.click(screen.getByRole('button', { name: '응답 없음 안내' }))
+    const bar = await screen.findByRole('status', {}, SLOW)
+    expect(bar).toHaveTextContent('5시간 뒤까지 미확인 시 대화 내용은 삭제됩니다.')
+    // 시연: 삭제 전에 돌아옴 → 이어서 채팅하기 / 새로운 문의하기
+    await user.click(screen.getByRole('button', { name: '돌아옴 팝업' }))
+    // 화면 가운데 창: Esc 로는 닫히지 않고, 두 버튼 중 하나를 골라야 한다
+    expect(await screen.findByRole('dialog', { name: '잠시 자리를 비우셨네요' }, SLOW)).toBeInTheDocument()
+    expect(screen.getByLabelText('메시지 입력', { selector: 'textarea' })).toBeDisabled()
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('dialog', { name: '잠시 자리를 비우셨네요' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '이어서 채팅하기' }))
+    expect(await screen.findByText('같은 대화에서 이어서 진행해요.', {}, SLOW)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: '잠시 자리를 비우셨네요' })).not.toBeInTheDocument()
+  })
+
+  it('초안 단계에서도 2시간 안내가 나가고, 새로운 문의하기를 고르면 이전 문의를 삭제하고 새 문의 화면으로 간다', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1003', '/new')
+    await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
+    await user.click(screen.getByRole('button', { name: '보내기' }))
+    await screen.findByText(/IT-NET-001 3\.1/, {}, SLOW)
+    await user.click(screen.getByRole('button', { name: '미해결' }))
+    await user.click(await screen.findByRole('button', { name: '담당자 연결' }, SLOW))
+    await screen.findByText('접수 초안', {}, SLOW)
+    await waitFor(() => expect(screen.getByRole('button', { name: '응답 없음 안내' })).toBeEnabled(), SLOW)
+    await user.click(screen.getByRole('button', { name: '응답 없음 안내' }))
+    expect(await screen.findByRole('status', {}, SLOW)).toHaveTextContent('이어서 하지 않으면 대화내역이 사라집니다.')
+    await user.click(screen.getByRole('button', { name: '돌아옴 팝업' }))
+    await user.click(await screen.findByRole('button', { name: '새로운 문의하기' }, SLOW))
+    // 삭제하기 전에 한 번 더 확인한다: 안전한 "돌아가기"에 초점이 가고, 돌아가면 처음 선택으로 돌아온다
+    const confirm = await screen.findByRole('alertdialog', { name: '현재 대화를 삭제할까요?' }, SLOW)
+    expect(confirm).toHaveTextContent('새로운 문의하기를 누르면 현재 대화는 삭제됩니다.')
+    expect(screen.getByRole('button', { name: '돌아가기' })).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: '돌아가기' }))
+    await user.click(await screen.findByRole('button', { name: '새로운 문의하기' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '삭제하고 새로 문의하기' }, SLOW))
+    expect(await screen.findByRole('heading', { name: '무엇을 도와드릴까요?' }, SLOW)).toBeInTheDocument()
+    // 이전 문의는 사이드바 최근 문의에서도 사라진다
+    await waitFor(() => expect(screen.queryByRole('button', { name: /VPN.*진행 중/ })).not.toBeInTheDocument(), SLOW)
+  })
+
+  it('담당자 처리 완료 뒤 해결 확인 단계에서도 안내와 돌아옴 팝업을 볼 수 있고, 접수된 건은 삭제하지 않는다', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1001', '/chat/101')
+    await screen.findByRole('list', { name: '접수 진행 단계' }, SLOW)
+    await advanceChat(101, 'EMP-1001') // 처리 중 → 해결 확인 대기
+    await waitFor(() => expect(screen.getByRole('button', { name: '응답 없음 안내' })).toBeEnabled(), SLOW)
+    expect(screen.queryByRole('button', { name: '안내 뒤 삭제' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '응답 없음 안내' }))
+    expect(await screen.findByRole('status', {}, SLOW)).toHaveTextContent('5시간 뒤까지 미확인 시 대화 내용은 삭제됩니다.')
+    await user.click(screen.getByRole('button', { name: '돌아옴 팝업' }))
+    await user.click(await screen.findByRole('button', { name: '새로운 문의하기' }, SLOW))
+    expect(await screen.findByRole('heading', { name: '무엇을 도와드릴까요?' }, SLOW)).toBeInTheDocument()
+    // 접수된 건은 그대로 남는다
+    expect((await getChat(101, 'EMP-1001')).ok).toBe(true)
+  })
+
+  it('안내 뒤 삭제되면 새 문의 화면으로 돌아간다', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1003', '/new')
+    await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
+    await user.click(screen.getByRole('button', { name: '보내기' }))
+    await screen.findByText(/IT-NET-001 3\.1/, {}, SLOW)
+    await user.click(screen.getByRole('button', { name: '안내 뒤 삭제' }))
+    expect(await screen.findByRole('heading', { name: '무엇을 도와드릴까요?' }, SLOW)).toBeInTheDocument()
   })
 
   it('출처 버튼을 누르면 출처 미리보기 창이 열리고 Esc 로 닫힌다', async () => {
@@ -317,23 +456,23 @@ describe('대화 화면', () => {
     renderAs('EMP-1003', '/new')
     await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
     await user.click(screen.getByRole('button', { name: '보내기' }))
-    await user.click(await screen.findByRole('button', { name: '아직 안 돼요' }, SLOW))
-    await user.click(await screen.findByRole('button', { name: '담당자 연결하기' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '미해결' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '담당자 연결' }, SLOW))
     expect(await screen.findByText('확인 대기 · 아직 접수되지 않았어요', {}, SLOW)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '이 내용으로 접수하기' }))
+    await user.click(screen.getByRole('button', { name: '접수' }))
     expect(await screen.findByText(/접수번호는/, {}, SLOW)).toBeInTheDocument()
     expect(screen.getByRole('list', { name: '접수 진행 단계' })).toBeInTheDocument()
     expect(screen.getByText('접수 확인 완료')).toBeInTheDocument()
   })
 
-  it('초안에서 "수정할게요"로 고치고 반영하면 안내 문구가 보인다', async () => {
+  it('초안에서 "수정"으로 고치고 반영하면 안내 문구가 보인다', async () => {
     const user = userEvent.setup()
     renderAs('EMP-1003', '/new')
     await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
     await user.click(screen.getByRole('button', { name: '보내기' }))
-    await user.click(await screen.findByRole('button', { name: '아직 안 돼요' }, SLOW))
-    await user.click(await screen.findByRole('button', { name: '담당자 연결하기' }, SLOW))
-    await user.click(await screen.findByRole('button', { name: '수정할게요' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '미해결' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '담당자 연결' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '수정' }, SLOW))
     const impact = screen.getByLabelText('업무 영향')
     await user.clear(impact)
     await user.type(impact, '전 직원 50명이 접속 불가예요')
@@ -351,13 +490,19 @@ describe('대화 화면', () => {
     expect(within(list).queryByText('1')).not.toBeInTheDocument()
   })
 
-  it('해결 확인 대기 카드에서 아직 해결되지 않았어요를 누르면 사유 입력 창이 열린다', async () => {
+  it('해결 확인 대기 카드에서 미해결을 누르면 사유 입력 창이 열린다', async () => {
     const user = userEvent.setup()
     renderAs('EMP-1001', '/chat/101')
     await screen.findByRole('list', { name: '접수 진행 단계' }, SLOW)
     // 담당자 처리 시연: 처리 중 → 해결 확인 대기
     await advanceChat(101, 'EMP-1001')
-    await user.click(await screen.findByRole('button', { name: '아직 해결되지 않았어요' }, SLOW))
+    // 이전 안내에 남은 같은 이름의 버튼은 잠겨 있으므로, 눌 수 있는 버튼이 나타날 때까지 기다린다
+    const reject = await waitFor(() => {
+      const b = screen.getAllByRole('button', { name: '미해결' }).find((x) => !(x as HTMLButtonElement).disabled)
+      if (!b) throw new Error('미해결 버튼 없음')
+      return b
+    }, SLOW)
+    await user.click(reject)
     const send = screen.getByRole('button', { name: '다시 확인 요청' })
     expect(send).toBeDisabled() // 사유를 쓰기 전에는 보낼 수 없다
     await user.type(screen.getByLabelText('남은 증상'), '같은 오류가 나요')
@@ -368,15 +513,38 @@ describe('대화 화면', () => {
   it('종료된 문의(미확인)는 입력창 대신 안내와 "대화 이어가기"를 보여 준다', async () => {
     const user = userEvent.setup()
     renderAs('EMP-1001', '/chat/103')
-    expect((await screen.findAllByText(/해결된 것으로 처리하지 않았어요/, {}, SLOW)).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText(/미확인 처리합니다/, {}, SLOW)).length).toBeGreaterThan(0)
     expect(screen.queryByLabelText('메시지 입력')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '대화 이어가기' }))
     expect(await screen.findByText(/상담을 다시 열었어요/, {}, SLOW)).toBeInTheDocument()
     expect(screen.getByLabelText('메시지 입력')).toBeInTheDocument()
   })
 
-  it('없는 문의 주소는 안내 문구를 보여 준다', async () => {
+  it('없는 문의 주소는 찾을 수 없다는 안내와 이동 버튼을 보여 준다', async () => {
+    const user = userEvent.setup()
     renderAs('EMP-1001', '/chat/9999')
-    expect(await screen.findByText(/문의를 찾을 수 없어요/, {}, SLOW)).toBeInTheDocument()
+    const box = await screen.findByRole('alert', {}, SLOW)
+    expect(box).toHaveTextContent('문의를 찾을 수 없어요')
+    expect(box).toHaveTextContent('삭제되었거나 볼 수 없는 문의예요')
+    expect(within(box).getByRole('button', { name: '문의 내역 보기' })).toBeInTheDocument()
+    await user.click(within(box).getByRole('button', { name: '새 문의 시작하기' }))
+    expect(await screen.findByRole('heading', { name: '무엇을 도와드릴까요?' }, SLOW)).toBeInTheDocument()
+  })
+
+  it('연결 오류로 못 읽었을 때는 찾을 수 없다고 하지 않고, 다시 불러오기로 복구한다', async () => {
+    const user = userEvent.setup()
+    mockConfig.loadFail = true
+    try {
+      renderAs('EMP-1001', '/chat/101')
+      const box = await screen.findByRole('alert', {}, SLOW)
+      expect(box).toHaveTextContent('문의를 불러오지 못했어요')
+      expect(box).not.toHaveTextContent('찾을 수 없어요')
+      expect(box).toHaveTextContent('내선')
+      mockConfig.loadFail = false
+      await user.click(within(box).getByRole('button', { name: '다시 불러오기' }))
+      expect(await screen.findByRole('list', { name: '접수 진행 단계' }, SLOW)).toBeInTheDocument()
+    } finally {
+      mockConfig.loadFail = false
+    }
   })
 })
