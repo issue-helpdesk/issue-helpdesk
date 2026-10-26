@@ -10,17 +10,17 @@
  *   POST /inquiries/{id}/draft/edit       접수 초안 수정 (분류·긴급도 재판단)
  *   POST /inquiries/{id}/draft/confirm    초안 확인 후 접수
  *   POST /inquiries/{id}/draft/cancel     접수하지 않고 종료
- *   POST /inquiries/{id}/resolve          접수 후 "해결"
- *   POST /inquiries/{id}/reject           접수 후 "미해결" (사유 필수)
+ *   POST /inquiries/{id}/resolve          접수 후 "해결됐어요"
+ *   POST /inquiries/{id}/reject           접수 후 "아직 해결되지 않았어요" (사유 필수)
  *   POST /inquiries/{id}/reopen           종료된 상담 다시 열기
  * 실제 서버에서는 접수 이후 진행(Jira 생성·배정·처리)이 서버에서 일어나므로, 화면은 GET 을 주기적으로 다시 읽는다.
  */
 import { request, sleep } from '../core/apiClient'
 import { USE_MOCK } from '../core/config'
 import type { DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
-import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, idleWarnInquiry, idleDeleteInquiry, idleBackInquiry, resumeInquiry } from './mock/chatEngine'
+import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, timeoutInquiry } from './mock/chatEngine'
 import './mock/chatMock'
-import { getRecord, mockConfig, notify, subscribe, type StoreRecord } from './mock/chatStore'
+import { getRecord, notify, subscribe, type StoreRecord } from './mock/chatStore'
 import { fail, ok, type ApiResult } from './types'
 
 /** 실제 서버를 다시 읽는 간격(ms) */
@@ -28,13 +28,6 @@ const POLL_MS = 4000
 
 /** POST 요청 (본문은 JSON 으로 보낸다) */
 const post = <T,>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) })
-
-/**
- * 화면이 보던 문의와 서버의 문의가 어긋났을 때 서버가 주는 409 오류 (API 02, docs/09 T27).
- * 지난 버튼·창 두 개·처리 중 중복 요청에서 생기며, 화면은 안내하고 최신 문의로 다시 그린다.
- */
-const STALE_CODES = new Set(['INQUIRY_INVALID_STATE', 'INQUIRY_CLOSED', 'REQUEST_IN_PROGRESS'])
-export const isStaleInquiry = (code: string) => STALE_CODES.has(code)
 
 const notFound = () => fail('INQUIRY_NOT_FOUND', '문의를 찾을 수 없어요.')
 
@@ -44,8 +37,7 @@ const snapshot = (rec: StoreRecord): Inquiry => structuredClone(rec.inquiry)
 /** 사번(employeeNo)이 소유한 문의만 다룬다. 서버에서는 토큰으로 소유자를 확인한다. */
 function own(id: number, employeeNo: string): StoreRecord | undefined {
   const rec = getRecord(id)
-  // 보안·로그 대상이라 숨긴 문의(응답 없음 삭제 대상)는 문의자에게 보이지 않는다
-  return rec && rec.internal.owner === employeeNo && !rec.internal.hidden ? rec : undefined
+  return rec && rec.internal.owner === employeeNo ? rec : undefined
 }
 
 /** 모의 동작 하나를 실행하고 갱신된 문의를 돌려준다 */
@@ -73,7 +65,6 @@ export async function startChat(user: { employeeNo: string; name: string }, text
 export async function getChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK) {
     await sleep(60)
-    if (mockConfig.loadFail) return fail('NETWORK_ERROR', '서버에 연결하지 못했어요.')
     const rec = own(id, employeeNo)
     if (!rec) return notFound()
     if (rec.inquiry.unread > 0) {
@@ -97,7 +88,7 @@ export function watchChat(id: number, employeeNo: string, onChange: (r: ApiResul
       if (rec) {
         rec.inquiry.unread = 0
         onChange(ok(snapshot(rec)))
-      } else onChange(notFound()) // 삭제되었거나 숨겨진 문의
+      }
     })
     return off
   }
@@ -154,24 +145,9 @@ export function reopenChat(id: number, employeeNo: string): Promise<ApiResult<In
 }
 
 /** 시연 전용: 응답 없이 시간이 지난 상황 (실제 서버에서는 서버가 정해진 시간 후 처리한다) */
-/** 시연: 응답 없음 삭제 안내를 보낸다 (실제로는 서버가 보내는 시스템 메시지) */
-export function idleWarnChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
-  return mockAct(id, employeeNo, (rec) => idleWarnInquiry(rec))
-}
-
-/** 시연: 안내 뒤 대화를 삭제한다 (보안·로그 대상은 숨김) */
-export function idleDeleteChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
-  return mockAct(id, employeeNo, (rec) => idleDeleteInquiry(rec))
-}
-
-/** 시연: 삭제 전에 돌아온 상태 (이어서 채팅하기 / 새로운 문의하기 선택) */
-export function idleBackChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
-  return mockAct(id, employeeNo, (rec) => idleBackInquiry(rec))
-}
-
-/** "이어서 채팅하기": 같은 대화·같은 단계로 계속한다 */
-export function resumeChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
-  return mockAct(id, employeeNo, (rec) => resumeInquiry(rec))
+export function timeoutChat(id: number, employeeNo: string, messageId: number): Promise<ApiResult<Inquiry>> {
+  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => timeoutInquiry(rec, messageId))
+  return Promise.resolve(fail('NOT_SUPPORTED', '시연 전용 기능이에요.'))
 }
 
 /** 시연 전용: 담당자 처리를 한 단계 앞으로 보낸다 */

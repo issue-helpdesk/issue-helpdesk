@@ -16,11 +16,9 @@ interface Props {
   placeholder?: string
   /** 전송 중에는 입력과 버튼을 막는다 (중복 전송 방지) */
   disabled?: boolean
-  /** 버튼으로만 고르는 단계: 글을 보낼 수 없고 면을 흐리게 보여 준다 */
-  locked?: boolean
 }
 
-export function Composer({ value, onChange, onSend, placeholder = '메시지를 입력하세요', disabled = false, locked = false }: Props) {
+export function Composer({ value, onChange, onSend, placeholder = '메시지를 입력하세요', disabled = false }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null)
 
   // 내용 길이에 맞춰 입력창 높이를 조절한다
@@ -39,7 +37,7 @@ export function Composer({ value, onChange, onSend, placeholder = '메시지를 
   }
 
   return (
-    <div className={`composer${locked ? ' off' : ''}`}>
+    <div className="composer">
       {/* 첨부는 접수 후 담당자와 주고받는 흐름에서 다룰 예정이라 지금은 막아 둔다 */}
       <button className="btn ico sm" type="button" style={{ background: 'transparent', color: 'var(--mute)' }} aria-label="첨부 파일 (준비 중)" disabled>
         <Icon name="paperclip" />
@@ -50,11 +48,11 @@ export function Composer({ value, onChange, onSend, placeholder = '메시지를 
         value={value}
         placeholder={placeholder}
         aria-label="메시지 입력"
-        disabled={disabled || locked}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
       />
-      <button className="btn ico pri" type="button" aria-label="보내기" disabled={disabled || locked || !value.trim()} onClick={onSend}>
+      <button className="btn ico pri" type="button" aria-label="보내기" disabled={disabled || !value.trim()} onClick={onSend}>
         <Icon name="send" />
       </button>
     </div>

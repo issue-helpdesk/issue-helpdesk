@@ -15,7 +15,6 @@ import { useAuth } from '../core/session'
 import { Icon, type IconName } from './Icon'
 import { Logo } from './Logo'
 import { STATE_TONE } from './stateStyle'
-import { ThemeSwitch } from './ThemeSwitch'
 
 interface NavItem {
   to: string
@@ -76,7 +75,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       <div className="brand">
         {/* 로고는 홈으로 가는 버튼: 문의자=새 문의, 담당자=처리할 문의, 관리자=대시보드 */}
         <button type="button" className="brandbtn" aria-label="ITssue 홈으로" onClick={() => go(HOME_BY_ROLE[user.serviceRole])}>
-          <Logo width={118} kind="word" />
+          <Logo width={112} />
         </button>
       </div>
 
@@ -93,13 +92,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
 
       {recent.length > 0 && (
         <div className="nav">
-          <div className="grp gsr">
-            최근 문의
-            {/* 문의 내역으로 가서 검색 칸에 바로 입력할 수 있게 한다 */}
-            <button type="button" className="gic" aria-label="최근 문의 검색" title="내 문의 검색" onClick={() => { navigate('/list', { state: { focusSearch: Date.now() } }); onNavigate() }}>
-              <Icon name="search" size={15} />
-            </button>
-          </div>
+          <div className="grp">최근 문의</div>
           <div className="recent">
             {recent.slice(0, 5).map((i) => {
               const tone = STATE_TONE[i.stateKind]
@@ -123,11 +116,6 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
         </div>
       )}
 
-      <div className="modebar">
-        <small>화면 모드</small>
-        <ThemeSwitch />
-      </div>
-
       <div className="who">
         <span className="pf">{initials(user.name)}</span>
         <div>
@@ -147,7 +135,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
             navigate('/login', { replace: true })
           }}
         >
-          <Icon name="logout" />
+          <Icon name="arrow" />
         </button>
       </div>
     </aside>

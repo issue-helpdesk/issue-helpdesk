@@ -1,33 +1,6 @@
 # 검색 결과 형식 (WBS M3-1-1, C → D)
 
-검색(M3)이 판단·답변(M4)에 넘기는 형식과 검색 기능입니다.
-
-| 파일 | WBS | 내용 |
-|---|---|---|
-| [`result.py`](result.py) | M3-1-1 | 검색 요청·결과 형식, 역할별 열람 범위, 답변 출처 행 |
-| [`evidence.py`](evidence.py) | M3-1-1 | 근거 문장 고르기 `pick_evidence()`, 검색어 만들기 `build_query()` |
-| [`service.py`](service.py) | M3-2-2 · M3-2-3 | 검색 `search()`: pgvector 검색, 권한 필터, 단위 복원, 중복 묶기 |
-| [`index.py`](index.py) | M3-3-1 준비 | 과거 사례 임베딩 만들기 `embed_legacy()` |
-| [`compare.py`](compare.py) | M3-2-1 | 임베딩 모델(+리랭커) 비교. DB 없이 가이드 파일과 Golden Set으로 잰다 |
-
-테스트: `tests/test_search_result.py`·`test_search_evidence.py` (DB 없이), `tests/test_search_db.py` (`TEST_DATABASE_URL`이 있을 때 임시 DB를 만들어 검사)
-
-## 0. 검색 부르기 (M1·M4)
-
-```python
-from app.rag.search import SearchRequest, build_query
-from app.rag.search.service import search
-
-resp = search(session, SearchRequest(query=build_query(사용자_글_목록),
-                                     service_role=로그인_사용자.service_role), embedder)
-```
-
-- `embedder`는 서버가 켜질 때 한 번 연 `Embedder`를 넘깁니다. 모델을 여는 데 10초 남짓 걸립니다.
-- 검색은 단독 API가 없고 문의 처리(IQ-08) 안에서 부릅니다 (07 API 설계서).
-- 처리 순서는 청크_메타데이터.md 8장 그대로입니다: 벡터 검색(k × 3) → 단위 복원 → 중복 묶기 → 모자라면 k × 6으로 한 번 더.
-- **권한 필터 (M3-2-3)**: 열람 범위는 SQL 조건(`view_scope = any(역할이 볼 수 있는 범위)`)으로 겁니다. 범위 밖 문서는 결과·근거·`also_in` 어디에도 나오지 않습니다. 붙이는 조각도 같은 조건을 통과해야 합니다.
-- 과거 사례는 `legacy_inquiry_embeddings`가 있어야 나옵니다. `python -m app.rag.search.index legacy`로 한 번 만듭니다 (기본 모델 BGE-M3, 400건, 1분 안쪽).
-- **기본 모델은 BGE-M3입니다** ([모델_비교_결과.md](모델_비교_결과.md)). 검색은 `embedder.model_id`와 같은 `model` 값의 임베딩만 찾으므로, DB에 BGE-M3 임베딩이 있어야 결과가 나옵니다.
+검색(M3)이 판단·답변(M4)에 넘기는 형식입니다. 코드는 [`result.py`](result.py), 테스트는 `tests/test_search_result.py`입니다.
 
 **문서 결과의 모양은 [청크_메타데이터.md](../청크_메타데이터.md) 8장을 그대로 따릅니다.** 8장의 검색 처리 순서(벡터 검색 → 단위 복원 → 중복 묶기 → 개수 맞추기)와 조인 조건도 바꾸지 않습니다. 이 문서는 8장에 없는 네 가지를 더합니다.
 
@@ -42,19 +15,12 @@ resp = search(session, SearchRequest(query=build_query(사용자_글_목록),
 
 | 칸 | 값 | 비고 |
 |---|---|---|
-| `query` | 검색어 | 빈 문자열 불가. 만드는 규칙은 아래 |
+| `query` | 질문 문장 | 빈 문자열 불가 |
 | `service_role` | `EMPLOYEE` / `AGENT` / `ADMIN` | **백엔드가 로그인 정보(`users.service_role`)로 채운다.** 화면이 보낸 값을 쓰지 않는다 (NFR-SEC-02) |
 | `user_id` | `users.id` | 지금은 쓰지 않음. "본인 사례만" 같은 규칙이 생기면 쓴다 |
 | `sources` | `DOCUMENT`, `LEGACY` | 기본은 둘 다 |
 | `category_code` | `HW` 등 | 분류를 먼저 정했으면 좁힌다. 공통 기준(분류 없음)은 항상 포함 (8장) |
 | `top_k` | 1~20, 기본 5 | 대상마다 따로 센다 |
-
-**검색어 `query` 만들기** (2026-10-22 결정): 사용자가 글을 여러 번 쓰면 **앞의 사용자 글까지 시간순으로 이어 붙여** 넘깁니다. `build_query(사용자 글 목록)`이 만들어 줍니다.
-
-- 예: "VPN이 안 돼요" → (AI 질문) → "691번이요"이면 검색어는 "VPN이 안 돼요⏎691번이요". "691번이요"만으로는 VPN 가이드를 찾지 못합니다.
-- 범위: 이 문의를 연 뒤(다시 열면 그 이후부터) **사용자가 쓴 글만** 넣습니다. AI 메시지는 넣지 않습니다.
-- 길이: 1,500자를 넘으면 오래된 글부터 뺍니다. 임베딩 모델이 1024토큰까지만 읽기 때문입니다 (가이드 글 기준 1토큰 ≈ 2자).
-- 한계: 대화 중 화제가 바뀌면 이어 붙인 검색어가 흐려질 수 있습니다. Golden Set은 한 번에 묻는 문장이라 이 경우는 시연 시나리오로 확인합니다.
 
 ## 2. 응답 `SearchResponse`
 
@@ -92,7 +58,7 @@ resp = search(session, SearchRequest(query=build_query(사용자_글_목록),
       "resolved_at": "2026-07-09 13:51",
       "evidence": [], "score": 0.64, "score_type": "cosine:kure-v1@<리비전>/v1",
       "view_scope": "AGENT", "transfer_policy": "MASKED",
-      "citation": "과거 처리 사례 참고 · INQ-2026-00245 (2026-07)"
+      "citation": "과거 사례 INQ-2026-00245 (2026-07)"
     }
   ]
 }
@@ -105,10 +71,7 @@ resp = search(session, SearchRequest(query=build_query(사용자_글_목록),
 - 단위 본문(`text`)에서 질문과 맞는 문장을 **최대 3개** 고릅니다. 맞는 문장이 없으면 빈 목록입니다.
 - **본문에 그대로 있는 문장만** 넣습니다. 형식 검사에서 본문에 없는 문장은 오류로 막습니다.
 - 답변 근거로 모델에 넣는 것은 여전히 `text` 전체입니다. `evidence`는 화면 표시와 근거 일치 검사용입니다.
-- **고르는 방법** (2026-10-22 결정): M3가 `pick_evidence(검색어, text)`로 고릅니다. 본문에서 **질문과 단어가 많이 겹치는 줄**을 최대 3개, 겹치는 줄이 없으면 빈 목록입니다. M4는 `evidence`가 비어 있어도 동작해야 합니다.
-  - 한국어는 조사가 붙어 단어가 달라지므로('키' ↔ '키를') 단어를 두 글자씩 잘라 겹침을 셉니다. 두 조각 미만으로 겹치는 줄은 고르지 않습니다.
-  - 머리말 줄(`문서 > 장 > 항목`), 소제목(`###`), 속성 줄(`문의 유형: … · …`), 그림 줄(`[그림]`), 6자 미만 줄(`- 사번`)은 뺍니다. "문의 시 알려 주실 정보"·"이관 시 전달 정보"·"준비할 정보" 아래 목록도 뺍니다 (해결 근거가 아니라 준비 항목이라서). 목록 기호(`1.`·`-`)만 떼고 본문 글자는 바꾸지 않습니다.
-  - 한계: 단어 겹침이라 뜻은 같고 표현이 다른 문장은 놓칠 수 있고, 겹침이 약한 줄이 골라질 수 있습니다. 검색 API(M3-2-2)를 만든 뒤 Golden Set 결과로 확인합니다.
+- 고르는 방법은 검색 API(M3-2-2)를 만들 때 정합니다. 후보는 둘입니다. 문장마다 다시 임베딩하는 방법은 정확하지만 느리고, 질문과 겹치는 단어로 고르는 방법은 빠릅니다.
 
 ### 근거 충분 여부 `sufficient`
 
@@ -127,7 +90,7 @@ resp = search(session, SearchRequest(query=build_query(사용자_글_목록),
 - 대상 표는 `legacy_inquiries`, 임베딩 표는 `legacy_inquiry_embeddings`입니다 (테이블 설계서).
 - 열람 범위는 문서와 같은 규칙으로 거릅니다: `legacy_inquiries.view_scope`를 역할에 맞게 고릅니다. **일반 임직원도 과거 사례를 볼 수 있다고 팀에서 합의했습니다.** 시드(`db/seed.py`)는 과거 사례를 `ALL`·`MASKED`로 넣고, 보안(SEC) 사례만 `AGENT`·`BLOCKED`로 넣습니다.
 - 요청자·담당자처럼 **사람을 가리키는 칸은 결과에 넣지 않습니다.**
-- 출처 표시는 `과거 처리 사례 참고 · INQ-2026-00245 (2026-07)` 형식입니다. PRD 4.2의 "과거 처리 사례 참고" 문구로 가이드 출처와 구분합니다. 화면에 어떻게 보여 줄지는 M6과 확인합니다.
+- 출처 표시는 `과거 사례 INQ-2026-00245 (2026-07)` 형식입니다.
 
 ## 3. 열람 범위
 
@@ -148,13 +111,10 @@ D가 답변에 실제로 쓴 결과를 `message_source_rows(used)`에 넘기면 
 - **과거 사례**: 한 행입니다. `chunk_id`는 비우고 `legacy_inquiry_id`를 채웁니다.
 - **`rank`**: D가 넘긴 순서입니다.
 
-## 5. 정한 것
+## 5. 합의할 것
 
-| 항목 | 결정 | 반영 |
-|---|---|---|
-| 형식 | M4가 이 형식을 그대로 받음 | `docs/08.AI_입출력_형식.md` 1.4 (PR #38) |
-| `sufficient=false`의 뜻 | 가이드만으로는 부족함. 과거 사례를 쓸지는 M4가 판단 | PR #44, 08 문서 |
-| 일반 임직원의 과거 사례 열람 | 볼 수 있음. 시드는 `ALL`·`MASKED`, 보안(SEC)만 `AGENT`·`BLOCKED` | `db/seed.py` |
-| `evidence` | M3가 고름. 질문과 단어가 많이 겹치는 줄 최대 3개, 없으면 빈 목록 | 2026-10-22, `evidence.py` |
-| 검색어 `query` | 이 문의를 연 뒤 사용자 글을 시간순으로 이어 붙임 | 2026-10-22, `evidence.py` |
-| 임베딩·출처 표 | `document_chunk_embeddings`·`legacy_inquiry_embeddings`·`message_sources` 생성. `message_source_rows()`의 칸과 일치 확인 | 마이그레이션 `d20ad6bde15c` |
+| 누구 | 무엇 |
+|---|---|
+| D (M4) | 이 형식으로 판단 흐름(M4-2-1)을 만들 수 있는지. 특히 `sufficient`의 뜻, `evidence` 사용 방법 |
+| B (M2) | 8장에 이 문서 링크를 다는 것 |
+| A (M1) | `document_chunk_embeddings`·`legacy_inquiry_embeddings` 마이그레이션 (검색 API 전에 필요). `message_sources`를 6장대로 만들 때 `message_source_rows()`의 칸 이름과 맞추기 |

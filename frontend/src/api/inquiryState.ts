@@ -5,7 +5,7 @@
  */
 import { INQUIRY_STATUS_LABEL, WORK_STATUS } from './catalog'
 import type { Inquiry } from './chatTypes'
-import type { DisplayStatus, InquirySummary, InquiryStateKind } from './types'
+import type { InquirySummary, InquiryStateKind } from './types'
 
 /** 상태 배지 색 이름(tone) → 목록용 상태 종류 */
 const TONE_KIND: Record<string, InquiryStateKind> = { recv: 'received', prog: 'progress', need: 'awaiting_confirm', ok: 'resolved', asg: 'assigned', warn: 'warn' }
@@ -38,40 +38,8 @@ export function inquiryState(inq: Inquiry): { label: string; kind: InquiryStateK
   }
 }
 
-/** API 02 1.2 표: 문의 상태와 Ticket 업무 상태로 화면 표시 상태를 정한다 */
-export function displayStatusOf(inq: Inquiry): DisplayStatus {
-  switch (inq.status) {
-    case 'AI_RESOLVED':
-      return 'ai_resolved'
-    case 'UNCONFIRMED':
-      return 'unconfirmed'
-    case 'CLOSED_UNRESOLVED':
-      return 'unresolved'
-    case 'RECEIVED':
-      return 'received'
-    case 'HANDED_OFF': {
-      const w = inq.ticket?.workStatus
-      return w === 'WIP' ? 'progress' : w === 'FIN' ? 'awaiting_confirm' : w === 'CLS' ? 'resolved' : 'assigned'
-    }
-    default:
-      return 'in_progress'
-  }
-}
-
 /** 문의를 사이드바·목록용 요약으로 바꾼다 */
 export function toSummary(inq: Inquiry): InquirySummary {
   const s = inquiryState(inq)
-  return {
-    id: inq.id,
-    title: inq.title,
-    displayStatus: displayStatusOf(inq),
-    categoryCode: inq.categoryCode,
-    receiptNo: inq.ticket?.receiptNo ?? null,
-    jiraKey: inq.ticket?.jiraKey ?? null,
-    createdAt: inq.createdAt ?? inq.updatedAt,
-    stateLabel: s.label,
-    stateKind: s.kind,
-    unread: inq.unread,
-    updatedAt: inq.updatedAt,
-  }
+  return { id: inq.id, title: inq.title, stateLabel: s.label, stateKind: s.kind, unread: inq.unread, updatedAt: inq.updatedAt }
 }
