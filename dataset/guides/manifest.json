@@ -12,7 +12,6 @@
   "pair": "",
   "scenarios": [],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "common/IT-STD-001_IT 서비스 운영 기준.pdf",
    "pptx": "common/IT-STD-001_IT 서비스 운영 기준.pptx",
@@ -33,7 +32,6 @@
   "pair": "",
   "scenarios": [],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "common/IT-STD-002_가이드 분류·작성·열람 기준.pdf",
    "pptx": "common/IT-STD-002_가이드 분류·작성·열람 기준.pptx",
@@ -57,7 +55,6 @@
    "ACC-04"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "ACC/guide/IT-ACC-001_사내 SSO 로그인 오류 대응 가이드.pdf",
    "pptx": "ACC/guide/IT-ACC-001_사내 SSO 로그인 오류 대응 가이드.pptx",
@@ -81,7 +78,6 @@
    "ACC-04"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "ACC/manual/IT-ACC-001-M_사내 SSO 로그인 오류 처리 매뉴얼.pdf",
    "pptx": "ACC/manual/IT-ACC-001-M_사내 SSO 로그인 오류 처리 매뉴얼.pptx",
@@ -104,7 +100,6 @@
    "ACC-01"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "ACC/guide/IT-ACC-002_비밀번호 변경·초기화 가이드.pdf",
    "pptx": "ACC/guide/IT-ACC-002_비밀번호 변경·초기화 가이드.pptx",
@@ -127,7 +122,6 @@
    "ACC-01"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "ACC/manual/IT-ACC-002-M_비밀번호 변경·초기화 처리 매뉴얼.pdf",
    "pptx": "ACC/manual/IT-ACC-002-M_비밀번호 변경·초기화 처리 매뉴얼.pptx",
@@ -150,7 +144,6 @@
    "ACC-03"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "ACC/guide/IT-ACC-003_MFA 인증 오류 대응 가이드.pdf",
    "pptx": "ACC/guide/IT-ACC-003_MFA 인증 오류 대응 가이드.pptx",
@@ -173,7 +166,6 @@
    "ACC-03"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "ACC/manual/IT-ACC-003-M_MFA 인증 오류 처리 매뉴얼.pdf",
    "pptx": "ACC/manual/IT-ACC-003-M_MFA 인증 오류 처리 매뉴얼.pptx",
@@ -196,7 +188,6 @@
    "ACS-01"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "ACS/guide/IT-ACS-001_사내 시스템 접근권한 신청 가이드.pdf",
    "pptx": "ACS/guide/IT-ACS-001_사내 시스템 접근권한 신청 가이드.pptx",
@@ -219,7 +210,6 @@
    "ACS-01"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "ACS/manual/IT-ACS-001-M_사내 시스템 접근권한 처리 매뉴얼.pdf",
    "pptx": "ACS/manual/IT-ACS-001-M_사내 시스템 접근권한 처리 매뉴얼.pptx",
@@ -242,7 +232,6 @@
    "ACS-01"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "ACS/guide/IT-ACS-002_개발·검증 서버 접근권한 가이드.pdf",
    "pptx": "ACS/guide/IT-ACS-002_개발·검증 서버 접근권한 가이드.pptx",
@@ -265,7 +254,6 @@
    "ACS-01"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "ACS/manual/IT-ACS-002-M_개발·검증 서버 접근권한 처리 매뉴얼.pdf",
    "pptx": "ACS/manual/IT-ACS-002-M_개발·검증 서버 접근권한 처리 매뉴얼.pptx",
@@ -288,7 +276,6 @@
    "ACS-02"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "ACS/guide/IT-ACS-003_퇴사·부서이동 권한 변경 가이드.pdf",
    "pptx": "ACS/guide/IT-ACS-003_퇴사·부서이동 권한 변경 가이드.pptx",
@@ -311,7 +298,6 @@
    "ACS-02"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "ACS/manual/IT-ACS-003-M_퇴사·부서이동 권한 변경 처리 매뉴얼.pdf",
    "pptx": "ACS/manual/IT-ACS-003-M_퇴사·부서이동 권한 변경 처리 매뉴얼.pptx",
@@ -334,7 +320,6 @@
    "NET-02"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "NET/guide/IT-NET-001_VPN 접속 장애 대응 가이드.pdf",
    "pptx": "NET/guide/IT-NET-001_VPN 접속 장애 대응 가이드.pptx",
@@ -357,7 +342,6 @@
    "NET-02"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "NET/manual/IT-NET-001-M_VPN 접속 장애 처리 매뉴얼.pdf",
    "pptx": "NET/manual/IT-NET-001-M_VPN 접속 장애 처리 매뉴얼.pptx",
@@ -382,7 +366,6 @@
    "NET-05"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "NET/guide/IT-NET-002_사내 네트워크 장애 대응 가이드.pdf",
    "pptx": "NET/guide/IT-NET-002_사내 네트워크 장애 대응 가이드.pptx",
@@ -407,7 +390,6 @@
    "NET-05"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "NET/manual/IT-NET-002-M_사내 네트워크 장애 처리 매뉴얼.pdf",
    "pptx": "NET/manual/IT-NET-002-M_사내 네트워크 장애 처리 매뉴얼.pptx",
@@ -430,7 +412,6 @@
    "NET-03"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "NET/guide/IT-NET-003_네트워크 장애 신고·이관 가이드.pdf",
    "pptx": "NET/guide/IT-NET-003_네트워크 장애 신고·이관 가이드.pptx",
@@ -453,7 +434,6 @@
    "NET-03"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "NET/manual/IT-NET-003-M_네트워크 장애 신고·이관 처리 매뉴얼.pdf",
    "pptx": "NET/manual/IT-NET-003-M_네트워크 장애 신고·이관 처리 매뉴얼.pptx",
@@ -476,7 +456,6 @@
    "SW-01"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "SW/guide/IT-SW-001_업무용 SW 설치 가이드.pdf",
    "pptx": "SW/guide/IT-SW-001_업무용 SW 설치 가이드.pptx",
@@ -499,7 +478,6 @@
    "SW-01"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "SW/manual/IT-SW-001-M_SW 설치 요청 처리 매뉴얼.pdf",
    "pptx": "SW/manual/IT-SW-001-M_SW 설치 요청 처리 매뉴얼.pptx",
@@ -522,7 +500,6 @@
    "SW-02"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "SW/guide/IT-SW-002_SW 라이선스 신청·인증 가이드.pdf",
    "pptx": "SW/guide/IT-SW-002_SW 라이선스 신청·인증 가이드.pptx",
@@ -545,7 +522,6 @@
    "SW-02"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "SW/manual/IT-SW-002-M_SW 라이선스 처리 매뉴얼.pdf",
    "pptx": "SW/manual/IT-SW-002-M_SW 라이선스 처리 매뉴얼.pptx",
@@ -571,7 +547,6 @@
    "SW-06"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "SW/guide/IT-SW-003_업무용 SW 실행·오류 대응 가이드.pdf",
    "pptx": "SW/guide/IT-SW-003_업무용 SW 실행·오류 대응 가이드.pptx",
@@ -597,7 +572,6 @@
    "SW-06"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "SW/manual/IT-SW-003-M_SW 실행·오류 처리 매뉴얼.pdf",
    "pptx": "SW/manual/IT-SW-003-M_SW 실행·오류 처리 매뉴얼.pptx",
@@ -623,7 +597,6 @@
    "HW-06"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "HW/guide/IT-HW-001_업무 PC 기본 장애 대응 가이드.pdf",
    "pptx": "HW/guide/IT-HW-001_업무 PC 기본 장애 대응 가이드.pptx",
@@ -649,7 +622,6 @@
    "HW-06"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "HW/manual/IT-HW-001-M_업무 PC 기본 장애 처리 매뉴얼.pdf",
    "pptx": "HW/manual/IT-HW-001-M_업무 PC 기본 장애 처리 매뉴얼.pptx",
@@ -673,7 +645,6 @@
    "HW-05"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "HW/guide/IT-HW-002_업무 장비 교체·수리 신청 가이드.pdf",
    "pptx": "HW/guide/IT-HW-002_업무 장비 교체·수리 신청 가이드.pptx",
@@ -697,7 +668,6 @@
    "HW-05"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "HW/manual/IT-HW-002-M_업무 장비 교체·수리 처리 매뉴얼.pdf",
    "pptx": "HW/manual/IT-HW-002-M_업무 장비 교체·수리 처리 매뉴얼.pptx",
@@ -722,7 +692,6 @@
    "HW-09"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "HW/guide/IT-HW-003_프린터·복합기 이용 가이드.pdf",
    "pptx": "HW/guide/IT-HW-003_프린터·복합기 이용 가이드.pptx",
@@ -747,7 +716,6 @@
    "HW-09"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "HW/manual/IT-HW-003-M_프린터·복합기 처리 매뉴얼.pdf",
    "pptx": "HW/manual/IT-HW-003-M_프린터·복합기 처리 매뉴얼.pptx",
@@ -771,7 +739,6 @@
    "SYS-02"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "SYS/guide/IT-SYS-001_그룹웨어·ERP 이용 오류 대응 가이드.pdf",
    "pptx": "SYS/guide/IT-SYS-001_그룹웨어·ERP 이용 오류 대응 가이드.pptx",
@@ -795,7 +762,6 @@
    "SYS-02"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "SYS/manual/IT-SYS-001-M_그룹웨어·ERP 이용 오류 처리 매뉴얼.pdf",
    "pptx": "SYS/manual/IT-SYS-001-M_그룹웨어·ERP 이용 오류 처리 매뉴얼.pptx",
@@ -819,7 +785,6 @@
    "SYS-05"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "SYS/guide/IT-SYS-002_사내 시스템 성능 저하 대응 가이드.pdf",
    "pptx": "SYS/guide/IT-SYS-002_사내 시스템 성능 저하 대응 가이드.pptx",
@@ -843,7 +808,6 @@
    "SYS-05"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "SYS/manual/IT-SYS-002-M_사내 시스템 성능 저하 처리 매뉴얼.pdf",
    "pptx": "SYS/manual/IT-SYS-002-M_사내 시스템 성능 저하 처리 매뉴얼.pptx",
@@ -869,7 +833,6 @@
    "SYS-16"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "SYS/guide/IT-SYS-003_사내 시스템 장애 신고·이관 가이드.pdf",
    "pptx": "SYS/guide/IT-SYS-003_사내 시스템 장애 신고·이관 가이드.pptx",
@@ -895,7 +858,6 @@
    "SYS-16"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "SYS/manual/IT-SYS-003-M_사내 시스템 장애 신고·이관 처리 매뉴얼.pdf",
    "pptx": "SYS/manual/IT-SYS-003-M_사내 시스템 장애 신고·이관 처리 매뉴얼.pptx",
@@ -920,7 +882,6 @@
    "SYS-08"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "SYS/guide/IT-SYS-004_메일 이용 장애 대응 가이드.pdf",
    "pptx": "SYS/guide/IT-SYS-004_메일 이용 장애 대응 가이드.pptx",
@@ -945,7 +906,6 @@
    "SYS-08"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "SYS/manual/IT-SYS-004-M_메일 이용 장애 처리 매뉴얼.pdf",
    "pptx": "SYS/manual/IT-SYS-004-M_메일 이용 장애 처리 매뉴얼.pptx",
@@ -970,7 +930,6 @@
    "SYS-12"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "SYS/guide/IT-SYS-005_메신저·화상회의·협업 도구 가이드.pdf",
    "pptx": "SYS/guide/IT-SYS-005_메신저·화상회의·협업 도구 가이드.pptx",
@@ -995,7 +954,6 @@
    "SYS-12"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "SYS/manual/IT-SYS-005-M_메신저·화상회의·협업 도구 처리 매뉴얼.pdf",
    "pptx": "SYS/manual/IT-SYS-005-M_메신저·화상회의·협업 도구 처리 매뉴얼.pptx",
@@ -1019,7 +977,6 @@
    "SYS-14"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "SYS/guide/IT-SYS-006_공유 드라이브·파일 복구 가이드.pdf",
    "pptx": "SYS/guide/IT-SYS-006_공유 드라이브·파일 복구 가이드.pptx",
@@ -1043,7 +1000,6 @@
    "SYS-14"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "SYS/manual/IT-SYS-006-M_공유 드라이브·파일 복구 처리 매뉴얼.pdf",
    "pptx": "SYS/manual/IT-SYS-006-M_공유 드라이브·파일 복구 처리 매뉴얼.pptx",
@@ -1066,7 +1022,6 @@
    "SYS-04"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "SYS/guide/IT-SYS-007_인사·근태 문의 가이드.pdf",
    "pptx": "SYS/guide/IT-SYS-007_인사·근태 문의 가이드.pptx",
@@ -1089,7 +1044,6 @@
    "SYS-04"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "SYS/manual/IT-SYS-007-M_인사·근태 문의 처리 매뉴얼.pdf",
    "pptx": "SYS/manual/IT-SYS-007-M_인사·근태 문의 처리 매뉴얼.pptx",
@@ -1112,7 +1066,6 @@
    "SYS-15"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "SYS/guide/IT-SYS-008_개발 서버·DB 장애 대응 가이드.pdf",
    "pptx": "SYS/guide/IT-SYS-008_개발 서버·DB 장애 대응 가이드.pptx",
@@ -1135,7 +1088,6 @@
    "SYS-15"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "SYS/manual/IT-SYS-008-M_개발 서버·DB 장애 처리 매뉴얼.pdf",
    "pptx": "SYS/manual/IT-SYS-008-M_개발 서버·DB 장애 처리 매뉴얼.pptx",
@@ -1159,7 +1111,6 @@
    "SEC-04"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "SEC/guide/IT-SEC-001_피싱·의심 메일 대응 가이드.pdf",
    "pptx": "SEC/guide/IT-SEC-001_피싱·의심 메일 대응 가이드.pptx",
@@ -1183,7 +1134,6 @@
    "SEC-04"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "SEC/manual/IT-SEC-001-M_피싱·의심 메일 처리 매뉴얼.pdf",
    "pptx": "SEC/manual/IT-SEC-001-M_피싱·의심 메일 처리 매뉴얼.pptx",
@@ -1206,7 +1156,6 @@
    "SEC-02"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "SEC/guide/IT-SEC-002_보안 프로그램(백신·EDR) 알림 대응 가이드.pdf",
    "pptx": "SEC/guide/IT-SEC-002_보안 프로그램(백신·EDR) 알림 대응 가이드.pptx",
@@ -1229,7 +1178,6 @@
    "SEC-02"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "SEC/manual/IT-SEC-002-M_보안 프로그램(백신·EDR) 알림 처리 매뉴얼.pdf",
    "pptx": "SEC/manual/IT-SEC-002-M_보안 프로그램(백신·EDR) 알림 처리 매뉴얼.pptx",
@@ -1254,7 +1202,6 @@
    "SEC-08"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "SEC/guide/IT-SEC-003_계정 도용·장비 분실 신고 가이드.pdf",
    "pptx": "SEC/guide/IT-SEC-003_계정 도용·장비 분실 신고 가이드.pptx",
@@ -1279,7 +1226,6 @@
    "SEC-08"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "SEC/manual/IT-SEC-003-M_계정 도용·장비 분실 처리 매뉴얼.pdf",
    "pptx": "SEC/manual/IT-SEC-003-M_계정 도용·장비 분실 처리 매뉴얼.pptx",
@@ -1303,7 +1249,6 @@
    "SEC-07"
   ],
   "rag_target": true,
-  "transfer_policy": "ALLOWED",
   "files": {
    "pdf": "SEC/guide/IT-SEC-004_보안 예외 신청·정책 안내 가이드.pdf",
    "pptx": "SEC/guide/IT-SEC-004_보안 예외 신청·정책 안내 가이드.pptx",
@@ -1327,7 +1272,6 @@
    "SEC-07"
   ],
   "rag_target": true,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "SEC/manual/IT-SEC-004-M_보안 예외 신청·정책 처리 매뉴얼.pdf",
    "pptx": "SEC/manual/IT-SEC-004-M_보안 예외 신청·정책 처리 매뉴얼.pptx",
@@ -1351,7 +1295,6 @@
    "ACS-02"
   ],
   "rag_target": false,
-  "transfer_policy": "BLOCKED",
   "files": {
    "pdf": "common/IT-AI-001_접근권한 AI 응대·담당자 인계 기준.pdf",
    "pptx": "common/IT-AI-001_접근권한 AI 응대·담당자 인계 기준.pptx",

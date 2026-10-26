@@ -32,12 +32,7 @@ export function formatRelative(iso: string, now: Date = new Date()): string {
   return `${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
 }
 
-/** 출처 버튼 표시: 문서번호 + 위치 (예: IT-NET-001 3.1). 제목·버전은 열었을 때 보여 준다. */
-export function sourceLabel(s: { docCode: string; section: string }): string {
-  return [s.docCode, s.section].filter(Boolean).join(' ')
-}
-
-/** 출처 전체 표시 (예: IT-NET-001 VPN 접속 장애 대응 가이드 v2 · 3.1) */
-export function sourceFull(s: { docCode: string; title: string; version: string; section: string }): string {
+/** Guide 출처 한 줄 표시 (예: IT-NET-001 VPN 접속 장애 대응 가이드 v2 · 3.1) */
+export function sourceLabel(s: { docCode: string; title: string; version: string; section: string }): string {
   return [s.docCode, s.title, s.version].filter(Boolean).join(' ') + (s.section ? ` · ${s.section}` : '')
 }

@@ -1,4 +1,4 @@
-"""Jira(ITHD) 연동 모듈 테스트. 실제 Jira는 부르지 않고 가짜 응답(httpx.MockTransport)으로 확인한다.
+"""Jira(ITSD) 연동 모듈 테스트. 실제 Jira는 부르지 않고 가짜 응답(httpx.MockTransport)으로 확인한다.
 
     pytest tests/test_jira_integration.py
 """
@@ -33,35 +33,35 @@ def make_client(handler):
 
 def test_example_ticket_maps_to_itsd_fields():
     f = to_jira_fields(TICKET)
-    assert f["project"] == {"key": "ITHD"}
-    assert f["issuetype"] == {"id": "10010"}                 # 작업
+    assert f["project"] == {"key": "ITSD"}
+    assert f["issuetype"] == {"id": "10032"}                 # 작업
     assert f["summary"] == "VPN 연결이 안 됩니다"
-    assert f["customfield_10043"] == "RCPT-0001"             # ITssue 접수번호
-    assert f["customfield_10058"] == TICKET["description"]   # 접수 내용
-    assert f["customfield_10064"] == {"id": "10022"}          # IT 문의 분류 NET
-    assert f["customfield_10057"] == "P2"                     # 우선순위 등급
+    assert f["customfield_10113"] == "RCPT-0001"             # ITssue 접수번호
+    assert f["customfield_10130"] == TICKET["description"]   # 접수 내용
+    assert f["customfield_10117"] == {"id": "10284"}          # IT 문의 분류 NET
+    assert f["customfield_10129"] == "P2"                     # 우선순위 등급
     assert f["priority"] == {"id": "2"}                       # High
-    assert f["customfield_10066"] == {"id": "10031"}          # 긴급도 High (urgency 에서 계산)
-    assert f["customfield_10059"] == "네트워크팀"             # 담당 팀
-    assert f["components"] == [{"id": "10002"}]               # 네트워크팀 컴포넌트
-    assert f["customfield_10051"] == "챗봇"                   # 접수 채널 CHATBOT 고정
-    assert f["customfield_10052"] == "티켓"                   # 처리 유형 TICKET 고정
+    assert f["customfield_10084"] == {"id": "10193"}          # 긴급도 High (urgency 에서 계산)
+    assert f["customfield_10131"] == "네트워크팀"             # 담당 팀
+    assert f["components"] == [{"id": "10062"}]               # 네트워크팀 컴포넌트
+    assert f["customfield_10123"] == "챗봇"                   # 접수 채널 CHATBOT 고정
+    assert f["customfield_10124"] == "티켓"                   # 처리 유형 TICKET 고정
     assert f["description"]["type"] == "doc"
 
 
 def test_codes_become_jira_values():
     f = to_jira_fields({**TICKET, "request_kind": "INCIDENT", "impact_scope": "DEPARTMENT",
                         "requester_employee_no": "EMP-1086", "inquiry_type_code": "NET-02"})
-    assert f["customfield_10049"] == "장애"            # 티켓 유형: 영문 코드 → 한글 저장값
-    assert f["customfield_10065"] == {"id": "10028"}   # 영향 범위 부서
-    assert f["customfield_10044"] == "EMP-1086"
-    assert f["customfield_10055"] == "NET-02"
+    assert f["customfield_10120"] == "장애"            # 티켓 유형: 영문 코드 → 한글 저장값
+    assert f["customfield_10118"] == {"id": "10290"}   # 영향 범위 부서
+    assert f["customfield_10114"] == "EMP-1086"
+    assert f["customfield_10127"] == "NET-02"
 
 
 def test_migration_only_and_unknown_keys_are_not_sent():
     f = to_jira_fields({**TICKET, "created_at": "2026-10-19T10:00:00+09:00", "work_status": "WIP",
                         "group_id": 3, "aiSummary": "x"})
-    assert "customfield_10047" not in f and "status" not in f
+    assert "customfield_10115" not in f and "status" not in f
     assert all(k in ("project", "issuetype", "summary", "description", "priority", "components")
                or k.startswith("customfield_") for k in f)
 
@@ -71,13 +71,13 @@ def test_description_is_composed_from_draft_parts():
     t.update(summary="VPN 끊김", onset="오늘 아침", tried_actions="재접속\n재부팅")
     text = compose_description(t)
     assert text == "[문의 요약]\nVPN 끊김\n\n[발생 시점]\n오늘 아침\n\n[시도한 조치]\n재접속\n재부팅"
-    assert to_jira_fields(t)["customfield_10058"] == text
+    assert to_jira_fields(t)["customfield_10130"] == text
 
 
 def test_long_text_is_cut_but_description_keeps_all():
     long = "가" * 300
     f = to_jira_fields({**TICKET, "description": long})
-    assert len(f["customfield_10058"]) == 255
+    assert len(f["customfield_10130"]) == 255
     assert f["description"]["content"][0]["content"][0]["text"] == long
 
 
@@ -114,15 +114,15 @@ def test_create_ticket_returns_id_key_url():
             return httpx.Response(200, json={"issues": []})
         if req.method == "POST" and req.url.path == "/rest/api/3/issue":
             seen["fields"] = json.loads(req.content)["fields"]
-            return httpx.Response(201, json={"id": "10999", "key": "ITHD-353", "self": "…"})
+            return httpx.Response(201, json={"id": "10999", "key": "ITSD-353", "self": "…"})
         return httpx.Response(500)
 
     with make_client(handler) as c:
         result = c.create_ticket(TICKET)
 
-    assert result == {"jira_issue_id": "10999", "jira_key": "ITHD-353",
-                      "jira_url": f"{BASE}/browse/ITHD-353", "created": True}
-    assert 'project = "ITHD"' in seen["jql"] and 'cf[10043] ~ "\\"RCPT-0001\\""' in seen["jql"]
+    assert result == {"jira_issue_id": "10999", "jira_key": "ITSD-353",
+                      "jira_url": f"{BASE}/browse/ITSD-353", "created": True}
+    assert 'project = "ITSD"' in seen["jql"] and 'cf[10113] ~ "\\"RCPT-0001\\""' in seen["jql"]
     assert seen["fields"]["summary"] == TICKET["title"]
 
 
@@ -132,11 +132,11 @@ def test_existing_ticket_is_not_created_again():
     def handler(req: httpx.Request):
         calls.append((req.method, req.url.path))
         return httpx.Response(200, json={"issues": [
-            {"id": "10500", "key": "ITHD-200", "fields": {"customfield_10043": "RCPT-0001"}}]})
+            {"id": "10500", "key": "ITSD-200", "fields": {"customfield_10113": "RCPT-0001"}}]})
 
     with make_client(handler) as c:
         result = c.create_ticket(TICKET)
-    assert result["jira_key"] == "ITHD-200" and result["created"] is False
+    assert result["jira_key"] == "ITSD-200" and result["created"] is False
     assert ("POST", "/rest/api/3/issue") not in calls
 
 
@@ -144,11 +144,11 @@ def test_similar_receipt_no_is_not_treated_as_same():
     def handler(req: httpx.Request):
         if req.url.path == "/rest/api/3/search/jql":
             return httpx.Response(200, json={"issues": [
-                {"id": "1", "key": "ITHD-9", "fields": {"customfield_10043": "RCPT-00010"}}]})
-        return httpx.Response(201, json={"id": "2", "key": "ITHD-10"})
+                {"id": "1", "key": "ITSD-9", "fields": {"customfield_10113": "RCPT-00010"}}]})
+        return httpx.Response(201, json={"id": "2", "key": "ITSD-10"})
 
     with make_client(handler) as c:
-        assert c.create_ticket(TICKET)["jira_key"] == "ITHD-10"
+        assert c.create_ticket(TICKET)["jira_key"] == "ITSD-10"
 
 
 def test_timeout_is_retryable():
@@ -185,14 +185,14 @@ def test_bad_mapping_fails_before_any_request():
 def test_check_saved_reports_only_differences():
     sent = to_jira_fields(TICKET)
     saved = {k: v for k, v in sent.items() if k not in ("project", "description")}
-    saved["components"] = [{"id": "10002", "name": "네트워크팀"}]
-    saved["customfield_10059"] = "다른팀"
+    saved["components"] = [{"id": "10062", "name": "네트워크팀"}]
+    saved["customfield_10131"] = "다른팀"
 
     def handler(req: httpx.Request):
-        return httpx.Response(200, json={"key": "ITHD-353", "fields": saved})
+        return httpx.Response(200, json={"key": "ITSD-353", "fields": saved})
 
     with make_client(handler) as c:
-        assert c.check_saved("ITHD-353", TICKET) == {"customfield_10059": ("네트워크팀", "다른팀")}
+        assert c.check_saved("ITSD-353", TICKET) == {"customfield_10131": ("네트워크팀", "다른팀")}
 
 
 def test_from_env_requires_all_three(monkeypatch):
@@ -234,7 +234,7 @@ def test_existing_receipt_on_second_page_is_reused():
             return httpx.Response(200, json={"issues": [], "nextPageToken": "page-2", "isLast": False})
         assert query["nextPageToken"] == "page-2"
         return httpx.Response(200, json={"issues": [
-            {"id": "7", "key": "ITHD-7", "fields": {"customfield_10043": "RCPT-0001"}}], "isLast": True})
+            {"id": "7", "key": "ITSD-7", "fields": {"customfield_10113": "RCPT-0001"}}], "isLast": True})
 
     with make_client(handler) as c:
         assert c.create_ticket(TICKET)["created"] is False

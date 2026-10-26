@@ -5,8 +5,6 @@
 import { AppRoutes } from './core/router'
 import { LogoDefs } from './ui/Logo'
 
-// LogoDefs: 여러 곳에서 사용할 로고의 SVG 정의 준비
-// AppRoutes : 현재 주소에 맞는 화면을 표시하는 역할.
 export default function App() {
   return (
     <>

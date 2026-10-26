@@ -1,35 +1,38 @@
 /* 컴포넌트 규칙: 버튼·입력·칩·메시지·알림·로그인 화면 (design/ITssue-Prototype.html 기준) */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:12px;border:0;font-weight:600;font-size:14px;line-height:20px;white-space:nowrap;transition:background .12s,box-shadow .12s}
-.btn.pri{background:#B8286A;color:#fff;box-shadow:none}.btn.pri:hover{background:#A3205F}
-.btn.sec{background:var(--white);color:var(--ink);box-shadow:inset 0 0 0 1px var(--fieldline)}.btn.sec:hover{background:var(--hvg)}
+.btn.pri{background:var(--o600);color:#fff}.btn.pri:hover{background:var(--o700)}
+.btn.ink{background:var(--inkbtn);color:var(--onink)}
+.btn.sec{background:var(--white);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--fieldline)}.btn.sec:hover{background:var(--card)}
 .btn.ghost{background:transparent;color:var(--link);padding:0 10px}.btn.ghost:hover{background:var(--osoft)}
-.btn.sm{min-height:44px;padding:0 14px;font-size:13px;border-radius:12px}
-.btn.ico{width:44px;padding:0;border-radius:999px}.btn.ico.sm{width:44px;border-radius:12px}
+.btn.sm{min-height:36px;padding:0 14px;font-size:13px;border-radius:10px}
+.btn.ico{width:44px;padding:0;border-radius:999px}.btn.ico.sm{width:36px}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
 .btn.block{width:100%}
-.chip{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:8px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line);font-size:14px;font-weight:500;border:0;color:var(--ink)}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:8px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line);font-size:13.5px;font-weight:500;border:0;color:var(--ink)}
 .chip:hover{box-shadow:inset 0 0 0 1px var(--o600);color:var(--link)}
 .chip.on{background:var(--osoft);box-shadow:inset 0 0 0 1.5px var(--o600);color:var(--link)}
 .chip .i{width:18px;height:18px}
 .chip[disabled]{opacity:.5;cursor:default}
 .field{display:flex;flex-direction:column;gap:6px}
-.field>label{font-size:13px;font-weight:600;color:var(--ink2)}
-.inp,.ta{min-height:44px;width:100%;padding:0 14px;border-radius:12px;border:0;background:var(--field);box-shadow:inset 0 0 0 1px var(--fieldline);font-size:15px}
-.inp:focus,.ta:focus{outline:2px solid var(--o600);outline-offset:1px;box-shadow:inset 0 0 0 1px var(--o600)}
-.inp.err,.inp[aria-invalid="true"],.ta[aria-invalid="true"]{box-shadow:inset 0 0 0 1.5px var(--s-urg-dot)}
+.field>label,.lab{font-size:13px;font-weight:600;color:var(--ink2)}
+.inp,.sel,.ta{min-height:44px;width:100%;padding:0 14px;border-radius:12px;border:0;background:var(--field);box-shadow:inset 0 0 0 1px var(--fieldline);font-size:15px}
+.inp:focus,.sel:focus,.ta:focus{outline:2px solid var(--o600);outline-offset:1px;box-shadow:inset 0 0 0 1px var(--o600)}
+.inp.err,.inp[aria-invalid="true"],.ta[aria-invalid="true"],.sel[aria-invalid="true"]{box-shadow:inset 0 0 0 1.5px var(--s-urg-dot)}
 .ferr{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12.5px;font-weight:500;color:var(--s-urg-fg)}
 .ferr::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--s-urg-dot);flex:none}
-.fgt{align-self:flex-start;min-height:44px;padding:0 2px;background:none;border:0;color:var(--link);font:inherit;font-size:13.5px;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.fgt{align-self:flex-start;min-height:44px;padding:0 2px;background:none;border:0;color:var(--o600);font:inherit;font-size:13.5px;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .hint{font-size:12px;color:var(--mute)}.errtx{font-size:12.5px;color:var(--s-urg-fg);font-weight:500}
 .seg{display:inline-flex;gap:2px;padding:3px;border-radius:12px;background:var(--shell)}
 .seg button{border:0;background:transparent;min-height:36px;padding:0 16px;border-radius:9px;font-size:13.5px;font-weight:500;color:var(--mute)}
 .seg button.on{background:var(--white);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
+.av{display:inline-flex;align-items:center;justify-content:center;flex:none;background:#F37321;background-image:linear-gradient(180deg,#FF8F45,#F37321 55%,#E0640D)}
+.av.flat{background-image:none}
+.av svg{--lg-it:#fff}
 .msg.u{align-self:flex-end;max-width:78%;background:var(--bubble);color:var(--onbubble);padding:10px 16px;border-radius:18px 18px 6px 18px;font-size:15px;line-height:24px}
 .msg.a{display:flex;gap:12px;align-items:flex-start}
 .msg.a .body{flex:1;min-width:0;max-width:88%;font-size:15px;line-height:27px}
 .msg.a .body p+p{margin-top:8px}
 .msg.a ol{margin:8px 0 0;padding-left:20px}.msg.a li{margin:2px 0}
-.msg.sys.note{border-radius:14px;text-align:left;max-width:min(560px,100%);padding:10px 16px;font-size:13px;line-height:20px;display:flex;flex-direction:column;gap:2px}.msg.sys.note b{color:var(--ink2)}
 .msg.sys{align-self:center;font-size:12.5px;color:var(--mute);background:var(--shell);padding:4px 12px;border-radius:999px;text-align:center}
 .replies{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .src{display:inline-flex;align-items:center;gap:6px;margin-top:10px;margin-right:6px;min-height:32px;padding:0 12px;border-radius:8px;background:var(--card);border:0;box-shadow:inset 0 0 0 1px var(--line);font-size:12.5px;color:var(--ink2);font-weight:500}
@@ -39,9 +42,9 @@
 .dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
 @keyframes wave{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-4px);opacity:1}}
 @media (prefers-reduced-motion:reduce){.dots i{animation:none}}
-.composer{display:flex;align-items:flex-end;gap:6px;max-width:760px;margin:0 auto;background:var(--white);border-radius:24px;padding:8px 8px 8px 12px;box-shadow:0 12px 40px rgba(143,29,82,.14),0 0 0 1px var(--line)}
+.composer{display:flex;align-items:flex-end;gap:6px;max-width:760px;margin:0 auto;background:var(--white);border-radius:24px;padding:8px 8px 8px 12px;box-shadow:0 12px 40px rgba(156,66,7,.14),0 0 0 1px var(--line)}
 .composer textarea{flex:1;border:0;background:transparent;resize:none;min-height:44px;max-height:140px;padding:10px 6px;font-size:16px;line-height:24px;outline:0}
-.composer .btn.ico.pri{background:#B8286A}
+.composer .btn.ico.pri{background:var(--o600)}
 .eyebrow{font-size:12px;font-weight:700;color:var(--link);letter-spacing:.04em}
 .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .sp{flex:1}
@@ -74,13 +77,13 @@
 
 /* 주요 버튼 색: 오렌지 600 (흰 글자 대비 4.6:1). 오렌지 550은 글자를 올리는 면에 쓰지 않는다 (디자인 가이드) */
 .btn.pri,
-.composer .btn.ico.pri {background:#B8286A}
+.composer .btn.ico.pri { background: #C2540A; }
 .btn.pri:hover:not([disabled]),
-.composer .btn.ico.pri:hover:not([disabled]) { background: var(--o700); }
+.composer .btn.ico.pri:hover:not([disabled]) { background: #9C4207; }
 
 /* 로그인 화면 좁은 폭 (프로토타입 860px 이하). 입력 글자는 모바일에서 16px 이상 (디자인 가이드) */
 @media (max-width: 860px) {
-  .inp, .ta, .lpop .composer textarea { font-size: 16px; }
+  .inp, .sel, .ta, .lpop .composer textarea { font-size: 16px; }
   .login { grid-template-columns: minmax(0, 1fr); overflow: auto; height: auto; min-height: 100%; }
   .login .lf {
     padding: 24px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
@@ -108,48 +111,3 @@
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
-/* 로그인: 상담 창 위로 엿보는 잇슈 (위쪽 72%만 보인다). 비밀번호 칸에 있는 동안 눈을 감는다 */
-.lwrap{position:relative;width:min(520px,100%);margin-top:176px}
-.lwrap>.lpop{position:relative;z-index:1;width:100%;max-height:max(380px,min(560px,calc(100vh - 220px)))}
-.peek{position:absolute;right:18px;top:-228px;width:340px;height:340px;z-index:0;pointer-events:none;clip-path:inset(0 0 28% 0)}
-.peek img{position:absolute;inset:0;width:100%;height:100%;display:block}
-.peek .be{transform-origin:40% 56.7%;transition:transform .22s ease-out}
-.peek .ec{position:absolute;inset:0;width:100%;height:100%;opacity:0}.peek.shy .be{opacity:0;transition:none}.peek.shy .ec{opacity:1}
-@media(max-width:860px){.lwrap{margin-top:122px}.peek{width:230px;height:230px;top:-154px;right:14px}}
-/* 잇슈 프로필 이미지(답변 아바타·대화 화면 상단), 화면 제목 이미지, 상태 글 */
-.pav{width:40px;height:40px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center;background:none;box-shadow:none}
-.pav img{display:block;max-width:100%;height:auto}
-.tlead{display:inline-flex;flex:none}
-.top .tti{width:56px;height:56px;flex:none;display:block}
-.top .tt{min-width:0}
-@media (max-width:480px){.top .tti{width:40px;height:40px}}
-.pst{font-size:12px;color:var(--mute);margin-bottom:4px}
-/* 로그인 상담 창: 제목 줄이 위에 떠 있고 대화가 그 아래로 비쳐 보인다 */
-.lpop{padding-top:0;-webkit-backdrop-filter:blur(20px)}
-.lpop .lph{position:absolute;left:0;right:0;top:0;z-index:2;padding:20px 20px 18px;border-radius:24px 24px 0 0;background:linear-gradient(180deg,var(--white) 0%,var(--white) 58%,color-mix(in srgb,var(--white) 78%,transparent) 100%);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
-.lpop .th{padding-top:84px}
-.pose{float:right;position:relative;width:84px;margin:-6px 0 6px 12px}.pose img{display:block;width:100%;height:auto}
-/* 로그인 진행 표시: 요청 중에도 버튼은 흐려지지 않고 그대로 읽힌다. 입력칸은 잠그되(readOnly) 값은 그대로 보인다 */
-.btn[aria-busy="true"]{cursor:progress}
-.btn[aria-disabled="true"]{cursor:progress}
-.btn.pri .dots i{background:#fff}
-.slownote{margin:0;font-size:13px;color:var(--mute)}
-/* 로그인 상태 확인 화면 (새로고침 직후 저장된 로그인을 확인하는 동안) */
-.boot{position:fixed;inset:0;display:grid;place-items:center;background:var(--canvas);z-index:60}
-.boot::after{content:"";position:absolute;left:0;right:0;bottom:0;height:46%;background:var(--glow);pointer-events:none}
-.boot .ld{position:relative;z-index:1;text-align:center;display:grid;justify-items:center;gap:10px}
-.boot .m{width:96px;height:96px;position:relative}
-.boot .m::after{content:"";position:absolute;left:50%;bottom:-8px;width:62%;height:10px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(10,4,30,.35),transparent);animation:bsh 1.8s ease-in-out infinite}
-.boot .m img{width:100%;height:100%;display:block;animation:bfl2 1.8s ease-in-out infinite}
-@keyframes bfl2{0%,100%{translate:0 0}50%{translate:0 -8px}}
-.boot p{margin:0;font-size:14px;color:var(--ink)}
-.boot small{display:block;font-size:12px;color:var(--mute);margin-top:2px}
-@media (prefers-reduced-motion:reduce){.boot .m img,.boot .m::after{animation:none}}
-/* 안내 화면 (문의를 찾을 수 없을 때·불러오지 못했을 때): 가운데에 잇슈, 제목, 설명, 이동 버튼 */
-.emptyst{min-height:100%;display:grid;place-items:center;padding:24px 16px;text-align:center}
-.emptyst>div{max-width:420px}
-.emptyst .pav{display:flex;margin:0 auto 6px}
-.emptyst h3{font-size:18px;line-height:26px}
-.emptyst p{margin:6px 0 16px;font-size:14px;line-height:22px;color:var(--mute)}
-.emptyst .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-.emptyst .acts+p{margin:10px 0 0;font-size:12px}
