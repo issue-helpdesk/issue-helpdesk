@@ -427,3 +427,25 @@ def test_document_info_kept_unless_applied(url, tmp_path):
     assert any('파일 값으로 바꿈' in w for w in report.warnings)
     [(title,)] = q(url, 'select title from knowledge_documents where doc_code = %s', code)
     assert title == load_manifest(docs=[code])[0]['title']
+
+
+def test_new_version_policy_widened_before_lock(url, tmp_path, monkeypatch):
+    """새 버전 PENDING 행을 커밋한 뒤 문서를 잠그기 전에 정책이 넓어지면 그 버전은 FAILED, 현행 그대로 (PR #96 리뷰 P2)."""
+    import app.rag.ingest as ingest
+
+    code = 'IT-SEC-003-M'                                               # manifest AGENT/BLOCKED
+    real, done = ingest._lock_document, []
+
+    def widen_then_lock(conn, doc_id):
+        if not done:                                                    # write_document 의 첫 잠금 직전에 한 번
+            done.append(1)
+            with psycopg.connect(url) as other:
+                other.execute("""update document_versions set view_scope = 'ALL', transfer_policy = 'ALLOWED'
+                                  where document_id = %s and version = 'v2.1'""", (doc_id,))
+        real(conn, doc_id)
+
+    monkeypatch.setattr(ingest, '_lock_document', widen_then_lock)
+    r = run(url, [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')], prepared=variant(tmp_path, code, 'v2.1')).results[0]
+    assert done and r['action'] == 'failed' and '검증 뒤 DB 정책이 바뀜' in r['error'] and not r['activated']
+    v = versions(url, code)
+    assert v['v2.0'][1:3] == (True, 'DONE') and v['v2.1'][1:3] == (False, 'FAILED') and v['v2.1'][5] == 0

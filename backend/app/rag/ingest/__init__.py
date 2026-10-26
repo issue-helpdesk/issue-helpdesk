@@ -35,7 +35,7 @@ POLICY_RANK = {'ALLOWED': 0, 'MASKED': 1, 'BLOCKED': 2}
 
 
 class IngestError(Exception):
-    """검증 실패. DB에는 아무것도 쓰지 않았다."""
+    """검증 실패. run() 에서 나면 DB에 아무것도 쓰지 않았다. write_document 안(잠근 뒤 정책 재검사)에서 나면 그 문서만 실패."""
 
     def __init__(self, problems: list[str]):
         super().__init__(f'검증 실패 {len(problems)}건')
@@ -347,7 +347,8 @@ def write_document(conn, p: Prepared, groups: dict[str, int], cache: dict, activ
        - 같은 버전 다시 적재: 그 버전 청크를 통째로 지우고 새로 넣는다 (순번 upsert 금지).
          DB의 청크 행이 지금 결과와 똑같으면 지우지 않는다 (청크 id 유지): 지정한 모델 벡터는 맞추고,
          지정하지 않은 모델 중 임베딩 입력(source_text)이 바뀐 벡터는 지우고 알린다 (예전 입력의 벡터를 남기지 않는다).
-       - 정책 다시 확인: 검증(check_policies) 뒤 임베딩하는 사이에 DB 정책이 manifest 보다 넓어졌으면 이 문서는 멈춘다.
+       - 정책 다시 확인: 검증(check_policies) 뒤, 또는 새 버전 행을 커밋한 뒤 잠그기 전에 DB 정책이 manifest 보다
+         넓어졌으면 이 문서는 멈춘다 (새 버전도 포함).
        - DONE → 현행 전환: 이번 실행에서 처음 등록한 버전이거나 문서에 현행이 없을 때만 (force_activate 면 늘).
          이미 있던 버전(DONE·FAILED 재시도)은 다른 현행이 있으면 DONE 까지만 한다 (관리자가 고른 현행을 되돌리지 않게).
     3. 실패: 롤백 → 그 버전이 현행이 아니면 FAILED·ingest_error. 이전 현행은 그대로.
@@ -378,7 +379,8 @@ def write_document(conn, p: Prepared, groups: dict[str, int], cache: dict, activ
             _update_document(conn, doc_id, p, groups)
         if p.apply_policy:
             _apply_policy(conn, doc_id, vid, p)
-        elif out['action'] != 'new':                       # 잠근 뒤 지금 정책으로 다시 비교 (검증 뒤 바뀌었을 수 있다)
+        else:                                              # 잠근 뒤 지금 정책으로 다시 비교. 검증 뒤나 새 버전 행을
+                                                           # 커밋한 뒤 잠그기 전에 바뀌었을 수 있다 (새 버전 포함)
             have = tuple(conn.execute('select view_scope, transfer_policy from document_versions where id = %s',
                                       (vid,)).fetchone())
             want = (p.version['view_scope'], p.version['transfer_policy'])
