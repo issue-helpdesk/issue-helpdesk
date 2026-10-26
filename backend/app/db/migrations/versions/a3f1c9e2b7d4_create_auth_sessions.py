@@ -1,7 +1,7 @@
 """create auth_sessions
 
 Revision ID: a3f1c9e2b7d4
-Revises: d20ad6bde15c
+Revises: 478ccde3a990
 Create Date: 2026-10-26 15:00:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'a3f1c9e2b7d4'
-down_revision: Union[str, Sequence[str], None] = 'd20ad6bde15c'
+down_revision: Union[str, Sequence[str], None] = '478ccde3a990'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
