@@ -11,6 +11,7 @@
 | [`chunker/baseline.json`](chunker/baseline.json) | M2-1-2 | 정리본 md 57종의 문서별 청크·항목·단위 수 (적재 검증 기준표) |
 | [`search/`](search/README.md) | M3-1-1 | 검색 요청·결과 형식 (`SearchRequest`·`SearchResponse`), 근거 문장 `pick_evidence()`, 검색어 `build_query()`, 역할별 열람 범위, 답변 출처 행 |
 | [`embedding/`](embedding/README.md) | M3-1-2 | 로컬 임베딩 모델 KURE-v1·BGE-M3 받기·확인·시험, `Embedder` |
+| [`ingest/`](ingest/README.md) | M2-2-1 | 가이드 적재: 준비 → 검증 → 문서마다 교체, 현행 전환 `activate()`, 가짜 임베딩기 |
 | [`review/`](review/README.md) | D1~D6 | 가이드 검증 시트(자동 대조·평가셋 겹침·검색 단위 목록)와 검색 질문 점검 |
 
 ## 사용법
