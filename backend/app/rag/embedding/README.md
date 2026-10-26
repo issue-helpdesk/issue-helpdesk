@@ -35,8 +35,8 @@ python -m app.rag.embedding smoke         # 두 모델을 열어 샘플 임베�
 ```python
 from app.rag.embedding import Embedder
 
-emb = Embedder('kure-v1')                 # 또는 'bge-m3'. 폴더에서만 읽고 인터넷에 접속하지 않는다
-emb.model_id                              # 'kure-v1@8b418a5/v1' → document_chunk_embeddings.model
+emb = Embedder()                          # 기본 'bge-m3' (M3-2-1에서 정함). 폴더에서만 읽고 인터넷에 접속하지 않는다
+emb.model_id                              # 'bge-m3@5617a9f/v1' → document_chunk_embeddings.model
 emb.embed_documents([c.text for c in chunks])   # 적재 (M2-2-1)
 emb.embed_query('노트북이 안 켜져요')       # 검색 (M3-2-2)
 ```
@@ -68,6 +68,6 @@ emb.embed_query('노트북이 안 켜져요')       # 검색 (M3-2-2)
 ## 서버에 올릴 때 (EC2)
 
 - **메모리가 4GB 이상 필요합니다.** 모델 하나를 열면 KURE-v1은 약 3GB, BGE-M3는 약 2GB를 씁니다. 메모리 1GB인 프리 티어 인스턴스(t2/t3.micro)에서는 뜨지 않습니다.
-- **서버에는 선택한 모델 하나만 받습니다.** `python -m app.rag.embedding download --model kure-v1`. 디스크는 약 2.3GB를 씁니다.
+- **서버에는 선택한 모델 하나만 받습니다.** `python -m app.rag.embedding download --model bge-m3`. 디스크는 약 2.3GB를 씁니다.
 - **서버는 질문 임베딩만 계산합니다.** 가이드 문서 임베딩은 미리 만들어 Supabase에 넣어 둡니다.
 - **시연 예비**: 노트북에서 백엔드를 실행할 때는 이 노트북의 `models/` 폴더를 그대로 씁니다.
