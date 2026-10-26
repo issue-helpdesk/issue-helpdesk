@@ -9,7 +9,7 @@
 | [`chunker/청크_규칙.md`](chunker/청크_규칙.md) | **M2-1-2 산출물** | 청크를 나누는 규칙, `unit_key`, 샘플, 결과 수치 |
 | [`청크_메타데이터.md`](청크_메타데이터.md) | **M2-1-3 산출물** | 테이블 설계서(A)의 Knowledge 표에 넣는 값, 열람 범위, 외부 전송, A에게 요청하는 수정, 버전 전환, 검색 결과 형식 |
 | [`chunker/baseline.json`](chunker/baseline.json) | M2-1-2 | 정리본 md 57종의 문서별 청크·항목·단위 수 (적재 검증 기준표) |
-| [`search/`](search/README.md) | M3-1-1 | 검색 요청·결과 형식 (`SearchRequest`·`SearchResponse`), 근거 문장 `pick_evidence()`, 검색어 `build_query()`, 역할별 열람 범위, 답변 출처 행 |
+| [`search/`](search/README.md) | M3-1-1 · M3-2 | 검색 요청·결과 형식, 근거 문장 `pick_evidence()`, 검색어 `build_query()`, 검색 `search()`와 권한 필터, 모델 비교 `compare`, 과거 사례 임베딩 |
 | [`embedding/`](embedding/README.md) | M3-1-2 | 로컬 임베딩 모델 KURE-v1·BGE-M3 받기·확인·시험, `Embedder` |
 | [`review/`](review/README.md) | D1~D6 | 가이드 검증 시트(자동 대조·평가셋 겹침·검색 단위 목록)와 검색 질문 점검 |
 

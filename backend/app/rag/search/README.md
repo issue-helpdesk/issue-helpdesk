@@ -1,6 +1,33 @@
 # 검색 결과 형식 (WBS M3-1-1, C → D)
 
-검색(M3)이 판단·답변(M4)에 넘기는 형식입니다. 코드는 [`result.py`](result.py)(형식)와 [`evidence.py`](evidence.py)(근거 문장 고르기·검색어 만들기), 테스트는 `tests/test_search_result.py`·`tests/test_search_evidence.py`입니다.
+검색(M3)이 판단·답변(M4)에 넘기는 형식과 검색 기능입니다.
+
+| 파일 | WBS | 내용 |
+|---|---|---|
+| [`result.py`](result.py) | M3-1-1 | 검색 요청·결과 형식, 역할별 열람 범위, 답변 출처 행 |
+| [`evidence.py`](evidence.py) | M3-1-1 | 근거 문장 고르기 `pick_evidence()`, 검색어 만들기 `build_query()` |
+| [`service.py`](service.py) | M3-2-2 · M3-2-3 | 검색 `search()`: pgvector 검색, 권한 필터, 단위 복원, 중복 묶기 |
+| [`index.py`](index.py) | M3-3-1 준비 | 과거 사례 임베딩 만들기 `embed_legacy()` |
+| [`compare.py`](compare.py) | M3-2-1 | 임베딩 모델(+리랭커) 비교. DB 없이 가이드 파일과 Golden Set으로 잰다 |
+
+테스트: `tests/test_search_result.py`·`test_search_evidence.py` (DB 없이), `tests/test_search_db.py` (`TEST_DATABASE_URL`이 있을 때 임시 DB를 만들어 검사)
+
+## 0. 검색 부르기 (M1·M4)
+
+```python
+from app.rag.search import SearchRequest, build_query
+from app.rag.search.service import search
+
+resp = search(session, SearchRequest(query=build_query(사용자_글_목록),
+                                     service_role=로그인_사용자.service_role), embedder)
+```
+
+- `embedder`는 서버가 켜질 때 한 번 연 `Embedder`를 넘깁니다. 모델을 여는 데 10초 남짓 걸립니다.
+- 검색은 단독 API가 없고 문의 처리(IQ-08) 안에서 부릅니다 (07 API 설계서).
+- 처리 순서는 청크_메타데이터.md 8장 그대로입니다: 벡터 검색(k × 3) → 단위 복원 → 중복 묶기 → 모자라면 k × 6으로 한 번 더.
+- **권한 필터 (M3-2-3)**: 열람 범위는 SQL 조건(`view_scope = any(역할이 볼 수 있는 범위)`)으로 겁니다. 범위 밖 문서는 결과·근거·`also_in` 어디에도 나오지 않습니다. 붙이는 조각도 같은 조건을 통과해야 합니다.
+- 과거 사례는 `legacy_inquiry_embeddings`가 있어야 나옵니다. `python -m app.rag.search.index legacy`로 한 번 만듭니다 (기본 모델 BGE-M3, 400건, 1분 안쪽).
+- **기본 모델은 BGE-M3입니다** ([모델_비교_결과.md](모델_비교_결과.md)). 검색은 `embedder.model_id`와 같은 `model` 값의 임베딩만 찾으므로, DB에 BGE-M3 임베딩이 있어야 결과가 나옵니다.
 
 **문서 결과의 모양은 [청크_메타데이터.md](../청크_메타데이터.md) 8장을 그대로 따릅니다.** 8장의 검색 처리 순서(벡터 검색 → 단위 복원 → 중복 묶기 → 개수 맞추기)와 조인 조건도 바꾸지 않습니다. 이 문서는 8장에 없는 네 가지를 더합니다.
 
@@ -80,7 +107,7 @@
 - 답변 근거로 모델에 넣는 것은 여전히 `text` 전체입니다. `evidence`는 화면 표시와 근거 일치 검사용입니다.
 - **고르는 방법** (2026-10-22 결정): M3가 `pick_evidence(검색어, text)`로 고릅니다. 본문에서 **질문과 단어가 많이 겹치는 줄**을 최대 3개, 겹치는 줄이 없으면 빈 목록입니다. M4는 `evidence`가 비어 있어도 동작해야 합니다.
   - 한국어는 조사가 붙어 단어가 달라지므로('키' ↔ '키를') 단어를 두 글자씩 잘라 겹침을 셉니다. 두 조각 미만으로 겹치는 줄은 고르지 않습니다.
-  - 머리말 줄(`문서 > 장 > 항목`), 소제목(`###`), 속성 줄(`문의 유형: … · …`), 그림 줄(`[그림]`), 6자 미만 줄(`- 사번`)은 뺍니다. 목록 기호(`1.`·`-`)만 떼고 본문 글자는 바꾸지 않습니다.
+  - 머리말 줄(`문서 > 장 > 항목`), 소제목(`###`), 속성 줄(`문의 유형: … · …`), 그림 줄(`[그림]`), 6자 미만 줄(`- 사번`)은 뺍니다. "문의 시 알려 주실 정보"·"이관 시 전달 정보"·"준비할 정보" 아래 목록도 뺍니다 (해결 근거가 아니라 준비 항목이라서). 목록 기호(`1.`·`-`)만 떼고 본문 글자는 바꾸지 않습니다.
   - 한계: 단어 겹침이라 뜻은 같고 표현이 다른 문장은 놓칠 수 있고, 겹침이 약한 줄이 골라질 수 있습니다. 검색 API(M3-2-2)를 만든 뒤 Golden Set 결과로 확인합니다.
 
 ### 근거 충분 여부 `sufficient`
