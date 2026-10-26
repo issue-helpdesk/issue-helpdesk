@@ -14,6 +14,8 @@ MAX_QUERY_CHARS = 1500      # 검색어 상한. 임베딩 입력 한도 1024토�
 WORD = re.compile(r'[0-9A-Za-z가-힣]+')
 LIST_MARK = re.compile(r'^\s*(?:[-*•]|\d+[.)])\s+')
 # 문장 끝·높임 표현은 거의 모든 줄에 있어 겹쳐도 근거가 아니다
+# 이 소제목 아래 목록은 문의할 때 알려 줄 항목·준비물이라 해결 근거가 아니다
+SKIP_SECTIONS = ('문의 시 알려 주실 정보', '이관 시 전달 정보', '준비할 정보', '준비할 것')
 ENDINGS = {'니다', '습니', '합니', '니까', '해요', '어요', '아요', '세요', '에요', '이요', '네요', '하다', '한다', '된다'}
 
 
@@ -34,10 +36,15 @@ def _pieces(text: str, with_heads: bool = False) -> set[str]:
 
 
 def _candidates(text: str):
-    """근거가 될 수 있는 줄. 머리말(문서 > 장 > 항목), 소제목, 속성 줄, 그림 줄, 짧은 줄은 뺀다."""
+    """근거가 될 수 있는 줄. 머리말(문서 > 장 > 항목), 소제목, 속성 줄, 그림 줄, 짧은 줄,
+    '문의 시 알려 주실 정보' 같은 준비 항목 목록은 뺀다."""
+    skip = False
     for line in text.splitlines():
         s = line.strip()
-        if not s or s.startswith('#') or s.startswith('[그림]') or ' > ' in s or s.startswith('|'):
+        if s.startswith('#'):
+            skip = s.lstrip('#').strip() in SKIP_SECTIONS
+            continue
+        if skip or not s or s.startswith('[그림]') or ' > ' in s or s.startswith('|'):
             continue
         if re.match(r'^[^:]{1,12}: .+ · .+: ', s):          # '문의 유형: HW-02 · 처리 구분: …'
             continue

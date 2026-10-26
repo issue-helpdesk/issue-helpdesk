@@ -75,11 +75,13 @@ function seed() {
     push(inquiry, { role: 'staff', from: '김담당 담당자', groupName: '네트워크팀', kind: '처리 안내', createdAt: daysAgoIso(1), text: 'VPN 서버 쪽 인증 정보를 확인하고 있어요. 곧 결과를 알려 드릴게요.' })
     inquiry.status = 'HANDED_OFF'
     inquiry.step = 'submitted'
+    inquiry.categoryCode = 'NET'
     inquiry.draft = draft
     inquiry.draftState = 'confirmed'
     inquiry.ticket = ticket
     inquiry.unread = 1
     inquiry.updatedAt = daysAgoIso(1)
+    inquiry.createdAt = daysAgoIso(1)
   }
 
   /* 문의 102: AI 안내로 해결 */
@@ -103,6 +105,7 @@ function seed() {
     inquiry.step = 'closed'
     inquiry.categoryCode = 'ACC'
     inquiry.updatedAt = daysAgoIso(3)
+    inquiry.createdAt = daysAgoIso(3)
   }
 
   /* 문의 103: 응답이 없어 종료됨 (미확인 처리) */
@@ -125,6 +128,7 @@ function seed() {
     inquiry.step = 'closed'
     inquiry.categoryCode = 'NET'
     inquiry.updatedAt = daysAgoIso(6)
+    inquiry.createdAt = daysAgoIso(6)
   }
 
   /* 문의 104: 담당자 처리 후 해결 확인까지 끝난 문의 */
@@ -154,6 +158,7 @@ function seed() {
     inquiry.ticket = ticket
     inquiry.draftState = 'confirmed'
     inquiry.updatedAt = daysAgoIso(8)
+    inquiry.createdAt = daysAgoIso(8)
   }
 }
 
