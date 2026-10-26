@@ -136,7 +136,7 @@ describe('대화 흐름 (API)', () => {
     const a = await data(startChat(USER, '업무용 PC에서 USB 반출 예외 신청을 하고 싶어요. 오늘부터 필요해요. 저만 필요해요. 아직 안 해봤어요.'))
     await settle()
     const ans = last(await get(a.id))
-    expect(JSON.stringify(ans.blocks)).toContain('외부 모델로 전송할 수 없는 문서')
+    expect(JSON.stringify(ans.blocks)).toContain('보안 기준상 AI가 직접 안내할 수 없는 내용')
     expect(ans.sources).toBeUndefined()
   })
 
@@ -382,6 +382,25 @@ describe('대화 화면', () => {
     await user.click(screen.getByRole('button', { name: '이어서 채팅하기' }))
     expect(await screen.findByText('같은 대화에서 이어서 진행해요.', {}, SLOW)).toBeInTheDocument()
     expect(screen.queryByRole('group', { name: '이어서 하기' })).not.toBeInTheDocument()
+  })
+
+  it('초안 단계에서도 2시간 안내가 나가고, 새로운 문의하기를 고르면 이전 문의를 삭제하고 새 문의 화면으로 간다', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1003', '/new')
+    await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
+    await user.click(screen.getByRole('button', { name: '보내기' }))
+    await screen.findByText(/IT-NET-001 3\.1/, {}, SLOW)
+    await user.click(screen.getByRole('button', { name: '미해결' }))
+    await user.click(await screen.findByRole('button', { name: '담당자 연결' }, SLOW))
+    await screen.findByText('접수 초안', {}, SLOW)
+    await waitFor(() => expect(screen.getByRole('button', { name: '응답 없음 안내' })).toBeEnabled(), SLOW)
+    await user.click(screen.getByRole('button', { name: '응답 없음 안내' }))
+    expect(await screen.findByRole('status', {}, SLOW)).toHaveTextContent('이어서 하지 않으면 대화내역이 사라집니다.')
+    await user.click(screen.getByRole('button', { name: '돌아옴 팝업' }))
+    await user.click(await screen.findByRole('button', { name: '새로운 문의하기' }, SLOW))
+    expect(await screen.findByRole('heading', { name: '무엇을 도와드릴까요?' }, SLOW)).toBeInTheDocument()
+    // 이전 문의는 사이드바 최근 문의에서도 사라진다
+    await waitFor(() => expect(screen.queryByRole('button', { name: /VPN.*진행 중/ })).not.toBeInTheDocument(), SLOW)
   })
 
   it('안내 뒤 삭제되면 새 문의 화면으로 돌아간다', async () => {
