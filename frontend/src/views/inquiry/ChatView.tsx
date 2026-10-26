@@ -19,8 +19,10 @@ import { Composer } from '../../ui/Composer'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { StateBadge } from '../../ui/StateBadge'
+import { Pav } from '../../ui/Pav'
 import { Topbar } from '../../ui/Topbar'
 import { MessageItem, type ChatActions } from './MessageItem'
+import { latestPose, poseLabel, poseOf } from './pose'
 
 const NOTE = '비밀번호·인증번호·API 키는 입력하지 마세요. 상담 기록은 처리·운영 목적으로 활용될 수 있어요.'
 const NO_MESSAGES: ReadonlySet<number> = new Set()
@@ -185,13 +187,19 @@ export function ChatView() {
         title={inquiry.title}
         sub={t ? `${t.receiptNo}${t.jiraKey ? ` · ${t.jiraKey}` : ''}` : undefined}
         right={<StateBadge tone={state.tone} label={state.label} />}
+        lead={
+          <span className="tlead">
+            <Pav pose={latestPose(inquiry)} size={44} />
+          </span>
+        }
       />
 
       <div className="scroll" ref={scrollRef}>
         <div className="thread" role="log" aria-live="polite" aria-label="문의 대화">
-          {inquiry.messages.map((m) => (
-            <MessageItem key={m.id} inquiry={inquiry} message={m} busy={busy} actions={actions} fresh={fresh.has(m.id)} />
-          ))}
+          {inquiry.messages.map((m, idx) => {
+            const pose = poseOf(inquiry, idx)
+            return <MessageItem key={m.id} inquiry={inquiry} message={m} busy={busy} actions={actions} fresh={fresh.has(m.id)} pose={pose} poseText={poseLabel(inquiry, idx, pose)} />
+          })}
         </div>
       </div>
 

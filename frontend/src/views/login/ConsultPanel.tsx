@@ -10,7 +10,7 @@ import type { ConsultReply } from '../../api/types'
 import { sourceFull } from '../../core/format'
 import { MASK_NOTICE, maskSensitive } from '../../core/mask'
 import { Icon } from '../../ui/Icon'
-import { Avatar } from '../../ui/Logo'
+import { Pav } from '../../ui/Pav'
 import { RichText } from '../../ui/RichText'
 
 /** 대화창에 보이는 메시지: 사용자 / AI 답변 / 답변을 기다리는 중(점 세 개) */
@@ -82,8 +82,9 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
 
   return (
     <section className="lpop" aria-label="로그인 전 상담">
-      <div className="row" style={{ flexWrap: 'nowrap' }}>
-        <Avatar size={36} />
+      {/* 제목 줄은 대화 위에 떠 있고, 대화가 그 아래로 지나가며 비쳐 보인다 */}
+      <div className="row lph" style={{ flexWrap: 'nowrap' }}>
+        <Pav size={40} />
         <div>
           <b>로그인이 안 되시나요?</b>
           <div className="small muted">
@@ -98,7 +99,7 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
           if (m.role === 'typing')
             return (
               <div className="msg a" key={m.id}>
-                <Avatar size={32} />
+                <Pav />
                 <div className="body">
                   <span className="dots"><i /><i /><i /></span> <span className="muted small">처리 중</span>
                 </div>
@@ -106,7 +107,7 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
             )
           return (
             <div className="msg a" key={m.id}>
-              <Avatar size={32} />
+              <Pav />
               <div className="body">
                 {m.reply.paragraphs.map((p, i) => (
                   <p key={i}><RichText text={p} /></p>
