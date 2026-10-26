@@ -8,20 +8,18 @@
 - 연결 주소는 환경 변수 DATABASE_URL 또는 저장소 루트의 .env 에서 읽는다.
 - 신규 사용자의 초기 비밀번호는 환경 변수 SEED_INITIAL_PASSWORD 로 받아 해시로 저장한다.
   이미 있는 사용자의 비밀번호는 --reset-passwords 를 주지 않으면 바꾸지 않는다.
-- 해시는 개발용 임시 방식(솔트 + SHA-256)이다. 정식 해싱 방식이 정해지면 hash_password 만 바꾸고
-  --reset-passwords 로 다시 넣는다. 로그인 검증도 같은 방식이어야 한다.
+- 해시는 로그인(backend/app/core/security.py)과 같은 Argon2id 이다. 예전 임시 방식(sha256$...)으로
+  들어간 사용자는 로그인할 수 없으니 --reset-passwords 로 다시 넣는다.
 - 평가셋(eval_inquiries.csv)은 DB에 넣지 않고 파일로 관리한다.
 - FAQ는 게시판용 faqs 테이블에 넣는다. Knowledge(검색 대상)에는 넣지 않는다 (가이드 청크에 같은 FAQ가 있다).
   이미 있는 FAQ의 게시 여부(is_active)는 다시 실행해도 건드리지 않는다 (관리자가 내린 게시글을 되살리지 않는다).
 - 가이드·매뉴얼(knowledge_documents·document_versions·document_chunks)은 이 스크립트가 아니라 가이드 적재 스크립트가 넣는다.
-- 필요한 패키지: psycopg[binary], python-dotenv
+- 필요한 패키지: psycopg[binary], python-dotenv, argon2-cffi
 """
 import argparse
 import csv
-import hashlib
 import json
 import os
-import secrets
 import sys
 from collections import Counter
 from pathlib import Path
@@ -74,9 +72,9 @@ def kst(v):
 
 
 def hash_password(password):
-    """개발용 임시 해시: 'sha256$<솔트>$<hex>'. 앞의 표시로 나중에 어떤 방식으로 저장됐는지 구분한다."""
-    salt = secrets.token_hex(16)
-    return f"sha256${salt}${hashlib.sha256((salt + password).encode()).hexdigest()}"
+    """Argon2id 해시. argon2-cffi 기본값으로 로그인 쪽 PasswordHasher 와 같다."""
+    from argon2 import PasswordHasher
+    return PasswordHasher().hash(password)
 
 
 class Plan:
