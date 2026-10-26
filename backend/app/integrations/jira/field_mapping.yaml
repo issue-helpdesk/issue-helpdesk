@@ -1,9 +1,9 @@
 # ITssue → Jira 필드·선택값 매핑
 #
 # 출처: 노션 WBS M5-1-1 "Jira 필드 정의 및 데이터셋·AI 출력 스키마 매핑"
-# 현재 대상: ITSD = IT Service Desk (Jira Software). 프로젝트·작업 생성 메타를 2026-10-19에 조회해 반영.
-# 과거 검증: ITS-351 ~ ITS-700은 이전 ITS 프로젝트의 이관 검증 기록이다.
-# 신규 접수 생성: 2026-10-19 시험 1건(ITSD-353)으로 저장값 일치 확인 (M5-1-2). 아래 create 절 참고.
+# 현재 대상: ITHD (Jira Software 스페이스 「ITssue HelpDesk」, 사이트 itssuehelpdesk.atlassian.net).
+# 필드·선택값·상태 ID는 2026-10-26에 이 사이트의 생성 메타와 상태 목록을 조회해 맞췄다.
+# 이전 사이트(ITSD)로 한 생성 검증(2026-10-19·20)의 ID는 이 사이트와 달라서 쓰지 않는다.
 #
 # 키 이름은 06 테이블 설계서의 DB 컬럼 이름(기준 이름)을 쓴다. (docs/07.API_계약서.md)
 #   dataset_column: 과거 데이터셋(dataset/data/history.csv) 컬럼명. 이관 스크립트만 이 이름을 쓴다.
@@ -12,11 +12,11 @@
 #
 # 사이트 주소·계정·API 토큰 같은 비밀 값은 이 파일에 넣지 않고 .env 로 관리한다.
 
-version: "2026-10-19"
+version: "2026-10-26"
 
 project:
-  key: ITSD
-  id: "10007"                # Jira Software (이전 HELP 프로젝트의 키 변경)
+  key: ITHD
+  id: "10001"                # Jira Software 스페이스 「ITssue HelpDesk」
   # 일반 Jira이므로 service_desk_id와 JSM 요청 유형은 사용하지 않는다.
 
 # ---------------------------------------------------------------- 필드
@@ -27,109 +27,109 @@ project:
 
 fields:
   receipt_no:
-    jira: customfield_10113
+    jira: customfield_10043
     label: ITssue 접수번호
     dataset_column: inquiry_id
     type: string
     required: false
     note: 중복 생성 확인 키. 신규는 RCPT-####, 이관 건은 INQ-2026-xxxxx
   created_at:
-    jira: customfield_10115
+    jira: customfield_10047
     label: 생성일자
     dataset_column: created_at
     type: datetime
     required: false
     note: 이관 건의 원 접수일시. 신규 티켓은 Jira 기본 생성일을 쓰고 이 칸은 비움
   channel:
-    jira: customfield_10123
+    jira: customfield_10051
     label: 접수 채널
     dataset_column: channel
     type: string
     required: false
     note: 값은 options.channel. ITssue 신규 접수는 CHATBOT 고정
   handling_type:
-    jira: customfield_10124
+    jira: customfield_10052
     label: 처리 유형
     dataset_column: handling_type
     type: string
     required: false
     note: 값은 options.handling_type. 신규 Jira 생성분은 TICKET 고정
   requester_employee_no:
-    jira: customfield_10114
+    jira: customfield_10044
     label: 문의자 사번
     dataset_column: requester_id
     type: string
     required: false
     source: users.employee_no
   requester_name:
-    jira: customfield_10121
+    jira: customfield_10045
     label: 문의자 이름
     type: string
     required: false
     source: users.name
   requester_department_name:
-    jira: customfield_10119
+    jira: customfield_10046
     label: 문의자 부서
     dataset_column: requester_dept
     type: string
     required: false
     source: departments.name
   request_kind:
-    jira: customfield_10120
+    jira: customfield_10049
     label: 티켓 유형
     dataset_column: ticket_type
     type: string
     required: false
     note: 값은 options.request_kind. Jira 기본 issuetype은 options.issue_type의 TASK 사용
   category_code:
-    jira: customfield_10117
+    jira: customfield_10064
     label: IT 문의 분류
     dataset_column: category_code
     type: option
     required: false
   category_name:
-    jira: customfield_10125
+    jira: customfield_10053
     label: 분류명
     dataset_column: category
     type: string
     required: false
     source: categories.name
   inquiry_type_name:
-    jira: customfield_10126
+    jira: customfield_10054
     label: 세부 분류
     dataset_column: subcategory
     type: string
     required: false
     source: inquiry_types.name
   inquiry_type_code:
-    jira: customfield_10127
+    jira: customfield_10055
     label: 시나리오 ID
     dataset_column: scenario_id
     type: string
     required: false
     source: inquiry_types.code (예 NET-02)
   target_system:
-    jira: customfield_10128
+    jira: customfield_10056
     label: 대상 도구
     dataset_column: tool
     type: string
     required: false
   urgency:
-    jira: customfield_10129
+    jira: customfield_10057
     label: 우선순위 등급
     dataset_column: urgency
     type: string
     required: false
     note: P1 ~ P4 그대로 저장. 기본 priority 는 options.urgency 참고
   urgency_label:
-    jira: customfield_10084
+    jira: customfield_10066
     label: 긴급도
     dataset_column: urgency_label
     type: option
     required: false
     note: 저장하지 않고 urgency(P1~P4)에서 계산. 값은 options.urgency_label
   impact_scope:
-    jira: customfield_10118
+    jira: customfield_10065
     label: 영향 범위
     dataset_column: impact_scope
     type: option
@@ -142,7 +142,7 @@ fields:
     type: string
     required: true
   description:
-    jira: customfield_10130
+    jira: customfield_10058
     label: 접수 내용
     dataset_column: description
     type: string
@@ -156,7 +156,7 @@ fields:
     required: false
     note: 생성 메타에 없음. 생성 후 전환(transition)으로 맞춤
   group_name:
-    jira: customfield_10131
+    jira: customfield_10059
     label: 담당 팀
     dataset_column: assigned_team
     type: string
@@ -164,7 +164,7 @@ fields:
     source: support_groups.name
     note: components 에도 같은 그룹을 넣음 (options.group_name)
   assignee_name:
-    jira: customfield_10122
+    jira: customfield_10050
     label: 처리 담당자
     dataset_column: assignee
     type: string
@@ -172,69 +172,78 @@ fields:
     source: users.name (assignee_id)
     note: 담당자 이름 문자열. Jira 기본 assignee 는 support_group_members.jira_account_id 가 있을 때만 넣음
   resolved_at:
-    jira: customfield_10116
+    jira: customfield_10048
     label: 완료일자
     dataset_column: resolved_at
     type: datetime
     required: false
     note: 이관 건만. 신규는 Jira 상태 이력으로 확인 (tickets.finished_at)
   root_cause:
-    jira: customfield_10132
+    jira: customfield_10060
     label: 원인
     dataset_column: root_cause
     type: string
     required: false
     note: 이관 건만 (신규 3칸 분할은 노션 S3 #15 합의 후)
   resolution:
-    jira: customfield_10133
+    jira: customfield_10061
     label: 처리 내용
     dataset_column: resolution
     type: string
     required: false
     source: tickets.resolution_note (신규) · legacy_inquiries.resolution (이관)
   prevention:
-    jira: customfield_10134
+    jira: customfield_10062
     label: 재발 방지
     dataset_column: prevention
     type: string
     required: false
     note: 이관 건만
   related_faq:
-    jira: customfield_10135
+    jira: customfield_10063
     label: 관련 FAQ
     dataset_column: related_faq
     type: string
     required: false
+
+# ---------------------------------------------------------------- 상태 전환 때 함께 보내는 값
+# FIN(처리 완료)으로 옮길 때 Jira 전환 화면이 「최종 처리 결과」를 필수로 받는다(2026-10-26 실제 점검).
+# 텍스트 영역이라 Jira 문서 형식(ADF)으로 보내야 한다. 생성 때는 보내지 않는다.
+transition_fields:
+  final_result:
+    jira: customfield_10069
+    label: 최종 처리 결과
+    required_for: FIN
 
 # ---------------------------------------------------------------- 선택값
 # DB 코드 → Jira 저장값(value)과 옵션(객체) ID
 
 options:
   category_code:
-    field: customfield_10117
+    field: customfield_10064
     values:
-      ACC: { value: ACC, id: "10282" }
-      ACS: { value: ACS, id: "10283" }
-      NET: { value: NET, id: "10284" }
-      SW:  { value: SW,  id: "10285" }
-      HW:  { value: HW,  id: "10286" }
-      SYS: { value: SYS, id: "10287" }
-      SEC: { value: SEC, id: "10288" }
+      ACC: { value: ACC, id: "10020" }
+      ACS: { value: ACS, id: "10021" }
+      NET: { value: NET, id: "10022" }
+      SW:  { value: SW,  id: "10023" }
+      HW:  { value: HW,  id: "10024" }
+      SYS: { value: SYS, id: "10025" }
+      SEC: { value: SEC, id: "10026" }
 
   impact_scope:
-    field: customfield_10118
+    field: customfield_10065
     values:
-      PERSONAL:   { value: 개인, id: "10289" }
-      DEPARTMENT: { value: 부서, id: "10290" }
-      COMPANY:    { value: 전사, id: "10291" }
+      PERSONAL:   { value: 개인, id: "10027" }
+      DEPARTMENT: { value: 부서, id: "10028" }
+      COMPANY:    { value: 전사, id: "10029" }
 
   urgency_label:
-    field: customfield_10084
+    field: customfield_10066
     values:
-      P1: { label: 긴급, value: Critical, id: "10192" }
-      P2: { label: 높음, value: High,     id: "10193" }
-      P3: { label: 보통, value: Medium,   id: "10194" }
-      P4: { label: 낮음, value: Low,      id: "10195" }
+      P1: { label: 긴급, value: Critical, id: "10030" }
+      P2: { label: 높음, value: High,     id: "10031" }
+      P3: { label: 보통, value: Medium,   id: "10032" }
+      P4: { label: 낮음, value: Low,      id: "10033" }
 
   urgency:
     field: priority
@@ -247,16 +256,16 @@ options:
   group_name:
     field: components
     values:
-      서비스데스크:     { value: 서비스데스크,     id: "10060" }
-      엔드포인트지원팀: { value: 엔드포인트지원팀, id: "10061" }
-      네트워크팀:       { value: 네트워크팀,       id: "10062" }
-      시스템인프라팀:   { value: 시스템인프라팀,   id: "10063" }
-      업무시스템팀:     { value: 업무시스템팀,     id: "10064" }
-      정보보안팀:       { value: 정보보안팀,       id: "10065" }
+      서비스데스크:     { value: 서비스데스크,     id: "10000" }
+      엔드포인트지원팀: { value: 엔드포인트지원팀, id: "10001" }
+      네트워크팀:       { value: 네트워크팀,       id: "10002" }
+      시스템인프라팀:   { value: 시스템인프라팀,   id: "10003" }
+      업무시스템팀:     { value: 업무시스템팀,     id: "10004" }
+      정보보안팀:       { value: 정보보안팀,       id: "10005" }
 
   # 업무 유형은 텍스트 필드에 보존한다. Jira 기본 이슈 유형과 구분한다.
   request_kind:
-    field: customfield_10120
+    field: customfield_10049
     values:
       INCIDENT: { label: 장애, value: 장애 }
       REQUEST:  { label: 요청, value: 요청 }
@@ -266,11 +275,11 @@ options:
   issue_type:
     field: issuetype
     values:
-      TASK: { value: 작업, id: "10032" }
+      TASK: { value: 작업, id: "10010" }
 
   # 문자열 필드라 옵션 ID 가 없다. value 를 그대로 저장한다.
   channel:
-    field: customfield_10123
+    field: customfield_10051
     values:
       PHONE:     { value: 전화 }
       MAIL:      { value: 메일 }
@@ -278,7 +287,7 @@ options:
       CHATBOT:   { value: 챗봇 }   # ITssue 신규 접수. 이관 데이터에는 없음
 
   handling_type:
-    field: customfield_10124
+    field: customfield_10052
     values:
       IMMEDIATE: { value: 즉시 처리 }
       TICKET:    { value: 티켓 }
@@ -286,15 +295,15 @@ options:
   work_status:
     field: status
     values:
-      RDY: { value: RDY, id: "10063" }
-      WIP: { value: WIP, id: "10064" }
-      FIN: { value: FIN, id: "10065" }
-      CLS: { value: CLS, id: "10066" }
+      RDY: { value: RDY, id: "10004" }
+      WIP: { value: WIP, id: "10005" }
+      FIN: { value: FIN, id: "10006" }
+      CLS: { value: CLS, id: "10007" }
 
 # 일반 Jira 생성에는 JSM request_type(customfield_10010)을 전송하지 않는다.
 
 # ---------------------------------------------------------------- 신규 접수 생성 규칙
-# mapper.py 가 이 절을 읽어 ITSD(IT Service Desk) 티켓 생성 요청을 만든다.
+# mapper.py 가 이 절을 읽어 ITHD 티켓 생성 요청을 만든다.
 # 위 fields·options 는 그대로 쓰고, 생성할 때만 필요한 값을 여기에 둔다.
 
 create:

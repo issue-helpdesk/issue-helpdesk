@@ -4,7 +4,7 @@
  * 왼쪽: 사번 로그인 / SSO 로그인 탭과 시연용 바로 로그인. 오른쪽: 로그인 전 상담 패널.
  * 로그인에 성공하면 역할별 첫 화면(core/roles.ts)으로 이동한다.
  */
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { MOCK_PASSWORD, MOCK_QUICK_LOGINS } from '../../api/mock/accounts'
 import type { ApiResult, LoginData } from '../../api/types'
@@ -13,6 +13,8 @@ import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
 import { Icon } from '../../ui/Icon'
 import { Logo } from '../../ui/Logo'
+import { Mascot } from '../../ui/Mascot'
+import { ThemeSwitch } from '../../ui/ThemeSwitch'
 import { ConsultPanel } from './ConsultPanel'
 import { ForgotModal } from './ForgotModal'
 
@@ -25,15 +27,15 @@ function LoginBackground() {
       <defs>
         <linearGradient id="lbA" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#FFC9A0" stopOpacity="0" />
-          <stop offset="1" stopColor="#FF9A57" stopOpacity=".35" />
+          <stop offset="1" stopColor="#FF8FB8" stopOpacity=".35" />
         </linearGradient>
         <linearGradient id="lbB" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#FFD9BC" stopOpacity=".2" />
-          <stop offset="1" stopColor="#FFB27A" stopOpacity=".7" />
+          <stop offset="1" stopColor="#FFB0CF" stopOpacity=".7" />
         </linearGradient>
         <radialGradient id="lbC" cx=".5" cy="1" r=".9">
-          <stop offset="0" stopColor="#FF9A57" stopOpacity=".55" />
-          <stop offset="1" stopColor="#FF9A57" stopOpacity="0" />
+          <stop offset="0" stopColor="#FF8FB8" stopOpacity=".55" />
+          <stop offset="1" stopColor="#FF8FB8" stopOpacity="0" />
         </radialGradient>
       </defs>
       <polygon points="760,0 1440,0 1440,520 1120,900 560,900" fill="url(#lbA)" />
@@ -50,21 +52,34 @@ export function LoginView() {
   const [tab, setTab] = useState<Tab>('id')
   // 시연(mock)일 때만 입력칸을 미리 채워 둔다
   const [employeeNo, setEmployeeNo] = useState(USE_MOCK ? 'EMP-1001' : '')
+  const [pwFocus, setPwFocus] = useState(false)
   const [password, setPassword] = useState(USE_MOCK ? MOCK_PASSWORD : '')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // 어느 버튼으로 요청 중인지(그 버튼에만 "로그인 중"을 보인다)와, 3초 넘게 걸리는지
+  const [who, setWho] = useState('')
+  const [slow, setSlow] = useState(false)
   // 비밀번호 초기화 창
   const [forgotOpen, setForgotOpen] = useState(false)
+
+  // 요청이 3초 넘게 걸리면 늦어진다고 알린다
+  useEffect(() => {
+    if (!busy) return
+    const t = setTimeout(() => setSlow(true), 3000)
+    return () => clearTimeout(t)
+  }, [busy])
 
   // 이미 로그인한 상태로 이 화면에 오면 첫 화면으로 보낸다
   if (!loading && user) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
 
   /** 로그인 요청을 실행하고, 성공이면 이동, 실패면 사유를 보여 준다. */
-  async function run(p: Promise<ApiResult<LoginData>>) {
+  async function run(p: Promise<ApiResult<LoginData>>, by: string) {
     setBusy(true)
+    setWho(by)
     setError('')
     const r = await p
     setBusy(false)
+    setSlow(false)
     if (r.ok) navigate(HOME_BY_ROLE[r.data.user.serviceRole], { replace: true })
     else setError(r.error.message)
   }
@@ -76,17 +91,35 @@ export function LoginView() {
       setError('사번과 비밀번호를 입력해 주세요.')
       return
     }
-    void run(login({ employeeNo: employeeNo.trim(), password }))
+    void run(login({ employeeNo: employeeNo.trim(), password }), 'id')
   }
 
   const idTab = tab === 'id'
 
+  /** 요청 중인 버튼은 "로그인 중"과 점 세 개로, 나머지는 원래 글자로 보인다 (크기·색은 그대로) */
+  const label = (by: string, text: string) =>
+    busy && who === by ? (
+      <>
+        로그인 중 <span className="dots" aria-hidden="true"><i /><i /><i /></span>
+      </>
+    ) : (
+      text
+    )
+  const slowNote = busy && slow && (
+    <p className="slownote" role="status">
+      서버 응답이 늦어지고 있어요. 조금만 더 기다려 주세요.
+    </p>
+  )
+
   return (
     <div className="login">
       <LoginBackground />
+      <div className="lmode">
+        <ThemeSwitch />
+      </div>
       <div className="lf">
         <div>
-          <Logo width={124} />
+          <Logo width={150} kind="word" />
         </div>
         <div className="form">
           <div className="eyebrow">IT HELPDESK</div>
@@ -115,6 +148,7 @@ export function LoginView() {
                   autoComplete="username"
                   placeholder="예) EMP-1001"
                   value={employeeNo}
+                  readOnly={busy}
                   onChange={(e) => setEmployeeNo(e.target.value)}
                   aria-invalid={!!error}
                   aria-describedby={error ? 'lg-err' : undefined}
@@ -125,10 +159,13 @@ export function LoginView() {
                 <input
                   className={`inp${error ? ' err' : ''}`}
                   id="lg-pw"
+                  onFocus={() => setPwFocus(true)}
+                  onBlur={() => setPwFocus(false)}
                   name="pw"
                   type="password"
                   autoComplete="current-password"
                   value={password}
+                  readOnly={busy}
                   onChange={(e) => setPassword(e.target.value)}
                   aria-invalid={!!error}
                   aria-describedby={error ? 'lg-err' : undefined}
@@ -144,9 +181,10 @@ export function LoginView() {
                   {error}
                 </div>
               )}
-              <button className="btn pri block" type="submit" disabled={busy} style={{ minHeight: 48 }}>
-                {busy ? '처리 중' : '로그인'}
+              <button className="btn pri block" type="submit" aria-disabled={busy} aria-busy={busy && who === 'id'} style={{ minHeight: 48 }}>
+                {label('id', '로그인')}
               </button>
+              {slowNote}
               <div className="hint">
                 {USE_MOCK && `시연 계정 비밀번호는 ${MOCK_PASSWORD} 입니다. `}계정 5회 실패 시 잠기고 10분 후 해제됩니다.
               </div>
@@ -162,9 +200,10 @@ export function LoginView() {
                   {error}
                 </div>
               )}
-              <button className="btn pri block" type="button" disabled={busy} style={{ minHeight: 48 }} onClick={() => void run(loginSso())}>
-                {USE_MOCK ? 'SSO로 계속하기 (시연)' : 'SSO로 계속하기'}
+              <button className="btn pri block" type="button" aria-disabled={busy} aria-busy={busy && who === 'sso'} style={{ minHeight: 48 }} onClick={() => !busy && void run(loginSso(), 'sso')}>
+                {label('sso', USE_MOCK ? 'SSO로 계속하기 (시연)' : 'SSO로 계속하기')}
               </button>
+              {slowNote}
             </div>
           )}
 
@@ -173,8 +212,8 @@ export function LoginView() {
             <div className="roles">
               <small>시연용 바로 로그인</small>
               {MOCK_QUICK_LOGINS.map((q) => (
-                <button key={q.id} type="button" className="btn sec sm" disabled={busy} onClick={() => void run(mockQuickLogin(q.id))}>
-                  {q.label}
+                <button key={q.id} type="button" className="btn sec sm" aria-disabled={busy} aria-busy={busy && who === q.id} onClick={() => !busy && void run(mockQuickLogin(q.id), q.id)}>
+                  {label(q.id, q.label)}
                 </button>
               ))}
             </div>
@@ -183,7 +222,11 @@ export function LoginView() {
         <div className="hint">ICT 가상 기업 프로토타입</div>
       </div>
       <div className="rt">
-        <ConsultPanel onForgot={() => setForgotOpen(true)} />
+        <div className="lwrap">
+          {/* 상담 창 위로 엿보는 잇슈. 비밀번호 칸에 있는 동안 눈을 감는다 */}
+          <Mascot peek shy={pwFocus} />
+          <ConsultPanel onForgot={() => setForgotOpen(true)} />
+        </div>
       </div>
       {forgotOpen && <ForgotModal onClose={() => setForgotOpen(false)} />}
     </div>

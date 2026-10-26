@@ -4,10 +4,10 @@
  */
 import { URGENCY_LABEL } from '../../api/catalog'
 import type { ChatBlock, ChatMessage, DraftEdit, GuideSource, Inquiry, LegacyCase, ReplyRequest } from '../../api/chatTypes'
-import { USE_MOCK } from '../../core/config'
 import { formatDateTime, sourceLabel } from '../../core/format'
 import { Icon } from '../../ui/Icon'
-import { Avatar } from '../../ui/Logo'
+import { Pav } from '../../ui/Pav'
+import type { Pose } from '../../ui/poseImages'
 import { RichText } from '../../ui/RichText'
 import { DraftCard } from './DraftCard'
 import { TicketCard } from './TicketCard'
@@ -15,7 +15,6 @@ import { TicketCard } from './TicketCard'
 /** 대화 화면이 메시지 안의 버튼에 연결해 주는 동작 */
 export interface ChatActions {
   reply: (req: ReplyRequest) => void
-  timeout: (messageId: number) => void
   confirmDraft: () => void
   saveDraft: (edit: DraftEdit) => Promise<boolean>
   cancelDraft: () => void
@@ -74,11 +73,24 @@ interface Props {
   actions: ChatActions
   /** 방금 생긴 답변이면 아래에서 올라오며 나타난다 (한 번) */
   fresh?: boolean
+  /** 답변 아바타의 잇슈 모습과, 모습이 바뀐 첫 답변에 붙는 상태 글 */
+  pose?: Pose
+  poseText?: string
 }
 
-export function MessageItem({ inquiry, message: m, busy, actions, fresh = false }: Props) {
+export function MessageItem({ inquiry, message: m, busy, actions, fresh = false, pose = 'base', poseText = '' }: Props) {
   if (m.role === 'user') return <div className="msg u">{m.text}</div>
-  if (m.role === 'sys') return <div className="msg sys">{m.text}</div>
+  if (m.role === 'sys') {
+    // 안내 문구는 첫 줄이 제목, 나머지가 설명이다 (민감정보 가림 안내 등)
+    const [head, ...rest] = (m.text ?? '').split('\n')
+    if (!rest.length) return <div className="msg sys">{m.text}</div>
+    return (
+      <div className="msg sys note">
+        <b>{head}</b>
+        <span>{rest.join(' ')}</span>
+      </div>
+    )
+  }
 
   if (m.role === 'staff') {
     return (
@@ -104,7 +116,7 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false 
   if (m.typing) {
     return (
       <div className="msg a">
-        <Avatar size={32} />
+        <Pav pose={pose} />
         <div className="body" role="status">
           <span className="dots" aria-hidden="true">
             <i />
@@ -122,8 +134,9 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false 
 
   return (
     <div className={`msg a${fresh ? ' rise' : ''}`}>
-      <Avatar size={32} />
+      <Pav pose={pose} />
       <div className="body">
+        {poseText && <div className="pst">{poseText}</div>}
         {m.blocks?.map((b, i) => (
           <Block key={i} b={b} />
         ))}
@@ -183,12 +196,6 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false 
                 {r.label}
               </button>
             ))}
-            {/* 시연 전용: 응답 없이 시간이 지난 상황 */}
-            {USE_MOCK && m.demoTimeout && !m.locked && (
-              <button type="button" className="btn ghost sm" disabled={busy} onClick={() => actions.timeout(m.id)}>
-                (시연) 응답 없이 시간 경과
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -210,7 +217,7 @@ function LegacyButton({ legacy, onOpen }: { legacy: LegacyCase; onOpen: (l: Lega
     <div>
       <button type="button" className="src" onClick={() => onOpen(legacy)}>
         <Icon name="file" size={16} />
-        과거 처리 사례 · {legacy.no}
+        과거 처리 사례 참고
       </button>
     </div>
   )

@@ -6,24 +6,26 @@
  * 흐름 (PRD 4.2~4.9)
  *   첫 메시지 → 부족한 정보(시스템·증상·시점·영향·시도)를 하나씩 확인 → 긴급 징후가 있으면 바로 담당자 연결 제안
  *   → Guide 우선 검색 → 부족하면 도입 이전 처리 이력 → 둘 다 없으면 지원 범위 밖
- *   → 해결 확인(해결됐어요 / 아직 안 돼요) → 접수 초안 확인·수정 → 접수(RCPT 번호) → Jira·담당자 배정 진행
+ *   → 해결 확인(해결 / 미해결) → 접수 초안 확인·수정 → 접수(RCPT 번호) → Jira·담당자 배정 진행
  */
 import { nowIso } from '../../core/format'
-import { hasMask, MASK_NOTICE, maskSensitive } from '../../core/mask'
+import { BLOCKED_NOTICE, hasMask, MASK_NOTICE, MASK_NOTICE_DRAFT, maskNotices, maskSensitive } from '../../core/mask'
 import { CATEGORIES, FALLBACK_GROUP } from '../catalog'
 import { detectInquiryType } from './inquiryTypes'
-import type {
-  CategoryCode,
-  ChatBlock,
-  ChatReply,
-  DraftEdit,
-  GuideSource,
-  Inquiry,
-  LegacyCase,
-  Urgency,
-  RejudgedField,
-  ReplyRequest,
-  Ticket,
+import {
+  IDLE_TEXT,
+  type CategoryCode,
+  type IdleKind,
+  type ChatBlock,
+  type ChatReply,
+  type DraftEdit,
+  type GuideSource,
+  type Inquiry,
+  type LegacyCase,
+  type Urgency,
+  type RejudgedField,
+  type ReplyRequest,
+  type Ticket,
 } from '../chatTypes'
 import {
   later,
@@ -33,6 +35,7 @@ import {
   notify,
   push,
   createRecord,
+  removeRecord,
   type IntakeKey,
   type StoreRecord,
 } from './chatStore'
@@ -258,17 +261,19 @@ function lockReplies(inq: Inquiry, keepId?: number) {
   })
 }
 
-const yesNo = (demoTimeout: boolean): { replies: ChatReply[]; demoTimeout: boolean } => ({
+/** 긴급 건을 접수 없이 끝낼 때 보여 주는 행동 안내 */
+const URGENT_GUIDE = '긴급 징후가 있었어요. 의심스러운 링크·첨부파일은 더 열지 마시고, 계정 정보는 어디에도 입력하지 마세요. 문제가 계속되면 IT 헬프데스크 내선 1000으로 연락해 주세요.'
+
+const yesNo = (): { replies: ChatReply[] } => ({
   replies: [
-    { label: '해결됐어요', action: 'resolved', primary: true },
-    { label: '아직 안 돼요', action: 'unresolved' },
+    { label: '해결', action: 'resolved', primary: true },
+    { label: '미해결', action: 'unresolved' },
   ],
-  demoTimeout,
 })
 
 const connectReplies = (): ChatReply[] => [
-  { label: '담당자 연결하기', action: 'connect-yes', primary: true },
-  { label: '연결하지 않을게요', action: 'connect-no' },
+  { label: '담당자 연결', action: 'connect-yes', primary: true },
+  { label: '미연결 (종료)', action: 'connect-no' },
 ]
 
 /* ------------------------------------------------------------------ 정보 수집 */
@@ -338,7 +343,7 @@ function doAnswer(rec: StoreRecord) {
       inquiry.step = 'offer'
       push(inquiry, {
         role: 'assistant',
-        blocks: [p('관련 가이드를 찾았지만 **외부 모델로 전송할 수 없는 문서**라서 이 문의는 AI가 안내할 수 없어요. 열람 권한과 외부 전송 허용은 따로 확인하고 있어요.'), p('담당자에게 연결해 드릴 수 있어요.')],
+        blocks: [...BLOCKED_NOTICE.split('\n').map((line, i) => p(i === 0 ? `**${line}**` : line)), p('담당자에게 연결해 드릴 수 있어요.')],
         replies: connectReplies(),
       })
       return
@@ -370,7 +375,7 @@ function doAnswer(rec: StoreRecord) {
           p('이 방법으로 해결되었나요?'),
         ],
         legacy: LEGACY_CASE,
-        ...yesNo(true),
+        ...yesNo(),
       })
       return
     }
@@ -388,7 +393,7 @@ function doAnswer(rec: StoreRecord) {
         sources: [toSource(guide)],
         replies: [
           { label: '신청 방법을 확인했어요', action: 'resolved', primary: true },
-          { label: '담당자 연결하기', action: 'connect-yes' },
+          { label: '담당자 연결', action: 'connect-yes' },
         ],
       })
       return
@@ -398,7 +403,7 @@ function doAnswer(rec: StoreRecord) {
       role: 'assistant',
       blocks: [p(`확인한 내용을 보면 **${CATEGORIES[cat].name}** 문의로 보여요. 먼저 아래 순서로 해 보세요.`), { type: 'ol', items: guide.steps }, p('이 방법으로 해결되었나요?')],
       sources: [toSource(guide)],
-      ...yesNo(true),
+      ...yesNo(),
     })
   })
 }
@@ -417,15 +422,22 @@ export function startInquiry(owner: string, ownerName: string, text: string): In
 /** 문의자가 메시지를 보낸다. 접수 이후라면 담당자에게 가는 추가 메시지가 된다. */
 export function handle(rec: StoreRecord, raw: string, initial: boolean) {
   const { inquiry, internal } = rec
+  inquiry.idleWarned = null // 문의자가 글을 보내면 삭제 안내 띠를 거둔다
+  inquiry.paused = false
   // 비밀번호·인증번호로 보이는 값은 대화·초안·로그에 넣기 전에 가린다
   const masked = maskSensitive(raw)
   const text = masked.text
   push(inquiry, { role: 'user', text })
   inquiry.updatedAt = nowIso()
-  if (masked.hit || hasMask(text)) push(inquiry, { role: 'sys', text: MASK_NOTICE })
+  if (masked.hit || hasMask(text)) {
+    internal.sens = true
+    // 가린 종류별 안내 (비밀정보·비밀번호·고유식별). 이미 가려진 글이면 기본 안내만 보여 준다
+    const notices = maskNotices(masked)
+    for (const n of notices.length ? notices : [MASK_NOTICE]) push(inquiry, { role: 'sys', text: n })
+  }
 
   if (inquiry.step === 'draft') {
-    push(inquiry, { role: 'assistant', blocks: [p('초안의 내용을 바꾸려면 아래 초안에서 **수정할게요**를 눌러 고쳐 주세요. 변경 내용은 접수 전에 다시 확인해 드려요.')] })
+    push(inquiry, { role: 'assistant', blocks: [p('초안의 내용을 바꾸려면 아래 초안에서 **수정**을 눌러 고쳐 주세요. 변경 내용은 접수 전에 다시 확인해 드려요.')] })
     return
   }
   if (inquiry.step === 'offer' || inquiry.step === 'answered') {
@@ -435,10 +447,7 @@ export function handle(rec: StoreRecord, raw: string, initial: boolean) {
     push(inquiry, {
       role: 'assistant',
       blocks: [p('추가 내용을 기록했어요. 해결되지 않았다면 담당자 연결을 도와드릴게요.')],
-      replies: [
-        { label: '담당자 연결하기', action: 'connect-yes', primary: true },
-        { label: '계속 해볼게요', action: 'noop' },
-      ],
+      replies: connectReplies(),
     })
     return
   }
@@ -459,6 +468,8 @@ export function handle(rec: StoreRecord, raw: string, initial: boolean) {
 
 /** 빠른 응답 버튼 */
 export function applyReply(rec: StoreRecord, req: ReplyRequest) {
+  rec.inquiry.idleWarned = null
+  rec.inquiry.paused = false
   const { inquiry } = rec
   const msg = inquiry.messages.find((m) => m.id === req.messageId)
   if (!msg?.replies || msg.locked) return // 이미 응답했거나 지난 단계의 버튼
@@ -471,13 +482,13 @@ export function applyReply(rec: StoreRecord, req: ReplyRequest) {
       handle(rec, req.arg ?? '', false)
       return
     case 'resolved':
-      push(inquiry, { role: 'user', text: '해결됐어요.' })
+      push(inquiry, { role: 'user', text: '해결' })
       inquiry.status = 'AI_RESOLVED'
       inquiry.step = 'closed'
       push(inquiry, { role: 'assistant', blocks: [p('다행이에요! 이 문의는 **AI 해결**로 기록했어요. 다른 문제가 생기면 새 문의를 시작해 주세요.')] })
       return
     case 'unresolved': {
-      push(inquiry, { role: 'user', text: '아직 안 돼요.' })
+      push(inquiry, { role: 'user', text: '미해결' })
       inquiry.step = 'offer'
       const group = CATEGORIES[inquiry.categoryCode ?? 'ACC'].groupName
       push(inquiry, {
@@ -488,13 +499,13 @@ export function applyReply(rec: StoreRecord, req: ReplyRequest) {
       return
     }
     case 'connect-no':
-      push(inquiry, { role: 'user', text: '연결하지 않을게요.' })
+      push(inquiry, { role: 'user', text: '미연결 (종료)' })
       inquiry.status = 'CLOSED_UNRESOLVED'
       inquiry.step = 'closed'
-      push(inquiry, { role: 'assistant', blocks: [p('담당자 연결 없이 상담을 종료했어요. 이 문의는 **미해결 종료**로 남고, 해결된 것으로 기록하지 않아요. 문의 내역에서 언제든 다시 열 수 있어요.')] })
+      push(inquiry, { role: 'assistant', blocks: [p('담당자 연결 없이 상담을 종료했어요. 이 문의는 **미해결 종료**로 남고, 해결된 것으로 기록하지 않아요. 문의 내역에서 언제든 다시 열 수 있어요.'), ...(rec.internal.urgent ? [p(URGENT_GUIDE)] : [])] })
       return
     case 'connect-yes':
-      push(inquiry, { role: 'user', text: '담당자 연결하기' })
+      push(inquiry, { role: 'user', text: '담당자 연결' })
       buildDraft(rec)
       return
   }
@@ -511,7 +522,7 @@ function buildDraft(rec: StoreRecord) {
     categoryCode: cat,
     targetSystem: it.targetSystem ?? (cat ? CATEGORIES[cat].targetSystem : '확인 필요'),
     summary: it.summary ?? inquiry.messages.find((m) => m.role === 'user')?.text ?? '',
-    onset: it.onset ?? '확인 필요',
+    occurredAt: it.onset ?? '확인 필요',
     businessImpact: it.businessImpact ?? (internal.urgent ? '긴급 징후 확인 · 추가 확인은 담당자가 진행' : '확인 필요'),
     triedActions: it.triedActions ?? '확인 필요',
     aiSummary: internal.guideLabel ? `${internal.guideLabel} 안내 후에도 해결되지 않음` : internal.urgent ? '긴급 징후로 안내 없이 연결' : 'AI 안내 없음',
@@ -536,12 +547,21 @@ export function saveDraft(rec: StoreRecord, edit: DraftEdit) {
   const beforeType = d.inquiryTypeCode ?? null
   const beforeGroup = d.groupName
   // 고친 글에 비밀번호·인증번호가 있으면 저장하기 전에 가린다
-  const clean = (v: string | undefined) => (v ?? '').trim() && maskSensitive((v ?? '').trim()).text
+  const found = { secret: false, password: false, identity: false }
+  const clean = (v: string | undefined) => {
+    const t = (v ?? '').trim()
+    if (!t) return t
+    const m = maskSensitive(t)
+    found.secret ||= m.secret
+    found.password ||= m.password
+    found.identity ||= m.identity
+    return m.text
+  }
   d.summary = clean(edit.summary) || d.summary
-  d.onset = clean(edit.onset) || d.onset
+  d.occurredAt = clean(edit.occurredAt) || d.occurredAt
   d.businessImpact = clean(edit.businessImpact) || d.businessImpact
   d.triedActions = clean(edit.triedActions) || d.triedActions
-  const txt = `${d.summary} ${d.onset} ${d.businessImpact} ${d.triedActions}`
+  const txt = `${d.summary} ${d.occurredAt} ${d.businessImpact} ${d.triedActions}`
   const c = detectCategory(txt)
   if (c && c !== d.categoryCode && RE.sec.test(txt)) {
     d.categoryCode = c
@@ -562,16 +582,21 @@ export function saveDraft(rec: StoreRecord, edit: DraftEdit) {
   inquiry.draftNote = changed
     ? `수정한 내용을 반영해 ${beforeP !== d.urgency ? `긴급도를 ${beforeP}에서 ${d.urgency}(으)로` : ''}${beforeCat !== d.categoryCode ? ` 분류를 ${d.categoryCode ?? ''}(으)로` : ''} 다시 판단했어요. 변경된 내용으로 다시 확인해 주세요.`
     : '수정 내용을 반영했어요. 최종 접수 전에 한 번 더 확인해 주세요.'
+  // 고친 글에서 민감정보를 가렸다면 초안 화면에서도 알린다 (docs/10 6.1)
+  if (maskNotices(found).length) inquiry.draftNote = `${MASK_NOTICE_DRAFT} ${inquiry.draftNote}`
 }
 
 /** 접수하지 않고 종료한다 */
 export function cancelDraft(rec: StoreRecord) {
   const { inquiry } = rec
   if (inquiry.step !== 'draft') return
+  push(inquiry, { role: 'user', text: '미접수 (종료)' })
   inquiry.status = 'CLOSED_UNRESOLVED'
   inquiry.step = 'closed'
   inquiry.draftState = 'cancel'
   push(inquiry, { role: 'sys', text: '접수하지 않고 종료했어요' })
+  // 긴급 건을 접수 없이 끝내면 행동 안내를 함께 보여 준다 (docs/09 3.4). 보안 신호 기록은 서버가 한다.
+  if (rec.internal.urgent) push(inquiry, { role: 'assistant', blocks: [p(URGENT_GUIDE)] })
 }
 
 /** 초안을 확인했으니 접수한다. 저장에 실패하면 접수 완료로 안내하지 않는다. */
@@ -585,7 +610,7 @@ export function confirmDraft(rec: StoreRecord) {
     return
   }
   inquiry.draftState = 'confirmed'
-  push(inquiry, { role: 'user', text: '이 내용으로 접수해 주세요.' })
+  push(inquiry, { role: 'user', text: '접수' })
   const t: Ticket = {
     receiptNo: nextRcpt(),
     jiraKey: null,
@@ -686,7 +711,7 @@ export function advanceTicket(rec: StoreRecord) {
   else if (t.workStatus === 'WIP') registerResult(rec)
 }
 
-/** 문의자가 "해결됐어요"를 눌러 Ticket 을 종료한다 */
+/** 문의자가 "해결"을 눌러 Ticket 을 종료한다 */
 export function confirmResolved(rec: StoreRecord) {
   const t = rec.inquiry.ticket
   if (!t || t.workStatus !== 'FIN') return
@@ -696,7 +721,7 @@ export function confirmResolved(rec: StoreRecord) {
   rec.inquiry.updatedAt = nowIso()
 }
 
-/** 문의자가 "아직 해결되지 않았어요"와 남은 증상을 보내면 담당자가 다시 확인한다 */
+/** 문의자가 "미해결"과 남은 증상을 보내면 담당자가 다시 확인한다 */
 export function denyResolved(rec: StoreRecord, reason: string) {
   const { inquiry } = rec
   const t = inquiry.ticket
@@ -718,15 +743,50 @@ export function sendToStaff(rec: StoreRecord, text: string) {
   rec.inquiry.updatedAt = nowIso()
 }
 
-/** 시연: 문의자가 응답하지 않아 상담이 종료된다. 해결된 것으로 처리하지 않는다. */
-export function timeoutInquiry(rec: StoreRecord, messageId: number) {
+/**
+ * 응답 없음 (docs/09 6.4, 2026-10-22 팀 결정). 시연에서는 시간을 기다리지 않고 단계별로 보여 준다.
+ * 해결 확인(답변 뒤)은 5시간, 질문·연결 제안·초안은 2시간 뒤 한 번 안내하고, 안내 뒤에 대화를 삭제한다.
+ * 접수된 건과 끝난 문의에는 쓰지 않는다. 시간·안내 시점은 서버의 환경값이다.
+ */
+function idleKind(inquiry: Inquiry): IdleKind | null {
+  // 접수된 건은 담당자 처리 완료 뒤 해결 확인(FIN) 단계에서만 쓴다 (docs/09 6.4 ①). 그 밖의 접수 건과 끝난 문의는 대상이 아니다.
+  if (inquiry.ticket) return inquiry.ticket.workStatus === 'FIN' ? 'h5' : null
+  if (inquiry.step === 'closed' || inquiry.step === 'submitted') return null
+  return inquiry.step === 'answered' ? 'h5' : 'h2'
+}
+
+/** 삭제 안내를 한 번 보낸다. 입력창 위 띠로도 보여 준다. (실제로는 서버가 보내는 시스템 메시지) */
+export function idleWarnInquiry(rec: StoreRecord) {
   const { inquiry } = rec
-  const m = inquiry.messages.find((x) => x.id === messageId)
-  if (!m?.replies || m.locked || inquiry.step === 'closed') return
-  lockReplies(inquiry)
-  inquiry.status = 'UNCONFIRMED'
-  inquiry.step = 'closed'
-  push(inquiry, { role: 'sys', text: '응답 시간 경과로 상담을 종료했어요. 해결된 것으로 처리하지 않았어요.' })
+  const kind = idleKind(inquiry)
+  if (!kind || inquiry.idleWarned) return
+  inquiry.idleWarned = kind
+  push(inquiry, { role: 'sys', text: IDLE_TEXT[kind] })
+}
+
+/** 안내 뒤 대화를 삭제한다. 보안·로그 대상(긴급·민감정보 입력)은 지우지 않고 문의자 화면에서만 숨긴다. */
+export function idleDeleteInquiry(rec: StoreRecord) {
+  const { inquiry, internal } = rec
+  // 접수된 건은 삭제하지 않는다 (PRD 4.5). 해결 확인 단계에서는 안내와 돌아옴 팝업만 보여 준다.
+  if (inquiry.ticket || !idleKind(inquiry)) return
+  if (internal.urgent || internal.sens) internal.hidden = true
+  else removeRecord(inquiry.id)
+}
+
+/** 삭제 전에 돌아온 상태. 입력창을 잠그고 이어서 할지 새로 시작할지 고르게 한다. */
+export function idleBackInquiry(rec: StoreRecord) {
+  const { inquiry } = rec
+  if (!idleKind(inquiry)) return
+  inquiry.paused = true
+}
+
+/** "이어서 채팅하기": 같은 대화·같은 단계로 계속한다 */
+export function resumeInquiry(rec: StoreRecord) {
+  const { inquiry } = rec
+  if (!inquiry.paused) return
+  inquiry.paused = false
+  inquiry.idleWarned = null
+  push(inquiry, { role: 'sys', text: '같은 대화에서 이어서 진행해요.' })
 }
 
 /** 종료된 상담을 다시 연다 */
@@ -740,9 +800,6 @@ export function reopenInquiry(rec: StoreRecord) {
   push(inquiry, {
     role: 'assistant',
     blocks: [p('상담을 다시 열었어요. 해결되지 않았다면 담당자 연결을 도와드릴게요.')],
-    replies: [
-      { label: '담당자 연결하기', action: 'connect-yes', primary: true },
-      { label: '계속 해볼게요', action: 'noop' },
-    ],
+    replies: connectReplies(),
   })
 }
