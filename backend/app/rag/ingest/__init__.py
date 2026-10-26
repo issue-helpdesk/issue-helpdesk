@@ -80,6 +80,7 @@ class Prepared:
     parse_warnings: list[str]
     vectors: dict[str, list[list[float]]] = field(default_factory=dict)   # model_id → 청크 순서대로
     apply_policy: bool = False                             # 이미 있는 버전의 정책을 manifest 값으로 바꿀지 (check_policies)
+    apply_document: bool = False                           # 이미 있는 문서의 제목·분류·관리 부서를 파일 값으로 바꿀지 (check_documents)
 
     @property
     def doc_code(self) -> str:
@@ -226,6 +227,34 @@ def check_policies(conn, prepared: list[Prepared], apply: bool, report: Report) 
             report.warnings.append(f'{p.doc_code}: DB 정책 유지 ({shown})')
 
 
+DOCUMENT_COLUMNS = ('doc_type', 'title', 'category_code', 'owner_group_id')
+
+
+def check_documents(conn, prepared: list[Prepared], groups: dict[str, int], apply: bool, report: Report) -> None:
+    """이미 있는 문서의 제목·종류·분류·관리 부서와 파일 값 비교.
+
+    관리자가 화면(DC-04)에서 고쳤을 수 있어 기본은 DB 값을 두고 다르면 알린다 (정책과 같은 원칙).
+    apply=True(--apply-document)면 파일 값으로 바꾼다. 처음 만드는 문서는 파일 값을 쓴다.
+    """
+    for p in prepared:
+        row = conn.execute(f'select {", ".join(DOCUMENT_COLUMNS)} from knowledge_documents where doc_code = %s',
+                           (p.doc_code,)).fetchone()
+        want = _document_values(p, groups)
+        if row is None or tuple(row) == want:
+            continue
+        diff = ', '.join(f'{k} {a!r} → {b!r}' for k, a, b in zip(DOCUMENT_COLUMNS, row, want) if a != b)
+        if apply:
+            p.apply_document = True
+            report.warnings.append(f'{p.doc_code}: 문서 정보를 파일 값으로 바꿈 ({diff})')
+        else:
+            report.warnings.append(f'{p.doc_code}: DB 문서 정보 유지 (파일과 다름: {diff}). 맞추려면 --apply-document')
+
+
+def _document_values(p: Prepared, groups: dict[str, int]) -> tuple:
+    d = p.document
+    return d['doc_type'], d['title'], d['category_code'], groups.get(d['owner_group'])
+
+
 def _narrower(want: tuple[str, str], have: tuple[str, str]) -> bool:
     """(view_scope, transfer_policy) want 가 have 보다 한 칸이라도 좁은가. 한 칸이 넓어진 것으로 상쇄하지 않는다."""
     return SCOPE_RANK[want[0]] > SCOPE_RANK[have[0]] or POLICY_RANK[want[1]] > POLICY_RANK[have[1]]
@@ -314,7 +343,7 @@ def write_document(conn, p: Prepared, groups: dict[str, int], cache: dict, activ
 
     1. 버전 행 확보: 새 버전이면 PENDING·비현행으로 넣고 커밋한다 (실패해도 FAILED 를 남길 곳). 문서 행은 없을 때만 만든다.
     2. 교체 (한 트랜잭션, 문서 → 버전 → 청크 순으로 잠금):
-       - 문서 칸(제목·분류·관리 부서) 갱신 — 실패하면 같이 롤백된다
+       - 문서 칸(제목·분류·관리 부서)은 apply_document 일 때만 갱신 — 실패하면 같이 롤백된다
        - 같은 버전 다시 적재: 그 버전 청크를 통째로 지우고 새로 넣는다 (순번 upsert 금지).
          DB의 청크 행이 지금 결과와 똑같으면 지우지 않는다 (청크 id 유지): 지정한 모델 벡터는 맞추고,
          지정하지 않은 모델 중 임베딩 입력(source_text)이 바뀐 벡터는 지우고 알린다 (예전 입력의 벡터를 남기지 않는다).
@@ -345,7 +374,8 @@ def write_document(conn, p: Prepared, groups: dict[str, int], cache: dict, activ
     try:
         _lock_document(conn, doc_id)
         status = conn.execute('select ingest_status from document_versions where id = %s', (vid,)).fetchone()[0]
-        _update_document(conn, doc_id, p, groups)
+        if p.apply_document:
+            _update_document(conn, doc_id, p, groups)
         if p.apply_policy:
             _apply_policy(conn, doc_id, vid, p)
         elif out['action'] != 'new':                       # 잠근 뒤 지금 정책으로 다시 비교 (검증 뒤 바뀌었을 수 있다)
@@ -407,9 +437,8 @@ def _document_id(conn, p: Prepared, groups: dict[str, int]) -> int:
 
 
 def _update_document(conn, doc_id: int, p: Prepared, groups: dict[str, int]) -> None:
-    d = p.document
     conn.execute('update knowledge_documents set doc_type = %s, title = %s, category_code = %s, owner_group_id = %s '
-                 'where id = %s', (d['doc_type'], d['title'], d['category_code'], groups.get(d['owner_group']), doc_id))
+                 'where id = %s', (*_document_values(p, groups), doc_id))
 
 
 def _apply_policy(conn, doc_id: int, vid: int, p: Prepared) -> None:
@@ -487,7 +516,7 @@ def summary(conn) -> list[tuple]:
 def run(url: str | None, embedders: list, docs: list[str] | None = None, guides: Path = GUIDES,
         base: dict[str, dict] | None | bool = True, dry_run: bool = False, activate_version: bool = True,
         prepared: list[Prepared] | None = None, allow_remote: bool = False, apply_policy: bool = False,
-        force_activate: bool = False) -> Report:
+        force_activate: bool = False, apply_document: bool = False) -> Report:
     """준비 → 검증 → (dry_run 이 아니면) 교체. 검증에 실패하면 IngestError (DB 변화 없음).
 
     url 이 없으면 DB 검사(문의 유형 코드·관리 부서·정책·기존 벡터)를 건너뛰고 검증까지만 한다.
@@ -508,6 +537,7 @@ def run(url: str | None, embedders: list, docs: list[str] | None = None, guides:
             codes, groups = read_reference(conn)
             check_reference(prepared, codes, groups, report)
             check_policies(conn, prepared, apply_policy, report)
+            check_documents(conn, prepared, groups, apply_document, report)
             if report.problems:
                 raise IngestError(report.problems)
             cache = read_vectors(conn, {t for p in prepared for t in p.texts})

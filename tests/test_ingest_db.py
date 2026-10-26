@@ -266,7 +266,7 @@ def test_failed_replace_rolls_back_document_columns(url, tmp_path):
     p = variant(tmp_path, 'IT-ACS-001', 'v2.1')
     p[0].document['title'] = '바뀐 제목'
     p[0].rows[2]['part'] = 0                                            # DB 제약에 걸린다
-    report = run(url, [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')], prepared=p)
+    report = run(url, [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')], prepared=p, apply_document=True)
     assert report.results[0]['action'] == 'failed'
     assert q(url, "select title from knowledge_documents where doc_code = 'IT-ACS-001'") == old
 
@@ -411,3 +411,19 @@ def test_policy_widened_after_check_stops_document(url, tmp_path):
         with psycopg.connect(url) as conn:
             conn.execute('''update document_versions v set view_scope = 'AGENT', transfer_policy = 'BLOCKED'
                              from knowledge_documents d where d.id = v.document_id and d.doc_code = %s''', (code,))
+
+
+def test_document_info_kept_unless_applied(url, tmp_path):
+    """이미 있는 문서의 제목 등은 관리자가 고쳤을 수 있어 덮어쓰지 않고 알린다. --apply-document 면 파일 값으로."""
+    code = 'IT-NET-003'
+    with psycopg.connect(url) as conn:                                  # 관리자가 화면(DC-04)에서 제목을 고친 상태
+        conn.execute("update knowledge_documents set title = '관리자가 고친 제목' where doc_code = %s", (code,))
+    embs = lambda: [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')]
+    report = run(url, embs(), docs=[code])
+    assert report.results[0]['action'] == 'unchanged' and any('DB 문서 정보 유지' in w for w in report.warnings)
+    assert q(url, 'select title from knowledge_documents where doc_code = %s', code) == [('관리자가 고친 제목',)]
+
+    report = run(url, embs(), docs=[code], apply_document=True)
+    assert any('파일 값으로 바꿈' in w for w in report.warnings)
+    [(title,)] = q(url, 'select title from knowledge_documents where doc_code = %s', code)
+    assert title == load_manifest(docs=[code])[0]['title']

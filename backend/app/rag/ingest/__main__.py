@@ -26,6 +26,8 @@ def main(argv=None) -> int:
     ap.add_argument('--no-baseline', action='store_true', help='기준표 비교를 하지 않는다 (새 문서·청커 수정 확인용)')
     ap.add_argument('--force-activate', action='store_true',
                     help='다른 현행이 있어도 이번에 넣은 버전을 현행으로 (예: 실패했던 새 버전을 고쳐 다시 넣을 때)')
+    ap.add_argument('--apply-document', action='store_true',
+                    help='이미 있는 문서의 제목·종류·분류·관리 부서를 파일 값으로 바꾼다')
     ap.add_argument('--apply-policy', action='store_true', help='이미 있는 버전의 열람 범위·외부 전송 정책을 manifest 값으로 바꾼다')
     ap.add_argument('--drop-model', metavar='MODEL_ID', help='이 model 값의 임베딩을 지우고 끝낸다 (예: bge-m3@5617a9f/v1)')
     a = ap.parse_args(argv)
@@ -61,7 +63,8 @@ def main(argv=None) -> int:
     try:
         report = run(url, embedders, docs=a.docs.split(',') if a.docs else None, base=not a.no_baseline,
                      dry_run=a.dry_run, activate_version=not a.no_activate, allow_remote=a.allow_remote,
-                     apply_policy=a.apply_policy, force_activate=a.force_activate)
+                     apply_policy=a.apply_policy, force_activate=a.force_activate,
+                     apply_document=a.apply_document)
     except IngestError as ex:
         print(f'[검증 실패] DB 에 쓰지 않았습니다. {len(ex.problems)}건')
         print('\n'.join(f'  {p}' for p in ex.problems))
