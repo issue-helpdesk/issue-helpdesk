@@ -16,6 +16,12 @@ def test_model_ids_pin_revision():
     assert model_id('bge-m3') == 'bge-m3@5617a9f/v1'
 
 
+def test_default_model_is_bge_m3():
+    """M3-2-1 비교로 정한 기본 모델 (search/모델_비교_결과.md). 바꾸면 DB 임베딩 model 값도 같이 맞춰야 한다."""
+    from app.rag.embedding import DEFAULT_MODEL
+    assert DEFAULT_MODEL == 'bge-m3' and model_id(DEFAULT_MODEL) == 'bge-m3@5617a9f/v1'
+
+
 def test_both_models_fit_vector_column():
     """두 모델 모두 document_chunk_embeddings.embedding vector(1024) 에 들어간다."""
     assert {spec['dim'] for spec in MODELS.values()} == {1024}

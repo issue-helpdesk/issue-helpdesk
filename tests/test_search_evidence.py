@@ -38,6 +38,13 @@ def test_skips_heading_property_figure_and_short_lines():
     assert '사번' not in ev
 
 
+def test_skips_checklist_sections():
+    """'문의 시 알려 주실 정보' 아래 목록('노트북 모델명' 등)은 근거가 아니다 (실제 검색에서 섞이던 줄)."""
+    ev = pick_evidence('노트북 모델명 화면의 복구 키 ID', TEXT, limit=20)
+    assert '노트북 모델명' not in ev and '화면의 복구 키 ID' not in ev
+    assert '화면에 표시된 복구 키 ID를 적어 둡니다.' in ev                # 조치 방법 줄은 그대로
+
+
 def test_no_evidence_when_unrelated():
     assert pick_evidence('프린터 토너가 떨어졌어요', TEXT) == ()
     assert pick_evidence('   ', TEXT) == ()

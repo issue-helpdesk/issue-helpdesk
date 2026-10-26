@@ -32,7 +32,7 @@ MODELS = {
         'sizes': {'pytorch_model.bin': 2_271_145_830, 'tokenizer.json': 17_098_108},
     },
 }
-DEFAULT_MODEL = 'kure-v1'
+DEFAULT_MODEL = 'bge-m3'   # M3-2-1 비교로 정함 (search/모델_비교_결과.md)
 
 
 def model_dir() -> Path:
