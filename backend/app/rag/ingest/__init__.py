@@ -3,7 +3,7 @@
 준비(파싱·청크·임베딩, DB 밖) → 검증(하나라도 실패하면 DB에 손대지 않는다) → 문서마다 짧은 트랜잭션으로 교체.
 
     from app.rag.ingest import FakeEmbedder, run
-    run('postgresql://…', [FakeEmbedder('kure-v1')])          # 임시 DB에 전체 적재
+    run('postgresql://…', [FakeEmbedder()])                   # 임시 DB에 전체 적재
 
 현행 전환은 activate() 하나로 한다. 관리자 API(A, 버전 PATCH isCurrent:true)도 이 함수를 부른다.
 """
@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from app.models.embedding import EMBED_DIM
+from app.rag.embedding.models import DEFAULT_MODEL
 from app.rag.chunker import Chunk, baseline, chunk_document, chunk_row, document_row, validate, version_row
 from app.rag.parser import parse
 
@@ -49,7 +50,7 @@ class FakeEmbedder:
     model_id 가 진짜 모델과 달라(fake-…) 진짜 벡터와 섞이지 않는다.
     """
 
-    def __init__(self, key: str = 'kure-v1'):
+    def __init__(self, key: str = DEFAULT_MODEL):
         self.key = key
         self.model_id = f'fake-{key}@0000000/v1'
         self.dim = EMBED_DIM

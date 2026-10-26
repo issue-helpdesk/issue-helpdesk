@@ -2,13 +2,13 @@
 
     python -m app.rag.ingest --embedder fake                               # 검증까지만 (DB 없이)
     python -m app.rag.ingest --embedder fake --database-url <임시 DB>       # 임시 DB에 적재
-    python -m app.rag.ingest --models kure-v1,bge-m3 --database-url <임시 DB>
+    python -m app.rag.ingest --database-url <임시 DB>                       # 기본 모델(bge-m3) 실제 임베딩
 """
 import argparse
 import sys
 import time
 
-from app.rag.embedding import MODELS
+from app.rag.embedding import DEFAULT_MODEL, MODELS
 from app.rag.ingest import FakeEmbedder, IngestError, connect, drop_model, is_local, run, summary
 
 ACTIONS = {'new': '새 버전', 'reloaded': '다시 적재', 'unchanged': '변화 없음', 'failed': '실패'}
@@ -20,7 +20,8 @@ def main(argv=None) -> int:
     ap.add_argument('--allow-remote', action='store_true', help='localhost 가 아닌 DB(공유 DB)에 쓸 때 꼭 준다')
     ap.add_argument('--dry-run', action='store_true', help='DB 를 주어도 읽기만 하고 쓰지 않는다')
     ap.add_argument('--embedder', choices=('real', 'fake'), default='real', help='fake: 모델 파일 없이 시험용 벡터')
-    ap.add_argument('--models', default='kure-v1,bge-m3', help=f'쉼표로 구분 ({", ".join(MODELS)})')
+    ap.add_argument('--models', default=DEFAULT_MODEL,
+                    help=f'쉼표로 구분 ({", ".join(MODELS)}). 기본은 검색 기본 모델 {DEFAULT_MODEL}')
     ap.add_argument('--docs', help='이 문서만 (쉼표로 구분한 문서 번호)')
     ap.add_argument('--no-activate', action='store_true', help='DONE 까지만 하고 현행으로 바꾸지 않는다')
     ap.add_argument('--no-baseline', action='store_true', help='기준표 비교를 하지 않는다 (새 문서·청커 수정 확인용)')
