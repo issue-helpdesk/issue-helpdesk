@@ -10,6 +10,7 @@ import { LoadingScreen } from '../ui/LoadingScreen'
 import { FaqView } from '../views/faq/FaqView'
 import { HomePlaceholder } from '../views/HomePlaceholder'
 import { ChatView } from '../views/inquiry/ChatView'
+import { InquiryListView } from '../views/inquiry/InquiryListView'
 import { NewInquiryView } from '../views/inquiry/NewInquiryView'
 import { LoginView } from '../views/login/LoginView'
 import { HOME_BY_ROLE } from './roles'
@@ -44,7 +45,7 @@ export function AppRoutes() {
         <Route element={<AppShell />}>
           {/* 문의 (모든 역할 공통) */}
           <Route path="/new" element={<NewInquiryView />} />
-          <Route path="/list" element={<HomePlaceholder title="문의 내역" />} />
+          <Route path="/list" element={<InquiryListView />} />
           <Route path="/chat/:id" element={<ChatView />} />
           <Route path="/faq" element={<FaqView />} />
           {/* 담당자·관리자. 화면을 만들면 HomePlaceholder 를 실제 화면으로 바꾼다 */}

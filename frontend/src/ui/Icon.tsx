@@ -20,6 +20,13 @@ const PATHS = {
       <path d="M12 6.5 15.5 10 12 13.5M15.5 10H8.5" />
     </>
   ),
+  search: (
+    <>
+      <circle cx="9" cy="9" r="5.5" />
+      <path d="M13.2 13.2 17 17" />
+    </>
+  ),
+  down: <path d="M5 8l5 5 5-5" />,
   arrow: <path d="M4 10h12M11 5l5 5-5 5" />,
   sun: (
     <>

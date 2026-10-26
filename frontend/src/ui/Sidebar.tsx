@@ -93,7 +93,13 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
 
       {recent.length > 0 && (
         <div className="nav">
-          <div className="grp">최근 문의</div>
+          <div className="grp gsr">
+            최근 문의
+            {/* 문의 내역으로 가서 검색 칸에 바로 입력할 수 있게 한다 */}
+            <button type="button" className="gic" aria-label="최근 문의 검색" title="내 문의 검색" onClick={() => { navigate('/list', { state: { focusSearch: Date.now() } }); onNavigate() }}>
+              <Icon name="search" size={15} />
+            </button>
+          </div>
           <div className="recent">
             {recent.slice(0, 5).map((i) => {
               const tone = STATE_TONE[i.stateKind]

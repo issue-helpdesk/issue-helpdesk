@@ -106,6 +106,7 @@ export function createRecord(owner: string, ownerName: string, title: string, fi
     step: 'collect',
     categoryCode: null as CategoryCode | null,
     unread: 0,
+    createdAt: nowIso(),
     updatedAt: nowIso(),
     messages: [],
     draft: null,
