@@ -84,9 +84,9 @@ describe('접수 초안 수정', () => {
     const d = await toDraft()
     expect(d.draft).toMatchObject({ inquiryTypeCode: 'NET-02', inquiryTypeName: 'VPN 접속 불가(개인)', urgency: 'P3' })
     const edited = await data(
-      editDraft(d.id, USER.employeeNo, { summary: d.draft!.summary, onset: '어제 오후부터 전사 접속이 안 돼요', businessImpact: d.draft!.businessImpact, triedActions: d.draft!.triedActions }),
+      editDraft(d.id, USER.employeeNo, { summary: d.draft!.summary, occurredAt: '어제 오후부터 전사 접속이 안 돼요', businessImpact: d.draft!.businessImpact, triedActions: d.draft!.triedActions }),
     )
-    expect(edited.draft?.onset).toBe('어제 오후부터 전사 접속이 안 돼요')
+    expect(edited.draft?.occurredAt).toBe('어제 오후부터 전사 접속이 안 돼요')
     expect(edited.draft?.inquiryTypeCode).toBe('NET-03')
     expect(edited.draft?.urgency).toBe('P1')
     expect(edited.draft?.rejudged).toEqual(expect.arrayContaining(['inquiryType', 'urgency']))
