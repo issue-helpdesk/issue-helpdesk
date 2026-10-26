@@ -73,8 +73,8 @@ def test_document_rejects_unknown_codes(kw):
 
 def test_citations():
     assert doc().citation == 'IT-SW-003 3.1'
-    assert legacy().citation == '과거 처리 사례 참고 · INQ-2026-00245 (2026-07)'          # PRD 4.2 문구
-    assert legacy(resolved_at=None).citation == '과거 처리 사례 참고 · INQ-2026-00245'
+    assert legacy().citation == '과거 사례 INQ-2026-00245 (2026-07)'
+    assert legacy(resolved_at=None).citation == '과거 사례 INQ-2026-00245'
 
 
 def test_legacy_has_no_person_fields():

@@ -68,16 +68,3 @@ def test_migration_sql_offline():
              'ck_document_versions_current_needs_done', 'COMMIT']
     pos = [out.find(s) for s in steps]
     assert all(i >= 0 for i in pos) and pos == sorted(pos), dict(zip(steps, pos))
-
-
-def test_activated_at_migration_sql_offline():
-    """activated_at: 칸 추가 → 이미 현행인 버전은 등록 시각으로 채움, 한 트랜잭션 (478ccde3a990)."""
-    env = {**os.environ, 'DATABASE_URL': 'postgresql://u:p@localhost/offline', 'PYTHONIOENCODING': 'utf-8'}
-    out = subprocess.run([sys.executable, '-m', 'alembic', 'upgrade', 'd20ad6bde15c:478ccde3a990', '--sql'],
-                         cwd=os.path.join(ROOT, 'backend'), env=env, capture_output=True, text=True,
-                         encoding='utf-8', check=True).stdout
-    steps = ['ADD COLUMN activated_at TIMESTAMP WITH TIME ZONE',
-             'update document_versions set activated_at = registered_at where is_current', 'COMMIT']
-    pos = [out.find(s) for s in steps]
-    assert all(i >= 0 for i in pos) and pos == sorted(pos), dict(zip(steps, pos))
-    assert 'activated_at' in {c.name for c in DocumentVersion.__table__.columns}

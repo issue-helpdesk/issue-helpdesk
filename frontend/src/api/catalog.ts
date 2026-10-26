@@ -3,6 +3,7 @@
  * API 는 영문 코드 값을 그대로 주고, 한글 표시는 이 파일의 라벨표에서만 붙인다. (docs/07.API_계약서.md)
  * 화면(초안 카드)과 시연용 대화 엔진이 함께 쓴다. 실제 API 에서는 서버가 계산한 값을 그대로 받는다.
  */
+import type { AccountStatus } from './types'
 import type { CategoryCode, InquiryStatus, Urgency, WorkStatus } from './chatTypes'
 
 export interface CategoryInfo {
@@ -47,3 +48,5 @@ export const INQUIRY_STATUS_LABEL: Record<InquiryStatus, string> = {
   HANDED_OFF: '담당자 이관',
 }
 
+/** 계정 상태 이름 (users.account_status) */
+export const ACCOUNT_STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: '정상', LOCKED: '잠김', INACTIVE: '이용 제한' }
