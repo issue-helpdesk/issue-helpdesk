@@ -38,9 +38,9 @@
 ```bash
 python -m app.rag.ingest --embedder fake                                   # 검증까지만 (DB 없이, 모델 없이)
 python -m app.rag.ingest --embedder fake --database-url <임시 DB>           # 임시 DB에 적재 (가짜 벡터)
-python -m app.rag.ingest --database-url <임시 DB>                           # 두 모델(kure-v1,bge-m3) 실제 임베딩
-python -m app.rag.ingest --database-url <DB> --models bge-m3               # 한 모델만 다시 넣기
-python -m app.rag.ingest --database-url <DB> --drop-model bge-m3@5617a9f/v1   # 한 모델 임베딩 지우기 (모델을 정한 뒤)
+python -m app.rag.ingest --database-url <임시 DB>                           # 기본 모델(bge-m3) 실제 임베딩
+python -m app.rag.ingest --database-url <DB> --models kure-v1,bge-m3       # 여러 모델 (비교할 때)
+python -m app.rag.ingest --database-url <DB> --drop-model kure-v1@8b418a5/v1  # 한 모델 임베딩 지우기
 ```
 
 | 옵션 | 뜻 |
@@ -52,12 +52,12 @@ python -m app.rag.ingest --database-url <DB> --drop-model bge-m3@5617a9f/v1   # 
 | `--force-activate` | 다른 현행이 있어도 이번에 넣은 버전을 현행으로 |
 | `--dry-run` | DB를 주어도 읽기(기준 데이터·기존 벡터 검사)만 한다 |
 | `--embedder fake` | 모델 파일 없이 글에서 결정적으로 만든 1024차원 단위 벡터. `model` 값이 `fake-…`라 실제 벡터와 섞이지 않는다 |
-| `--models` | 기본 `kure-v1,bge-m3` (두 모델 모두 넣어 비교하기로 결정, 10.25) |
+| `--models` | 기본은 검색 기본 모델 `DEFAULT_MODEL`(`bge-m3`, M3-2-1 비교로 결정). 쉼표로 여러 모델 |
 | `--docs` | 이 문서만 (쉼표로 구분) |
 | `--no-activate` | `DONE`까지만, 현행 전환은 하지 않는다 |
 | `--no-baseline` | 기준표 비교를 건너뛴다 (새 문서·청커 수정 확인용) |
 
-실제 모델은 [`embedding/README.md`](../embedding/README.md)대로 설치·받기를 먼저 한다. CPU로 712청크 × 2모델 약 21분 (KURE-v1 0.79초/청크, BGE-M3 0.99초/청크, 10.25 `smoke`). 모델은 임베딩할 글이 있을 때만 연다.
+실제 모델은 [`embedding/README.md`](../embedding/README.md)대로 설치·받기를 먼저 한다. CPU로 712청크에 BGE-M3 약 12분 (0.99초/청크, 10.25 `smoke`. KURE-v1은 0.79초/청크). 모델은 임베딩할 글이 있을 때만 연다.
 
 ## 임시 DB로 시험
 
