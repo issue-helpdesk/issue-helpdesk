@@ -206,7 +206,8 @@ export function ChatView() {
               <button type="button" className="btn pri sm" disabled={busy} onClick={() => void apply(resumeChat(id, employeeNo!))}>
                 이어서 채팅하기
               </button>
-              <button type="button" className="btn sec sm" onClick={() => navigate('/new')}>
+              {/* 새 문의를 고르면 이전 문의는 바로 끝내고 삭제한다 (보안·로그 대상은 숨김). 삭제되면 새 문의 화면으로 이동한다. */}
+              <button type="button" className="btn sec sm" disabled={busy} onClick={() => void apply(idleDeleteChat(id, employeeNo!))}>
                 새로운 문의하기
               </button>
             </div>

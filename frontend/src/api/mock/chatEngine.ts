@@ -9,7 +9,7 @@
  *   → 해결 확인(해결 / 미해결) → 접수 초안 확인·수정 → 접수(RCPT 번호) → Jira·담당자 배정 진행
  */
 import { nowIso } from '../../core/format'
-import { hasMask, MASK_NOTICE, maskSensitive } from '../../core/mask'
+import { hasMask, MASK_NOTICE, maskNotices, maskSensitive } from '../../core/mask'
 import { CATEGORIES, FALLBACK_GROUP } from '../catalog'
 import { detectInquiryType } from './inquiryTypes'
 import {
@@ -343,7 +343,7 @@ function doAnswer(rec: StoreRecord) {
       inquiry.step = 'offer'
       push(inquiry, {
         role: 'assistant',
-        blocks: [p('관련 가이드를 찾았지만 **외부 모델로 전송할 수 없는 문서**라서 이 문의는 AI가 안내할 수 없어요. 열람 권한과 외부 전송 허용은 따로 확인하고 있어요.'), p('담당자에게 연결해 드릴 수 있어요.')],
+        blocks: [p('이 문의는 **보안 기준상 AI가 직접 안내할 수 없는 내용**이에요. 담당자에게 연결해 드릴게요.'), p('담당자에게 연결해 드릴 수 있어요.')],
         replies: connectReplies(),
       })
       return
@@ -431,7 +431,9 @@ export function handle(rec: StoreRecord, raw: string, initial: boolean) {
   inquiry.updatedAt = nowIso()
   if (masked.hit || hasMask(text)) {
     internal.sens = true
-    push(inquiry, { role: 'sys', text: MASK_NOTICE })
+    // 가린 종류별 안내 (비밀정보·비밀번호·고유식별). 이미 가려진 글이면 기본 안내만 보여 준다
+    const notices = maskNotices(masked)
+    for (const n of notices.length ? notices : [MASK_NOTICE]) push(inquiry, { role: 'sys', text: n })
   }
 
   if (inquiry.step === 'draft') {
@@ -545,7 +547,16 @@ export function saveDraft(rec: StoreRecord, edit: DraftEdit) {
   const beforeType = d.inquiryTypeCode ?? null
   const beforeGroup = d.groupName
   // 고친 글에 비밀번호·인증번호가 있으면 저장하기 전에 가린다
-  const clean = (v: string | undefined) => (v ?? '').trim() && maskSensitive((v ?? '').trim()).text
+  const found = { secret: false, password: false, identity: false }
+  const clean = (v: string | undefined) => {
+    const t = (v ?? '').trim()
+    if (!t) return t
+    const m = maskSensitive(t)
+    found.secret ||= m.secret
+    found.password ||= m.password
+    found.identity ||= m.identity
+    return m.text
+  }
   d.summary = clean(edit.summary) || d.summary
   d.onset = clean(edit.onset) || d.onset
   d.businessImpact = clean(edit.businessImpact) || d.businessImpact
@@ -571,6 +582,9 @@ export function saveDraft(rec: StoreRecord, edit: DraftEdit) {
   inquiry.draftNote = changed
     ? `수정한 내용을 반영해 ${beforeP !== d.urgency ? `긴급도를 ${beforeP}에서 ${d.urgency}(으)로` : ''}${beforeCat !== d.categoryCode ? ` 분류를 ${d.categoryCode ?? ''}(으)로` : ''} 다시 판단했어요. 변경된 내용으로 다시 확인해 주세요.`
     : '수정 내용을 반영했어요. 최종 접수 전에 한 번 더 확인해 주세요.'
+  // 고친 글에서 민감정보를 가렸다면 초안 화면에서도 알린다 (docs/10 6.1)
+  const masked = maskNotices(found)
+  if (masked.length) inquiry.draftNote = `${masked.join(' ')} ${inquiry.draftNote}`
 }
 
 /** 접수하지 않고 종료한다 */
