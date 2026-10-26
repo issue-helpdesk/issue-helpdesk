@@ -76,7 +76,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       <div className="brand">
         {/* 로고는 홈으로 가는 버튼: 문의자=새 문의, 담당자=처리할 문의, 관리자=대시보드 */}
         <button type="button" className="brandbtn" aria-label="ITssue 홈으로" onClick={() => go(HOME_BY_ROLE[user.serviceRole])}>
-          <Logo width={112} />
+          <Logo width={118} kind="word" />
         </button>
       </div>
 

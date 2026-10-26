@@ -201,11 +201,6 @@ export interface Inquiry {
   paused?: boolean
 }
 
-/** 로그인한 사용자의 문의 한 건 요청: 첫 메시지 */
-export interface StartInquiryRequest {
-  text: string
-}
-
 /** 빠른 응답 버튼 전송 */
 export interface ReplyRequest {
   messageId: number
