@@ -7,12 +7,12 @@
  * 종료된 상담(AI 해결·미확인·미해결 종료)은 읽기 전용이며 "대화 이어가기"로 다시 열 수 있다.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { cancelChatDraft, confirmChatDraft, editDraft, getChat, idleWarnChat, rejectChat, reopenChat, replyChat, resolveChat, sendChat, timeoutChat, watchChat } from '../../api/chat'
-import { IDLE_WARN_TEXT, type DraftEdit, type GuideSource, type Inquiry, type InquiryStatus, type LegacyCase } from '../../api/chatTypes'
+import { useNavigate, useParams } from 'react-router-dom'
+import { cancelChatDraft, confirmChatDraft, editDraft, getChat, idleBackChat, idleDeleteChat, idleWarnChat, rejectChat, reopenChat, replyChat, resolveChat, resumeChat, sendChat, watchChat } from '../../api/chat'
+import { IDLE_TEXT, type DraftEdit, type GuideSource, type Inquiry, type InquiryStatus, type LegacyCase } from '../../api/chatTypes'
 import { inquiryState } from '../../api/inquiryState'
 import type { ApiResult } from '../../api/types'
-import { SERVICEDESK } from '../../core/config'
+import { SERVICEDESK, USE_MOCK } from '../../core/config'
 import { sourceFull } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
@@ -43,6 +43,7 @@ type ModalState = { kind: 'source'; source: GuideSource } | { kind: 'legacy'; le
 
 export function ChatView() {
   const { id: idParam = '' } = useParams()
+  const navigate = useNavigate()
   const id = Number(idParam)
   const { user } = useAuth()
   const employeeNo = user?.employeeNo
@@ -64,12 +65,14 @@ export function ChatView() {
     })
     const stop = watchChat(id, employeeNo, (r) => {
       if (alive && r.ok) setLoaded({ id, data: r.data })
+      // 응답 없음으로 삭제되면 대화가 사라지므로 새 문의 화면으로 보낸다
+      else if (alive && !r.ok && r.error.code === 'INQUIRY_NOT_FOUND') navigate('/new', { replace: true })
     })
     return () => {
       alive = false
       stop()
     }
-  }, [id, employeeNo])
+  }, [id, employeeNo, navigate])
 
   const inquiry = loaded?.id === id ? loaded.data : undefined // undefined=불러오는 중, null=없음
   const count = inquiry?.messages.length ?? 0
@@ -110,8 +113,6 @@ export function ChatView() {
     if (!employeeNo) return null
     return {
       reply: (req) => void apply(replyChat(id, employeeNo, req)),
-      timeout: (messageId) => void apply(timeoutChat(id, employeeNo, messageId)),
-      idleWarn: () => void apply(idleWarnChat(id, employeeNo)),
       confirmDraft: () => void apply(confirmChatDraft(id, employeeNo)),
       saveDraft: (edit: DraftEdit) => apply(editDraft(id, employeeNo, edit)),
       cancelDraft: () => void apply(cancelChatDraft(id, employeeNo)),
@@ -158,8 +159,12 @@ export function ChatView() {
   const t = inquiry.ticket
   // 버튼으로만 고르는 단계: 답변 뒤·연결 제안, 접수 초안 확인, 담당자 처리 완료 뒤 해결 확인
   const wait = t ? (t.workStatus === 'FIN' ? 'fin' : null) : inquiry.step === 'draft' ? 'draft' : inquiry.step === 'answered' || inquiry.step === 'offer' ? 'btn' : null
-  const lock = wait ? LOCK[wait] : null
+  // 삭제 전에 돌아온 상태: 이어서 할지 새로 시작할지 고를 때까지 입력창을 끈다
+  const paused = !!inquiry.paused && !t
+  const lock = paused ? { ph: '아래에서 이어갈 방법을 골라 주세요', why: '' } : wait ? LOCK[wait] : null
   const placeholder = lock ? lock.ph : t ? '담당자에게 추가 내용 남기기' : '메시지를 입력하세요'
+  // 시연: 응답 없음 삭제 안내 · 삭제 · 돌아옴. 접수된 건과 끝난 문의에는 쓰지 않는다.
+  const demoIdle = USE_MOCK && !t && !closed && !!employeeNo
 
   async function send() {
     const v = text.trim()
@@ -191,12 +196,29 @@ export function ChatView() {
       </div>
 
       <div className="composer-wrap">
-        {!closed && inquiry.idleWarned && (
-          <div className="idlebar" role="status">
-            <Icon name="bell" />
-            <span>{IDLE_WARN_TEXT}</span>
-            <u>약 10분</u>
+        {paused ? (
+          <div className="resume" role="group" aria-label="이어서 하기">
+            <div>
+              <b>잠시 자리를 비우셨네요</b>
+              <span>이어서 채팅하거나, 새로운 문의를 시작할 수 있어요.</span>
+            </div>
+            <div className="row">
+              <button type="button" className="btn pri sm" disabled={busy} onClick={() => void apply(resumeChat(id, employeeNo!))}>
+                이어서 채팅하기
+              </button>
+              <button type="button" className="btn sec sm" onClick={() => navigate('/new')}>
+                새로운 문의하기
+              </button>
+            </div>
           </div>
+        ) : (
+          !closed &&
+          inquiry.idleWarned && (
+            <div className="idlebar" role="status">
+              <Icon name="bell" />
+              <span>{IDLE_TEXT[inquiry.idleWarned]}</span>
+            </div>
+          )
         )}
         {error && (
           <div className="alert err" role="alert" style={{ maxWidth: 760, margin: '0 auto 10px' }}>
@@ -217,6 +239,20 @@ export function ChatView() {
               {lock?.why}
               {NOTE}
             </div>
+            {demoIdle && (
+              <div className="demoidle" aria-label="응답 없음 시연">
+                <span>시연</span>
+                <button type="button" className="btn ghost sm" disabled={busy} onClick={() => void apply(idleWarnChat(id, employeeNo!))}>
+                  응답 없음 안내
+                </button>
+                <button type="button" className="btn ghost sm" disabled={busy} onClick={() => void apply(idleDeleteChat(id, employeeNo!))}>
+                  안내 뒤 삭제
+                </button>
+                <button type="button" className="btn ghost sm" disabled={busy} onClick={() => void apply(idleBackChat(id, employeeNo!))}>
+                  돌아옴 팝업
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>

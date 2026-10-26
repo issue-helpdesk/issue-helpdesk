@@ -13,8 +13,9 @@ import { hasMask, MASK_NOTICE, maskSensitive } from '../../core/mask'
 import { CATEGORIES, FALLBACK_GROUP } from '../catalog'
 import { detectInquiryType } from './inquiryTypes'
 import {
-  IDLE_WARN_TEXT,
+  IDLE_TEXT,
   type CategoryCode,
+  type IdleKind,
   type ChatBlock,
   type ChatReply,
   type DraftEdit,
@@ -34,6 +35,7 @@ import {
   notify,
   push,
   createRecord,
+  removeRecord,
   type IntakeKey,
   type StoreRecord,
 } from './chatStore'
@@ -262,12 +264,11 @@ function lockReplies(inq: Inquiry, keepId?: number) {
 /** 긴급 건을 접수 없이 끝낼 때 보여 주는 행동 안내 */
 const URGENT_GUIDE = '긴급 징후가 있었어요. 의심스러운 링크·첨부파일은 더 열지 마시고, 계정 정보는 어디에도 입력하지 마세요. 문제가 계속되면 IT 헬프데스크 내선 1000으로 연락해 주세요.'
 
-const yesNo = (demoTimeout: boolean): { replies: ChatReply[]; demoTimeout: boolean } => ({
+const yesNo = (): { replies: ChatReply[] } => ({
   replies: [
     { label: '해결', action: 'resolved', primary: true },
     { label: '미해결', action: 'unresolved' },
   ],
-  demoTimeout,
 })
 
 const connectReplies = (): ChatReply[] => [
@@ -374,7 +375,7 @@ function doAnswer(rec: StoreRecord) {
           p('이 방법으로 해결되었나요?'),
         ],
         legacy: LEGACY_CASE,
-        ...yesNo(true),
+        ...yesNo(),
       })
       return
     }
@@ -402,7 +403,7 @@ function doAnswer(rec: StoreRecord) {
       role: 'assistant',
       blocks: [p(`확인한 내용을 보면 **${CATEGORIES[cat].name}** 문의로 보여요. 먼저 아래 순서로 해 보세요.`), { type: 'ol', items: guide.steps }, p('이 방법으로 해결되었나요?')],
       sources: [toSource(guide)],
-      ...yesNo(true),
+      ...yesNo(),
     })
   })
 }
@@ -421,13 +422,17 @@ export function startInquiry(owner: string, ownerName: string, text: string): In
 /** 문의자가 메시지를 보낸다. 접수 이후라면 담당자에게 가는 추가 메시지가 된다. */
 export function handle(rec: StoreRecord, raw: string, initial: boolean) {
   const { inquiry, internal } = rec
-  inquiry.idleWarned = false // 문의자가 글을 보내면 종료 안내 띠를 거둔다
+  inquiry.idleWarned = null // 문의자가 글을 보내면 삭제 안내 띠를 거둔다
+  inquiry.paused = false
   // 비밀번호·인증번호로 보이는 값은 대화·초안·로그에 넣기 전에 가린다
   const masked = maskSensitive(raw)
   const text = masked.text
   push(inquiry, { role: 'user', text })
   inquiry.updatedAt = nowIso()
-  if (masked.hit || hasMask(text)) push(inquiry, { role: 'sys', text: MASK_NOTICE })
+  if (masked.hit || hasMask(text)) {
+    internal.sens = true
+    push(inquiry, { role: 'sys', text: MASK_NOTICE })
+  }
 
   if (inquiry.step === 'draft') {
     push(inquiry, { role: 'assistant', blocks: [p('초안의 내용을 바꾸려면 아래 초안에서 **수정**을 눌러 고쳐 주세요. 변경 내용은 접수 전에 다시 확인해 드려요.')] })
@@ -461,7 +466,8 @@ export function handle(rec: StoreRecord, raw: string, initial: boolean) {
 
 /** 빠른 응답 버튼 */
 export function applyReply(rec: StoreRecord, req: ReplyRequest) {
-  rec.inquiry.idleWarned = false
+  rec.inquiry.idleWarned = null
+  rec.inquiry.paused = false
   const { inquiry } = rec
   const msg = inquiry.messages.find((m) => m.id === req.messageId)
   if (!msg?.replies || msg.locked) return // 이미 응답했거나 지난 단계의 버튼
@@ -724,24 +730,47 @@ export function sendToStaff(rec: StoreRecord, text: string) {
   rec.inquiry.updatedAt = nowIso()
 }
 
-/** 시연: 문의자가 응답하지 않아 상담이 종료된다. 미확인으로 남고 해결된 것으로 처리하지 않는다. */
-export function timeoutInquiry(rec: StoreRecord, messageId: number) {
-  const { inquiry } = rec
-  const m = inquiry.messages.find((x) => x.id === messageId)
-  if (!m?.replies || m.locked || inquiry.step === 'closed') return
-  lockReplies(inquiry)
-  inquiry.status = 'UNCONFIRMED'
-  inquiry.step = 'closed'
-  inquiry.idleWarned = false
-  push(inquiry, { role: 'sys', text: '일정 시간 응답이 없어 상담을 종료했어요. 미확인 처리합니다.' })
+/**
+ * 응답 없음 (docs/09 6.4, 2026-10-22 팀 결정). 시연에서는 시간을 기다리지 않고 단계별로 보여 준다.
+ * 해결 확인(답변 뒤)은 5시간, 질문·연결 제안·초안은 2시간 뒤 한 번 안내하고, 안내 뒤에 대화를 삭제한다.
+ * 접수된 건과 끝난 문의에는 쓰지 않는다. 시간·안내 시점은 서버의 환경값이다.
+ */
+function idleKind(inquiry: Inquiry): IdleKind | null {
+  if (inquiry.ticket || inquiry.step === 'closed' || inquiry.step === 'submitted') return null
+  return inquiry.step === 'answered' ? 'h5' : 'h2'
 }
 
-/** 시연: 종료 10분 전 안내. 입력창 위에 띠로도 보여 준다. (실제로는 서버가 보내는 시스템 메시지) */
+/** 삭제 안내를 한 번 보낸다. 입력창 위 띠로도 보여 준다. (실제로는 서버가 보내는 시스템 메시지) */
 export function idleWarnInquiry(rec: StoreRecord) {
   const { inquiry } = rec
-  if (inquiry.step === 'closed' || inquiry.idleWarned) return
-  inquiry.idleWarned = true
-  push(inquiry, { role: 'sys', text: IDLE_WARN_TEXT })
+  const kind = idleKind(inquiry)
+  if (!kind || inquiry.idleWarned) return
+  inquiry.idleWarned = kind
+  push(inquiry, { role: 'sys', text: IDLE_TEXT[kind] })
+}
+
+/** 안내 뒤 대화를 삭제한다. 보안·로그 대상(긴급·민감정보 입력)은 지우지 않고 문의자 화면에서만 숨긴다. */
+export function idleDeleteInquiry(rec: StoreRecord) {
+  const { inquiry, internal } = rec
+  if (!idleKind(inquiry)) return
+  if (internal.urgent || internal.sens) internal.hidden = true
+  else removeRecord(inquiry.id)
+}
+
+/** 삭제 전에 돌아온 상태. 입력창을 잠그고 이어서 할지 새로 시작할지 고르게 한다. */
+export function idleBackInquiry(rec: StoreRecord) {
+  const { inquiry } = rec
+  if (!idleKind(inquiry)) return
+  inquiry.paused = true
+}
+
+/** "이어서 채팅하기": 같은 대화·같은 단계로 계속한다 */
+export function resumeInquiry(rec: StoreRecord) {
+  const { inquiry } = rec
+  if (!inquiry.paused) return
+  inquiry.paused = false
+  inquiry.idleWarned = null
+  push(inquiry, { role: 'sys', text: '같은 대화에서 이어서 진행해요.' })
 }
 
 /** 종료된 상담을 다시 연다 */

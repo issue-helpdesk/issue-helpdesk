@@ -4,7 +4,6 @@
  */
 import { URGENCY_LABEL } from '../../api/catalog'
 import type { ChatBlock, ChatMessage, DraftEdit, GuideSource, Inquiry, LegacyCase, ReplyRequest } from '../../api/chatTypes'
-import { USE_MOCK } from '../../core/config'
 import { formatDateTime, sourceLabel } from '../../core/format'
 import { Icon } from '../../ui/Icon'
 import { Avatar } from '../../ui/Logo'
@@ -15,8 +14,6 @@ import { TicketCard } from './TicketCard'
 /** 대화 화면이 메시지 안의 버튼에 연결해 주는 동작 */
 export interface ChatActions {
   reply: (req: ReplyRequest) => void
-  timeout: (messageId: number) => void
-  idleWarn: () => void
   confirmDraft: () => void
   saveDraft: (edit: DraftEdit) => Promise<boolean>
   cancelDraft: () => void
@@ -184,19 +181,6 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false 
                 {r.label}
               </button>
             ))}
-            {/* 시연 전용: 응답 없이 시간이 지난 상황 */}
-            {USE_MOCK && m.demoTimeout && !m.locked && (
-              <>
-                {!inquiry.idleWarned && (
-                  <button type="button" className="btn ghost sm" disabled={busy} onClick={actions.idleWarn}>
-                    (시연) 종료 10분 전 안내
-                  </button>
-                )}
-                <button type="button" className="btn ghost sm" disabled={busy} onClick={() => actions.timeout(m.id)}>
-                  (시연) 응답 없이 시간 경과
-                </button>
-              </>
-            )}
           </div>
         )}
       </div>

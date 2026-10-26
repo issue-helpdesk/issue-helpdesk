@@ -36,6 +36,10 @@ export interface Internal {
   urgent: boolean
   /** 안내에 쓴 Guide 요약 (초안의 "AI 안내" 항목) */
   guideLabel: string | null
+  /** 비밀번호·인증번호로 보이는 값을 입력한 적이 있는지 (보안·로그 대상 판단) */
+  sens?: boolean
+  /** 보안·로그 대상이라 삭제하지 않고 문의자 화면에서만 숨긴 문의 */
+  hidden?: boolean
 }
 
 interface Record_ {
@@ -118,7 +122,12 @@ export function getRecord(id: number): Record_ | undefined {
 
 /** 사번의 문의를 최근 순으로 돌려준다 */
 export function recordsOf(owner: string): Record_[] {
-  return [...records.values()].filter((r) => r.internal.owner === owner).reverse()
+  return [...records.values()].filter((r) => r.internal.owner === owner && !r.internal.hidden).reverse()
+}
+
+/** 문의와 대화를 지운다 (응답 없음 삭제) */
+export function removeRecord(id: number) {
+  records.delete(id)
 }
 
 export function clearRecords() {
