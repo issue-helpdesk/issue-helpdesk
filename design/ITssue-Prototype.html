@@ -142,6 +142,7 @@ h1,h2,h3,h4,p{margin:0}
 .msg.a .body p+p{margin-top:8px}
 .msg.a ol{margin:8px 0 0;padding-left:20px}.msg.a li{margin:2px 0}
 .msg.sys:has(b){border-radius:14px;text-align:left;max-width:min(560px,100%);padding:10px 16px;font-size:13px;line-height:20px}.msg.sys b{color:var(--ink2)}
+.msg.sys.warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.msg.sys.warn b{color:inherit}
 .msg.sys{align-self:center;font-size:12.5px;color:var(--mute);background:var(--shell);padding:4px 12px;border-radius:999px;text-align:center}
 .replies{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .src{display:inline-flex;align-items:center;gap:6px;margin-top:10px;margin-right:6px;min-height:32px;padding:0 12px;border-radius:8px;background:var(--card);border:0;box-shadow:inset 0 0 0 1px var(--line);font-size:12.5px;color:var(--ink2);font-weight:500}
@@ -1200,7 +1201,7 @@ function drawerHtml(){
 /* ===== 문의자 화면 · 대화 흐름 ===== */
 const needReply=t=>{if(!t||!t.status||t.status==='CLS'||t.status==='FIN')return false;const l=(t.msgs||[]).filter(x=>x.kind==='추가 정보 요청'||x.from==='문의자').pop();return !!l&&l.kind==='추가 정보 요청';};
 /* 표시 상태: AI 답변 뒤 해결·미해결 버튼을 기다리는 동안은 "미확인" (docs/09 1장, API 02 1.2 unconfirmed) */
-const uState=i=>i.state==='진행 중'&&i.step==='answered'?'미확인':i.state;
+const uState=i=>i.state==='진행 중'&&i.step==='answered'?'미확인':i.state==='미접수 종료'?'미해결 종료':i.state;
 const inqLabel=i=>{const t=i.ticketId&&tById(i.ticketId);return t&&t.status?(needReply(t)?'추가 답변 필요':TSTAT[t.status][0]):uState(i);};
 const inqKind=i=>{const t=i.ticketId&&tById(i.ticketId);if(t&&t.status)return needReply(t)?'need':TSTAT[t.status][1];return {'진행 중':'prog','AI 해결':'ok','미확인':'warn','미해결 종료':'recv','미접수 종료':'recv','접수 완료':'asg','담당자 이관':'asg'}[uState(i)]||'recv';};
 
@@ -1235,7 +1236,7 @@ function viewChat(){
 function renderMsg(i,m,idx){
   if(m.r==='u')return `<div class="msg u">${ESC(m.t)}</div>`;
   if(m.r==='t')return m.from==='문의자'?`<div class="msg u">${ESC(m.t)}</div>`:`<div class="msg a staff"><span class="sav" aria-hidden="true">${ESC(m.from.slice(0,1))}</span><div class="body"><div class="sh"><b>${ESC(m.from.replace(' 담당자',''))}</b><span class="tag stf">담당자${m.grp?' · '+ESC(m.grp):''}</span><span class="small muted">${ESC(m.kind)} · ${ESC(m.time)}</span></div><div class="sb">${ESC(m.t)}</div></div></div>`;
-  if(m.r==='sys')return `<div class="msg sys">${m.html}</div>`;
+  if(m.r==='sys')return `<div class="msg sys${m.warn?' warn':''}">${m.html}</div>`;
   if(m.typing)return `<div class="msg a">${pav('base')}<div class="body"><span class="dots"><i></i><i></i><i></i></span> <span class="muted small">${ESC(m.label||'처리 중')}</span></div></div>`;
   let h=m.html||'';
   if(m.legacy)h+=`<div><button class="src" data-act="legacy" data-no="${ESC(m.legacy.no)}" data-title="${ESC(m.legacy.title)}" aria-label="과거 처리 사례 참고 ${ESC(m.legacy.no)}">${ic('file','',16)}과거 처리 사례 참고</button></div>`;
@@ -1538,7 +1539,7 @@ function reply(i,a,arg,idx){
   }
   if(a==='connect-no'){
     mk(i,{r:'u',t:'미연결 (종료)'});i.state='미해결 종료';i.step='closed';log('담당자 연결 거절 · '+i.id,'문의자');if(i.urgent)addSec('긴급 징후 후 접수 없이 종료','높음',S.user,'긴급 징후 확인 후 담당자 연결을 거절하고 종료 ('+i.id+')',allText(i),'긴급 징후 + 연결 거절');
-    mk(i,{r:'a',html:'<p><b>담당자 연결 없이 상담을 종료했어요.</b></p><p>티켓은 접수되지 않았으며, 문의 내역에서 다시 상담을 이어갈 수 있어요.</p>'+(i.urgent?'<p style="margin-top:8px"><b>긴급 징후가 있었어요.</b> 의심스러운 링크·첨부파일은 더 열지 마시고, 계정 정보는 어디에도 입력하지 마세요. 문제가 계속되면 IT 헬프데스크 내선 1000으로 연락해 주세요.</p>':'')});render({bottom:true});return;
+    mk(i,{r:'a',html:'<p><b>담당자 연결 없이 상담을 종료했어요.</b></p><p>티켓은 접수되지 않았으며, 문의 내역에서 다시 상담을 이어갈 수 있어요.</p>'});if(i.urgent)mk(i,{r:'sys',warn:true,html:'<b>보안 사고가 의심되는 경우 즉시 IT 지원 담당자에게 연락해 주세요.</b><br>의심스러운 링크나 첨부파일은 열지 말고, 계정 정보를 입력하지 마세요.<br>IT 지원 담당자: 내선 1000'});render({bottom:true});return;
   }
   if(a==='connect-yes'){
     mk(i,{r:'u',t:'담당자 연결'});buildDraft(i);return;
@@ -2060,7 +2061,7 @@ const A={
   'd-edit'(e,d){const i=S.inqs.find(x=>x.id===d.id);i.dstate='edit';render();},
   'd-cancel'(e,d){const i=S.inqs.find(x=>x.id===d.id);i.dstate='view';render();},
   'd-save'(e,d){draftSave(S.inqs.find(x=>x.id===d.id));},
-  'd-cancelall'(e,d){const i=S.inqs.find(x=>x.id===d.id);i.state='미접수 종료';i.step='closed';i.dstate='cancel';mk(i,{r:'a',html:'<p><b>담당자 연결 없이 상담을 종료했어요.</b></p><p>티켓은 접수되지 않았으며, 문의 내역에서 다시 상담을 이어갈 수 있어요.</p>'});log('접수 초안 취소 · '+i.id,'문의자');if(i.urgent){addSec('긴급 징후 후 접수 없이 종료','높음',S.user,'긴급 징후 확인 후 접수 초안을 취소하고 종료 ('+i.id+')',allText(i),'긴급 징후 + 접수 취소');mk(i,{r:'a',html:'<p>이 문의는 <b>미해결 종료</b>로 남고, 해결된 것으로 기록하지 않아요.</p>'+'<p style="margin-top:8px"><b>긴급 징후가 있었어요.</b> 의심스러운 링크·첨부파일은 더 열지 마시고, 계정 정보는 어디에도 입력하지 마세요. 문제가 계속되면 IT 헬프데스크 내선 1000으로 연락해 주세요.</p>'});}render({bottom:true});},
+  'd-cancelall'(e,d){const i=S.inqs.find(x=>x.id===d.id);i.state='미접수 종료';i.step='closed';i.dstate='cancel';mk(i,{r:'a',html:'<p><b>담당자 연결 없이 상담을 종료했어요.</b></p><p>티켓은 접수되지 않았으며, 문의 내역에서 다시 상담을 이어갈 수 있어요.</p>'});log('접수 초안 취소 · '+i.id,'문의자');if(i.urgent){addSec('긴급 징후 후 접수 없이 종료','높음',S.user,'긴급 징후 확인 후 접수 초안을 취소하고 종료 ('+i.id+')',allText(i),'긴급 징후 + 접수 취소');mk(i,{r:'sys',warn:true,html:'<b>보안 사고가 의심되는 경우 즉시 IT 지원 담당자에게 연락해 주세요.</b><br>의심스러운 링크나 첨부파일은 열지 말고, 계정 정보를 입력하지 마세요.<br>IT 지원 담당자: 내선 1000'});}render({bottom:true});},
   lf(e,d){S.listFilter=d.f;S.page.list=1;render();},
   'l-pick'(e,d){if(d.k==='lst')S.listFilter=d.v||'전체';else{const k=d.k==='lcat'?'lcat':'lper';S[k]=d.v||undefined;}S.dd=null;S.page.list=1;render();},
   'l-clear'(){S.listFilter='전체';S.lq='';S.lcat=undefined;S.lper=undefined;S.page.list=1;render();},
