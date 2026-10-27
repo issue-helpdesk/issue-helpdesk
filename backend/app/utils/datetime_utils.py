@@ -1,4 +1,3 @@
-"""현재 시각. 테스트에서 시간을 옮길 수 있도록 datetime.now 를 직접 부르지 않고 여기를 쓴다."""
 from datetime import datetime, timedelta, timezone
 
 KST = timezone(timedelta(hours=9))

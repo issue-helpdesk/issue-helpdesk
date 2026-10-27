@@ -11,7 +11,7 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from app.core import clock
+from app.utils import datetime_utils
 from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
 from app.main import app
@@ -50,7 +50,7 @@ def add_user(db, employee_no="E2024017", password=PASSWORD, changed=True, **fiel
         "email": f"{employee_no.lower()}@itssue.example",
         "service_role": "EMPLOYEE",
         "account_status": "ACTIVE",
-        "password_changed_at": clock.now() if changed else None,
+        "password_changed_at": datetime_utils.now() if changed else None,
         **fields,
     }
     user = User(employee_no=employee_no, password_hash=hash_password(password), **values)
@@ -148,7 +148,7 @@ def test_fifth_failure_locks_account(client, db):
 
 
 def test_locked_account_rejects_correct_password_and_logs_attempt(client, db):
-    add_user(db, account_status="LOCKED", failed_login_count=5, locked_until=clock.now() + timedelta(minutes=10))
+    add_user(db, account_status="LOCKED", failed_login_count=5, locked_until=datetime_utils.now() + timedelta(minutes=10))
 
     res = login(client)
 
@@ -158,9 +158,9 @@ def test_locked_account_rejects_correct_password_and_logs_attempt(client, db):
 
 
 def test_lock_expires_after_ten_minutes(client, db, monkeypatch):
-    user = add_user(db, account_status="LOCKED", failed_login_count=5, locked_until=clock.now() + timedelta(minutes=10))
-    later = clock.now() + timedelta(minutes=11)
-    monkeypatch.setattr(clock, "now", lambda: later)
+    user = add_user(db, account_status="LOCKED", failed_login_count=5, locked_until=datetime_utils.now() + timedelta(minutes=10))
+    later = datetime_utils.now() + timedelta(minutes=11)
+    monkeypatch.setattr(datetime_utils, "now", lambda: later)
 
     res = login(client)
 
@@ -212,7 +212,7 @@ def test_invalid_token_is_rejected(client):
 
 
 def test_expired_token_returns_token_expired(client):
-    token, _ = create_access_token(1, 1, clock.now() - timedelta(hours=1))
+    token, _ = create_access_token(1, 1, datetime_utils.now() - timedelta(hours=1))
 
     res = client.get("/api/v1/users/me", headers={"Authorization": f"Bearer {token}"})
 
@@ -374,8 +374,8 @@ def test_refresh_after_logout_fails(client, db):
 def test_refresh_expired_session(client, db, monkeypatch):
     add_user(db)
     login(client)
-    later = clock.now() + timedelta(days=8)
-    monkeypatch.setattr(clock, "now", lambda: later)
+    later = datetime_utils.now() + timedelta(days=8)
+    monkeypatch.setattr(datetime_utils, "now", lambda: later)
 
     res = client.post("/api/v1/auth/refresh")
 

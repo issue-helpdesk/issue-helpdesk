@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from app.core import clock
+from app.utils import datetime_utils
 from app.core.config import get_auth_settings
 from app.core.error_codes import ErrorCode
 from app.core.errors import AppError
@@ -69,8 +69,8 @@ class AuthService:
             burn_verify_time(password)
             raise AppError(ErrorCode.AUTH_INVALID_CREDENTIALS)
 
-        now = clock.now()
-        if user.account_status == "LOCKED" and user.locked_until and clock.as_utc(user.locked_until) <= now:
+        now = datetime_utils.now()
+        if user.account_status == "LOCKED" and user.locked_until and datetime_utils.as_utc(user.locked_until) <= now:
             unlock(user)
 
         if user.account_status in ("LOCKED", "INACTIVE"):
@@ -106,12 +106,12 @@ class AuthService:
         if session is None or session.revoked_at is not None:
             raise AppError(ErrorCode.AUTH_REFRESH_TOKEN_INVALID)
 
-        now = clock.now()
+        now = datetime_utils.now()
         if not refresh_token_matches(refresh_token, session.refresh_token_hash):
             revoke(session, "TOKEN_REUSE", now)
             self.db.commit()
             raise AppError(ErrorCode.AUTH_REFRESH_TOKEN_INVALID)
-        if clock.as_utc(session.expires_at) <= now:
+        if datetime_utils.as_utc(session.expires_at) <= now:
             raise AppError(ErrorCode.AUTH_REFRESH_TOKEN_INVALID)
 
         user = self.users.get(session.user_id)
@@ -125,7 +125,7 @@ class AuthService:
         return tokens
 
     def logout(self, session: AuthSession) -> None:
-        revoke(session, "LOGOUT", clock.now())
+        revoke(session, "LOGOUT", datetime_utils.now())
         self.db.commit()
 
     def change_password(self, user: User, current_password: str, new_password: str) -> None:
@@ -135,7 +135,7 @@ class AuthService:
         if details:
             raise AppError(ErrorCode.AUTH_PASSWORD_POLICY_VIOLATION, details)
 
-        now = clock.now()
+        now = datetime_utils.now()
         user.password_hash = hash_password(new_password)
         user.password_changed_at = now
         user.updated_at = now
@@ -153,7 +153,7 @@ class AuthService:
             session is None
             or session.user_id != user_id
             or session.revoked_at is not None
-            or clock.as_utc(session.expires_at) <= clock.now()
+            or datetime_utils.as_utc(session.expires_at) <= datetime_utils.now()
         ):
             raise AppError(ErrorCode.UNAUTHORIZED)
 
@@ -183,7 +183,7 @@ def unlock(user: User) -> None:
 def blocked_error(user: User) -> AppError:
     if user.account_status == "INACTIVE":
         return AppError(ErrorCode.AUTH_ACCOUNT_INACTIVE)
-    until = clock.to_kst(user.locked_until).isoformat() if user.locked_until else None
+    until = datetime_utils.to_kst(user.locked_until).isoformat() if user.locked_until else None
     return AppError(
         ErrorCode.AUTH_ACCOUNT_LOCKED,
         [{"reason": "LOCKED_UNTIL", "message": "잠금 해제 시각", "value": until}],

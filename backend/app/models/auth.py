@@ -7,7 +7,6 @@ from app.models.base import Base
 
 
 class AuthSession(Base):
-    """로그인 세션. Access Token 의 sid 가 이 행을 가리키고, 행이 폐기되면 토큰도 바로 쓸 수 없다."""
 
     __tablename__ = "auth_sessions"
     __table_args__ = (
