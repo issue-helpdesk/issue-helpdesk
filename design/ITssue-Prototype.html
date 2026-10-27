@@ -806,6 +806,7 @@ button.kpi.kl .go{position:absolute;right:12px;top:14px;color:var(--mute);transi
 .stx .chip,.chip{font-size:14px;font-weight:500}
 .btn.ghost:hover:not([disabled]){background:var(--hvg)}.btn.ghost:active:not([disabled]){background:var(--prg)}
 small{font-size:12px}
+.cmpw{position:relative;max-width:760px;margin:0 auto}.cmpw .composer{max-width:none}.cmp-hit{position:absolute;inset:0;border:0;background:transparent;border-radius:24px;cursor:pointer}.cmp-hit:focus-visible{outline:2px solid var(--o600);outline-offset:2px}.rdlg{position:relative}.rdlg .xbtn{position:absolute;top:10px;right:12px;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--mute);font-size:16px;cursor:pointer}.rdlg .xbtn:hover{background:var(--shell)}
 .composer.off{opacity:.62}.composer.off textarea{cursor:not-allowed}.composer.off .btn[disabled]{cursor:not-allowed}
 .btn[aria-busy="true"],.btn[aria-disabled="true"]{cursor:progress}.btn.pri .dots i{background:#fff}.slownote{margin:0;font-size:13px;color:var(--mute)}
 .idlebar{display:flex;align-items:center;gap:10px;max-width:760px;margin:0 auto 8px;background:var(--s-warn-bg);color:var(--s-warn-fg);border-radius:12px;padding:10px 14px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--s-warn-dot) 50%,transparent);font-size:13.5px;font-weight:600}.idlebar .i{width:18px;height:18px;flex:none}.idlebar span{flex:1;min-width:0}.ov.rs{background:rgba(24,12,36,.38);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}:root[data-theme="dark"] .ov.rs{background:rgba(5,2,12,.55)}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ov.rs{background:rgba(5,2,12,.55)}}
@@ -928,6 +929,7 @@ const PAVIMG={base:POSE_BASE,handoff:"data:image/webp;base64,UklGRnAWAABXRUJQVlA
 const pav=k=>`<span class="pav ${k}" role="img" aria-label="${POSELB[k]}"><img src="${PAVIMG[k]}" alt=""></span>`;
 function poseOf(i,m,idx){
   const h=m.html||'';
+  if(m.pose)return m.pose;
   if(/class="pose done"/.test(h))return 'done';
   if(/class="pose"/.test(h))return 'handoff';
   if(m.card==='ticket'){const t=tById(m.tid);return t&&t.status==='CLS'?'done':'handoff';}
@@ -1135,15 +1137,16 @@ function renderOverlay(){
   const o=$('#ov');let h='';
   if(S.modal)h+=`<div class="ov" data-act="modal-bg"><div class="modal" role="dialog" aria-modal="true" tabindex="-1" aria-label="${ESC(S.modal.title)}">${S.modal.html}</div></div>`;
   if(S.drawer)h+=`<div class="drawer" role="dialog" aria-modal="true" tabindex="-1" aria-label="요구사항 매핑">${drawerHtml()}</div>`;
-  const pi=S.view.n==='chat'&&S.inqs.find(x=>x.id===S.view.id&&x.paused);
-  const rk=pi?pi.id:'',pop=rk!==S.resumeKey;S.resumeKey=rk;
-  if(pi)h+=`<div class="ov rs${pop?' pop':''}"><div class="rdlg" role="dialog" aria-modal="true" aria-labelledby="rs-t" aria-describedby="rs-d"><img src="${PAVIMG.base}" alt="" width="84" height="84"><h3 id="rs-t">잠시 자리를 비우셨네요</h3><p id="rs-d">이어서 채팅하거나, 새로운 문의를 시작할 수 있어요.</p><div class="acts"><button class="btn pri" data-act="resume-go" data-id="${pi.id}">이어서 채팅하기</button><button class="btn sec" data-act="resume-new" data-id="${pi.id}">새로운 문의하기</button></div></div></div>`;
+  const pi=S.view.n==='chat'&&S.inqs.find(x=>x.id===S.view.id&&(x.paused||(x.reentry&&reKind(x))));
+  const pk=pi?(pi.paused?'back':reKind(pi)):'';
+  const rk=pi?pi.id+':'+pk:'',pop=rk!==S.resumeKey;S.resumeKey=rk;
+  if(pi){const P=POPUPS[pk];h+=`<div class="ov rs${pop?' pop':''}"><div class="rdlg" role="dialog" aria-modal="true" aria-labelledby="rs-t" aria-describedby="rs-d">${pk==='back'?'':`<button class="xbtn" data-act="resume-x" data-id="${pi.id}" aria-label="닫기">✕</button>`}<img src="${PAVIMG.base}" alt="" width="84" height="84"><h3 id="rs-t">${P[0]}</h3><p id="rs-d">${P[1]}</p><div class="acts"><button class="btn pri" data-act="${pk==='back'?'resume-go':'reopen'}" data-id="${pi.id}">이어서 대화하기</button><button class="btn sec" data-act="resume-new" data-id="${pi.id}">새 문의 시작하기</button></div></div></div>`;}
   h+=demoHtml();
   const f=o.querySelector('[data-keep]'); // 시연 도구 스크롤 유지
   o.innerHTML=h;
   const rt=$('#root');if(rt)rt.inert=!!(S.modal||S.drawer||pi);
   /* 처음 뜰 때는 첫 버튼으로 초점을 둔다 */
-  if(pop&&pi)setTimeout(()=>document.querySelector('.rdlg [data-act="resume-go"]')?.focus(),0);
+  if(pop&&pi)setTimeout(()=>document.querySelector('.rdlg .btn.pri')?.focus(),0);
 }
 /* 초점: 열기 전 위치를 기억하고, 안에서만 순환하고, 닫으면 돌아간다 */
 /* 입력 오류는 토스트가 아니라 해당 입력 아래에 남기고, 입력과 연결한다 */
@@ -1199,7 +1202,7 @@ const needReply=t=>{if(!t||!t.status||t.status==='CLS'||t.status==='FIN')return 
 /* 표시 상태: AI 답변 뒤 해결·미해결 버튼을 기다리는 동안은 "미확인" (docs/09 1장, API 02 1.2 unconfirmed) */
 const uState=i=>i.state==='진행 중'&&i.step==='answered'?'미확인':i.state;
 const inqLabel=i=>{const t=i.ticketId&&tById(i.ticketId);return t&&t.status?(needReply(t)?'추가 답변 필요':TSTAT[t.status][0]):uState(i);};
-const inqKind=i=>{const t=i.ticketId&&tById(i.ticketId);if(t&&t.status)return needReply(t)?'need':TSTAT[t.status][1];return {'진행 중':'prog','AI 해결':'ok','미확인':'warn','미해결 종료':'recv','접수 완료':'asg','담당자 이관':'asg'}[uState(i)]||'recv';};
+const inqKind=i=>{const t=i.ticketId&&tById(i.ticketId);if(t&&t.status)return needReply(t)?'need':TSTAT[t.status][1];return {'진행 중':'prog','AI 해결':'ok','미확인':'warn','미해결 종료':'recv','미접수 종료':'recv','접수 완료':'asg','담당자 이관':'asg'}[uState(i)]||'recv';};
 
 function composerHtml(ph,big,off){
   const d=off?' disabled':'';
@@ -1218,13 +1221,14 @@ function newInq(text){
 function viewChat(){
   const i=S.inqs.find(x=>x.id===S.view.id);if(!i){S.view={n:'new'};return viewNew();}
   const t=i.ticketId&&tById(i.ticketId);
-  const open=!['AI 해결','미해결 종료'].includes(i.state);
+  const endMsg=t&&t.status==='CLS'?'처리가 완료되어 종료된 문의예요.':{'AI 해결':'AI 안내로 해결된 문의예요.','미해결 종료':'아직 해결되지 않은 문의예요. 대화를 이어갈 수 있어요.','미접수 종료':'티켓을 접수하지 않고 종료한 문의예요.'}[i.state];
+  const open=!endMsg;
   const msgs=i.msgs.map((m,idx)=>renderMsg(i,m,idx)).join('');
   const tmsgs='';
   let foot;
-  if(open){const wait4=t?(t.status==='FIN'&&t.req===S.user?'fin':''):(i.step==='draft'?'draft':(i.step==='answered'||i.step==='offer')?'btn':'');const lockIn=!!wait4||!!i.paused;const ph=i.paused?'아래에서 이어갈 방법을 골라 주세요':lockIn?{fin:'위 카드의 버튼으로 골라 주세요',draft:'초안을 확인하고 버튼으로 골라 주세요',btn:'위 버튼으로 골라 주세요'}[wait4]:t?'담당자에게 추가 내용을 남겨 보세요':'메시지를 입력하세요';const why={fin:'해결 여부는 카드의 버튼(해결 · 미해결)으로 골라 주세요. 글은 보낼 수 없어요. ',draft:'접수 초안은 카드의 버튼(접수 · 수정 · 미접수 (종료))으로 골라 주세요. 글은 보낼 수 없어요. ',btn:'해결 여부나 담당자 연결은 버튼으로 골라 주세요. 글은 보낼 수 없어요. '}[wait4]||'';foot=`<div class="composer-wrap">${i.idleWarned?`<div class="idlebar" role="status">${ic('bell')}<span>${IDLE_TEXT[i.idleWarned]}</span></div>`:''}${composerHtml(ph,false,lockIn)}<div class="notice">${why}${MAIL_NOTE} 상담 기록은 처리·운영 목적으로 활용될 수 있어요.</div></div>`;}
-  /* 이어가기 대상은 미해결·미확인·해결 확인 대기뿐. AI 해결로 끝난 문의는 이어가지 않고 새 문의로 안내한다 (API 02 IQ-06) */
-  else{const ai=i.state==='AI 해결';const why=ai?'AI 안내로 해결된 문의입니다.':'담당자 연결 없이 종료된 문의입니다. 해결된 것으로 기록하지 않았어요.';foot=`<div class="composer-wrap"><div class="composer" style="justify-content:space-between;padding:12px 16px 12px 20px"><span class="muted">${why}</span>${ai?`<button class="btn pri sm" data-act="go" data-v="new">새 문의 시작하기</button>`:`<button class="btn pri sm" data-act="reopen" data-id="${i.id}">대화 이어가기</button>`}</div></div>`;}
+  if(open){const wait4=t?(t.status==='FIN'&&t.req===S.user?'fin':''):(i.step==='draft'?'draft':(i.step==='answered'||i.step==='offer')?'btn':'');const lockIn=!!wait4||!!i.paused;const ph=i.paused?'아래에서 이어갈 방법을 골라 주세요':lockIn?'위의 버튼을 선택해 주세요.':t?'담당자에게 추가로 전달할 내용을 입력해 주세요.':'메시지를 입력하세요';const why={fin:'해결 여부는 위 버튼으로 선택해 주세요. ',draft:'티켓 내용을 확인한 후 버튼으로 선택해 주세요. ',btn:(i.step==='offer'?'담당자 연결 여부는':'해결 여부는')+' 위 버튼으로 선택해 주세요. '}[wait4]||'';foot=`<div class="composer-wrap">${i.idleWarned?`<div class="idlebar" role="status">${ic('bell')}<span>${IDLE_TEXT[i.idleWarned]}</span></div>`:''}${composerHtml(ph,false,lockIn)}<div class="notice">${why}${MAIL_NOTE} 상담 기록은 처리·운영 목적으로 활용될 수 있어요.</div></div>`;}
+  /* 끝난 문의: 입력창은 상태 안내만 보여 주고 잠근다. 이어갈 수 있는 문의(미해결·미접수 종료)는 입력창을 누르면 이어가기 창이 다시 뜬다 */
+  else{const rk=reKind(i);foot=`<div class="composer-wrap"><div class="cmpw">${composerHtml(endMsg,false,true)}${rk?`<button class="cmp-hit" data-act="reentry" data-id="${i.id}" aria-label="이어가기 선택 열기"></button>`:''}</div></div>`;}
   const right=t?`<button class="btn soft sm" data-act="detail" data-id="${t.receipt}">${ic('file','',18)}접수 상세</button>`:'';
   return `<main class="main">${bgsvg('c')}${topbar(i.title,t?t.receipt+(t.id?' · '+t.id:''):i.id,right+badge(inqKind(i),inqLabel(i)),(()=>{let pk='base';for(let k=i.msgs.length-1;k>=0;k--){const m=i.msgs[k];if(m.r==='a'||m.card){pk=poseOf(i,m,k);break}}return `<span class="tlead">${pav(pk)}</span>`})())}<div class="scroll"><div class="thread">${msgs}${tmsgs}</div></div>${foot}</main>`;
 }
@@ -1297,7 +1301,7 @@ function draftCard(i){
 function viewList(){
   const mine=S.inqs.filter(i=>i.owner===S.user).slice().reverse();
   const filters=['전체','진행 중','AI 해결','담당자 처리','해결 완료','미확인·미해결'];
-  const grp=i=>{const t=i.ticketId&&tById(i.ticketId);if(t&&t.status==='CLS')return '해결 완료';if(t||i.state==='접수 완료'||i.state==='담당자 이관')return '담당자 처리';if(i.state==='AI 해결')return 'AI 해결';if(uState(i)==='미확인'||i.state==='미해결 종료')return '미확인·미해결';return '진행 중';};
+  const grp=i=>{const t=i.ticketId&&tById(i.ticketId);if(t&&t.status==='CLS')return '해결 완료';if(t||i.state==='접수 완료'||i.state==='담당자 이관')return '담당자 처리';if(i.state==='AI 해결')return 'AI 해결';if(uState(i)==='미확인'||i.state==='미해결 종료'||i.state==='미접수 종료')return '미확인·미해결';return '진행 중';};
   const cnt=f=>f==='전체'?mine.length:mine.filter(i=>grp(i)===f).length;
   const SRCH=s=>`<svg width="${s}" height="${s}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2L17 17"/></svg>`;
   const days=i=>{const w=String(i.when||'');if(/방금|오늘/.test(w))return 0;if(/어제/.test(w))return 1;const m=w.match(/(\d+)\s*일/);return m?+m[1]:99;};
@@ -1315,7 +1319,7 @@ function viewList(){
   const th=(l,k)=>sortTh(l,k,'list');
   const seg=`<div class="d2seg">${filters.map(f=>`<button class="${S.listFilter===f?'on':''}" data-act="lf" data-f="${f}">${f} <em>${cnt(f)}</em></button>`).join('')}</div>`;
   const bar=`<div class="d2f"><label class="srch${q?' f':''}">${SRCH(18)}<input id="lq" data-in="lq" value="${ESC(S.lq||'')}" placeholder="제목·접수번호·가이드명으로 검색" aria-label="내 문의 검색" autocomplete="off"><span id="lxb">${q?`<button class="x" data-act="l-qclear" aria-label="검색어 지우기">✕</button>`:''}</span></label>${pill('lst','상태',filters.slice(1).map(f=>[f,f+' · '+cnt(f)]),S.listFilter==='전체'?'':S.listFilter)}${pill('lcat','분류',Object.keys(CATS).map(c=>[c,CATS[c].n]),S.lcat)}${pill('lper','기간',PERS,S.lper)}<span id="lclr">${cond?`<button class="d2clr" data-act="l-clear">✕ 조건 해제</button>`:''}</span></div>`;
-  return `<main class="main">${bgsvg('l')}${topbar('문의 내역','내 문의의 진행 상태')}<div class="scroll"><div class="page">${phead('MY INQUIRIES','내 문의를 한눈에 확인해요','진행 중인 문의와 해결된 문의를 상태별로 확인하세요. 미확인·미해결 문의는 다시 열어 이어갈 수 있어요.')}${bar}<div class="panel" id="lres" style="padding:6px 10px">${rows.length?`<div class="tw"><table class="tbl"><thead><tr>${th('문의','title')}${th('분류','cat')}${th('상태','status')}<th>접수번호</th>${th('최근 활동','when')}</tr></thead><tbody>${rows.map(i=>{const t=i.ticketId&&tById(i.ticketId);return `<tr><td><button class="lk" data-act="open" data-id="${i.id}"${i.unread?' style="font-weight:700"':''}>${hl(i.title)}</button>${i.unread?`<span class="nr"><i></i>새 답변 ${i.unread}</span>`:''}</td><td>${i.cat?`<span class="tag c-${i.cat}">${CATS[i.cat].n}</span>`:'<span class="muted small">분류 전</span>'}</td><td>${badge(inqKind(i),inqLabel(i))}</td><td class="mono small">${t?hl(t.receipt)+(t.id?' / '+hl(t.id):''):'-'}</td><td class="muted small">${ESC(i.when)}</td></tr>`}).join('')}</tbody></table></div>${pg.html}`:`<div class="empty">${cond?'조건에 맞는 문의가 없어요.':'이 상태의 문의가 없어요.'}</div>`}</div></div></div></main>`;
+  return `<main class="main">${bgsvg('l')}${topbar('문의 내역','내 문의의 진행 상태')}<div class="scroll"><div class="page">${phead('MY INQUIRIES','내 문의를 한눈에 확인해요','진행 중인 문의와 해결된 문의를 상태별로 확인하세요. 해결 여부를 확인하지 않았거나 미해결·미접수로 종료한 문의는 다시 이어갈 수 있어요.')}${bar}<div class="panel" id="lres" style="padding:6px 10px">${rows.length?`<div class="tw"><table class="tbl"><thead><tr>${th('문의','title')}${th('분류','cat')}${th('상태','status')}<th>접수번호</th>${th('최근 활동','when')}</tr></thead><tbody>${rows.map(i=>{const t=i.ticketId&&tById(i.ticketId);return `<tr><td><button class="lk" data-act="open" data-id="${i.id}"${i.unread?' style="font-weight:700"':''}>${hl(i.title)}</button>${i.unread?`<span class="nr"><i></i>새 답변 ${i.unread}</span>`:''}</td><td>${i.cat?`<span class="tag c-${i.cat}">${CATS[i.cat].n}</span>`:'<span class="muted small">분류 전</span>'}</td><td>${badge(inqKind(i),inqLabel(i))}</td><td class="mono small">${t?hl(t.receipt)+(t.id?' / '+hl(t.id):''):'-'}</td><td class="muted small">${ESC(i.when)}</td></tr>`}).join('')}</tbody></table></div>${pg.html}`:`<div class="empty">${cond?'조건에 맞는 문의가 없어요.':'이 상태의 문의가 없어요.'}</div>`}</div></div></div></main>`;
 }
 function viewFaq(){
   const adm=S.role==='admin';
@@ -1415,6 +1419,9 @@ function idleBack(i){
   if(!idleKind(i))return;
   i.paused=true;S.demoOpen=false;render({bottom:true});toast('(시연) 잠시 떠났다가 돌아왔어요.');
 }
+/* 이어가기 팝업 문구: back 돌아옴(2시간 안내 뒤), un 미해결, no 미접수 종료. 미확인은 해결·미해결 버튼이 화면에 있어 팝업 없이 바로 연다 */
+const POPUPS={back:['잠시 자리를 비우셨네요','이전 대화를 이어가거나 새 문의를 시작할 수 있어요.'],un:['해결되지 않은 문의를 이어갈까요?','이전 상담에서 문제가 해결되지 않았어요. 대화를 이어가면 담당자 연결을 다시 안내해 드릴게요.'],no:['이전 문의를 다시 이어갈까요?','담당자 연결을 위한 티켓을 접수하지 않고 종료한 문의예요. 대화를 이어가거나 새 문의를 시작할 수 있어요.']};
+const reKind=i=>i.ticketId?null:i.state==='미해결 종료'?'un':i.state==='미접수 종료'?'no':null;
 const idleResume=i=>{i.idleWarned=null;i.paused=false;};
 function typing(i,label,ms,then){const m=mk(i,{r:'a',typing:true,label});render({bottom:true});later(()=>{i.msgs=i.msgs.filter(x=>x!==m);then();render({bottom:true});},ms);}
 function sendText(text){
@@ -1523,15 +1530,15 @@ function reply(i,a,arg,idx){
   if(a==='quick'){handle(i,arg,false);return;}
   if(a==='resolved'){
     mk(i,{r:'u',t:'해결'});i.state='AI 해결';i.step='closed';S.aiLive++;log('AI 해결 · '+i.id,'문의자');
-    mk(i,{r:'a',html:'<div class="pose done"><img src="'+PAVIMG.done+'" alt=""></div><p>다행이에요! 이 문의는 <b>AI 해결</b>로 기록했어요. 다른 문제가 생기면 새 문의를 시작해 주세요.</p>'});render({bottom:true});return;
+    mk(i,{r:'a',pose:'done',html:'<p><b>AI 안내로 문제가 해결되었군요!</b></p><p>이 문의는 <b>AI 해결</b>로 기록했어요. 다른 도움이 필요하면 새 문의를 시작해 주세요.</p>'});render({bottom:true});return;
   }
   if(a==='unresolved'){
     mk(i,{r:'u',t:'미해결'});i.step='offer';
-    mk(i,{r:'a',html:`<p>담당자 확인이 필요해 보여요. <b>${CATS[i.cat||'ACC'].g}</b>에 연결할까요?</p><p>연결하면 지금까지의 문의와 시도한 조치를 정리한 <b>접수 초안</b>을 먼저 보여드려요. 초안을 확인하기 전에는 접수되지 않아요.</p>`,replies:[{l:'담당자 연결',a:'connect-yes',k:'pri'},{l:'미연결 (종료)',a:'connect-no'}]});render({bottom:true});return;
+    mk(i,{r:'a',html:'<p><b>아직 문제가 해결되지 않았군요.</b></p><p>담당자 연결을 통해 추가 도움을 받을 수 있어요.</p>',replies:[{l:'담당자 연결',a:'connect-yes',k:'pri'},{l:'미연결 (종료)',a:'connect-no'}]});render({bottom:true});return;
   }
   if(a==='connect-no'){
     mk(i,{r:'u',t:'미연결 (종료)'});i.state='미해결 종료';i.step='closed';log('담당자 연결 거절 · '+i.id,'문의자');if(i.urgent)addSec('긴급 징후 후 접수 없이 종료','높음',S.user,'긴급 징후 확인 후 담당자 연결을 거절하고 종료 ('+i.id+')',allText(i),'긴급 징후 + 연결 거절');
-    mk(i,{r:'a',html:'<p>담당자 연결 없이 상담을 종료했어요. 이 문의는 <b>미해결 종료</b>로 남고, 해결된 것으로 기록하지 않아요. 문의 내역에서 언제든 다시 열 수 있어요.</p>'+(i.urgent?'<p style="margin-top:8px"><b>긴급 징후가 있었어요.</b> 의심스러운 링크·첨부파일은 더 열지 마시고, 계정 정보는 어디에도 입력하지 마세요. 문제가 계속되면 IT 헬프데스크 내선 1000으로 연락해 주세요.</p>':'')});render({bottom:true});return;
+    mk(i,{r:'a',html:'<p><b>담당자 연결 없이 상담을 종료했어요.</b></p><p>티켓은 접수되지 않았으며, 문의 내역에서 다시 상담을 이어갈 수 있어요.</p>'+(i.urgent?'<p style="margin-top:8px"><b>긴급 징후가 있었어요.</b> 의심스러운 링크·첨부파일은 더 열지 마시고, 계정 정보는 어디에도 입력하지 마세요. 문제가 계속되면 IT 헬프데스크 내선 1000으로 연락해 주세요.</p>':'')});render({bottom:true});return;
   }
   if(a==='connect-yes'){
     mk(i,{r:'u',t:'담당자 연결'});buildDraft(i);return;
@@ -1987,7 +1994,7 @@ function setTx(g,v,to,why){const from=v.tx;v.tx=to;log('외부 전송 정책 변
 const A={
   go(e,d){S.view={n:d.v};S.detail=null;S.navOpen=false;if(d.v==='list'||d.v==='new'){}render();},
   nav(){S.navOpen=!S.navOpen;render();setTimeout(()=>{if(S.navOpen){const b=document.querySelector('.side .nav button');if(b)b.focus();}else{const m=document.querySelector('.top .menu,.xmenu');if(m)m.focus();}},0);},
-  open(e,d){const i=S.inqs.find(x=>x.id===d.id);if(i)i.unread=0;S.view={n:'chat',id:d.id};S.navOpen=false;S.detail=null;render({bottom:true});},
+  open(e,d){const i=S.inqs.find(x=>x.id===d.id);if(i){i.unread=0;i.reentry=!!reKind(i);}S.view={n:'chat',id:d.id};S.navOpen=false;S.detail=null;render({bottom:true});},
   logout(){S.user=null;S.role=null;S.view={n:'login'};S.detail=null;S.timers.forEach(clearTimeout);S.timers=[];render();},
   switch(e,d){const m={user:'HS1001',staff:'HS1107',admin:'HS0912'};doLogin(m[d.r],'',true);},
   'quick-login'(e,d){loginBusyRun(d.by||d.id,()=>doLogin(d.id,'',true));},
@@ -2041,17 +2048,19 @@ const A={
   'demo-urgent'(e,d){demoUrgent(d.m);},
   'idle-del'(){const i=curChat();if(!i)return;idleDelete(i);},
   'idle-back'(){const i=curChat();if(!i)return;idleBack(i);},
-  'resume-go'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;idleResume(i);mk(i,{r:'sys',html:'같은 대화에서 이어서 진행해요.'});render({bottom:true});},
-  'resume-new'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.paused=false;S.view={n:'new'};S.detail=null;render();toast('이전 문의는 지우지 않고 그대로 남겨 뒀어요. 기존 응답 없음 규칙을 따라요.');},
+  'resume-go'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;idleResume(i);render({bottom:true});},
+  'resume-new'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.paused=false;i.reentry=false;S.view={n:'new'};S.detail=null;render();toast('새 문의를 시작했어요. 이전 문의는 문의 내역에서 확인할 수 있어요.');},
+  'resume-x'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.reentry=false;renderOverlay();},
+  reentry(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i||!reKind(i))return;i.reentry=true;renderOverlay();},
   /* 대화 이어가기: 새 문의·안내 메시지를 만들지 않고 같은 대화의 마지막 선택 버튼을 다시 연다 (API 02 IQ-06) */
-  reopen(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.state='진행 중';
-    {i.step='offer';const m=i.msgs.slice().reverse().find(x=>x.replies&&x.replies.some(r=>r.a==='connect-yes')&&!x.replies.some(r=>r.a==='resolved'));if(m)m.locked=false;else mk(i,{r:'a',html:'<p>해결되지 않았다면 담당자 연결을 도와드릴게요.</p>',replies:[{l:'담당자 연결',a:'connect-yes',k:'pri'},{l:'미연결 (종료)',a:'connect-no'}]});}
+  reopen(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.reentry=false;i.state='진행 중';
+    {i.step='offer';const m=i.msgs.slice().reverse().find(x=>x.replies&&x.replies.some(r=>r.a==='connect-yes')&&!x.replies.some(r=>r.a==='resolved'));if(m)m.locked=false;else mk(i,{r:'a',html:'<p><b>아직 문제가 해결되지 않았군요.</b></p><p>담당자 연결을 통해 추가 도움을 받을 수 있어요.</p>',replies:[{l:'담당자 연결',a:'connect-yes',k:'pri'},{l:'미연결 (종료)',a:'connect-no'}]});}
     render({bottom:true});},
   'd-confirm'(e,d){submitDraft(S.inqs.find(x=>x.id===d.id));},
   'd-edit'(e,d){const i=S.inqs.find(x=>x.id===d.id);i.dstate='edit';render();},
   'd-cancel'(e,d){const i=S.inqs.find(x=>x.id===d.id);i.dstate='view';render();},
   'd-save'(e,d){draftSave(S.inqs.find(x=>x.id===d.id));},
-  'd-cancelall'(e,d){const i=S.inqs.find(x=>x.id===d.id);i.state='미해결 종료';i.step='closed';i.dstate='cancel';mk(i,{r:'sys',html:'접수하지 않고 종료했어요'});log('접수 초안 취소 · '+i.id,'문의자');if(i.urgent){addSec('긴급 징후 후 접수 없이 종료','높음',S.user,'긴급 징후 확인 후 접수 초안을 취소하고 종료 ('+i.id+')',allText(i),'긴급 징후 + 접수 취소');mk(i,{r:'a',html:'<p>이 문의는 <b>미해결 종료</b>로 남고, 해결된 것으로 기록하지 않아요.</p>'+'<p style="margin-top:8px"><b>긴급 징후가 있었어요.</b> 의심스러운 링크·첨부파일은 더 열지 마시고, 계정 정보는 어디에도 입력하지 마세요. 문제가 계속되면 IT 헬프데스크 내선 1000으로 연락해 주세요.</p>'});}render({bottom:true});},
+  'd-cancelall'(e,d){const i=S.inqs.find(x=>x.id===d.id);i.state='미접수 종료';i.step='closed';i.dstate='cancel';mk(i,{r:'a',html:'<p><b>담당자 연결 없이 상담을 종료했어요.</b></p><p>티켓은 접수되지 않았으며, 문의 내역에서 다시 상담을 이어갈 수 있어요.</p>'});log('접수 초안 취소 · '+i.id,'문의자');if(i.urgent){addSec('긴급 징후 후 접수 없이 종료','높음',S.user,'긴급 징후 확인 후 접수 초안을 취소하고 종료 ('+i.id+')',allText(i),'긴급 징후 + 접수 취소');mk(i,{r:'a',html:'<p>이 문의는 <b>미해결 종료</b>로 남고, 해결된 것으로 기록하지 않아요.</p>'+'<p style="margin-top:8px"><b>긴급 징후가 있었어요.</b> 의심스러운 링크·첨부파일은 더 열지 마시고, 계정 정보는 어디에도 입력하지 마세요. 문제가 계속되면 IT 헬프데스크 내선 1000으로 연락해 주세요.</p>'});}render({bottom:true});},
   lf(e,d){S.listFilter=d.f;S.page.list=1;render();},
   'l-pick'(e,d){if(d.k==='lst')S.listFilter=d.v||'전체';else{const k=d.k==='lcat'?'lcat':'lper';S[k]=d.v||undefined;}S.dd=null;S.page.list=1;render();},
   'l-clear'(){S.listFilter='전체';S.lq='';S.lcat=undefined;S.lper=undefined;S.page.list=1;render();},
@@ -2385,10 +2394,10 @@ document.addEventListener('input',ev=>{const el=ev.target;if(el.dataset&&el.data
   const AI=[['ACC','비밀번호 변경 주기가 궁금해요'],['ACC','MFA 재등록은 어떻게 하나요'],['ACC','SSO 로그인 화면이 계속 돌아와요'],['NET','재택 Wi-Fi 연결이 불안정해요'],['NET','VPN 접속 방법을 알려 주세요'],['SW','프로그램 설치 위치를 알고 싶어요'],['SW','오피스 라이선스 할당 확인'],['HW','복합기 연결 방법이 궁금해요'],['HW','모니터 해상도 설정 문의'],['SYS','전자결재 접속 오류 안내'],['SYS','근태 화면 캐시 삭제 방법'],['ACS','공유 폴더 권한 신청 절차']];
   AI.forEach((a,k)=>{const kb=KB[a[0]]||KB.SYS;S.inqs.push({id:'INQ-A'+k,owner:'HS1001',title:a[1],state:'AI 해결',cat:a[0],intake:{},msgs:[{r:'u',t:a[1]},{r:'a',html:'<p>안내드린 방법으로 해결되었어요.</p>'},{r:'u',t:'해결'}],step:'closed',when:(2+k*3)+'일 전',unread:0,guide:{g:kb.g,v:kb.v}});});
   /* 미확인: AI 답변 뒤 해결·미해결 버튼을 기다리는 문의(삭제하지 않고 남음). 미해결 종료: 담당자 연결 없이 끝난 문의(이어가기 가능) */
-  [['미확인','VPN 인증서 갱신이 필요한가요','NET','6일 전'],['미확인','메일 용량 확대 문의','SYS','17일 전'],['미해결 종료','프린터 드라이버 설치가 안 돼요','HW','23일 전'],['미해결 종료','사내 메신저 알림이 안 와요','SYS','31일 전']].forEach((x,k)=>{const kb=KB[x[2]]||KB.SYS;const ans=`<p>확인한 내용을 보면 <b>${CATS[x[2]].n}</b> 문의로 보여요. 먼저 아래 순서로 해 보세요.</p><ol>${kb.steps.map(s=>`<li>${ESC(s)}</li>`).join('')}</ol><p style="margin-top:10px">이 방법으로 해결되었나요?</p>`;const wait=x[0]==='미확인';
+  [['미확인','VPN 인증서 갱신이 필요한가요','NET','6일 전'],['미확인','메일 용량 확대 문의','SYS','17일 전'],['미해결 종료','프린터 드라이버 설치가 안 돼요','HW','23일 전'],['미접수 종료','사내 메신저 알림이 안 와요','SYS','31일 전']].forEach((x,k)=>{const kb=KB[x[2]]||KB.SYS;const ans=`<p>확인한 내용을 보면 <b>${CATS[x[2]].n}</b> 문의로 보여요. 먼저 아래 순서로 해 보세요.</p><ol>${kb.steps.map(s=>`<li>${ESC(s)}</li>`).join('')}</ol><p style="margin-top:10px">이 방법으로 해결되었나요?</p>`;const wait=x[0]==='미확인';
     S.inqs.push({id:'INQ-U'+k,owner:'HS1001',title:x[1],state:wait?'진행 중':x[0],cat:x[2],intake:{},guide:{g:kb.g,v:kb.v},when:x[3],unread:0,step:wait?'answered':'closed',
       msgs:wait?[{r:'u',t:x[1]},{r:'a',html:ans,src:[{g:kb.g,v:kb.v,sec:kb.sec}],replies:[{l:'해결',a:'resolved',k:'pri'},{l:'미해결',a:'unresolved'}]}]
-        :[{r:'u',t:x[1]},{r:'a',html:ans,src:[{g:kb.g,v:kb.v,sec:kb.sec}],replies:[{l:'해결',a:'resolved',k:'pri'},{l:'미해결',a:'unresolved'}],locked:true},{r:'u',t:'미해결'},{r:'a',html:`<p>담당자 확인이 필요해 보여요. <b>${CATS[x[2]].g}</b>에 연결할까요?</p>`,replies:[{l:'담당자 연결',a:'connect-yes',k:'pri'},{l:'미연결 (종료)',a:'connect-no'}],locked:true},{r:'u',t:'미연결 (종료)'},{r:'a',html:'<p>담당자 연결 없이 상담을 종료했어요. 이 문의는 <b>미해결 종료</b>로 남고, 해결된 것으로 기록하지 않아요.</p>'}]});});
+        :[{r:'u',t:x[1]},{r:'a',html:ans,src:[{g:kb.g,v:kb.v,sec:kb.sec}],replies:[{l:'해결',a:'resolved',k:'pri'},{l:'미해결',a:'unresolved'}],locked:true},{r:'u',t:'미해결'},{r:'a',html:'<p><b>아직 문제가 해결되지 않았군요.</b></p><p>담당자 연결을 통해 추가 도움을 받을 수 있어요.</p>',replies:[{l:'담당자 연결',a:'connect-yes',k:'pri'},{l:'미연결 (종료)',a:'connect-no'}],locked:true},{r:'u',t:'미연결 (종료)'},{r:'a',html:'<p><b>담당자 연결 없이 상담을 종료했어요.</b></p><p>티켓은 접수되지 않았으며, 문의 내역에서 다시 상담을 이어갈 수 있어요.</p>'}]});});
   /* 담당자 처리 티켓 연결 */
   const cls=S.tickets.filter(t=>t.status==='CLS'&&!t.inq),fin=S.tickets.filter(t=>t.status==='FIN'&&!t.inq),act=S.tickets.filter(t=>(t.status==='WIP'||t.status==='RDY')&&!t.inq);
   const link=(t,k,when)=>{const id='INQ-T'+k;t.inq=id;t.req='HS1001';t.reqName='김서연';S.inqs.push({id,owner:'HS1001',title:t.title,state:'담당자 이관',cat:t.cat,intake:{},msgs:[{r:'u',t:t.title},{r:'a',html:'<p>해결되지 않아 담당자에게 연결했어요.</p>'}],step:'submitted',when,unread:0,ticketId:t.receipt});};
