@@ -1,6 +1,8 @@
 from collections.abc import Iterator
 from functools import lru_cache
+from typing import Annotated
 
+from fastapi import Depends
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 
@@ -15,3 +17,6 @@ def get_engine() -> Engine:
 def get_db() -> Iterator[Session]:
     with Session(get_engine()) as session:
         yield session
+
+
+DbSession = Annotated[Session, Depends(get_db)]
