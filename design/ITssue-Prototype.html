@@ -729,6 +729,54 @@ button.pd{cursor:pointer;transition:background .15s}button.pd:hover{background:v
 .dsb:focus-within{box-shadow:inset 0 0 0 2px var(--o600)}.dsb input{flex:1;min-width:0;border:0;background:transparent;font:inherit;color:var(--ink);outline:0}.dsb .i{width:18px;height:18px;flex:none}
 .dsy{display:flex;align-items:center;gap:6px}.dsy .i{width:14px;height:14px}
 .wband{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:center;background:var(--shell);border-radius:16px;padding:16px 22px}
+/* 답변 대기중 띠: 문의자 행동이 필요한 상태(해결 확인 대기·추가 답변 필요)와 같은 분홍 */
+.wband.need{background:var(--s-need-bg);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--s-need-dot) 35%,transparent)}
+.wband.need b,.wband.need .wsub,.wband.need .wnote{color:var(--s-need-fg)}
+.wband:not(.need) .wsub,.wband:not(.need) .wnote{color:var(--mute)}
+.wband .wr{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+/* 알람이 있으면 띠 전체가 누르는 자리: 알람 온 문의만 처리할 문의에서 본다 */
+.wband.wlink{position:relative;cursor:pointer;transition:box-shadow .15s}.wband.wlink:hover{box-shadow:inset 0 0 0 1.5px var(--s-need-dot)}
+.wband .wch{flex:none;color:var(--s-need-fg)}
+.wover{position:absolute;inset:0;width:100%;border:0;background:transparent;border-radius:16px;cursor:pointer}.wover:focus-visible{outline:2px solid var(--o600);outline-offset:2px}
+/* 통계 카드: 설명이 있는 카드와 없는 카드가 섞여도 이름 줄·숫자 줄이 같은 높이에 오도록 위에서부터 쌓는다 */
+.sk .kpi{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}.sk .kpi .l{min-height:24px;display:flex;align-items:center;gap:8px}.sk .kpi .v{margin-top:2px}
+/* 보안·감사 알림 띠 (정보색): 담당자 대시보드의 Jira 알람 띠와 같은 구조 */
+.wband.sec-band{background:var(--s-info-bg);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--s-info-dot) 35%,transparent)}
+.sec-band b,.sec-band .wsub,.sec-band .wch{color:var(--s-info-fg)}.sec-band .wd{background:var(--s-info-dot)}.sec-band.wlink:hover{box-shadow:inset 0 0 0 1.5px var(--s-info-dot)}
+/* 운영 현황 */
+.opage{display:flex;flex-direction:column;gap:16px}.opage>.panel,.ogrid>.panel{padding:22px 24px}
+.ofil{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.ofil .dsy{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ogrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:stretch}.ogrid>.panel{display:flex;flex-direction:column}
+.ocnt{font-size:14px;font-weight:600;color:var(--mute);margin-left:2px}
+.otb{display:flex;flex-direction:column}
+.orow{display:grid;grid-template-columns:96px minmax(0,1fr) auto auto;align-items:center;gap:12px;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:transparent;padding:10px 6px;min-height:52px;color:var(--ink);font:inherit}
+button.orow{cursor:pointer}button.orow:hover{background:var(--osoft)}
+.orow .o-t{min-width:0}.orow .o-t b{display:block;font-size:14px;line-height:20px}.orow .o-t small{display:block;font-size:12px;line-height:18px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.orow .o-e{font-size:13px;color:var(--ink2);white-space:nowrap}.orow .o-e b{color:var(--ink)}
+.orow.l{grid-template-columns:96px minmax(0,1fr) auto auto auto}
+.orow.a{grid-template-columns:minmax(0,1fr) auto auto;padding:0 6px 0 0}.orow.a .o-main{display:grid;grid-template-columns:96px minmax(0,1fr);align-items:center;gap:12px;text-align:left;border:0;background:transparent;padding:10px 6px;min-height:52px;cursor:pointer;color:inherit;font:inherit;min-width:0}
+.orow.a.on{background:var(--s-need-bg);border-radius:10px;box-shadow:inset 3px 0 0 var(--s-need-dot)}
+.odots{display:inline-flex;align-items:center}.odots i{width:10px;height:10px;border-radius:50%;flex:none}.odots b{width:14px;height:2px;background:var(--line)}
+.stt{display:inline-flex;align-items:center;gap:6px;font-weight:600;white-space:nowrap}.stt i{width:8px;height:8px;border-radius:50%;flex:none}.stt.on{color:var(--s-ok-fg)}.stt.on i{background:var(--s-ok-dot)}.stt.off{color:var(--mute)}.stt.off i{background:var(--s-recv-dot)}
+.omore{display:flex;justify-content:center;padding-top:6px;border-top:1px solid var(--line)}
+.rec{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:999px;background:var(--s-prog-bg);color:var(--s-prog-fg);font-size:12px;font-weight:700;margin-left:6px}.rec i{width:6px;height:6px;border-radius:50%;background:var(--s-prog-dot)}
+.opage .subc{margin-bottom:12px}
+.osteps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}.osteps li{display:flex;flex-direction:column;gap:2px;background:var(--shell);border-radius:12px;padding:12px 14px}.osteps li span{font-size:13.5px;line-height:21px;color:var(--ink2)}
+.modal:has(.ost){width:min(760px,100%)}.modal .tw{flex:none}
+.tbl.ost td,.tbl.ost th{white-space:nowrap}.tbl.ost td:last-child{white-space:normal}.tbl.ost input[type=radio]{width:18px;height:18px;accent-color:var(--o600)}
+@media(max-width:1000px){.ogrid{grid-template-columns:1fr}.orow,.orow.l{grid-template-columns:minmax(0,1fr) auto}.orow .o-p{grid-column:1/-1}.orow.a{grid-template-columns:minmax(0,1fr) auto}}
+.wband .wd{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--s-need-dot);margin-right:8px;vertical-align:1px}
+/* 구역 제목(소제목): 제목 아래 줄에 설명, 오른쪽에 버튼 */
+.sech{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.panel h3.sht{font-size:18px!important;line-height:26px!important;font-weight:700;display:flex;align-items:center;gap:8px;margin:0!important}
+.shs{margin:2px 0 0;font-size:13px;line-height:20px;color:var(--mute)}
+.panel.sec>.row.sh h3{font-size:18px!important;line-height:26px!important;font-weight:700}
+/* 우리 팀 현황 칸 */
+.tgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.tcell{background:var(--shell);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tcell .tl{font-size:13px;font-weight:600;color:var(--ink2)}.tcell .tv{display:flex;align-items:baseline;gap:4px}
+.tcell .tv b{font-size:26px;line-height:32px;font-weight:700;font-variant-numeric:tabular-nums}.tcell .tv small{font-size:14px;color:var(--ink2)}
+.tcell .ts{font-size:12px;color:var(--mute)}.tcell.warn{background:var(--s-urg-bg)}.tcell.warn .tl,.tcell.warn .tv b,.tcell.warn .tv small,.tcell.warn .ts{color:var(--s-urg-fg)}
 .dtb{display:flex;flex-direction:column;margin-top:8px}
 .dth,.dtr{display:grid;grid-template-columns:96px minmax(0,2.2fr) 110px minmax(0,1.3fr) minmax(0,1.2fr);gap:12px;align-items:center;text-align:left}
 .dth{font-size:12px;color:var(--mute);padding:6px;border-bottom:1px solid var(--line)}
@@ -853,6 +901,7 @@ const TSTAT={RDY:['처리 대기','recv'],WIP:['처리 중','prog'],FIN:['해결
 const SERVICEDESK_PHONE='내선 1000 (평일 09:00~18:00)';
 const TEAMS_PPL={'서비스데스크':['서댕댕','박고양','이다람','최곰돌','정여우','한펭귄','오너구리','윤수달','강햄찌','조판다','임사슴','신고슴'],'엔드포인트지원팀':['문오리','배두루','홍거북','류수리','장병아','노라쿤','황부엉','안치타','송하마'],'네트워크팀':['김담당','전다랑','곽미어','변고라','유코알','남기린','도치이'],'시스템인프라팀':['구쿼카','어라마','탁미어','맹호랑','사여우','편앵무','석앙고','선복어'],'업무시스템팀':['설해달','마수리','길강아','연쥐돌','위토실','표다롱','명미니'],'정보보안팀':['기곰이','반토끼','김토끼','공다람','육고양','나햄찌','하쿼카']};
 const STAFF=[];{let n=1201;Object.keys(TEAMS_PPL).forEach(g=>TEAMS_PPL[g].forEach(nm=>{STAFF.push({id:nm==='김담당'?'HS1107':'HS'+(n++),name:nm,group:g,avail:true});}));}
+STAFF.forEach(s=>{if(s.name==='김토끼')s.jira=false;if(s.name==='반토끼'){s.avail=false;s.leave='연차';}});
 const ACCOUNTS0=[
   {id:'HS1001',name:'김서연',dept:'개발1팀',role:'문의자',status:'정상',grade:'일반',pw:'demo'},
   {id:'HS1107',name:'김담당',dept:'네트워크팀',role:'담당자',status:'정상',grade:'IT 내부',jira:'연결'},
@@ -917,7 +966,7 @@ const S={
   user:null,role:null,view:{n:'login'},detail:null,navOpen:false,
   loginNote:null,profile:null,pwv:{},pwErr:null,pwOk:false,pwKey:'',
   accounts:ACCOUNTS0.map(a=>({...a})),tickets:seedTickets(),inqs:[],guides:JSON.parse(JSON.stringify(GUIDES0)),
-  flags:{saveFail:false,jiraFail:false,asgFail:false,autoRun:true},sec:[],secF:{st:'',type:''},secRaw:{},faqs:FAQS.map(f=>({...f})),tf:{},guideTab:'list',goldOpen:null,goldF:'전체',dashPer:'w',dd:null,acctHist:[],sort:{},page:{},dashMode:'team',dashSel:{team:'네트워크팀',cat:'NET'},dashMember:null,aiRange:'month',demoOpen:false,modal:null,drawer:null,
+  flags:{saveFail:false,jiraFail:false,asgFail:false,autoRun:true},sec:[],secF:{st:'',type:''},secRaw:{},faqs:FAQS.map(f=>({...f})),tf:{},guideTab:'list',goldOpen:null,goldF:'전체',dashPer:'w',dd:null,acctHist:[],sort:{},page:{},dashMember:null,aiRange:'month',demoOpen:false,modal:null,drawer:null,
   compose:{},seq:{rcpt:1042,its:1521,inq:1,msg:1},slack:[],logs:[],timers:[],
   aiSeed:[38,41,44,36,47,40,33],aiLive:0,listFilter:'전체',opsFilter:'all',aiPeriod:'month',guideOpen:'G1',acctFilter:'전체',acctQ:'',
   pre:{msgs:[{r:'u',t:'로그인이 계속 안 돼요.'},{r:'a',html:'<p>로그인 전에는 <b>계정 잠금, 비밀번호, SSO·MFA</b> 안내만 도와드려요. 어떤 증상인지 아래에서 고르거나 직접 적어 주세요. 접수는 로그인 후에 할 수 있어요.</p>'}],busy:false},loginErr:'',loginTab:'id',unread:{},theme:(()=>{try{const t=localStorage.getItem('itssue-theme');return t==='light'||t==='dark'?t:'dark'}catch(e){return 'dark'}})()
@@ -1070,7 +1119,7 @@ function animateViz(){
   const root=document.querySelector('.scroll');if(!root)return;
   const vk=key();if(vk!==window.__vk){window.__viz.clear();window.__vk=vk;}
   const once=(k,fn)=>{if(window.__viz.has(k))return;window.__viz.add(k);fn();};
-  const ctx=[S.dashMode,S.dashPer,S.dashSel&&S.dashSel[S.dashMode],S.dashMember,S.lc,S.st&&(S.st.per+S.st.unit+S.st.scope+S.st.mode)].join('|');
+  const ctx=[S.dashPer,S.dashMember,S.lc,S.st&&(S.st.per+S.st.unit+S.st.scope+S.st.mode)].join('|');
   /* 운영 현황 파이프라인: 점이 먼저, 선이 이어지고, 숫자는 함께 */
   root.querySelectorAll('.hpipe').forEach((h,i)=>once('pipe'+i+ctx,()=>{
     h.querySelectorAll('button').forEach((b,j)=>b.animate([{transform:'scale(0)'},{transform:'scale(1)'}],{duration:700,delay:j*110,easing:CB.back,fill:'backwards',pseudoElement:'::before'}));
@@ -1116,10 +1165,10 @@ function shell(){
   if(S.role==='staff'||S.role==='admin'){
     const q=S.tickets.filter(t=>t.assignee===acc.name&&t.status&&t.status!=='CLS').length;
     nav+=`<div class="grp">${S.role==='admin'?'운영':'업무'}</div>`;
-    if(S.role==='staff'){{const nr=S.tickets.filter(t=>t.assignee===acc.name&&t.newReply).length;nav+=item('queue','file','처리할 문의',(nr&&q)?`<span class="count has-new" data-nb="queue" data-n="${nr}" role="img" aria-label="${q}건, 새 답변 ${nr}건" title="새 답변 ${nr}건">${q}</span>`:((nr?`<span class="count nw" data-nb="queue" data-n="${nr}" title="문의자 새 답변">NEW ${nr}</span>`:'')+(q?`<span class="count">${q}</span>`:'')));}nav+=item('sdash','home','내 대시보드')+item('stats','chart','통계');}
+    if(S.role==='staff'){nav+=item('sdash','home','내 대시보드');{const nr=S.tickets.filter(t=>t.assignee===acc.name&&t.newReply).length;nav+=item('queue','file','처리할 문의',(nr&&q)?`<span class="count has-new" data-nb="queue" data-n="${nr}" role="img" aria-label="${q}건, 새 답변 ${nr}건" title="새 답변 ${nr}건">${q}</span>`:((nr?`<span class="count nw" data-nb="queue" data-n="${nr}" title="문의자 새 답변">NEW ${nr}</span>`:'')+(q?`<span class="count">${q}</span>`:'')));}nav+=item('stats','chart','통계');}
     if(S.role==='admin'){
       const ex=excList().length;
-      nav+=item('dash','home','대시보드')+item('stats','chart','통계')+item('exc','alert','연동·배정 확인',ex?`<span class="count">${ex}</span>`:'')+item('sec','bell','보안·감사 알림',secBadge())+item('tickets','file','전체 문의')+item('guides','folder','가이드 관리')+item('accounts','user','계정 관리')+item('ai','shield','AI 운영');
+      nav+=item('dash','home','대시보드')+item('stats','chart','통계')+item('exc','alert','운영 현황',ex?`<span class="count">${ex}</span>`:'')+item('sec','bell','보안·감사 알림',secBadge())+item('tickets','file','전체 문의')+item('guides','folder','가이드 관리')+item('accounts','user','계정 관리')+item('ai','shield','AI 운영');
     }
   }
   const recent=S.inqs.filter(i=>i.owner===S.user).slice().reverse().slice(0,5).map(i=>`<button class="rt ${v==='chat'&&S.view.id===i.id?'on':''}" data-act="open" data-id="${i.id}"><b><span>${ESC(i.title)}</span>${i.unread?'<span class="count">'+i.unread+'</span>':''}</b><small><span class="rs" style="color:var(--s-${inqKind(i)}-fg)"><i style="background:var(--s-${inqKind(i)}-dot)"></i>${ESC(inqLabel(i))}</span> · ${ESC(i.when)}</small></button>`).join('');
@@ -1740,21 +1789,16 @@ function memberPanel(name,win){
 function viewQueue(){
   const acc=me();const mine=S.tickets.filter(t=>t.assignee===acc.name);
   const tabs=[['open','진행 중',t=>t.status==='RDY'||t.status==='WIP'],['fin','해결 확인 대기',t=>t.status==='FIN'],['cls','해결 완료',t=>t.status==='CLS']];
-  if(S.opsPri||S.opsPer)tabs.unshift(['all','전체 상태',t=>true]);
+  if(S.opsPri||S.opsPer||S.opsNew)tabs.unshift(['all','전체 상태',t=>true]);
   const cur=tabs.find(x=>x[0]===S.opsFilter)||tabs[0];
-  const rows0=mine.filter(cur[2]).filter(t=>cur[0]!=='open'||!S.opsSub||t.status===S.opsSub).filter(t=>(!S.opsPri||t.p===S.opsPri)&&(!S.opsPer||inW(t,S.opsPer))).sort((a,b)=>a.p.localeCompare(b.p)||a.day-b.day);const rowsS=sortList(rows0,'q'),pgq=pager(rowsS.length,'q'),rows=pgq.slice(rowsS);
-  const grp=(STAFF.find(s=>s.name===acc.name)||{group:acc.dept}).group;
-  const per=S.dashPer,win=S.tickets.filter(t=>inWin(t,per));
-  const myW=win.filter(t=>t.assignee===acc.name),teamW=win.filter(t=>t.group===grp);
-  const mv=cntOf(myW),tv=cntOf(teamW);
-  const names=STAFF.filter(s=>s.group===grp).map(s=>s.name);
+  const rows0=mine.filter(cur[2]).filter(t=>cur[0]!=='open'||!S.opsSub||t.status===S.opsSub).filter(t=>(!S.opsPri||t.p===S.opsPri)&&(!S.opsPer||inW(t,S.opsPer))&&(!S.opsNew||t.newReply)).sort(qOrder);const rowsS=sortList(rows0,'q'),pgq=pager(rowsS.length,'q'),rows=pgq.slice(rowsS);
   const nrep=mine.filter(t=>t.newReply);
   const CHVq='<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l5 5 5-5"/></svg>';
   const qsel=(k,lb,opts,cur,clr)=>{const on=!!cur,open=S.dd===k;const tx=on?(opts.find(o=>o[0]===cur)||['',cur])[1]:'전체';return `<span class="d2p ddw${on?' act':''}"><button class="ddb" data-act="dd" data-k="${k}" aria-haspopup="listbox" aria-expanded="${open}"><small>${lb}</small><span>${ESC(tx)}</span></button>${on?`<button class="x" data-act="qclr" data-k="${clr}" aria-label="${lb} 필터 해제">✕</button>`:CHVq}${open?`<div class="ddm" role="listbox"><button role="option" class="${!on?'sel':''}" data-act="qpick" data-k="${k}" data-v="">전체</button>${opts.map(o=>`<button role="option" class="${cur===o[0]?'sel':''}" data-act="qpick" data-k="${k}" data-v="${o[0]}">${ESC(o[1])}</button>`).join('')}</div>`:''}</span>`;};
-  const condChips=`<div class="d2f" role="group" aria-label="필터">${qsel('qpri','긴급도',['P1','P2','P3','P4'].map(p=>[p,p+' · '+PRI[p]]),S.opsPri,'p')}${qsel('qper','접수 기간',[['d','오늘'],['m','최근 30일'],['y','최근 1년']],S.opsPer,'r')}</div>`;
+  const condChips=`<div class="d2f" role="group" aria-label="필터">${qsel('qpri','긴급도',['P1','P2','P3','P4'].map(p=>[p,p+' · '+PRI[p]]),S.opsPri,'p')}${qsel('qper','접수 기간',[['d','오늘'],['m','최근 30일'],['y','최근 1년']],S.opsPer,'r')}${S.opsNew?`<span class="d2p act"><span class="ddb"><small>알림</small><span>Jira 알람 확인 필요</span></span><button class="x" data-act="qclr" data-k="n" aria-label="Jira 알람 필터 해제">✕</button></span>`:''}</div>`;
   const subChips=(cur[0]==='open')?`<div class="subc" role="group" aria-label="진행 중 상태 구분">${[['','전체 진행 중',mine.filter(cur[2]).length],['RDY','처리 대기',mine.filter(t=>t.status==='RDY').length],['WIP','처리 중',mine.filter(t=>t.status==='WIP').length]].map(x=>`<button class="chip${(S.opsSub||'')===x[0]?' on':''}" aria-pressed="${(S.opsSub||'')===x[0]}" data-act="qsub" data-sub="${x[0]}">${x[1]} <em>${x[2]}</em></button>`).join('')}</div>`:'';
   const cnt=x=>{const k=mine.filter(x[2]).length;return k?` <span class="count">${k}</span>`:'';};
-  return `<main class="main">${topbar('처리할 문의',acc.dept+' · '+acc.name+' 담당자')}<div class="scroll"><div class="page">${phead('MY QUEUE','처리할 문의를 확인해요','문의 상태를 변경하고 처리 결과를 등록해요. 해결 확인(CLS)은 문의자가 해요.')}${nrep.length?`<div class="alert err bn" role="status">${ic('bell')}<div class="bnl"><b>문의자가 답변했어요.</b>${nrep.map(t=>`<button class="lk rl" data-act="detail" data-id="${t.receipt}"><span class="rc">${t.receipt}</span><span class="sp" aria-hidden="true">·</span>${ESC(t.title)}</button>`).join('')}</div></div>`:''}<div class="tabs">${tabs.map(x=>`<button class="${cur[0]===x[0]?'on':''}" data-act="of" data-f="${x[0]}">${x[1]}${x[0]!=='cls'?cnt(x):''}</button>`).join('')}</div>${condChips}${subChips}<div class="panel" style="padding:6px 10px">${tTable(rows,'이 상태의 문의가 없어요.','q')}${rowsS.length?pgq.html:''}</div></div></div></main>`;
+  return `<main class="main">${topbar('처리할 문의',acc.dept+' · '+acc.name+' 담당자')}<div class="scroll"><div class="page">${phead('MY QUEUE','처리할 문의를 확인해요','문의 상태를 변경하고 처리 결과를 등록해요. 해결 확인(CLS)은 문의자가 해요.')}${nrep.length?`<div class="alert err bn" role="status">${ic('bell')}<div class="bnl"><b>문의자가 답변했어요.</b>${nrep.map(t=>`<button class="lk rl" data-act="detail" data-id="${t.receipt}"><span class="rc">${t.receipt}</span><span class="sp" aria-hidden="true">·</span>${ESC(t.title)}</button>`).join('')}</div></div>`:''}<div class="tabs">${tabs.map(x=>`<button class="${cur[0]===x[0]?'on':''}" data-act="of" data-f="${x[0]}">${x[1]}${x[0]!=='cls'?cnt(x):''}</button>`).join('')}</div>${condChips}${subChips}<div class="panel" style="padding:6px 10px">${tTable(rows,'이 상태의 문의가 없어요.','q','queue')}${rowsS.length?pgq.html:''}</div></div></div></main>`;
 }
 /* ---- 상세 패널 (문의자·담당자·관리자 공용) ---- */
 function viewDetail(id){
@@ -1768,11 +1812,11 @@ function viewDetail(id){
     return `<div class="sx live tn-${tn}"><span class="mk">${mk}</span><span class="l">${label}</span><span class="vb">${val}</span>${sub?`<span class="sxs">${ESC(sub)}</span>`:''}</div>`;
   };
   const sb=(tn,l)=>`<span class="sbd tn-${tn}"><i></i>${ESC(l)}</span>`;
-  const jiraRow=t.jira==='완료'?stRow('done','ok','Jira 연동','완료'):t.jira==='결과 확인 중'?stRow('live','warn','Jira 연동',sb('warn','생성 여부 확인 중'),t.excWhy||'생성 결과를 확인하는 중'):t.jira==='확인 필요'&&t.exVerify?stRow('live','warn','Jira 연동',sb('warn','생성 여부 확인 중'),t.excWhy||'생성 결과를 확인하는 중'):t.jira==='확인 필요'?stRow('live','urg','Jira 연동',sb('urg','확인 필요'),t.excWhy||'Jira 생성에 실패했어요'):stRow('live','recv','Jira 연동',sb('recv','대기'),'Jira 티켓을 만드는 중');
-  const asgRow=t.asg==='완료'?stRow('done','ok','배정','완료'):t.asg==='확인 필요'?stRow('live','urg','배정',sb('urg','확인 필요'),t.excWhy||'개인 배정을 확인해야 해요'):t.jira==='완료'?stRow('live','asg','배정',sb('asg','연결 중'),'담당 그룹에서 담당자를 정하는 중'):stRow('idle','recv','배정','대기');
+  const jiraRow=t.jira==='완료'?stRow('done','ok','Jira 연동','완료'):t.jira==='결과 확인 중'?stRow('live','warn','Jira 연동',sb('warn','생성 여부 확인 중'),t.excWhy||'생성 결과를 확인하는 중'):t.jira==='확인 필요'&&t.exVerify?stRow('live','warn','Jira 연동',sb('warn','생성 여부 확인 중'),t.excWhy||'생성 결과를 확인하는 중'):t.jira==='확인 필요'?stRow('live','urg','Jira 연동',sb('urg','Jira 생성 확인 필요'),t.excWhy||'Jira 생성에 실패했어요'):stRow('live','recv','Jira 연동',sb('recv','대기'),'Jira 티켓을 만드는 중');
+  const asgRow=t.asg==='완료'?stRow('done','ok','배정','완료'):t.asg==='확인 필요'?stRow('live','urg','배정',sb('urg','담당자 배정 확인 필요'),t.excWhy||'개인 배정을 확인해야 해요'):t.jira==='완료'?stRow('live','asg','배정',sb('asg','연결 중'),'담당 그룹에서 담당자를 정하는 중'):stRow('idle','recv','배정','대기');
   const extra=(needReply(t)?sb('need','추가 답변 필요'):'')+(t.reassigned?sb('re','재배정'):'');
   const tkRow=t.status==='CLS'?stRow('done','ok','티켓 업무','해결 완료'):t.status==='FIN'?stRow('live','need','티켓 업무',sb('need','해결 확인 대기')+extra,'문의자 확인을 기다리는 중'):t.status==='WIP'?stRow('live','prog','티켓 업무',sb('prog','처리 중')+extra,(t.assignee||'')+' 담당'):t.status==='RDY'?stRow('live','recv','티켓 업무',sb('recv','처리 대기')+extra,(t.assignee||'')+' 담당자가 시작하기를 기다리는 중'):stRow('idle','recv','티켓 업무','시작 전');
-  const trnRow=t.trn==='PENDING'?stRow('live','warn','상태 변경',sb('warn','Jira 반영 확인 중'),(TRN_TO[t.trnTo]||'새 상태')+'(으)로 바꾸는 요청을 Jira에 보냈어요. 확인되면 상태가 바뀝니다.'):t.trn==='NEEDS_ADMIN'?stRow('live','urg','상태 변경',sb('urg','확인 필요'),t.excWhy||'Jira 반영 결과를 확인하지 못했어요. 운영자가 확인하고 있어요.'):'';
+  const trnRow=t.trn==='PENDING'?stRow('live','warn','상태 변경',sb('warn','Jira 반영 확인 중'),(TRN_TO[t.trnTo]||'새 상태')+'(으)로 바꾸는 요청을 Jira에 보냈어요. 확인되면 상태가 바뀝니다.'):t.trn==='NEEDS_ADMIN'?stRow('live','urg','상태 변경',sb('urg','Jira 동기화 확인 필요'),t.excWhy||'Jira 반영 결과를 확인하지 못했어요. 운영자가 확인하고 있어요.'):'';
   const states=staff?`<div class="stlist" aria-label="처리 상태">${stRow('done','ok','문의 상태',inqStateOf(t))}${jiraRow}${asgRow}${tkRow}${trnRow}</div>`:'';
   const d=t.draft;
   const info=`<dl class="dl"><dt>접수번호</dt><dd class="mono">${t.receipt}</dd><dt>Jira 티켓</dt><dd class="mono">${t.id||'생성 전'}</dd><dt>문의자</dt><dd>${ESC(t.reqName)} (${t.req})</dd><dt>분류</dt><dd>${CATS[t.cat]?t.cat+' · '+CATS[t.cat].n:'미분류'}</dd>${d&&d.sc?`<dt>세부 유형</dt><dd>${ESC(scTxt(d.sc))}</dd>`:''}<dt>긴급도</dt><dd>${pbadge(t.p)}${t.why?'<div class="small muted">'+ESC(t.why.join(' · '))+'</div>':''}</dd><dt>담당 그룹</dt><dd>${ESC(t.group)}</dd><dt>담당자</dt><dd>${ESC(t.assignee||'배정 전')}</dd>${d?`<dt>문의 내용</dt><dd>${ESC(d.issue)}</dd><dt>업무 영향</dt><dd>${ESC(d.impact)}</dd><dt>시도한 조치</dt><dd>${ESC(d.tried)}</dd><dt>AI 안내</dt><dd>${ESC(d.ai)}</dd>`:''}${t.result?`<dt>처리 결과</dt><dd>${ESC(t.result)}</dd>`:''}</dl>`;
@@ -1786,17 +1830,59 @@ function viewDetail(id){
   }
   if(S.role==='admin'&&(t.jira==='확인 필요'||t.asg==='확인 필요'||t.jira==='결과 확인 중'||t.trn==='NEEDS_ADMIN'))act=`<button class="btn pri block" data-act="go" data-v="exc">연동·배정 확인 화면으로</button>`;
   if(S.role==='admin'&&(t.status==='RDY'||t.status==='WIP'))act+=`<button class="btn sec block" data-act="rs-open" data-id="${t.receipt}" style="margin-top:8px">담당자 재배정</button>`;
-  const msgs=(t.msgs||[]).map(m=>staff&&S.role==='staff'&&m.from==='문의자'?`<li>${ic('bell')}<div><b>Jira 알림 · 문의자 멘션</b>문의자로부터 해당 티켓 멘션이 왔으니 Jira에서 내용을 확인해 주세요.<small>${ESC(m.time)} · 알림만 전달돼요(메시지 내용은 Jira에서 확인)</small></div></li>`:`<li>${ic(m.from==='문의자'?'user':'chat')}<div><b>${ESC(m.from)} · ${ESC(m.kind)}</b>${ESC(m.t)}<small>${ESC(m.time)}</small></div></li>`).join('');
+  const msgs=(t.msgs||[]).slice().reverse().map(m=>staff&&S.role==='staff'&&m.from==='문의자'?`<li>${ic('bell')}<div><b>Jira 알림 · 문의자 멘션</b>문의자로부터 해당 티켓 멘션이 왔으니 Jira에서 내용을 확인해 주세요.<small>${ESC(m.time)} · 알림만 전달돼요(메시지 내용은 Jira에서 확인)</small></div></li>`:`<li>${ic(m.from==='문의자'?'user':'chat')}<div><b>${ESC(m.from)} · ${ESC(m.kind)}</b>${ESC(m.t)}<small>${ESC(m.time)}</small></div></li>`).join('');
   const slk=S.slack.filter(s=>s.rc===t.receipt).map(s=>`<li>${ic('bell')}<div><b>→ ${ESC(s.to)}</b>${ESC(s.text)}<small>${ESC(s.t)} · 미리보기 (실제 발송 없음)</small></div></li>`).join('');
   const hist=(t.hist||[]).map(h=>`<li>${ic('clock')}<div><b>${ESC(staff?h.what:String(h.what).replace(/^상태 (RDY|WIP|FIN|CLS) · /,''))}</b><small>${ESC(h.t)} · ${ESC(h.who)}</small></div></li>`).join('');
   const body=`<div class="dh"><div class="row" style="flex-wrap:nowrap"><div style="min-width:0"><div class="mono small muted">${t.receipt}${t.id?' · '+t.id:''}</div><h3 style="font-size:18px;line-height:26px;margin-top:2px">${ESC(t.title)}</h3></div><span class="sp"></span><button class="btn sec sm ico" data-act="dclose" aria-label="닫기">${ic('x')}</button></div></div><div class="db">${staff?states:ticketSteps(t)}${t.status==='FIN'&&!staff?`<div class="alert info">${ic('check')}<div>${ESC(userMsg(t))}</div></div>`:''}${info}${act}${msgs?`<div><h4>메시지 <span class="tag gray">제안</span></h4><ul class="tl" style="margin-top:10px">${msgs}</ul></div>`:''}${staff&&slk?`<div><h4>Slack 알림 미리보기</h4><ul class="tl" style="margin-top:10px">${slk}</ul></div>`:''}<div><h4>처리 이력</h4><ul class="tl" style="margin-top:10px">${hist||'<li class="muted small">아직 이력이 없어요.</li>'}</ul></div></div>`;
   return `<aside class="detail" role="complementary" aria-label="티켓 상세">${body}</aside>`;
 }
 /* ---- 연동·배정 확인 필요 ---- */
+/* ---- 운영 현황 (관리자): 오늘 확인하고 처리할 일을 한 화면에 모은다. 기존 「연동·배정 확인」을 대신한다 ---- */
+const opsStt=s=>`<span class="stt ${s.avail?'on':'off'}"><i></i>${s.avail?'근무':'부재 ('+(s.leave||'연차')+')'}</span>`;
+const opsLoad=n=>({w:S.tickets.filter(t=>t.assignee===n&&t.status==='RDY').length,p:S.tickets.filter(t=>t.assignee===n&&t.status==='WIP').length});
+/* 배정 후보 추천: 근무 중이고 Jira 계정이 연결된 사람 중 업무량(처리 대기+처리 중)이 가장 적은 사람 (자동배정과 같은 기준, docs/11 2.4) */
+const opsRec=g=>{const c=STAFF.filter(s=>s.group===g&&s.avail&&s.jira!==false).map(s=>({s,n:load(s.name)})).sort((a,b)=>a.n-b.n);return c[0]?c[0].s.name:null;};
+const opsEl=t=>{const m=Math.max(1,Math.round((Date.now()-(t.exAt||Date.now()))/60000));return (t.exAt?m:12)+'분';};
+/* 접수 → Jira 생성 → 담당자 배정 3단계: 막힌 단계가 빨강, 확인 중이면 노랑, 아직 안 온 단계는 회색 */
+const opsDots=t=>{const g='var(--s-ok-dot)',r='var(--s-urg-dot)',w='var(--s-warn-dot)',n='var(--s-recv-dot)';let c,lb;
+  if(t.trn==='NEEDS_ADMIN'){c=[g,g,g];lb='접수 완료, Jira 생성 완료, 담당자 배정 완료. 상태 동기화 확인 필요';}
+  else if(t.jira==='확인 필요'&&!t.exVerify){c=[g,r,n];lb='접수 완료, Jira 생성 막힘, 담당자 배정 대기';}
+  else{c=[g,w,n];lb='접수 완료, Jira 생성 여부 확인 중, 담당자 배정 대기';}
+  return `<span class="odots" role="img" aria-label="${lb}">${c.map(x=>`<i style="background:${x}"></i>`).join('<b></b>')}</span>`;};
 function viewExc(){
-  const L=excList();
-  const el=t=>{const m=Math.max(1,Math.round((Date.now()-(t.exAt||Date.now()))/60000));return (t.exAt?m:12)+'분 경과';};
-  return `<main class="main">${bgsvg('e')}${topbar('연동·배정 확인 필요',L.length+'건')}<div class="scroll"><div class="page">${phead('REVIEW REQUIRED','확인이 필요한 접수예요','Jira 이슈 생성, 담당자 개인 배정, 상태 변경의 Jira 반영이 완료되지 않은 문의예요. 문의는 접수된 상태로 유지돼요.')}${L.length?L.map(t=>`<div class="panel"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div style="min-width:0"><div class="mono small muted">${t.receipt}${t.id?' · '+t.id:''}</div><b style="font-size:16px">${ESC(t.title)}</b><div class="small muted" style="margin-top:2px">${ESC(t.reqName)} · ${ESC(t.group)} · ${pbadge(t.p)}</div></div><div class="row" style="gap:6px">${t.trn==='NEEDS_ADMIN'?badge('urg','상태 변경 반영 확인 필요'):badge(jk(t.jira),t.exVerify&&t.jira!=='완료'?'Jira 생성 여부 확인 중':'Jira '+t.jira)+badge(jk(t.asg),'배정 '+t.asg)}</div></div><dl class="dl" style="margin-top:12px"><dt>사유</dt><dd>${ESC(t.excWhy||'Jira 생성 결과 확인 중')}</dd><dt>다음 조치</dt><dd>${ESC(t.excNext||'생성 여부 확인 후 재시도')}</dd><dt>확인 담당</dt><dd>${ESC(t.excOwner||'서비스데스크 관리자')}</dd><dt>경과</dt><dd>${el(t)}</dd></dl>${t.trn==='NEEDS_ADMIN'?`<div class="alert warn" style="margin-top:12px">${ic('alert')}<div>Jira에서 이 티켓의 현재 상태를 먼저 확인하세요. 이미 <b>${TRN_TO[t.trnTo]||'요청한 상태'}</b>로 바뀌어 있으면 다시 반영하지 않고 완료로 처리해요. 상태는 Jira 확인 전에는 바뀌지 않아요.</div></div>`:''}${t.jira!=='완료'&&t.exVerify?`<div class="alert warn" style="margin-top:12px">${ic('alert')}<div>Jira에 접수번호 <b class="mono">${t.receipt}</b>로 만들어진 티켓이 있는지 먼저 확인하세요. 확인하기 전에는 다시 만들지 마세요. (중복 생성 방지)</div></div>`:''}<div class="row" style="margin-top:12px">${t.trn==='NEEDS_ADMIN'?`<button class="btn pri sm" data-act="exc-trn" data-id="${t.receipt}">Jira 상태 확인·다시 반영</button>`:''}${t.jira!=='완료'?`<button class="btn pri sm" data-act="exc-retry" data-id="${t.receipt}">Jira 생성 확인·재시도</button>`:''}${t.jira==='완료'&&t.asg!=='완료'?`<button class="btn pri sm" data-act="exc-assign" data-id="${t.receipt}">담당자 지정</button>`:''}<button class="btn sec sm" data-act="detail" data-id="${t.receipt}">상세</button></div></div>`).join(''):'<div class="panel"><div class="empty">확인이 필요한 접수가 없어요.<br><span class="small">시연 도구에서 오류 시나리오를 켜고 문의를 접수해 보세요.</span></div></div>'}</div></div></main>`;
+  const acc=me(),team=S.opsTeam||'',inT=t=>!team||t.group===team;
+  const T=S.tickets.filter(inT);
+  const urgent=T.filter(t=>t.p==='P1'&&t.day===0&&(t.status==='RDY'||t.status==='WIP')).sort((a,b)=>elH(b)-elH(a));
+  const exc=T.filter(t=>(t.p==='P1'||t.p==='P2')&&t.status&&t.status!=='CLS'&&t.day>=1).sort((a,b)=>a.p.localeCompare(b.p)||elH(b)-elH(a));
+  const linkL=T.filter(t=>t.jira==='확인 필요'||t.jira==='결과 확인 중'||t.trn==='NEEDS_ADMIN');
+  const asgL=T.filter(t=>t.jira==='완료'&&t.asg==='확인 필요');
+  const selT=asgL.find(t=>t.receipt===S.opsSel)||asgL[0]||null;
+  const grp=S.opsGrp||(selT?selT.group:GROUPS[0]);
+  const CHVo='<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l5 5 5-5"/></svg>';
+  const open=S.dd==='opteam';
+  const teamPill=`<span class="d2p ddw${team?' act':''}"><button class="ddb" data-act="dd" data-k="opteam" aria-haspopup="listbox" aria-expanded="${open}"><small>담당 팀</small><span>${ESC(team||'전체')}</span></button>${team?`<button class="x" data-act="oteam" data-v="" aria-label="담당 팀 필터 해제">✕</button>`:CHVo}${open?`<div class="ddm" role="listbox"><button role="option" class="${!team?'sel':''}" data-act="oteam" data-v="">전체</button>${GROUPS.map(g=>`<button role="option" class="${team===g?'sel':''}" data-act="oteam" data-v="${g}">${ESC(g)}</button>`).join('')}</div>`:''}</span>`;
+  const d=new Date(),today=(d.getMonth()+1)+'월 '+d.getDate()+'일';
+  const sub=t=>`${t.receipt} · ${ESC(t.group)} · ${ESC(t.assignee||'배정 전')}`;
+  const rowU=(t,end)=>`<button class="orow" data-act="detail" data-id="${t.receipt}"><span class="o-p">${pbadge(t.p)}</span><span class="o-t"><b>${ESC(t.title)}</b><small>${sub(t)}</small></span><span class="o-s">${tbadge(t.status)}</span><span class="o-e">${end}</span></button>`;
+  const more=(k,n)=>n>3?`<div class="omore"><button class="btn ghost sm" data-act="omore" data-k="${k}">${S['opsMore'+k]?'접기':'나머지 '+(n-3)+'건 보기'}</button></div>`:'';
+  const lim=(k,a)=>S['opsMore'+k]?a:a.slice(0,3);
+  const rowL=t=>`<div class="orow l"><span class="o-p">${pbadge(t.p)}</span><span class="o-t"><b>${ESC(t.title)}</b><small>${sub(t)} · ${ESC(t.trn==='NEEDS_ADMIN'?'Jira 동기화 확인 필요':(t.excWhy||'Jira 생성 결과 확인 중'))}</small></span>${opsDots(t)}<span class="o-e"><b>${opsEl(t)}</b> 경과</span><button class="btn sec sm" data-act="op-check" data-id="${t.receipt}">확인</button></div>`;
+  const rowA=t=>{const on=selT&&t.receipt===selT.receipt;return `<div class="orow a${on?' on':''}"><button type="button" class="o-main" data-act="osel" data-id="${t.receipt}" aria-pressed="${!!on}" aria-label="${ESC(t.title)} 선택. 아래 담당자 현황에서 배정 후보를 봐요"><span class="o-p">${pbadge(t.p)}</span><span class="o-t"><b>${ESC(t.title)}</b><small>${t.receipt} · ${ESC(t.group)} · ${ESC(t.excWhy||'개인 배정을 확인해야 해요')}</small></span></button><span class="o-e"><b>${opsEl(t)}</b> 경과</span><button class="btn ${on?'pri':'sec'} sm" data-act="op-assign" data-id="${t.receipt}">지정</button></div>`;};
+  const sec=(title,desc,right,body,cls)=>`<section class="panel${cls?' '+cls:''}"><div class="sech"><div><h3 class="sht">${title}</h3><p class="shs">${desc}</p></div>${right||''}</div>${body}</section>`;
+  const empty=t=>`<div class="empty">${t}</div>`;
+  const p1=sec(`긴급 조치 필요 ${pbadge('P1')} <span class="ocnt">${urgent.length}건</span>`,'오늘 접수 · 처리 대기·처리 중',`<button class="btn ghost sm" data-act="tf" data-pri="P1" data-per="d" data-st="open">P1 보기</button>`,urgent.length?`<div class="otb">${lim('U',urgent).map(t=>rowU(t,`<b>${fmtH(elH(t))}</b> 경과`)).join('')}</div>${more('U',urgent.length)}`:empty('오늘 접수된 긴급(P1) 건 중 처리 중인 건이 없어요.'));
+  const px=sec(`당일 미종결 예외 <span class="ocnt">${exc.length}건</span> <span class="tag gray">제안</span>`,`접수 당일 안에 끝나지 않은 ${pbadge('P1')} ${pbadge('P2')} 건`,`<button class="btn ghost sm" data-act="tf" data-pri="P12" data-unres="1">모두 보기</button>`,exc.length?`<div class="otb">${lim('X',exc).map(t=>rowU(t,`<b>${fmtH(elH(t))}</b> 경과`)).join('')}</div>${more('X',exc.length)}`:empty('접수 당일 안에 끝나지 않은 P1·P2 건이 없어요.'));
+  const lk=sec(`티켓 연동 확인 <span class="ocnt">Jira ${linkL.length}건</span>`,'Jira 이슈가 안 만들어졌거나 상태를 가져오지 못한 건','',linkL.length?`<div class="otb">${lim('L',linkL).map(rowL).join('')}</div>${more('L',linkL.length)}`:empty('연동 확인이 필요한 건이 없어요.<br><span class="small">시연 도구에서 오류 시나리오를 켜고 문의를 접수해 보세요.</span>'));
+  const as=sec(`담당자 배정 확인 <span class="ocnt">배정 전 ${asgL.length}건</span>`,'Jira 이슈는 만들어졌지만 담당자가 비어 있는 건','',asgL.length?`<div class="otb">${lim('A',asgL).map(rowA).join('')}</div>${more('A',asgL.length)}`:empty('배정 확인이 필요한 건이 없어요.'));
+  const gm=g=>STAFF.filter(s=>s.group===g),gOn=g=>gm(g).filter(s=>s.avail).length;
+  const rec=selT&&grp===selT.group?opsRec(grp):null;
+  const chips=GROUPS.map(g=>`<button class="chip${g===grp?' on':''}" aria-pressed="${g===grp}" data-act="ogrp" data-g="${g}">${ESC(g)} <em>${gOn(g)}/${gm(g).length}</em></button>`).join('');
+  const can=!!(selT&&selT.group===grp);
+  const rowsS=gm(grp).map(s=>{const L=opsLoad(s.name),ok=s.jira!==false;return `<tr><td><button type="button" class="lk" data-act="tf" data-staff="${ESC(s.name)}" data-st="open" title="${ESC(s.name)} 담당자의 처리 대기·처리 중 티켓 보기">${ESC(s.name)}</button>${s.name===rec?' <span class="rec"><i></i>추천</span>':''}</td><td>${opsStt(s)}</td><td>${L.w}건</td><td>${L.p}건</td><td>${ok?'연결됨':'<span class="od">⚠ 미연결</span>'}</td>${can?`<td><button class="btn ${s.name===rec?'pri':'sec'} sm" data-act="op-assign" data-id="${selT.receipt}" data-s="${ESC(s.name)}" ${ok?'':'disabled title="Jira 계정이 연결되지 않아 지정할 수 없어요"'}>지정</button></td>`:''}</tr>`;}).join('');
+  const cur=sec(`담당자 현황${selT?` · ${selT.receipt} 배정 후보`:''} <span class="tag gray">제안</span>`,`지정 전에 근무 여부와 업무량을 확인해요. 이름을 누르면 그 담당자의 처리 대기·처리 중 티켓을 볼 수 있어요. 칩 숫자는 근무/전체 인원이에요.${selT?` ${ESC(selT.group)}은 ${gm(selT.group).length}명 중 근무 ${gOn(selT.group)}명이에요.`:''}`,'',`<div class="subc" role="group" aria-label="담당 그룹">${chips}</div><div class="tw"><table class="tbl"><thead><tr><th>이름</th><th>오늘 상태</th><th>처리 대기 (RDY)</th><th>처리 중 (WIP)</th><th>Jira 계정</th>${can?'<th></th>':''}</tr></thead><tbody>${rowsS}</tbody></table></div>`);
+  return `<main class="main">${topbar('운영 현황','오늘 '+nowHM()+' 기준')}<div class="scroll"><div class="page opage">${phead('TODAY','운영 현황','오늘 접수된 문의 중 지금 확인하고 처리할 일만 모았어요.')}
+  <div class="ofil"><span class="d2p act" style="cursor:default"><span class="ddb"><small>기간</small><span>오늘 · ${today} (고정)</span></span></span>${teamPill}<span class="tag gray">제안</span><span class="small muted dsy"><span id="dsync">마지막 확인 ${S.dsync}</span> <button class="btn ghost sm" data-act="dsync">${ic('refresh')} 새로고침</button></span></div>
+  <div class="ogrid">${p1}${px}</div><div class="ogrid">${lk}${as}</div>${cur}</div></div></main>`;
 }
 function excTrn(t){
   const to=t.trnTo;t.hist.unshift({t:NOW(),who:me().name,what:'Jira 현재 상태 확인 후 상태 변경 다시 반영'});
@@ -1828,17 +1914,27 @@ function histHtml(){
 /* ===== 공통 표 · 대시보드 · 티켓 목록 ===== */
 /* ---- 정렬 · 페이지 ---- */
 const PAGE_N=20;
-const SORTV={title:t=>t.title,receipt:t=>t.receipt,cat:t=>CATS[t.cat]?CATS[t.cat].n:'힣',pri:t=>t.p||'P9',assignee:t=>t.assignee||'힣',status:t=>t.status?['RDY','WIP','FIN','CLS'].indexOf(t.status)+1:0,guide:t=>t.guide,when:t=>t.day==null?-1:t.day};
+const SORTV={title:t=>t.title,receipt:t=>t.receipt,cat:t=>CATS[t.cat]?CATS[t.cat].n:'힣',pri:t=>t.p||'P9',assignee:t=>t.assignee||'힣',status:t=>t.status?['RDY','WIP','FIN','CLS'].indexOf(t.status)+1:0,guide:t=>t.guide,when:t=>t.day==null?-1:t.day,age:t=>elH(t)};
+/* 처리할 문의 기본 순서(내 대시보드와 같다): 긴급도 → 새 알림 → 오래된 접수 먼저 */
+const qOrder=(a,b)=>a.p.localeCompare(b.p)||(b.newReply?1:0)-(a.newReply?1:0)||elH(b)-elH(a);
 function sortList(list,key){const o=S.sort[key];if(!o||!SORTV[o.k])return list;const f=SORTV[o.k],d=o.dir==='desc'?-1:1;return list.slice().sort((a,b)=>{const x=f(a),y=f(b);return (x<y?-1:x>y?1:0)*d;});}
 const sortTh=(label,k,key,tip)=>{const o=S.sort[key]||{};const on=o.k===k;const cl=on?(o.dir==='desc'?'dn':'up'):'';return `<th aria-sort="${on?(o.dir==='desc'?'descending':'ascending'):'none'}"><button class="d2th ${cl}"${tip?` title="${tip}"`:''} data-act="sort" data-k="${k}" data-key="${key}">${label}<i><b></b><b></b></i></button></th>`;};
 function pager(total,key){const pages=Math.max(1,Math.ceil(total/PAGE_N));let p=Math.min(S.page[key]||1,pages);S.page[key]=p;const from=total?(p-1)*PAGE_N+1:0,to=Math.min(total,p*PAGE_N);
   const nums=[];for(let i=1;i<=pages;i++)if(i===1||i===pages||Math.abs(i-p)<=1)nums.push(i);else if(nums[nums.length-1]!=='…')nums.push('…');
   return {p,slice:l=>l.slice((p-1)*PAGE_N,p*PAGE_N),html:total>PAGE_N?`<nav class="d2pg" aria-label="페이지"><span class="small muted">${from}–${to} / ${total}건 · ${PAGE_N}개씩</span><div class="n"><button class="pn" data-act="page" data-key="${key}" data-p="${p-1}" ${p<=1?'disabled':''}>‹ 이전</button>${nums.map(x=>x==='…'?'<span class="muted">…</span>':`<button class="${x===p?'on':''}" data-act="page" data-key="${key}" data-p="${x}" ${x===p?'aria-current="page"':''}>${x}</button>`).join('')}<button class="pn" data-act="page" data-key="${key}" data-p="${p+1}" ${p>=pages?'disabled':''}>다음 ›</button></div></nav>`:`<div class="hint" style="padding:10px">총 ${total}건</div>`};}
 const pill=(k,n)=>`<span class="pill ${k}${n?'':' zero'}">${n}</span>`;
-function tTable(list,empty,sk){
+/* 처리할 문의 표(담당자): 긴급도 · 접수번호/티켓 · 제목 · 상태 · 접수일/경과 · 분류. 담당은 항상 본인이라 두지 않는다 */
+function tTableQ(list,empty,sk){
+  if(!list.length)return `<div class="empty">${empty||'표시할 티켓이 없어요.'}</div>`;
+  const rcv=t=>{const d=new Date(Date.now()-elH(t)*3600000);return String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0');};
+  const H=sortTh('긴급도','pri',sk)+sortTh('접수번호 / 티켓','receipt',sk)+sortTh('제목','title',sk)+sortTh('상태','status',sk)+sortTh('접수일 / 경과','age',sk)+sortTh('분류','cat',sk);
+  return `<div class="tw"><table class="tbl"><thead><tr>${H}</tr></thead><tbody>${list.map(t=>`<tr><td>${pbadge(t.p)}</td><td class="mono small">${t.receipt}<br>${t.id||'-'}</td><td><button class="lk" data-act="detail" data-id="${t.receipt}">${ESC(t.title)}</button>${t.newReply?' <span class="newd" role="img" aria-label="새 답변"></span>':''}<small>${ESC(t.reqName)}</small></td><td>${t.status?tbadge(t.status):badge(t.asg==='확인 필요'||t.jira==='확인 필요'?'urg':'asg',t.jira==='확인 필요'?'Jira 생성 확인 필요':t.asg==='확인 필요'?'담당자 배정 확인 필요':'접수 완료')}</td><td class="small">${rcv(t)} 접수<br><b>${fmtH(elH(t))}</b> 경과</td><td>${CATS[t.cat]?`<span class="tag c-${t.cat}">${CATS[t.cat].n}</span>`:'미분류'}</td></tr>`).join('')}</tbody></table></div>`;
+}
+function tTable(list,empty,sk,mode){
+  if(mode==='queue')return tTableQ(list,empty,sk);
   if(!list.length)return `<div class="empty">${empty||'표시할 티켓이 없어요.'}</div>`;
   const H=sk?sortTh('접수번호 / 티켓','receipt',sk)+sortTh('제목','title',sk)+sortTh('분류','cat',sk)+sortTh('긴급도','pri',sk)+sortTh('담당','assignee',sk)+sortTh('상태','status',sk):'<th>접수번호 / 티켓</th><th>제목</th><th>분류</th><th>긴급도</th><th>담당</th><th>상태</th>';
-  return `<div class="tw"><table class="tbl"><thead><tr>${H}</tr></thead><tbody>${list.map(t=>`<tr><td class="mono small">${t.receipt}<br>${t.id||'-'}</td><td><button class="lk" data-act="detail" data-id="${t.receipt}">${ESC(t.title)}</button>${t.newReply?' <span class="newd" role="img" aria-label="새 답변"></span>':''}<small>${ESC(t.reqName)}</small></td><td>${CATS[t.cat]?`<span class="tag c-${t.cat}">${CATS[t.cat].n}</span>`:'미분류'}</td><td>${pbadge(t.p)}</td><td>${ESC(t.assignee||'-')}<small>${ESC(t.group)}</small></td><td>${t.status?tbadge(t.status):badge(t.asg==='확인 필요'||t.jira==='확인 필요'?'urg':'asg',t.asg==='확인 필요'||t.jira==='확인 필요'?'확인 필요':'접수 완료')}</td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="tw"><table class="tbl"><thead><tr>${H}</tr></thead><tbody>${list.map(t=>`<tr><td class="mono small">${t.receipt}<br>${t.id||'-'}</td><td><button class="lk" data-act="detail" data-id="${t.receipt}">${ESC(t.title)}</button>${t.newReply?' <span class="newd" role="img" aria-label="새 답변"></span>':''}<small>${ESC(t.reqName)}</small></td><td>${CATS[t.cat]?`<span class="tag c-${t.cat}">${CATS[t.cat].n}</span>`:'미분류'}</td><td>${pbadge(t.p)}</td><td>${ESC(t.assignee||'-')}<small>${ESC(t.group)}</small></td><td>${t.status?tbadge(t.status):badge(t.asg==='확인 필요'||t.jira==='확인 필요'?'urg':'asg',t.jira==='확인 필요'?'Jira 생성 확인 필요':t.asg==='확인 필요'?'담당자 배정 확인 필요':'접수 완료')}</td></tr>`).join('')}</tbody></table></div>`;
 }
 const AI_TITLES={ACC:['계정 잠금 해제 방법','비밀번호 변경 주기 문의','MFA 재등록 방법'],NET:['VPN 인증 실패 안내','재택 Wi-Fi 연결 점검'],SW:['프로그램 설치 위치 문의','라이선스 할당 확인'],HW:['복합기 연결 방법','모니터 해상도 설정'],SYS:['전자결재 접속 오류 안내','근태 화면 캐시 삭제'],ACS:['폴더 권한 신청 절차']};
 function aiRows(){
@@ -2032,7 +2128,7 @@ function doLogin(id,pw,skipPw){
   if(a.status==='이용 제한'){addSec('이용 제한 계정 접속 시도','낮음',a.id,'이용 제한 상태 계정으로 로그인 시도','로그인 시도 차단','이용 제한 계정 시도');S.loginErr='이용이 제한된 계정이에요. 서비스데스크로 문의해 주세요. ('+SERVICEDESK_PHONE+')';render();return;}
   a.fails=0;
   S.loginErr='';S.loginNote=null;S.profile=null;S.pwOk=false;S.user=a.id;S.role=a.role==='관리자'?'admin':a.role==='담당자'?'staff':'user';
-  S.view={n:S.role==='admin'?'dash':S.role==='staff'?'queue':'new'};S.detail=null;log('로그인');render();
+  S.view={n:S.role==='admin'?'dash':S.role==='staff'?'sdash':'new'};S.detail=null;log('로그인');render();
 }
 
 /* ===== 이벤트 · 핸들러 ===== */
@@ -2080,7 +2176,7 @@ const A={
   'map-close'(){S.drawer=null;renderOverlay();restoreFocus();},
   theme(e,d){S.theme=d.t==='auto'?null:d.t;try{if(S.theme)localStorage.setItem('itssue-theme',S.theme);else localStorage.removeItem('itssue-theme')}catch(x){}applyTheme();const cur=themeNow();document.querySelectorAll('.tgm [data-t]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.t===cur)));renderOverlay();},
   'modal-bg'(e,d,ev){if(ev.target.classList.contains('ov'))closeModal();},
-  home(){if(!S.user)return;S.view={n:S.role==='admin'?'dash':S.role==='staff'?'queue':'new'};S.detail=null;S.navOpen=false;render();},
+  home(){if(!S.user)return;S.view={n:S.role==='admin'?'dash':S.role==='staff'?'sdash':'new'};S.detail=null;S.navOpen=false;render();},
   close(){closeModal();},
   forgot(){openModal('비밀번호를 잊으셨나요?',`<p style="margin:0;line-height:24px">보안을 위해 비밀번호는 직접 초기화할 수 없어요. 서비스데스크에 <b>임시 비밀번호 발급</b>을 요청해 주세요.</p><div class="alert info" style="margin:0">${ic('shield')}<div>요청할 때 <b>사번</b>과 <b>이름</b>을 알려 주세요.<br>받은 임시 비밀번호로 로그인하면 바로 새 비밀번호를 정할 수 있어요. 잠긴 계정이면 잠금도 함께 풀려요.</div></div><div class="small muted">서비스데스크 ${SERVICEDESK_PHONE}</div><div class="acts"><button class="btn pri" data-act="close">확인</button></div>`);},
   profile(){S.profile={edit:false};S.pwErr=null;S.pwv={};S.pwOk=false;renderOverlay();},
@@ -2152,12 +2248,24 @@ const A={
   'st-fin2'(e,d){const r=val('m-res').trim();if(!r){fieldErr('m-res','처리 결과를 입력해 주세요.');return;}const t=tById(d.id);t.result=r;setStatus(t,'FIN','처리 결과 등록');closeModal();render();toast('문의자에게 해결 확인을 요청했어요.');},
   'msg-open'(e,d){openModal('문의자에게 메시지',`<p class="small muted">문서상 AI 중개 양방향 소통은 Could 범위라서 이 기능은 <b>제안</b>이에요.</p><div class="field"><label for="m-k">종류</label><select class="sel" id="m-k"><option>추가 정보 요청</option><option>일반 메시지</option></select></div><div class="field"><label for="m-t">내용</label><textarea class="ta" id="m-t"></textarea></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="msg-send" data-id="${d.id}">보내기</button></div>`);},
   'msg-send'(e,d){const x=maskSens(val('m-t').trim()).t;if(!x){fieldErr('m-t','내용을 입력해 주세요.');return;}const t=tById(d.id);tmsg(t,{from:t.assignee+' 담당자',kind:val('m-k'),t:x,time:NOW()});t.hist.unshift({t:NOW(),who:t.assignee,what:'문의자 메시지 · '+val('m-k')});const i=S.inqs.find(y=>y.id===t.inq);if(i)i.unread=(i.unread||0)+1;slack(t,'문의자','담당자 메시지가 도착했습니다.');closeModal();render();toast('보냈어요.');},
+  oteam(e,d){S.opsTeam=d.v;S.dd=null;S.opsSel=null;S.opsGrp=null;render();},
+  osel(e,d){S.opsSel=d.id;S.opsGrp=null;render();},
+  ogrp(e,d){S.opsGrp=d.g;render();},
+  omore(e,d){S['opsMore'+d.k]=!S['opsMore'+d.k];render();},
+  'op-check'(e,d){const t=tById(d.id);if(!t)return;const trn=t.trn==='NEEDS_ADMIN';openModal(trn?'Jira 상태 확인':'Jira 생성 확인',`<p class="small muted" style="margin:0">${ESC(t.receipt)} · ${ESC(t.group)} · ${pbadge(t.p)}</p><ol class="osteps"><li><b>① Jira에서 찾기</b><span>${trn?'Jira에서 이 티켓의 현재 상태를 먼저 확인하세요. 이미 <b>'+(TRN_TO[t.trnTo]||'요청한 상태')+'</b>로 바뀌어 있으면 다시 반영하지 않고 완료로 처리해요. 상태는 Jira 확인 전에는 바뀌지 않아요.':'Jira에 접수번호 <b class="mono">'+t.receipt+'</b>로 만들어진 티켓이 있는지 먼저 확인하세요. 확인하기 전에는 다시 만들지 마세요. (중복 생성 방지)'}</span></li><li><b>② 결과 기록</b><span>확인한 결과에 맞는 버튼을 눌러 주세요. 처리 이력에 남아요.</span></li></ol><div class="acts"><button class="btn sec" data-act="close">닫기</button><button class="btn sec" data-act="op-detail" data-id="${t.receipt}">상세</button><button class="btn pri" data-act="${trn?'op-trn':'op-retry'}" data-id="${t.receipt}">${trn?'Jira 상태 확인·다시 반영':'Jira 생성 확인·재시도'}</button></div>`);},
+  'op-detail'(e,d){closeModal();A.detail(e,d);},
+  'op-retry'(e,d){closeModal();excRetry(tById(d.id));},
+  'op-trn'(e,d){closeModal();excTrn(tById(d.id));},
+  'op-assign'(e,d){const t=tById(d.id);if(!t)return;const g=t.group,c=STAFF.filter(s=>s.group===g),rec=opsRec(g),pre=d.s&&c.some(s=>s.name===d.s&&s.jira!==false)?d.s:rec;
+    const rows=c.map(s=>{const ok=s.jira!==false,L=opsLoad(s.name),note=s.name===rec?'자동배정 추천 (가용 + 업무량 최소)':!ok?'Jira 배정 반영 불가':!s.avail?'부재 · 예외로 지정하면 사유에 남겨요':'';
+      return `<tr><td><input type="radio" name="as" id="as-${ESC(s.name)}" value="${ESC(s.name)}" ${s.name===pre?'checked':''} ${ok?'':'disabled'}></td><td><label for="as-${ESC(s.name)}"><b>${ESC(s.name)}</b></label></td><td>${opsStt(s)}</td><td>${L.w+L.p}건<div class="small muted">RDY ${L.w} · WIP ${L.p}</div></td><td>${ok?'연결됨':'<span class="od">⚠ 미연결</span>'}</td><td class="small muted">${note}</td></tr>`;}).join('');
+    openModal('담당자 지정',`<p class="small muted" style="margin:0">${ESC(t.receipt)} · ${ESC(g)} · ${pbadge(t.p)}</p><div class="tw"><table class="tbl ost"><thead><tr><th><span class="sr">선택</span></th><th>이름</th><th>오늘 상태</th><th>업무량 <span class="small muted">(RDY+WIP)</span></th><th>Jira 계정</th><th>비고</th></tr></thead><tbody>${rows}</tbody></table></div><div class="field"><label for="m-w">지정 사유 (필수)</label><input class="inp" id="m-w" placeholder="예) 자동배정 실패, 업무량 확인 후 지정"></div><p class="small muted" style="margin:0">지정하면 처리 이력에 남고 담당자·문의자에게 알림이 가요. <span class="tag gray">제안</span></p><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="exc-assign2" data-id="${t.receipt}">지정</button></div>`);},
+  'exc-assign'(e,d){A['op-assign'](e,d);},
+  'exc-assign2'(e,d){const w=val('m-w').trim(),r=document.querySelector('input[name=as]:checked');if(!r){toast('지정할 담당자를 선택해 주세요.');return;}if(!w){fieldErr('m-w','지정 사유를 입력해 주세요.');return;}const t=tById(d.id);closeModal();S.opsSel=null;S.opsGrp=null;assignTo(t,r.value,'관리자 지정 · '+w);},
   'exc-retry'(e,d){excRetry(tById(d.id));},
   'exc-trn'(e,d){excTrn(tById(d.id));},
-  'exc-assign'(e,d){const t=tById(d.id);const c=STAFF.filter(s=>s.group===t.group);openModal('담당자 지정',`<p class="small muted">${ESC(t.receipt)} · ${ESC(t.group)}</p><div class="field"><label for="m-s">담당자</label><select class="sel" id="m-s">${c.map(s=>`<option>${s.name}</option>`).join('')}</select></div><div class="field"><label for="m-w">지정 사유 (필수)</label><input class="inp" id="m-w" placeholder="예) 자동배정 실패, 업무량 확인 후 지정"></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="exc-assign2" data-id="${d.id}">지정</button></div>`);},
   'rs-open'(e,d){const t=tById(d.id);const c=STAFF.filter(s=>s.group===t.group&&s.name!==t.assignee);openModal('담당자 재배정',`<p class="small muted">${ESC(t.receipt)} · ${ESC(t.group)} · 현재 ${ESC(t.assignee||'-')}</p><div class="field"><label for="m-s">새 담당자</label><select class="sel" id="m-s">${c.map(s=>`<option>${s.name}</option>`).join('')}</select></div><div class="field"><label for="m-w">재배정 사유 (필수)</label><input class="inp" id="m-w" placeholder="예) 휴가, 업무량 조정"></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="rs-do" data-id="${d.id}">재배정</button></div>`);},
   'rs-do'(e,d){const w=val('m-w').trim();if(!w){fieldErr('m-w','재배정 사유를 입력해 주세요.');return;}const t=tById(d.id);const n=val('m-s');if(!n){fieldErr('m-s','새 담당자를 선택해 주세요.');return;}const old=t.assignee;closeModal();t.assignee=n;t.reassigned=true;t.hist.unshift({t:NOW(),who:me().name,what:'재배정 · '+old+' → '+n+' · 사유: '+w});slack(t,'담당자('+n+')','티켓이 재배정됐어요 ('+(t.id||t.receipt)+', '+t.p+').');slack(t,'문의자','담당자가 변경됐어요 ('+n+').');log('담당자 재배정 · '+t.receipt+' '+old+' → '+n+' · '+w);render();toast('재배정했어요. 진행 상태는 그대로 유지돼요.');},
-  'exc-assign2'(e,d){const w=val('m-w').trim();if(!w){fieldErr('m-w','지정 사유를 입력해 주세요.');return;}const t=tById(d.id);const n=val('m-s');closeModal();assignTo(t,n,'관리자 지정 · '+w);},
   tf(e,d){S.page.tk=1;S.page.ai=1;S.tf={};['st','cat','pri','team','staff','mode','unres','per'].forEach(k=>{if(d[k])S.tf[k]=d[k];});S.view={n:'tickets'};S.detail=null;render();},
   'tf-one'(e,d){delete S.tf[d.k];S.page.tk=1;render();},
   'tf-st'(e,d){if(d.st)S.tf.st=d.st;else delete S.tf.st;S.page.tk=1;render();},
@@ -2181,9 +2289,6 @@ const A={
   'sec-do'(e,d){const x=S.sec.find(y=>y.id===d.id);x.st=d.to;x.log.unshift({t:NOW(),who:me().name,what:'확인 시작'});render();secModal(d.id);},
   'sec-end'(e,d){openModal('알림 종결',`<div class="field"><label for="m-w">종결 사유 (필수)</label><input class="inp" id="m-w" placeholder="예) 정상 문의로 확인"></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="sec-end2" data-id="${d.id}">종결</button></div>`);},
   'sec-end2'(e,d){const w=val('m-w').trim();if(!w){fieldErr('m-w','종결 사유를 입력해 주세요.');return;}const x=S.sec.find(y=>y.id===d.id);x.st='종결';x.log.unshift({t:NOW(),who:me().name,what:'종결 · '+w});closeModal();render();toast('종결했어요.');},
-  dper(e,d){S.dashPer=d.p;render();},
-  dmode(e,d){S.dashMode=d.m;S.dashMember=null;render();},
-  dsel(e,d){S.dashSel[S.dashMode]=d.k;S.dashMember=null;render();},
   dmem(e,d){S.dashMember=S.dashMember===d.n?null:d.n;render();},
   gopen(e,d){S.guideOpen=S.guideOpen===d.id?null:d.id;render();},
   'g-tx'(e,d){const g=S.guides.find(x=>x.id===d.id);const v=g.vers.find(x=>x.v===+d.v);
@@ -2220,7 +2325,7 @@ function secLoad(key,dep,label,why){
   return o;
 }
 function secBox(key,title,o,body,note){
-  const head=`<div class="row sh"><h3>${title}</h3><span class="small muted asof">${o.st==='ok'?'집계 기준 '+o.at+' · 프로토타입용 예시 데이터':''}</span>${o.st!=='loading'?`<button class="btn ghost sm" data-act="sreload" data-k="${key}">${o.st==='err'?'다시 시도':'다시 불러오기'}</button>`:''}</div>`;
+  const head=`<div class="row sh"><h3>${title}</h3><span class="small muted asof">${o.st==='ok'?'집계 기준 '+o.at+' · 프로토타입용 예시 데이터':''}</span>${o.st!=='loading'?`<button class="btn ghost sm" data-act="sreload" data-k="${key}">${o.st==='err'?'다시 시도':ic('refresh')+' 새로고침'}</button>`:''}</div>`;
   if(o.st==='loading')return `<section class="panel sec" aria-busy="true" aria-label="${title}">${head}<div class="skel" aria-hidden="true"><i></i><i></i><i></i></div><p class="small muted" role="status">불러오는 중이에요</p></section>`;
   if(o.st==='err')return `<section class="panel sec" aria-label="${title}">${head}<div class="alert err" role="alert">${ic('alert')}<div><b>이 구역을 불러오지 못했어요.</b><br>다른 구역은 그대로 볼 수 있어요. 잠시 후 다시 시도해 주세요.</div></div></section>`;
   const lng=S.st.per==='y'&&key!=='trend'&&key!=='don'&&key!=='mem'?'프로토타입용 예시 데이터는 최근 30일분이라 이 구역은 최근 30일 기준과 같아요.':'';
@@ -2234,7 +2339,8 @@ const perBar=()=>{const s=S.st,allow=UNITS[s.per];
 const GOI='<svg class="go" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l5 5-5 5"/></svg>';
 const perAttr=()=>` data-per="${S.st.per}"`;
 const SKST={w:'RDY',p:'WIP',n:'FIN',c:'CLS'};
-const skRow=v=>`<div class="sk">${['w','p','n','c'].map(k=>`<button class="kpi kl" ${S.role==='admin'?`data-act="tf" data-st="${SKST[k]}"${perAttr()}`:`data-act="sk" data-k="${k}"`} aria-label="${SLB[k]} ${v[k]}건. 해당 문의 목록 보기"><div class="l"><i class="dt" style="background:${SC[k]}"></i>${SLB[k]}</div><div class="v"><b>${v[k]}</b><span>건</span></div>${GOI}</button>`).join('')}</div>`;
+const SLBC={w:'처리 대기 (RDY)',p:'처리 중 (WIP)',n:'해결 확인 대기 (FIN)',c:'해결 완료 (CLS)'};
+const skRow=v=>`<div class="sk">${['w','p','n','c'].map(k=>`<button class="kpi kl" ${S.role==='admin'?`data-act="tf" data-st="${SKST[k]}"${perAttr()}`:`data-act="sk" data-k="${k}"`} aria-label="${SLB[k]} ${v[k]}건. 해당 문의 목록 보기"><div class="l"><i class="dt" style="background:${SC[k]}"></i>${SLBC[k]}</div><div class="v"><b>${v[k]}</b><span>건</span></div>${GOI}</button>`).join('')}</div>`;
 const rateNote=(v)=>{const t=tot(v);return `<p class="small muted secnote">해결 완료 비율은 ${t?Math.round(v.c/t*100)+'% ('+v.c+' / '+t+'건)':'계산할 건수가 없어요'}이에요. 선택 기간에 접수된 티켓 중 배정 전을 뺀 건수 대비 현재 해결 완료(CLS) 건수이고, 처리 성과를 뜻하지 않아요.</p>`;};
 const TREND_NOTE='해결 완료 선은 그날 접수된 티켓 중 지금 해결 완료(CLS)인 건수(접수일 기준)예요. 해결한 날짜 기준이 아니고, AI 해결은 해결 완료와 합산하지 않아요.';
 function trendBlock(list,withAi){
@@ -2312,21 +2418,28 @@ function viewStatsStaff(){
 function viewStatsAdmin(){
   const s=S.st,T=S.tickets,win=T.filter(t=>inW(t,s.per));
   const sel=s.sel[s.mode];
-  const sum=secLoad('sum',s.per,'전체 접수·AI 해결 집계',PERN[s.per]);
+  const sum=secLoad('sum',s.per,'담당자 처리 (티켓)',PERN[s.per]);
+  const ai=secLoad('ai',s.per,'AI 상담 결과',PERN[s.per]);
   const tr=secLoad('trend',s.per+'|'+s.unit,'접수 추이',PERN[s.per]+' · '+(s.unit==='w'?'주별':'일별'));
   const pr=secLoad('pri',s.per,'긴급도 분포',PERN[s.per]);
   const pg=secLoad('prog',s.per+'|'+s.mode,'팀별·분류별 진행도',PERN[s.per]+' · '+(s.mode==='team'?'팀별':'분류별'));
   const memOn=!!sel,mem=memOn?secLoad('mem',s.per+'|'+s.mode+'|'+sel,'구성원별 진행도',(s.mode==='team'?'팀':'분류')+' 선택: '+(s.mode==='team'?sel:CATS[sel].n)):null;
   const aiDays=Math.min(PERD[s.per],S.aiSeed.length);const aiN=aiRows().filter(r=>r.day>=0&&r.day<aiDays||r.day===-1).length;
   const none=win.filter(t=>!t.status).length,v=cntOf(win);
-  const sumB=`<div class="sk" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))"><button class="kpi kl" data-act="tf"${perAttr()} aria-label="담당자 처리 접수 ${win.length}건. 전체 문의 목록 보기"><div class="l">담당자 처리 접수 (티켓)</div><div class="v"><b>${win.length}</b><span>건</span></div>${GOI}</button><button class="kpi kl" data-act="tf" data-mode="ai"${perAttr()} aria-label="AI 해결 ${aiN}건. AI 해결 목록 보기"><div class="l">AI 해결 (티켓 없음)</div><div class="v"><b>${aiN}</b><span>건</span></div>${GOI}</button></div><p class="small muted secnote">두 숫자는 서로 합치지 않아요. AI 해결은 담당자 처리 완료(CLS)와도 합치지 않아요.</p>${skRow(v)}<p class="small muted secnote">위 네 상태는 선택 기간에 접수된 티켓의 현재 상태예요. 배정 전 ${none}건은 따로 세요.</p>${rateNote(v)}`;
+  const unc=Math.max(1,Math.round(aiN*.15)),unr=Math.max(1,Math.round(aiN*.07));
+  /* 통계 카드: act 가 있으면 누르는 카드, 없으면 보기만 하는 카드 */
+  const KP=(l,n,o={})=>{const bd=`<div class="l">${o.dot?`<i class="dt" style="background:${o.dot}"></i>`:''}${l}${o.sug?' <span class="tag gray">제안</span>':''}</div><div class="v"><b>${n}</b><span>건</span></div>${o.hint?`<div class="small muted" style="margin-top:4px">${o.hint}</div>`:''}`;return o.act?`<button class="kpi kl" ${o.act} aria-label="${o.aria||l+' '+n+'건'}">${bd}${GOI}</button>`:`<div class="kpi">${bd}</div>`;};
+  const aiB=`<div class="sk" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">${KP('AI 해결',aiN,{act:'data-act="tf" data-mode="ai"'+perAttr(),aria:'AI 해결 '+aiN+'건. AI 해결 목록 보기',hint:'AI 답변으로 해결된 문의'})}${KP('해결 확인 대기 (AI 답변 후)',unc,{sug:true,hint:'미확인 · 해결·미해결을 아직 고르지 않았어요'})}${KP('미해결 종료',unr,{sug:true,hint:'해결되지 않고 끝난 문의 (접수하지 않고 끝낸 문의 포함)'})}</div><p class="small muted secnote">담당자 처리(티켓)와는 따로 세요. AI 해결과 담당자 처리 완료(CLS)는 합치지 않아요.</p>`;
+  const sumB=`<div class="sk" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">${KP('담당자 처리 접수',win.length,{act:'data-act="tf"'+perAttr(),aria:'담당자 처리 접수 '+win.length+'건. 전체 문의 목록 보기',hint:'선택 기간에 접수된 티켓'})}</div><div class="small" style="font-weight:700;margin:14px 0 2px">접수 후 현재 상태</div><div class="sk" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">${KP('배정 전',none,{act:'data-act="tf" data-st="none"'+perAttr(),sug:true,aria:'배정 전 '+none+'건. 해당 문의 목록 보기',hint:'담당자가 아직 정해지지 않았어요'})}${['w','p','n','c'].map(k=>KP(SLBC[k],v[k],{dot:SC[k],act:'data-act="tf" data-st="'+SKST[k]+'"'+perAttr(),aria:SLB[k]+' '+v[k]+'건. 해당 문의 목록 보기',hint:k==='n'?'담당자 처리 후':''})).join('')}</div>${rateNote(v)}`;
+  const secN=S.sec.filter(e=>e.st==='신규').length,secC=S.sec.filter(e=>e.st==='확인 중').length;
+  const secBand=`<p class="small muted secnote" style="margin:0">삭제된 일반 이탈 문의와 숨긴 보안 문의는 이 통계에 넣지 않아요. 보안 건은 보안·감사 알림에서 확인해요.</p><section class="wband wlink sec-band" aria-label="보안·감사 알림"><div><b><i class="wd" aria-hidden="true"></i>보안·감사 알림 신규 ${secN}건 · 확인 중 ${secC}건</b> <span class="tag gray">제안</span><div class="small wsub" style="margin-top:2px">통계에는 넣지 않은 보안 이벤트예요. 눌러서 확인해요.</div></div><span class="wr"><svg class="wch" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l5 5-5 5"/></svg></span><button type="button" class="wover" data-act="go" data-v="sec" aria-label="보안·감사 알림 신규 ${secN}건, 확인 중 ${secC}건. 보안·감사 알림 화면으로 이동"></button></section>`;
   const nestMem=()=>{
     if(!mem)return '';
     const lb=s.mode==='team'?sel:CATS[sel].n;const f=s.mode==='team'?t=>t.group===sel:t=>t.cat===sel;
     if(mem.st==='loading')return `<div class="nest" aria-busy="true"><div class="skel" aria-hidden="true"><i></i><i></i></div><p class="small muted" role="status">구성원별 진행도를 불러오는 중이에요</p></div>`;
     if(mem.st==='err')return `<div class="nest"><div class="alert err" role="alert">${ic('alert')}<div><b>구성원별 진행도를 불러오지 못했어요.</b></div></div><button class="btn ghost sm" data-act="sreload" data-k="mem">다시 시도</button></div>`;
     const names=s.mode==='team'?STAFF.filter(x=>x.group===sel).map(x=>x.name):[...new Set(T.filter(t=>t.cat===sel&&t.assignee).map(t=>t.assignee))];
-    return `<div class="nest" data-sig="mem|${mem.dep}|${mem.id}"><div class="nh"><b>${ESC(lb)} · 구성원별 진행도</b><span class="small muted">집계 기준 ${mem.at} · 예시 데이터</span><button class="btn ghost sm" data-act="sreload" data-k="mem">다시 불러오기</button></div>${memRows2(names,win.filter(f),null)}<div class="hint" style="margin-top:6px">이름을 누르면 아래에 개인 현황(도넛)을 불러와요. 업무량 확인용이며 평가 순위가 아니에요.</div></div>`;
+    return `<div class="nest" data-sig="mem|${mem.dep}|${mem.id}"><div class="nh"><b>${ESC(lb)} · 구성원별 진행도</b><span class="small muted">집계 기준 ${mem.at} · 예시 데이터</span><button class="btn ghost sm" data-act="sreload" data-k="mem">${ic('refresh')} 새로고침</button></div>${memRows2(names,win.filter(f),null)}<div class="hint" style="margin-top:6px">이름을 누르면 아래에 개인 현황(도넛)을 불러와요. 업무량 확인용이며 평가 순위가 아니에요.</div></div>`;
   };
   let items,sub;
   if(s.mode==='team')items=GROUPS.map(g=>({k:g,label:g,sub:STAFF.filter(x=>x.group===g).length+'명',v:cntOf(win.filter(t=>t.group===g))}));
@@ -2334,7 +2447,9 @@ function viewStatsAdmin(){
   const rmx=Math.max(1,...items.map(i=>tot(i.v)));
   const progB=`<div class="row" style="justify-content:space-between;margin:8px 0"><div class="seg" role="group" aria-label="진행도 기준"><button class="${s.mode==='team'?'on':''}" aria-pressed="${s.mode==='team'}" data-act="smode" data-m="team">팀별</button><button class="${s.mode==='cat'?'on':''}" aria-pressed="${s.mode==='cat'}" data-act="smode" data-m="cat">분류별</button></div></div>${legend()}<div class="srows">${items.map(i=>srow(i.label,i.sub,i.v,rmx,{attrs:`data-act="ssel" data-k="${i.k}" aria-pressed="${i.k===sel}"`,sel:i.k===sel})+(i.k===sel?nestMem():'')).join('')}</div><div class="hint" style="margin-top:8px">${s.mode==='team'?'팀':'분류'}를 누르면 그 아래에 구성원별 진행도를 불러와요.</div>`;
   return `<main class="main">${topbar('통계','티켓과 AI 해결을 구분해서 보여줘요')}<div class="scroll"><div class="page">${phead('STATISTICS','통계','기간을 고르고 추이·분포·진행도를 살펴봐요. 지금 확인할 일은 대시보드에서 봐요.')}${perBar()}
-  ${secBox('sum','전체 접수·AI 해결 집계',sum,sum.st==='ok'?sumB:'')}
+  ${secBox('ai','AI 상담 결과',ai,ai.st==='ok'?aiB:'','티켓이 만들어지지 않은 문의 · 문의를 시작한 날 기준이에요.')}
+  ${secBox('sum','담당자 처리 (티켓)',sum,sum.st==='ok'?sumB:'','티켓이 만들어진 접수 · 접수한 날 기준이에요.')}
+  ${secBand}
   ${secBox('trend','접수 추이',tr,tr.st==='ok'?trendBlock(win,true):'')}
   ${secBox('prog','팀별·분류별 진행도',pg,pg.st==='ok'?progB:'','선택 기간에 접수된 티켓의 현재 상태 기준이에요. 배정 전 문의는 막대에 넣지 않았어요.')}
   ${secBox('pri','긴급도 분포 (P1~P4)',pr,pr.st==='ok'?priBlock(win,true):'','선택 기간에 접수된 티켓 전체 기준이에요(배정 전 포함). 줄을 누르면 해당 긴급도 문의 목록으로 가요.')}</div></div></main>`;
@@ -2342,7 +2457,6 @@ function viewStatsAdmin(){
 const trow=(t,who)=>`<button class="trow" data-act="detail" data-id="${t.receipt}"><span class="mono small">${t.receipt}</span><span class="tt2"><b>${ESC(t.title)}</b>${t.newReply?' <span class="newd" role="img" aria-label="새 답변"></span>':''}<small>${ESC(who)}</small></span><span>${pbadge(t.p)}</span><span>${tbadge(t.status)}</span></button>`;
 const statsLink=txt=>`<div class="panel"><div class="row" style="justify-content:space-between;gap:12px"><div><b>추이·분포·진행도는 통계에서 확인해요</b><div class="small muted" style="margin-top:2px">${txt}</div></div><button class="btn sec sm" data-act="go" data-v="stats">통계 보기</button></div></div>`;
 /* ---- 담당자 내 대시보드 (T02 변경안) ---- */
-const SLA_H={P1:4,P2:24,P3:48,P4:120};
 const elH=t=>(t.day||0)*24+(t.hours||0);
 const fmtH=h=>{if(h<=0)return '방금';const d=Math.floor(h/24),r=h%24;return d?(d+'일'+(r?' '+r+'시간':'')):r+'시간';};
 const lastAct=t=>{const h=t.hist&&t.hist[0];if(!h)return t.status==='WIP'?'처리 중':t.status==='RDY'?'배정됨':'-';
@@ -2351,30 +2465,28 @@ const lastAct=t=>{const h=t.hist&&t.hist[0];if(!h)return t.status==='WIP'?'처�
   return `${ESC(h.t)} ${mine?'내가 ':''}${ESC(txt)}`;};
 S.dsync=S.dsync||nowHM();S.dq=S.dq||'';
 function dRow(t){
-  const h=elH(t),open=t.status==='RDY'||t.status==='WIP',over=h-SLA_H[t.p];
-  const due=!open?'<small class="muted">-</small>':over>0?`<small class="od">기한 ${fmtH(over)} 초과 <span class="tag ex">예시</span></small>`:`<small>기한 ${fmtH(-over)} 남음 <span class="tag ex">예시</span></small>`;
+  const h=elH(t);
   const cat=CATS[t.cat]?CATS[t.cat].n:'미분류';
-  return `<button class="dtr" data-act="detail" data-id="${t.receipt}"><span class="c-p">${pbadge(t.p)}</span><span class="c-t"><b>${ESC(t.title)}</b>${t.newReply?' <span class="newd" role="img" aria-label="새 답변"></span>':''}<small>${ESC(cat)} · ${t.receipt}${t.id?' · '+t.id:''} · ${ESC(t.reqName)}</small></span><span class="c-s">${tbadge(t.status)}</span><span class="c-e"><b>${fmtH(h)}</b>${due}</span><span class="c-a small muted">${lastAct(t)}</span></button>`;
+  return `<button class="dtr" data-act="detail" data-id="${t.receipt}"><span class="c-p">${pbadge(t.p)}</span><span class="c-t"><b>${ESC(t.title)}</b>${t.newReply?' <span class="newd" role="img" aria-label="새 답변"></span>':''}<small>${ESC(cat)} · ${t.receipt}${t.id?' · '+t.id:''} · ${ESC(t.reqName)}</small></span><span class="c-s">${tbadge(t.status)}</span><span class="c-e"><b>${fmtH(h)}</b></span><span class="c-a small muted">${lastAct(t)}</span></button>`;
 }
-const dHead='<div class="dth" aria-hidden="true"><span>긴급도</span><span>문의 · 대상 · 접수번호 · 문의자</span><span>상태</span><span>접수 후 경과 · 기한</span><span>최근 활동</span></div>';
+const dHead='<div class="dth" aria-hidden="true"><span>긴급도</span><span>문의 · 대상 · 접수번호 · 문의자</span><span>상태</span><span>접수 후 경과</span><span>최근 활동</span></div>';
 function dBody(){
   const acc=me(),mine=S.tickets.filter(t=>t.assignee===acc.name),q=(S.dq||'').trim().toLowerCase();
   if(q){
     const hit=mine.filter(t=>[t.id,t.receipt,t.reqName,t.title].some(v=>String(v||'').toLowerCase().includes(q))).sort((a,b)=>elH(a)-elH(b));
-    return `<section class="panel" aria-label="검색 결과" aria-live="polite"><div class="row sh"><h3>검색 결과 <span class="small muted" style="font-weight:400">${hit.length}건${hit.length>10?' · 최근 접수 10건만 보여요':''}</span></h3><button class="btn ghost sm" data-act="dqclr">검색 지우기</button></div>${hit.length?`<div class="dtb">${dHead}${hit.slice(0,10).map(dRow).join('')}</div>`:'<div class="empty">조건에 맞는 내 담당 문의가 없어요.</div>'}</section>`;
+    return `<section class="panel" aria-label="검색 결과" aria-live="polite" style="padding:22px 24px"><div class="sech"><div><h3 class="sht">검색 결과</h3><p class="shs">${hit.length}건${hit.length>10?' · 최근 접수 10건만 보여요':''}</p></div><button class="btn ghost sm" data-act="dqclr">검색 지우기</button></div>${hit.length?`<div class="dtb">${dHead}${hit.slice(0,10).map(dRow).join('')}</div>`:'<div class="empty">조건에 맞는 내 담당 문의가 없어요.</div>'}</section>`;
   }
   const c=cntOf(mine);
   const oldest=st=>{const l=mine.filter(t=>t.status===st);return l.length?'가장 오래된 건 '+fmtH(Math.max(...l.map(elH))):'해당하는 문의가 없어요';};
   const tile=(k,lb,n,f,sub,hint)=>`<button class="sbtn" data-act="sq" data-f="${f}" data-sub="${sub}" aria-label="${lb} ${n}건. ${hint}"><span class="l"><i class="dt" style="background:${SC[k]}"></i>${lb}</span><span class="v"><b>${n}</b><small>건</small></span><span class="small muted">${hint}</span></button>`;
-  const wait=mine.filter(needReply),wn=wait.length,tw=wn+c.n,wl=wait.concat(mine.filter(t=>t.status==='FIN'));
-  const wOld=wl.length?Math.max(...wl.map(elH)):0;
+  const jn=mine.filter(t=>t.newReply).length;
   const todo=mine.filter(t=>t.status==='RDY'||t.status==='WIP').sort((a,b)=>a.p.localeCompare(b.p)||(b.newReply?1:0)-(a.newReply?1:0)||elH(b)-elH(a));
   const grp=(STAFF.find(s=>s.name===acc.name)||{group:acc.dept}).group,gm=STAFF.filter(s=>s.group===grp),gt=S.tickets.filter(t=>t.group===grp);
   const off=gm.filter(s=>!s.avail).length;
   return `<div class="dgrid c4">${tile('w','처리 대기 (RDY)',c.w,'open','RDY',oldest('RDY'))}${tile('p','처리 중 (WIP)',c.p,'open','WIP',oldest('WIP'))}${tile('n','해결 확인 대기 (FIN)',c.n,'fin','','문의자 확인을 기다려요')}${tile('c','해결 완료 (CLS)',c.c,'cls','','해결 완료된 문의 보기')}</div>
-  <section class="wband" aria-label="답변 대기중"><div><b>답변 대기중 ${tw}건</b> <span class="tag gray">제안</span><div class="small muted" style="margin-top:2px">지라 댓글 답을 기다리는 건 ${wn}건 + 문의자 확인 대기(FIN) ${c.n}건${wOld?' · 가장 오래 기다린 건 '+fmtH(wOld):''}</div></div><span class="small muted wnote">Jira 댓글 알림을 ITssue에서 확인해요 · 현재 시연은 모의 데이터</span></section>
-  <section class="panel" aria-label="먼저 볼 문의"><div class="row sh"><h3>먼저 볼 문의 <span class="small muted" style="font-weight:400">긴급도 높은 순 → 새 댓글 먼저 → 오래된 순</span></h3><button class="btn ghost sm" data-act="sq" data-f="open" data-sub="">처리할 문의 ${todo.length}건 모두 보기</button></div>${todo.length?`<div class="dtb">${dHead}${todo.slice(0,3).map(dRow).join('')}</div>`:'<div class="empty">지금 처리할 문의가 없어요.</div>'}</section>
-  <section class="panel tmv" aria-label="우리 팀 현황"><div class="tmt"><b>우리 팀 현황 · ${ESC(grp)}</b> <span class="tag gray">제안</span></div><div class="tms small">근무 ${gm.length-off}명 · 부재 ${off}명 · 대기 ${gt.filter(t=>t.status==='RDY').length}건 · 처리 중 ${gt.filter(t=>t.status==='WIP').length}건 · 담당자 없는 문의 ${gt.filter(t=>!t.assignee).length}건</div><button class="btn ghost sm" data-act="sdteam">팀원별 보기</button></section>`;
+  <section class="wband${jn?' need wlink':''}" aria-label="Jira 알람 확인 필요"><div><b>${jn?'<i class="wd" aria-hidden="true"></i>':''}Jira 알람 확인 필요 ${jn}건</b> <span class="tag gray">제안</span><div class="small wsub" style="margin-top:2px">${jn?'문의자가 Jira 멘션으로 답변한 건이에요. Jira에서 내용을 확인해 주세요.':'확인할 Jira 알람이 없어요'}</div></div><span class="wr"><span class="small wnote">Jira 댓글 알림을 ITssue에서 확인해요 · 현재 시연은 모의 데이터</span>${jn?'<svg class="wch" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l5 5-5 5"/></svg>':''}</span>${jn?`<button type="button" class="wover" data-act="qnew" aria-label="Jira 알람 확인 필요 ${jn}건. 알람 온 문의만 보기"></button>`:''}</section>
+  <section class="panel" aria-label="먼저 볼 문의" style="padding:22px 24px"><div class="sech"><div><h3 class="sht">먼저 볼 문의</h3><p class="shs">긴급도 높은 순 → 새 댓글 먼저 → 오래된 순</p></div><button class="btn ghost sm" data-act="sq" data-f="open" data-sub="">처리할 문의 ${todo.length}건 모두 보기</button></div>${todo.length?`<div class="dtb">${dHead}${todo.slice(0,3).map(dRow).join('')}</div>`:'<div class="empty">지금 처리할 문의가 없어요.</div>'}</section>
+  <section class="panel" aria-label="우리 팀 현황" style="padding:22px 24px"><div class="sech"><div><h3 class="sht">우리 팀 현황 <span class="tag gray">제안</span></h3><p class="shs">${ESC(grp)}</p></div><button class="btn ghost sm" data-act="sdteam">팀원별 보기</button></div><div class="tgrid"><div class="tcell"><span class="tl">근무</span><span class="tv"><b>${gm.length-off}</b><small>명</small></span><span class="ts">전체 ${gm.length}명 · 부재 ${off}명</span></div><div class="tcell"><span class="tl">처리 대기 (RDY)</span><span class="tv"><b>${gt.filter(t=>t.status==='RDY').length}</b><small>건</small></span></div><div class="tcell"><span class="tl">처리 중 (WIP)</span><span class="tv"><b>${gt.filter(t=>t.status==='WIP').length}</b><small>건</small></span></div><div class="tcell${gt.some(t=>!t.assignee)?' warn':''}"><span class="tl">배정 전</span><span class="tv"><b>${gt.filter(t=>!t.assignee).length}</b><small>건</small></span>${gt.some(t=>!t.assignee)?'<span class="ts">담당자가 아직 정해지지 않았어요</span>':''}</div></div></section>`;
 }
 function viewStaffDash(){
   const acc=me();
@@ -2389,16 +2501,16 @@ function viewDash(){
   const un=T.filter(t=>(t.p==='P1'||t.p==='P2')&&t.status!=='CLS').sort((a,b)=>a.p.localeCompare(b.p)||b.day-a.day);
   const p1=un.filter(t=>t.p==='P1').length,p2=un.length-p1;
   const tile=(k,lb,n,st)=>`<button class="sbtn" data-act="tf" data-st="${st}" aria-label="${lb} ${n}건. 전체 문의에서 보기"><span class="l"><i class="dt" style="background:${SC[k]}"></i>${lb}</span><span class="v"><b>${n}</b><small>건</small></span><span class="small muted">전체 문의에서 보기</span></button>`;
-  const hb=!ex?'':`<section class="hband" aria-label="연동·배정 확인 필요"><h2><span class="pulse"></span>연동·배정 확인이 필요한 문의가 <em>${ex}</em>건 있어요</h2>${exs.slice(0,3).map(t=>{const i=S.inqs.find(x=>x.id===t.inq);return `<div class="hq"><b class="mono">${ESC(t.id||t.receipt)}</b><span>${ESC(i?i.title:t.title)} <small>· ${why(t)}</small></span><button class="btn sm" data-act="go" data-v="exc">연동·배정 확인</button></div>`;}).join('')}${ex>3?`<div class="small" style="margin-top:8px;color:#E4DCF7">나머지 ${ex-3}건은 연동·배정 확인 화면에서 볼 수 있어요.</div>`:''}</section>`;
-  return `<main class="main">${topbar('운영 현황','지금 확인하고 처리할 일을 모았어요')}<div class="scroll"><div class="page">${phead('OPERATIONS','운영 현황을 한눈에 확인해요','지금 상태와 먼저 볼 문의만 모았어요. 추이와 분포는 통계에서 확인해요.')}${hb}
-  <div class="hpipe" role="group" aria-label="처리 현황">${[['처리 대기',c.w,'data-act="tf" data-st="RDY"','전체 문의에서 처리 대기 보기',''],['처리 중',c.p,'data-act="tf" data-st="WIP"','전체 문의에서 처리 중 보기',''],['해결 확인 대기',c.n,'data-act="tf" data-st="FIN"','전체 문의에서 해결 확인 대기 보기',''],['연동·배정 확인',ex,'data-act="go" data-v="exc"','연동·배정 확인 화면으로 가기',ex?' al':' z']].map(k=>`<button class="${k[4].trim()}" ${k[2]} aria-label="${k[0]} ${k[1]}건. ${k[3]}"><span>${k[0]}</span><b><i class="n">${k[1]}</i><small>건</small></b></button>`).join('')}</div>
+  const hb=!ex?'':`<section class="hband" aria-label="연동·배정 확인 필요"><h2><span class="pulse"></span>연동·배정 확인이 필요한 문의가 <em>${ex}</em>건 있어요</h2>${exs.slice(0,3).map(t=>{const i=S.inqs.find(x=>x.id===t.inq);return `<div class="hq"><b class="mono">${ESC(t.id||t.receipt)}</b><span>${ESC(i?i.title:t.title)} <small>· ${why(t)}</small></span><button class="btn sm" data-act="go" data-v="exc">운영 현황</button></div>`;}).join('')}${ex>3?`<div class="small" style="margin-top:8px;color:#E4DCF7">나머지 ${ex-3}건은 운영 현황에서 볼 수 있어요.</div>`:''}</section>`;
+  return `<main class="main">${topbar('대시보드','처리 현황과 먼저 볼 문의를 모았어요')}<div class="scroll"><div class="page">${phead('DASHBOARD','대시보드','처리 현황과 먼저 볼 문의만 모았어요. 지금 확인할 일은 운영 현황에서, 추이와 분포는 통계에서 확인해요.')}${hb}
+  <div class="hpipe" role="group" aria-label="처리 현황">${[['처리 대기 (RDY)',c.w,'data-act="tf" data-st="RDY"','전체 문의에서 처리 대기 보기',''],['처리 중 (WIP)',c.p,'data-act="tf" data-st="WIP"','전체 문의에서 처리 중 보기',''],['해결 확인 대기 (FIN)',c.n,'data-act="tf" data-st="FIN"','전체 문의에서 해결 확인 대기 보기',''],['연동·배정 확인',ex,'data-act="go" data-v="exc"','운영 현황 화면으로 가기',ex?' al':' z']].map(k=>`<button class="${k[4].trim()}" ${k[2]} aria-label="${k[0]} ${k[1]}건. ${k[3]}"><span>${k[0]}</span><b><i class="n">${k[1]}</i><small>건</small></b></button>`).join('')}</div>
   <section class="panel urg" aria-label="긴급·높음 미해결"><div class="uh"><div><h3>긴급·높음 미해결</h3><p class="small muted">P1·P2 중 해결 완료(CLS)가 아닌 문의</p></div><button class="btn ghost sm" data-act="tf" data-pri="P12" data-unres="1">전체 문의에서 보기</button></div><div class="ustat"><div class="un"><b>${un.length}</b><span>건</span></div><i class="vs" aria-hidden="true"></i><div class="uc">${pbadge('P1')}<b>${p1}</b><span>건</span></div><div class="uc">${pbadge('P2')}<b>${p2}</b><span>건</span></div></div>${un.length?`<div class="trows">${un.slice(0,3).map(t=>trow(t,(t.assignee||'배정 전')+' · '+(t.day===0?'오늘 접수':t.day+'일 전 접수'))).join('')}</div><p class="small muted" style="margin-top:10px">긴급 → 높음 순, 접수가 오래된 순으로 3건만 보여요.</p>`:'<div class="empty">미해결 긴급·높음 문의가 없어요.</div>'}</section>
   ${statsLink('접수 추이, 팀별·분류별 진행도, 구성원별 현황, 긴급도 분포를 기간별로 볼 수 있어요.')}</div></div></main>`;
 }
 const _vss=viewStatsStaff,_vsa=viewStatsAdmin,_vd2=viewDash,_vsd2=viewStaffDash;
 viewStatsStaff=()=>'<div class="stx">'+_vss()+'</div>';viewStatsAdmin=()=>'<div class="stx">'+_vsa()+'</div>';viewDash=()=>'<div class="stx">'+_vd2()+'</div>';viewStaffDash=()=>'<div class="stx">'+_vsd2()+'</div>';
 Object.assign(A,{
-  sq(e,d){S.opsPri='';S.opsPer='';S.opsFilter=d.f;S.opsSub=d.sub||'';S.view={n:'queue'};S.detail=null;S.navOpen=false;render();},
+  sq(e,d){S.opsPri='';S.opsPer='';S.opsNew=false;S.opsFilter=d.f;S.opsSub=d.sub||'';S.view={n:'queue'};S.detail=null;S.navOpen=false;render();},
   dsync(e,d){S.dsync=nowHM();toast('Jira와 동기화했어요. (프로토타입용 시연)');render();},
   dqclr(e,d){S.dq='';render();},
   sdteam(e,d){S.st.scope='team';S.st.member=null;S.load={};S.view={n:'stats'};S.detail=null;S.navOpen=false;render();},
@@ -2409,10 +2521,11 @@ Object.assign(A,{
   smode(e,d){S.st.mode=d.m;S.st.member=null;render();},
   ssel(e,d){S.st.sel[S.st.mode]=S.st.sel[S.st.mode]===d.k?null:d.k;S.st.member=null;render();},
   smem(e,d){S.st.member=S.st.member===d.n?null:d.n;render();},
-  sk(e,d){const m={w:['open','RDY'],p:['open','WIP'],n:['fin',''],c:['cls','']}[d.k];S.opsPri='';S.opsPer=S.st.per;S.opsFilter=m[0];S.opsSub=m[1];S.page.q=1;S.view={n:'queue'};S.detail=null;S.navOpen=false;logq('상태 목록',SLB[d.k]+' · '+PERN[S.st.per]+' 접수 조건으로 목록 조회');render();},
-  spri(e,d){S.detail=null;S.navOpen=false;if(S.role==='admin'){S.page.tk=1;S.page.ai=1;S.tf={pri:d.p};S.tf.per=S.st.per;S.view={n:'tickets'};}else{S.opsPri=d.p;S.opsPer=S.st.per;S.opsFilter='all';S.opsSub='';S.page.q=1;S.view={n:'queue'};}logq('긴급도 목록',d.p+' · '+PERN[S.st.per]+' 접수 조건으로 목록 조회');render();},
-  qclr(e,d){if(d.k==='p')S.opsPri='';else S.opsPer='';if(!S.opsPri&&!S.opsPer&&S.opsFilter==='all')S.opsFilter='open';render();},
-  qpick(e,d){if(d.k==='qpri')S.opsPri=d.v;else S.opsPer=d.v;S.dd=null;S.page.q=1;if(!S.opsPri&&!S.opsPer&&S.opsFilter==='all')S.opsFilter='open';render();},
+  sk(e,d){const m={w:['open','RDY'],p:['open','WIP'],n:['fin',''],c:['cls','']}[d.k];S.opsPri='';S.opsNew=false;S.opsPer=S.st.per;S.opsFilter=m[0];S.opsSub=m[1];S.page.q=1;S.view={n:'queue'};S.detail=null;S.navOpen=false;logq('상태 목록',SLB[d.k]+' · '+PERN[S.st.per]+' 접수 조건으로 목록 조회');render();},
+  spri(e,d){S.detail=null;S.navOpen=false;if(S.role==='admin'){S.page.tk=1;S.page.ai=1;S.tf={pri:d.p};S.tf.per=S.st.per;S.view={n:'tickets'};}else{S.opsPri=d.p;S.opsNew=false;S.opsPer=S.st.per;S.opsFilter='all';S.opsSub='';S.page.q=1;S.view={n:'queue'};}logq('긴급도 목록',d.p+' · '+PERN[S.st.per]+' 접수 조건으로 목록 조회');render();},
+  qnew(e,d){S.opsPri='';S.opsPer='';S.opsNew=true;S.opsFilter='all';S.opsSub='';S.page.q=1;S.view={n:'queue'};S.detail=null;S.navOpen=false;render();},
+  qclr(e,d){if(d.k==='p')S.opsPri='';else if(d.k==='n')S.opsNew=false;else S.opsPer='';if(!S.opsPri&&!S.opsPer&&!S.opsNew&&S.opsFilter==='all')S.opsFilter='open';render();},
+  qpick(e,d){if(d.k==='qpri')S.opsPri=d.v;else S.opsPer=d.v;S.dd=null;S.page.q=1;if(!S.opsPri&&!S.opsPer&&!S.opsNew&&S.opsFilter==='all')S.opsFilter='open';render();},
   ginq(e,d){S.gInq=S.gInq===false;S.gAuto=false;render();},
   sreload(e,d){delete S.load[d.k];render();},
 });
@@ -2500,7 +2613,12 @@ S.sec=secSeed();
  const wp=T.filter(x=>x!==a&&x!==T[8]&&x.status==='WIP');
  if(wp[0]){const c=wp[0];c.trn='NEEDS_ADMIN';c.trnTo='FIN';c.excWhy='처리 중 → 해결 확인 대기 변경이 Jira에 반영됐는지 확인하지 못함';c.excNext='Jira 현재 상태 확인 후 필요하면 다시 반영';c.excOwner=c.group+' 관리자';c.exAt=Date.now()-9*60000;c.hist.unshift({t:'10.16 14:30',who:'ITssue',what:'상태 변경(FIN) Jira 반영 확인 실패 · '+c.group+' 관리자 확인 대상'});}
  if(wp[1]){const c=wp[1];c.trn='PENDING';c.trnTo='FIN';}
- const b=T[8];b.day=0;b.status=null;b.asg='확인 필요';b.assignee=null;b.excWhy='배정 가능한 개인 후보 없음 (그룹 구성원 전원 부재)';b.excNext='담당 그룹을 확인해 담당자를 지정';b.excOwner=b.group+' 관리자';b.exAt=Date.now()-18*60000;b.hist=[{t:'10.16 14:21',who:'ITssue',what:'개인 배정 실패 · '+b.group+' 관리자 확인 대상 (접수·Jira 티켓은 보존)'},{t:'10.16 14:20',who:'ITssue',what:'Jira 티켓 생성 · '+b.id}];})();
+ /* Jira 알람 확인 필요 시연: 김담당 담당 티켓 2건에 문의자가 Jira 멘션으로 답변한 알람 */
+ const al=T.filter(x=>x.assignee==='김담당'&&x.status==='WIP'&&x!==wp[0]&&x!==wp[1]).slice(0,2);
+ al.forEach((c,i)=>{c.newReply=true;c.msgs=[{from:'김담당 담당자',kind:'추가 정보 요청',t:'연결 방식(사내망·재택 Wi-Fi·유선)을 알려 주세요.',time:'어제 17:30',grp:c.group},{from:'문의자',kind:'추가 정보 답변',t:'재택 Wi-Fi에서 발생해요.',time:'오늘 0'+(9+i)+':40',grp:c.group}];c.hist.unshift({t:'오늘 0'+(9+i)+':40',who:c.reqName,what:'추가 정보 답변'});});
+ /* 운영 현황 시연: 오늘 접수된 긴급(P1) 건 2건 */
+ const pu=T.filter(x=>x.cat==='SEC'&&(x.status==='RDY'||x.status==='WIP')&&x.day>0&&!x.trn).slice(0,2);pu.forEach((x,i)=>{x.p='P1';x.day=0;x.hours=2+i;});
+ const b=T[8];b.group='정보보안팀';b.cat='SEC';b.day=0;b.status=null;b.asg='확인 필요';b.assignee=null;b.excWhy='자동배정 중 오류 · 근무·업무량 확인 후 지정 필요';b.excNext='담당 그룹을 확인해 담당자를 지정';b.excOwner=b.group+' 관리자';b.exAt=Date.now()-18*60000;b.hist=[{t:'10.16 14:21',who:'ITssue',what:'개인 배정 실패 · '+b.group+' 관리자 확인 대상 (접수·Jira 티켓은 보존)'},{t:'10.16 14:20',who:'ITssue',what:'Jira 티켓 생성 · '+b.id}];})();
 /* 브라우저 뒤로가기: 화면·상세 전환을 history 에 쌓는다 */
 {let last=null,pop=false;const sig=()=>JSON.stringify({n:S.view.n,id:S.view.id||null,d:S.detail||null});
 const _r2=render;render=function(){const r=_r2.apply(this,arguments);
