@@ -8,6 +8,8 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
+import { useAuth } from '../core/session'
+import { PasswordDialog } from './PasswordDialog'
 import { Sidebar } from './Sidebar'
 import { ShellContext } from './shellContext'
 
@@ -16,10 +18,15 @@ export function AppShell() {
   const [openPath, setOpenPath] = useState<string | null>(null)
   const { pathname } = useLocation()
   const navOpen = openPath === pathname
+  const { user } = useAuth()
+  // "내 프로필" 창. 임시 비밀번호 상태에서는 사용자가 열지 않아도 닫을 수 없는 창이 먼저 뜬다.
+  const [profileOpen, setProfileOpen] = useState(false)
+  const forced = !!user?.passwordChangeRequired
 
   const toggleNav = useCallback(() => setOpenPath((cur) => (cur === pathname ? null : pathname)), [pathname])
   const closeNav = useCallback(() => setOpenPath(null), [])
-  const value = useMemo(() => ({ toggleNav }), [toggleNav])
+  const openProfile = useCallback(() => setProfileOpen(true), [])
+  const value = useMemo(() => ({ toggleNav, openProfile }), [toggleNav, openProfile])
 
   // 사이드바가 열리면 첫 메뉴로 초점을 옮기고, Esc 로 닫으면 메뉴 버튼으로 돌려 보낸다
   useEffect(() => {
@@ -41,6 +48,7 @@ export function AppShell() {
         <div className="scrim" onClick={closeNav} />
         <Sidebar onNavigate={closeNav} />
         <Outlet />
+        {(forced || profileOpen) && <PasswordDialog forced={forced} onClose={() => setProfileOpen(false)} />}
       </div>
     </ShellContext.Provider>
   )

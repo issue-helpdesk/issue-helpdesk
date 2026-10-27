@@ -11,6 +11,9 @@ import type { User } from '../types'
 /** 모든 가상 계정의 공통 비밀번호 */
 export const MOCK_PASSWORD = 'demo'
 
+/** 임시 비밀번호 상태를 시연하는 계정(EMP-1010)의 임시 비밀번호 */
+export const MOCK_TEMP_PASSWORD = 'Tmp#Demo1234'
+
 /** 연속 로그인 실패가 이 횟수에 이르면 계정이 잠긴다. */
 export const MAX_FAILS = 5
 
@@ -26,10 +29,16 @@ const SEED: User[] = [
   { id: 5, employeeNo: 'EMP-1004', name: '이지은', departmentId: 41, departmentName: '디자인팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
   { id: 6, employeeNo: 'EMP-1488', name: '박과장', departmentId: 32, departmentName: '영업2팀', serviceRole: 'EMPLOYEE', accountStatus: 'INACTIVE' },
   { id: 7, employeeNo: 'EMP-1530', name: '정과장', departmentId: 31, departmentName: '영업1팀', serviceRole: 'EMPLOYEE', accountStatus: 'LOCKED' },
+  { id: 8, employeeNo: 'EMP-1010', name: '한신입', departmentId: 31, departmentName: '영업1팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
 ]
 
 /** 현재 가상 계정 목록. 로그인 실패·잠금에 따라 status 가 바뀐다. */
 export const MOCK_ACCOUNTS: User[] = []
+
+/** 사번별 현재 비밀번호. 없으면 공통 비밀번호(MOCK_PASSWORD)이다. */
+const passwords = new Map<string, string>()
+/** 임시 비밀번호 상태인 사번 (새 비밀번호를 정하기 전까지 다른 기능을 쓸 수 없다) */
+const tempPw = new Set<string>()
 
 /** 사번별 연속 실패 횟수 */
 const fails = new Map<string, number>()
@@ -41,10 +50,31 @@ export function resetMockState() {
   MOCK_ACCOUNTS.splice(0, MOCK_ACCOUNTS.length, ...SEED.map((a) => ({ ...a })))
   fails.clear()
   lockedUntil.clear()
+  passwords.clear()
+  tempPw.clear()
+  passwords.set('EMP-1010', MOCK_TEMP_PASSWORD)
+  tempPw.add('EMP-1010')
   // 시연용으로 처음부터 잠겨 있는 계정은 잠금 시간이 남아 있게 한다
   lockedUntil.set('EMP-1530', Date.now() + LOCK_MINUTES * 60_000)
 }
 resetMockState()
+
+/** 사번의 현재 비밀번호 */
+export const passwordOf = (id: string) => passwords.get(id) ?? MOCK_PASSWORD
+
+/** 임시 비밀번호 상태인지 */
+export const isTempPassword = (id: string) => tempPw.has(id)
+
+/** 비밀번호를 바꾸면 임시 비밀번호 상태도 끝난다. */
+export function setPassword(id: string, pw: string) {
+  passwords.set(id, pw)
+  tempPw.delete(id)
+}
+
+/** 로그인 응답에 담아 줄 사용자: 임시 비밀번호 상태와 비밀번호 변경 후 날수를 붙인 사본 (저장된 계정은 건드리지 않는다) */
+export function sessionUser(acc: User): User {
+  return { ...acc, passwordChangeRequired: tempPw.has(acc.employeeNo), passwordChangedDaysAgo: tempPw.has(acc.employeeNo) ? 0 : 38 }
+}
 
 /** 연속 실패를 한 번 기록하고 누적 횟수를 돌려준다. */
 export function addFail(id: string): number {
@@ -100,6 +130,7 @@ export const MOCK_QUICK_LOGINS: { id: string; label: string }[] = [
   { id: 'EMP-1001', label: '문의자' },
   { id: 'EMP-1107', label: '담당자' },
   { id: 'EMP-0912', label: '관리자' },
+  { id: 'EMP-1010', label: '임시 비밀번호 계정' },
   { id: 'EMP-1488', label: '이용 제한 계정' },
   { id: 'EMP-1530', label: '잠김 계정' },
 ]

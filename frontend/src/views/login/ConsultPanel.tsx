@@ -119,7 +119,7 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
                     {sourceFull(s)}
                   </button>
                 ))}
-                {/* 바로가기 (예: 비밀번호 초기화 창 열기) */}
+                {/* 바로가기 (예: 비밀번호를 잊으셨나요? 안내 창 열기) */}
                 {m.reply.ctas?.map((c) => (
                   <p key={c.action}>
                     <button className="btn sec sm" type="button" onClick={() => c.action === 'forgot' && onForgot?.()}>

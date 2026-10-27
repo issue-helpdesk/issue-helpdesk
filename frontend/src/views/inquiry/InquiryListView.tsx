@@ -53,11 +53,11 @@ function Hl({ text, q }: { text: string; q: string }) {
 }
 
 /** 정렬할 수 있는 열 머리 */
-function SortTh({ col, label, sort, onSort }: { col: SortCol; label: string; sort: { col: SortCol; dir: 'asc' | 'desc' }; onSort: (c: SortCol) => void }) {
+function SortTh({ col, label, tip, sort, onSort }: { col: SortCol; label: string; tip?: string; sort: { col: SortCol; dir: 'asc' | 'desc' }; onSort: (c: SortCol) => void }) {
   const on = sort.col === col
   return (
     <th aria-sort={on ? (sort.dir === 'desc' ? 'descending' : 'ascending') : 'none'}>
-      <button type="button" className={`d2th${on ? (sort.dir === 'desc' ? ' dn' : ' up') : ''}`} onClick={() => onSort(col)}>
+      <button type="button" className={`d2th${on ? (sort.dir === 'desc' ? ' dn' : ' up') : ''}`} title={tip} onClick={() => onSort(col)}>
         {label}
         <i>
           <b />
@@ -224,7 +224,7 @@ export function InquiryListView() {
                         <SortTh col="category" label="분류" sort={sort} onSort={onSort} />
                         <SortTh col="status" label="상태" sort={sort} onSort={onSort} />
                         <th>접수번호</th>
-                        <SortTh col="when" label="최근 활동" sort={sort} onSort={onSort} />
+                        <SortTh col="when" label="최근 메시지" tip="마지막 메시지 등록 시각 기준" sort={sort} onSort={onSort} />
                       </tr>
                     </thead>
                     <tbody>
