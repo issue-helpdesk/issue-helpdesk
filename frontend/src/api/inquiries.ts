@@ -26,12 +26,13 @@ export async function listMyInquiries(employeeNo: string): Promise<ApiResult<Inq
 /* ------------------------------------------------------------------ 문의 내역 (조건 조회) */
 
 /** 문의 내역의 상태 분류. API 의 displayStatus 여러 개를 묶은 것이다. */
-export type ListGroup = 'in_progress' | 'ai_resolved' | 'staff' | 'resolved' | 'unconfirmed_unresolved'
+export type ListGroup = 'in_progress' | 'ai_resolved' | 'staff' | 'awaiting_confirm' | 'resolved' | 'unconfirmed_unresolved'
 
 export const LIST_GROUPS: { key: ListGroup; label: string; statuses: DisplayStatus[] }[] = [
   { key: 'in_progress', label: '진행 중', statuses: ['in_progress'] },
   { key: 'ai_resolved', label: 'AI 해결', statuses: ['ai_resolved'] },
-  { key: 'staff', label: '담당자 처리', statuses: ['received', 'assigned', 'progress', 'awaiting_confirm'] },
+  { key: 'staff', label: '담당자 처리', statuses: ['received', 'assigned', 'progress'] },
+  { key: 'awaiting_confirm', label: '해결 확인 대기', statuses: ['awaiting_confirm'] },
   { key: 'resolved', label: '해결 완료', statuses: ['resolved'] },
   { key: 'unconfirmed_unresolved', label: '미확인·미해결', statuses: ['unconfirmed', 'unresolved'] },
 ]

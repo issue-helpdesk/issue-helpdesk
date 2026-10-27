@@ -4,6 +4,7 @@
  */
 import { URGENCY_LABEL } from '../../api/catalog'
 import type { ChatBlock, ChatMessage, DraftEdit, GuideSource, Inquiry, LegacyCase, ReplyRequest } from '../../api/chatTypes'
+import { Fragment } from 'react'
 import { formatDateTime, sourceLabel } from '../../core/format'
 import { Icon } from '../../ui/Icon'
 import { Pav } from '../../ui/Pav'
@@ -76,18 +77,29 @@ interface Props {
   /** 답변 아바타의 잇슈 모습과, 모습이 바뀐 첫 답변에 붙는 상태 글 */
   pose?: Pose
   poseText?: string
+  /** 이어가기 창을 거치기 전에는 지난 선택 버튼을 잠가 둔다 */
+  replyLock?: boolean
+  /** 이어가기 뒤 대화 맨 아래에 다시 보이는 버튼이 있으면 이 메시지의 버튼은 감춘다 */
+  hideReplies?: boolean
 }
 
-export function MessageItem({ inquiry, message: m, busy, actions, fresh = false, pose = 'base', poseText = '' }: Props) {
+export function MessageItem({ inquiry, message: m, busy, actions, fresh = false, pose = 'base', poseText = '', replyLock = false, hideReplies = false }: Props) {
   if (m.role === 'user') return <div className="msg u">{m.text}</div>
   if (m.role === 'sys') {
-    // 안내 문구는 첫 줄이 제목, 나머지가 설명이다 (민감정보 가림 안내 등)
+    // 안내 문구는 첫 줄이 제목, 나머지가 설명이다 (민감정보 가림 안내, 보안 사고 안내 등). tone 으로 색을 구분한다.
     const [head, ...rest] = (m.text ?? '').split('\n')
     if (!rest.length) return <div className="msg sys">{m.text}</div>
     return (
-      <div className="msg sys note">
+      <div className={`msg sys note${m.tone ? ` ${m.tone}` : ''}`}>
         <b>{head}</b>
-        <span>{rest.join(' ')}</span>
+        <span>
+          {rest.map((line, i) => (
+            <Fragment key={i}>
+              {i > 0 && <br />}
+              {line}
+            </Fragment>
+          ))}
+        </span>
       </div>
     )
   }
@@ -183,14 +195,14 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false,
           </div>
         )}
 
-        {m.replies && (
+        {m.replies && !hideReplies && (
           <div className="replies">
             {m.replies.map((r) => (
               <button
                 key={`${r.action}${r.label}`}
                 type="button"
                 className={`chip${r.primary ? ' on' : ''}`}
-                disabled={m.locked || busy}
+                disabled={m.locked || busy || replyLock}
                 onClick={() => actions.reply({ messageId: m.id, action: r.action, arg: r.arg } satisfies ReplyRequest)}
               >
                 {r.label}

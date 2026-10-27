@@ -1,13 +1,20 @@
 /**
  * 대화 속 잇슈의 모습 (design/ITssue-Prototype.html 의 poseOf·poseLbl 과 같은 규칙).
  * 접수 진행 카드가 나오기 전은 기본, 카드부터는 처리 중, 그 카드의 Ticket 이 해결 완료(CLS)이면 완료다.
+ * AI 해결로 끝난 대화의 마지막 답변("AI 안내로 문제가 해결되었군요!")도 완료 모습이다.
  */
 import type { Inquiry } from '../../api/chatTypes'
 import type { Pose } from '../../ui/poseImages'
 
+const lastAssistantIdx = (inquiry: Inquiry) => {
+  for (let k = inquiry.messages.length - 1; k >= 0; k--) if (inquiry.messages[k].role === 'assistant' && !inquiry.messages[k].typing) return k
+  return -1
+}
+
 /** idx 번째 메시지에 붙는 잇슈의 모습 */
 export function poseOf(inquiry: Inquiry, idx: number): Pose {
   const m = inquiry.messages[idx]
+  if (inquiry.status === 'AI_RESOLVED' && m?.role === 'assistant' && lastAssistantIdx(inquiry) === idx) return 'done'
   if (m?.card === 'ticket') {
     const t = m.ticketSnapshot ?? inquiry.ticket
     return t?.workStatus === 'CLS' ? 'done' : 'handoff'

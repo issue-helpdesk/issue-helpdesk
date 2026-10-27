@@ -12,13 +12,13 @@
  *   POST /inquiries/{id}/draft/cancel     접수하지 않고 종료
  *   POST /inquiries/{id}/resolve          접수 후 "해결"
  *   POST /inquiries/{id}/reject           접수 후 "미해결" (사유 필수)
- *   POST /inquiries/{id}/reopen           종료된 상담 다시 열기
+ *   POST /inquiries/{id}/reopen           끝난 상담 이어가기 (미해결·미접수 종료만, IQ-06)
  * 실제 서버에서는 접수 이후 진행(Jira 생성·배정·처리)이 서버에서 일어나므로, 화면은 GET 을 주기적으로 다시 읽는다.
  */
 import { request, sleep } from '../core/apiClient'
 import { USE_MOCK } from '../core/config'
 import type { DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
-import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, idleWarnInquiry, idleDeleteInquiry, idleBackInquiry, resumeInquiry } from './mock/chatEngine'
+import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, idleWarnInquiry, idleDeleteInquiry, idleBackInquiry, leaveInquiry, resumeInquiry } from './mock/chatEngine'
 import './mock/chatMock'
 import { getRecord, mockConfig, notify, subscribe, type StoreRecord } from './mock/chatStore'
 import { fail, ok, type ApiResult } from './types'
@@ -164,12 +164,17 @@ export function idleDeleteChat(id: number, employeeNo: string): Promise<ApiResul
   return mockAct(id, employeeNo, (rec) => idleDeleteInquiry(rec))
 }
 
-/** 시연: 삭제 전에 돌아온 상태 (이어서 채팅하기 / 새로운 문의하기 선택) */
+/** 시연: 삭제 전에 돌아온 상태 (이어서 대화하기 / 새 문의 시작하기 선택) */
 export function idleBackChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   return mockAct(id, employeeNo, (rec) => idleBackInquiry(rec))
 }
 
-/** "이어서 채팅하기": 같은 대화·같은 단계로 계속한다 */
+/** "새 문의 시작하기": 이전 문의는 그대로 두고 돌아옴 상태만 푼다 (서버에서는 새 문의를 만드는 요청만 보내도 된다) */
+export function leaveChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
+  return mockAct(id, employeeNo, (rec) => leaveInquiry(rec))
+}
+
+/** "이어서 대화하기": 같은 대화·같은 단계로 계속한다 */
 export function resumeChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   return mockAct(id, employeeNo, (rec) => resumeInquiry(rec))
 }

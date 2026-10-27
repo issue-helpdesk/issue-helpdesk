@@ -261,8 +261,14 @@ function lockReplies(inq: Inquiry, keepId?: number) {
   })
 }
 
-/** 긴급 건을 접수 없이 끝낼 때 보여 주는 행동 안내 */
-const URGENT_GUIDE = '긴급 징후가 있었어요. 의심스러운 링크·첨부파일은 더 열지 마시고, 계정 정보는 어디에도 입력하지 마세요. 문제가 계속되면 IT 헬프데스크 내선 1000으로 연락해 주세요.'
+/**
+ * 긴급 징후가 있던 문의를 접수 없이 끝낼 때 종료 안내 아래에 따로 붙이는 보안 안내 (노란 시스템 안내).
+ * 첫 줄이 제목이고 나머지가 설명이다. 보안 사고 의심 상황에 쓰며 일반적인 긴급 장애와는 구분한다.
+ */
+const SECURITY_NOTICE = '보안 사고가 의심되는 경우 즉시 IT 지원 담당자에게 연락해 주세요.\n의심스러운 링크나 첨부파일은 열지 말고, 계정 정보를 입력하지 마세요.\nIT 지원 담당자: 내선 1000'
+
+/** 접수 없이 끝났을 때(담당자 연결 거절·접수 초안 취소) 같은 모양으로 보이는 종료 안내 */
+const noTicketClosed = (): ChatBlock[] => [p('**담당자 연결 없이 상담을 종료했어요.**'), p('티켓은 접수되지 않았으며, 문의 내역에서 다시 상담을 이어갈 수 있어요.')]
 
 const yesNo = (): { replies: ChatReply[] } => ({
   replies: [
@@ -381,18 +387,19 @@ function doAnswer(rec: StoreRecord) {
     }
     internal.guideLabel = `${guide.guide} ${guide.version}`
     if (cat === 'ACS') {
-      // 권한은 AI 가 부여하지 않는다. 신청 절차만 안내한다
-      inquiry.step = 'offer'
+      // 권한은 AI 가 부여하지 않는다. 신청 절차만 안내한다. 안내 + 해결 확인 + 바로 연결이므로 answered 단계로 본다 (docs/09 9.1)
+      inquiry.step = 'answered'
       push(inquiry, {
         role: 'assistant',
         blocks: [
           p('접근권한은 아래 절차로 신청해요.'),
           { type: 'ol', items: guide.steps },
           p('권한을 실제로 부여하거나 바꾸는 일은 담당자와 승인자의 업무라서 AI가 대신할 수 없어요. ITssue 접수가 승인 절차를 대신하지도 않아요.'),
+          p('신청 절차 안내로 해결되었나요?'),
         ],
         sources: [toSource(guide)],
         replies: [
-          { label: '신청 방법을 확인했어요', action: 'resolved', primary: true },
+          { label: '해결', action: 'resolved', primary: true },
           { label: '담당자 연결', action: 'connect-yes' },
         ],
       })
@@ -433,7 +440,7 @@ export function handle(rec: StoreRecord, raw: string, initial: boolean) {
     internal.sens = true
     // 가린 종류별 안내 (비밀정보·비밀번호·고유식별). 이미 가려진 글이면 기본 안내만 보여 준다
     const notices = maskNotices(masked)
-    for (const n of notices.length ? notices : [MASK_NOTICE]) push(inquiry, { role: 'sys', text: n })
+    for (const n of notices.length ? notices : [MASK_NOTICE]) push(inquiry, { role: 'sys', text: n, tone: 'sens' })
   }
 
   if (inquiry.step === 'draft') {
@@ -475,6 +482,8 @@ export function applyReply(rec: StoreRecord, req: ReplyRequest) {
   if (!msg?.replies || msg.locked) return // 이미 응답했거나 지난 단계의 버튼
   lockReplies(inquiry)
   msg.locked = true
+  // 버튼 선택은 유효 활동이다 (API 02 2.2). 열람·이어가기·새 문의 선택은 최근 활동을 바꾸지 않는다.
+  if (req.action !== 'noop') inquiry.updatedAt = nowIso()
   switch (req.action) {
     case 'noop':
       return
@@ -485,15 +494,14 @@ export function applyReply(rec: StoreRecord, req: ReplyRequest) {
       push(inquiry, { role: 'user', text: '해결' })
       inquiry.status = 'AI_RESOLVED'
       inquiry.step = 'closed'
-      push(inquiry, { role: 'assistant', blocks: [p('다행이에요! 이 문의는 **AI 해결**로 기록했어요. 다른 문제가 생기면 새 문의를 시작해 주세요.')] })
+      push(inquiry, { role: 'assistant', blocks: [p('**AI 안내로 문제가 해결되었군요!**'), p('이 문의는 **AI 해결**로 기록했어요. 다른 도움이 필요하면 새 문의를 시작해 주세요.')] })
       return
     case 'unresolved': {
       push(inquiry, { role: 'user', text: '미해결' })
       inquiry.step = 'offer'
-      const group = CATEGORIES[inquiry.categoryCode ?? 'ACC'].groupName
       push(inquiry, {
         role: 'assistant',
-        blocks: [p(`담당자 확인이 필요해 보여요. **${group}**에 연결할까요?`), p('연결하면 지금까지의 문의와 시도한 조치를 정리한 **접수 초안**을 먼저 보여드려요. 초안을 확인하기 전에는 접수되지 않아요.')],
+        blocks: [p('**아직 문제가 해결되지 않았군요.**'), p('담당자 연결을 통해 추가 도움을 받을 수 있어요.')],
         replies: connectReplies(),
       })
       return
@@ -502,7 +510,8 @@ export function applyReply(rec: StoreRecord, req: ReplyRequest) {
       push(inquiry, { role: 'user', text: '미연결 (종료)' })
       inquiry.status = 'CLOSED_UNRESOLVED'
       inquiry.step = 'closed'
-      push(inquiry, { role: 'assistant', blocks: [p('담당자 연결 없이 상담을 종료했어요. 이 문의는 **미해결 종료**로 남고, 해결된 것으로 기록하지 않아요. 문의 내역에서 언제든 다시 열 수 있어요.'), ...(rec.internal.urgent ? [p(URGENT_GUIDE)] : [])] })
+      push(inquiry, { role: 'assistant', blocks: noTicketClosed() })
+      if (rec.internal.urgent) push(inquiry, { role: 'sys', text: SECURITY_NOTICE, tone: 'warn' })
       return
     case 'connect-yes':
       push(inquiry, { role: 'user', text: '담당자 연결' })
@@ -542,6 +551,7 @@ export function saveDraft(rec: StoreRecord, edit: DraftEdit) {
   const { inquiry, internal } = rec
   const d = inquiry.draft
   if (!d || inquiry.draftState !== 'view' || inquiry.step !== 'draft') return
+  inquiry.updatedAt = nowIso() // 초안 저장은 유효 활동이다
   const beforeP = d.urgency
   const beforeCat = d.categoryCode
   const beforeType = d.inquiryTypeCode ?? null
@@ -594,9 +604,10 @@ export function cancelDraft(rec: StoreRecord) {
   inquiry.status = 'CLOSED_UNRESOLVED'
   inquiry.step = 'closed'
   inquiry.draftState = 'cancel'
-  push(inquiry, { role: 'sys', text: '접수하지 않고 종료했어요' })
-  // 긴급 건을 접수 없이 끝내면 행동 안내를 함께 보여 준다 (docs/09 3.4). 보안 신호 기록은 서버가 한다.
-  if (rec.internal.urgent) push(inquiry, { role: 'assistant', blocks: [p(URGENT_GUIDE)] })
+  inquiry.updatedAt = nowIso()
+  push(inquiry, { role: 'assistant', blocks: noTicketClosed() })
+  // 긴급 건을 접수 없이 끝내면 보안 안내를 종료 안내 아래에 따로 붙인다 (docs/09 3.4). 보안 신호 기록은 서버가 한다.
+  if (rec.internal.urgent) push(inquiry, { role: 'sys', text: SECURITY_NOTICE, tone: 'warn' })
 }
 
 /** 초안을 확인했으니 접수한다. 저장에 실패하면 접수 완료로 안내하지 않는다. */
@@ -739,20 +750,21 @@ export function denyResolved(rec: StoreRecord, reason: string) {
 
 /** 접수 이후 문의자가 남긴 추가 메시지: 담당자에게 전달된다 */
 export function sendToStaff(rec: StoreRecord, text: string) {
+  if (rec.inquiry.ticket?.workStatus === 'CLS') return // 종료된 문의다
   push(rec.inquiry, { role: 'user', text: maskSensitive(text).text, kind: '추가 메시지' })
   rec.inquiry.updatedAt = nowIso()
 }
 
 /**
- * 응답 없음 (docs/09 6.4, 2026-10-22 팀 결정). 시연에서는 시간을 기다리지 않고 단계별로 보여 준다.
- * 해결 확인(답변 뒤)은 5시간, 질문·연결 제안·초안은 2시간 뒤 한 번 안내하고, 안내 뒤에 대화를 삭제한다.
- * 접수된 건과 끝난 문의에는 쓰지 않는다. 시간·안내 시점은 서버의 환경값이다.
+ * 응답 없음 (docs/09 6.4, 2026-10-26 정정). 시연에서는 시간을 기다리지 않고 단계별로 보여 준다.
+ * 질문·연결 제안·초안 단계에서 마지막 활동 뒤 2시간이면 안내하고, 안내 뒤 10분 동안 활동이 없으면 대화를 삭제한다.
+ * AI 답변 뒤 해결·미해결 선택을 기다리는 문의(미확인)와 접수된 건(FIN 포함), 끝난 문의에는 쓰지 않는다.
+ * 시간·안내 시점은 서버의 환경값이다.
  */
-function idleKind(inquiry: Inquiry): IdleKind | null {
-  // 접수된 건은 담당자 처리 완료 뒤 해결 확인(FIN) 단계에서만 쓴다 (docs/09 6.4 ①). 그 밖의 접수 건과 끝난 문의는 대상이 아니다.
-  if (inquiry.ticket) return inquiry.ticket.workStatus === 'FIN' ? 'h5' : null
-  if (inquiry.step === 'closed' || inquiry.step === 'submitted') return null
-  return inquiry.step === 'answered' ? 'h5' : 'h2'
+export function idleKind(inquiry: Inquiry): IdleKind | null {
+  if (inquiry.ticket) return null
+  if (inquiry.step === 'closed' || inquiry.step === 'submitted' || inquiry.step === 'answered') return null
+  return 'h2'
 }
 
 /** 삭제 안내를 한 번 보낸다. 입력창 위 띠로도 보여 준다. (실제로는 서버가 보내는 시스템 메시지) */
@@ -767,8 +779,7 @@ export function idleWarnInquiry(rec: StoreRecord) {
 /** 안내 뒤 대화를 삭제한다. 보안·로그 대상(긴급·민감정보 입력)은 지우지 않고 문의자 화면에서만 숨긴다. */
 export function idleDeleteInquiry(rec: StoreRecord) {
   const { inquiry, internal } = rec
-  // 접수된 건은 삭제하지 않는다 (PRD 4.5). 해결 확인 단계에서는 안내와 돌아옴 팝업만 보여 준다.
-  if (inquiry.ticket || !idleKind(inquiry)) return
+  if (!idleKind(inquiry)) return
   if (internal.urgent || internal.sens) internal.hidden = true
   else removeRecord(inquiry.id)
 }
@@ -780,26 +791,30 @@ export function idleBackInquiry(rec: StoreRecord) {
   inquiry.paused = true
 }
 
-/** "이어서 채팅하기": 같은 대화·같은 단계로 계속한다 */
+/** "새 문의 시작하기": 이전 문의는 지우지 않고 돌아옴 상태만 푼다. 이전 문의는 기존 응답 없음 규칙을 그대로 따른다 (docs/09 T29). */
+export function leaveInquiry(rec: StoreRecord) {
+  rec.inquiry.paused = false
+}
+
+/** "이어서 대화하기": 같은 대화·같은 단계로 계속한다. 별도 안내 메시지는 만들지 않는다. */
 export function resumeInquiry(rec: StoreRecord) {
   const { inquiry } = rec
   if (!inquiry.paused) return
   inquiry.paused = false
   inquiry.idleWarned = null
-  push(inquiry, { role: 'sys', text: '같은 대화에서 이어서 진행해요.' })
 }
 
-/** 종료된 상담을 다시 연다 */
+/**
+ * 끝난 문의를 이어간다 (API 02 IQ-06, 미해결·미접수 종료만). 새 안내 메시지를 만들지 않고 같은 대화의 담당자 연결 제안부터 다시 시작한다.
+ * 이어가기만으로는 최근 활동이 바뀌지 않는다. AI 해결 문의는 이어갈 수 없다.
+ */
 export function reopenInquiry(rec: StoreRecord) {
   const { inquiry } = rec
-  if (inquiry.step !== 'closed') return
+  if (inquiry.step !== 'closed' || inquiry.status !== 'CLOSED_UNRESOLVED') return
   inquiry.status = 'IN_PROGRESS'
   inquiry.step = 'offer'
-  inquiry.draftState = 'view'
-  lockReplies(inquiry)
-  push(inquiry, {
-    role: 'assistant',
-    blocks: [p('상담을 다시 열었어요. 해결되지 않았다면 담당자 연결을 도와드릴게요.')],
-    replies: connectReplies(),
-  })
+  // 지난 연결 제안의 버튼을 다시 연다. 없으면(시연 데이터 등) 연결 제안을 하나 만든다.
+  const offer = [...inquiry.messages].reverse().find((m) => m.replies?.some((r) => r.action === 'connect-yes') && !m.replies.some((r) => r.action === 'resolved'))
+  if (offer) offer.locked = false
+  else push(inquiry, { role: 'assistant', blocks: [p('**아직 문제가 해결되지 않았군요.**'), p('담당자 연결을 통해 추가 도움을 받을 수 있어요.')], replies: connectReplies() })
 }
