@@ -142,6 +142,7 @@ h1,h2,h3,h4,p{margin:0}
 .msg.a .body p+p{margin-top:8px}
 .msg.a ol{margin:8px 0 0;padding-left:20px}.msg.a li{margin:2px 0}
 .msg.sys:has(b){border-radius:14px;text-align:left;max-width:min(560px,100%);padding:10px 16px;font-size:13px;line-height:20px}.msg.sys b{color:var(--ink2)}
+.msg.sys.sens{background:var(--s-need-bg);color:var(--s-need-fg)}.msg.sys.sens b{color:inherit}
 .msg.sys.warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.msg.sys.warn b{color:inherit}
 .msg.sys{align-self:center;font-size:12.5px;color:var(--mute);background:var(--shell);padding:4px 12px;border-radius:999px;text-align:center}
 .replies{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
@@ -1239,7 +1240,7 @@ function viewChat(){
 function renderMsg(i,m,idx){
   if(m.r==='u')return `<div class="msg u">${ESC(m.t)}</div>`;
   if(m.r==='t')return m.from==='문의자'?`<div class="msg u">${ESC(m.t)}</div>`:`<div class="msg a staff"><span class="sav" aria-hidden="true">${ESC(m.from.slice(0,1))}</span><div class="body"><div class="sh"><b>${ESC(m.from.replace(' 담당자',''))}</b><span class="tag stf">담당자${m.grp?' · '+ESC(m.grp):''}</span><span class="small muted">${ESC(m.kind)} · ${ESC(m.time)}</span></div><div class="sb">${ESC(m.t)}</div></div></div>`;
-  if(m.r==='sys')return `<div class="msg sys${m.warn?' warn':''}">${m.html}</div>`;
+  if(m.r==='sys')return `<div class="msg sys${m.warn?' warn':''}${m.tone?' '+m.tone:''}">${m.html}</div>`;
   if(m.typing)return `<div class="msg a">${pav('base')}<div class="body"><span class="dots"><i></i><i></i><i></i></span> <span class="muted small">${ESC(m.label||'처리 중')}</span></div></div>`;
   let h=m.html||'';
   if(m.legacy)h+=`<div><button class="src" data-act="legacy" data-no="${ESC(m.legacy.no)}" data-title="${ESC(m.legacy.title)}" aria-label="과거 처리 사례 참고 ${ESC(m.legacy.no)}">${ic('file','',16)}과거 처리 사례 참고</button></div>`;
@@ -1461,7 +1462,7 @@ const MASK_NOTICES=m=>{const o=[];if(m.secret)o.push('<b>민감정보가 감지�
 function handle(i,text,initial){
   idleResume(i);const sm=maskSens(text);text=sm.t;if(sm.hit)i.sens=true;
   mk(i,{r:'u',t:text});i.when='방금';
-  if(sm.hit||/●{3,}/.test(text)){addSec('민감정보 입력','높음',S.user,'대화에 비밀정보·고유식별 정보로 보이는 값 입력 (●●●●●●)',text,'민감정보 패턴 감지');(MASK_NOTICES(sm).length?MASK_NOTICES(sm):MASK_NOTICES({secret:true})).forEach(n=>mk(i,{r:'sys',html:n}));}
+  if(sm.hit||/●{3,}/.test(text)){addSec('민감정보 입력','높음',S.user,'대화에 비밀정보·고유식별 정보로 보이는 값 입력 (●●●●●●)',text,'민감정보 패턴 감지');(MASK_NOTICES(sm).length?MASK_NOTICES(sm):MASK_NOTICES({secret:true})).forEach(n=>mk(i,{r:'sys',tone:'sens',html:n}));}
   if(i.step==='draft'){mk(i,{r:'a',html:'<p>초안의 내용을 바꾸려면 아래 초안에서 <b>수정</b>을 눌러 고쳐 주세요. 변경 내용은 접수 전에 다시 확인해 드려요.</p>'});render({bottom:true});return;}
   if(i.step==='offer'||i.step==='answered'){
     i.intake.extra=(i.intake.extra?i.intake.extra+' ':'')+text;absorb(i,text,false);
