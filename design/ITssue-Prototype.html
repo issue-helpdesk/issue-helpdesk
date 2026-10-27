@@ -1290,8 +1290,8 @@ function draftCard(i){
   const fix=(l,v,k)=>edit?`<dt>${l}</dt><dd class="lkd"><span>${v}${chg(k)}</span>${lk}</dd>`:row(l,v,k);
   const inp=(l,id,k,ta)=>edit?`<dt class="ed"><label for="d-${id}">${l}</label></dt><dd>${ta?`<textarea class="ta" id="d-${id}" data-in="d" data-k="${id}">${ESC(d[k])}</textarea>`:`<input class="inp" id="d-${id}" data-in="d" data-k="${id}" value="${ESC(d[k])}">`}</dd>`:row(l,ESC(d[k]));
   const body=`<dl class="dl${edit?' edit':''}">${inp('문의 내용','issue','issue',true)}${fix('대상 시스템',ESC(d.sys))}${inp('발생 시점','onset','onset')}${inp('영향 범위·업무 영향','impact','impact')}${inp('시도한 조치','tried','tried')}${fix('AI 안내',ESC(d.ai))}${fix('분류',d.cat?d.cat+' · '+CATS[d.cat].n:'미분류 · 서비스데스크 확인','cat')}${fix('세부 유형',d.sc?ESC(scTxt(d.sc)):'담당자가 확인해요','sc')}${fix('긴급도',pbadge(d.p)+' <span class="small muted">'+ESC(d.why.join(' · '))+'</span>','p')}${fix('추천 담당 그룹',ESC(d.group),'group')}</dl>${edit?`<p class="hint lkh">${ic('lock')}<span>잠금 표시 항목은 적어 주신 내용으로 자동 판단해요. 내용을 고치면 다시 판단해요.</span></p>`:''}`;
-  const acts=done?'':edit?`<div class="replies"><button class="btn pri sm" data-act="d-save" data-id="${i.id}">수정 반영하기</button><button class="btn sec sm" data-act="d-cancel" data-id="${i.id}">취소</button></div>`:`<div class="replies"><button class="btn pri" data-act="d-confirm" data-id="${i.id}">접수</button><button class="btn sec" data-act="d-edit" data-id="${i.id}">수정</button><button class="btn sec" data-act="d-cancelall" data-id="${i.id}">미접수 (종료)</button></div>`;
-  return `<div class="card w"><div class="row" style="justify-content:space-between"><h4>접수 초안</h4>${done?badge('ok','접수 확인 완료'):badge('warn','확인 대기 · 아직 접수되지 않았어요')}</div>${i.dnote?`<div class="alert warn" style="margin-top:10px">${ic('alert')}<div>${i.dnoteT?'<b>'+ESC(i.dnoteT)+'</b> ':''}${ESC(i.dnote)}</div></div>`:''}${body}${acts}</div>`;
+  const acts=done||i.dstate==='cancel'?'':edit?`<div class="replies"><button class="btn pri sm" data-act="d-save" data-id="${i.id}">수정 반영하기</button><button class="btn sec sm" data-act="d-cancel" data-id="${i.id}">취소</button></div>`:`<div class="replies"><button class="btn pri" data-act="d-confirm" data-id="${i.id}">접수</button><button class="btn sec" data-act="d-edit" data-id="${i.id}">수정</button><button class="btn sec" data-act="d-cancelall" data-id="${i.id}">미접수 (종료)</button></div>`;
+  return `<div class="card w"><div class="row" style="justify-content:space-between"><h4>접수 초안</h4>${done?badge('ok','접수 확인 완료'):i.dstate==='cancel'?badge('recv','접수하지 않고 종료'):badge('warn','확인 대기 · 아직 접수되지 않았어요')}</div>${i.dnote?`<div class="alert warn" style="margin-top:10px">${ic('alert')}<div>${i.dnoteT?'<b>'+ESC(i.dnoteT)+'</b> ':''}${ESC(i.dnote)}</div></div>`:''}${body}${acts}</div>`;
 }
 /* ---- 문의 내역 ---- */
 function viewList(){
@@ -2045,8 +2045,7 @@ const A={
   'resume-new'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.paused=false;S.view={n:'new'};S.detail=null;render();toast('이전 문의는 지우지 않고 그대로 남겨 뒀어요. 기존 응답 없음 규칙을 따라요.');},
   /* 대화 이어가기: 새 문의·안내 메시지를 만들지 않고 같은 대화의 마지막 선택 버튼을 다시 연다 (API 02 IQ-06) */
   reopen(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.state='진행 중';
-    if(i.dstate==='cancel'){i.dstate='view';i.step='draft';}
-    else{i.step='offer';const m=i.msgs.slice().reverse().find(x=>x.replies&&x.replies.some(r=>r.a==='connect-yes'));if(m)m.locked=false;else mk(i,{r:'a',html:'<p>해결되지 않았다면 담당자 연결을 도와드릴게요.</p>',replies:[{l:'담당자 연결',a:'connect-yes',k:'pri'},{l:'미연결 (종료)',a:'connect-no'}]});}
+    {i.step='offer';const m=i.msgs.slice().reverse().find(x=>x.replies&&x.replies.some(r=>r.a==='connect-yes')&&!x.replies.some(r=>r.a==='resolved'));if(m)m.locked=false;else mk(i,{r:'a',html:'<p>해결되지 않았다면 담당자 연결을 도와드릴게요.</p>',replies:[{l:'담당자 연결',a:'connect-yes',k:'pri'},{l:'미연결 (종료)',a:'connect-no'}]});}
     render({bottom:true});},
   'd-confirm'(e,d){submitDraft(S.inqs.find(x=>x.id===d.id));},
   'd-edit'(e,d){const i=S.inqs.find(x=>x.id===d.id);i.dstate='edit';render();},
