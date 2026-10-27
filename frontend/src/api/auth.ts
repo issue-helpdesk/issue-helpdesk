@@ -18,9 +18,13 @@ import {
   minutesLeft,
   MOCK_ACCOUNTS,
   MOCK_PASSWORD,
+  passwordOf,
+  sessionUser,
+  setPassword,
   unlockAccount,
 } from './mock/accounts'
-import { fail, ok, type ApiResult, type LoginData, type LoginRequest, type User } from './types'
+import { checkPassword } from '../core/password'
+import { fail, ok, type ApiResult, type LoginData, type LoginRequest, type PasswordChangeRequest, type User } from './types'
 
 /** 가짜 토큰의 접두어. 'mock.EMP-1001' 처럼 사번을 담아 me() 에서 사용자를 찾는다. */
 const MOCK_PREFIX = 'mock.'
@@ -48,7 +52,7 @@ async function mockLogin(req: LoginRequest, skipPassword = false): Promise<ApiRe
     )
   }
 
-  if (!acc || (!skipPassword && req.password !== MOCK_PASSWORD)) {
+  if (!acc || (!skipPassword && req.password !== passwordOf(acc.employeeNo))) {
     // 정상 계정이 연속으로 5회 틀리면 잠근다
     if (acc && acc.accountStatus === 'ACTIVE' && addFail(acc.employeeNo) >= MAX_FAILS) {
       lockAccount(acc)
@@ -64,14 +68,27 @@ async function mockLogin(req: LoginRequest, skipPassword = false): Promise<ApiRe
   }
 
   clearFails(acc.employeeNo) // 로그인에 성공하면 연속 실패 기록을 지운다
-  return ok({ accessToken: MOCK_PREFIX + acc.employeeNo, user: acc })
+  return ok({ accessToken: MOCK_PREFIX + acc.employeeNo, user: sessionUser(acc) })
 }
 
 /** 가짜 사용자 조회: 저장된 가짜 토큰에서 사번을 읽어 계정을 돌려준다. */
 async function mockMe(): Promise<ApiResult<User>> {
   const token = tokenStore.get()
   const acc = token?.startsWith(MOCK_PREFIX) ? findAccount(token.slice(MOCK_PREFIX.length)) : undefined
-  return acc ? ok(acc) : fail('UNAUTHORIZED', '로그인이 필요해요.')
+  return acc ? ok(sessionUser(acc)) : fail('UNAUTHORIZED', '로그인이 필요해요.')
+}
+
+/** 가짜 비밀번호 변경. 검사 순서는 현재 비밀번호 → 비밀번호 규칙이다. (AU-04) */
+async function mockChangePassword(req: PasswordChangeRequest): Promise<ApiResult<null>> {
+  await sleep(350)
+  const token = tokenStore.get()
+  const acc = token?.startsWith(MOCK_PREFIX) ? findAccount(token.slice(MOCK_PREFIX.length)) : undefined
+  if (!acc) return fail('UNAUTHORIZED', '로그인이 필요해요.')
+  if (req.currentPassword !== passwordOf(acc.employeeNo)) return fail('AUTH_CURRENT_PASSWORD_MISMATCH', '현재 비밀번호가 맞지 않아요.')
+  const details = checkPassword(req.newPassword, req.currentPassword, acc.employeeNo)
+  if (details.length) return fail('AUTH_PASSWORD_POLICY_VIOLATION', details[0].message, { details })
+  setPassword(acc.employeeNo, req.newPassword)
+  return ok(null)
 }
 
 export const authApi = {
@@ -96,5 +113,14 @@ export const authApi = {
   me(): Promise<ApiResult<User>> {
     if (USE_MOCK) return mockMe()
     return request<User>('/users/me')
+  },
+
+  /**
+   * 비밀번호 변경 (임시 비밀번호 상태에서도 쓴다). 성공하면 서버가 그 사용자의 모든 로그인을 끊으므로
+   * 화면은 로그인 화면으로 돌려보내 다시 로그인하게 한다.
+   */
+  changePassword(req: PasswordChangeRequest): Promise<ApiResult<null>> {
+    if (USE_MOCK) return mockChangePassword(req)
+    return request<null>('/users/me/password', { method: 'PUT', body: JSON.stringify(req) })
   },
 }

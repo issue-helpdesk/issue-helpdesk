@@ -189,24 +189,21 @@ describe('진행 카드', () => {
   })
 })
 
-describe('비밀번호 초기화와 모달 초점', () => {
-  it('로그인 화면의 링크로 초기화 창을 열고, 빈 사번은 입력칸 아래에 오류를 남긴다', async () => {
+describe('비밀번호를 잊으셨나요? 안내와 모달 초점', () => {
+  it('로그인 화면의 링크로 안내 창을 열면 입력칸 없이 서비스데스크 요청 방법을 알려 준다', async () => {
     const user = userEvent.setup()
     renderAt('/login')
-    const link = screen.getByRole('button', { name: '비밀번호를 잊으셨나요?' })
-    await user.click(link)
-    const dialog = await screen.findByRole('dialog', { name: '비밀번호 초기화' })
-    // 열면 창 안의 첫 입력칸으로 초점이 간다
-    expect(within(dialog).getByLabelText('사번')).toHaveFocus()
-    await user.click(within(dialog).getByRole('button', { name: '휴대폰으로 인증하기' }))
-    const id = within(dialog).getByLabelText('사번')
-    expect(id).toHaveAttribute('aria-invalid', 'true')
-    expect(id).toHaveAccessibleDescription('사번을 입력해 주세요.')
-    // 입력하면 오류가 사라진다
-    await user.type(id, 'EMP-1001')
-    expect(id).not.toHaveAttribute('aria-invalid', 'true')
-    await user.click(within(dialog).getByRole('button', { name: '휴대폰으로 인증하기' }))
-    expect(await screen.findByRole('dialog', { name: '인증 문자를 보냈어요' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '비밀번호를 잊으셨나요?' }))
+    const dialog = await screen.findByRole('dialog', { name: '비밀번호를 잊으셨나요?' })
+    // 문서에는 셀프 초기화가 없으므로 사번 입력칸과 휴대폰 인증 단계가 없다
+    expect(within(dialog).queryByLabelText('사번')).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: /휴대폰/ })).not.toBeInTheDocument()
+    expect(dialog).toHaveTextContent('서비스데스크에 임시 비밀번호 발급을 요청해 주세요')
+    expect(dialog).toHaveTextContent('사번과 이름을 알려 주세요')
+    // 열면 창 안의 첫 버튼으로 초점이 가고, 확인으로 닫는다
+    expect(within(dialog).getByRole('button', { name: '확인' })).toHaveFocus()
+    await user.click(within(dialog).getByRole('button', { name: '확인' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('Esc 로 닫으면 창을 열었던 링크로 초점이 돌아가고, Tab 은 창 안에서만 돈다', async () => {
@@ -214,9 +211,9 @@ describe('비밀번호 초기화와 모달 초점', () => {
     renderAt('/login')
     const link = screen.getByRole('button', { name: '비밀번호를 잊으셨나요?' })
     await user.click(link)
-    const dialog = await screen.findByRole('dialog', { name: '비밀번호 초기화' })
+    const dialog = await screen.findByRole('dialog', { name: '비밀번호를 잊으셨나요?' })
     // 마지막 버튼에서 Tab 을 누르면 첫 칸으로 돌아온다
-    within(dialog).getByRole('button', { name: '휴대폰으로 인증하기' }).focus()
+    within(dialog).getByRole('button', { name: '확인' }).focus()
     await user.tab()
     expect(dialog.contains(document.activeElement)).toBe(true)
     await user.keyboard('{Escape}')
@@ -228,9 +225,9 @@ describe('비밀번호 초기화와 모달 초점', () => {
     const user = userEvent.setup()
     renderAt('/login')
     await user.click(screen.getByRole('button', { name: '비밀번호를 재설정하고 싶어요' }))
-    const open = await screen.findByRole('button', { name: '비밀번호 초기화 열기' }, SLOW)
+    const open = await screen.findByRole('button', { name: '비밀번호를 잊으셨나요? 열기' }, SLOW)
     await user.click(open)
-    expect(await screen.findByRole('dialog', { name: '비밀번호 초기화' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: '비밀번호를 잊으셨나요?' })).toBeInTheDocument()
     await user.keyboard('{Escape}')
     const box = screen.getByLabelText('로그인 전 상담 입력')
     await user.type(box, '비밀번호는 abc12345 입니다{Enter}')

@@ -22,6 +22,10 @@ export interface User {
   departmentName: string
   serviceRole: ServiceRole
   accountStatus: AccountStatus
+  /** 임시 비밀번호로 로그인한 상태. true 이면 새 비밀번호를 정하기 전에는 다른 기능을 쓸 수 없다. (AU-01 passwordChangeRequired) */
+  passwordChangeRequired?: boolean
+  /** 비밀번호를 마지막으로 바꾼 뒤 지난 날수. 서버가 주는 값이 문서(AU-03)에 없어 제안이다. */
+  passwordChangedDaysAgo?: number
 }
 
 /** 성공 응답 */
@@ -38,6 +42,8 @@ export interface ApiFail {
     message: string
     /** ACCOUNT_LOCKED 일 때 잠금이 풀리는 시각 (ISO 8601) */
     lockedUntil?: string
+    /** AUTH_PASSWORD_POLICY_VIOLATION 일 때 위반한 규칙들 (AU-04 details) */
+    details?: { field: string; reason: string; message: string }[]
   }
 }
 
@@ -47,6 +53,12 @@ export interface LoginRequest {
   /** 사번 */
   employeeNo: string
   password: string
+}
+
+/** 비밀번호 변경 요청 (AU-04 PUT /users/me/password) */
+export interface PasswordChangeRequest {
+  currentPassword: string
+  newPassword: string
 }
 
 export interface LoginData {
@@ -61,14 +73,14 @@ export interface ConsultReply {
   paragraphs: string[]
   /** 근거 Guide 출처. 문의 화면 답변과 같은 형태 */
   sources: GuideSource[]
-  /** 답변에 붙는 바로가기 버튼 (예: 비밀번호 초기화 창 열기). 없으면 버튼을 그리지 않는다. */
+  /** 답변에 붙는 바로가기 버튼 (예: 비밀번호를 잊으셨나요? 안내 창 열기). 없으면 버튼을 그리지 않는다. */
   ctas?: ConsultCta[]
 }
 
 /** 로그인 전 상담 답변의 바로가기 */
 export interface ConsultCta {
   label: string
-  /** 화면이 알고 있는 동작 이름. forgot=비밀번호 초기화 창 */
+  /** 화면이 알고 있는 동작 이름. forgot=비밀번호를 잊으셨나요? 안내 창 */
   action: 'forgot'
 }
 
@@ -120,4 +132,4 @@ export interface InquirySummary {
 export const ok = <T,>(data: T): ApiOk<T> => ({ ok: true, data })
 
 /** 실패 응답을 만드는 도우미 */
-export const fail = (code: string, message: string, extra?: { lockedUntil?: string }): ApiFail => ({ ok: false, error: { code, message, ...extra } })
+export const fail = (code: string, message: string, extra?: { lockedUntil?: string; details?: { field: string; reason: string; message: string }[] }): ApiFail => ({ ok: false, error: { code, message, ...extra } })

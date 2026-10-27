@@ -84,11 +84,14 @@
 .rdlg .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 /* 선택 창이 처음 뜰 때와 단계가 바뀔 때: 뒤는 160ms 페이드, 창은 가운데에서 살짝 튀며 커진다 (한 번) */
 .ov.rs{animation:rdbg .16s linear both}
-.modal.rdlg{animation:rdpop .28s cubic-bezier(.34,1.56,.64,1) both}
+.modal.rdlg,.modal.pwm{animation:rdpop .28s cubic-bezier(.34,1.56,.64,1) both}
 @keyframes rdbg{from{opacity:0}to{opacity:1}}
 @keyframes rdpop{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.ov.rs,.modal.rdlg{animation:none}}
+@media (prefers-reduced-motion:reduce){.ov.rs,.modal.rdlg,.modal.pwm{animation:none}}
 /* 끝난·이어갈 수 있는 문의의 잠긴 입력창: 입력창 전체가 "이어가기 선택 열기" 버튼 자리가 된다 */
 .cmpw{position:relative;max-width:760px;margin:0 auto}.cmpw .composer{max-width:none}
 .cmp-hit{position:absolute;inset:0;border:0;background:transparent;border-radius:24px;cursor:pointer}.cmp-hit:focus-visible{outline:2px solid var(--o600);outline-offset:2px}
-.modal.rdlg{position:relative}.rdlg .xbtn{position:absolute;top:10px;right:12px;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--mute);font-size:16px;cursor:pointer}.rdlg .xbtn:hover{background:var(--shell)}
+.modal.rdlg{position:relative}.rdlg .xbtn,.pwm .xbtn{position:absolute;top:10px;right:12px;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--mute);font-size:16px;cursor:pointer}.rdlg .xbtn:hover,.pwm .xbtn:hover{background:var(--shell)}
+/* 내 프로필 · 새 비밀번호 창: 선택 창과 같은 자리에 뜨는 입력 창 */
+.modal.pwm{width:min(430px,100%);position:relative}
+.pwm .pfl{display:flex;align-items:center;gap:14px}.pwm .pfl .pf{width:52px;height:52px;border-radius:50%;background:var(--osurf);color:var(--o700);font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}.pwm .pws{border-top:1px solid var(--line);padding-top:12px}

@@ -15,8 +15,11 @@ interface Props {
   onClose?: () => void
   /** false 이면 Esc·바깥 누르기로 닫히지 않고, 버튼으로만 닫는다 */
   dismissible?: boolean
-  /** 'choice': 화면 가운데에서 꼭 하나를 고르는 창 (뒤는 어둡고 흐리게). 제목 위에 lead 를 둘 수 있다 */
-  variant?: 'choice'
+  /**
+   * 'choice': 화면 가운데에서 꼭 하나를 고르는 창 (뒤는 어둡고 흐리게). 제목 위에 lead 를 둘 수 있다
+   * 'form': 같은 자리·같은 배경에 뜨는 입력 창(내 프로필, 새 비밀번호). 글은 왼쪽 정렬이다
+   */
+  variant?: 'choice' | 'form'
   lead?: ReactNode
   /** 되돌릴 수 없는 일을 확인하는 창은 alertdialog 로 알린다 */
   role?: 'dialog' | 'alertdialog'
@@ -34,9 +37,9 @@ export function Modal({ title, onClose = () => {}, dismissible = true, variant, 
     closeRef.current = onClose
   })
 
-  // 선택 창은 사이드바를 뺀 채팅 영역의 가운데에 둔다 (토스트와 중심을 맞춘다). 뒤를 어둡게 하는 범위는 전체 화면이다.
+  // 선택 창·입력 창은 사이드바를 뺀 채팅 영역의 가운데에 둔다 (토스트와 중심을 맞춘다). 뒤를 어둡게 하는 범위는 전체 화면이다.
   useLayoutEffect(() => {
-    if (variant !== 'choice') return
+    if (!variant) return
     const place = () => {
       const ov = ovRef.current
       const main = document.querySelector('.main')
@@ -94,13 +97,13 @@ export function Modal({ title, onClose = () => {}, dismissible = true, variant, 
   return createPortal(
     <div
       ref={ovRef}
-      className={`ov${variant === 'choice' ? ' rs' : ''}`}
+      className={`ov${variant ? ' rs' : ''}`}
       onMouseDown={(e) => {
         // 창 바깥(어두운 배경)을 눌렀을 때만 닫는다
         if (dismissible && e.target === e.currentTarget) onClose()
       }}
     >
-      <div ref={ref} className={`modal${variant === 'choice' ? ' rdlg' : ''}`} role={role} aria-modal="true" aria-label={title} tabIndex={-1}>
+      <div ref={ref} className={`modal${variant === 'choice' ? ' rdlg' : variant === 'form' ? ' pwm' : ''}`} role={role} aria-modal="true" aria-label={title} tabIndex={-1}>
         {closeButton && (
           <button type="button" className="xbtn" aria-label="닫기" onClick={() => closeRef.current()}>
             ✕

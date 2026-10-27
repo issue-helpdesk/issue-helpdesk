@@ -14,6 +14,7 @@ import { HOME_BY_ROLE, ROLE_LABEL } from '../core/roles'
 import { useAuth } from '../core/session'
 import { Icon, type IconName } from './Icon'
 import { Logo } from './Logo'
+import { useShell } from './shellContext'
 import { STATE_TONE } from './stateStyle'
 import { ThemeSwitch } from './ThemeSwitch'
 
@@ -41,6 +42,7 @@ const initials = (name: string) => name.slice(-2)
 
 export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   const { user, logout } = useAuth()
+  const { openProfile } = useShell()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [recent, setRecent] = useState<InquirySummary[]>([])
@@ -129,13 +131,16 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       </div>
 
       <div className="who">
-        <span className="pf">{initials(user.name)}</span>
-        <div>
-          <div className="nm">{user.name}</div>
-          <small>
-            {user.departmentName} · {ROLE_LABEL[user.serviceRole]}
-          </small>
-        </div>
+        {/* 이름 영역을 누르면 "내 프로필" 창이 열린다 */}
+        <button type="button" className="whobtn" aria-label="내 프로필 열기" onClick={openProfile}>
+          <span className="pf">{initials(user.name)}</span>
+          <div>
+            <div className="nm">{user.name}</div>
+            <small>
+              {user.departmentName} · {ROLE_LABEL[user.serviceRole]}
+            </small>
+          </div>
+        </button>
         <button
           className="btn ghost sm out"
           type="button"

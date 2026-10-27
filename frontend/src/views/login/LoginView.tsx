@@ -6,7 +6,7 @@
  */
 import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { MOCK_PASSWORD, MOCK_QUICK_LOGINS } from '../../api/mock/accounts'
+import { MOCK_PASSWORD, MOCK_QUICK_LOGINS, MOCK_TEMP_PASSWORD } from '../../api/mock/accounts'
 import type { ApiResult, LoginData } from '../../api/types'
 import { USE_MOCK } from '../../core/config'
 import { HOME_BY_ROLE } from '../../core/roles'
@@ -47,7 +47,7 @@ function LoginBackground() {
 }
 
 export function LoginView() {
-  const { user, loading, login, loginSso, mockQuickLogin } = useAuth()
+  const { user, loading, loginNote, login, loginSso, mockQuickLogin } = useAuth()
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('id')
   // 시연(mock)일 때만 입력칸을 미리 채워 둔다
@@ -59,7 +59,7 @@ export function LoginView() {
   // 어느 버튼으로 요청 중인지(그 버튼에만 "로그인 중"을 보인다)와, 3초 넘게 걸리는지
   const [who, setWho] = useState('')
   const [slow, setSlow] = useState(false)
-  // 비밀번호 초기화 창
+  // 비밀번호를 잊으셨나요? 안내 창
   const [forgotOpen, setForgotOpen] = useState(false)
 
   // 요청이 3초 넘게 걸리면 늦어진다고 알린다
@@ -128,6 +128,25 @@ export function LoginView() {
             AI가 먼저 답하고, 해결되지 않으면 담당자에게 바로 연결해 드려요.
           </p>
 
+          {/* 비밀번호를 바꾼 뒤 / 로그인이 만료돼 돌아왔을 때의 안내. 별도 창 없이 이 한 줄로만 알린다 */}
+          {loginNote && (
+            <div className="alert info" role="status" style={{ marginBottom: 14 }}>
+              <Icon name="shield" />
+              <div>
+                {loginNote === 'pw-changed' ? (
+                  <>
+                    <b>비밀번호를 바꿨어요.</b>
+                    <br />새 비밀번호로 다시 로그인해 주세요.
+                  </>
+                ) : (
+                  <>
+                    <b>로그인이 만료됐어요.</b>
+                    <br />보안을 위해 일정 시간이 지나면 다시 로그인해야 해요.
+                  </>
+                )}
+              </div>
+            </div>
+          )}
           <div className="seg" role="tablist" style={{ marginBottom: 16 }}>
             <button role="tab" type="button" aria-selected={idTab} className={idTab ? 'on' : ''} onClick={() => { setTab('id'); setError('') }}>
               사번 로그인
@@ -187,6 +206,12 @@ export function LoginView() {
               {slowNote}
               <div className="hint">
                 {USE_MOCK && `시연 계정 비밀번호는 ${MOCK_PASSWORD} 입니다. `}계정 5회 실패 시 잠기고 10분 후 해제됩니다.
+                {USE_MOCK && (
+                  <>
+                    <br />
+                    임시 비밀번호 상태 시연: EMP-1010 / {MOCK_TEMP_PASSWORD}
+                  </>
+                )}
               </div>
             </form>
           ) : (
