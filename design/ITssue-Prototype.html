@@ -953,6 +953,9 @@ const TOAST_X='<svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M5
 /* 성공·안내는 기본 5초, 오류는 사용자가 닫을 때까지 남는다. 닫기는 이름 있는 실제 버튼 */
 const placeToasts=()=>{const c=document.getElementById('toasts'),m=document.querySelector('.main');if(!c)return;if(m){const r=m.getBoundingClientRect();c.style.left=(r.left+r.width/2)+'px'}else c.style.left=''};
 addEventListener('resize',placeToasts);
+/* 이어가기·돌아옴 창은 토스트처럼 사이드바를 뺀 채팅 영역의 가운데에 둔다(뒤 화면을 어둡게 하는 범위는 그대로 전체) */
+const placeResume=()=>{const ov=document.querySelector('.ov.rs'),m=document.querySelector('.main');if(!ov)return;if(m){const b=m.getBoundingClientRect();ov.style.paddingLeft=(b.left+16)+'px';ov.style.paddingRight=(ov.clientWidth-b.right+16)+'px';}};
+addEventListener('resize',placeResume);
 const toast=(msg,ms)=>{const err=/실패|이미 있는|배정 전|없어요/.test(msg);const el=document.createElement('div');el.className='toast'+(err?' err':'');el.setAttribute('role',err?'alert':'status');el.innerHTML=`<span class="tm">${ESC(msg)}</span><button type="button" class="tx" aria-label="알림 닫기">${TOAST_X}</button>${err?'':`<i class="tbar" style="animation-duration:${ms||5000}ms"></i>`}`;el.querySelector('.tx').addEventListener('click',()=>el.remove());placeToasts();$('#toasts').append(el);if(!err)setTimeout(()=>el.remove(),ms||5000);};
 const later=(fn,ms)=>{const t=setTimeout(()=>{S.timers=S.timers.filter(x=>x!==t);fn();},ms);S.timers.push(t);return t;};
 const tById=id=>S.tickets.find(t=>t.receipt===id||t.id===id);
@@ -1144,7 +1147,7 @@ function renderOverlay(){
   if(pi){const P=POPUPS[pk];h+=`<div class="ov rs${pop?' pop':''}"><div class="rdlg" role="dialog" aria-modal="true" aria-labelledby="rs-t" aria-describedby="rs-d">${pk==='back'?'':`<button class="xbtn" data-act="resume-x" data-id="${pi.id}" aria-label="닫기">✕</button>`}<img src="${PAVIMG.base}" alt="" width="84" height="84"><h3 id="rs-t">${P[0]}</h3><p id="rs-d">${P[1]}</p><div class="acts"><button class="btn pri" data-act="${pk==='back'?'resume-go':pk==='ua'?'resume-ua':'reopen'}" data-id="${pi.id}">이어서 대화하기</button><button class="btn sec" data-act="resume-new" data-id="${pi.id}">새 문의 시작하기</button></div></div></div>`;}
   h+=demoHtml();
   const f=o.querySelector('[data-keep]'); // 시연 도구 스크롤 유지
-  o.innerHTML=h;
+  o.innerHTML=h;placeResume();
   const rt=$('#root');if(rt)rt.inert=!!(S.modal||S.drawer||pi);
   /* 처음 뜰 때는 첫 버튼으로 초점을 둔다 */
   if(pop&&pi)setTimeout(()=>document.querySelector('.rdlg .btn.pri')?.focus(),0);
