@@ -4,7 +4,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, PlainSerializer, StringConstraints
 from pydantic.alias_generators import to_camel
 
-from app.core.clock import to_kst
+from app.utils.datetime_utils import to_kst
 
 
 class CamelModel(BaseModel):

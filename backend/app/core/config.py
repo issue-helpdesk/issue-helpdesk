@@ -35,7 +35,6 @@ def get_jira_settings() -> JiraSettings:
     return JiraSettings()
 
 class AuthSettings:
-    """로그인 토큰 설정. JWT_SECRET 은 서버 .env 에만 둔다."""
 
     def __init__(self) -> None:
         secret = os.environ.get("JWT_SECRET")
