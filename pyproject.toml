@@ -29,5 +29,8 @@ embedding = [
 
 [dependency-groups]
 dev = [
+    "poethepoet>=0.49.0",
     "pytest==9.1.1",
 ]
+[tool.poe.tasks]
+dev = "uvicorn app.main:app --app-dir backend --reload --reload-dir backend"
