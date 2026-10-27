@@ -59,6 +59,34 @@ def _adf(text: str) -> dict[str, Any]:
     return {"type": "doc", "version": 1, "content": content or [{"type": "paragraph"}]}
 
 
+def adf_to_text(node: Any) -> str:
+    """Jira 댓글 본문(ADF)을 글자만 남긴 문자열로 바꾼다. 문단·목록 항목은 줄바꿈으로 나누고 멘션은 `@이름`으로 남긴다.
+    문자열이 오면 그대로 돌려주고, 알 수 없는 모양은 빈 문자열이다."""
+    if isinstance(node, str):
+        return node
+    if not isinstance(node, Mapping):
+        return ""
+    kind = node.get("type")
+    attrs = node.get("attrs") if isinstance(node.get("attrs"), Mapping) else {}
+    if kind == "text":
+        return str(node.get("text") or "")
+    if kind == "hardBreak":
+        return "\n"
+    if kind == "mention":
+        return str(attrs.get("text") or "@멘션")
+    if kind in ("inlineCard", "blockCard"):
+        return str(attrs.get("url") or "")
+    if kind == "emoji":
+        return str(attrs.get("text") or attrs.get("shortName") or "")
+    children = node.get("content")
+    if not isinstance(children, list):
+        return ""
+    parts = [adf_to_text(c) for c in children]
+    if kind in ("doc", "bulletList", "orderedList", "blockquote", "panel", "tableRow", "table"):
+        return "\n".join(p for p in parts if p)
+    return "".join(parts)
+
+
 def to_jira_fields(ticket: Mapping[str, Any], m: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """접수 데이터 → POST /rest/api/3/issue 의 "fields"."""
     m = m or load_mapping()

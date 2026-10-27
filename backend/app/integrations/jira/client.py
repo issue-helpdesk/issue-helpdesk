@@ -14,7 +14,7 @@ from typing import Any, Mapping
 
 import httpx
 
-from .mapper import MappingError, _adf, load_mapping, to_jira_fields, work_status_from_jira
+from .mapper import MappingError, _adf, adf_to_text, load_mapping, to_jira_fields, work_status_from_jira
 
 DEFAULT_TIMEOUT = 10.0  # 초
 
@@ -222,6 +222,29 @@ class JiraClient:
                 return {"changed": True, "work_status": target}
         raise JiraError("invalid_transition", f"{issue_key}는 현재 상태에서 {target}으로 바로 전환할 수 없습니다.",
                         retryable=False)
+
+    # ---------------------------------------------------------------- 댓글 조회 (알림용)
+
+    def get_comment(self, issue_key: str, comment_id: str | int) -> dict[str, Any]:
+        """댓글 한 건을 Jira에서 읽는다. 웹훅은 "댓글이 달렸다"는 신호로만 쓰고 내용은 여기서 다시 읽는다(상태와 같은 원칙).
+
+        읽기만 하므로 시간 초과·통신 오류는 다시 불러도 안전하다(retryable=True). 댓글이 지워졌으면 not_found(재시도 불가).
+        반환: {"comment_id", "author_account_id", "author_name", "author_type", "text"(ADF를 글자로), "created", "updated"}
+        """
+        comment_id = str(comment_id or "").strip()
+        if not comment_id:
+            raise JiraError("invalid_fields", "댓글 ID가 비어 있습니다.", retryable=False)
+        raw = self._request("GET", f"/rest/api/3/issue/{issue_key}/comment/{comment_id}")
+        author = raw.get("author") if isinstance(raw.get("author"), Mapping) else {}
+        return {
+            "comment_id": str(raw.get("id") or comment_id),
+            "author_account_id": author.get("accountId"),
+            "author_name": author.get("displayName"),
+            "author_type": author.get("accountType"),
+            "text": adf_to_text(raw.get("body")).strip(),
+            "created": raw.get("created"),
+            "updated": raw.get("updated"),
+        }
 
     # ---------------------------------------------------------------- 내부
 

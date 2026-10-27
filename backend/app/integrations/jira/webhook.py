@@ -8,6 +8,8 @@
     event = parse_jira_webhook(payload, delivery_id=request.headers.get("X-Atlassian-Webhook-Identifier"))
     if event.status_changed or event.assignee_changed:
         ...  # event.issue_key 로 접수를 찾아 Jira 최신 상태를 조회
+    if event.is_comment_created:
+        ...  # event.comment.comment_id 로 JiraClient.get_comment 를 부르고, comment_notify.route_comment 로 받는 사람을 정한다
 """
 
 from __future__ import annotations
@@ -35,12 +37,29 @@ class WebhookChange:
 
 
 @dataclass(frozen=True)
+class WebhookComment:
+    """comment_created · comment_updated 이벤트의 댓글 정보. 본문(글)은 읽지 않는다. 필요하면 JiraClient.get_comment 로 다시 조회한다."""
+    comment_id: str
+    author_account_id: str | None   # 작성자 Jira accountId. 알 수 없으면 None
+    author_name: str | None         # 화면 이름 (참고용)
+    author_type: str | None         # atlassian(사람) · app(앱·봇) · customer. 참고용
+    created: str | None
+    updated: str | None
+
+
+@dataclass(frozen=True)
 class WebhookEvent:
-    event_id: str                   # 중복 검사 키. delivery_id → 변경 이력 ID → 본문 해시 순
+    event_id: str                   # 중복 검사 키. delivery_id → 변경 이력 ID → 댓글 ID → 본문 해시 순
     webhook_event: str
     issue_key: str
     timestamp_ms: int | None
     changes: tuple[WebhookChange, ...]
+    comment: WebhookComment | None = None
+
+    @property
+    def is_comment_created(self) -> bool:
+        """새 댓글이 달린 이벤트인가. 댓글 수정(comment_updated)·삭제는 알림 대상이 아니라서 False."""
+        return self.webhook_event == "comment_created" and self.comment is not None
 
     def change(self, field: str) -> WebhookChange | None:
         return next((c for c in self.changes if c.field == field), None)
@@ -88,12 +107,30 @@ def parse_jira_webhook(payload: Mapping[str, Any], *, delivery_id: str | None = 
         if isinstance(item, Mapping)
     )
     timestamp = payload.get("timestamp")
+    comment = _comment_of(payload.get("comment"))
     return WebhookEvent(
-        event_id=_event_id(payload, changelog, delivery_id),
+        event_id=_event_id(payload, changelog, delivery_id, comment),
         webhook_event=str(payload.get("webhookEvent") or ""),
         issue_key=key.strip(),
         timestamp_ms=timestamp if isinstance(timestamp, int) and not isinstance(timestamp, bool) else None,
         changes=changes,
+        comment=comment,
+    )
+
+
+def _comment_of(raw: Any) -> WebhookComment | None:
+    """payload["comment"] 를 읽는다. 댓글 ID가 없으면 댓글 이벤트로 보지 않는다."""
+    if not isinstance(raw, Mapping) or raw.get("id") in (None, ""):
+        return None
+    author = raw.get("author")
+    author = author if isinstance(author, Mapping) else {}
+    return WebhookComment(
+        comment_id=str(raw["id"]),
+        author_account_id=_str_or_none(author.get("accountId")),
+        author_name=_str_or_none(author.get("displayName")),
+        author_type=_str_or_none(author.get("accountType")),
+        created=_str_or_none(raw.get("created")),
+        updated=_str_or_none(raw.get("updated")),
     )
 
 
@@ -128,10 +165,14 @@ def _str_or_none(value: Any) -> str | None:
     return None if value is None else str(value)
 
 
-def _event_id(payload: Mapping[str, Any], changelog: Mapping[str, Any], delivery_id: str | None) -> str:
+def _event_id(payload: Mapping[str, Any], changelog: Mapping[str, Any], delivery_id: str | None,
+              comment: WebhookComment | None = None) -> str:
     if delivery_id and delivery_id.strip():
         return f"delivery:{delivery_id.strip()}"
     if changelog.get("id"):
         return f"changelog:{changelog['id']}"
+    if comment is not None:
+        # 같은 댓글이 다시 와도 같은 키. 수정 이벤트는 updated 가 달라서 다른 키가 된다.
+        return f"comment:{payload.get('webhookEvent')}:{comment.comment_id}:{comment.updated or comment.created or ''}"
     body = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return "sha256:" + hashlib.sha256(body.encode("utf-8")).hexdigest()

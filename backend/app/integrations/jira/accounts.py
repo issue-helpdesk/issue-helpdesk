@@ -34,3 +34,12 @@ def load_account_map(path: Path = ACCOUNTS_PATH) -> dict[str, str]:
 def account_id_for(employee_no: str, accounts: Mapping[str, str] | None = None) -> str | None:
     accounts = load_account_map() if accounts is None else accounts
     return accounts.get(str(employee_no).strip())
+
+
+def employee_no_for(account_id: str, accounts: Mapping[str, str] | None = None) -> str | None:
+    """Jira accountId → 사번. 연결표(1:1)를 거꾸로 찾는다. 표에 없거나 비어 있으면 None."""
+    account_id = str(account_id or "").strip()
+    if not account_id:
+        return None
+    accounts = load_account_map() if accounts is None else accounts
+    return next((emp for emp, account in accounts.items() if account == account_id), None)
