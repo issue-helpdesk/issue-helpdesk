@@ -1209,7 +1209,7 @@ function drawerHtml(){
     ['AI 운영','LOG-02 · 5.1 Golden Set','비용·품질 평가 예시 (Should). 수치는 시연 데이터'],
     ['Slack 알림 미리보기','SLACK-01/02','티켓 상세에서 발송 내역 확인 (Should, 실제 발송 없음)']
   ];
-  return `<div class="row"><h3 style="font-size:18px">요구사항 매핑</h3><span class="sp"></span><button class="btn sec sm ico" data-act="map-close" aria-label="닫기">${ic('x')}</button></div><p class="hint">PRD v0.6 · SRS v0.6 · 시스템 설계서 v0.4 기준. 각 화면이 충족하려는 요구사항 ID입니다.</p>${rows.map(r=>`<div class="card w" style="margin:0"><b style="font-size:14px">${r[0]}</b><div class="mono" style="font-size:12px;color:var(--link);margin-top:4px">${r[1]}</div><div class="small muted" style="margin-top:4px">${r[2]}</div></div>`).join('')}<h4 style="margin-top:8px">제안으로 표시한 것 (문서에 제안으로 반영됨, 팀 확정 전)</h4><ul class="small muted" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px"><li>로그인 전 상담 (계정·로그인 문의)</li><li>보안·감사 알림 페이지 (접수 없는 보안 의심 신호)</li><li>담당자↔문의자 직접 메시지 (문서의 AI 중개 양방향 소통은 Could)</li><li>FIN 이후 미해결 시 FIN→WIP 복귀 (PRD 4.8 제안)</li><li>FAQ (PRD 4.16 제안)</li></ul>`;
+  return `<div class="row"><h3 style="font-size:18px">요구사항 매핑</h3><span class="sp"></span><button class="btn sec sm ico" data-act="map-close" aria-label="닫기">${ic('x')}</button></div><p class="hint">PRD v0.6 · SRS v0.6 · 시스템 설계서 v0.4 기준. 각 화면이 충족하려는 요구사항 ID입니다.</p>${rows.map(r=>`<div class="card w" style="margin:0"><b style="font-size:14px">${r[0]}</b><div class="mono" style="font-size:12px;color:var(--link);margin-top:4px">${r[1]}</div><div class="small muted" style="margin-top:4px">${r[2]}</div></div>`).join('')}<h4 style="margin-top:8px">제안으로 표시한 것 (문서에 제안으로 반영됨, 팀 확정 전)</h4><ul class="small muted" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px"><li>로그인 전 상담 (계정·로그인 문의)</li><li>보안·감사 알림 페이지 (접수 없는 보안 의심 신호)</li><li>담당자↔문의자 직접 메시지 (문서의 AI 중개 양방향 소통은 Could)</li><li>FIN 미해결은 기존 티켓 보존·새 문의에서 별도 접수 확정 (10.27 확정)</li><li>FAQ (PRD 4.16 제안)</li></ul>`;
 }
 
 /* ===== 문의자 화면 · 대화 흐름 ===== */
@@ -1296,7 +1296,7 @@ function userMsg(t){
 }
 function ticketCard(t,i,ro){
   const fin=t.status==='FIN'&&S.role!=='admin'||t.status==='FIN'&&t.req===S.user;
-  return `<div class="card">${t.status==='CLS'?`<div class="pose done"><img src="${PAVIMG.done}" alt=""></div>`:`<div class="pose"><img src="${PAVIMG.handoff}" alt=""></div>`}<div class="row" style="justify-content:space-between;gap:8px"><b style="font-size:15px">${ESC(t.title)}</b><span class="mono small muted">${t.receipt}${t.id?' · '+t.id:''}</span></div>${ticketSteps(t)}<p style="margin-top:14px;font-size:14px;line-height:22px">${ESC(userMsg(t))}</p>${t.status==='FIN'?`<div class="card w" style="margin-top:10px"><div class="small muted">처리 결과 · ${ESC(t.assignee)}</div><div style="margin-top:4px">${ESC(t.result||'조치를 완료했습니다.')}</div></div>`:''}${fin&&!ro&&t.req===S.user?`<div class="replies">${t.busy?`<span class="muted small" role="status">확인하는 중 <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></span>`:`<button class="chip" data-act="tk-ok" data-id="${t.receipt}">해결</button><button class="chip" data-act="tk-no" data-id="${t.receipt}">미해결</button>`}${DT(t)}</div>`:''}${ro?'<p class="small muted" style="margin-top:10px">문의자 응답: 아직 해결되지 않음 → 다시 확인 요청</p>':''}${fin&&!ro&&t.req===S.user?'':`<div class="replies">${DT(t)}</div>`}</div>`;
+  return `<div class="card">${t.status==='CLS'?`<div class="pose done"><img src="${PAVIMG.done}" alt=""></div>`:`<div class="pose"><img src="${PAVIMG.handoff}" alt=""></div>`}<div class="row" style="justify-content:space-between;gap:8px"><b style="font-size:15px">${ESC(t.title)}</b><span class="mono small muted">${t.receipt}${t.id?' · '+t.id:''}</span></div>${ticketSteps(t)}<p style="margin-top:14px;font-size:14px;line-height:22px">${ESC(userMsg(t))}</p>${t.status==='FIN'?`<div class="card w" style="margin-top:10px"><div class="small muted">처리 결과 · ${ESC(t.assignee)}</div><div style="margin-top:4px">${ESC(t.result||'조치를 완료했습니다.')}</div></div>`:''}${fin&&!ro&&t.req===S.user?`<div class="replies">${t.busy?`<span class="muted small" role="status">확인하는 중 <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></span>`:`<button class="chip" data-act="tk-ok" data-id="${t.receipt}">해결</button><button class="chip" data-act="tk-no" data-id="${t.receipt}">미해결</button>`}${DT(t)}</div>`:''}${ro?'<p class="small muted" style="margin-top:10px">이전 처리 진행 기록</p>':''}${fin&&!ro&&t.req===S.user?'':`<div class="replies">${DT(t)}</div>`}</div>`;
 }
 function draftCard(i){
   const d=i.draft;if(!d)return '';
@@ -1660,13 +1660,6 @@ function skipForward(){
 }
 
 function tmsg(t,m){m.grp=t.group;t.msgs=t.msgs||[];t.msgs.push(m);const i=S.inqs.find(x=>x.id===t.inq);if(i)i.msgs.push({r:'t',...m,id:S.seq.msg++});}
-function reopenCard(t,reason){
-  const i=S.inqs.find(x=>x.id===t.inq);if(!i)return;
-  const old=i.msgs.filter(m=>m.card==='ticket'&&m.tid===t.receipt&&!m.frozen).pop();
-  if(old)old.frozen=ticketCard(t,i,true);
-  tmsg(t,{from:'문의자',kind:'미해결 사유',t:reason,time:NOW()});
-}
-
 /* ===== 담당자 · 관리자 화면 ===== */
 const excList=()=>S.tickets.filter(t=>t.jira==='확인 필요'||t.jira==='결과 확인 중'||t.asg==='확인 필요'||t.trn==='NEEDS_ADMIN');
 const TRN_TO={RDY:'처리 대기',WIP:'처리 중',FIN:'해결 확인 대기',CLS:'해결 완료'};
@@ -2144,8 +2137,8 @@ const A={
   dclose(){const app=document.querySelector('.app.has-detail');if(app&&!S.dLeave&&!(matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches)){S.dLeave=true;app.classList.add('dleave');setTimeout(()=>{S.dLeave=false;S.detail=null;render();restoreFocus('openerD');},230);return;}S.detail=null;render();restoreFocus('openerD');},
   /* 해결·미해결을 누르면 결과가 반영될 때까지 잠깐 확인 중으로 두고, 반영된 뒤에 상태를 바꾼다 */
   'tk-ok'(e,d){const t=tById(d.id);if(t.busy)return;t.busy=true;render({bottom:true});later(()=>{t.busy=false;setStatus(t,'CLS','문의자 해결 확인');const i=S.inqs.find(x=>x.id===t.inq);if(i){i.state='담당자 이관';}render({bottom:true});toast('해결 확인이 기록되었어요.');},1200);},
-  'tk-no'(e,d){openModal('아직 해결되지 않았어요',`<p class="small muted">상황을 알려 주시면 담당자가 다시 확인해요. <span class="tag gray">제안</span> 이 흐름은 팀 합의 전 제안이에요.</p><div class="field"><label for="m-r">남은 증상</label><textarea class="ta" id="m-r" placeholder="예) 안내대로 했지만 같은 오류가 나요"></textarea></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="tk-no2" data-id="${d.id}">다시 확인 요청</button></div>`);},
-  'tk-no2'(e,d){const r=val('m-r').trim();if(!r){toast('남은 증상을 적어 주세요.');return;}const t=tById(d.id);if(t.busy)return;t.busy=true;closeModal();render({bottom:true});later(()=>{t.busy=false;reopenCard(t,r);setStatus(t,'WIP','문의자 미해결 · 재확인 요청');{const i=S.inqs.find(x=>x.id===t.inq);if(i)i.msgs.push({r:'a',id:S.seq.msg++,html:'<p>다시 확인을 요청했어요. 담당자가 재확인하고 있어요. 아래 카드에서 새 진행 상황을 볼 수 있어요.</p>',card:'ticket',tid:t.receipt});}slack(t,'담당자','문의자가 해결되지 않았다고 알렸습니다.');render({bottom:true});},1200);},
+  'tk-no'(e,d){const t=tById(d.id);if(!t||t.status!=='FIN'||t.req!==S.user)return;openModal('새 문의로 접수',`<p class="small muted">기존 티켓과 처리 이력은 그대로 보존해요. 새 문의에서 내용을 확인하고 별도로 접수해 주세요.</p><div class="field"><label for="m-r">남은 증상 (선택)</label><textarea class="ta" id="m-r" placeholder="예) 안내대로 했지만 같은 오류가 나요"></textarea></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="tk-no2" data-id="${d.id}">새 문의 시작하기</button></div>`);},
+  'tk-no2'(e,d){const t=tById(d.id);if(!t||t.status!=='FIN'||t.req!==S.user||t.busy)return;const reason=val('m-r').trim();const text='기존 접수 '+t.receipt+(t.id?' / '+t.id:'')+': '+t.title+'\n아직 해결되지 않았어요.'+(reason?'\n남은 증상: '+reason:'');closeModal();S.view={n:'new'};S.detail=null;render();const ta=document.getElementById('cmp');if(ta){ta.value=text;autosize(ta);syncSend(ta);ta.focus();}},
   of(e,d){S.opsFilter=d.f;S.opsSub='';render();},
   'st-wip'(e,d){setStatus(tById(d.id),'WIP');render();toast('처리를 시작했어요.');},
   'st-fin'(e,d){openModal('처리 결과 등록',`<p class="small muted">문의자에게 보이는 내용이에요. 비밀번호·인증번호는 적지 마세요.</p><div class="field"><label for="m-res">처리 결과</label><textarea class="ta" id="m-res" placeholder="어떤 원인을 어떻게 조치했는지 적어 주세요"></textarea></div><div class="acts"><button class="btn sec" data-act="close">취소</button><button class="btn pri" data-act="st-fin2" data-id="${d.id}">등록하고 해결 확인 요청</button></div>`);},

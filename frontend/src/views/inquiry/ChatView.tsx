@@ -9,7 +9,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { cancelChatDraft, isStaleInquiry, confirmChatDraft, editDraft, getChat, idleBackChat, idleDeleteChat, idleWarnChat, leaveChat, rejectChat, reopenChat, replyChat, resolveChat, resumeChat, sendChat, watchChat } from '../../api/chat'
+import { cancelChatDraft, isStaleInquiry, confirmChatDraft, editDraft, getChat, idleBackChat, idleDeleteChat, idleWarnChat, leaveChat, reopenChat, replyChat, resolveChat, resumeChat, sendChat, watchChat } from '../../api/chat'
 import { IDLE_TEXT, type DraftEdit, type GuideSource, type Inquiry, type LegacyCase } from '../../api/chatTypes'
 import { inquiryState } from '../../api/inquiryState'
 import type { ApiResult } from '../../api/types'
@@ -268,9 +268,13 @@ export function ChatView() {
     if (!ok) setText(v) // 실패하면 쓴 내용을 되돌려 놓는다
   }
 
-  async function submitReject() {
-    if (!reason.trim() || !employeeNo) return
-    if (await apply(rejectChat(id, employeeNo, reason))) setModal(null)
+  function submitReject() {
+    const ticket = inquiry?.ticket
+    if (!ticket || ticket.workStatus !== 'FIN') return
+    const reference = [ticket.receiptNo, ticket.jiraKey].filter(Boolean).join(' / ')
+    const prefill = `기존 접수 ${reference}: ${ticket.title}\n아직 해결되지 않았어요.${reason.trim() ? '\n남은 증상: ' + reason.trim() : ''}`
+    setModal(null)
+    navigate('/new', { state: { prefill } })
   }
 
   return (
@@ -423,18 +427,18 @@ export function ChatView() {
       )}
 
       {modal?.kind === 'reject' && (
-        <Modal title="미해결" onClose={() => setModal(null)}>
-          <p className="small muted">남은 증상을 알려 주시면 담당자가 다시 확인해요.</p>
+        <Modal title="새 문의로 접수" onClose={() => setModal(null)}>
+          <p className="small muted">기존 티켓과 처리 이력은 그대로 보존해요. 새 문의에서 내용을 확인하고 별도로 접수해 주세요.</p>
           <div className="field">
-            <label htmlFor="m-reason">남은 증상</label>
+            <label htmlFor="m-reason">남은 증상 (선택)</label>
             <textarea className="ta" id="m-reason" value={reason} placeholder="예) 안내대로 했지만 같은 오류가 나요" onChange={(e) => setReason(e.target.value)} />
           </div>
           <div className="acts">
             <button type="button" className="btn sec" onClick={() => setModal(null)}>
               취소
             </button>
-            <button type="button" className="btn pri" disabled={!reason.trim() || busy} onClick={submitReject}>
-              다시 확인 요청
+            <button type="button" className="btn pri" disabled={busy} onClick={submitReject}>
+              새 문의 시작하기
             </button>
           </div>
         </Modal>

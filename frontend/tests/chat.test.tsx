@@ -11,7 +11,7 @@ import { listMyInquiries } from '../src/api/inquiries'
 import { advanceChat, isStaleInquiry, cancelChatDraft, confirmChatDraft, editDraft, getChat, reopenChat, rejectChat, replyChat, resolveChat, sendChat, startChat, idleBackChat, idleDeleteChat, idleWarnChat, resumeChat } from '../src/api/chat'
 import type { Inquiry } from '../src/api/chatTypes'
 import { calcUrgency, detectCategory } from '../src/api/mock/chatEngine'
-import { mockConfig } from '../src/api/mock/chatStore'
+import { mockConfig, recordsOf } from '../src/api/mock/chatStore'
 import type { ApiResult } from '../src/api/types'
 import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
@@ -320,28 +320,39 @@ describe('접수 흐름 (API)', () => {
     expect(cls.ticket?.workStatus).toBe('CLS')
   })
 
-  it('미해결이라고 알리면 사유와 함께 다시 처리 중으로 돌아간다', async () => {
+  it.each(['같은 오류가 계속 나요', '   '])('이전 미해결 호출도 FIN 티켓을 변경하지 않는다 (%s)', async (reason) => {
     const d = await toDraft()
     await data(confirmChatDraft(d.id, USER.employeeNo))
     await settle()
     await data(advanceChat(d.id, USER.employeeNo))
     await data(advanceChat(d.id, USER.employeeNo))
-    const re = await data(rejectChat(d.id, USER.employeeNo, '같은 오류가 계속 나요'))
-    expect(re.ticket?.workStatus).toBe('WIP')
-    expect(re.messages.some((m) => m.role === 'user' && m.text === '같은 오류가 계속 나요')).toBe(true)
-    // 지난 진행 카드는 기록으로 남고, 새 진행 카드가 붙는다
-    expect(re.messages.filter((m) => m.card === 'ticket' && m.ticketSnapshot)).toHaveLength(1)
-    expect(re.messages.filter((m) => m.card === 'ticket')).toHaveLength(2)
+    const before = await get(d.id)
+    expect(before.ticket?.workStatus).toBe('FIN')
+    expect(before.ticket?.finishedAt).toBeTruthy()
+    const result = await rejectChat(d.id, USER.employeeNo, reason)
+    expect(result).toMatchObject({ ok: false, error: { code: 'TICKET_INVALID_TRANSITION' } })
+    expect(await get(d.id)).toEqual(before)
   })
 
-  it('사유 없이는 다시 확인을 요청할 수 없다', async () => {
-    const d = await toDraft()
-    await data(confirmChatDraft(d.id, USER.employeeNo))
+  it('FIN 이후 별도 접수를 확정하면 새 번호를 만들고 기존 티켓은 보존한다', async () => {
+    const oldDraft = await toDraft()
+    await data(confirmChatDraft(oldDraft.id, USER.employeeNo))
     await settle()
-    await data(advanceChat(d.id, USER.employeeNo))
-    await data(advanceChat(d.id, USER.employeeNo))
-    const same = await data(rejectChat(d.id, USER.employeeNo, '   '))
-    expect(same.ticket?.workStatus).toBe('FIN')
+    await data(advanceChat(oldDraft.id, USER.employeeNo))
+    await data(advanceChat(oldDraft.id, USER.employeeNo))
+    const before = await get(oldDraft.id)
+    const freshDraft = await toDraft()
+    expect(freshDraft.id).not.toBe(before.id)
+    expect(freshDraft.ticket).toBeNull()
+    expect(await get(before.id)).toEqual(before)
+    await data(confirmChatDraft(freshDraft.id, USER.employeeNo))
+    await settle()
+    const fresh = await get(freshDraft.id)
+    expect(fresh.ticket?.receiptNo).toBeTruthy()
+    expect(fresh.ticket?.jiraKey).toBeTruthy()
+    expect(fresh.ticket?.receiptNo).not.toBe(before.ticket?.receiptNo)
+    expect(fresh.ticket?.jiraKey).not.toBe(before.ticket?.jiraKey)
+    expect(await get(before.id)).toEqual(before)
   })
 
   it('접수 이후 보낸 메시지는 담당자에게 전달되는 추가 메시지다', async () => {
@@ -510,24 +521,35 @@ describe('대화 화면', () => {
     expect(within(list).queryByText('1')).not.toBeInTheDocument()
   })
 
-  it('해결 확인 대기 카드에서 미해결을 누르면 사유 입력 창이 열린다', async () => {
+  it.each(['같은 오류가 나요', ''])('FIN 미해결은 기존 티켓을 보존하고 새 문의 입력으로 이동한다 (%s)', async (reason) => {
     const user = userEvent.setup()
     renderAs('EMP-1001', '/chat/101')
     await screen.findByRole('list', { name: '접수 진행 단계' }, SLOW)
-    // 담당자 처리 시연: 처리 중 → 해결 확인 대기
-    await advanceChat(101, 'EMP-1001')
-    // 이전 안내에 남은 같은 이름의 버튼은 잠겨 있으므로, 눌 수 있는 버튼이 나타날 때까지 기다린다
+    const before = await data(advanceChat(101, 'EMP-1001'))
+    const countBefore = recordsOf('EMP-1001').length
     const reject = await waitFor(() => {
       const b = screen.getAllByRole('button', { name: '미해결' }).find((x) => !(x as HTMLButtonElement).disabled)
       if (!b) throw new Error('미해결 버튼 없음')
       return b
     }, SLOW)
     await user.click(reject)
-    const send = screen.getByRole('button', { name: '다시 확인 요청' })
-    expect(send).toBeDisabled() // 사유를 쓰기 전에는 보낼 수 없다
-    await user.type(screen.getByLabelText('남은 증상'), '같은 오류가 나요')
+    const dialog = screen.getByRole('dialog', { name: '새 문의로 접수' })
+    expect(dialog).toHaveTextContent('기존 티켓과 처리 이력은 그대로 보존해요')
+    const send = within(dialog).getByRole('button', { name: '새 문의 시작하기' })
+    expect(send).toBeEnabled()
+    if (reason) await user.type(within(dialog).getByLabelText('남은 증상 (선택)'), reason)
     await user.click(send)
-    expect(await screen.findByText(/다시 확인을 요청했어요/, {}, SLOW)).toBeInTheDocument()
+    const input = await screen.findByLabelText('메시지 입력', {}, SLOW)
+    expect((input as HTMLTextAreaElement).value).toContain(before.ticket!.receiptNo)
+    if (reason) expect((input as HTMLTextAreaElement).value).toContain(reason)
+    expect(await get(101, 'EMP-1001')).toEqual(before)
+    expect(recordsOf('EMP-1001')).toHaveLength(countBefore)
+    await user.click(screen.getByRole('button', { name: '보내기' }))
+    await waitFor(() => expect(recordsOf('EMP-1001')).toHaveLength(countBefore + 1), SLOW)
+    const fresh = recordsOf('EMP-1001').find((rec) => rec.inquiry.id !== 101 && rec.inquiry.messages.some((m) => m.text?.includes(before.ticket!.receiptNo)))
+    expect(fresh?.inquiry.id).not.toBe(101)
+    expect(fresh?.inquiry.ticket).toBeFalsy()
+    expect((await get(101, 'EMP-1001')).ticket).toEqual(before.ticket)
   })
 
   it('미확인 문의를 열면 이어가기 창이 뜨고, 고르기 전에는 지난 버튼이 잠겨 있다', async () => {

@@ -96,7 +96,7 @@ export interface ChatMessage {
   /** 답변을 준비 중임을 나타내는 점 세 개 표시 */
   typing?: { label: string }
   card?: ChatCard
-  /** 다시 확인 요청 때 옛 진행 카드를 그대로 남기는 스냅샷 */
+  /** 이전 시연에서 저장한 진행 카드 기록과의 호환용 스냅샷 */
   ticketSnapshot?: Ticket
   /** staff 메시지 */
   from?: string

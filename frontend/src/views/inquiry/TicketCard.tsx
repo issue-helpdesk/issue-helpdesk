@@ -70,7 +70,7 @@ const SPARKS: [number, number][] = [
 
 interface Props {
   ticket: Ticket
-  /** 지난 카드(다시 확인 요청 전의 기록)는 버튼 없이 보여 준다 */
+  /** 이전 시연에서 저장한 진행 카드 기록은 버튼 없이 보여 준다 */
   readOnly?: boolean
   busy?: boolean
   onResolve: () => void
@@ -144,7 +144,7 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
 
       {readOnly && (
         <p className="small muted" style={{ marginTop: 10 }}>
-          문의자 응답: 아직 해결되지 않음 → 다시 확인 요청
+          이전 처리 진행 기록
         </p>
       )}
 

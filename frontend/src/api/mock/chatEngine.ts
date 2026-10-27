@@ -732,22 +732,6 @@ export function confirmResolved(rec: StoreRecord) {
   rec.inquiry.updatedAt = nowIso()
 }
 
-/** 문의자가 "미해결"과 남은 증상을 보내면 담당자가 다시 확인한다 */
-export function denyResolved(rec: StoreRecord, reason: string) {
-  const { inquiry } = rec
-  const t = inquiry.ticket
-  if (!t || t.workStatus !== 'FIN' || !reason.trim()) return
-  // 지난 진행 카드는 그대로 남기고, 새 진행 카드를 아래에 붙인다
-  const old = [...inquiry.messages].reverse().find((m) => m.card === 'ticket' && !m.ticketSnapshot)
-  if (old) old.ticketSnapshot = { ...t }
-  push(inquiry, { role: 'user', text: reason.trim(), kind: '미해결 사유' })
-  t.workStatus = 'WIP'
-  t.finishedAt = null
-  t.resolutionNote = ''
-  inquiry.updatedAt = nowIso()
-  push(inquiry, { role: 'assistant', blocks: [p('다시 확인을 요청했어요. 담당자가 재확인하고 있어요. 아래 카드에서 새 진행 상황을 볼 수 있어요.')], card: 'ticket' })
-}
-
 /** 접수 이후 문의자가 남긴 추가 메시지: 담당자에게 전달된다 */
 export function sendToStaff(rec: StoreRecord, text: string) {
   if (rec.inquiry.ticket?.workStatus === 'CLS') return // 종료된 문의다

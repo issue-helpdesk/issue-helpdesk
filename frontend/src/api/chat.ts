@@ -11,14 +11,14 @@
  *   POST /inquiries/{id}/draft/confirm    초안 확인 후 접수
  *   POST /inquiries/{id}/draft/cancel     접수하지 않고 종료
  *   POST /inquiries/{id}/resolve          접수 후 "해결"
- *   POST /inquiries/{id}/reject           접수 후 "미해결" (사유 필수)
+ *   FIN 미해결은 기존 티켓 변경 없이 새 문의 화면에서 별도로 접수한다.
  *   POST /inquiries/{id}/reopen           끝난 상담 이어가기 (미해결·미접수 종료만, IQ-06)
  * 실제 서버에서는 접수 이후 진행(Jira 생성·배정·처리)이 서버에서 일어나므로, 화면은 GET 을 주기적으로 다시 읽는다.
  */
 import { request, sleep } from '../core/apiClient'
 import { USE_MOCK } from '../core/config'
 import type { DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
-import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, idleWarnInquiry, idleDeleteInquiry, idleBackInquiry, leaveInquiry, resumeInquiry } from './mock/chatEngine'
+import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, idleWarnInquiry, idleDeleteInquiry, idleBackInquiry, leaveInquiry, resumeInquiry } from './mock/chatEngine'
 import './mock/chatMock'
 import { getRecord, mockConfig, notify, subscribe, type StoreRecord } from './mock/chatStore'
 import { fail, ok, type ApiResult } from './types'
@@ -143,9 +143,9 @@ export function resolveChat(id: number, employeeNo: string): Promise<ApiResult<I
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/resolve`)
 }
 
-export function rejectChat(id: number, employeeNo: string, reason: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => denyResolved(rec, reason))
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/reject`, { reason })
+/** 이전 호출도 FIN을 다시 열지 못하도록 막는다. 화면은 새 문의로 안내한다. */
+export function rejectChat(_id: number, _employeeNo: string, _reason: string): Promise<ApiResult<Inquiry>> {
+  return Promise.resolve(fail('TICKET_INVALID_TRANSITION', '기존 티켓은 다시 열 수 없어요. 새 문의에서 별도로 접수해 주세요.'))
 }
 
 export function reopenChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
