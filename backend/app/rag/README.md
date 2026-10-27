@@ -13,6 +13,7 @@
 | [`embedding/`](embedding/README.md) | M3-1-2 | 로컬 임베딩 모델 KURE-v1·BGE-M3 받기·확인·시험, `Embedder` |
 | [`ingest/`](ingest/README.md) | M2-2-1 | 가이드 적재: 준비 → 검증 → 문서마다 교체, 현행 전환 `activate()`, 가짜 임베딩기 |
 | [`review/`](review/README.md) | D1~D6 | 가이드 검증 시트(자동 대조·평가셋 겹침·검색 단위 목록)와 검색 질문 점검 |
+| [`evaluation/`](evaluation/README.md) | M2-2-2 | 검색 평가: 가이드 질문 228·평가셋 50으로 묶음별 Hit@k·MRR. BM25 기준선, 실제 검색 search()·DB 벡터 검색기 |
 
 ## 사용법
 
