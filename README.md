@@ -91,6 +91,14 @@ uv run pytest tests/test_db_connection.py -v
 
 `PASSED`가 나오면 연결된 것입니다.
 
+### 5. 백엔드 서버 실행
+
+```bash
+uv run poe dev
+```
+
+코드를 수정하면 서버가 자동으로 재시작됩니다. 실행 후 http://127.0.0.1:8000/docs 에서 API 문서를 확인할 수 있습니다.
+
 ## 문서
 
 | 문서 | 내용 |
