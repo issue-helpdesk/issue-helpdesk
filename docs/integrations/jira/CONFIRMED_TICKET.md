@@ -23,10 +23,14 @@
 | `receiptNo` | `receipt_no` | 필수, 255자 초과 시 거부 |
 | `summary` | `title` | 필수, 제목은 기존 255자 제한 적용·전체 요약은 본문 보존 |
 | `categoryCode`, `urgency` | `category_code`, `urgency` | 현재 매핑의 코드 사용, 누락·미등록 값 거부 |
+| `category.name` | `category_name` | 선택, 값이 있으면 기존 분류명 필드로 전달 |
+| `inquiryType.name`, `inquiryType.code` | `inquiry_type_name`, `inquiry_type_code` | 선택, 값이 있으면 기존 세부 분류명·시나리오 ID 필드로 전달 |
 | `groupId`, `group.id`, `group.name` | `group_name` | 두 ID 일치, 현재 Jira 매핑에 있는 그룹 이름 필요 |
 | `targetSystem`, `symptom`, `occurredAt`, `businessImpact`, `triedActions`, `urgencyReason` | `description` | 값이 있는 항목만 제목과 함께 본문 구성 |
 | `requester.employeeNo`, `requester.name` | 문의자 사번·이름 | 선택, 계약에 있는 항목만 전달 |
 | `jiraSyncStatus`, `jiraKey` | 실행 조건 | 아래 기준 적용 |
+
+선택 항목의 누락·null·빈 문자열은 생략하며 코드에서 이름을 추측하지 않는다. 참조 객체나 값의 자료형이 계약과 다르면 Jira 호출 전에 입력 오류를 반환한다. 기존 매핑 파일·필수 항목은 변경하지 않는다.
 
 ### 확정된 전달 계약 (2026-10-27)
 
@@ -97,7 +101,8 @@ with JiraClient.from_env() as jira:
 
 ## 검증 결과
 
-- 신규 30개 + 기존 Jira 129개 = **159개 통과**. 모의 HTTP 응답으로 실행했으며 실제 Jira 티켓은 생성하지 않았다.
+- 접수 연결 시험 42개(기존 30개 + 선택 항목 보완 12개) + 기존 Jira 129개 = **171개 통과**. 모의 HTTP 응답으로 실행했으며 실제 Jira 티켓은 생성하지 않았다.
+- 분류명·세부 분류명·시나리오 ID가 실제 생성 요청의 기존 Jira 필드에 들어가는지와 선택값 누락·부분 입력·잘못된 자료형 처리를 확인했다.
 - 새 시험: 현재 ITHD 필드 변환, 본문 보존, 기존 Jira 키/검색 결과 재사용, 미확정 초안 거부, 누락·잘못된 코드·그룹 불일치, 인증 실패, 생성 시간 초과 시 재호출 없음.
 - 실행: 저장소 루트에서 `PYTHONPATH=backend python -m pytest tests -q`.
 - 운영 접수 API부터 DB까지의 통합 시험은 아직 하지 않았다.

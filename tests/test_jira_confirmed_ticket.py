@@ -21,6 +21,8 @@ def ticket():
     return {
         "id": 42, "draftId": 55, "receiptNo": "RCPT-0042",
         "summary": "VPN 접속 오류", "categoryCode": "NET", "urgency": "P2",
+        "category": {"code": "NET", "name": "VPN·네트워크"},
+        "inquiryType": {"id": 21, "code": "NET-01", "name": "VPN 접속 불가"},
         "groupId": 3, "group": {"id": 3, "name": "네트워크팀"},
         "targetSystem": "VPN", "symptom": "인증 서버 연결 실패",
         "occurredAt": "오늘 오전", "businessImpact": "사내 시스템 접속 불가",
@@ -55,6 +57,9 @@ def test_create_uses_current_jira_fields_and_preserves_snapshot(ticket):
         assert fields["summary"] == ticket["summary"]
         assert fields["customfield_10043"] == ticket["receiptNo"]
         assert fields["customfield_10064"] == {"id": "10022"}
+        assert fields["customfield_10053"] == "VPN·네트워크"
+        assert fields["customfield_10054"] == "VPN 접속 불가"
+        assert fields["customfield_10055"] == "NET-01"
         assert fields["priority"] == {"id": "2"}
         assert fields["components"] == [{"id": "10002"}]
         assert fields["customfield_10044"] == "EMP-TEST"
@@ -188,3 +193,53 @@ def test_auth_failure_is_not_retried_or_marked_success(ticket):
         create_from_confirmed_ticket(jira, ticket)
     assert caught.value.reason == "auth"
     assert len(requests) == 1
+
+
+@pytest.mark.parametrize("references,expected", [
+    ({}, {}),
+    ({"category": None, "inquiryType": None}, {}),
+    ({"category": {}, "inquiryType": {}}, {}),
+    ({"category": {"name": "  "}, "inquiryType": {"name": "", "code": None}}, {}),
+    ({"category": {"name": "  VPN·네트워크  "}}, {"customfield_10053": "VPN·네트워크"}),
+    ({"inquiryType": {"code": "NET-01"}}, {"customfield_10055": "NET-01"}),
+    ({"inquiryType": {"name": "VPN 접속 불가"}}, {"customfield_10054": "VPN 접속 불가"}),
+])
+def test_optional_metadata_is_forwarded_only_when_present(ticket, references, expected):
+    ticket.pop("category")
+    ticket.pop("inquiryType")
+    ticket.update(references)
+    before = deepcopy(ticket)
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        if request.url.path.endswith("search/jql"):
+            return httpx.Response(200, json={"issues": [], "isLast": True})
+        fields = json.loads(request.content)["fields"]
+        actual = {key: fields[key] for key in (
+            "customfield_10053", "customfield_10054", "customfield_10055"
+        ) if key in fields}
+        assert actual == expected
+        assert fields["customfield_10064"] == {"id": "10022"}
+        return httpx.Response(201, json={"id": "20001", "key": "ITHD-999"})
+
+    with client_for(handler) as jira:
+        result = create_from_confirmed_ticket(jira, ticket)
+    assert result["created"] is True
+    assert calls == ["/rest/api/3/search/jql", "/rest/api/3/issue"]
+    assert ticket == before
+
+
+@pytest.mark.parametrize("field,value,error_field", [
+    ("category", "NET", "category"),
+    ("category", {"name": 123}, "category.name"),
+    ("inquiryType", ["NET-01"], "inquiryType"),
+    ("inquiryType", {"name": False}, "inquiryType.name"),
+    ("inquiryType", {"code": 21}, "inquiryType.code"),
+])
+def test_invalid_optional_metadata_does_not_send_jira_request(ticket, field, value, error_field):
+    ticket[field] = value
+    with client_for(no_network) as jira, pytest.raises(ConfirmedTicketError) as caught:
+        create_from_confirmed_ticket(jira, ticket)
+    assert caught.value.reason == "invalid_type"
+    assert caught.value.fields == (error_field,)

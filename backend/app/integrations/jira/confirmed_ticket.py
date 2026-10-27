@@ -79,6 +79,24 @@ def to_jira_ticket(ticket: Mapping[str, Any]) -> dict[str, str]:
         "urgency": urgency,
         "group_name": group_name,
     }
+    # 기존 매핑에 있는 선택 항목만 전달한다. 누락값을 코드 등에서 추측하지 않는다.
+    for source, field, target in (
+        ("category", "name", "category_name"),
+        ("inquiryType", "name", "inquiry_type_name"),
+        ("inquiryType", "code", "inquiry_type_code"),
+    ):
+        reference = ticket.get(source)
+        if reference is None:
+            continue
+        if not isinstance(reference, Mapping):
+            raise ConfirmedTicketError("invalid_type", (source,))
+        value = reference.get(field)
+        if value is None:
+            continue
+        if not isinstance(value, str):
+            raise ConfirmedTicketError("invalid_type", (f"{source}.{field}",))
+        if value.strip():
+            result[target] = value.strip()
     # 긴 요약도 본문에 남긴다. Jira 제목 길이 제한은 기존 mapper에서 적용한다.
     parts = [("문의 요약", summary)]
     for source, label in (
