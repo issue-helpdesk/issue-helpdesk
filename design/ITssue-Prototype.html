@@ -1508,8 +1508,8 @@ function doAnswer(i){
     }
     i.guide=kb;
     if(i.cat==='ACS'){
-      i.step='offer';
-      mk(i,{r:'a',html:`<p>접근권한은 아래 절차로 신청해요.</p><ol>${steps}</ol><p style="margin-top:10px">권한을 실제로 부여하거나 바꾸는 일은 담당자와 승인자의 업무라서 AI가 대신할 수 없어요. ITssue 접수가 승인 절차를 대신하지도 않아요.</p>`,src:[{g:kb.g,v:kb.v,sec:kb.sec}],replies:[{l:'신청 방법을 확인했어요',a:'resolved',k:'pri'},{l:'담당자 연결',a:'connect-yes'}]});return;
+      i.step='answered';
+      mk(i,{r:'a',html:`<p>접근권한은 아래 절차로 신청해요.</p><ol>${steps}</ol><p style="margin-top:10px">권한을 실제로 부여하거나 바꾸는 일은 담당자와 승인자의 업무라서 AI가 대신할 수 없어요. ITssue 접수가 승인 절차를 대신하지도 않아요.</p><p style="margin-top:10px">신청 절차 안내로 해결되었나요?</p>`,src:[{g:kb.g,v:kb.v,sec:kb.sec}],replies:[{l:'해결',a:'resolved',k:'pri'},{l:'담당자 연결',a:'connect-yes'}]});return;
     }
     i.step='answered';
     mk(i,{r:'a',html:`<p>확인한 내용을 보면 <b>${CATS[i.cat].n}</b> 문의로 보여요. 먼저 아래 순서로 해 보세요.</p><ol>${steps}</ol><p style="margin-top:10px">이 방법으로 해결되었나요?</p>`,src:[{g:kb.g,v:kb.v,sec:kb.sec}],replies:[{l:'해결',a:'resolved',k:'pri'},{l:'미해결',a:'unresolved'}],demo:true});
