@@ -7,6 +7,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { authApi } from '../api/auth'
 import type { ApiResult, LoginData, LoginRequest, PasswordChangeRequest, User } from '../api/types'
+import { setAuthLostHandler } from './apiClient'
 import { tokenStore } from './tokenStore'
 
 /** 로그인 화면 맨 위에 한 번 보여 주는 안내: 비밀번호를 바꾼 뒤 / 로그인이 만료돼 돌아온 뒤 */
@@ -42,7 +43,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState<boolean>(() => !!tokenStore.get())
   const [loginNote, setLoginNote] = useState<LoginNote | null>(null)
 
-  // 새로고침 후 저장된 토큰이 아직 유효한지 서버에 확인한다
+  // 요청 도중 로그인이 끊기면(토큰 재발급 실패·폐기된 토큰) 로그인 화면으로 돌려보내고 만료됐다고 알린다.
+  // 이미 로그아웃한 뒤에 늦게 도착한 실패는 무시한다.
+  useEffect(() => {
+    setAuthLostHandler(() => {
+      if (!tokenStore.get()) return
+      tokenStore.clear()
+      setUser(null)
+      setLoginNote('expired')
+    })
+    return () => setAuthLostHandler(null)
+  }, [])
+
+  // 새로고침 후 저장된 토큰이 아직 유효한지 서버에 확인한다 (만료됐으면 요청 클라이언트가 재발급을 먼저 시도한다)
   useEffect(() => {
     if (!tokenStore.get()) return
     let alive = true // 화면이 사라진 뒤에는 상태를 바꾸지 않기 위한 표시
@@ -81,6 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mockQuickLogin: async (id) => accept(await authApi.mockQuickLogin(id)),
       changePassword: (req) => authApi.changePassword(req),
       logout: (note) => {
+        // 비밀번호를 바꾼 직후에는 서버가 이미 모든 로그인을 끊었으므로 다시 알리지 않는다
+        if (note !== 'pw-changed') authApi.logout()
         tokenStore.clear()
         setUser(null)
         setLoginNote(note ?? null)
