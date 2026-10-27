@@ -135,13 +135,18 @@ describe('문의 내역 화면', () => {
     await waitFor(() => expect(titles()[0]).toBe('프린터 드라이버 설치가 안 돼요'), SLOW)
   })
 
-  it('기간 알약은 시작일 기준이고, 최근 활동 아래에 시작일이 함께 보인다', async () => {
+  it('기간 알약은 시작일 기준이고, 최근 메시지 아래에 시작일이 함께 보인다', async () => {
     const user = userEvent.setup()
     renderAs('EMP-1001', '/list')
     await waitFor(() => expect(titles()).toHaveLength(7), SLOW)
     // VPN 연결 문의: 어제 활동, 3일 전 시작
     const row = screen.getByRole('button', { name: 'VPN 연결이 자주 끊겨요' }).closest('tr')!
-    expect(within(row).getByText('시작 3일 전')).toBeInTheDocument()
+    const d = new Date()
+    d.setDate(d.getDate() - 3)
+    const md = `${String(d.getMonth() + 1).padStart(2, '0')}\\.${String(d.getDate()).padStart(2, '0')}`
+    expect(within(row).getByText(new RegExp(`^문의 시작 · (\\d{2}\\.)?${md}$`))).toBeInTheDocument()
+    // 열 머리 이름과 기준 안내(툴팁)
+    expect(screen.getByRole('button', { name: '최근 메시지' })).toHaveAttribute('title', '마지막 메시지 등록 시각 기준')
     await user.click(screen.getByRole('button', { name: /^시작일\s*전체$/ }))
     await user.click(screen.getByRole('option', { name: '최근 7일' }))
     await waitFor(() => expect(titles()).toEqual(['VPN 연결이 자주 끊겨요', '전자결재 접속이 안 돼요', '계정 잠금 해제 방법', 'VPN 인증서 갱신이 필요한가요']), SLOW)
