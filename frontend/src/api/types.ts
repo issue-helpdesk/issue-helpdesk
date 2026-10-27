@@ -43,8 +43,16 @@ export interface ApiFail {
     /** ACCOUNT_LOCKED 일 때 잠금이 풀리는 시각 (ISO 8601) */
     lockedUntil?: string
     /** AUTH_PASSWORD_POLICY_VIOLATION 일 때 위반한 규칙들 (AU-04 details) */
-    details?: { field: string; reason: string; message: string }[]
+    details?: ErrorDetail[]
   }
+}
+
+/** 실패 응답의 details 한 칸. 입력 오류는 field, 계정 잠금은 value(잠금 해제 시각) 를 준다. (docs/07 5.3) */
+export interface ErrorDetail {
+  field?: string
+  reason: string
+  message: string
+  value?: string
 }
 
 export type ApiResult<T> = ApiOk<T> | ApiFail
@@ -132,4 +140,4 @@ export interface InquirySummary {
 export const ok = <T,>(data: T): ApiOk<T> => ({ ok: true, data })
 
 /** 실패 응답을 만드는 도우미 */
-export const fail = (code: string, message: string, extra?: { lockedUntil?: string; details?: { field: string; reason: string; message: string }[] }): ApiFail => ({ ok: false, error: { code, message, ...extra } })
+export const fail = (code: string, message: string, extra?: { lockedUntil?: string; details?: ErrorDetail[] }): ApiFail => ({ ok: false, error: { code, message, ...extra } })

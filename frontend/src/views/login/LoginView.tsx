@@ -8,7 +8,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { MOCK_PASSWORD, MOCK_QUICK_LOGINS, MOCK_TEMP_PASSWORD } from '../../api/mock/accounts'
 import type { ApiResult, LoginData } from '../../api/types'
-import { USE_MOCK } from '../../core/config'
+import { USE_MOCK_AUTH } from '../../core/config'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
 import { Icon } from '../../ui/Icon'
@@ -51,9 +51,9 @@ export function LoginView() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('id')
   // 시연(mock)일 때만 입력칸을 미리 채워 둔다
-  const [employeeNo, setEmployeeNo] = useState(USE_MOCK ? 'EMP-1001' : '')
+  const [employeeNo, setEmployeeNo] = useState(USE_MOCK_AUTH ? 'EMP-1001' : '')
   const [pwFocus, setPwFocus] = useState(false)
-  const [password, setPassword] = useState(USE_MOCK ? MOCK_PASSWORD : '')
+  const [password, setPassword] = useState(USE_MOCK_AUTH ? MOCK_PASSWORD : '')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   // 어느 버튼으로 요청 중인지(그 버튼에만 "로그인 중"을 보인다)와, 3초 넘게 걸리는지
@@ -205,8 +205,8 @@ export function LoginView() {
               </button>
               {slowNote}
               <div className="hint">
-                {USE_MOCK && `시연 계정 비밀번호는 ${MOCK_PASSWORD} 입니다. `}계정 5회 실패 시 잠기고 10분 후 해제됩니다.
-                {USE_MOCK && (
+                {USE_MOCK_AUTH && `시연 계정 비밀번호는 ${MOCK_PASSWORD} 입니다. `}계정 5회 실패 시 잠기고 10분 후 해제됩니다.
+                {USE_MOCK_AUTH && (
                   <>
                     <br />
                     임시 비밀번호 상태 시연: EMP-1010 / {MOCK_TEMP_PASSWORD}
@@ -226,14 +226,14 @@ export function LoginView() {
                 </div>
               )}
               <button className="btn pri block" type="button" aria-disabled={busy} aria-busy={busy && who === 'sso'} style={{ minHeight: 48 }} onClick={() => !busy && void run(loginSso(), 'sso')}>
-                {label('sso', USE_MOCK ? 'SSO로 계속하기 (시연)' : 'SSO로 계속하기')}
+                {label('sso', USE_MOCK_AUTH ? 'SSO로 계속하기 (시연)' : 'SSO로 계속하기')}
               </button>
               {slowNote}
             </div>
           )}
 
           {/* 시연(mock)일 때만 보이는 바로 로그인 버튼. 실제 API 에서는 나타나지 않는다 */}
-          {USE_MOCK && (
+          {USE_MOCK_AUTH && (
             <div className="roles">
               <small>시연용 바로 로그인</small>
               {MOCK_QUICK_LOGINS.map((q) => (

@@ -13,12 +13,12 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       port: 5173,
-      // 개발 중에는 /api 요청을 FastAPI로 넘겨 CORS 설정 없이도 호출할 수 있다.
+      // 개발 중에는 /api 요청을 FastAPI로 넘겨 CORS 설정 없이도 호출할 수 있다. (서버 경로가 /api/v1 이라 그대로 넘긴다)
+      // 같은 출처라서 Refresh Token 쿠키(SameSite=Strict)도 그대로 오간다.
       proxy: {
         '/api': {
           target: proxyTarget,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, ''),
         },
       },
     },
@@ -29,7 +29,7 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./tests/setup.ts'],
       css: false,
       // 테스트는 항상 가짜 응답(mock)으로 실행한다.
-      env: { VITE_USE_MOCK: 'true' },
+      env: { VITE_USE_MOCK: 'true', VITE_USE_MOCK_AUTH: 'true' },
     },
   }
 })
