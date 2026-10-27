@@ -13,10 +13,11 @@ ITssue가 티켓을 만드는 Jira Software 스페이스 「ITssue HelpDesk」(�
 | `client.py` | 중복 확인 → 생성 → `{jira_issue_id, jira_key, jira_url, created}` 반환, 저장값 확인, 토큰 확인(`check_auth`) |
 | `smoke_check.py` | 실제 Jira에 붙여 보는 점검 스크립트 (아래 "테스트") |
 | `assignment.py` | 담당자 선정(`pick_assignee`): 후보 필터링 + 업무량 비교. 순수 함수 |
-| `webhook.py` | Jira 웹훅 본문 해석(`parse_jira_webhook`), 서명 검증(`verify_hub_signature`) |
+| `webhook.py` | Jira 웹훅 본문 해석(`parse_jira_webhook`, 상태·담당자·댓글), 서명 검증(`verify_hub_signature`) |
+| `comment_notify.py` | 댓글이 달렸을 때 알림 받을 사번 판별(`route_comment`). 순수 함수 |
 | `retry.py` | 실패 뒤 다음 행동 판단(`next_step`): 재시도·결과 조회·관리자 확인 |
 | `time_off.py` | 연차·반차 일정에서 지금 부재인 사람 목록(`absent_user_ids`). 순수 함수 |
-| `accounts.py` · `jira_accounts.yaml` | 사번 ↔ Jira accountId 연결표(테스트용 6명, 1:1). 값이 비면 Jira 계정 없음으로 봄 |
+| `accounts.py` · `jira_accounts.yaml` | 사번 ↔ Jira accountId 연결표(테스트용 6명, 1:1). 값이 비면 Jira 계정 없음으로 봄. `account_id_for`(사번→계정), `employee_no_for`(계정→사번) |
 
 ## 사용법
 
@@ -105,6 +106,13 @@ if decision.selected:        # 예약(assign_status=PENDING) 후 JIRA_ASSIGN 작
 step = next_step(error, attempts=2, elapsed_seconds=120)   # RETRY · VERIFY · NEEDS_ADMIN
 # 3) 웹훅(TK-13)
 event = parse_jira_webhook(payload, delivery_id=headers.get("X-Atlassian-Webhook-Identifier"))
+# 4) 댓글 알림: 웹훅은 신호로만 쓰고 작성자·본문은 Jira에서 다시 읽는다
+if event.is_comment_created:
+    comment = jira.get_comment(event.issue_key, event.comment.comment_id)    # 읽기 전용, 재시도해도 안전
+    route = route_comment(comment["author_account_id"], requester_no=ticket.requester_no,
+                          assignee_no=ticket.assignee_no, ignore_account_ids={bot_account_id})
+    for emp_no in route.recipient_nos:       # 비어 있으면 알림 없음. route.reason 은 로그용
+        ...                                  # 이 사번의 계정에 알림 저장 (화면, 추후 Slack)
 ```
 
 - **중복 생성 방지**는 `create_ticket`이 이미 합니다(접수번호로 먼저 검색). 이 모듈에서 따로 늘리지 않았습니다.
@@ -112,12 +120,14 @@ event = parse_jira_webhook(payload, delivery_id=headers.get("X-Atlassian-Webhook
 - `pick_assignee`는 팀장·비활성·자동배정 불가·세부 분류 처리 불가·Jira 계정 없음을 후보에서 뺍니다. 부재자는 `exclude_user_ids`로 넘기며, 그 목록은 `time_off.absent_user_ids(일정, 현재시각)`으로 만듭니다(연차는 종일, 오전 반차는 13시 전까지, 오후 반차는 13시부터 부재. 기준 시각은 `half_day_cutoff`로 바꿀 수 있습니다). `time_off` 표와 일정 입력은 백엔드 몫이며 `docs/11.Jira_티켓_담당자_배정_로직.md` 3.1절에 정리했습니다.
 - **웹훅 비밀값**: Jira 관리자 웹훅은 비밀값(secret)으로 본문에 서명해 `X-Hub-Signature: sha256=…` 헤더로 보냅니다. `verify_hub_signature(본문 바이트, 헤더, 비밀값)`이 이를 검증합니다. 사용자 정의 헤더(`X-Itssue-Webhook-Secret`)를 Jira 설정에서 넣을 수 있다고는 확인하지 못해서 서명 방식을 기본으로 씁니다. `docs/api/03.접수_연동.md`의 TK-13 헤더 서술은 이에 맞춰 고쳐야 합니다.
 - **웹훅 이벤트 ID**: 헤더 값(`delivery_id`) → 변경 이력 ID → 본문 해시 순으로 씁니다. 헤더 이름은 Jira 문서 기준이며 실제 웹훅으로는 아직 확인하지 않았습니다.
+- **댓글 알림 받을 사람**: 문의자·담당자는 Jira의 reporter·assignee 가 아니라 ITssue DB 티켓의 사번을 `route_comment`에 넘깁니다(보고자는 API 토큰 계정이고 이관 티켓은 Jira 담당자가 비어 있을 수 있음). 작성자는 사번 연결표로 찾습니다. 문의자가 달면 담당자에게, 담당자가 달면 문의자에게, 둘 다 아닌 사람(팀장·관리자)이 달면 둘 모두에게 가고, 작성자 본인에게는 가지 않습니다. 연결표에 없는 계정(`unknown_author`)과 ITssue 봇 계정(`ignore_account_ids`, `check_auth()["account_id"]`)은 알림을 만들지 않습니다.
+- **댓글 이벤트 ID**: 헤더 값 → 변경 이력 ID → `comment:<이벤트>:<댓글ID>:<updated>` → 본문 해시 순입니다. 수정(`comment_updated`)·삭제는 `is_comment_created` 가 False 입니다. 댓글 본문의 멘션(`@이름`)은 글자로만 남기고, 멘션된 사람에게 따로 알리는 일은 하지 않습니다.
 - 상태·담당자 값은 웹훅 본문으로 덮어쓰지 않고, 이벤트를 신호로 받아 `get_work_status`·`get_assignee`로 최신값을 읽어 반영합니다(TK-13).
 - 되돌림 금지는 ITssue가 보내는 전환만 막습니다. Jira 화면에서 직접 되돌리는 것은 Jira 워크플로 설정에서 막아야 합니다.
 - 사번 연결표(`jira_accounts.yaml`)는 accountId 칸이 비어 있습니다. 팀원의 Jira 프로필 주소 끝 값을 넣습니다.
 - **실제 Jira로는 아직 테스트하지 않았습니다.** 특히 워크플로가 RDY→CLS처럼 건너뛰는 전환을 허용하는지, 담당자 지정 권한이 토큰 계정에 있는지는 실제 ITHD에서 확인이 필요합니다.
 
-테스트: `pytest tests/test_jira_assignment.py` (모의 응답 35개).
+테스트: `pytest tests/test_jira_assignment.py` (모의 응답 35개), `pytest tests/test_jira_comment.py` (댓글 알림 33개).
 
 ## 변경 기록
 
@@ -216,3 +226,28 @@ event = parse_jira_webhook(payload, delivery_id=headers.get("X-Atlassian-Webhook
 
 - 테스트 62개 통과(모의 응답). 새 사이트에서 티켓 생성·담당자 지정은 아직 실행하지 않았습니다.
 - 새 사이트에 있는 `최종 처리 결과`(customfield_10069)는 이 PR에서 매핑에 넣지 않았습니다.
+
+### 2026-10-26 · Jira 댓글 알림 (Jira 쪽 순수 함수)
+
+**추가**
+
+| 파일 | 내용 |
+|---|---|
+| `backend/app/integrations/jira/comment_notify.py` | 알림 받을 사번 판별 `route_comment`, 결과 `CommentRoute(recipient_nos, reason)` |
+| `tests/test_jira_comment.py` | 33개 테스트 (모의 응답) |
+
+**수정**
+
+| 파일 | 내용 |
+|---|---|
+| `webhook.py` | 댓글 이벤트 읽기: `WebhookComment`, `WebhookEvent.comment`·`is_comment_created`, 댓글 이벤트 ID. 기존 상태·담당자 해석은 그대로 |
+| `client.py` | `get_comment(issue_key, comment_id)` 추가 (읽기 전용) |
+| `mapper.py` | `adf_to_text` 추가 (댓글 본문 ADF → 글자) |
+| `accounts.py` | `employee_no_for` 추가 (accountId → 사번) |
+| `__init__.py` | 새 이름 내보내기 |
+
+**하지 않은 것 (백엔드 몫)**: 수신 라우트(`POST /webhooks/jira`), 이벤트 저장·중복 거르기, `notifications` 컬럼 확장·마이그레이션, 알림 조회·읽음 API, 화면 연결, Slack 발송.
+
+**확인**
+
+- 테스트 96개 통과 (기존 63개 + 새 33개). 실제 Jira는 호출하지 않았고, 댓글 이벤트 본문과 `GET /rest/api/3/issue/{key}/comment/{id}` 응답은 Atlassian 문서 형식을 기준으로 만든 모의값입니다. 실제 ITHD 웹훅으로 `comment_created` 본문(`comment.author.accountId` 등)을 한 번 확인해야 합니다.
