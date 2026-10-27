@@ -2057,7 +2057,7 @@ const A={
   'idle-back'(){const i=curChat();if(!i)return;idleBack(i);},
   'resume-go'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;idleResume(i);render({bottom:true});},
   'resume-new'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.paused=false;i.reentry=false;S.view={n:'new'};S.detail=null;render();toast('새 문의를 시작했어요. 이전 문의는 문의 내역에서 확인할 수 있어요.');},
-  'resume-ua'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.reentry=false;i.gate=false;lockReplies(i,-1);i.tail=[{l:'해결',a:'resolved',k:'pri'},{l:'미해결',a:'unresolved'}];render({bottom:true});},
+  'resume-ua'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.reentry=false;i.gate=false;render({bottom:true});},
   'resume-x'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.reentry=false;renderOverlay();},
   reentry(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i||!reKind(i))return;i.reentry=true;renderOverlay();},
   /* 대화 이어가기: 새 문의·안내 메시지를 만들지 않고 같은 대화의 마지막 선택 버튼을 다시 연다 (API 02 IQ-06) */
