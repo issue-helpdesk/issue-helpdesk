@@ -153,3 +153,6 @@
 .emptyst p{margin:6px 0 16px;font-size:14px;line-height:22px;color:var(--mute)}
 .emptyst .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 .emptyst .acts+p{margin:10px 0 0;font-size:12px}
+/* 시스템 안내 색: 민감정보 가림 안내는 분홍, 보안 사고 안내(긴급 징후)는 노랑 */
+.msg.sys.sens{background:var(--s-need-bg);color:var(--s-need-fg)}.msg.sys.sens b{color:inherit}
+.msg.sys.warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.msg.sys.warn b{color:inherit}

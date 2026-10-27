@@ -88,3 +88,7 @@
 @keyframes rdbg{from{opacity:0}to{opacity:1}}
 @keyframes rdpop{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.ov.rs,.modal.rdlg{animation:none}}
+/* 끝난·이어갈 수 있는 문의의 잠긴 입력창: 입력창 전체가 "이어가기 선택 열기" 버튼 자리가 된다 */
+.cmpw{position:relative;max-width:760px;margin:0 auto}.cmpw .composer{max-width:none}
+.cmp-hit{position:absolute;inset:0;border:0;background:transparent;border-radius:24px;cursor:pointer}.cmp-hit:focus-visible{outline:2px solid var(--o600);outline-offset:2px}
+.modal.rdlg{position:relative}.rdlg .xbtn{position:absolute;top:10px;right:12px;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--mute);font-size:16px;cursor:pointer}.rdlg .xbtn:hover{background:var(--shell)}

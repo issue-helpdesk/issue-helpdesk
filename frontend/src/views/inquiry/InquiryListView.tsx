@@ -3,7 +3,7 @@
  * (design/ITssue-Prototype.html 의 문의 내역과 같은 구성)
  *
  * 조건은 API 의 문의 목록 조건(IQ-02)으로 만들어 listInquiries 에 보낸다. 모의 모드에서는 같은 조건으로 걸러 주고,
- * 서버가 생기면 서버가 걸러 준다. 종료된 문의도 눌러서 열면 "대화 이어가기"로 다시 이어 갈 수 있다.
+ * 서버가 생기면 서버가 걸러 준다. 기간은 문의 시작일 기준이다. 미확인·미해결·미접수 종료 문의는 열면 이어가기 창이 뜬다.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -12,7 +12,7 @@ import type { CategoryCode } from '../../api/chatTypes'
 import { groupOf, LIST_GROUPS, listInquiries, type InquiryListQuery, type ListGroup, type Page } from '../../api/inquiries'
 import type { InquirySummary } from '../../api/types'
 import titleHist from '../../assets/mascot/title-hist.webp'
-import { formatRelative } from '../../core/format'
+import { formatRelative, formatStart } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { FilterPill } from '../../ui/FilterPill'
 import { Icon } from '../../ui/Icon'
@@ -167,7 +167,7 @@ export function InquiryListView() {
             <div className="eyebrow">MY INQUIRIES</div>
             <h1>내 문의를 한눈에 확인해요</h1>
             <p className="muted" style={{ marginTop: 4 }}>
-              진행 중인 문의와 해결된 문의를 상태별로 확인하세요. 종료된 문의도 다시 열어 이어갈 수 있어요.
+              진행 중인 문의와 해결된 문의를 상태별로 확인하세요. 해결 여부를 확인하지 않았거나 미해결·미접수로 종료한 문의는 다시 이어갈 수 있어요.
             </p>
           </div>
 
@@ -191,7 +191,7 @@ export function InquiryListView() {
             </label>
             <FilterPill label="상태" value={group} options={LIST_GROUPS.map((g) => ({ value: g.key, label: `${g.label} · ${counts[g.key] ?? 0}` }))} onChange={(v) => reset(setGroup)(v as ListGroup | '')} />
             <FilterPill label="분류" value={cat} options={(Object.keys(CATEGORIES) as CategoryCode[]).map((c) => ({ value: c, label: CATEGORIES[c].name }))} onChange={reset(setCat)} />
-            <FilterPill label="기간" value={period} options={PERIODS} onChange={reset(setPeriod)} />
+            <FilterPill label="시작일" value={period} options={PERIODS} onChange={reset(setPeriod)} />
             {cond && (
               <button type="button" className="d2clr" onClick={clear}>
                 ✕ 조건 해제
@@ -260,7 +260,11 @@ export function InquiryListView() {
                               '-'
                             )}
                           </td>
-                          <td className="muted small">{formatRelative(i.updatedAt)}</td>
+                          <td className="muted small">
+                            {formatRelative(i.updatedAt)}
+                            <br />
+                            <span className="sd">{formatStart(i.createdAt)}</span>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

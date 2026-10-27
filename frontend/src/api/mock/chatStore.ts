@@ -123,9 +123,12 @@ export function getRecord(id: number): Record_ | undefined {
   return records.get(id)
 }
 
-/** 사번의 문의를 최근 순으로 돌려준다 */
+/** 사번의 문의를 최근 활동 순으로 돌려준다 (같은 시각이면 나중에 만든 문의가 먼저) */
 export function recordsOf(owner: string): Record_[] {
-  return [...records.values()].filter((r) => r.internal.owner === owner && !r.internal.hidden).reverse()
+  return [...records.values()]
+    .filter((r) => r.internal.owner === owner && !r.internal.hidden)
+    .reverse()
+    .sort((a, b) => Date.parse(b.inquiry.updatedAt) - Date.parse(a.inquiry.updatedAt))
 }
 
 /** 문의와 대화를 지운다 (응답 없음 삭제) */

@@ -29,9 +29,12 @@ export const FALLBACK_GROUP = '서비스데스크'
 
 export const URGENCY_LABEL: Record<Urgency, string> = { P1: '긴급', P2: '높음', P3: '보통', P4: '낮음' }
 
-/** 업무 상태 이름과 상태 배지 색 */
+/**
+ * 업무 상태 이름과 상태 배지 색. 문의자에게 보이는 이름은 SRS 4.5 를 따른다:
+ * 접수 → 담당자 배정(RDY) → 처리 중(WIP) → 해결 확인 대기(FIN) → 해결 완료(CLS)
+ */
 export const WORK_STATUS: Record<WorkStatus, { label: string; tone: string }> = {
-  RDY: { label: '처리 대기', tone: 'recv' },
+  RDY: { label: '담당자 배정', tone: 'asg' },
   WIP: { label: '처리 중', tone: 'prog' },
   FIN: { label: '해결 확인 대기', tone: 'need' },
   CLS: { label: '해결 완료', tone: 'ok' },
@@ -43,7 +46,7 @@ export const INQUIRY_STATUS_LABEL: Record<InquiryStatus, string> = {
   AI_RESOLVED: 'AI 해결',
   UNCONFIRMED: '미확인',
   CLOSED_UNRESOLVED: '미해결 종료',
-  RECEIVED: '접수 완료',
-  HANDED_OFF: '담당자 이관',
+  RECEIVED: '접수',
+  HANDED_OFF: '담당자 배정',
 }
 

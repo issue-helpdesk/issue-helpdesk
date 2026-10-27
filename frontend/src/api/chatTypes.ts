@@ -19,13 +19,12 @@ export type Urgency = 'P1' | 'P2' | 'P3' | 'P4'
 export type InquiryStatus = 'IN_PROGRESS' | 'AI_RESOLVED' | 'UNCONFIRMED' | 'CLOSED_UNRESOLVED' | 'RECEIVED' | 'HANDED_OFF'
 
 /** 대화 진행 단계 (화면이 입력창·버튼을 정할 때 쓴다) */
-/** 응답 없음 안내 종류 (docs/09 6.4): 해결 확인 5시간(h5), 대화 중 이탈 2시간(h2) */
-export type IdleKind = 'h5' | 'h2'
+/** 응답 없음 안내 종류 (docs/09 6.4, 2026-10-26 정정): 질문·연결 제안·초안 단계의 이탈 2시간(h2)만 쓴다. 5시간 안내·삭제는 철회됐다. */
+export type IdleKind = 'h2'
 
 /** 응답 없음 안내 문구. 서버가 시스템 메시지로 보내고, 화면은 입력창 위 띠로도 보여 준다. */
 export const IDLE_TEXT: Record<IdleKind, string> = {
-  h5: '5시간 뒤까지 미확인 시 대화 내용은 삭제됩니다.',
-  h2: '이어서 하지 않으면 대화내역이 사라집니다.',
+  h2: '10분 후 대화가 자동으로 종료되며, 대화 내역이 삭제됩니다. 상담을 계속하려면 메시지를 입력해 주세요.',
 }
 
 export type ChatStep = 'collect' | 'answering' | 'answered' | 'offer' | 'draft' | 'submitted' | 'closed'
@@ -105,6 +104,8 @@ export interface ChatMessage {
   kind?: string
   /** 메시지 시각 (ISO 8601) */
   createdAt?: string
+  /** sys 메시지의 색: sens=민감정보 가림 안내(분홍), warn=보안 사고 안내(노랑). 없으면 기본 안내 */
+  tone?: 'sens' | 'warn'
 }
 
 /** 접수 초안 (문의자가 확인·수정한 뒤에만 접수된다) */
@@ -199,7 +200,7 @@ export interface Inquiry {
   ticket: Ticket | null
   /** 삭제 안내를 보낸 상태. 화면이 입력창 위에 안내 띠를 보여 준다. 문의자가 답하면 해제된다. */
   idleWarned?: IdleKind | null
-  /** 삭제 전에 돌아온 상태. 입력창을 잠그고 "이어서 채팅하기 / 새로운 문의하기"를 고르게 한다. */
+  /** 삭제 전에 돌아온 상태. 입력창을 잠그고 "이어서 대화하기 / 새 문의 시작하기"를 고르게 한다. */
   paused?: boolean
 }
 

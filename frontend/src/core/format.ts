@@ -32,6 +32,18 @@ export function formatRelative(iso: string, now: Date = new Date()): string {
   return `${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
 }
 
+/** 문의 시작일 표시 (예: 시작 오늘, 시작 어제, 시작 6일 전, 시작 09.12). 기간 필터가 시작일 기준이라 최근 활동 아래에 함께 보여 준다. */
+export function formatStart(iso: string, now: Date = new Date()): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const days = Math.round((startOf(now) - startOf(d)) / 86_400_000)
+  if (days <= 0) return '시작 오늘'
+  if (days === 1) return '시작 어제'
+  if (days < 30) return `시작 ${days}일 전`
+  return `시작 ${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
+}
+
 /** 출처 버튼 표시: 문서번호 + 위치 (예: IT-NET-001 3.1). 제목·버전은 열었을 때 보여 준다. */
 export function sourceLabel(s: { docCode: string; section: string }): string {
   return [s.docCode, s.section].filter(Boolean).join(' ')

@@ -67,7 +67,7 @@ export function NewInquiryView() {
     const r = await startChat(user, text.trim())
     setSending(false)
     if (r.ok) {
-      navigate(`/chat/${r.data.id}`)
+      navigate(`/chat/${r.data.id}`, { state: { fresh: true } }) // 방금 만든 대화에서는 이어가기 창을 띄우지 않는다
     } else {
       // 실패하면 쓴 내용은 그대로 두고 안내만 한다
       setNotice(r.error.message)
