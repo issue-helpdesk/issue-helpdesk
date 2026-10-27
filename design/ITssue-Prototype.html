@@ -1205,8 +1205,8 @@ function drawerHtml(){
 const needReply=t=>{if(!t||!t.status||t.status==='CLS'||t.status==='FIN')return false;const l=(t.msgs||[]).filter(x=>x.kind==='추가 정보 요청'||x.from==='문의자').pop();return !!l&&l.kind==='추가 정보 요청';};
 /* 표시 상태: AI 답변 뒤 해결·미해결 버튼을 기다리는 동안은 "미확인" (docs/09 1장, API 02 1.2 unconfirmed) */
 const uState=i=>i.state==='진행 중'&&i.step==='answered'?'미확인':i.state==='미접수 종료'?'미해결 종료':i.state;
-const inqLabel=i=>{const t=i.ticketId&&tById(i.ticketId);return t&&t.status?(needReply(t)?'추가 답변 필요':TSTAT[t.status][0]):uState(i);};
-const inqKind=i=>{const t=i.ticketId&&tById(i.ticketId);if(t&&t.status)return needReply(t)?'need':TSTAT[t.status][1];return {'진행 중':'prog','AI 해결':'ok','미확인':'warn','미해결 종료':'recv','미접수 종료':'recv','접수 완료':'asg','담당자 이관':'asg'}[uState(i)]||'recv';};
+const inqLabel=i=>{const t=i.ticketId&&tById(i.ticketId);return t&&t.status?(needReply(t)?'추가 답변 필요':t.status==='RDY'?'담당자 배정':TSTAT[t.status][0]):t?'접수':uState(i);};
+const inqKind=i=>{const t=i.ticketId&&tById(i.ticketId);if(t&&t.status)return needReply(t)?'need':t.status==='RDY'?'asg':TSTAT[t.status][1];if(t)return 'recv';return {'진행 중':'prog','AI 해결':'ok','미확인':'warn','미해결 종료':'recv','미접수 종료':'recv','접수 완료':'asg','담당자 이관':'asg'}[uState(i)]||'recv';};
 
 function composerHtml(ph,big,off){
   const d=off?' disabled':'';
