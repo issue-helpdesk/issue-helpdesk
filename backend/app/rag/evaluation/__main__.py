@@ -47,7 +47,7 @@ def make_retriever(name: str, units, role: str, database_url: str | None):
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog='python -m app.rag.evaluation')
     ap.add_argument('--retriever', default='bm25', help='쉼표로 여럿: bm25, search:bge-m3 (실제 검색), db:bge-m3 (벡터만)')
-    ap.add_argument('--database-url', help='db: 검색기용 (읽기 전용)')
+    ap.add_argument('--database-url', help='search: · db: 검색기용 (읽기 전용)')
     ap.add_argument('--role', default='AGENT', choices=('EMPLOYEE', 'AGENT', 'ADMIN'))
     ap.add_argument('--sets', default='guide,eval', help='guide(가이드 검색 질문) · eval(평가셋)')
     ap.add_argument('--questions', default=QUESTIONS_DIR)

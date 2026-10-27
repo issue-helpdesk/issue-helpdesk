@@ -2,9 +2,10 @@
 
 시험지 두 가지:
 - 가이드 검색 질문 (dataset/guide_review/*_질문.csv): 정답 단위(unit_ref). 단위 적중·문서 적중
-- 평가셋 (dataset/data/eval_inquiries.csv): expected_scenario → taxonomy.json scenarios[].manual(가이드 번호). 문서 적중
+- 평가셋 (dataset/data/eval_inquiries.csv): expected_scenario → taxonomy.json scenarios[].manual(가이드 번호)로 문서 적중,
+  항목 머리 문의 유형에 그 시나리오가 있는 단위로 단위 적중
 
-검색기는 바꿔 끼운다: BM25(메모리, DB·모델 없이) / DB 벡터(적재된 청크 벡터를 읽고 질문만 임베딩).
+검색기는 바꿔 끼운다: BM25(메모리, DB·모델 없이) / 실제 검색 search() / DB 벡터(적재된 청크 벡터를 읽고 질문만 임베딩).
 분류·긴급도·처리 방향 채점은 판단 흐름(M4-2)이 붙은 뒤 더한다.
 """
 from __future__ import annotations
@@ -99,7 +100,7 @@ class Question:
     set: str                       # guide · eval
     qid: str                       # IT-ACC-001#2 · EV-001
     text: str
-    answers: set[str] = field(default_factory=set)      # 정답 단위 (같은 본문 단위 포함). eval 은 비어 있음
+    answers: set[str] = field(default_factory=set)      # 정답 단위 (같은 본문 단위 포함). 비어 있으면 단위 채점에서 뺀다
     answer_docs: set[str] = field(default_factory=set)
     groups: list[str] = field(default_factory=list)     # 집계 묶음 이름
 
@@ -324,7 +325,7 @@ def db_vector_rows(database_url: str, model_id: str, role: str = 'AGENT') -> tup
 class Result:
     question: Question
     hits: list[Hit]
-    unit_rank: int | None          # 처음 맞힌 순위 (1부터), 없으면 None. eval 은 None
+    unit_rank: int | None          # 처음 맞힌 순위 (1부터), 없으면 None. 정답 단위가 없는 질문도 None
     doc_rank: int | None
 
 
