@@ -59,6 +59,8 @@ export const mockConfig = {
   saveFail: false,
   /** 문의를 읽을 때 연결 오류가 나는 시연 ("불러오지 못했어요" 화면) */
   loadFail: false,
+  /** 통계의 '접수 추이' 구역을 한 번 불러오지 못하는 시연 (구역별 실패 화면) */
+  statFail: false,
 }
 
 const records = new Map<number, Record_>()
@@ -129,6 +131,11 @@ export function recordsOf(owner: string): Record_[] {
     .filter((r) => r.internal.owner === owner && !r.internal.hidden)
     .reverse()
     .sort((a, b) => Date.parse(b.inquiry.updatedAt) - Date.parse(a.inquiry.updatedAt))
+}
+
+/** 모든 문의 (담당자 화면이 접수된 Ticket 을 읽을 때 쓴다. 보안·로그 대상으로 숨긴 문의는 뺀다) */
+export function allRecords(): Record_[] {
+  return [...records.values()].filter((r) => !r.internal.hidden)
 }
 
 /** 문의와 대화를 지운다 (응답 없음 삭제) */

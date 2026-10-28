@@ -12,17 +12,29 @@ import { useState, type CSSProperties } from 'react'
 import { WORK_STATUS } from '../../api/catalog'
 import type { Ticket } from '../../api/chatTypes'
 import { formatDateTime } from '../../core/format'
+import { Icon } from '../../ui/Icon'
 import { POSE_IMG } from '../../ui/poseImages'
 
 type StepState = 'done' | 'cur' | 'todo'
 
 const LABELS = ['접수', '담당자 배정', '처리 중', '해결 완료']
 
+/** 진행 단계를 그리는 데 필요한 값 (문의 대화의 Ticket 과 접수 상세가 모두 맞춘다) */
+export interface StepsInput {
+  createdAt: string
+  assigneeName: string | null
+  assignStatus: Ticket['assignStatus']
+  jiraSyncStatus: Ticket['jiraSyncStatus']
+  workStatus: Ticket['workStatus']
+  finishedAt?: string | null
+  closedAt?: string | null
+}
+
 /** 담당자가 배정되었는지 (배정 상태로 판단) */
-const assigned = (t: Ticket) => t.assignStatus === 'ASSIGNED'
+const assigned = (t: StepsInput) => t.assignStatus === 'ASSIGNED'
 
 /** Jira 생성·배정이 끝나지 않아 관리자가 확인하는 중인지 (실패와 결과 불명을 나누지 않는다) */
-const needsAdmin = (t: Ticket) => t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.assignStatus === 'NEEDS_ADMIN'
+const needsAdmin = (t: StepsInput) => t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.assignStatus === 'NEEDS_ADMIN'
 
 /** "완료 · 10.20 14:20" 처럼 시각이 있으면 뒤에 붙인다 */
 const withTime = (label: string, iso?: string | null) => {
@@ -31,7 +43,7 @@ const withTime = (label: string, iso?: string | null) => {
 }
 
 /** Ticket 상태에서 네 단계의 진행 상태와 보조 문구를 정한다 */
-function steps(t: Ticket): { states: StepState[]; subs: string[]; tone: string } {
+function steps(t: StepsInput): { states: StepState[]; subs: string[]; tone: string } {
   const s = assigned(t) ? t.workStatus : null
   let states: StepState[]
   if (s === 'CLS') states = ['done', 'done', 'done', 'done']
@@ -75,16 +87,46 @@ interface Props {
   busy?: boolean
   onResolve: () => void
   onReject: () => void
+  /** 오른쪽에 접수 상세를 연다 */
+  onDetail?: () => void
 }
 
-export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolve, onReject }: Props) {
-  const { states, subs, tone } = steps(t)
+/** 접수 → 담당자 배정 → 처리 중 → 해결 완료 진행 단계 (접수 카드와 접수 상세가 같이 쓴다) */
+export function TicketStepper({ ticket }: { ticket: StepsInput }) {
+  const { states, subs, tone } = steps(ticket)
 
   // 이전에 그린 단계 상태를 기억해 바뀐 단계만 움직이게 한다 (처음 그릴 때는 움직이지 않는다)
   const [shown, setShown] = useState<{ states: StepState[]; changed: boolean[] }>({ states, changed: states.map(() => false) })
   if (shown.states.join() !== states.join()) setShown({ states, changed: states.map((s, k) => shown.states[k] !== s) })
   const changed = shown.changed
 
+  return (
+    <div className="stepper" style={{ '--tone': tone } as CSSProperties} role="list" aria-label="접수 진행 단계">
+      {LABELS.map((l, k) => (
+        <div
+          key={l}
+          role="listitem"
+          className={`st ${states[k]}${changed[k] ? ' chg' : ''}`}
+          aria-current={states[k] === 'cur' ? 'step' : undefined}
+        >
+          <span className="n">
+            {states[k] === 'done' && (
+              <svg className="i" viewBox="0 0 20 20" aria-hidden="true">
+                <path d="m5 10.5 3.2 3.2L15 6.8" />
+              </svg>
+            )}
+            {/* 해결 완료로 바뀌는 순간에만 오렌지 픽셀 스파크 */}
+            {k === 3 && states[k] === 'done' && changed[k] && SPARKS.map(([x, y]) => <i key={`${x}${y}`} className="sp" style={{ '--x': `${x}px`, '--y': `${y}px` } as CSSProperties} />)}
+          </span>
+          <b>{l}</b>
+          <small>{subs[k]}</small>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolve, onReject, onDetail }: Props) {
   return (
     <div className="card">
       {/* 카드 오른쪽 위의 잇슈: 처리 중이면 "처리 중 잇슈", 해결 완료면 "완료 잇슈". 상태는 아래 글과 진행 단계가 전한다 */}
@@ -99,28 +141,7 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
         </span>
       </div>
 
-      <div className="stepper" style={{ '--tone': tone } as CSSProperties} role="list" aria-label="접수 진행 단계">
-        {LABELS.map((l, k) => (
-          <div
-            key={l}
-            role="listitem"
-            className={`st ${states[k]}${changed[k] ? ' chg' : ''}`}
-            aria-current={states[k] === 'cur' ? 'step' : undefined}
-          >
-            <span className="n">
-              {states[k] === 'done' && (
-                <svg className="i" viewBox="0 0 20 20" aria-hidden="true">
-                  <path d="m5 10.5 3.2 3.2L15 6.8" />
-                </svg>
-              )}
-              {/* 해결 완료로 바뀌는 순간에만 오렌지 픽셀 스파크 */}
-              {k === 3 && states[k] === 'done' && changed[k] && SPARKS.map(([x, y]) => <i key={`${x}${y}`} className="sp" style={{ '--x': `${x}px`, '--y': `${y}px` } as CSSProperties} />)}
-            </span>
-            <b>{l}</b>
-            <small>{subs[k]}</small>
-          </div>
-        ))}
-      </div>
+      <TicketStepper ticket={t} />
 
       <p style={{ marginTop: 14, fontSize: 14, lineHeight: '22px' }}>{guide(t)}</p>
 
@@ -131,14 +152,24 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
         </div>
       )}
 
-      {t.workStatus === 'FIN' && !readOnly && (
+      {(onDetail || (t.workStatus === 'FIN' && !readOnly)) && (
         <div className="replies">
-          <button type="button" className="chip on" disabled={busy} onClick={onResolve}>
-            해결
-          </button>
-          <button type="button" className="chip" disabled={busy} onClick={onReject}>
-            미해결
-          </button>
+          {t.workStatus === 'FIN' && !readOnly && (
+            <>
+              <button type="button" className="chip on" disabled={busy} onClick={onResolve}>
+                해결
+              </button>
+              <button type="button" className="chip" disabled={busy} onClick={onReject}>
+                미해결
+              </button>
+            </>
+          )}
+          {onDetail && (
+            <button type="button" className="chip dtl" onClick={onDetail}>
+              상세 보기
+              <Icon name="chevron" />
+            </button>
+          )}
         </div>
       )}
 

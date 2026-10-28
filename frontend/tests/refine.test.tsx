@@ -245,11 +245,11 @@ describe('로고와 용어', () => {
     expect(await screen.findByRole('heading', { name: '새 문의' }, SLOW)).toBeInTheDocument()
   })
 
-  it('담당자는 처리할 문의, 관리자는 대시보드로 이동한다', async () => {
+  it('담당자는 내 대시보드, 관리자는 대시보드로 이동한다', async () => {
     const user = userEvent.setup()
     const { unmount } = renderAt('/faq', 'EMP-1107')
     await user.click(await screen.findByRole('button', { name: 'ITssue 홈으로' }, SLOW))
-    expect(await screen.findByRole('button', { name: '처리할 문의' }, SLOW)).toHaveAttribute('aria-current', 'page')
+    expect(await screen.findByRole('button', { name: '내 대시보드' }, SLOW)).toHaveAttribute('aria-current', 'page')
     unmount()
     renderAt('/faq', 'EMP-0912')
     await user.click(await screen.findByRole('button', { name: 'ITssue 홈으로' }, SLOW))

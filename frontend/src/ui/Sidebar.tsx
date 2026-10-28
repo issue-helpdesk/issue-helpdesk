@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { watchMyInquiries } from '../api/inquiries'
+import { listTickets, watchTickets } from '../api/tickets'
 import type { InquirySummary, ServiceRole } from '../api/types'
 import { formatRelative } from '../core/format'
 import { HOME_BY_ROLE, ROLE_LABEL } from '../core/roles'
@@ -33,7 +34,14 @@ const INQUIRY_MENU: NavItem[] = [
 
 /** 역할별로 더해지는 메뉴 (문의자는 없음) */
 const EXTRA_MENU: Partial<Record<ServiceRole, { group: string; items: NavItem[] }>> = {
-  AGENT: { group: '업무', items: [{ to: '/queue', label: '처리할 문의', icon: 'file' }] },
+  AGENT: {
+    group: '업무',
+    items: [
+      { to: '/my', label: '내 대시보드', icon: 'home' },
+      { to: '/queue', label: '처리할 문의', icon: 'file' },
+      { to: '/stats', label: '통계', icon: 'chart' },
+    ],
+  },
   ADMIN: { group: '운영', items: [{ to: '/dash', label: '대시보드', icon: 'home' }] },
 }
 
@@ -46,6 +54,17 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [recent, setRecent] = useState<InquirySummary[]>([])
+  // 담당자: 처리할 문의 건수(처리 대기·처리 중·해결 확인 대기)와 Jira 알림이 온 건수
+  const [queue, setQueue] = useState({ n: 0, nw: 0 })
+  const agentId = user?.serviceRole === 'AGENT' ? user.id : null
+  useEffect(() => {
+    if (!user || agentId === null) return
+    return watchTickets(() => {
+      listTickets(user, { view: 'ASSIGNED', assigneeId: agentId, size: 100 }).then((r) => {
+        if (r.ok) setQueue({ n: r.data.items.filter((t) => t.workStatus && t.workStatus !== 'CLS').length, nw: r.data.items.filter((t) => t.jiraMention).length })
+      })
+    })
+  }, [user, agentId])
 
   // 최근 문의 목록을 불러오고, 새 문의나 진행 상황이 바뀔 때마다 다시 받는다
   const employeeNo = user?.employeeNo
@@ -70,6 +89,14 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       <span>{it.label}</span>
       {/* 확인하지 않은 담당자 답변 수 (0 이면 숨김, 99 초과는 99+) */}
       {it.to === '/list' && unread > 0 && <span className="count">{unread > 99 ? '99+' : unread}</span>}
+      {/* 처리할 문의: 건수, 문의자 새 알림이 있으면 점(건수가 있을 때) 또는 NEW */}
+      {it.to === '/queue' && queue.nw > 0 && queue.n > 0 && (
+        <span className="count has-new" role="img" aria-label={`${queue.n}건, 새 알림 ${queue.nw}건`} title={`새 알림 ${queue.nw}건`}>
+          {queue.n}
+        </span>
+      )}
+      {it.to === '/queue' && queue.nw > 0 && queue.n === 0 && <span className="count nw">NEW {queue.nw}</span>}
+      {it.to === '/queue' && queue.nw === 0 && queue.n > 0 && <span className="count">{queue.n}</span>}
     </button>
   )
 

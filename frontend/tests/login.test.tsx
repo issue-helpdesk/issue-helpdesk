@@ -174,11 +174,11 @@ describe('로그인 화면', () => {
     expect(screen.queryByRole('button', { name: /승인 대기/ })).not.toBeInTheDocument()
   })
 
-  it('역할에 따라 첫 화면이 다르다 (담당자=처리할 문의, 관리자=대시보드)', async () => {
+  it('역할에 따라 첫 화면이 다르다 (담당자=내 대시보드, 관리자=대시보드)', async () => {
     const user = userEvent.setup()
     const { unmount } = renderApp()
     await user.click(screen.getByRole('button', { name: '담당자' }))
-    expect(await screen.findByRole('heading', { name: '처리할 문의' }, SLOW)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '내 담당 문의' }, SLOW)).toBeInTheDocument()
     unmount()
     tokenStore.clear()
     renderApp()

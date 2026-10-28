@@ -13,6 +13,9 @@ import { ChatView } from '../views/inquiry/ChatView'
 import { InquiryListView } from '../views/inquiry/InquiryListView'
 import { NewInquiryView } from '../views/inquiry/NewInquiryView'
 import { LoginView } from '../views/login/LoginView'
+import { StatsView } from '../views/staff/StatsView'
+import { MyDashView } from '../views/staff/MyDashView'
+import { QueueView } from '../views/staff/QueueView'
 import { HOME_BY_ROLE } from './roles'
 import { useAuth } from './session'
 
@@ -49,7 +52,10 @@ export function AppRoutes() {
           <Route path="/chat/:id" element={<ChatView />} />
           <Route path="/faq" element={<FaqView />} />
           {/* 담당자·관리자. 화면을 만들면 HomePlaceholder 를 실제 화면으로 바꾼다 */}
-          <Route path="/queue" element={<HomePlaceholder title="처리할 문의" />} />
+          <Route path="/my" element={<MyDashView />} />
+          <Route path="/stats" element={<StatsView />} />
+          <Route path="/queue" element={<QueueView />} />
+          <Route path="/queue/:ticketId" element={<QueueView />} />
           <Route path="/dash" element={<HomePlaceholder title="대시보드" />} />
         </Route>
       </Route>
