@@ -144,3 +144,14 @@
 .gic{width:26px;height:26px;border-radius:8px;border:0;background:transparent;color:var(--mute);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .gic:hover{background:var(--osoft);color:var(--link)}
 .nav .gic{padding:0!important;min-height:0!important;height:26px!important;width:26px!important;gap:0!important;margin-right:-4px}.gic svg{flex:none;width:15px;height:15px}
+
+/* ---- 디자인 가이드 v1.4: 분류 태그(회색 면 + 색 점), 보조 라벨, 다크 초점 링, 건너뛰기, 지우기 버튼 크기 ---- */
+.tag[class*=" c-"]{background:var(--shell);color:var(--ink)}
+.tag[class*=" c-"]::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--cd,var(--mute));margin-right:6px;flex:none}
+.tag.c-ACC{--cd:#0EA5E9}.tag.c-ACS{--cd:#F0508C}.tag.c-NET{--cd:#8A64F2}.tag.c-SW{--cd:#5B7CF0}.tag.c-HW{--cd:#D9A21B}.tag.c-SYS{--cd:#B8286A}.tag.c-SEC{--cd:#D92D20}
+.ssub{font-size:12px;line-height:16px;color:var(--mute)}
+:root[data-theme="dark"] .d2p:focus-within{outline-color:#FF8FB8}:root[data-theme="dark"] .srch:focus-within,:root[data-theme="dark"] .srch.f{box-shadow:inset 0 0 0 1.5px #FF8FB8}:root[data-theme="dark"] .inp:focus,:root[data-theme="dark"] .ta:focus{outline-color:#FF8FB8;box-shadow:inset 0 0 0 1px #FF8FB8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .d2p:focus-within{outline-color:#FF8FB8}:root:not([data-theme="light"]) .srch:focus-within,:root:not([data-theme="light"]) .srch.f{box-shadow:inset 0 0 0 1.5px #FF8FB8}:root:not([data-theme="light"]) .inp:focus,:root:not([data-theme="light"]) .ta:focus{outline-color:#FF8FB8;box-shadow:inset 0 0 0 1px #FF8FB8}}
+.d2p .x,.srch .x{min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center}
+.skip{position:absolute;left:12px;top:-64px;z-index:200;min-height:44px;padding:0 16px;border:0;border-radius:12px;background:var(--o600);color:#fff;font-weight:600}.skip:focus{top:12px}
+main.main[tabindex="-1"]:focus{outline:none}

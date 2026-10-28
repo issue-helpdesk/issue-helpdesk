@@ -87,23 +87,43 @@ describe('문의 목록 조건 조회 (API)', () => {
 })
 
 describe('문의 내역 화면', () => {
-  it('상태별 건수와 목록이 보이고, 상태 분류를 누르면 그 문의만 남는다', async () => {
+  it('상태 알약으로 그 문의만 남기고, "미확인" 항목 없이 해결 확인 대기와 미해결을 따로 볼 수 있다', async () => {
     const user = userEvent.setup()
     renderAs('EMP-1001', '/list')
     expect(await screen.findByRole('heading', { name: '내 문의를 한눈에 확인해요' }, SLOW)).toBeInTheDocument()
     await waitFor(() => expect(titles()).toHaveLength(7), SLOW)
-    const group = screen.getByRole('group', { name: '상태' })
-    expect(within(group).getByRole('button', { name: /^전체\s*7$/ })).toHaveAttribute('aria-pressed', 'true')
-    await user.click(within(group).getByRole('button', { name: /AI 해결/ }))
+    // 칩 줄은 없고 상태는 알약 하나로 고른다
+    expect(screen.queryByRole('group', { name: '상태' })).not.toBeInTheDocument()
+    const openStatus = () => user.click(screen.getAllByRole('button', { name: /^상태/ }).find((b) => b.getAttribute('aria-haspopup') === 'listbox')!)
+    await openStatus()
+    const names = screen.getAllByRole('option').map((o) => o.textContent)
+    expect(names.some((n) => /미확인/.test(n ?? ''))).toBe(false)
+    expect(names).toContain('해결 확인 대기 · 2')
+    expect(names).toContain('미해결 · 2')
+    await user.click(screen.getByRole('option', { name: /^AI 해결/ }))
     await waitFor(() => expect(titles()).toEqual(['계정 잠금 해제 방법']), SLOW)
-    // 해결 확인 대기만 따로 모아 볼 수 있다 (담당자 처리에는 들어가지 않는다)
-    await user.click(within(group).getByRole('button', { name: /^해결 확인 대기/ }))
-    await waitFor(() => expect(titles()).toEqual(['전자결재 접속이 안 돼요']), SLOW)
-    await user.click(within(group).getByRole('button', { name: /^담당자 처리/ }))
-    await waitFor(() => expect(titles()).toEqual(['VPN 연결이 자주 끊겨요']), SLOW)
+    // 해결 확인 대기: 담당자 처리 완료 뒤 건과 AI 답변 뒤 건이 함께 나오고, 보조 라벨로 구분한다
+    await openStatus()
+    await user.click(screen.getByRole('option', { name: /^해결 확인 대기/ }))
+    await waitFor(() => expect(titles()).toEqual(['전자결재 접속이 안 돼요', 'VPN 인증서 갱신이 필요한가요']), SLOW)
+    const table = screen.getByRole('table')
+    expect(within(table).getByText('담당자 처리')).toBeInTheDocument()
+    expect(within(table).getByText('AI 안내')).toBeInTheDocument()
+    await openStatus()
+    await user.click(screen.getByRole('option', { name: /^미해결/ }))
+    await waitFor(() => expect(titles()).toEqual(['프린터 드라이버 설치가 안 돼요', '사내 메신저 알림이 안 와요']), SLOW)
     // 조건을 풀면 다시 전부
     await user.click(screen.getByRole('button', { name: '✕ 조건 해제' }))
     await waitFor(() => expect(titles()).toHaveLength(7), SLOW)
+  })
+
+  it('AI 안내 확인 대기는 "해결 확인 대기"(분홍)로, 서버가 "미확인"을 보내도 같은 이름으로 보인다', async () => {
+    renderAs('EMP-1001', '/list')
+    await waitFor(() => expect(titles()).toHaveLength(7), SLOW)
+    const row = screen.getByRole('button', { name: 'VPN 인증서 갱신이 필요한가요' }).closest('tr')!
+    expect(within(row).getByText('해결 확인 대기')).toBeInTheDocument()
+    expect(within(row).queryByText('미확인')).not.toBeInTheDocument()
+    expect(row.querySelector('.badge.b-need')).not.toBeNull()
   })
 
   it('검색어는 강조되고, 맞는 문의가 없으면 조건에 맞는 문의가 없다고 알린다', async () => {

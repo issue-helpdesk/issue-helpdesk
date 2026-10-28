@@ -15,7 +15,7 @@ import { useAuth } from '../core/session'
 import { Icon, type IconName } from './Icon'
 import { Logo } from './Logo'
 import { useShell } from './shellContext'
-import { STATE_TONE } from './stateStyle'
+import { stateView } from './stateStyle'
 import { ThemeSwitch } from './ThemeSwitch'
 
 interface NavItem {
@@ -104,7 +104,8 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
           </div>
           <div className="recent">
             {recent.slice(0, 5).map((i) => {
-              const tone = STATE_TONE[i.stateKind]
+              const sv = stateView(i)
+              const tone = sv.tone
               return (
                 <button key={i.id} type="button" className={`rt${pathname === `/chat/${i.id}` ? ' on' : ''}`} onClick={() => go(`/chat/${i.id}`)}>
                   <b>
@@ -114,7 +115,8 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
                   <small>
                     <span className="rs" style={{ color: `var(--s-${tone}-fg)` }}>
                       <i style={{ background: `var(--s-${tone}-dot)` }} />
-                      {i.stateLabel}
+                      {sv.label}
+                      {sv.sub && ` · ${sv.sub}`}
                     </span>{' '}
                     · {formatRelative(i.updatedAt)}
                   </small>

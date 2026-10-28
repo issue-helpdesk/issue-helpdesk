@@ -18,7 +18,7 @@ import { FilterPill } from '../../ui/FilterPill'
 import { Icon } from '../../ui/Icon'
 import { Pager } from '../../ui/Pager'
 import { StateBadge } from '../../ui/StateBadge'
-import { STATE_TONE } from '../../ui/stateStyle'
+import { stateView } from '../../ui/stateStyle'
 import { Topbar } from '../../ui/Topbar'
 
 const PAGE_SIZE = 20
@@ -50,6 +50,12 @@ function Hl({ text, q }: { text: string; q: string }) {
       {text.slice(i + needle.length)}
     </>
   )
+}
+
+/** 상태 칸: 이름은 같고 의미가 다른 상태는 배지 아래 보조 라벨로 나눈다 (예: 해결 확인 대기 / AI 안내) */
+function StatusCell({ s }: { s: InquirySummary }) {
+  const v = stateView(s)
+  return <StateBadge tone={v.tone} label={v.label} sub={v.sub} block />
 }
 
 /** 정렬할 수 있는 열 머리 */
@@ -171,14 +177,6 @@ export function InquiryListView() {
             </p>
           </div>
 
-          <div className="d2seg" role="group" aria-label="상태">
-            {[{ key: '' as const, label: '전체' }, ...LIST_GROUPS].map((g) => (
-              <button key={g.key || 'all'} type="button" className={group === g.key ? 'on' : ''} aria-pressed={group === g.key} onClick={() => reset(setGroup)(g.key as ListGroup | '')}>
-                {g.label} <em>{counts[g.key || 'all'] ?? 0}</em>
-              </button>
-            ))}
-          </div>
-
           <div className="d2f">
             <label className={`srch${q.trim() ? ' f' : ''}`}>
               <Icon name="search" size={18} />
@@ -241,9 +239,9 @@ export function InquiryListView() {
                               </span>
                             )}
                           </td>
-                          <td>{i.categoryCode ? <span className={`tag c-${i.categoryCode}`}>{CATEGORIES[i.categoryCode].name}</span> : <span className="muted small">분류 전</span>}</td>
+                          <td>{i.categoryCode ? <span className={`tag c-${i.categoryCode}`}>{CATEGORIES[i.categoryCode].name}</span> : <span className="muted small">미분류</span>}</td>
                           <td>
-                            <StateBadge tone={STATE_TONE[i.stateKind]} label={i.stateLabel} />
+                            <StatusCell s={i} />
                           </td>
                           <td className="mono small">
                             {i.receiptNo ? (
@@ -273,7 +271,7 @@ export function InquiryListView() {
                 <Pager page={data.page} size={data.size} total={data.totalCount} onPage={setPage} />
               </>
             ) : (
-              <div className="empty">{cond ? '조건에 맞는 문의가 없어요.' : '이 상태의 문의가 없어요.'}</div>
+              <div className="empty">{cond ? '조건에 맞는 문의가 없어요.' : '아직 문의가 없어요.'}</div>
             )}
           </div>
         </div>

@@ -39,7 +39,8 @@
 .srch:focus-within,.srch.f{box-shadow:inset 0 0 0 1.5px var(--o600);color:var(--link)}
 .srch input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:14px;color:var(--ink);outline:none;padding:0}
 .srch .x{border:0;background:none;color:var(--mute);cursor:pointer;font-size:12px;padding:4px}
-mark.hl{background:#FFE3C7;color:inherit;border-radius:3px;padding:0 1px}
+mark.hl{background:#FFE3C7;color:#5A2500;border-radius:3px;padding:0 1px}
+:root[data-theme="dark"] mark.hl{background:#5B3A12;color:#FFF2D7}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) mark.hl{background:#5B3A12;color:#FFF2D7}}
 .ddm button{min-height:0!important;height:auto!important;padding:8px 12px!important;line-height:20px;font-size:13.5px}
 .d2pg button.on{background:#B8286A}
 .nr{display:inline-flex;align-items:center;gap:6px;height:22px;padding:1px 9px 0;margin-left:8px;border-radius:999px;background:var(--s-need-bg);color:var(--s-need-fg);font-size:12px;font-weight:700;vertical-align:middle}.nr i{width:6px;height:6px;border-radius:50%;background:var(--s-need-dot)}

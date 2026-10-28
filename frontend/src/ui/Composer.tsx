@@ -20,7 +20,7 @@ interface Props {
   locked?: boolean
 }
 
-export function Composer({ value, onChange, onSend, placeholder = '메시지를 입력하세요', disabled = false, locked = false }: Props) {
+export function Composer({ value, onChange, onSend, placeholder = '메시지를 입력해 주세요.', disabled = false, locked = false }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null)
 
   // 내용 길이에 맞춰 입력창 높이를 조절한다

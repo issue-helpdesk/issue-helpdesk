@@ -129,7 +129,7 @@ describe('접수 초안 수정', () => {
     // 보기 화면: 분류와 세부 유형이 한국어 이름으로 보인다
     expect(await screen.findByText('분류', {}, SLOW)).toBeInTheDocument()
     expect(screen.getByText('NET-02 · VPN 접속 불가(개인)')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '수정' }))
+    await user.click(screen.getByRole('button', { name: '내용 수정' }))
     expect(screen.getByLabelText('문의 내용')).toBeInTheDocument()
     expect(screen.getByLabelText('발생 시점')).toBeInTheDocument()
     expect(screen.getByLabelText('업무 영향')).toBeInTheDocument()
@@ -139,7 +139,7 @@ describe('접수 초안 수정', () => {
     const onset = screen.getByLabelText('발생 시점')
     await user.clear(onset)
     await user.type(onset, '어제 오후부터 전사 접속이 안 돼요')
-    await user.click(screen.getByRole('button', { name: '수정 반영하기' }))
+    await user.click(screen.getByRole('button', { name: '수정 저장' }))
     expect(await screen.findByText('NET-03 · VPN 전사 장애', {}, SLOW)).toBeInTheDocument()
     expect(screen.getAllByText('다시 판단됨').length).toBeGreaterThanOrEqual(2)
   })

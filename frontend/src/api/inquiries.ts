@@ -26,15 +26,16 @@ export async function listMyInquiries(employeeNo: string): Promise<ApiResult<Inq
 /* ------------------------------------------------------------------ 문의 내역 (조건 조회) */
 
 /** 문의 내역의 상태 분류. API 의 displayStatus 여러 개를 묶은 것이다. */
-export type ListGroup = 'in_progress' | 'ai_resolved' | 'staff' | 'awaiting_confirm' | 'resolved' | 'unconfirmed_unresolved'
+export type ListGroup = 'in_progress' | 'ai_resolved' | 'staff' | 'awaiting_confirm' | 'resolved' | 'unresolved'
 
 export const LIST_GROUPS: { key: ListGroup; label: string; statuses: DisplayStatus[] }[] = [
   { key: 'in_progress', label: '진행 중', statuses: ['in_progress'] },
   { key: 'ai_resolved', label: 'AI 해결', statuses: ['ai_resolved'] },
   { key: 'staff', label: '담당자 처리', statuses: ['received', 'assigned', 'progress'] },
-  { key: 'awaiting_confirm', label: '해결 확인 대기', statuses: ['awaiting_confirm'] },
+  // 해결 확인 대기: 담당자 처리 완료 뒤(awaiting_confirm)와 AI 답변 뒤(unconfirmed). 두 값은 그대로 보내고 화면 이름만 같다.
+  { key: 'awaiting_confirm', label: '해결 확인 대기', statuses: ['awaiting_confirm', 'unconfirmed'] },
   { key: 'resolved', label: '해결 완료', statuses: ['resolved'] },
-  { key: 'unconfirmed_unresolved', label: '미확인·미해결', statuses: ['unconfirmed', 'unresolved'] },
+  { key: 'unresolved', label: '미해결', statuses: ['unresolved'] },
 ]
 
 /** 문의 한 건이 속한 상태 분류 */
@@ -110,7 +111,7 @@ export async function listInquiries(employeeNo: string, query: InquiryListQuery 
       case 'title':
         return s.title
       case 'category':
-        return s.categoryCode ? CATEGORIES[s.categoryCode].name : '힣' // 분류 전은 맨 뒤
+        return s.categoryCode ? CATEGORIES[s.categoryCode].name : '힣' // 미분류는 맨 뒤
       case 'displayStatus':
         return s.stateLabel
       case 'createdAt':

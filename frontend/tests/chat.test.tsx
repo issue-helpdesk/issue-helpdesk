@@ -479,10 +479,32 @@ describe('대화 화면', () => {
     await user.click(await screen.findByRole('button', { name: '미해결' }, SLOW))
     await user.click(await screen.findByRole('button', { name: '담당자 연결' }, SLOW))
     expect(await screen.findByText('확인 대기 · 아직 접수되지 않았어요', {}, SLOW)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '접수' }))
+    await user.click(screen.getByRole('button', { name: '접수하기' }))
     expect(await screen.findByText(/접수번호는/, {}, SLOW)).toBeInTheDocument()
     expect(screen.getByRole('list', { name: '접수 진행 단계' })).toBeInTheDocument()
-    expect(screen.getByText('접수 확인 완료')).toBeInTheDocument()
+    expect(screen.getByText('접수 완료')).toBeInTheDocument()
+  })
+
+  it('"접수 안 함"은 확인 창을 거치고, 돌아가면 초안이 그대로 남고, 확인하면 접수 없이 종료된다', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1003', '/new')
+    await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
+    await user.click(screen.getByRole('button', { name: '보내기' }))
+    await user.click(await screen.findByRole('button', { name: '미해결' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '담당자 연결' }, SLOW))
+    expect(await screen.findByRole('button', { name: '접수하기' }, SLOW)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '접수 안 함' }))
+    const dlg = await screen.findByRole('alertdialog', { name: '접수하지 않고 문의를 종료할까요?' })
+    expect(dlg).toHaveTextContent('문의 내역에서 다시 상담을 이어갈 수 있어요')
+    // 돌아가기: 종료하지 않고 초안과 버튼이 그대로 남는다
+    await user.click(within(dlg).getByRole('button', { name: '돌아가기' }))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '접수하기' })).toBeInTheDocument()
+    // 확인: 접수 없이 종료되고 초안 배지가 바뀐다
+    await user.click(screen.getByRole('button', { name: '접수 안 함' }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: '접수 안 함' }))
+    expect(await screen.findByText('접수하지 않음', {}, SLOW)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '접수하기' })).not.toBeInTheDocument()
   })
 
   it('초안에서 "수정"으로 고치고 반영하면 안내 문구가 보인다', async () => {
@@ -492,11 +514,11 @@ describe('대화 화면', () => {
     await user.click(screen.getByRole('button', { name: '보내기' }))
     await user.click(await screen.findByRole('button', { name: '미해결' }, SLOW))
     await user.click(await screen.findByRole('button', { name: '담당자 연결' }, SLOW))
-    await user.click(await screen.findByRole('button', { name: '수정' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '내용 수정' }, SLOW))
     const impact = screen.getByLabelText('업무 영향')
     await user.clear(impact)
     await user.type(impact, '전 직원 50명이 접속 불가예요')
-    await user.click(screen.getByRole('button', { name: '수정 반영하기' }))
+    await user.click(screen.getByRole('button', { name: '수정 저장' }))
     expect(await screen.findByText(/긴급도를 P3에서 P1\(으\)로/, {}, SLOW)).toBeInTheDocument()
   })
 
@@ -571,7 +593,7 @@ describe('대화 화면', () => {
     expect(screen.getByLabelText('메시지 입력')).toHaveAttribute('placeholder', '티켓을 접수하지 않고 종료한 문의예요.')
     expect(screen.getByText('미해결 종료')).toBeInTheDocument()
     // 취소한 초안 카드의 버튼은 눌 수 없다
-    expect(screen.queryByRole('button', { name: '접수' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '접수하기' })).not.toBeInTheDocument()
   })
 
   it('AI 해결과 해결 완료 문의는 이어가기 창 없이 입력창 상태 안내만 보인다', async () => {
