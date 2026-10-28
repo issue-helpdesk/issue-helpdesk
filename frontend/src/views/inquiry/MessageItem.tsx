@@ -4,10 +4,11 @@
  */
 import { URGENCY_LABEL } from '../../api/catalog'
 import type { ChatBlock, ChatMessage, DraftEdit, GuideSource, Inquiry, LegacyCase, ReplyRequest } from '../../api/chatTypes'
-import { USE_MOCK } from '../../core/config'
+import { Fragment } from 'react'
 import { formatDateTime, sourceLabel } from '../../core/format'
 import { Icon } from '../../ui/Icon'
-import { Avatar } from '../../ui/Logo'
+import { Pav } from '../../ui/Pav'
+import type { Pose } from '../../ui/poseImages'
 import { RichText } from '../../ui/RichText'
 import { DraftCard } from './DraftCard'
 import { TicketCard } from './TicketCard'
@@ -15,12 +16,13 @@ import { TicketCard } from './TicketCard'
 /** 대화 화면이 메시지 안의 버튼에 연결해 주는 동작 */
 export interface ChatActions {
   reply: (req: ReplyRequest) => void
-  timeout: (messageId: number) => void
   confirmDraft: () => void
   saveDraft: (edit: DraftEdit) => Promise<boolean>
   cancelDraft: () => void
   resolve: () => void
   reject: () => void
+  /** 오른쪽에 접수 상세를 연다 */
+  openDetail: () => void
   showSource: (s: GuideSource) => void
   showLegacy: (l: LegacyCase) => void
   /** 접수 실패 안내에 보여 줄 서비스데스크 연락처 */
@@ -74,11 +76,35 @@ interface Props {
   actions: ChatActions
   /** 방금 생긴 답변이면 아래에서 올라오며 나타난다 (한 번) */
   fresh?: boolean
+  /** 답변 아바타의 잇슈 모습과, 모습이 바뀐 첫 답변에 붙는 상태 글 */
+  pose?: Pose
+  poseText?: string
+  /** 이어가기 창을 거치기 전에는 지난 선택 버튼을 잠가 둔다 */
+  replyLock?: boolean
+  /** 이어가기 뒤 대화 맨 아래에 다시 보이는 버튼이 있으면 이 메시지의 버튼은 감춘다 */
+  hideReplies?: boolean
 }
 
-export function MessageItem({ inquiry, message: m, busy, actions, fresh = false }: Props) {
+export function MessageItem({ inquiry, message: m, busy, actions, fresh = false, pose = 'base', poseText = '', replyLock = false, hideReplies = false }: Props) {
   if (m.role === 'user') return <div className="msg u">{m.text}</div>
-  if (m.role === 'sys') return <div className="msg sys">{m.text}</div>
+  if (m.role === 'sys') {
+    // 안내 문구는 첫 줄이 제목, 나머지가 설명이다 (민감정보 가림 안내, 보안 사고 안내 등). tone 으로 색을 구분한다.
+    const [head, ...rest] = (m.text ?? '').split('\n')
+    if (!rest.length) return <div className="msg sys">{m.text}</div>
+    return (
+      <div className={`msg sys note${m.tone ? ` ${m.tone}` : ''}`}>
+        <b>{head}</b>
+        <span>
+          {rest.map((line, i) => (
+            <Fragment key={i}>
+              {i > 0 && <br />}
+              {line}
+            </Fragment>
+          ))}
+        </span>
+      </div>
+    )
+  }
 
   if (m.role === 'staff') {
     return (
@@ -104,7 +130,7 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false 
   if (m.typing) {
     return (
       <div className="msg a">
-        <Avatar size={32} />
+        <Pav pose={pose} />
         <div className="body" role="status">
           <span className="dots" aria-hidden="true">
             <i />
@@ -122,8 +148,9 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false 
 
   return (
     <div className={`msg a${fresh ? ' rise' : ''}`}>
-      <Avatar size={32} />
+      <Pav pose={pose} />
       <div className="body">
+        {poseText && <div className="pst">{poseText}</div>}
         {m.blocks?.map((b, i) => (
           <Block key={i} b={b} />
         ))}
@@ -151,7 +178,7 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false 
         )}
 
         {m.card === 'ticket' && (m.ticketSnapshot ?? inquiry.ticket) && (
-          <TicketCard ticket={(m.ticketSnapshot ?? inquiry.ticket)!} readOnly={!!m.ticketSnapshot} busy={busy} onResolve={actions.resolve} onReject={actions.reject} />
+          <TicketCard ticket={(m.ticketSnapshot ?? inquiry.ticket)!} readOnly={!!m.ticketSnapshot} busy={busy} onResolve={actions.resolve} onReject={actions.reject} onDetail={actions.openDetail} />
         )}
 
         {m.card === 'savefail' && (
@@ -170,25 +197,19 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false 
           </div>
         )}
 
-        {m.replies && (
+        {m.replies && !hideReplies && (
           <div className="replies">
             {m.replies.map((r) => (
               <button
                 key={`${r.action}${r.label}`}
                 type="button"
                 className={`chip${r.primary ? ' on' : ''}`}
-                disabled={m.locked || busy}
+                disabled={m.locked || busy || replyLock}
                 onClick={() => actions.reply({ messageId: m.id, action: r.action, arg: r.arg } satisfies ReplyRequest)}
               >
                 {r.label}
               </button>
             ))}
-            {/* 시연 전용: 응답 없이 시간이 지난 상황 */}
-            {USE_MOCK && m.demoTimeout && !m.locked && (
-              <button type="button" className="btn ghost sm" disabled={busy} onClick={() => actions.timeout(m.id)}>
-                (시연) 응답 없이 시간 경과
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -210,7 +231,7 @@ function LegacyButton({ legacy, onOpen }: { legacy: LegacyCase; onOpen: (l: Lega
     <div>
       <button type="button" className="src" onClick={() => onOpen(legacy)}>
         <Icon name="file" size={16} />
-        과거 처리 사례 · {legacy.no}
+        과거 처리 사례 참고
       </button>
     </div>
   )

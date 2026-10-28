@@ -1,0 +1,6 @@
+pytest==9.1.1
+httpx==0.28.1
+PyYAML==6.0.3
+python-dotenv==1.2.4
+fastapi==0.159.1
+uvicorn==0.54.0

@@ -17,7 +17,7 @@ export function formatDateTime(iso: string): string {
   return `${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-/** 최근 활동 표시 (예: 방금, 3시간 전, 어제, 6일 전, 10.02) */
+/** 최근 메시지 표시 (예: 방금, 3시간 전, 어제, 6일 전, 10.02) */
 export function formatRelative(iso: string, now: Date = new Date()): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
@@ -32,7 +32,31 @@ export function formatRelative(iso: string, now: Date = new Date()): string {
   return `${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
 }
 
-/** Guide 출처 한 줄 표시 (예: IT-NET-001 VPN 접속 장애 대응 가이드 v2 · 3.1) */
-export function sourceLabel(s: { docCode: string; title: string; version: string; section: string }): string {
+/** 문의 시작일 표시 (예: 문의 시작 · 10.23, 해가 다르면 문의 시작 · 25.10.23). 기간 필터가 시작일 기준이라 최근 메시지 아래에 함께 보여 준다. */
+export function formatStart(iso: string, now: Date = new Date()): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const md = `${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
+  return `문의 시작 · ${d.getFullYear() === now.getFullYear() ? md : `${String(d.getFullYear()).slice(2)}.${md}`}`
+}
+
+/** 출처 버튼 표시: 문서번호 + 위치 (예: IT-NET-001 3.1). 제목·버전은 열었을 때 보여 준다. */
+export function sourceLabel(s: { docCode: string; section: string }): string {
+  return [s.docCode, s.section].filter(Boolean).join(' ')
+}
+
+/** 출처 전체 표시 (예: IT-NET-001 VPN 접속 장애 대응 가이드 v2 · 3.1) */
+export function sourceFull(s: { docCode: string; title: string; version: string; section: string }): string {
   return [s.docCode, s.title, s.version].filter(Boolean).join(' ') + (s.section ? ` · ${s.section}` : '')
+}
+
+/** 접수 후 경과 시간 표시 (예: 4일 3시간, 3시간, 25분) */
+export function formatElapsed(iso: string, now: Date = new Date()): string {
+  const min = Math.max(0, Math.floor((now.getTime() - new Date(iso).getTime()) / 60_000))
+  if (Number.isNaN(min)) return ''
+  const d = Math.floor(min / 1440)
+  const h = Math.floor((min % 1440) / 60)
+  if (d > 0) return h ? `${d}일 ${h}시간` : `${d}일`
+  if (h > 0) return `${h}시간`
+  return `${min}분`
 }

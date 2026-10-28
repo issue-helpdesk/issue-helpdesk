@@ -11,6 +11,7 @@ import { startChat } from '../../api/chat'
 import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
 import { Icon, type IconName } from '../../ui/Icon'
+import { Mascot } from '../../ui/Mascot'
 import { useShell } from '../../ui/shellContext'
 
 /** 자주 묻는 분류 칩: [아이콘, 이름, 입력창에 채울 문장] */
@@ -66,7 +67,7 @@ export function NewInquiryView() {
     const r = await startChat(user, text.trim())
     setSending(false)
     if (r.ok) {
-      navigate(`/chat/${r.data.id}`)
+      navigate(`/chat/${r.data.id}`, { state: { fresh: true } }) // 방금 만든 대화에서는 이어가기 창을 띄우지 않는다
     } else {
       // 실패하면 쓴 내용은 그대로 두고 안내만 한다
       setNotice(r.error.message)
@@ -87,27 +88,13 @@ export function NewInquiryView() {
         </button>
 
         <div className="hero">
-          {/* 레트로 창 모양 로고 장식 (디자인 가이드: 소개·시작 화면에만 쓴다) */}
-          {/* 화면에 들어올 때 한 번: 창이 열리고 커서가 들어온다 (go) */}
-          <div className="xhero go" aria-hidden="true">
-            <div className="xw gh">
-              <div className="xb"><i /><i /><i /><span /><b>▢</b><b>✕</b></div>
-            </div>
-            <div className="xw xm">
-              <div className="xb"><i /><i /><i /><span /><b>▢</b><b>✕</b></div>
-              <div className="xy">
-                <svg width="170" height="66.5" viewBox="0 0 138 54"><use href="#lg-full" /></svg>
-              </div>
-            </div>
-            <i className="xs s1" /><i className="xs s2" /><i className="xs s3" />
-            <svg className="xc" width="32" height="48" viewBox="0 0 14 21"><use href="#cursor" /></svg>
-          </div>
+          <Mascot />
 
           <div className="hi">{user.name}님, 안녕하세요</div>
           <h1>무엇을 도와드릴까요?</h1>
 
           <div style={{ width: '100%', maxWidth: 720 }}>
-            <Composer value={text} onChange={setText} onSend={send} disabled={sending} placeholder="겪고 있는 문제를 편하게 적어 주세요" />
+            <Composer value={text} onChange={setText} onSend={send} disabled={sending} placeholder="겪고 있는 문제를 적어 주세요." />
           </div>
           {notice && (
             <div className="hint" role="status" style={{ marginTop: 10 }}>
@@ -134,7 +121,7 @@ export function NewInquiryView() {
           </div>
 
           <div className="hint" style={{ marginTop: 22 }}>
-            AI가 먼저 답하고, 해결되지 않으면 담당자에게 바로 연결해 드려요 · {NOTE}
+            AI가 먼저 안내해 드려요. 해결되지 않으면 내용을 확인한 뒤 담당자에게 접수할 수 있어요 · {NOTE}
           </div>
         </div>
       </div>

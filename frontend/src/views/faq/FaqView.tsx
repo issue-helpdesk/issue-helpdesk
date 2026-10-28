@@ -9,7 +9,8 @@ import { useNavigate } from 'react-router-dom'
 import { listFaqs } from '../../api/faq'
 import { CATEGORY_NAME } from '../../api/mock/faqs'
 import type { ApiResult, Faq } from '../../api/types'
-import { sourceLabel } from '../../core/format'
+import { sourceFull } from '../../core/format'
+import titleFaq from '../../assets/mascot/title-faq.webp'
 import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
 
@@ -46,14 +47,14 @@ export function FaqView() {
 
   return (
     <main className="main">
-      <Topbar title="FAQ" sub="본인에게 열람이 허용된 가이드만 표시돼요" />
+      <Topbar title="FAQ" sub="본인에게 열람이 허용된 가이드만 표시돼요" lead={<img className="tti" src={titleFaq} alt="" width={56} height={56} />} />
       <div className="scroll">
         <div className="page">
           <div>
             <div className="eyebrow">IT GUIDE</div>
             <h1>먼저 확인해 보세요</h1>
             <p className="muted" style={{ marginTop: 4 }}>
-              자주 발생하는 IT 문제와 사내 가이드를 모았어요. 게시글을 열람해도 문의가 접수되지는 않아요.
+              자주 발생하는 IT 문제와 사내 가이드를 모았어요. FAQ를 읽어도 문의가 접수되지는 않아요.
             </p>
           </div>
 
@@ -85,7 +86,7 @@ export function FaqView() {
                 {f.answer}
                 {/* 근거로 쓴 Guide 출처 (SRS ANSWER-01) */}
                 <div className="small muted" style={{ marginTop: 6 }}>
-                  출처: {f.sources.map(sourceLabel).join(', ')}
+                  출처: {f.sources.map(sourceFull).join(', ')}
                 </div>
                 <div className="row" style={{ marginTop: 12 }}>
                   <button type="button" className="btn sec sm" onClick={() => navigate('/new', { state: { prefill: f.question } })}>

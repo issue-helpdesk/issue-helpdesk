@@ -11,7 +11,7 @@ import { confirmChatDraft, editDraft, getChat, replyChat, sendChat, startChat } 
 import type { Inquiry } from '../src/api/chatTypes'
 import { getRecord } from '../src/api/mock/chatStore'
 import type { ApiResult } from '../src/api/types'
-import { hasMask, maskSensitive } from '../src/core/mask'
+import { hasMask, MASK_NOTICE, MASK_NOTICE_IDENTITY, maskNotices, maskSensitive } from '../src/core/mask'
 import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
 
@@ -54,9 +54,36 @@ describe('민감정보 가리기', () => {
     expect(maskSensitive('인증번호: 123456').hit).toBe(true)
     expect(maskSensitive('주문번호 12345678 확인').text).toBe('주문번호 ●●●●●● 확인')
     // 비밀번호라는 말만 있는 문장은 값이 없으므로 가리지 않는다
-    expect(maskSensitive('비밀번호를 잊어버렸어요')).toEqual({ text: '비밀번호를 잊어버렸어요', hit: false })
+    expect(maskSensitive('비밀번호를 잊어버렸어요')).toMatchObject({ text: '비밀번호를 잊어버렸어요', hit: false })
     expect(maskSensitive('비밀번호가 안 돼요').hit).toBe(false)
     expect(hasMask('●●●●●●')).toBe(true)
+  })
+
+  it('등급별로 가리고(docs/10 2.3), 휴대폰·이메일·사번·내선번호·IP·0x 오류 코드는 그대로 둔다', () => {
+    // A: 이름 뒤 값(비번·인증코드·pwd), API 키·토큰, 개인 키
+    expect(maskSensitive('비번은 Abc123!').text).toBe('비번은 ●●●●●●')
+    expect(maskSensitive('인증코드: 4821a9').text).toBe('인증코드: ●●●●●●')
+    expect(maskSensitive('토큰은 abcdefghijklmnop1234').secret).toBe(true)
+    expect(maskSensitive('키는 sk-abcdefghijklmnopqrstuvwx 입니다').text).toBe('키는 ●●●●●● 입니다')
+    expect(maskSensitive('-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----').text).toBe('●●●●●●')
+    // 비밀번호일 때만 password 표시 (재설정 포털 안내용)
+    expect(maskSensitive('비밀번호는 abc12345').password).toBe(true)
+    expect(maskSensitive('인증번호: 123456').password).toBe(false)
+    // B: 주민등록번호, 카드번호, 계좌번호
+    expect(maskSensitive('주민번호 900101-1234567').identity).toBe(true)
+    expect(maskSensitive('카드 1234-5678-9012-3456').text).toBe('카드 ●●●●●●')
+    expect(maskSensitive('계좌 110-123-456789').identity).toBe(true)
+    // C 등급과 진단에 필요한 값은 가리지 않는다
+    for (const keep of ['010-1234-5678', 'hong@company.com', 'EMP-1001', '내선 1000', '10.20.30.40', '0x80070005']) {
+      expect(maskSensitive(keep)).toMatchObject({ text: keep, hit: false })
+    }
+  })
+
+  it('가린 종류에 맞는 안내 문구를 만든다 (docs/10 6.1)', () => {
+    expect(maskNotices(maskSensitive('인증번호: 123456'))).toEqual([MASK_NOTICE])
+    expect(maskNotices(maskSensitive('비밀번호는 abc12345'))[0]).toContain('비밀번호 재설정 포털에서 변경해 주세요')
+    expect(maskNotices(maskSensitive('주민번호 900101-1234567'))).toEqual([MASK_NOTICE_IDENTITY])
+    expect(maskNotices(maskSensitive('그냥 문장'))).toEqual([])
   })
 
   it('문의 제목과 대화, 안내 문구 어디에도 원문이 남지 않는다', async () => {
@@ -65,7 +92,7 @@ describe('민감정보 가리기', () => {
     expect(text).not.toContain('abc12345')
     expect(text).not.toContain('123456')
     expect(a.title).toContain('●')
-    expect(a.messages.some((m) => m.role === 'sys' && m.text?.includes('●로 바꿨어요'))).toBe(true)
+    expect(a.messages.some((m) => m.role === 'sys' && m.text?.includes('가림 처리했어요'))).toBe(true)
   })
 
   it('초안을 고칠 때와 접수 후 추가 메시지에서도 가린다', async () => {
@@ -84,9 +111,9 @@ describe('접수 초안 수정', () => {
     const d = await toDraft()
     expect(d.draft).toMatchObject({ inquiryTypeCode: 'NET-02', inquiryTypeName: 'VPN 접속 불가(개인)', urgency: 'P3' })
     const edited = await data(
-      editDraft(d.id, USER.employeeNo, { summary: d.draft!.summary, onset: '어제 오후부터 전사 접속이 안 돼요', businessImpact: d.draft!.businessImpact, triedActions: d.draft!.triedActions }),
+      editDraft(d.id, USER.employeeNo, { summary: d.draft!.summary, occurredAt: '어제 오후부터 전사 접속이 안 돼요', businessImpact: d.draft!.businessImpact, triedActions: d.draft!.triedActions }),
     )
-    expect(edited.draft?.onset).toBe('어제 오후부터 전사 접속이 안 돼요')
+    expect(edited.draft?.occurredAt).toBe('어제 오후부터 전사 접속이 안 돼요')
     expect(edited.draft?.inquiryTypeCode).toBe('NET-03')
     expect(edited.draft?.urgency).toBe('P1')
     expect(edited.draft?.rejudged).toEqual(expect.arrayContaining(['inquiryType', 'urgency']))
@@ -97,12 +124,12 @@ describe('접수 초안 수정', () => {
     renderAt('/new', 'EMP-1003')
     await user.type(await screen.findByLabelText('메시지 입력', {}, SLOW), FULL_VPN)
     await user.click(screen.getByRole('button', { name: '보내기' }))
-    await user.click(await screen.findByRole('button', { name: '아직 안 돼요' }, SLOW))
-    await user.click(await screen.findByRole('button', { name: '담당자 연결하기' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '미해결' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '담당자 연결' }, SLOW))
     // 보기 화면: 분류와 세부 유형이 한국어 이름으로 보인다
     expect(await screen.findByText('분류', {}, SLOW)).toBeInTheDocument()
     expect(screen.getByText('NET-02 · VPN 접속 불가(개인)')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '수정할게요' }))
+    await user.click(screen.getByRole('button', { name: '내용 수정' }))
     expect(screen.getByLabelText('문의 내용')).toBeInTheDocument()
     expect(screen.getByLabelText('발생 시점')).toBeInTheDocument()
     expect(screen.getByLabelText('업무 영향')).toBeInTheDocument()
@@ -112,7 +139,7 @@ describe('접수 초안 수정', () => {
     const onset = screen.getByLabelText('발생 시점')
     await user.clear(onset)
     await user.type(onset, '어제 오후부터 전사 접속이 안 돼요')
-    await user.click(screen.getByRole('button', { name: '수정 반영하기' }))
+    await user.click(screen.getByRole('button', { name: '수정 저장' }))
     expect(await screen.findByText('NET-03 · VPN 전사 장애', {}, SLOW)).toBeInTheDocument()
     expect(screen.getAllByText('다시 판단됨').length).toBeGreaterThanOrEqual(2)
   })
@@ -152,7 +179,7 @@ describe('진행 카드', () => {
     expect(within(stepper).getByText(/완료 · 10\.20 14:20/)).toBeInTheDocument()
     expect(stepper.querySelectorAll('.sp')).toHaveLength(0)
     // 이전 안내에 남은 같은 이름의 버튼은 잠겨 있으므로, 눌 수 있는 버튼만 고른다
-    const resolve = screen.getAllByRole('button', { name: '해결됐어요' }).find((b) => !(b as HTMLButtonElement).disabled)!
+    const resolve = screen.getAllByRole('button', { name: '해결' }).find((b) => !(b as HTMLButtonElement).disabled)!
     await user.click(resolve)
     await screen.findByText(/문의자 확인으로 종료되었어요/, {}, SLOW)
     const after = screen.getByRole('list', { name: '접수 진행 단계' })
@@ -162,24 +189,21 @@ describe('진행 카드', () => {
   })
 })
 
-describe('비밀번호 초기화와 모달 초점', () => {
-  it('로그인 화면의 링크로 초기화 창을 열고, 빈 사번은 입력칸 아래에 오류를 남긴다', async () => {
+describe('비밀번호를 잊으셨나요? 안내와 모달 초점', () => {
+  it('로그인 화면의 링크로 안내 창을 열면 입력칸 없이 서비스데스크 요청 방법을 알려 준다', async () => {
     const user = userEvent.setup()
     renderAt('/login')
-    const link = screen.getByRole('button', { name: '비밀번호를 잊으셨나요?' })
-    await user.click(link)
-    const dialog = await screen.findByRole('dialog', { name: '비밀번호 초기화' })
-    // 열면 창 안의 첫 입력칸으로 초점이 간다
-    expect(within(dialog).getByLabelText('사번')).toHaveFocus()
-    await user.click(within(dialog).getByRole('button', { name: '휴대폰으로 인증하기' }))
-    const id = within(dialog).getByLabelText('사번')
-    expect(id).toHaveAttribute('aria-invalid', 'true')
-    expect(id).toHaveAccessibleDescription('사번을 입력해 주세요.')
-    // 입력하면 오류가 사라진다
-    await user.type(id, 'EMP-1001')
-    expect(id).not.toHaveAttribute('aria-invalid', 'true')
-    await user.click(within(dialog).getByRole('button', { name: '휴대폰으로 인증하기' }))
-    expect(await screen.findByRole('dialog', { name: '인증 문자를 보냈어요' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '비밀번호를 잊으셨나요?' }))
+    const dialog = await screen.findByRole('dialog', { name: '비밀번호를 잊으셨나요?' })
+    // 문서에는 셀프 초기화가 없으므로 사번 입력칸과 휴대폰 인증 단계가 없다
+    expect(within(dialog).queryByLabelText('사번')).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: /휴대폰/ })).not.toBeInTheDocument()
+    expect(dialog).toHaveTextContent('서비스데스크에 임시 비밀번호 발급을 요청해 주세요')
+    expect(dialog).toHaveTextContent('사번과 이름을 알려 주세요')
+    // 열면 창 안의 첫 버튼으로 초점이 가고, 확인으로 닫는다
+    expect(within(dialog).getByRole('button', { name: '확인' })).toHaveFocus()
+    await user.click(within(dialog).getByRole('button', { name: '확인' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('Esc 로 닫으면 창을 열었던 링크로 초점이 돌아가고, Tab 은 창 안에서만 돈다', async () => {
@@ -187,9 +211,9 @@ describe('비밀번호 초기화와 모달 초점', () => {
     renderAt('/login')
     const link = screen.getByRole('button', { name: '비밀번호를 잊으셨나요?' })
     await user.click(link)
-    const dialog = await screen.findByRole('dialog', { name: '비밀번호 초기화' })
+    const dialog = await screen.findByRole('dialog', { name: '비밀번호를 잊으셨나요?' })
     // 마지막 버튼에서 Tab 을 누르면 첫 칸으로 돌아온다
-    within(dialog).getByRole('button', { name: '휴대폰으로 인증하기' }).focus()
+    within(dialog).getByRole('button', { name: '확인' }).focus()
     await user.tab()
     expect(dialog.contains(document.activeElement)).toBe(true)
     await user.keyboard('{Escape}')
@@ -201,14 +225,14 @@ describe('비밀번호 초기화와 모달 초점', () => {
     const user = userEvent.setup()
     renderAt('/login')
     await user.click(screen.getByRole('button', { name: '비밀번호를 재설정하고 싶어요' }))
-    const open = await screen.findByRole('button', { name: '비밀번호 초기화 열기' }, SLOW)
+    const open = await screen.findByRole('button', { name: '비밀번호를 잊으셨나요? 열기' }, SLOW)
     await user.click(open)
-    expect(await screen.findByRole('dialog', { name: '비밀번호 초기화' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: '비밀번호를 잊으셨나요?' })).toBeInTheDocument()
     await user.keyboard('{Escape}')
     const box = screen.getByLabelText('로그인 전 상담 입력')
     await user.type(box, '비밀번호는 abc12345 입니다{Enter}')
     const panel = screen.getByRole('region', { name: '로그인 전 상담' })
-    expect(await within(panel).findByText(/●로 바꿨어요/, {}, SLOW)).toBeInTheDocument()
+    expect(await within(panel).findByText(/가림 처리했어요/, {}, SLOW)).toBeInTheDocument()
     expect(within(panel).queryByText(/abc12345/)).not.toBeInTheDocument()
   })
 })
@@ -221,11 +245,11 @@ describe('로고와 용어', () => {
     expect(await screen.findByRole('heading', { name: '새 문의' }, SLOW)).toBeInTheDocument()
   })
 
-  it('담당자는 처리할 문의, 관리자는 대시보드로 이동한다', async () => {
+  it('담당자는 내 대시보드, 관리자는 대시보드로 이동한다', async () => {
     const user = userEvent.setup()
     const { unmount } = renderAt('/faq', 'EMP-1107')
     await user.click(await screen.findByRole('button', { name: 'ITssue 홈으로' }, SLOW))
-    expect(await screen.findByRole('button', { name: '처리할 문의' }, SLOW)).toHaveAttribute('aria-current', 'page')
+    expect(await screen.findByRole('button', { name: '내 대시보드' }, SLOW)).toHaveAttribute('aria-current', 'page')
     unmount()
     renderAt('/faq', 'EMP-0912')
     await user.click(await screen.findByRole('button', { name: 'ITssue 홈으로' }, SLOW))

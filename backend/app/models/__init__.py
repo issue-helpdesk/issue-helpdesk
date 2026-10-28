@@ -1,5 +1,6 @@
 from app.models.base import Base
 from app.models.org import Department, User
+from app.models.auth import AuthSession
 from app.models.support import MemberSkill, RoutingRule, SupportGroup, SupportGroupMember
 from app.models.taxonomy import Category, InquiryType
 from app.models.inquiry import ChatSession, Inquiry, InquiryAssessment, Message, MessageSource
@@ -12,6 +13,7 @@ __all__ = [
     "Base",
     "Department",
     "User",
+    "AuthSession",
     "Category",
     "InquiryType",
     "SupportGroup",

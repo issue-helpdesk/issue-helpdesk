@@ -8,13 +8,16 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { watchMyInquiries } from '../api/inquiries'
+import { listTickets, watchTickets } from '../api/tickets'
 import type { InquirySummary, ServiceRole } from '../api/types'
 import { formatRelative } from '../core/format'
 import { HOME_BY_ROLE, ROLE_LABEL } from '../core/roles'
 import { useAuth } from '../core/session'
 import { Icon, type IconName } from './Icon'
 import { Logo } from './Logo'
-import { STATE_TONE } from './stateStyle'
+import { useShell } from './shellContext'
+import { stateView } from './stateStyle'
+import { ThemeSwitch } from './ThemeSwitch'
 
 interface NavItem {
   to: string
@@ -31,7 +34,14 @@ const INQUIRY_MENU: NavItem[] = [
 
 /** 역할별로 더해지는 메뉴 (문의자는 없음) */
 const EXTRA_MENU: Partial<Record<ServiceRole, { group: string; items: NavItem[] }>> = {
-  AGENT: { group: '업무', items: [{ to: '/queue', label: '처리할 문의', icon: 'file' }] },
+  AGENT: {
+    group: '업무',
+    items: [
+      { to: '/my', label: '내 대시보드', icon: 'home' },
+      { to: '/queue', label: '처리할 문의', icon: 'file' },
+      { to: '/stats', label: '통계', icon: 'chart' },
+    ],
+  },
   ADMIN: { group: '운영', items: [{ to: '/dash', label: '대시보드', icon: 'home' }] },
 }
 
@@ -40,9 +50,21 @@ const initials = (name: string) => name.slice(-2)
 
 export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   const { user, logout } = useAuth()
+  const { openProfile } = useShell()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [recent, setRecent] = useState<InquirySummary[]>([])
+  // 담당자: 처리할 문의 건수(처리 대기·처리 중·해결 확인 대기)와 Jira 알림이 온 건수
+  const [queue, setQueue] = useState({ n: 0, nw: 0 })
+  const agentId = user?.serviceRole === 'AGENT' ? user.id : null
+  useEffect(() => {
+    if (!user || agentId === null) return
+    return watchTickets(() => {
+      listTickets(user, { view: 'ASSIGNED', assigneeId: agentId, size: 100 }).then((r) => {
+        if (r.ok) setQueue({ n: r.data.items.filter((t) => t.workStatus && t.workStatus !== 'CLS').length, nw: r.data.items.filter((t) => t.jiraMention).length })
+      })
+    })
+  }, [user, agentId])
 
   // 최근 문의 목록을 불러오고, 새 문의나 진행 상황이 바뀔 때마다 다시 받는다
   const employeeNo = user?.employeeNo
@@ -67,6 +89,14 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       <span>{it.label}</span>
       {/* 확인하지 않은 담당자 답변 수 (0 이면 숨김, 99 초과는 99+) */}
       {it.to === '/list' && unread > 0 && <span className="count">{unread > 99 ? '99+' : unread}</span>}
+      {/* 처리할 문의: 건수, 문의자 새 알림이 있으면 점(건수가 있을 때) 또는 NEW */}
+      {it.to === '/queue' && queue.nw > 0 && queue.n > 0 && (
+        <span className="count has-new" role="img" aria-label={`${queue.n}건, 새 알림 ${queue.nw}건`} title={`새 알림 ${queue.nw}건`}>
+          {queue.n}
+        </span>
+      )}
+      {it.to === '/queue' && queue.nw > 0 && queue.n === 0 && <span className="count nw">NEW {queue.nw}</span>}
+      {it.to === '/queue' && queue.nw === 0 && queue.n > 0 && <span className="count">{queue.n}</span>}
     </button>
   )
 
@@ -75,7 +105,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       <div className="brand">
         {/* 로고는 홈으로 가는 버튼: 문의자=새 문의, 담당자=처리할 문의, 관리자=대시보드 */}
         <button type="button" className="brandbtn" aria-label="ITssue 홈으로" onClick={() => go(HOME_BY_ROLE[user.serviceRole])}>
-          <Logo width={112} />
+          <Logo width={118} kind="word" />
         </button>
       </div>
 
@@ -92,10 +122,17 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
 
       {recent.length > 0 && (
         <div className="nav">
-          <div className="grp">최근 문의</div>
+          <div className="grp gsr">
+            최근 문의
+            {/* 문의 내역으로 가서 검색 칸에 바로 입력할 수 있게 한다 */}
+            <button type="button" className="gic" aria-label="최근 문의 검색" title="내 문의 검색" onClick={() => { navigate('/list', { state: { focusSearch: Date.now() } }); onNavigate() }}>
+              <Icon name="search" size={15} />
+            </button>
+          </div>
           <div className="recent">
             {recent.slice(0, 5).map((i) => {
-              const tone = STATE_TONE[i.stateKind]
+              const sv = stateView(i)
+              const tone = sv.tone
               return (
                 <button key={i.id} type="button" className={`rt${pathname === `/chat/${i.id}` ? ' on' : ''}`} onClick={() => go(`/chat/${i.id}`)}>
                   <b>
@@ -105,7 +142,8 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
                   <small>
                     <span className="rs" style={{ color: `var(--s-${tone}-fg)` }}>
                       <i style={{ background: `var(--s-${tone}-dot)` }} />
-                      {i.stateLabel}
+                      {sv.label}
+                      {sv.sub && ` · ${sv.sub}`}
                     </span>{' '}
                     · {formatRelative(i.updatedAt)}
                   </small>
@@ -116,14 +154,22 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
         </div>
       )}
 
+      <div className="modebar">
+        <small>화면 모드</small>
+        <ThemeSwitch />
+      </div>
+
       <div className="who">
-        <span className="pf">{initials(user.name)}</span>
-        <div>
-          <div className="nm">{user.name}</div>
-          <small>
-            {user.departmentName} · {ROLE_LABEL[user.serviceRole]}
-          </small>
-        </div>
+        {/* 이름 영역을 누르면 "내 프로필" 창이 열린다 */}
+        <button type="button" className="whobtn" aria-label="내 프로필 열기" onClick={openProfile}>
+          <span className="pf">{initials(user.name)}</span>
+          <div>
+            <div className="nm">{user.name}</div>
+            <small>
+              {user.departmentName} · {ROLE_LABEL[user.serviceRole]}
+            </small>
+          </div>
+        </button>
         <button
           className="btn ghost sm out"
           type="button"
@@ -135,7 +181,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
             navigate('/login', { replace: true })
           }}
         >
-          <Icon name="arrow" />
+          <Icon name="logout" />
         </button>
       </div>
     </aside>

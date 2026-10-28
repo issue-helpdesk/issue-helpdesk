@@ -3,7 +3,6 @@
  * API 는 영문 코드 값을 그대로 주고, 한글 표시는 이 파일의 라벨표에서만 붙인다. (docs/07.API_계약서.md)
  * 화면(초안 카드)과 시연용 대화 엔진이 함께 쓴다. 실제 API 에서는 서버가 계산한 값을 그대로 받는다.
  */
-import type { AccountStatus } from './types'
 import type { CategoryCode, InquiryStatus, Urgency, WorkStatus } from './chatTypes'
 
 export interface CategoryInfo {
@@ -30,9 +29,12 @@ export const FALLBACK_GROUP = '서비스데스크'
 
 export const URGENCY_LABEL: Record<Urgency, string> = { P1: '긴급', P2: '높음', P3: '보통', P4: '낮음' }
 
-/** 업무 상태 이름과 상태 배지 색 */
+/**
+ * 업무 상태 이름과 상태 배지 색. 문의자에게 보이는 이름은 SRS 4.5 를 따른다:
+ * 접수 → 담당자 배정(RDY) → 처리 중(WIP) → 해결 확인 대기(FIN) → 해결 완료(CLS)
+ */
 export const WORK_STATUS: Record<WorkStatus, { label: string; tone: string }> = {
-  RDY: { label: '처리 대기', tone: 'recv' },
+  RDY: { label: '담당자 배정', tone: 'asg' },
   WIP: { label: '처리 중', tone: 'prog' },
   FIN: { label: '해결 확인 대기', tone: 'need' },
   CLS: { label: '해결 완료', tone: 'ok' },
@@ -44,9 +46,15 @@ export const INQUIRY_STATUS_LABEL: Record<InquiryStatus, string> = {
   AI_RESOLVED: 'AI 해결',
   UNCONFIRMED: '미확인',
   CLOSED_UNRESOLVED: '미해결 종료',
-  RECEIVED: '접수 완료',
-  HANDED_OFF: '담당자 이관',
+  RECEIVED: '접수',
+  HANDED_OFF: '담당자 배정',
 }
 
-/** 계정 상태 이름 (users.account_status) */
-export const ACCOUNT_STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: '정상', LOCKED: '잠김', INACTIVE: '이용 제한' }
+
+/** 담당자 화면의 업무 상태 이름과 색 (담당자는 처리 단계 이름으로 본다: 처리 대기 → 처리 중 → 해결 확인 대기 → 해결 완료) */
+export const STAFF_STATUS: Record<WorkStatus, { label: string; tone: string }> = {
+  RDY: { label: '처리 대기', tone: 'recv' },
+  WIP: { label: '처리 중', tone: 'prog' },
+  FIN: { label: '해결 확인 대기', tone: 'need' },
+  CLS: { label: '해결 완료', tone: 'ok' },
+}

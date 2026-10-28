@@ -9,6 +9,7 @@ import { useState, type ReactNode } from 'react'
 import { CATEGORIES, URGENCY_LABEL } from '../../api/catalog'
 import type { Draft, DraftEdit, DraftState, RejudgedField } from '../../api/chatTypes'
 import { Icon } from '../../ui/Icon'
+import { Modal } from '../../ui/Modal'
 import { StateBadge } from '../../ui/StateBadge'
 
 interface Props {
@@ -26,11 +27,13 @@ interface Props {
 }
 
 /** 수정 화면에서 입력칸이 되는 항목 */
-type EditKey = 'summary' | 'onset' | 'businessImpact' | 'triedActions'
-const toFields = (d: Draft): Required<DraftEdit> => ({ summary: d.summary, onset: d.onset, businessImpact: d.businessImpact, triedActions: d.triedActions })
+type EditKey = 'summary' | 'occurredAt' | 'businessImpact' | 'triedActions'
+const toFields = (d: Draft): Required<DraftEdit> => ({ summary: d.summary, occurredAt: d.occurredAt, businessImpact: d.businessImpact, triedActions: d.triedActions })
 
 export function DraftCard({ draft: d, state, note, active, busy, onConfirm, onSave, onCancel }: Props) {
   const [editing, setEditing] = useState(false)
+  // 접수 안 함은 문의가 끝나므로 한 번 더 확인한다 (초안 취소 호출 앞에서 화면만 묻는다)
+  const [askCancel, setAskCancel] = useState(false)
   const [fields, setFields] = useState<Required<DraftEdit>>(toFields(d))
   const canAct = active && state === 'view'
   const rejudged = d.rejudged ?? []
@@ -104,7 +107,7 @@ export function DraftCard({ draft: d, state, note, active, busy, onConfirm, onSa
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h4>접수 초안</h4>
         {state === 'confirmed' ? (
-          <StateBadge tone="ok" label="접수 확인 완료" />
+          <StateBadge tone="ok" label="접수 완료" />
         ) : state === 'cancel' ? (
           <StateBadge tone="recv" label="접수하지 않음" />
         ) : (
@@ -115,14 +118,22 @@ export function DraftCard({ draft: d, state, note, active, busy, onConfirm, onSa
       {note && canAct && (
         <div className="alert warn" style={{ marginTop: 10 }} role="status">
           <Icon name="alert" />
-          <div>{note}</div>
+          <div>
+            {note.includes('\n') ? (
+              <>
+                <b>{note.split('\n')[0]}</b> {note.split('\n').slice(1).join(' ')}
+              </>
+            ) : (
+              note
+            )}
+          </div>
         </div>
       )}
 
       <dl className={`dl${editing ? ' edit' : ''}`}>
         {field('문의 내용', 'd-issue', 'summary', true)}
         {locked('대상 시스템', d.targetSystem)}
-        {field('발생 시점', 'd-onset', 'onset')}
+        {field('발생 시점', 'd-onset', 'occurredAt')}
         {field('업무 영향', 'd-impact', 'businessImpact')}
         {field('시도한 조치', 'd-tried', 'triedActions')}
         {locked('AI 안내', d.aiSummary)}
@@ -153,26 +164,46 @@ export function DraftCard({ draft: d, state, note, active, busy, onConfirm, onSa
           {editing ? (
             <>
               <button type="button" className="btn pri sm" disabled={busy} onClick={save}>
-                수정 반영하기
+                수정 저장
               </button>
               <button type="button" className="btn sec sm" disabled={busy} onClick={() => setEditing(false)}>
-                취소
+                수정 취소
               </button>
             </>
           ) : (
             <>
               <button type="button" className="btn pri" disabled={busy} onClick={onConfirm}>
-                이 내용으로 접수하기
+                접수하기
               </button>
               <button type="button" className="btn sec" disabled={busy} onClick={startEdit}>
-                수정할게요
+                내용 수정
               </button>
-              <button type="button" className="btn ghost" disabled={busy} onClick={onCancel}>
-                접수하지 않을래요
+              <button type="button" className="btn ghost" disabled={busy} title="접수하지 않고 문의를 종료해요" onClick={() => setAskCancel(true)}>
+                접수 안 함
               </button>
             </>
           )}
         </div>
+      )}
+      {askCancel && (
+        <Modal title="접수하지 않고 문의를 종료할까요?" role="alertdialog" onClose={() => setAskCancel(false)}>
+          <p>담당자에게 접수되지 않고 이 대화는 종료돼요. 문의 내역에서 다시 상담을 이어갈 수 있어요.</p>
+          <div className="acts">
+            <button type="button" className="btn sec" data-autofocus onClick={() => setAskCancel(false)}>
+              돌아가기
+            </button>
+            <button
+              type="button"
+              className="btn pri"
+              onClick={() => {
+                setAskCancel(false)
+                onCancel()
+              }}
+            >
+              접수 안 함
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   )

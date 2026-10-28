@@ -19,6 +19,14 @@ export type Urgency = 'P1' | 'P2' | 'P3' | 'P4'
 export type InquiryStatus = 'IN_PROGRESS' | 'AI_RESOLVED' | 'UNCONFIRMED' | 'CLOSED_UNRESOLVED' | 'RECEIVED' | 'HANDED_OFF'
 
 /** 대화 진행 단계 (화면이 입력창·버튼을 정할 때 쓴다) */
+/** 응답 없음 안내 종류 (docs/09 6.4, 2026-10-26 정정): 질문·연결 제안·초안 단계의 이탈 2시간(h2)만 쓴다. 5시간 안내·삭제는 철회됐다. */
+export type IdleKind = 'h2'
+
+/** 응답 없음 안내 문구. 서버가 시스템 메시지로 보내고, 화면은 입력창 위 띠로도 보여 준다. */
+export const IDLE_TEXT: Record<IdleKind, string> = {
+  h2: '10분 후 대화가 자동으로 종료되며, 대화 내역이 삭제됩니다. 상담을 계속하려면 메시지를 입력해 주세요.',
+}
+
 export type ChatStep = 'collect' | 'answering' | 'answered' | 'offer' | 'draft' | 'submitted' | 'closed'
 
 /** Ticket 업무 상태 (tickets.work_status): 처리 대기 → 처리 중 → 해결 확인 대기 → 해결 완료 */
@@ -85,8 +93,6 @@ export interface ChatMessage {
   replies?: ChatReply[]
   /** 이미 응답했거나 지나간 단계여서 버튼을 누를 수 없는 상태 */
   locked?: boolean
-  /** 시연용 "응답 없이 시간 경과" 버튼 표시 */
-  demoTimeout?: boolean
   /** 답변을 준비 중임을 나타내는 점 세 개 표시 */
   typing?: { label: string }
   card?: ChatCard
@@ -98,6 +104,8 @@ export interface ChatMessage {
   kind?: string
   /** 메시지 시각 (ISO 8601) */
   createdAt?: string
+  /** sys 메시지의 색: sens=민감정보 가림 안내(분홍), warn=보안 사고 안내(노랑). 없으면 기본 안내 */
+  tone?: 'sens' | 'warn'
 }
 
 /** 접수 초안 (문의자가 확인·수정한 뒤에만 접수된다) */
@@ -107,8 +115,8 @@ export interface Draft {
   targetSystem: string
   /** 문의 요약 (ticket_drafts.summary) */
   summary: string
-  /** 발생 시점. DB 컬럼 없이 Jira 접수 내용에만 넣는다. */
-  onset: string
+  /** 발생 시점. 사용자 표현 그대로 둔다 (API `occurredAt`, DB `occurred_at`). */
+  occurredAt: string
   /** 업무 영향 (business_impact) */
   businessImpact: string
   triedActions: string
@@ -134,7 +142,7 @@ export type RejudgedField = 'category' | 'inquiryType' | 'urgency' | 'group'
 export interface DraftEdit {
   summary: string
   /** 발생 시점. 문의자가 쓴 말이라 고칠 수 있다. 보내지 않으면 기존 값을 유지한다. */
-  onset?: string
+  occurredAt?: string
   businessImpact: string
   triedActions: string
 }
@@ -145,7 +153,7 @@ export type DraftState = 'view' | 'confirmed' | 'cancel'
 export interface Ticket {
   /** 접수번호 RCPT-#### */
   receiptNo: string
-  /** Jira 이슈 키 ITSD-####. 생성 전에는 null */
+  /** Jira 이슈 키 ITHD-####. 생성 전에는 null */
   jiraKey: string | null
   title: string
   categoryCode: CategoryCode | null
@@ -180,6 +188,8 @@ export interface Inquiry {
   categoryCode: CategoryCode | null
   /** 확인하지 않은 담당자 답변 수 */
   unread: number
+  /** 문의를 시작한 시각 (ISO 8601) */
+  createdAt?: string
   /** 최근 활동 시각 (ISO 8601). '어제' 같은 표시는 화면에서 계산한다. */
   updatedAt: string
   messages: ChatMessage[]
@@ -188,11 +198,10 @@ export interface Inquiry {
   /** 초안 수정 후 다시 판단한 결과 안내 */
   draftNote: string
   ticket: Ticket | null
-}
-
-/** 로그인한 사용자의 문의 한 건 요청: 첫 메시지 */
-export interface StartInquiryRequest {
-  text: string
+  /** 삭제 안내를 보낸 상태. 화면이 입력창 위에 안내 띠를 보여 준다. 문의자가 답하면 해제된다. */
+  idleWarned?: IdleKind | null
+  /** 삭제 전에 돌아온 상태. 입력창을 잠그고 "이어서 대화하기 / 새 문의 시작하기"를 고르게 한다. */
+  paused?: boolean
 }
 
 /** 빠른 응답 버튼 전송 */

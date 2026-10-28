@@ -42,36 +42,62 @@
 
 ## 개발 환경 설정
 
-Python **3.12** 기준입니다.
+Python **3.12** 기준입니다. 패키지 관리는 [uv](https://docs.astral.sh/uv/)를 사용합니다.
 
-### 1. 가상환경과 패키지
-
-저장소 루트에서 실행합니다.
+### 1. uv 설치 (최초 한 번)
 
 ```bash
-# 가상환경 만들기 (최초 한 번)
-python -m venv .venv
+# macOS
+brew install uv
 
-# 가상환경 활성화 (Windows)
-.venv\Scripts\activate
-# 가상환경 활성화 (macOS)
-source .venv/bin/activate
-
-# 패키지 설치 (개발용)
-pip install -r requirements-dev.txt
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-### 2. 환경 변수
+### 2. 패키지 설치
+
+저장소 루트에서 실행합니다. `.venv` 가상환경이 자동으로 만들어집니다. Python 3.12가 없으면 uv가 함께 설치합니다.
+
+```bash
+# 기본 + 개발용(pytest)
+uv sync
+
+# 임베딩 모델까지 (검색·적재 담당, 배포 서버만)
+uv sync --extra embedding
+```
+
+> Linux 서버에서 임베딩을 설치할 때는 CPU 전용 torch를 먼저 설치합니다.
+> `uv pip install torch --index-url https://download.pytorch.org/whl/cpu`
+
+명령은 `uv run`을 앞에 붙여 실행합니다. 가상환경을 활성화했다면 생략해도 됩니다.
+
+```bash
+uv run pytest
+# 또는
+.venv\Scripts\activate   # macOS: source .venv/bin/activate
+```
+
+패키지 추가·삭제는 `pip` 대신 `uv add <패키지>` / `uv remove <패키지>`로 합니다. `pyproject.toml`과 `uv.lock`이 함께 갱신되니 두 파일 모두 커밋하세요.
+
+### 3. 환경 변수
 
 `.env.example`을 `.env`로 복사하고 `DATABASE_URL`을 채웁니다.
 
-### 3. DB 연결 확인
+### 4. DB 연결 확인
 
 ```bash
-pytest tests/test_db_connection.py -v
+uv run pytest tests/test_db_connection.py -v
 ```
 
 `PASSED`가 나오면 연결된 것입니다.
+
+### 5. 백엔드 서버 실행
+
+```bash
+uv run poe dev
+```
+
+코드를 수정하면 서버가 자동으로 재시작됩니다. 실행 후 http://127.0.0.1:8000/docs 에서 API 문서를 확인할 수 있습니다.
 
 ## 문서
 
@@ -82,6 +108,7 @@ pytest tests/test_db_connection.py -v
 | [요구사항 정의서 (SRS)](docs/03.요구사항정의서(SRS).md) | 기능·비기능 요구사항 |
 | [시스템 설계서](docs/04.시스템_설계서.md) | 아키텍처·DB·API |
 | [가상 기업 환경 정의서](docs/05.가상기업_환경정의서.md) | 조직·사용자·IT 환경 |
+| [Jira Ticket 담당자 배정 로직](docs/11.Jira_티켓_담당자_배정_로직.md) | 담당자 선정 기준·Jira 호출·확인 필요 사항 |
 | [Git 협업 가이드](docs/git-collaboration-guide.md) | 브랜치·커밋·PR 규칙 |
 | [데이터셋 설명](dataset/README.md) | 데이터 파일과 코드 |
 

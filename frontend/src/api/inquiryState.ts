@@ -1,14 +1,18 @@
 /**
  * 문의 한 건의 "화면 표시 상태"를 정한다. (PRD 4.8)
- * 접수 후에는 Ticket 업무 상태(처리 대기·처리 중·해결 확인 대기·해결 완료)를 따르고, 그 전에는 문의 상태를 따른다.
+ * 접수 후에는 Ticket 업무 상태(담당자 배정·처리 중·해결 확인 대기·해결 완료)를 따르고, 그 전에는 문의 상태를 따른다.
+ * AI 답변 뒤 해결·미해결을 고르기 전은 "미확인"이다 (시간이 지나 종료된 것이 아니다, API 02 1.2).
  * 실제 서버에서는 문의 목록 응답이 stateLabel·stateKind 를 직접 준다.
  */
 import { INQUIRY_STATUS_LABEL, WORK_STATUS } from './catalog'
 import type { Inquiry } from './chatTypes'
-import type { InquirySummary, InquiryStateKind } from './types'
+import type { DisplayStatus, InquirySummary, InquiryStateKind } from './types'
 
 /** 상태 배지 색 이름(tone) → 목록용 상태 종류 */
 const TONE_KIND: Record<string, InquiryStateKind> = { recv: 'received', prog: 'progress', need: 'awaiting_confirm', ok: 'resolved', asg: 'assigned', warn: 'warn' }
+
+/** Ticket 이 없고 AI 답변의 해결·미해결 선택을 기다리는 문의 (displayStatus unconfirmed) */
+export const isUnconfirmed = (inq: Inquiry) => !inq.ticket && (inq.status === 'UNCONFIRMED' || (inq.status === 'IN_PROGRESS' && inq.step === 'answered'))
 
 export function inquiryState(inq: Inquiry): { label: string; kind: InquiryStateKind; tone: string } {
   const t = inq.ticket
@@ -22,6 +26,7 @@ export function inquiryState(inq: Inquiry): { label: string; kind: InquiryStateK
       return { label: s.label, kind: TONE_KIND[s.tone], tone: s.tone }
     }
   }
+  if (isUnconfirmed(inq)) return { label: INQUIRY_STATUS_LABEL.UNCONFIRMED, kind: 'warn', tone: 'warn' }
   const label = INQUIRY_STATUS_LABEL[inq.status]
   switch (inq.status) {
     case 'AI_RESOLVED':
@@ -31,6 +36,7 @@ export function inquiryState(inq: Inquiry): { label: string; kind: InquiryStateK
     case 'CLOSED_UNRESOLVED':
       return { label, kind: 'received', tone: 'recv' }
     case 'RECEIVED':
+      return { label, kind: 'received', tone: 'recv' }
     case 'HANDED_OFF':
       return { label, kind: 'assigned', tone: 'asg' }
     default:
@@ -38,8 +44,41 @@ export function inquiryState(inq: Inquiry): { label: string; kind: InquiryStateK
   }
 }
 
+/** API 02 1.2 표: 문의 상태와 Ticket 업무 상태로 화면 표시 상태를 정한다 */
+export function displayStatusOf(inq: Inquiry): DisplayStatus {
+  if (isUnconfirmed(inq)) return 'unconfirmed'
+  switch (inq.status) {
+    case 'AI_RESOLVED':
+      return 'ai_resolved'
+    case 'UNCONFIRMED':
+      return 'unconfirmed'
+    case 'CLOSED_UNRESOLVED':
+      return 'unresolved'
+    case 'RECEIVED':
+      return 'received'
+    case 'HANDED_OFF': {
+      const w = inq.ticket?.workStatus
+      return w === 'WIP' ? 'progress' : w === 'FIN' ? 'awaiting_confirm' : w === 'CLS' ? 'resolved' : 'assigned'
+    }
+    default:
+      return 'in_progress'
+  }
+}
+
 /** 문의를 사이드바·목록용 요약으로 바꾼다 */
 export function toSummary(inq: Inquiry): InquirySummary {
   const s = inquiryState(inq)
-  return { id: inq.id, title: inq.title, stateLabel: s.label, stateKind: s.kind, unread: inq.unread, updatedAt: inq.updatedAt }
+  return {
+    id: inq.id,
+    title: inq.title,
+    displayStatus: displayStatusOf(inq),
+    categoryCode: inq.categoryCode,
+    receiptNo: inq.ticket?.receiptNo ?? null,
+    jiraKey: inq.ticket?.jiraKey ?? null,
+    createdAt: inq.createdAt ?? inq.updatedAt,
+    stateLabel: s.label,
+    stateKind: s.kind,
+    unread: inq.unread,
+    updatedAt: inq.updatedAt,
+  }
 }

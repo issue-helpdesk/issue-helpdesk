@@ -22,6 +22,10 @@ export interface User {
   departmentName: string
   serviceRole: ServiceRole
   accountStatus: AccountStatus
+  /** 임시 비밀번호로 로그인한 상태. true 이면 새 비밀번호를 정하기 전에는 다른 기능을 쓸 수 없다. (AU-01 passwordChangeRequired) */
+  passwordChangeRequired?: boolean
+  /** 비밀번호를 마지막으로 바꾼 뒤 지난 날수. 서버가 주는 값이 문서(AU-03)에 없어 제안이다. */
+  passwordChangedDaysAgo?: number
 }
 
 /** 성공 응답 */
@@ -38,7 +42,17 @@ export interface ApiFail {
     message: string
     /** ACCOUNT_LOCKED 일 때 잠금이 풀리는 시각 (ISO 8601) */
     lockedUntil?: string
+    /** AUTH_PASSWORD_POLICY_VIOLATION 일 때 위반한 규칙들 (AU-04 details) */
+    details?: ErrorDetail[]
   }
+}
+
+/** 실패 응답의 details 한 칸. 입력 오류는 field, 계정 잠금은 value(잠금 해제 시각) 를 준다. (docs/07 5.3) */
+export interface ErrorDetail {
+  field?: string
+  reason: string
+  message: string
+  value?: string
 }
 
 export type ApiResult<T> = ApiOk<T> | ApiFail
@@ -47,6 +61,12 @@ export interface LoginRequest {
   /** 사번 */
   employeeNo: string
   password: string
+}
+
+/** 비밀번호 변경 요청 (AU-04 PUT /users/me/password) */
+export interface PasswordChangeRequest {
+  currentPassword: string
+  newPassword: string
 }
 
 export interface LoginData {
@@ -61,14 +81,14 @@ export interface ConsultReply {
   paragraphs: string[]
   /** 근거 Guide 출처. 문의 화면 답변과 같은 형태 */
   sources: GuideSource[]
-  /** 답변에 붙는 바로가기 버튼 (예: 비밀번호 초기화 창 열기). 없으면 버튼을 그리지 않는다. */
+  /** 답변에 붙는 바로가기 버튼 (예: 비밀번호를 잊으셨나요? 안내 창 열기). 없으면 버튼을 그리지 않는다. */
   ctas?: ConsultCta[]
 }
 
 /** 로그인 전 상담 답변의 바로가기 */
 export interface ConsultCta {
   label: string
-  /** 화면이 알고 있는 동작 이름. forgot=비밀번호 초기화 창 */
+  /** 화면이 알고 있는 동작 이름. forgot=비밀번호를 잊으셨나요? 안내 창 */
   action: 'forgot'
 }
 
@@ -89,10 +109,24 @@ export interface Faq {
  */
 export type InquiryStateKind = 'progress' | 'assigned' | 'received' | 'resolved' | 'ai' | 'warn' | 'needs_reply' | 'reassigned' | 'awaiting_confirm'
 
-/** 문의 한 건 요약 (사이드바 최근 문의) */
+/**
+ * 화면 표시 상태 (API 02 1.2 `displayStatus`). 문의 상태와, 접수 건은 Ticket 업무 상태를 합쳐 정한다.
+ * 문의 내역의 상태 분류는 이 값을 묶어서 만든다.
+ */
+export type DisplayStatus = 'in_progress' | 'ai_resolved' | 'unconfirmed' | 'unresolved' | 'received' | 'assigned' | 'progress' | 'awaiting_confirm' | 'resolved'
+
+/** 문의 한 건 요약 (사이드바 최근 문의, 문의 내역) */
 export interface InquirySummary {
   id: number
   title: string
+  displayStatus: DisplayStatus
+  /** 분류. 아직 판단하지 못했으면 null */
+  categoryCode: CategoryCode | null
+  /** 접수번호·Jira 번호. 접수 전에는 null */
+  receiptNo: string | null
+  jiraKey: string | null
+  /** 문의를 시작한 시각 (ISO 8601) */
+  createdAt: string
   /** 화면에 보일 상태 이름 (예: 처리 중, 해결 완료, AI 해결, 미확인) */
   stateLabel: string
   stateKind: InquiryStateKind
@@ -106,4 +140,4 @@ export interface InquirySummary {
 export const ok = <T,>(data: T): ApiOk<T> => ({ ok: true, data })
 
 /** 실패 응답을 만드는 도우미 */
-export const fail = (code: string, message: string, extra?: { lockedUntil?: string }): ApiFail => ({ ok: false, error: { code, message, ...extra } })
+export const fail = (code: string, message: string, extra?: { lockedUntil?: string; details?: ErrorDetail[] }): ApiFail => ({ ok: false, error: { code, message, ...extra } })
