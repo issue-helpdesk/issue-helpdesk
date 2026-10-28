@@ -2,7 +2,7 @@
  * 로그인 화면과 로그인 전 상담 테스트.
  * 가짜 응답(mock)으로만 실행하며, 실제 서버·키는 사용하지 않는다.
  */
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
@@ -36,6 +36,30 @@ describe('로그인 화면', () => {
     expect(screen.getByLabelText('사번')).toHaveValue('EMP-1001')
     // 끝나면 새 문의 화면으로 간다
     expect(await screen.findByRole('heading', { name: '새 문의' }, SLOW)).toBeInTheDocument()
+  })
+
+  it('로그인 탭은 선택 상태와 패널이 연결되고 방향키로 옮길 수 있으며, 문서 제목이 로그인이다', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    expect(document.title).toBe('로그인 · ITssue')
+    const idTab = screen.getByRole('tab', { name: '사번 로그인' })
+    const ssoTab = screen.getByRole('tab', { name: 'SSO 로그인' })
+    expect(idTab).toHaveAttribute('aria-selected', 'true')
+    expect(idTab).toHaveAttribute('aria-controls', 'lp')
+    expect(ssoTab).toHaveAttribute('tabindex', '-1')
+    expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'lt-id')
+    idTab.focus()
+    await user.keyboard('{ArrowRight}')
+    expect(ssoTab).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'lt-sso')
+    await waitFor(() => expect(ssoTab).toHaveFocus())
+  })
+
+  it('안내 문구는 바로 연결한다고 약속하지 않고, 잠금 안내는 실패한 주체를 밝힌다', () => {
+    renderApp()
+    expect(screen.getByText(/내용을 확인한 뒤 담당자에게 접수할 수 있어요/)).toBeInTheDocument()
+    expect(screen.queryByText(/바로 연결/)).not.toBeInTheDocument()
+    expect(screen.getByText(/비밀번호를 5회 연속 잘못 입력하면 계정이 잠겨요/)).toBeInTheDocument()
   })
 
   it('시연 계정(문의자)으로 로그인하면 새 문의 화면으로 이동한다', async () => {

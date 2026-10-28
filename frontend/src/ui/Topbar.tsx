@@ -5,7 +5,7 @@
  * 상단바는 본문 위에 겹쳐 놓고 배경을 반투명으로 해서, 스크롤하면 본문이 비쳐 보인다.
  * 본문이 가려지지 않도록 상단바 높이를 부모(.main)의 --topH 로 알려 주면 본문 맨 위에 그만큼 빈 칸이 생긴다.
  */
-import { useLayoutEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { Icon } from './Icon'
 import { useShell } from './shellContext'
 
@@ -13,6 +13,10 @@ import { useShell } from './shellContext'
 export function Topbar({ title, sub, right, lead }: { title: string; sub?: string; right?: ReactNode; lead?: ReactNode }) {
   const { toggleNav } = useShell()
   const ref = useRef<HTMLElement>(null)
+  // 화면 제목으로 문서 제목을 갱신한다
+  useEffect(() => {
+    document.title = `${title} · ITssue`
+  }, [title])
   useLayoutEffect(() => {
     const el = ref.current
     const main = el?.parentElement

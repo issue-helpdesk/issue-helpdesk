@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { cancelChatDraft, isStaleInquiry, confirmChatDraft, editDraft, getChat, idleBackChat, idleDeleteChat, idleWarnChat, leaveChat, rejectChat, reopenChat, replyChat, resolveChat, resumeChat, sendChat, watchChat } from '../../api/chat'
 import { IDLE_TEXT, type DraftEdit, type GuideSource, type Inquiry, type LegacyCase } from '../../api/chatTypes'
-import { inquiryState } from '../../api/inquiryState'
+import { displayStatusOf, inquiryState } from '../../api/inquiryState'
 import type { ApiResult } from '../../api/types'
 import { SERVICEDESK, USE_MOCK } from '../../core/config'
 import { sourceFull } from '../../core/format'
@@ -21,6 +21,7 @@ import { EmptyState } from '../../ui/EmptyState'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { StateBadge } from '../../ui/StateBadge'
+import { stateView } from '../../ui/stateStyle'
 import { Pav } from '../../ui/Pav'
 import { Topbar } from '../../ui/Topbar'
 import { MessageItem, type ChatActions } from './MessageItem'
@@ -241,7 +242,7 @@ export function ChatView() {
     )
   }
 
-  const state = inquiryState(inquiry)
+  const state = stateView({ displayStatus: displayStatusOf(inquiry), stateLabel: inquiryState(inquiry).label, stateKind: inquiryState(inquiry).kind })
   const closed = inquiry.step === 'closed'
   const endMsg = endedMessage(inquiry) // 끝난 문의: 입력창은 상태만 안내하고 잠근다
   // 답변을 준비하는 동안에는 새 메시지를 받지 않는다
@@ -252,7 +253,7 @@ export function ChatView() {
   // 삭제 전에 돌아온 상태: 이어서 할지 새로 시작할지 고를 때까지 입력창을 끈다
   const paused = !!inquiry.paused
   const lock = paused ? { ph: '아래에서 이어갈 방법을 골라 주세요', why: '' } : wait ? LOCK[wait] : null
-  const placeholder = endMsg ?? (lock ? lock.ph : t ? '담당자에게 추가로 전달할 내용을 입력해 주세요.' : '메시지를 입력하세요')
+  const placeholder = endMsg ?? (lock ? lock.ph : t ? '담당자에게 추가로 전달할 내용을 입력해 주세요.' : '메시지를 입력해 주세요.')
   // 시연: 응답 없음 삭제 안내 · 삭제 · 돌아옴. 질문·연결 제안·초안 단계에서만 쓴다 (접수된 건·끝난 문의·미확인은 대상이 아니다).
   const demoIdle = USE_MOCK && !!employeeNo && !t && !closed && inquiry.step !== 'answered'
   // 이어가기 뒤 담당자 연결 버튼이 대화 위쪽에 멀리 있으면, 버튼을 맨 아래에 다시 보여 준다 (저장되는 메시지가 아니라 화면 표시)
@@ -278,7 +279,7 @@ export function ChatView() {
       <Topbar
         title={inquiry.title}
         sub={t ? `${t.receiptNo}${t.jiraKey ? ` · ${t.jiraKey}` : ''}` : undefined}
-        right={<StateBadge tone={state.tone} label={state.label} />}
+        right={<StateBadge tone={state.tone} label={state.label} sub={state.sub} />}
         lead={
           <span className="tlead">
             <Pav pose={latestPose(inquiry)} size={44} />

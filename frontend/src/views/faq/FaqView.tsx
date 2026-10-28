@@ -54,7 +54,7 @@ export function FaqView() {
             <div className="eyebrow">IT GUIDE</div>
             <h1>먼저 확인해 보세요</h1>
             <p className="muted" style={{ marginTop: 4 }}>
-              자주 발생하는 IT 문제와 사내 가이드를 모았어요. 게시글을 열람해도 문의가 접수되지는 않아요.
+              자주 발생하는 IT 문제와 사내 가이드를 모았어요. FAQ를 읽어도 문의가 접수되지는 않아요.
             </p>
           </div>
 

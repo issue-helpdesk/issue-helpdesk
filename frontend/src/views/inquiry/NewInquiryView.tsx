@@ -94,7 +94,7 @@ export function NewInquiryView() {
           <h1>무엇을 도와드릴까요?</h1>
 
           <div style={{ width: '100%', maxWidth: 720 }}>
-            <Composer value={text} onChange={setText} onSend={send} disabled={sending} placeholder="겪고 있는 문제를 편하게 적어 주세요" />
+            <Composer value={text} onChange={setText} onSend={send} disabled={sending} placeholder="겪고 있는 문제를 적어 주세요." />
           </div>
           {notice && (
             <div className="hint" role="status" style={{ marginTop: 10 }}>
@@ -121,7 +121,7 @@ export function NewInquiryView() {
           </div>
 
           <div className="hint" style={{ marginTop: 22 }}>
-            AI가 먼저 답하고, 해결되지 않으면 담당자에게 바로 연결해 드려요 · {NOTE}
+            AI가 먼저 안내해 드려요. 해결되지 않으면 내용을 확인한 뒤 담당자에게 접수할 수 있어요 · {NOTE}
           </div>
         </div>
       </div>

@@ -600,7 +600,7 @@ export function saveDraft(rec: StoreRecord, edit: DraftEdit) {
 export function cancelDraft(rec: StoreRecord) {
   const { inquiry } = rec
   if (inquiry.step !== 'draft') return
-  push(inquiry, { role: 'user', text: '미접수 (종료)' })
+  push(inquiry, { role: 'user', text: '접수 안 함' })
   inquiry.status = 'CLOSED_UNRESOLVED'
   inquiry.step = 'closed'
   inquiry.draftState = 'cancel'
@@ -621,7 +621,7 @@ export function confirmDraft(rec: StoreRecord) {
     return
   }
   inquiry.draftState = 'confirmed'
-  push(inquiry, { role: 'user', text: '접수' })
+  push(inquiry, { role: 'user', text: '접수하기' })
   const t: Ticket = {
     receiptNo: nextRcpt(),
     jiraKey: null,

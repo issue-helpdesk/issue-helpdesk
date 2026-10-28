@@ -4,7 +4,7 @@
  * 왼쪽: 사번 로그인 / SSO 로그인 탭과 시연용 바로 로그인. 오른쪽: 로그인 전 상담 패널.
  * 로그인에 성공하면 역할별 첫 화면(core/roles.ts)으로 이동한다.
  */
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { MOCK_PASSWORD, MOCK_QUICK_LOGINS, MOCK_TEMP_PASSWORD } from '../../api/mock/accounts'
 import type { ApiResult, LoginData } from '../../api/types'
@@ -62,6 +62,11 @@ export function LoginView() {
   // 비밀번호를 잊으셨나요? 안내 창
   const [forgotOpen, setForgotOpen] = useState(false)
 
+  // 화면 제목으로 문서 제목을 갱신한다 (화면이 바뀐 것을 보조기기가 알 수 있게)
+  useEffect(() => {
+    document.title = '로그인 · ITssue'
+  }, [])
+
   // 요청이 3초 넘게 걸리면 늦어진다고 알린다
   useEffect(() => {
     if (!busy) return
@@ -96,6 +101,16 @@ export function LoginView() {
 
   const idTab = tab === 'id'
 
+  /** 탭은 방향키로 옮긴다 (두 탭이라 어느 방향키든 다른 탭으로 간다) */
+  function onTabKey(e: KeyboardEvent<HTMLDivElement>) {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
+    e.preventDefault()
+    const next: Tab = tab === 'id' ? 'sso' : 'id'
+    setTab(next)
+    setError('')
+    setTimeout(() => document.getElementById(`lt-${next}`)?.focus(), 0)
+  }
+
   /** 요청 중인 버튼은 "로그인 중"과 점 세 개로, 나머지는 원래 글자로 보인다 (크기·색은 그대로) */
   const label = (by: string, text: string) =>
     busy && who === by ? (
@@ -125,7 +140,7 @@ export function LoginView() {
           <div className="eyebrow">IT HELPDESK</div>
           <h1>IT 문제, 먼저 물어보세요</h1>
           <p className="muted" style={{ margin: '10px 0 22px', lineHeight: '24px' }}>
-            AI가 먼저 답하고, 해결되지 않으면 담당자에게 바로 연결해 드려요.
+            AI가 먼저 안내해 드려요. 해결되지 않으면 내용을 확인한 뒤 담당자에게 접수할 수 있어요.
           </p>
 
           {/* 비밀번호를 바꾼 뒤 / 로그인이 만료돼 돌아왔을 때의 안내. 별도 창 없이 이 한 줄로만 알린다 */}
@@ -147,17 +162,17 @@ export function LoginView() {
               </div>
             </div>
           )}
-          <div className="seg" role="tablist" style={{ marginBottom: 16 }}>
-            <button role="tab" type="button" aria-selected={idTab} className={idTab ? 'on' : ''} onClick={() => { setTab('id'); setError('') }}>
+          <div className="seg" role="tablist" aria-label="로그인 방법" style={{ marginBottom: 16 }} onKeyDown={onTabKey}>
+            <button role="tab" type="button" id="lt-id" aria-selected={idTab} aria-controls="lp" tabIndex={idTab ? 0 : -1} className={idTab ? 'on' : ''} onClick={() => { setTab('id'); setError('') }}>
               사번 로그인
             </button>
-            <button role="tab" type="button" aria-selected={!idTab} className={!idTab ? 'on' : ''} onClick={() => { setTab('sso'); setError('') }}>
+            <button role="tab" type="button" id="lt-sso" aria-selected={!idTab} aria-controls="lp" tabIndex={!idTab ? 0 : -1} className={!idTab ? 'on' : ''} onClick={() => { setTab('sso'); setError('') }}>
               SSO 로그인
             </button>
           </div>
 
           {idTab ? (
-            <form onSubmit={onSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <form id="lp" role="tabpanel" aria-labelledby="lt-id" onSubmit={onSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div className="field">
                 <label htmlFor="lg-id">사번</label>
                 <input
@@ -205,7 +220,7 @@ export function LoginView() {
               </button>
               {slowNote}
               <div className="hint">
-                {USE_MOCK_AUTH && `시연 계정 비밀번호는 ${MOCK_PASSWORD} 입니다. `}계정 5회 실패 시 잠기고 10분 후 해제됩니다.
+                {USE_MOCK_AUTH && `시연 계정 비밀번호는 ${MOCK_PASSWORD} 입니다. `}비밀번호를 5회 연속 잘못 입력하면 계정이 잠겨요. 10분 후 다시 로그인할 수 있어요.
                 {USE_MOCK_AUTH && (
                   <>
                     <br />
@@ -215,7 +230,7 @@ export function LoginView() {
               </div>
             </form>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div id="lp" role="tabpanel" aria-labelledby="lt-sso" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div className="alert info">
                 <Icon name="shield" />
                 <div>사내 SSO와 MFA로 인증하는 화면이에요. 이 화면에서는 인증을 연결하지 않았어요.</div>

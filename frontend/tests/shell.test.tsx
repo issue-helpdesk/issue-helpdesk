@@ -25,6 +25,20 @@ function renderAs(userId: string, path = '/new') {
   )
 }
 
+describe('화면 전환과 접근성', () => {
+  it('화면 제목으로 문서 제목이 바뀌고, 건너뛰기 버튼이 본문으로 초점을 옮긴다', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1001', '/faq')
+    await screen.findByRole('heading', { name: '먼저 확인해 보세요' }, SLOW)
+    expect(document.title).toBe('FAQ · ITssue')
+    const skip = screen.getByRole('button', { name: '본문으로 건너뛰기' })
+    await user.click(skip)
+    const main = document.querySelector('main.main') as HTMLElement
+    expect(main.id).toBe('main')
+    expect(main).toHaveFocus()
+  })
+})
+
 describe('사이드바', () => {
   it('문의자는 새 문의 · 문의 내역 · FAQ 메뉴와 사용자 정보가 보인다', async () => {
     renderAs('EMP-1001')
