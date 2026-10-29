@@ -461,6 +461,43 @@ def test_failure_after_other_call_done_is_skipped(url):
 
 
 @needs_db
+def test_file_registered_again_during_ingest(url):
+    """M2-3-2 검수 P1: 적재하는 사이 같은 버전에 파일이 다시 등록되면(file_path 바뀜) 이전 파일로 DONE·FAILED 를 남기지 않는다."""
+    vid = register(url, 'IT-SYS-007')
+
+    def move(fmt, status='PENDING', error=None):
+        with connect(url) as other:
+            other.execute('update document_versions set file_path = %s, ingest_status = %s, ingest_error = %s '
+                          'where id = %s', (guide_file('IT-SYS-007', fmt), status, error, vid))
+            other.commit()
+
+    class Moving:
+        model_id = EMB.model_id
+
+        def __init__(self, fail, fmt, status='PENDING', error=None):
+            self.fail, self.args = fail, (fmt, status, error)
+
+        def embed_documents(self, texts):
+            move(*self.args)
+            if self.fail:
+                raise RuntimeError('이전 파일 적재가 실패')
+            return EMB.embed_documents(texts)
+
+    # 새 파일이 대기 중 / 새 파일 적재가 먼저 실패함 (재검수 P3: 그 FAILED 를 이 작업의 실패로 보고하지 않는다)
+    for fail, fmt, status, error in ((False, 'docx', 'PENDING', None), (True, 'pdf', 'PENDING', None),
+                                     (True, 'docx', 'FAILED', '새 파일 오류')):
+        with connect(url) as conn:
+            out = ingest_version(conn, vid, Moving(fail, fmt, status, error))
+        assert (out['status'], out['error']) == ('SKIPPED', None) and any('다시 등록' in w for w in out['warnings'])
+        assert version(url, vid)[:2] == (status, error) and version(url, vid)[6] == 0
+    move('pdf')
+    assert ingest(url, vid)['status'] == 'DONE' and version(url, vid)[5] == 'PDF'      # 새 파일 적재는 된다
+    with connect(url) as conn:                                                         # reload 도 같다
+        out = ingest_version(conn, vid, Moving(True, 'docx', 'DONE'), reload=True)
+    assert (out['status'], out['error']) == ('SKIPPED', None)
+
+
+@needs_db
 def test_cli_reload(url, capsys):
     from app.rag.ingest.__main__ import main
     vid = register(url, 'IT-SYS-003')
