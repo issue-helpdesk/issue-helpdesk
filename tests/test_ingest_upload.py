@@ -461,6 +461,36 @@ def test_failure_after_other_call_done_is_skipped(url):
 
 
 @needs_db
+def test_file_registered_again_during_ingest(url):
+    """M2-3-2 검수 P1: 적재하는 사이 같은 버전에 파일이 다시 등록되면(file_path 바뀜) 이전 파일로 DONE·FAILED 를 남기지 않는다."""
+    vid = register(url, 'IT-SYS-007')
+
+    def move(fmt):
+        with connect(url) as other:
+            other.execute('update document_versions set file_path = %s where id = %s', (guide_file('IT-SYS-007', fmt), vid))
+            other.commit()
+
+    class Moving:
+        model_id = EMB.model_id
+
+        def __init__(self, fail, fmt):
+            self.fail, self.fmt = fail, fmt
+
+        def embed_documents(self, texts):
+            move(self.fmt)
+            if self.fail:
+                raise RuntimeError('이전 파일 적재가 실패')
+            return EMB.embed_documents(texts)
+
+    for fail, fmt in ((False, 'docx'), (True, 'pdf')):
+        with connect(url) as conn:
+            out = ingest_version(conn, vid, Moving(fail, fmt))
+        assert (out['status'], out['error']) == ('SKIPPED', None)
+        assert version(url, vid)[:2] == ('PENDING', None) and version(url, vid)[6] == 0
+    assert ingest(url, vid)['status'] == 'DONE' and version(url, vid)[5] == 'PDF'      # 새 파일 적재는 된다
+
+
+@needs_db
 def test_cli_reload(url, capsys):
     from app.rag.ingest.__main__ import main
     vid = register(url, 'IT-SYS-003')

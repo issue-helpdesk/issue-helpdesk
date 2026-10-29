@@ -10,15 +10,20 @@
     ingest_version(conn, vid, embedder)             # M2-3-1 → DONE = 초안 (검색에 안 나온다)
     activate(conn, vid, admin_id); conn.commit()    # 관리자 승인 (DC-09) → 현행 = 검색됨
 
+Draft 는 만들 때의 기준(현행·이어 쓰던 초안·기준 md)을 담는다. 관리자가 md 를 고치는 동안 보관했다가 register 에
+그대로 준다 (d.save / Draft.load). 등록 때 새로 만들면 그새 들어간 사례를 오래된 md 가 지워도 못 잡는다.
+개정 이력의 '해결 사례 반영 (<접수 번호>)' 표식으로 반영 여부를 정확히 가린다 (기준에 있던 표식이 빠지면 거부).
+
 같은 가이드에 아직 승인 안 된 사례 초안이 있으면 새 버전을 또 만들지 않고 그 초안에 이어 쓴다 (v2.1 이 둘 생기지 않게).
 민감정보는 지우거나 막지 않고 경고만 한다: 새로 더한 줄만, D 의 탐지 규칙(전화·이메일·사번·직원 이름, 비밀·고유식별)으로.
 초안은 비현행이라 검색·외부 전송에 나가지 않고, 승인 전 검토(정확성·정보 보호·공개 범위)는 관리자 몫이다 (GUIDE-03).
 """
 from __future__ import annotations
 
+import json
 import re
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import date
 from pathlib import Path
 
@@ -31,6 +36,8 @@ CASE_DIR = Path('storage') / 'case_guides'                 # files_root 아래. 
 EVENT = 'CASE_GUIDE_REGISTER'                              # 감사 로그. result 에 '<접수 번호> → <버전>'
 HANDLING = '🔵 IT 담당자 처리'                              # 담당자가 해결한 사례. 사용자 조치로 바꿀지는 관리자가
 SHORT_NOTE = 20                                            # 해결 내용이 이보다 짧으면 경고
+MARK = '해결 사례 반영'                                     # 개정 이력 표식: '해결 사례 반영 (<접수 번호>)'
+MARK_RE = re.compile(re.escape(MARK) + r' \(([^()\s|]+)\)')
 
 
 class CaseGuideError(Exception):
@@ -53,6 +60,19 @@ class Draft:
     draft_version_id: int | None = None                    # 이어 쓰는 초안 버전 행
     base_file_path: str | None = None                      # 이어 쓰는 초안의 file_path. 등록 때 바뀌었으면 거부
     warnings: list[str] = field(default_factory=list)
+
+    def save(self, path: Path) -> None:
+        """초안 정보(만들 때의 기준)를 JSON 으로. 관리자가 md 를 고치는 동안 보관했다가 register 에 그대로 준다."""
+        Path(path).write_text(json.dumps(asdict(self), ensure_ascii=False), encoding='utf-8')
+
+    @classmethod
+    def load(cls, path: Path) -> Draft:
+        return cls(**json.loads(Path(path).read_text(encoding='utf-8')))
+
+
+def receipts(md: str) -> set[str]:
+    """개정 이력 표식에 적힌 접수 번호들 (정확히. 'TK-1' 과 'TK-10' 은 다르다)."""
+    return set(MARK_RE.findall(md))
 
 
 # ── 고르기 ────────────────────────────────────────────────────
@@ -121,7 +141,7 @@ def draft(conn, ticket_id: int, doc_code: str | None = None, files_root: Path = 
     if base_file.suffix.lower() != '.md':
         raise CaseGuideError([f'{doc_code}의 기준 파일이 md 가 아닙니다 ({base_file.suffix}). md 버전을 올린 뒤 다시 하세요'])
     base_md = base_file.read_text(encoding='utf-8')
-    if t['receipt_no'] in base_md:
+    if t['receipt_no'] in receipts(base_md):
         raise CaseGuideError([f"{t['receipt_no']}는 이미 {doc_code}에 반영되어 있습니다"])
 
     md, section_no = add_case(base_md, t, version, today or date.today(), warnings)
@@ -214,12 +234,13 @@ def add_case(md: str, t: dict, version: str, today: date, warnings: list[str]) -
     else:
         warnings.append('목차에서 3장 항목 줄을 찾지 못해 목차는 고치지 않았습니다')
 
-    note = f"해결 사례 반영 ({t['receipt_no']}): {section_no} {title}"
+    note = _cell(f"{MARK} ({t['receipt_no']}): {section_no} {title}")
+    group = _cell(t['group'] or '서비스데스크')
     history = re.search(r'^## 개정 이력\s*$', md, re.M)
     if history is None:
         warnings.append('개정 이력이 없어 끝에 새로 만들었습니다')
         md = md.rstrip('\n') + ('\n\n## 개정 이력\n\n| 버전 | 개정일 | 작성자 | 변경 내용 |\n| --- | --- | --- | --- |\n'
-                                f"| {version} | {today.isoformat()} | {t['group'] or '서비스데스크'} | {note} |\n")
+                                f'| {version} | {today.isoformat()} | {group} | {note} |\n')
         return md, section_no
     rows = list(re.finditer(r'^\|.*\|[ \t]*$', md[history.end():], re.M))
     same = next((r for r in rows if re.match(rf'^\|\s*{re.escape(version)}\s*\|', r.group(0))), None)
@@ -229,7 +250,7 @@ def add_case(md: str, t: dict, version: str, today: date, warnings: list[str]) -
         md = md[:history.end() + same.start()] + line[:-1].rstrip() + f'; {note} |' + md[at:]
     else:
         at = history.end() + rows[-1].end() if rows else history.end()
-        md = md[:at] + f"\n| {version} | {today.isoformat()} | {t['group'] or '서비스데스크'} | {note} |" + md[at:]
+        md = md[:at] + f'\n| {version} | {today.isoformat()} | {group} | {note} |' + md[at:]
     return md, section_no
 
 
@@ -255,6 +276,11 @@ def _bullets(text: str | None) -> list[str]:
             continue
         out.append(line if re.match(r'^([-*]|\d+[.)])\s', line) else f'- {line}')
     return out or ['- (관리자가 채워 주세요)']
+
+
+def _cell(text: str) -> str:
+    """표 칸에 넣을 글: 세로줄을 이스케이프한다 (칸이 늘어나지 않게. 파서는 '\\|' 를 칸 구분으로 보지 않는다)."""
+    return text.replace('|', '\\|')
 
 
 def _one_line(text: str | None) -> str:
@@ -306,8 +332,9 @@ KINDS = {'PASSWORD': '비밀번호', 'OTP': '인증번호', 'API_KEY': 'API 키'
 def check(d: Draft, md: str, staff_names: list[str]) -> tuple[list[str], list[str]]:
     """관리자가 고친 md 를 다시 본다. (문제: 등록 안 됨, 경고: 등록은 됨).
 
-    문제: 파서·청커가 못 읽음, 문서 번호·버전이 초안과 다름, 기준 가이드의 항목이 빠짐, 접수 번호(개정 이력)가 없음.
-    새 항목 3.N 을 지우고 기존 항목에 합친 것은 괜찮다. 접수 번호만 남아 있으면 된다 (같은 티켓을 두 번 넣지 않게).
+    문제: 파서·청커가 못 읽음, 문서 번호·버전이 초안과 다름, 기준 가이드의 항목이 빠짐, 이 티켓의 접수 번호 표식이
+    없음, 기준에 있던 다른 사례의 표식이 빠짐 (오래된 기준에서 고친 md 가 그새 들어간 사례를 지우지 않게).
+    새 항목 3.N 을 지우고 기존 항목에 합친 것은 괜찮다. 개정 이력 표식만 남기면 된다 (같은 티켓을 두 번 넣지 않게).
     """
     problems = []
     try:
@@ -323,8 +350,11 @@ def check(d: Draft, md: str, staff_names: list[str]) -> tuple[list[str], list[st
     base_sections = {c.section_no for c in _parse_text(d.base_md)[1] if c.chunk_type == 'item'}
     if missing := sorted(base_sections - {c.section_no for c in new[1] if c.chunk_type == 'item'}):
         problems.append(f"기준 가이드의 항목이 빠졌습니다: {', '.join(missing)}")
-    if d.receipt_no not in md:
-        problems.append(f'접수 번호 {d.receipt_no}가 없습니다 (개정 이력 줄을 남겨 주세요)')
+    have = receipts(md)
+    if d.receipt_no not in have:
+        problems.append(f'접수 번호 {d.receipt_no}가 없습니다 (개정 이력 줄 "{MARK} ({d.receipt_no})"을 남겨 주세요)')
+    if lost := sorted(receipts(d.base_md) - have):
+        problems.append(f"기준에 있던 사례가 빠졌습니다: {', '.join(lost)}")
     return problems, sensitive_warnings(md, _added_lines(d.base_md, md), staff_names)
 
 

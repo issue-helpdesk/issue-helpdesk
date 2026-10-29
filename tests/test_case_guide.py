@@ -6,12 +6,13 @@ localhost 일 때만, 무작위 이름의 전용 DB 에서 CLS 티켓 → 초안
 """
 import re
 from datetime import date
+from pathlib import Path
 
 import pytest
 
-from app.rag.case_guide import (CASE_DIR, CaseGuideError, Draft, add_case, candidates, check, draft, next_version,
-                                register, sensitive_warnings, _added_lines, _parse_text)
-from app.rag.ingest import activate, connect
+from app.rag.case_guide import (CASE_DIR, CaseGuideError, Draft, _added_lines, _parse_text, add_case, candidates, check,
+                                draft, next_version, receipts, register, sensitive_warnings)
+from app.rag.ingest import GUIDES, activate, connect
 from app.rag.ingest.upload import ingest_version
 from test_ingest_upload import EMB, REPO, guide_file, needs_db, url, version  # noqa: F401  (url 은 fixture)
 
@@ -266,7 +267,128 @@ def test_cli(url, tmp_path, capsys):
     out = tmp_path / 'case.md'
     assert main([*base, 'draft', '--ticket', str(tid), '--out', str(out)]) == 0
     assert '새 항목' in capsys.readouterr().out
-    assert main([*base, 'register', '--ticket', str(tid), '--file', str(out), '--embedder', 'fake']) == 0
+    assert Path(f'{out}.json').exists()
+    assert main([*base, 'register', '--file', str(out), '--embedder', 'fake']) == 0
     text = capsys.readouterr().out
     assert '적재: DONE' in text and '승인(현행 전환) 전에는' in text
     assert main([*base, 'draft', '--ticket', str(tid)]) == 1 and '이미 IT-HW-001에 반영' in capsys.readouterr().out
+    bare = tmp_path / 'bare.md'
+    bare.write_text(out.read_text(encoding='utf-8'), encoding='utf-8')
+    assert main([*base, 'register', '--file', str(bare), '--embedder', 'fake']) == 2   # 초안 정보 없이는 등록 안 됨
+
+
+# ── 검수 반영 (작업대/검수/M2-3-2_리뷰.md) ──────────────────────
+
+@needs_db
+def test_append_while_old_ingest_runs_keeps_latest(url, tmp_path):
+    """P1: 사례 A 적재가 임베딩하는 사이 B 가 같은 초안에 이어 등록되면, A 적재는 건너뛰고 B 파일 적재가 DONE 을 찍는다."""
+    _current_guide(url, 'IT-NET-001')
+    a = _ticket(url, 'TK-RACE-A', code='NET-02')
+    b = _ticket(url, 'TK-RACE-B', code='NET-02', note='SECOND_CASE_UNIQUE_FIX 사내망 다시 연결')
+    with connect(url) as conn:
+        first = draft(conn, a, files_root=tmp_path)
+        vid = register(conn, first, first.md, None, tmp_path)['version_id']
+    newer = {}
+
+    class Racing:
+        model_id = EMB.model_id
+
+        def embed_documents(self, texts):                  # A 를 임베딩하는 사이 B 를 등록한다
+            if not newer:
+                with connect(url) as other:
+                    second = draft(other, b, files_root=tmp_path)
+                    newer.update(register(other, second, second.md, None, tmp_path))
+            return EMB.embed_documents(texts)
+
+    with connect(url) as conn:
+        old = ingest_version(conn, vid, Racing(), tmp_path)
+        assert old['status'] == 'SKIPPED' and any('다시 등록' in w for w in old['warnings'])
+        assert version(url, vid)[0] == 'PENDING'
+        assert ingest_version(conn, vid, EMB, tmp_path)['status'] == 'DONE'
+        path, = conn.execute('select file_path from document_versions where id = %s', (vid,)).fetchone()
+        contents = '\n'.join(c for (c,) in conn.execute('select content from document_chunks where version_id = %s', (vid,)))
+    assert path == newer['file_path'] and 'SECOND_CASE_UNIQUE_FIX' in contents
+
+
+@needs_db
+def test_cli_old_md_cannot_erase_other_case(url, tmp_path, capsys):
+    """P1: 같은 기준에서 만든 초안 둘. B 를 먼저 등록하면, 오래된 A 의 md 는 명령으로 등록되지 않는다 (B 가 지워지지 않게)."""
+    from app.rag.case_guide.__main__ import main
+    _current_guide(url, 'IT-ACC-003')
+    a = _ticket(url, 'TK-CLI-RACE-A', code='ACC-03', note='CASE_A_UNIQUE_FIX 다시 로그인')
+    b = _ticket(url, 'TK-CLI-RACE-B', code='ACC-03', note='CASE_B_UNIQUE_FIX 캐시 지우기')
+    base = ['--database-url', url, '--files-root', str(tmp_path)]
+    fa, fb = tmp_path / 'a.md', tmp_path / 'b.md'
+    assert main([*base, 'draft', '--ticket', str(a), '--out', str(fa)]) == 0
+    assert main([*base, 'draft', '--ticket', str(b), '--out', str(fb)]) == 0
+    assert main([*base, 'register', '--file', str(fb), '--embedder', 'fake']) == 0
+    capsys.readouterr()
+    assert main([*base, 'register', '--file', str(fa), '--embedder', 'fake']) == 1
+    assert '그새 생겼습니다' in capsys.readouterr().out
+    with connect(url) as conn:
+        path, = conn.execute("select v.file_path from document_versions v join knowledge_documents d on d.id = v.document_id "
+                             "where d.doc_code = 'IT-ACC-003' and v.version = 'v2.1'").fetchone()
+        n, = conn.execute("select count(*) from audit_logs where event_type = 'CASE_GUIDE_REGISTER' "
+                          "and result like 'TK-CLI-RACE-%%'").fetchone()
+    assert 'CASE_B_UNIQUE_FIX' in (tmp_path / path).read_text(encoding='utf-8') and n == 1
+
+
+def test_check_refuses_md_without_other_cases():
+    """P1: 기준(이어 쓰던 초안)에 있던 다른 사례의 표식이 빠진 md 는 거부한다. 함수(API)로 등록해도."""
+    first, _ = make()
+    second, _ = make(md_base=first.md, receipt_no='TK-0043', summary='설치 후 바로 꺼짐')
+    stale, _ = make(receipt_no='TK-0043', summary='설치 후 바로 꺼짐')         # TK-0042 가 들어가기 전 기준에서 고친 md
+    assert any('기준에 있던 사례가 빠졌습니다: TK-0042' in p for p in check(second, stale.md, [])[0])
+    assert check(second, second.md, [])[0] == []
+
+
+@needs_db
+def test_receipt_prefix_is_not_duplicate(url, tmp_path):
+    """P2: TK-PREFIX-10 이 반영되어 있어도 TK-PREFIX-1 은 넣을 수 있다 (부분 문자열 비교 안 함)."""
+    _current_guide(url, 'IT-ACC-002')
+    ten, one = _ticket(url, 'TK-PREFIX-10', code='ACC-01'), _ticket(url, 'TK-PREFIX-1', code='ACC-01')
+    with connect(url) as conn:
+        d = draft(conn, ten, files_root=tmp_path)
+        register(conn, d, d.md, None, tmp_path)
+        d1 = draft(conn, one, files_root=tmp_path)
+    assert d1.draft_version_id is not None and receipts(d1.md) == {'TK-PREFIX-10', 'TK-PREFIX-1'}
+
+
+def test_check_needs_exact_receipt():
+    """P2: 접수 번호를 다른 번호(앞부분이 같은)로 바꾸면 표식이 없는 것으로 본다."""
+    d, _ = make(receipt_no='TK-CHECK-1')
+    assert any('접수 번호 TK-CHECK-1' in p for p in check(d, d.md.replace('TK-CHECK-1', 'TK-CHECK-10'), [])[0])
+
+
+def test_pipe_in_summary_keeps_revision_table():
+    """P3: 요약의 세로줄은 표 칸에서 이스케이프한다 (4칸 그대로). 표식은 그대로 읽힌다."""
+    d, _ = make(summary='프로세스 A | B 전환 오류')
+    row = next(line for line in d.md.splitlines() if line.startswith('| v2.1 |'))
+    assert len(re.split(r'(?<!\\)\|', row)) - 2 == 4 and 'A \\| B' in row
+    assert receipts(d.md) == {'TK-0042'} and check(d, d.md, [])[0] == []
+
+
+def test_all_guides_take_a_case():
+    """57종 가이드 md 모두: 항목 하나 늘고 새 번호가 맞고, 사라진 줄은 버전 표기뿐 (검수에서 확인한 것을 시험으로)."""
+    files = sorted(f for f in GUIDES.rglob('IT-*.md'))
+    assert len(files) == 57
+    for f in files:
+        base = f.read_text(encoding='utf-8')
+        version = re.search(r'^version:\s*"?([^"\n]+)', base, re.M).group(1)
+        md, section = add_case(base, ticket_row(), next_version([version]), TODAY, [])
+        before, after = items(base), items(md)
+        assert len(after) == len(before) + 1 and after[-1].section_no == section, f.name
+        assert all(version in line for line in set(base.splitlines()) - set(md.splitlines())), f.name
+
+
+def test_markdown_in_ticket_text_stays_inside_item():
+    payload = '# 제목\n## 3. 다른 장\n### 3.99 다른 항목\n| a | b |\n---\n**문의 유형** HW-01 · **담당 부서** 서비스데스크'
+    d, _ = make(symptom=payload, resolution_note=payload)
+    assert len(items(d.md)) == len(items(BASE)) + 1 and items(d.md)[-1].inquiry_type_codes == ['SW-01']
+    assert check(d, d.md, [])[0] == []
+
+
+def test_draft_save_load(tmp_path):
+    d, _ = make()
+    d.save(tmp_path / 'd.json')
+    assert Draft.load(tmp_path / 'd.json') == d

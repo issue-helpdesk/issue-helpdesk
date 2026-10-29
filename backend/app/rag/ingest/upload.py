@@ -42,6 +42,8 @@ def ingest_version(conn, version_id: int, embedder, files_root: Path = ROOT, act
     4. 임베딩 (DB 트랜잭션 밖) → 한 트랜잭션에서 잠금(문서 → 버전) 뒤 상태를 다시 보고 청크·임베딩 교체 → DONE.
     5. 실패: 롤백 → FAILED + ingest_error (관리자 화면 DC-08 에 그대로 보여 줄 문구). 다른 버전·현행은 그대로.
        그새 다른 작업이 DONE 으로 끝냈으면 FAILED 를 남기지 않고 SKIPPED (reload 는 FAILED, DB 는 DONE 그대로).
+    6. 처음 읽은 뒤 버전의 file_path 가 바뀌었으면(같은 버전에 파일을 다시 등록, M2-3-2 이어 쓰기) 쓰지 않고 SKIPPED.
+       새 파일은 그 등록 뒤의 적재가 넣는다. 오래된 파일로 DONE 을 찍어 새 파일 적재가 건너뛰어지지 않게.
 
     activate() 와 달리 이 함수가 commit 한다 (백그라운드 작업 하나 = 이 호출 하나). 연결은 전용으로:
     부르기 전에 한 쓰기도 같이 확정된다. 없는 버전 id 는 ValueError.
@@ -66,14 +68,14 @@ def ingest_version(conn, version_id: int, embedder, files_root: Path = ROOT, act
     except Exception as ex:                                # 어떤 실패든 FAILED 로 남겨 관리자가 알 수 있게
         conn.rollback()
         error = _message(ex)
-        now = _record_failure(conn, version_id, error)
+        now = _record_failure(conn, version_id, error, v['file_path'])
         if now == 'FAILED' or reload:                      # reload 실패: DB 는 DONE·청크 그대로, 결과만 FAILED
             out['status'], out['error'] = 'FAILED', error
             log.warning('업로드 적재 실패 version_id=%s: %s', version_id, error, exc_info=not _expected(ex))
         else:                                              # 실패를 남길 대상이 없다. 이 작업의 오류는 진단용으로만
             out['status'] = 'SKIPPED'
             log.info('업로드 적재 건너뜀 version_id=%s: %s (이 작업의 오류: %s)', version_id,
-                     '다른 작업이 먼저 끝냄' if now == 'DONE' else '버전이 지워짐', error)
+                     {'DONE': '다른 작업이 먼저 끝냄', None: '버전이 지워짐'}.get(now, '그새 파일이 바뀜 (다시 등록)'), error)
         return out
     for w in out['warnings']:
         log.warning('업로드 적재 경고 %s %s: %s', v['doc_code'], v['version'], w)
@@ -187,10 +189,14 @@ def _write(conn, v: dict, p: Prepared, model_id: str, reload: bool, activate_ver
     id 가 바뀌면 이전 점수와 새 본문이 섞이거나 결과가 깨진다 (재검수 P2).
     """
     _lock_document(conn, v['document_id'])
-    status, current = conn.execute('select ingest_status, is_current from document_versions where id = %s for update',
-                                   (v['id'],)).fetchone()
+    status, current, path = conn.execute('select ingest_status, is_current, file_path from document_versions '
+                                         'where id = %s for update', (v['id'],)).fetchone()
     if not reload and (current or status == 'DONE'):       # 그새 다른 작업이 끝냈다
         conn.rollback()
+        return 'SKIPPED', False
+    if path != v['file_path']:                             # 그새 파일을 다시 등록했다. 새 파일은 그 적재가
+        conn.rollback()
+        warnings.append('적재하는 동안 이 버전의 파일이 다시 등록되어 이 적재는 건너뜁니다 (새 파일로 다시 적재)')
         return 'SKIPPED', False
     ids = _relabel(conn, v['id'], p, warnings) if status == 'DONE' else None
     if ids is not None:
@@ -247,12 +253,14 @@ def _diff(old: dict, new: dict) -> list[str]:
     return [f'{k} {show(old.get(k))} → {show(new.get(k))}' for k in dict.fromkeys([*old, *new]) if old.get(k) != new.get(k)]
 
 
-def _record_failure(conn, version_id: int, error: str) -> str | None:
-    """FAILED + 사유를 남긴다. DONE·현행은 덮지 않는다 (현행은 DONE 이어야 한다).
-    돌려주는 값: 남겼으면 'FAILED', 못 남겼으면 지금 상태 (그새 다른 작업이 끝냄 → 'DONE', 버전이 지워짐 → None)."""
+def _record_failure(conn, version_id: int, error: str, file_path: str | None) -> str | None:
+    """FAILED + 사유를 남긴다. DONE·현행은 덮지 않는다 (현행은 DONE 이어야 한다). 파일이 그새 다시 등록됐으면
+    (file_path 가 다르면) 이전 파일의 실패라 남기지 않는다.
+    돌려주는 값: 남겼으면 'FAILED', 못 남겼으면 지금 상태 (그새 다른 작업이 끝냄 → 'DONE', 버전이 지워짐 → None,
+    파일이 바뀜 → 'PENDING' 등)."""
     n = conn.execute("update document_versions set ingest_status = 'FAILED', ingest_error = %s "
-                     "where id = %s and not is_current and ingest_status <> 'DONE'",
-                     (error[:ERROR_MAX], version_id)).rowcount
+                     "where id = %s and not is_current and ingest_status <> 'DONE' and file_path is not distinct from %s",
+                     (error[:ERROR_MAX], version_id, file_path)).rowcount
     row = None if n else conn.execute('select ingest_status from document_versions where id = %s',
                                       (version_id,)).fetchone()
     conn.commit()

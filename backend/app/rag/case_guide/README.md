@@ -42,7 +42,7 @@ CLS 티켓 ─▶ draft() ─▶ 관리자 수정 ─▶ register() ─▶ inges
 | 기준 파일이 md 가 아님 | 거부 ("md 버전을 올린 뒤") |
 | 같은 가이드에 승인 전 사례 초안이 있음 | 새 버전을 만들지 않고 그 초안에 이어 쓴다 (3.N+1, 개정 이력 그 버전 줄에 덧붙임) |
 | 사례가 아닌 다른 초안이 있음 | 경고 (둘 다 승인하면 나중 것만 현행) |
-| 접수 번호가 이미 기준 md 에 있음 | 거부 (두 번 넣지 않음) |
+| 접수 번호가 이미 기준 md 에 있음 | 거부 (두 번 넣지 않음). 개정 이력 표식 `해결 사례 반영 (<접수 번호>)`에서 **정확히** 뽑아 비교 (`TK-1`과 `TK-10`은 다르다) |
 | 민감정보 | **경고만** (지우거나 막지 않음). 새로 더한 줄만, D 의 탐지 규칙: 전화·이메일·사번·직원 이름(`Pseudonymizer`), 비밀·고유식별(`mask_secrets`). 경고에는 종류와 줄 번호만, 값은 넣지 않는다 |
 
 민감정보를 막지 않는 이유: 초안은 비현행이라 검색·외부 전송에 나가지 않고, 승인 전 사람의 검토(정확성·정보 보호·공개 범위)가 명세에 있다 (GUIDE-03).
@@ -50,12 +50,16 @@ CLS 티켓 ─▶ draft() ─▶ 관리자 수정 ─▶ register() ─▶ inges
 
 ### 관리자가 고친 md 검사 `check()`
 
-문제(등록 안 됨): 파서·청커가 못 읽음, 문서 번호·버전이 초안과 다름, 기준 가이드의 항목이 빠짐, 접수 번호가 없음.
-새 항목 3.N 을 지우고 기존 항목(예: 3.7 표의 행)으로 옮기는 것은 된다. 개정 이력의 접수 번호만 남기면 된다.
+문제(등록 안 됨): 파서·청커가 못 읽음, 문서 번호·버전이 초안과 다름, 기준 가이드의 항목이 빠짐, 이 티켓의 표식이 없음,
+**기준에 있던 다른 사례의 표식이 빠짐** (이어 쓰던 초안의 사례를 오래된 md 가 지우지 않게).
+새 항목 3.N 을 지우고 기존 항목(예: 3.7 표의 행)으로 옮기는 것은 된다. 개정 이력의 표식만 남기면 된다.
+
+`Draft`는 만들 때의 기준(현행·이어 쓰던 초안 `file_path`·기준 md)을 담는다. 관리자가 고치는 동안 보관했다가 `register`에 **그대로** 준다
+(`d.save(path)` / `Draft.load(path)`, API 는 같은 값을 저장해 두면 된다). 등록 때 초안을 새로 만들면 그새 들어간 사례를 못 지킨다 (검수 P1).
 
 ### 등록 `register()`
 
-- 파일: `<files_root>/storage/case_guides/<문서 번호>/<버전>_<접수 번호>.md`. 쓸 때마다 다른 경로 (M2-3-1 전제). `file_path`에는 **files_root 기준 상대 경로**만 넣는다: 저장 위치를 옮길 때는 폴더를 옮기고 `files_root`만 바꾼다
+- 파일: `<files_root>/storage/case_guides/<문서 번호>/<버전>_<접수 번호>.md`. 쓸 때마다 다른 경로 (M2-3-1 전제). 이어 쓰기에서 경로가 바뀌므로, 이전 파일을 읽던 적재는 쓰기 전에 알아채고 건너뛴다 (업로드 적재 쓰기 행). `file_path`에는 **files_root 기준 상대 경로**만 넣는다: 저장 위치를 옮길 때는 폴더를 옮기고 `files_root`만 바꾼다
 - 버전 행: 새 버전이면 PENDING·비현행으로 넣고, 열람 범위·전송 정책은 현행 버전 값을 쓴다. 이어 쓰기면 그 초안 행의 `file_path`를 바꾸고 PENDING 으로 (적재가 청크를 통째로 바꾼다)
 - 감사 로그 `CASE_GUIDE_REGISTER` (result `<접수 번호> → <버전>`). 후보 목록 `candidates()`는 이것으로 등록한 티켓을 뺀다
 - 문서를 잠근 뒤 다시 본다: 초안을 만든 뒤 현행이 바뀌었거나, 이어 쓰던 초안이 바뀌었거나, 같은 버전이 그새 생겼으면 거부 ("초안을 다시 만드세요"). 거부하면 파일도 남기지 않는다
@@ -65,18 +69,23 @@ CLS 티켓 ─▶ draft() ─▶ 관리자 수정 ─▶ register() ─▶ inges
 
 ```
 python -m app.rag.case_guide --database-url <DB> candidates [--category SW]
-python -m app.rag.case_guide --database-url <DB> draft --ticket 12 [--doc IT-SW-001] --out case.md
-python -m app.rag.case_guide --database-url <DB> register --ticket 12 --file case.md [--admin-id 3] [--embedder fake]
+python -m app.rag.case_guide --database-url <DB> draft --ticket 12 [--doc IT-SW-001] --out case.md     # + case.md.json
+python -m app.rag.case_guide --database-url <DB> register --file case.md [--admin-id 3] [--embedder fake]
 ```
 
-`register`는 초안을 다시 만들어 기준으로 삼는다. 그새 다른 사례가 같은 초안에 들어갔으면 "항목이 빠졌습니다"로 거부되니 `draft`부터 다시 한다.
+`draft --out`은 초안 정보를 `<out>.json`에 같이 쓰고, `register`는 그 기준으로 검사한다 (`--draft`로 다른 위치). 정보가 없으면 등록하지 않는다.
+그새 같은 가이드에 다른 사례가 등록됐으면 "그새 생겼습니다/바뀌었습니다"로 거부되니 `draft`부터 다시 한다.
 localhost 가 아닌 DB 는 `--allow-remote`, 저장 루트는 `--files-root` (기본: 저장소 루트, `/storage/`는 git 에 안 올림).
 
 ## 시험
 
-`tests/test_case_guide.py` (DB 없이 13 · DB 6): md 모양, 항목 하나 더 읽힘, 티켓 글의 제목 줄, 이어 쓰기, 민감정보는 새 줄만,
-검사 문제·기존 항목에 합치기, 끝까지(CLS → 초안 → 등록 → DONE → 승인 전 검색 안 됨 → 승인 → `search()` 1위가 새 항목),
-이어 쓰기·중복 거부, 늦은 등록 거부, 미해결 거부, 명령.
+`tests/test_case_guide.py` (DB 없이 19 · DB 9): md 모양, 항목 하나 더 읽힘, 티켓 글의 md 문법(제목·표·머리 정보), 57종 가이드 모두,
+이어 쓰기, 민감정보는 새 줄만, 검사 문제·기존 항목에 합치기·다른 사례 표식 보존·접수 번호 정확히, 표 칸 세로줄,
+끝까지(CLS → 초안 → 등록 → DONE → 승인 전 검색 안 됨 → 승인 → `search()` 1위가 새 항목), 이어 쓰기·중복 거부, 앞부분이 같은 접수 번호,
+늦은 등록 거부, 적재 중 이어 등록(오래된 적재는 건너뜀), 명령으로 오래된 md 등록 거부, 미해결 거부, 명령.
+`tests/test_ingest_upload.py::test_file_registered_again_during_ingest`: 적재 중 파일이 다시 등록되면 이전 파일로 `DONE`·`FAILED`를 남기지 않는다.
+
+한계: 민감정보는 기준 md 에 같은 줄이 있으면 새 줄로 보지 않는다 (기존 줄을 옮기거나 반복한 것은 경고 안 함). 개인정보는 새로 쓴 글에서 나오므로 그대로 둔다.
 
 ## 아직
 
