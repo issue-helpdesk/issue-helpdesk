@@ -1,0 +1,11 @@
+/* 관리자 화면 (계정 관리) */
+.btn.ghost.dng{color:var(--s-urg-fg)}.btn.ghost.dng:hover{background:var(--s-urg-bg)}
+.btn.ghost.okc{color:var(--s-ok-fg)}.btn.ghost.okc:hover{background:var(--s-ok-bg)}
+.btn.ghost.wrc{color:var(--s-warn-fg)}.btn.ghost.wrc:hover{background:var(--s-warn-bg)}
+.atbl{table-layout:fixed}.atbl td,.atbl th{padding-left:10px;padding-right:10px}.atbl td .btn.ghost{margin-left:-10px}
+.tmpbox{font-size:18px;letter-spacing:.5px;background:var(--shell);border-radius:12px;padding:12px 14px;text-align:center;user-select:all}
+.hlist{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:2px}
+.hlist li{display:flex;gap:12px;align-items:flex-start;padding:10px 4px;border-top:1px solid var(--line)}.hlist li:first-child{border-top:0}
+.hlist small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
+.hd{width:8px;height:8px;border-radius:50%;margin-top:8px;flex:none;background:var(--mute)}
+.hd.ok{background:var(--s-ok-dot)}.hd.urg{background:var(--s-urg-dot)}.hd.warn{background:var(--s-warn-dot)}.hd.prog{background:var(--s-prog-dot)}.hd.re{background:var(--s-re-dot)}

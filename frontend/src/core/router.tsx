@@ -7,6 +7,7 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AppShell } from '../ui/AppShell'
 import { LoadingScreen } from '../ui/LoadingScreen'
+import { AccountsView } from '../views/admin/AccountsView'
 import { FaqView } from '../views/faq/FaqView'
 import { HomePlaceholder } from '../views/HomePlaceholder'
 import { ChatView } from '../views/inquiry/ChatView'
@@ -57,6 +58,7 @@ export function AppRoutes() {
           <Route path="/queue" element={<QueueView />} />
           <Route path="/queue/:ticketId" element={<QueueView />} />
           <Route path="/dash" element={<HomePlaceholder title="대시보드" />} />
+          <Route path="/accounts" element={<AccountsView />} />
         </Route>
       </Route>
 
