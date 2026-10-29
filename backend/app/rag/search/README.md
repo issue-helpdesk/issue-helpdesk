@@ -131,7 +131,7 @@ resp = search(session, SearchRequest(query=build_query(사용자_글_목록),
 
 ## 3. 열람 범위
 
-`visible_scopes(service_role)`이 역할마다 볼 수 있는 `view_scope`를 돌려줍니다. 검색 쿼리의 조건에 그대로 넣습니다 (청크_메타데이터.md 4장).
+`visible_scopes(service_role)`이 역할마다 볼 수 있는 `view_scope`를 돌려줍니다. 검색 쿼리의 조건에 그대로 넣습니다 (청크_메타데이터.md 4장). 규칙은 문의 출처 등 다른 API와 함께 쓰므로 `app/core/permissions.py` 한 곳에서 관리하고, 이 모듈은 같은 함수를 다시 내보냅니다.
 
 | 역할 | 볼 수 있는 `view_scope` |
 |---|---|

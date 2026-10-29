@@ -10,28 +10,18 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 
+from app.core.permissions import visible_scopes  # noqa: F401 (열람 범위 규칙은 core 한 곳에서 관리, 기존 import 경로 유지)
+
 SERVICE_ROLES = ('EMPLOYEE', 'AGENT', 'ADMIN')
 SOURCES = ('DOCUMENT', 'LEGACY')
 VIEW_SCOPES = ('ALL', 'AGENT', 'ADMIN')
 TRANSFER_POLICIES = ('ALLOWED', 'MASKED', 'BLOCKED')
 CHUNK_TYPES = ('ITEM', 'CHAPTER', 'FAQ', 'PREFACE')
 
-# 역할마다 볼 수 있는 view_scope (청크_메타데이터.md 4장). 문서와 과거 사례에 똑같이 쓴다
-VISIBLE_SCOPES = {
-    'EMPLOYEE': ('ALL',),
-    'AGENT': ('ALL', 'AGENT'),
-    'ADMIN': ('ALL', 'AGENT', 'ADMIN'),
-}
-
 MAX_EVIDENCE = 3            # 근거 문장 최대 개수
 DEFAULT_TOP_K = 5
 MAX_TOP_K = 20
 DEFAULT_THRESHOLD = 0.5     # 임시 기준값. M3-2-1에서 Golden Set으로 다시 정한다
-
-
-def visible_scopes(service_role: str) -> tuple[str, ...]:
-    """역할이 볼 수 있는 view_scope. 모르는 역할은 아무것도 볼 수 없다."""
-    return VISIBLE_SCOPES.get(service_role, ())
 
 
 def _check(value, allowed, name):

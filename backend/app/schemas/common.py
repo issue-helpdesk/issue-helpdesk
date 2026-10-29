@@ -40,6 +40,11 @@ class Page[T](CamelModel):
                    total_pages=ceil(total_count / size) if total_count else 0)
 
 
+# 페이지가 없는 목록
+class ItemList[T](CamelModel):
+    items: list[T]
+
+
 # 목록 Query 공통 (2.5). sort 는 API 마다 허용 필드가 달라 하위 모델에서 정한다
 class PageQuery(CamelModel):
     model_config = ConfigDict(extra="ignore")

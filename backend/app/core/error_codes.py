@@ -32,3 +32,9 @@ class ErrorCode(Enum):
     USER_SELF_CHANGE_NOT_ALLOWED = (409, "자신의 서비스 권한과 계정 상태는 변경할 수 없습니다.")
     USER_STATUS_REASON_REQUIRED = (422, "계정 상태를 변경할 때는 사유를 입력해 주세요.")
 
+    # 문의·상담 (5.6)
+    INQUIRY_NOT_FOUND = (404, "문의를 찾을 수 없습니다.")
+    INQUIRY_CLOSED = (409, "종료된 문의입니다. 문의를 다시 열어 대화를 이어가 주세요.")
+    INQUIRY_INVALID_STATE = (409, "현재 문의 상태에서는 처리할 수 없는 요청입니다.")
+    AI_UNAVAILABLE = (503, "지금은 AI 답변을 드리기 어렵습니다. 입력하신 내용은 저장되었으니 담당자 연결을 이용해 주세요.")
+
