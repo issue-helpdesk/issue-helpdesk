@@ -4,7 +4,7 @@ from fastapi import Depends
 from sqlalchemy.exc import IntegrityError
 
 from app.core.error_codes import ErrorCode
-from app.core.errors import AppError
+from app.core.errors import AppError, field_error
 from app.core.security import generate_temporary_password, hash_password
 from app.db.session import DbSession
 from app.models import User
@@ -124,9 +124,7 @@ class UserService:
         if (role_changed or status_changed) and user.id == actor.id:
             raise AppError(ErrorCode.USER_SELF_CHANGE_NOT_ALLOWED)
         if (role_changed or status_changed) and body.reason is None:
-            raise AppError(ErrorCode.USER_STATUS_REASON_REQUIRED, [
-                {"field": "reason", "reason": "REQUIRED", "message": ErrorCode.USER_STATUS_REASON_REQUIRED.message},
-            ])
+            raise field_error(ErrorCode.USER_STATUS_REASON_REQUIRED, "reason", "REQUIRED")
         if "email" in changes:
             self.check_duplicates(None, changes["email"], exclude_user_id=user.id)
         if not changes:
@@ -175,15 +173,13 @@ class UserService:
             return
         department = self.users.get_department(department_id)
         if department is None or not department.is_active:
-            raise AppError(ErrorCode.VALIDATION_ERROR, [
-                {"field": "departmentId", "reason": "NOT_FOUND", "message": "존재하지 않는 부서입니다."},
-            ])
+            raise field_error(ErrorCode.VALIDATION_ERROR, "departmentId", "NOT_FOUND", "존재하지 않는 부서입니다.")
 
     def check_duplicates(self, employee_no: str | None, email: str | None, exclude_user_id: int | None = None) -> None:
         if employee_no is not None and self.users.exists_employee_no(employee_no):
-            raise duplicate_error(ErrorCode.USER_EMPLOYEE_NO_DUPLICATE, "employeeNo")
+            raise field_error(ErrorCode.USER_EMPLOYEE_NO_DUPLICATE, "employeeNo", "DUPLICATE")
         if email is not None and self.users.exists_email(email, exclude_user_id):
-            raise duplicate_error(ErrorCode.USER_EMAIL_DUPLICATE, "email")
+            raise field_error(ErrorCode.USER_EMAIL_DUPLICATE, "email", "DUPLICATE")
 
     def get_user(self, user_id: int) -> UserDetail:
         user = self.users.get(user_id)
@@ -210,7 +206,3 @@ def unlock(user: User) -> None:
     user.account_status = "ACTIVE"
     user.failed_login_count = 0
     user.locked_until = None
-
-
-def duplicate_error(code: ErrorCode, field: str) -> AppError:
-    return AppError(code, [{"field": field, "reason": "DUPLICATE", "message": code.message}])

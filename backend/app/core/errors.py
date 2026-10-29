@@ -26,6 +26,7 @@ REASONS = {
     "less_than_equal": "OUT_OF_RANGE",
     "value_error": "INVALID_FORMAT",
     "string_pattern_mismatch": "INVALID_FORMAT",
+    "date_from_datetime_parsing": "INVALID_FORMAT",
     "extra_forbidden": "NOT_ALLOWED",
 }
 REASON_MESSAGES = {
@@ -59,6 +60,10 @@ class AppError(Exception):
         self.details = details
         self.message = message or code.message
         self.headers = headers
+
+
+def field_error(code: ErrorCode, field: str, reason: str, message: str | None = None) -> AppError:
+    return AppError(code, [{"field": field, "reason": reason, "message": message or code.message}])
 
 
 def trace_id(request: Request) -> str:
