@@ -94,4 +94,12 @@
 .modal.rdlg{position:relative}.rdlg .xbtn,.pwm .xbtn{position:absolute;top:10px;right:12px;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--mute);font-size:16px;cursor:pointer}.rdlg .xbtn:hover,.pwm .xbtn:hover{background:var(--shell)}
 /* 내 프로필 · 새 비밀번호 창: 선택 창과 같은 자리에 뜨는 입력 창 */
 .modal.pwm{width:min(430px,100%);position:relative}
+/* 창 안의 스크롤바: 모서리 둥근 곳까지 닿지 않게 위아래를 띄우고 둥글게 보여 준다. 높이는 화면(위아래 16px 여백)까지 쓴다 */
+.modal{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px)}
+.modal::-webkit-scrollbar{width:12px}
+.modal::-webkit-scrollbar-track{background:transparent;margin:20px 0}
+.modal::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--mute) 45%,transparent);border-radius:12px;border:3px solid transparent;background-clip:padding-box}
+.modal::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--mute) 70%,transparent);background-clip:padding-box}
+@supports not selector(::-webkit-scrollbar){.modal{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--mute) 45%,transparent) transparent}}
+.modal.pwm{gap:10px;padding:20px 24px 18px}
 .pwm .pfl{display:flex;align-items:center;gap:14px}.pwm .pfl .pf{width:52px;height:52px;border-radius:50%;background:var(--osurf);color:var(--o700);font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}.pwm .pws{border-top:1px solid var(--line);padding-top:12px}

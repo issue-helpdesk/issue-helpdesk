@@ -7,15 +7,16 @@ interface Props<C extends string> {
   label: string
   tip?: string
   center?: boolean
-  sort: { col: C; dir: 'asc' | 'desc' }
+  /** 정렬을 고르지 않은 처음 상태는 null (어느 열도 강조하지 않는다) */
+  sort: { col: C; dir: 'asc' | 'desc' } | null
   onSort: (c: C) => void
 }
 
 export function SortTh<C extends string>({ col, label, tip, center, sort, onSort }: Props<C>) {
-  const on = sort.col === col
+  const on = sort?.col === col
   return (
-    <th className={center ? 'c' : undefined} aria-sort={on ? (sort.dir === 'desc' ? 'descending' : 'ascending') : 'none'}>
-      <button type="button" className={`d2th${on ? (sort.dir === 'desc' ? ' dn' : ' up') : ''}`} title={tip} onClick={() => onSort(col)}>
+    <th className={center ? 'c' : undefined} aria-sort={on ? (sort!.dir === 'desc' ? 'descending' : 'ascending') : 'none'}>
+      <button type="button" className={`d2th${on ? (sort!.dir === 'desc' ? ' dn' : ' up') : ''}`} title={tip} onClick={() => onSort(col)}>
         {label}
         <i>
           <b />

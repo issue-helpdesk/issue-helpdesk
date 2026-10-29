@@ -6,6 +6,7 @@
 .tabs button.on{color:var(--ink);font-weight:600;border-color:var(--o600)}
 .tabs .count{margin-left:6px}
 .subc{display:flex;gap:8px;flex-wrap:wrap}
+.chip em{font-style:normal;font-size:12px;font-weight:700;color:var(--mute);margin-left:4px}.chip.on em{color:var(--link)}
 
 /* 문의자가 답변했어요 띠: 해결 확인 대기와 같은 분홍 (확인할 Jira 알림 띠와 같은 모양) */
 .alert.bn{align-items:center;background:var(--s-need-bg);color:var(--s-need-fg);border-radius:16px;padding:16px 22px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--s-need-dot) 35%,transparent)}
@@ -219,7 +220,7 @@ button.kpi.kl:hover .go{color:var(--link);transform:translateX(2px)}
 .hvw{position:relative}
 .hvbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0 4px}
 .hvbar .seg button{min-height:44px}
-.hvw .tw svg.hv{min-width:480px}
+.hvw .tw svg.hv{min-width:0}
 svg.hv:focus-visible{outline:2px solid var(--o600);outline-offset:2px}
 .tbl.hvt th[scope=row]{font-weight:600;color:var(--ink)}
 .tbl .num{text-align:right;font-variant-numeric:tabular-nums}

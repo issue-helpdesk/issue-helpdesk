@@ -258,3 +258,40 @@ describe('문의자에게 메시지(제안)·Slack 미리보기·사이드바 �
     expect(within(nav).getByRole('img')).toHaveAttribute('aria-label', expect.stringContaining('새 알림 2건'))
   })
 })
+
+describe('프로토타입과 맞춘 표시', () => {
+  it('긴급도 분포의 설명은 프로토타입의 기준 문구이고 긴급도 이름을 덧붙이지 않는다', async () => {
+    renderAs('EMP-1107', '/stats')
+    const sec = await screen.findByRole('region', { name: '긴급도 분포' }, SLOW)
+    expect(await within(sec).findByText('전사·여러 부서의 주요 업무 중단 또는 광범위한 보안 대응 필요', undefined, SLOW)).toBeInTheDocument()
+    expect(within(sec).queryByText(/긴급 ·|높음 ·/)).toBeNull()
+  })
+
+  it('접수 추이 범례와 끝 이름표는 프로토타입의 이름을 쓴다', async () => {
+    renderAs('EMP-1107', '/stats')
+    const sec = await screen.findByRole('region', { name: '접수 추이' }, SLOW)
+    expect(await within(sec).findByText('담당자 처리 접수', undefined, SLOW)).toBeInTheDocument()
+    expect(within(sec).getByText(/AI 해결은 해결 완료와 합산하지 않아요/)).toBeInTheDocument()
+  })
+
+  it('담당자는 사이드바의 문의 메뉴를 접고 펼 수 있고, 문의자에게는 접기 버튼이 없다', async () => {
+    const { unmount } = renderAs('EMP-1107', '/my')
+    const nav = await screen.findByRole('navigation', { name: '주 메뉴' }, SLOW)
+    const tg = within(nav).getByRole('button', { name: '문의 메뉴 접기' })
+    expect(tg).toHaveAttribute('aria-expanded', 'true')
+    await userEvent.click(tg)
+    expect(within(nav).queryByRole('button', { name: '새 문의' })).toBeNull()
+    await userEvent.click(within(nav).getByRole('button', { name: '문의 메뉴 펼치기' }))
+    expect(within(nav).getByRole('button', { name: '새 문의' })).toBeInTheDocument()
+    unmount()
+    renderAs('EMP-1001', '/list')
+    const nav2 = await screen.findByRole('navigation', { name: '주 메뉴' }, SLOW)
+    expect(within(nav2).queryByRole('button', { name: /문의 메뉴/ })).toBeNull()
+  })
+
+  it('사이드바 최근 문의에는 상태 이름만 나오고 담당자 처리·AI 안내 같은 보조 문구는 없다', async () => {
+    renderAs('EMP-1001', '/list')
+    await waitFor(() => expect(document.querySelectorAll('.recent .rs').length).toBeGreaterThan(0), SLOW)
+    document.querySelectorAll('.recent .rs').forEach((e) => expect(e.textContent).not.toContain(' · '))
+  })
+})
