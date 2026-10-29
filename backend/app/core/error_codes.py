@@ -26,3 +26,9 @@ class ErrorCode(Enum):
     AUTH_PASSWORD_CHANGE_REQUIRED = (403, "비밀번호를 변경한 뒤 이용할 수 있습니다.")
     AUTH_CURRENT_PASSWORD_MISMATCH = (400, "현재 비밀번호가 올바르지 않습니다.")
     AUTH_PASSWORD_POLICY_VIOLATION = (422, "비밀번호 규칙에 맞지 않습니다.")
+    USER_NOT_FOUND = (404, "사용자를 찾을 수 없습니다.")
+    USER_EMPLOYEE_NO_DUPLICATE = (409, "이미 등록된 사번입니다.")
+    USER_EMAIL_DUPLICATE = (409, "이미 등록된 이메일입니다.")
+    USER_SELF_CHANGE_NOT_ALLOWED = (409, "자신의 서비스 권한과 계정 상태는 변경할 수 없습니다.")
+    USER_STATUS_REASON_REQUIRED = (422, "계정 상태를 변경할 때는 사유를 입력해 주세요.")
+
