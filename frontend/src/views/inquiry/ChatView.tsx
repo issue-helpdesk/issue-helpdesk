@@ -24,6 +24,8 @@ import { StateBadge } from '../../ui/StateBadge'
 import { stateView } from '../../ui/stateStyle'
 import { Pav } from '../../ui/Pav'
 import { Topbar } from '../../ui/Topbar'
+import { ticketIdOfInquiry } from '../../api/mock/staffTickets'
+import { TicketDetailPanel } from '../staff/TicketDetailPanel'
 import { MessageItem, type ChatActions } from './MessageItem'
 import { latestPose, poseLabel, poseOf } from './pose'
 import { ENTRY_POPUP, endedMessage, entryKindOf, type EntryKind } from './resume'
@@ -55,6 +57,7 @@ export function ChatView() {
   const [reloadKey, setReloadKey] = useState(0)
   const seen = useRef(false) // 이 화면에서 문의를 한 번이라도 읽었는지
   const [text, setText] = useState('')
+  const [detail, setDetail] = useState(false) // 접수 상세 패널
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [modal, setModal] = useState<ModalState>(null)
@@ -170,6 +173,7 @@ export function ChatView() {
       saveDraft: (edit: DraftEdit) => apply(editDraft(id, employeeNo, edit)),
       cancelDraft: () => void apply(cancelChatDraft(id, employeeNo)),
       resolve: () => void apply(resolveChat(id, employeeNo)),
+      openDetail: () => setDetail(true),
       reject: () => {
         setReason('')
         setModal({ kind: 'reject' })
@@ -275,11 +279,22 @@ export function ChatView() {
   }
 
   return (
+    <>
     <main className="main">
       <Topbar
         title={inquiry.title}
         sub={t ? `${t.receiptNo}${t.jiraKey ? ` · ${t.jiraKey}` : ''}` : undefined}
-        right={<StateBadge tone={state.tone} label={state.label} sub={state.sub} />}
+        right={
+          <>
+            {t && (
+              <button type="button" className="btn soft sm" onClick={() => setDetail(true)}>
+                <Icon name="file" />
+                접수 상세
+              </button>
+            )}
+            <StateBadge tone={state.tone} label={state.label} sub={state.sub} />
+          </>
+        }
         lead={
           <span className="tlead">
             <Pav pose={latestPose(inquiry)} size={44} />
@@ -441,5 +456,7 @@ export function ChatView() {
         </Modal>
       )}
     </main>
+    {detail && t && <TicketDetailPanel id={ticketIdOfInquiry(inquiry.id)} tick={inquiry.messages.length} onClose={() => setDetail(false)} />}
+    </>
   )
 }

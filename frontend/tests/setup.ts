@@ -5,6 +5,7 @@ import { cleanup } from '@testing-library/react'
 import { resetMockState } from '../src/api/mock/accounts'
 import { resetChatMock } from '../src/api/mock/chatMock'
 import { mockConfig } from '../src/api/mock/chatStore'
+import { resetStaffMock } from '../src/api/mock/staffTickets'
 import { tokenStore } from '../src/core/tokenStore'
 
 beforeEach(() => {
@@ -19,6 +20,7 @@ beforeEach(() => {
   mockConfig.autoRun = false
   mockConfig.saveFail = false
   resetChatMock()
+  resetStaffMock()
 })
 
 afterEach(() => {

@@ -722,6 +722,17 @@ export function advanceTicket(rec: StoreRecord) {
   else if (t.workStatus === 'WIP') registerResult(rec)
 }
 
+/** 담당자 화면에서 상태를 바꾼다 (RDY → WIP, WIP → FIN 과 처리 결과). 문의자 화면의 진행 카드도 함께 바뀐다. */
+export function staffTransition(rec: StoreRecord, to: 'WIP' | 'FIN', note?: string) {
+  const t = rec.inquiry.ticket
+  if (!t) return
+  if (to === 'WIP' && t.workStatus === 'RDY') setStatus(rec, 'WIP')
+  else if (to === 'FIN' && t.workStatus === 'WIP') {
+    if (note?.trim()) t.resolutionNote = note.trim()
+    setStatus(rec, 'FIN')
+  }
+}
+
 /** 문의자가 "해결"을 눌러 Ticket 을 종료한다 */
 export function confirmResolved(rec: StoreRecord) {
   const t = rec.inquiry.ticket

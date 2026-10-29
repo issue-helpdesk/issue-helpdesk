@@ -50,3 +50,11 @@ export const INQUIRY_STATUS_LABEL: Record<InquiryStatus, string> = {
   HANDED_OFF: '담당자 배정',
 }
 
+
+/** 담당자 화면의 업무 상태 이름과 색 (담당자는 처리 단계 이름으로 본다: 처리 대기 → 처리 중 → 해결 확인 대기 → 해결 완료) */
+export const STAFF_STATUS: Record<WorkStatus, { label: string; tone: string }> = {
+  RDY: { label: '처리 대기', tone: 'recv' },
+  WIP: { label: '처리 중', tone: 'prog' },
+  FIN: { label: '해결 확인 대기', tone: 'need' },
+  CLS: { label: '해결 완료', tone: 'ok' },
+}

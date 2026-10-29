@@ -49,3 +49,14 @@ export function sourceLabel(s: { docCode: string; section: string }): string {
 export function sourceFull(s: { docCode: string; title: string; version: string; section: string }): string {
   return [s.docCode, s.title, s.version].filter(Boolean).join(' ') + (s.section ? ` · ${s.section}` : '')
 }
+
+/** 접수 후 경과 시간 표시 (예: 4일 3시간, 3시간, 25분) */
+export function formatElapsed(iso: string, now: Date = new Date()): string {
+  const min = Math.max(0, Math.floor((now.getTime() - new Date(iso).getTime()) / 60_000))
+  if (Number.isNaN(min)) return ''
+  const d = Math.floor(min / 1440)
+  const h = Math.floor((min % 1440) / 60)
+  if (d > 0) return h ? `${d}일 ${h}시간` : `${d}일`
+  if (h > 0) return `${h}시간`
+  return `${min}분`
+}

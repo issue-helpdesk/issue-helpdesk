@@ -21,6 +21,8 @@ export interface ChatActions {
   cancelDraft: () => void
   resolve: () => void
   reject: () => void
+  /** 오른쪽에 접수 상세를 연다 */
+  openDetail: () => void
   showSource: (s: GuideSource) => void
   showLegacy: (l: LegacyCase) => void
   /** 접수 실패 안내에 보여 줄 서비스데스크 연락처 */
@@ -176,7 +178,7 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false,
         )}
 
         {m.card === 'ticket' && (m.ticketSnapshot ?? inquiry.ticket) && (
-          <TicketCard ticket={(m.ticketSnapshot ?? inquiry.ticket)!} readOnly={!!m.ticketSnapshot} busy={busy} onResolve={actions.resolve} onReject={actions.reject} />
+          <TicketCard ticket={(m.ticketSnapshot ?? inquiry.ticket)!} readOnly={!!m.ticketSnapshot} busy={busy} onResolve={actions.resolve} onReject={actions.reject} onDetail={actions.openDetail} />
         )}
 
         {m.card === 'savefail' && (
