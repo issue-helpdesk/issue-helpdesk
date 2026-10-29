@@ -44,6 +44,7 @@ def ingest_version(conn, version_id: int, embedder, files_root: Path = ROOT, act
        그새 다른 작업이 DONE 으로 끝냈으면 FAILED 를 남기지 않고 SKIPPED (reload 는 FAILED, DB 는 DONE 그대로).
     6. 처음 읽은 뒤 버전의 file_path 가 바뀌었으면(같은 버전에 파일을 다시 등록, M2-3-2 이어 쓰기) 쓰지 않고 SKIPPED.
        새 파일은 그 등록 뒤의 적재가 넣는다. 오래된 파일로 DONE 을 찍어 새 파일 적재가 건너뛰어지지 않게.
+       이전 파일로 실패해도 FAILED 를 남기지도 보고하지도 않는다 (reload 도. 새 파일 적재가 남긴 FAILED 는 그대로).
 
     activate() 와 달리 이 함수가 commit 한다 (백그라운드 작업 하나 = 이 호출 하나). 연결은 전용으로:
     부르기 전에 한 쓰기도 같이 확정된다. 없는 버전 id 는 ValueError.
@@ -69,13 +70,16 @@ def ingest_version(conn, version_id: int, embedder, files_root: Path = ROOT, act
         conn.rollback()
         error = _message(ex)
         now = _record_failure(conn, version_id, error, v['file_path'])
-        if now == 'FAILED' or reload:                      # reload 실패: DB 는 DONE·청크 그대로, 결과만 FAILED
+        if now == 'FAILED' or (reload and now != 'MOVED'):  # reload 실패: DB 는 DONE·청크 그대로, 결과만 FAILED
             out['status'], out['error'] = 'FAILED', error
             log.warning('업로드 적재 실패 version_id=%s: %s', version_id, error, exc_info=not _expected(ex))
         else:                                              # 실패를 남길 대상이 없다. 이 작업의 오류는 진단용으로만
             out['status'] = 'SKIPPED'
+            if now == 'MOVED':
+                out['warnings'].append('적재하는 동안 이 버전의 파일이 다시 등록되어 이 적재는 건너뜁니다 (새 파일로 다시 적재)')
             log.info('업로드 적재 건너뜀 version_id=%s: %s (이 작업의 오류: %s)', version_id,
-                     {'DONE': '다른 작업이 먼저 끝냄', None: '버전이 지워짐'}.get(now, '그새 파일이 바뀜 (다시 등록)'), error)
+                     {'DONE': '다른 작업이 먼저 끝냄', 'MOVED': '그새 파일이 바뀜 (다시 등록)'}.get(now, '버전이 지워짐'),
+                     error)
         return out
     for w in out['warnings']:
         log.warning('업로드 적재 경고 %s %s: %s', v['doc_code'], v['version'], w)
@@ -256,15 +260,19 @@ def _diff(old: dict, new: dict) -> list[str]:
 def _record_failure(conn, version_id: int, error: str, file_path: str | None) -> str | None:
     """FAILED + 사유를 남긴다. DONE·현행은 덮지 않는다 (현행은 DONE 이어야 한다). 파일이 그새 다시 등록됐으면
     (file_path 가 다르면) 이전 파일의 실패라 남기지 않는다.
-    돌려주는 값: 남겼으면 'FAILED', 못 남겼으면 지금 상태 (그새 다른 작업이 끝냄 → 'DONE', 버전이 지워짐 → None,
-    파일이 바뀜 → 'PENDING' 등)."""
+    돌려주는 값: 남겼으면 'FAILED'. 못 남겼으면 파일이 바뀜 → 'MOVED' (지금 상태와 상관없이. 새 파일 적재가 남긴
+    FAILED 를 이 작업의 실패로 보고하지 않게), 아니면 지금 상태 (그새 다른 작업이 끝냄 → 'DONE', 버전이 지워짐 → None)."""
     n = conn.execute("update document_versions set ingest_status = 'FAILED', ingest_error = %s "
                      "where id = %s and not is_current and ingest_status <> 'DONE' and file_path is not distinct from %s",
                      (error[:ERROR_MAX], version_id, file_path)).rowcount
-    row = None if n else conn.execute('select ingest_status from document_versions where id = %s',
+    row = None if n else conn.execute('select ingest_status, file_path from document_versions where id = %s',
                                       (version_id,)).fetchone()
     conn.commit()
-    return 'FAILED' if n else row[0] if row else None
+    if n:
+        return 'FAILED'
+    if row is None:
+        return None
+    return 'MOVED' if row[1] != file_path else row[0]
 
 
 def _message(ex: Exception) -> str:
