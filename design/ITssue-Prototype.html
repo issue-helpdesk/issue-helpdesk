@@ -552,6 +552,14 @@ mark.hl{background:#FFE3C7;color:#5A2500;border-radius:3px;padding:0 1px}
 input[type="file"][aria-invalid="true"]{outline:2px solid var(--s-urg-dot);outline-offset:2px}
 .whobtn{display:flex;align-items:center;gap:10px;flex:1;min-width:0;background:none;border:0;border-radius:12px;padding:4px;margin:-4px;text-align:left;color:inherit;font:inherit;cursor:pointer}.whobtn:hover{background:var(--osoft)}.whobtn:focus-visible{outline:2px solid var(--o600);outline-offset:2px}
 .modal.pwm{width:min(430px,100%);position:relative}.modal.pwm .xbtn{position:absolute;top:10px;right:12px;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--mute);font-size:16px;cursor:pointer}.modal.pwm .xbtn:hover{background:var(--shell)}
+/* 창 안의 스크롤바: 모서리 둥근 곳까지 닿지 않게 위아래를 띄우고 둥글게 보여 준다. 높이는 화면(위아래 16px 여백)까지 쓴다 */
+.modal{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px)}
+.modal::-webkit-scrollbar{width:12px}
+.modal::-webkit-scrollbar-track{background:transparent;margin:20px 0}
+.modal::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--mute) 45%,transparent);border-radius:12px;border:3px solid transparent;background-clip:padding-box}
+.modal::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--mute) 70%,transparent);background-clip:padding-box}
+@supports not selector(::-webkit-scrollbar){.modal{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--mute) 45%,transparent) transparent}}
+.modal.pwm{gap:10px;padding:20px 24px 18px}
 .pfl{display:flex;align-items:center;gap:14px}.pfl .pf{width:52px;height:52px;border-radius:50%;background:var(--osurf);color:var(--o700);font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}.pws{border-top:1px solid var(--line);padding-top:12px}
 .tmpbox{font-size:18px;letter-spacing:.5px;background:var(--shell);border-radius:12px;padding:12px 14px;text-align:center;user-select:all}
 .fgt{align-self:flex-start;min-height:44px;padding:0 2px;background:none;border:0;color:var(--link);font:inherit;font-size:13.5px;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
@@ -1234,7 +1242,7 @@ function shell(){
       nav+=item('dash','home','대시보드')+item('stats','chart','통계')+item('exc','alert','운영 현황',ex?`<span class="count">${ex}</span>`:'')+item('sec','bell','보안·감사 알림',secBadge())+item('tickets','file','전체 문의')+item('guides','folder','가이드 관리')+item('accounts','user','계정 관리')+item('ai','shield','AI 운영');
     }
   }
-  const recent=S.inqs.filter(i=>i.owner===S.user).slice().reverse().slice(0,5).map(i=>`<button class="rt ${v==='chat'&&S.view.id===i.id?'on':''}" data-act="open" data-id="${i.id}"><b><span>${ESC(i.title)}</span>${i.unread?'<span class="count">'+i.unread+'</span>':''}</b><small><span class="rs" style="color:var(--s-${inqKind(i)}-fg)"><i style="background:var(--s-${inqKind(i)}-dot)"></i>${ESC(inqLabel(i))}${inqSub(i)?' · '+ESC(inqSub(i)):''}</span> · ${ESC(i.when)}</small></button>`).join('');
+  const recent=S.inqs.filter(i=>i.owner===S.user).slice().reverse().slice(0,5).map(i=>`<button class="rt ${v==='chat'&&S.view.id===i.id?'on':''}" data-act="open" data-id="${i.id}"><b><span>${ESC(i.title)}</span>${i.unread?'<span class="count">'+i.unread+'</span>':''}</b><small><span class="rs" style="color:var(--s-${inqKind(i)}-fg)"><i style="background:var(--s-${inqKind(i)}-dot)"></i>${ESC(inqLabel(i))}</span> · ${ESC(i.when)}</small></button>`).join('');
   const roleLb={user:'문의자',staff:'담당자',admin:'관리자'}[S.role];
   const side=`<aside class="side"><div class="brand"><button type="button" class="brandbtn" data-act="home" aria-label="ITssue 홈으로">${logo(118,'word')}</button></div><nav class="nav" aria-label="주 메뉴">${nav}</nav>${recent?`<div class="nav"><div class="grp gsr">최근 문의<button class="gic" data-act="l-search" aria-label="내 문의 검색" title="내 문의 검색"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2L17 17"/></svg></button></div><div class="recent">${recent}</div></div>`:''}<div class="modebar"><small>화면 모드</small>${themeSwitch()}</div><div class="who"><button class="whobtn" data-act="profile" aria-label="내 프로필 열기"><span class="pf">${ESC(initials(acc.name))}</span><div><div class="nm">${ESC(acc.name)}</div><small>${ESC(acc.dept)} · ${roleLb}</small></div></button><button class="out" data-act="logout" aria-label="로그아웃" title="로그아웃">${ic('logout')}</button></div></aside>`;
   let body='',detail='';
