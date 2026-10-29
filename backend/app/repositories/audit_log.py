@@ -10,10 +10,9 @@ class AuditLogRepository:
     def __init__(self, db: DbSession) -> None:
         self.db = db
 
-    def add(self, event_type: str, target_type: str, target_id: int, result: str | None = None,
-            actor_id: int | None = None) -> None:
-        self.db.add(AuditLog(event_type=event_type, target_type=target_type, target_id=target_id,
-                             actor_id=actor_id, result=result))
+    def add(self, event_type: str, target_type: str, target_id: int, result: str | None = None, actor_id: int | None = None, reason: str | None = None) -> None:
+        self.db.add(AuditLog(event_type=event_type, target_type=target_type, target_id=target_id, actor_id=actor_id, result=result, reason=reason))
+
 
 
 AuditLogRepositoryDep = Annotated[AuditLogRepository, Depends(AuditLogRepository)]

@@ -3,6 +3,8 @@ from typing import Annotated
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from app.core.error_codes import ErrorCode
+from app.core.errors import AppError
 from app.services.auth import AuthContext, AuthServiceDep
 
 bearer = HTTPBearer(auto_error=False)
@@ -21,5 +23,13 @@ def get_auth_allow_temp_password(credentials: Credentials, service: AuthServiceD
     return service.authenticate(access_token(credentials), allow_temp_password=True)
 
 
+def require_admin(auth: Annotated[AuthContext, Depends(get_current_auth)]) -> AuthContext:
+    if auth.user.service_role != "ADMIN":
+        raise AppError(ErrorCode.FORBIDDEN)
+    return auth
+
+
 CurrentAuth = Annotated[AuthContext, Depends(get_current_auth)]
 CurrentAuthAllowTempPassword = Annotated[AuthContext, Depends(get_auth_allow_temp_password)]
+AdminAuth = Annotated[AuthContext, Depends(require_admin)]
+
