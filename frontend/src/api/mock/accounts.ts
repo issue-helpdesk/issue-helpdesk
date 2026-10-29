@@ -30,6 +30,29 @@ const SEED: User[] = [
   { id: 6, employeeNo: 'EMP-1488', name: '박과장', departmentId: 32, departmentName: '영업2팀', serviceRole: 'EMPLOYEE', accountStatus: 'INACTIVE' },
   { id: 7, employeeNo: 'EMP-1530', name: '정과장', departmentId: 31, departmentName: '영업1팀', serviceRole: 'EMPLOYEE', accountStatus: 'LOCKED' },
   { id: 8, employeeNo: 'EMP-1010', name: '한신입', departmentId: 31, departmentName: '영업1팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  // 관리자 계정 관리 화면(목록·필터·페이지)을 보여 주려고 더한 가상 계정
+  { id: 9, employeeNo: 'EMP-1108', name: '전다랑', departmentId: 21, departmentName: '네트워크팀', serviceRole: 'AGENT', accountStatus: 'ACTIVE' },
+  { id: 10, employeeNo: 'EMP-1109', name: '정네트', departmentId: 21, departmentName: '네트워크팀', serviceRole: 'AGENT', accountStatus: 'ACTIVE' },
+  { id: 11, employeeNo: 'EMP-0913', name: '한운영', departmentId: 20, departmentName: '서비스데스크', serviceRole: 'ADMIN', accountStatus: 'ACTIVE' },
+  { id: 12, employeeNo: 'EMP-1201', name: '오보안', departmentId: 22, departmentName: '보안팀', serviceRole: 'AGENT', accountStatus: 'ACTIVE' },
+  { id: 13, employeeNo: 'EMP-1202', name: '윤인프라', departmentId: 23, departmentName: '인프라팀', serviceRole: 'AGENT', accountStatus: 'ACTIVE' },
+  { id: 14, employeeNo: 'EMP-1005', name: '강하늘', departmentId: 11, departmentName: '개발1팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 15, employeeNo: 'EMP-1006', name: '조민재', departmentId: 12, departmentName: '개발2팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 16, employeeNo: 'EMP-1007', name: '신유진', departmentId: 12, departmentName: '개발2팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 17, employeeNo: 'EMP-1011', name: '임도현', departmentId: 31, departmentName: '영업1팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 18, employeeNo: 'EMP-1012', name: '송지아', departmentId: 32, departmentName: '영업2팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 19, employeeNo: 'EMP-1013', name: '백승우', departmentId: 41, departmentName: '디자인팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 20, employeeNo: 'EMP-1014', name: '문채원', departmentId: 51, departmentName: '인사팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 21, employeeNo: 'EMP-1015', name: '류재민', departmentId: 52, departmentName: '재무팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 22, employeeNo: 'EMP-1016', name: '장예린', departmentId: 52, departmentName: '재무팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 23, employeeNo: 'EMP-1017', name: '권태양', departmentId: 23, departmentName: '인프라팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 24, employeeNo: 'EMP-1018', name: '홍나래', departmentId: 22, departmentName: '보안팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 25, employeeNo: 'EMP-1019', name: '서지훈', departmentId: 11, departmentName: '개발1팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 26, employeeNo: 'EMP-1020', name: '남가은', departmentId: 11, departmentName: '개발1팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 27, employeeNo: 'EMP-1021', name: '유시온', departmentId: 31, departmentName: '영업1팀', serviceRole: 'EMPLOYEE', accountStatus: 'INACTIVE' },
+  { id: 28, employeeNo: 'EMP-1022', name: '배수아', departmentId: 41, departmentName: '디자인팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 29, employeeNo: 'EMP-1023', name: '안도윤', departmentId: 51, departmentName: '인사팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 30, employeeNo: 'EMP-1024', name: '차은우', departmentId: 12, departmentName: '개발2팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
 ]
 
 /** 현재 가상 계정 목록. 로그인 실패·잠금에 따라 status 가 바뀐다. */
@@ -58,6 +81,12 @@ export function resetMockState() {
   lockedUntil.set('EMP-1530', Date.now() + LOCK_MINUTES * 60_000)
 }
 resetMockState()
+
+/** 관리자가 계정을 만들거나 임시 비밀번호를 다시 발급했을 때: 임시 비밀번호 상태로 둔다 */
+export function setTempPassword(id: string, pw: string) {
+  passwords.set(id, pw)
+  tempPw.add(id)
+}
 
 /** 사번의 현재 비밀번호 */
 export const passwordOf = (id: string) => passwords.get(id) ?? MOCK_PASSWORD

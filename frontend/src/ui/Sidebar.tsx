@@ -42,7 +42,13 @@ const EXTRA_MENU: Partial<Record<ServiceRole, { group: string; items: NavItem[] 
       { to: '/stats', label: '통계', icon: 'chart' },
     ],
   },
-  ADMIN: { group: '운영', items: [{ to: '/dash', label: '대시보드', icon: 'home' }] },
+  ADMIN: {
+    group: '운영',
+    items: [
+      { to: '/dash', label: '대시보드', icon: 'home' },
+      { to: '/accounts', label: '계정 관리', icon: 'user' },
+    ],
+  },
 }
 
 /** 이름 끝 두 글자를 프로필 동그라미에 보여 준다 */
