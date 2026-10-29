@@ -4,9 +4,9 @@
  * 값은 접수 목록(TK-05)을 읽어 화면에서 센다. 통계 전용 API 는 아직 없어 집계 기준은 제안이다.
  * 상태별 현황은 선택 기간에 접수된 티켓의 현재 상태이고, 처리 성과나 평가 순위가 아니다. (design/ITssue-Prototype.html 의 담당자 통계)
  */
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CATEGORIES, URGENCY_LABEL } from '../../api/catalog'
+import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode, Urgency, WorkStatus } from '../../api/chatTypes'
 import { getStatsSource, watchTickets } from '../../api/tickets'
 import type { TicketSummary } from '../../api/ticketTypes'
@@ -33,7 +33,13 @@ const STATES: { k: WorkStatus; short: string; label: string; color: string }[] =
 ]
 const QS: Record<WorkStatus, string> = { RDY: '?tab=open&sub=RDY', WIP: '?tab=open&sub=WIP', FIN: '?tab=fin', CLS: '?tab=cls' }
 const URGS: Urgency[] = ['P1', 'P2', 'P3', 'P4']
-const URG_RULE: Record<Urgency, string> = { P1: '업무가 멈췄거나 많은 사람에게 영향을 줘요', P2: '업무에 큰 지장이 있어요', P3: '불편하지만 우회할 수 있어요', P4: '문의·요청이에요' }
+const PRI_RULE: Record<Urgency, string> = {
+  P1: '전사·여러 부서의 주요 업무 중단 또는 광범위한 보안 대응 필요',
+  P2: '부서 단위 업무 영향, 개인 업무 전면 중단 또는 보안 사고 의심',
+  P3: '개인 업무 일부에 지장이 있으나 허용된 대체 방법으로 진행 가능',
+  P4: '현재 업무 지장이 없는 단순 문의·사전 신청',
+}
+const TREND_NOTE = '해결 완료 선은 그날 접수된 티켓 중 지금 해결 완료(CLS)인 건수(접수일 기준)예요. 해결한 날짜 기준이 아니고, AI 해결은 해결 완료와 합산하지 않아요.'
 const CATC: Record<CategoryCode, string> = { ACC: '#0EA5E9', ACS: '#8A64F2', NET: '#5B7CF0', SW: '#14B8A6', HW: '#D9A21B', SYS: '#E0457F', SEC: '#D92D20' }
 const DAY = 86_400_000
 
@@ -192,23 +198,38 @@ function monoPath(pts: [number, number][]) {
 const LW = (tx: string) => Math.round([...tx].reduce((a, c) => a + (c.charCodeAt(0) > 255 ? 12 : 7.6), 0) + 14)
 const shortName = (n: string) => n.split(' ')[0]
 
-function CurveChart({ labels, series, runKey }: { labels: string[]; series: Series[]; runKey: string }) {
+const CAP = '그래프에 마우스를 올리거나 표로 바꿔서 값을 읽을 수 있어요'
+
+function CurveChart({ labels, series, runKey, aria }: { labels: string[]; series: Series[]; runKey: string; aria: string }) {
   const [table, setTable] = useState(false)
   const [hv, setHv] = useState<{ i: number; cx: number; cy: number } | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
+  const boxRef = useRef<HTMLDivElement>(null)
+  // 글자 크기가 화면과 같게 그리려고 그래프 폭을 잰다
+  const [cw, setCw] = useState(860)
+  useLayoutEffect(() => {
+    const el = boxRef.current
+    if (!el) return
+    const fit = () => el.clientWidth > 0 && setCw(el.clientWidth)
+    fit()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   const uid = `cv${useId().replace(/:/g, '')}`
   const n = labels.length
-  const W = 860
-  const H = 220
-  const pl = 34
+  const W = Math.max(340, Math.min(cw, 1400))
+  const H = (cw < 520 ? 176 : 196) + 30
   const pr = Math.max(46, ...series.map((s) => LW(`${shortName(s.name)} ${s.v[n - 1]}`))) + 16
   const pt = 14
   const pb = 26
-  const iw = W - pl - pr
-  const ih = H - pt - pb
   const top = Math.max(1, ...series.flatMap((s) => s.v))
   const step = top <= 8 ? 2 : top <= 16 ? 4 : (() => { const mag = Math.pow(10, Math.floor(Math.log10(top / 4))); return [1, 2, 5, 10].map((m) => m * mag).find((x) => x >= top / 4) ?? mag })()
   const mx = Math.ceil(top / step) * step
+  const pl = mx >= 1000 ? 48 : 34
+  const iw = W - pl - pr
+  const ih = H - pt - pb
   const X = (i: number) => pl + (n === 1 ? iw / 2 : (i * iw) / (n - 1))
   const Y = (v: number) => pt + ih - (v / mx) * ih
   const every = Math.max(1, Math.ceil(n / Math.max(3, Math.floor((W - 80) / (labels[0].length > 6 ? 96 : 44)))))
@@ -229,6 +250,9 @@ function CurveChart({ labels, series, runKey }: { labels: string[]; series: Seri
         prev = t
         tops[k] = t
       })
+    // 맨 아래 이름표가 그림 밖으로 잘리지 않게 전체를 올린다
+    const over = Math.max(...tops) + 20 - (H - 2)
+    if (over > 0) tops.forEach((_, k) => (tops[k] -= over))
   }
 
   const idxAt = (e: PointerEvent) => {
@@ -261,7 +285,7 @@ function CurveChart({ labels, series, runKey }: { labels: string[]; series: Seri
   }
 
   return (
-    <div className="hvw">
+    <div className="hvw" ref={boxRef}>
       <div className="lgd" style={{ margin: '0 0 6px' }}>
         {series.map((s) => (
           <span key={s.name}>
@@ -273,7 +297,7 @@ function CurveChart({ labels, series, runKey }: { labels: string[]; series: Seri
         ))}
       </div>
       <div className="hvbar">
-        <span className="small muted">그래프에 마우스를 올리거나 표로 바꿔서 값을 읽을 수 있어요</span>
+        <span className="small muted">{CAP}</span>
         <div className="seg" role="group" aria-label="보기 방식">
           <button type="button" className={table ? '' : 'on'} aria-pressed={!table} onClick={() => setTable(false)}>
             그래프
@@ -286,7 +310,7 @@ function CurveChart({ labels, series, runKey }: { labels: string[]; series: Seri
       {table ? (
         <div className="tw">
           <table className="tbl hvt">
-            <caption className="sr">접수 추이 수치 표</caption>
+            <caption className="sr">{CAP}</caption>
             <thead>
               <tr>
                 <th scope="col">기간</th>
@@ -321,7 +345,7 @@ function CurveChart({ labels, series, runKey }: { labels: string[]; series: Seri
             viewBox={`0 0 ${W} ${H}`}
             style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 8 }}
             role="img"
-            aria-label={`${labels[0]}부터 ${labels[n - 1]}까지 접수 추이 곡선 그래프. 마지막 값 ${series.map((s) => `${s.name} ${s.v[n - 1]}건`).join(', ')}`}
+            aria-label={aria}
             onPointerMove={(e) => showAt(idxAt(e), e.clientX, e.clientY)}
             onPointerDown={(e) => showAt(idxAt(e), e.clientX, e.clientY)}
             onPointerLeave={(e) => e.pointerType === 'mouse' && setHv(null)}
@@ -380,7 +404,7 @@ function CurveChart({ labels, series, runKey }: { labels: string[]; series: Seri
               )
             })}
             {labels.map((l, i) =>
-              i % every === 0 || i === n - 1 ? (
+              (i % every === 0 && n - 1 - i >= every) || i === n - 1 ? (
                 <text key={l} x={X(i).toFixed(1)} y={H - 6} textAnchor="middle" style={{ fontSize: 12, fill: 'var(--mute)' }}>
                   {l}
                 </text>
@@ -644,20 +668,21 @@ export function StatsView() {
             {b ? (
               <>
                 <CurveChart
+                  aria={`${PERN[per]} ${unitNow === 'w' ? '주별' : unitNow === 'mo' ? '월별' : '일별'} 접수 추이 곡선 그래프. 마지막 값 ${[['담당자 처리 접수', b.recv], ['해결 완료 (접수일 기준)', b.done]].map(([nm, vs]) => `${nm} ${(vs as number[])[b.labels.length - 1]}건`).join(', ')}`}
                   runKey={`${trend.dep}|${trend.id}`}
                   labels={b.labels}
                   series={[
-                    { name: '접수', k: 'ca', dash: '', v: b.recv },
+                    { name: '담당자 처리 접수', k: 'ca', dash: '', v: b.recv },
                     { name: '해결 완료 (접수일 기준)', k: 'cb', dash: '1 6', v: b.done },
                   ]}
                 />
-                <p className="small muted secnote">해결 완료 선은 그날 접수된 티켓 중 지금 해결 완료(CLS)인 건수(접수일 기준)예요. 해결한 날짜 기준이 아니에요.</p>
+                <p className="small muted secnote">{TREND_NOTE}</p>
               </>
             ) : (
               <>
                 <div className="sk" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))' }}>
                   <div className="kpi">
-                    <div className="l">오늘 접수</div>
+                    <div className="l">오늘 접수 (담당자 처리)</div>
                     <div className="v">
                       <b>{trendWin.length}</b>
                       <span>건</span>
@@ -685,7 +710,7 @@ export function StatsView() {
                   </b>
                   <Icon name="chevron" className="go" />
                   <span className="small muted pr">
-                    {URGENCY_LABEL[p]} · {URG_RULE[p]}
+                    {PRI_RULE[p]}
                   </span>
                 </button>
               ))}
@@ -735,7 +760,7 @@ export function StatsView() {
                 })}
               </div>
               <div className="hint" style={{ marginTop: 8 }}>
-                이름을 누르면 아래에 개인 현황(도넛)이 펼쳐져요. 업무량 확인용이며 평가 순위가 아니에요.
+                이름을 누르면 아래에 개인 현황(도넛)을 불러와요. 업무량 확인용이며 평가 순위가 아니에요.
               </div>
             </Section>
           )}

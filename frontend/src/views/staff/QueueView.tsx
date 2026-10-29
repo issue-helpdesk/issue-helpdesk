@@ -86,7 +86,7 @@ export function QueueView() {
   const [pri, setPri] = useState<string>(() => fromUrl('pri', ['', 'P1', 'P2', 'P3', 'P4'] as const, ''))
   const [per, setPer] = useState<string>(() => fromUrl('per', ['', 'd', 'm', 'y'] as const, ''))
   const [onlyNew, setOnlyNew] = useState(() => params.get('new') === '1') // 확인할 Jira 알림이 온 건만
-  const [sort, setSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' }>({ col: 'pri', dir: 'asc' })
+  const [sort, setSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' } | null>(null)
   const [page, setPage] = useState(1)
   const [data, setData] = useState<Page<TicketSummary> | null>(null)
   const [mine, setMine] = useState<TicketSummary[]>([])
@@ -105,7 +105,8 @@ export function QueueView() {
       assigneeId: user?.id,
       page,
       size: PAGE_SIZE,
-      sort: `${SORT_KEY[sort.col]},${sort.dir}`,
+      // 정렬을 고르기 전에는 긴급도 높은 순 (열 머리는 강조하지 않는다)
+      sort: sort ? `${SORT_KEY[sort.col]},${sort.dir}` : 'urgency,asc',
       workStatus: tab === 'open' && sub ? [sub] : t.statuses,
       urgency: pri ? [pri as Urgency] : undefined,
       createdFrom: days === undefined ? undefined : daysAgo(days),
@@ -159,7 +160,7 @@ export function QueueView() {
   const tabs = pri || per || onlyNew ? [ALL_TAB, ...TABS] : TABS
   if (tab === 'all' && !(pri || per || onlyNew)) setTab('open')
   const onSort = (col: SortCol) => {
-    setSort((s) => (s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: col === 'when' ? 'desc' : 'asc' }))
+    setSort((s) => (s && s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: col === 'when' ? 'desc' : 'asc' }))
     setPage(1)
   }
   const open = (id: number) => navigate(`/queue/${id}`)
@@ -211,13 +212,15 @@ export function QueueView() {
               <label className={`srch${q.trim() ? ' f' : ''}`}>
                 <Icon name="search" size={18} />
                 <input value={q} placeholder="접수번호 · Jira 번호 · 제목 · 문의자로 검색" aria-label="처리할 문의 검색" autoComplete="off" onChange={(e) => reset(setQ)(e.target.value)} />
-                <span className="small muted">{data?.totalCount ?? 0}건</span>
                 {q && (
                   <button type="button" className="x" aria-label="검색어 지우기" onClick={() => reset(setQ)('')}>
                     ✕
                   </button>
                 )}
               </label>
+              <span className="small muted" role="status" aria-live="polite">
+                {data?.totalCount ?? 0}건
+              </span>
               <FilterPill label="긴급도" value={pri} options={URGENCIES.map((p) => ({ value: p, label: `${p} · ${URGENCY_LABEL[p]}` }))} onChange={reset(setPri)} />
               <FilterPill label="접수 기간" value={per} options={PERIODS.map((p) => ({ value: p.value, label: p.label }))} onChange={reset(setPer)} />
               {onlyNew && (

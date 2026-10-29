@@ -155,3 +155,8 @@
 .d2p .x,.srch .x{min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center}
 .skip{position:absolute;left:12px;top:-64px;z-index:200;min-height:44px;padding:0 16px;border:0;border-radius:12px;background:var(--o600);color:#fff;font-weight:600}.skip:focus{top:12px}
 main.main[tabindex="-1"]:focus{outline:none}
+.nav .grp.tg{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:0;cursor:pointer;min-height:44px;border-radius:12px;font-family:inherit;text-align:left}
+.nav .grp.tg:hover{background:var(--hvg);color:var(--ink)}
+.nav .grp.tg .chv{width:28px;height:28px;border-radius:8px;background:var(--shell);display:flex;align-items:center;justify-content:center;flex:none;transition:transform .2s}
+.nav .grp.tg .chv .i{transform:rotate(90deg);width:16px;height:16px}.nav .grp.tg[aria-expanded="true"] .chv{transform:rotate(180deg);background:var(--osurf);color:var(--link)}.nav .grp.tg:hover .chv{background:var(--osurf);color:var(--link)}
+@media (prefers-reduced-motion:reduce){.nav .grp.tg .chv{transition:none}}

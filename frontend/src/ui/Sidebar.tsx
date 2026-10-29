@@ -5,7 +5,7 @@
  * 담당자는 "업무", 관리자는 "운영" 메뉴가 더해진다. (PRD 2장: 담당자·관리자도 일반 임직원 기능을 쓴다)
  * 아직 만들지 않은 화면의 메뉴는 넣지 않고, 화면을 만들 때 아래 목록에 추가한다.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { watchMyInquiries } from '../api/inquiries'
 import { listTickets, watchTickets } from '../api/tickets'
@@ -54,6 +54,10 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [recent, setRecent] = useState<InquirySummary[]>([])
+  // 담당자·관리자의 문의 메뉴 접기. undefined 는 자동: 사이드바가 넘칠 때만 접고, 넓어지면 되돌린다
+  const [inqOpen, setInqOpen] = useState<boolean | undefined>(undefined)
+  const [auto, setAuto] = useState(false)
+  const sideRef = useRef<HTMLElement>(null)
   // 담당자: 처리할 문의 건수(처리 대기·처리 중·해결 확인 대기)와 Jira 알림이 온 건수
   const [queue, setQueue] = useState({ n: 0, nw: 0 })
   const agentId = user?.serviceRole === 'AGENT' ? user.id : null
@@ -73,9 +77,30 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
     return watchMyInquiries(employeeNo, setRecent)
   }, [employeeNo])
 
-  if (!user) return null
+  const extra = EXTRA_MENU[user?.serviceRole ?? 'EMPLOYEE']
+  const fold = !!extra
+  const open = !fold || inqOpen !== false
 
-  const extra = EXTRA_MENU[user.serviceRole]
+  useLayoutEffect(() => {
+    const sd = sideRef.current
+    if (!sd || !fold || inqOpen !== undefined || window.innerWidth <= 860) return
+    if (sd.scrollHeight > sd.clientHeight + 1) {
+      setInqOpen(false)
+      setAuto(true)
+    }
+  }, [fold, inqOpen, recent.length, queue.n])
+  useEffect(() => {
+    const back = () => {
+      if (auto && window.innerWidth > 860) {
+        setInqOpen(undefined)
+        setAuto(false)
+      }
+    }
+    window.addEventListener('resize', back)
+    return () => window.removeEventListener('resize', back)
+  }, [auto])
+
+  if (!user) return null
   const unread = recent.reduce((sum, i) => sum + i.unread, 0)
 
   const go = (to: string) => {
@@ -101,7 +126,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   )
 
   return (
-    <aside className="side">
+    <aside className="side" ref={sideRef}>
       <div className="brand">
         {/* 로고는 홈으로 가는 버튼: 문의자=새 문의, 담당자=처리할 문의, 관리자=대시보드 */}
         <button type="button" className="brandbtn" aria-label="ITssue 홈으로" onClick={() => go(HOME_BY_ROLE[user.serviceRole])}>
@@ -110,8 +135,17 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       </div>
 
       <nav className="nav" aria-label="주 메뉴">
-        <div className="grp">문의</div>
-        {INQUIRY_MENU.map(renderItem)}
+        {fold ? (
+          <button type="button" className="grp tg" aria-expanded={open} aria-label={`문의 메뉴 ${open ? '접기' : '펼치기'}`} onClick={() => { setInqOpen(!open); setAuto(false) }}>
+            문의
+            <span className="chv" aria-hidden="true">
+              <Icon name="chevron" />
+            </span>
+          </button>
+        ) : (
+          <div className="grp">문의</div>
+        )}
+        {open && INQUIRY_MENU.map(renderItem)}
         {extra && (
           <>
             <div className="grp">{extra.group}</div>
@@ -143,7 +177,6 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
                     <span className="rs" style={{ color: `var(--s-${tone}-fg)` }}>
                       <i style={{ background: `var(--s-${tone}-dot)` }} />
                       {sv.label}
-                      {sv.sub && ` · ${sv.sub}`}
                     </span>{' '}
                     · {formatRelative(i.updatedAt)}
                   </small>
