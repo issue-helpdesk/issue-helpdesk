@@ -398,10 +398,7 @@ def write_document(conn, p: Prepared, groups: dict[str, int], cache: dict, activ
             before = [m for (m,) in conn.execute(
                 'select distinct e.model from document_chunk_embeddings e join document_chunks c on c.id = e.chunk_id '
                 'where c.version_id = %s', (vid,))]
-            conn.execute('delete from document_chunks where version_id = %s', (vid,))      # 임베딩은 CASCADE
-            ids = [conn.execute(f'insert into document_chunks (version_id, {", ".join(CHUNK_COLUMNS)}) '
-                                f'values (%s, {", ".join(["%s"] * len(CHUNK_COLUMNS))}) returning id',
-                                (vid, *_chunk_values(r))).fetchone()[0] for r in p.rows]
+            ids = _insert_chunks(conn, vid, p.rows)
             others = {m: [cache.get((m, t)) for t in p.texts] for m in before if m not in p.vectors}
             out['dropped'] = _put_embeddings(conn, ids, p, others)
         conn.execute("update document_versions set ingest_status = 'DONE', ingest_error = null, file_path = %s, "
@@ -451,6 +448,14 @@ def _apply_policy(conn, doc_id: int, vid: int, p: Prepared) -> None:
     if tuple(old) != new:
         conn.execute('update document_versions set view_scope = %s, transfer_policy = %s where id = %s', (*new, vid))
         _audit(conn, 'DOCUMENT_POLICY_CHANGE', doc_id, None, f'{p.version["version"]} {old[0]}/{old[1]} → {new[0]}/{new[1]}')
+
+
+def _insert_chunks(conn, vid: int, rows: list[dict]) -> list[int]:
+    """그 버전 청크를 통째로 지우고 새로 넣는다 (순번 upsert 금지, 7장). 임베딩은 CASCADE 로 같이 지워진다. 새 청크 id 들."""
+    conn.execute('delete from document_chunks where version_id = %s', (vid,))
+    return [conn.execute(f'insert into document_chunks (version_id, {", ".join(CHUNK_COLUMNS)}) '
+                         f'values (%s, {", ".join(["%s"] * len(CHUNK_COLUMNS))}) returning id',
+                         (vid, *_chunk_values(r))).fetchone()[0] for r in rows]
 
 
 def _chunk_values(r: dict) -> tuple:
