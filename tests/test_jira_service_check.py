@@ -29,6 +29,8 @@ class StatefulJira:
             n = len(self.issues) + 1
             self.issues.append({"id": str(20000 + n), "key": f"ITHD-{900 + n}", "receipt": fields["customfield_10043"]})
             return httpx.Response(201, json={"id": self.issues[-1]["id"], "key": self.issues[-1]["key"]})
+        if req.method == "GET" and "/rest/api/3/issue/" in req.url.path:  # 상태 조회: 방금 만든 이슈는 RDY
+            return httpx.Response(200, json={"fields": {"status": {"id": "10004", "name": "RDY"}}})
         return httpx.Response(200, json={})
 
 

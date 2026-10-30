@@ -149,7 +149,9 @@ def reopen_probe(jira: JiraClient, jira_key: str) -> bool:
         print(f"  변경 이력에 1차 결과가 남아 있음: {kept} (최종 처리 결과 변경 {len(changes)}건)")
     except JiraError as e:
         print(f"  변경 이력 조회 실패: {e.to_dict()} (Jira 화면의 이슈 이력에서 직접 확인)")
-    return now == second and cleared
+    if kept is not True:
+        print("  이전 결과의 변경 이력 보존을 확인하지 못했습니다 → 확인 필요 (Jira 화면의 이슈 이력에서 직접 확인)")
+    return now == second and cleared and kept is True
 
 
 def main() -> int:
