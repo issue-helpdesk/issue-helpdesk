@@ -9,7 +9,7 @@
 | [`service.py`](service.py) | M3-2-2 · M3-2-3 | 검색 `search()`: pgvector 검색, 권한 필터, 단위 복원, 중복 묶기 |
 | [`index.py`](index.py) | M3-3-1 준비 | 과거 사례 임베딩 만들기 `embed_legacy()` |
 | [`runtime.py`](runtime.py) | M3-2-2 | 서버에서 검색 부르기: 임베딩 모델을 한 번만 열고, 요청마다 `search_fn`(`SearchFnDep`)을 만든다 |
-| [`compare.py`](compare.py) | M3-2-1 · M3-4-1 | 임베딩 모델(+리랭커) 비교. DB 없이 가이드 파일과 Golden Set으로 잰다. FAQ 시나리오 코드를 이어받았을 때의 값도 함께 낸다 |
+| [`compare.py`](compare.py) | M3-2-1 | 임베딩 모델(+리랭커) 비교. DB 없이 가이드 파일과 Golden Set으로 잰다 |
 | [`틀린_검색_사례_분석.md`](틀린_검색_사례_분석.md) | M3-4-1 | 평가 46문항 중 1위가 틀린 12문항의 원인 분석 |
 
 테스트: `tests/test_search_result.py`·`test_search_evidence.py` (DB 없이), `tests/test_search_db.py` (`TEST_DATABASE_URL`이 있을 때 임시 DB를 만들어 검사)

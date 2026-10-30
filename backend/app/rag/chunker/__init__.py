@@ -197,7 +197,26 @@ def chunk_document(doc: ParsedDocument) -> list[Chunk]:
     for i, c in enumerate(out, 1):
         c.seq = i
         c.chunk_key = f'{c.doc_no}@{c.version}#{i:03d}'
+    _inherit_faq_codes(out)
     return out
+
+
+def _inherit_faq_codes(chunks: list[Chunk]) -> None:
+    """FAQ 청크의 문의 유형 코드를, 그 FAQ 를 '관련 FAQ'로 가리키는 같은 문서의 항목에서 이어받는다.
+
+    FAQ 에는 항목 머리가 없어 코드가 비어 있었다. 그러면 검색 평가가 맞는 FAQ 를 정답으로 세지 못하고, 검색 결과의
+    FAQ 도 어느 문의 유형의 답인지 알 수 없다 (M3-4-1). FAQ 번호가 질문 줄에 있는 FAQ 만 이어받는다
+    (번호가 없는 FAQ 는 가리킬 수 없다). 가리키는 항목이 없으면 비워 둔다. 본문·청크 경계는 바뀌지 않는다.
+    """
+    refs: dict[str, list[str]] = {}
+    for c in chunks:
+        if c.chunk_type != 'faq':
+            for faq in c.faq_ids:
+                refs.setdefault(faq, []).extend(c.inquiry_type_codes)
+    for c in chunks:
+        if c.chunk_type == 'faq' and ':FAQ-' in c.unit_key:
+            number = c.unit_key.rsplit(':', 1)[-1]
+            c.inquiry_type_codes = list(dict.fromkeys([*c.inquiry_type_codes, *refs.get(number, [])]))
 
 
 def _assign_unit_keys(units: list[list[Chunk]]) -> None:
