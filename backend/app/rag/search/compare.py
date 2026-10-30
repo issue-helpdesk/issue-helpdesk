@@ -19,7 +19,7 @@ import json
 import os
 import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -69,6 +69,26 @@ def load_units(scope: str = 'ALL'):
             u.codes.update(c.inquiry_type_codes)
             u.texts.append(c.text)
     return chunks, units, doc_scenarios
+
+
+def inherit_faq_codes(chunks, units):
+    """FAQ 단위의 시나리오 코드를, 그 FAQ 를 '관련 FAQ'로 가리키는 같은 문서의 항목에서 이어받은 사본 (M3-4-1 제안).
+
+    FAQ 청크에는 문의 유형 코드가 없어서, FAQ 가 1위여도 정답으로 세지 못한다. 항목 머리의 '관련 FAQ'를 따라가면
+    그 FAQ 가 어느 시나리오의 답인지 알 수 있다. 가리키는 항목이 없는 FAQ 는 코드가 비어 있는 채로 둔다.
+    """
+    refs = {}
+    for c in chunks:
+        if c.chunk_type == 'item':
+            for faq in c.faq_ids:
+                refs.setdefault((c.doc_no, faq), set()).update(c.inquiry_type_codes)
+    inherited = {}
+    for key, u in units.items():
+        codes = set(u.codes)
+        if u.chunk_type == 'faq' and ':FAQ-' in key:
+            codes |= refs.get((u.doc_no, key.rsplit(':', 1)[-1]), set())
+        inherited[key] = replace(u, codes=codes)
+    return inherited
 
 
 def load_eval(units, doc_scenarios):
@@ -131,6 +151,7 @@ def evaluate(key, chunks, units, items, reranker=None):
         docs = list(dict.fromkeys(units[k].doc_no for k in keys))
         rows.append({'id': it['id'], 'scenario': it['scenario'], 'action': it['action'],
                      'unit_rank': first_hit(keys, it['gold_units']), 'doc_rank': first_hit(docs, it['gold_docs']),
+                     'inherit_rank': first_hit(keys, it.get('gold_inherit', it['gold_units'])),
                      'top1': keys[0], 'top1_score': ranked[0][1]})
     del emb
     return rows, times
@@ -139,10 +160,12 @@ def evaluate(key, chunks, units, items, reranker=None):
 def summarize(name, rows, times):
     ur = [r['unit_rank'] for r in rows]
     dr = [r['doc_rank'] for r in rows]
+    ir = [r['inherit_rank'] for r in rows]
     hit = lambda ranks, k: sum(r is not None and r < k for r in ranks) / len(ranks)
     mrr = sum(1 / (r + 1) for r in ur if r is not None) / len(ur)
     return {'name': name, 'n': len(rows), **{f'unit@{k}': hit(ur, k) for k in KS},
-            **{f'doc@{k}': hit(dr, k) for k in (1, 3)}, 'mrr': mrr, 'sec': sum(times) / len(times)}
+            **{f'doc@{k}': hit(dr, k) for k in (1, 3)}, **{f'inherit@{k}': hit(ir, k) for k in (1, 3)},
+            'mrr': mrr, 'sec': sum(times) / len(times)}
 
 
 def report(summaries, details, no_gold, n_chunks, n_units) -> str:
@@ -153,6 +176,11 @@ def report(summaries, details, no_gold, n_chunks, n_units) -> str:
     for s in summaries:
         lines.append(f"| {s['name']} | {s['unit@1']:.0%} | {s['unit@3']:.0%} | {s['unit@5']:.0%} | {s['mrr']:.3f} "
                      f"| {s['doc@1']:.0%} | {s['doc@3']:.0%} | {s['sec']:.2f}초 |")
+    lines += ['', 'FAQ 시나리오 코드를 이어받으면 (M3-4-1 제안): FAQ 가 1위여도 그 FAQ 가 가리키는 시나리오의 답이면 맞게 센다', '',
+              '| 구성 | 항목 Hit@1 (지금) | 항목 Hit@1 (FAQ 이어받기) | 항목 Hit@3 (지금) | 항목 Hit@3 (FAQ 이어받기) |',
+              '|---|---|---|---|---|']
+    for s in summaries:
+        lines.append(f"| {s['name']} | {s['unit@1']:.0%} | {s['inherit@1']:.0%} | {s['unit@3']:.0%} | {s['inherit@3']:.0%} |")
     if no_gold:
         lines += ['', '정답 항목이 범위에 없어 뺀 문항: ' + ', '.join(f"{x['id']}({x['scenario']})" for x in no_gold)]
     lines += ['', '문항별 정답 항목 순위 (없음 = 끝까지 못 찾음)', '',
@@ -174,6 +202,9 @@ def main() -> int:
 
     chunks, units, doc_scenarios = load_units('ALL')
     items, no_gold = load_eval(units, doc_scenarios)
+    inherited = inherit_faq_codes(chunks, units)
+    for it in items:
+        it['gold_inherit'] = {k for k, u in inherited.items() if it['scenario'] in u.codes}
     print(f'청크 {len(chunks)}개 · 단위 {len(units)}개 · 평가 문항 {len(items)}개 (정답 없음 {len(no_gold)}개)')
     reranker = None
     if args.rerank:
