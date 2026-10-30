@@ -375,3 +375,36 @@ def test_faq_location_without_number():
                              _p('Q. 프린터가 안 돼요'), _p('A. 답')))
     locs = [chunk_row(c)['location'] for c in cs]
     assert len(set(locs)) == 2 and locs[0].startswith('4 · Q. 메일이')
+
+
+def test_faq_inherits_codes_from_items_pointing_to_it():
+    """FAQ 는 그 FAQ 를 '관련 FAQ'로 가리키는 항목의 문의 유형 코드를 이어받는다 (M3-4-1). 본문·경계는 그대로."""
+    _, cs = chunks_of('IT-ACC-002')
+    item = next(c for c in cs if c.chunk_type == 'item' and 'FAQ-001' in c.faq_ids)
+    faq = next(c for c in cs if c.unit_key.endswith('/faq:FAQ-001'))
+    assert item.inquiry_type_codes == ['ACC-01'] and faq.inquiry_type_codes == ['ACC-01']
+
+
+def test_faq_codes_stay_inside_their_document():
+    """FAQ 번호는 문서마다 따로 센다. 어떤 FAQ 의 코드도 같은 문서 항목의 코드에서만 온다."""
+    for doc_no in SAMPLES:
+        _, cs = chunks_of(doc_no)
+        item_codes = {code for c in cs if c.chunk_type != 'faq' for code in c.inquiry_type_codes}
+        assert all(set(c.inquiry_type_codes) <= item_codes for c in cs if c.chunk_type == 'faq')
+
+
+def test_faq_without_number_or_pointer_stays_empty():
+    """질문 줄에 FAQ 번호가 없는 FAQ(지문 키)와, 가리키는 항목이 없는 FAQ 는 비어 있다."""
+    for doc_no in manifest():
+        _, cs = chunks_of(doc_no)
+        pointed = {f for c in cs if c.chunk_type != 'faq' for f in c.faq_ids}
+        for c in cs:
+            if c.chunk_type == 'faq' and not (':FAQ-' in c.unit_key and c.unit_key.rsplit(':', 1)[-1] in pointed):
+                assert c.inquiry_type_codes == [], (doc_no, c.unit_key)
+
+
+def test_inheriting_codes_does_not_change_text_or_boundaries():
+    """코드만 채우고 본문(임베딩 입력)·해시는 건드리지 않는다. 그래서 이미 만든 임베딩을 그대로 쓴다."""
+    _, cs = chunks_of('IT-ACC-002')
+    faq = next(c for c in cs if c.unit_key.endswith('/faq:FAQ-001'))
+    assert 'ACC-01' not in faq.text and faq.text.endswith(faq.body)
