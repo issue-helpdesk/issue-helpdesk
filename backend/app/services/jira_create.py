@@ -7,10 +7,14 @@
                        requeue_stale_running_jobs() 죽은 실행(RUNNING 방치)을 다시 대기로
 
 DB 상태 규칙 (docs/06 integration_jobs·tickets.jira_sync_status)
-    성공(새로 만듦·기존 이슈 연결·이미 저장됨)  job DONE · ticket SYNCED · jira_key 저장
+    성공(새로 만듦·기존 이슈 연결·이미 저장됨)  job DONE · ticket SYNCED · jira_key 저장 · work_status 채움(아래)
     재시도 가능 오류                             job PENDING(next_retry_at 지정) · ticket PENDING 유지
     생성 결과 불명확(result_unknown)             job PENDING · ticket VERIFYING — 이후에는 "찾기"만 하고 다시 만들지 않는다
     재시도 불가·횟수 초과·접수 데이터 오류       job NEEDS_ADMIN · ticket NEEDS_ADMIN
+
+업무 상태(work_status)는 접수(TK-04)에서 null로 저장되고 "Jira 생성 직후 RDY로 채운다"(docs/06·docs/api/03).
+    새로 만들었으면 RDY, 기존 이슈에 연결하거나 jira_key만 있고 값이 비어 있으면 Jira의 현재 상태를 읽어 그 값으로 채운다.
+    이미 값이 있으면 건드리지 않는다(상태 동기화의 몫). 상태 조회가 실패하면 일반 Jira 오류처럼 재시도한다.
 
 중복 생성 방어는 세 겹이다.
     1) 작업 선점은 조건부 UPDATE(status=PENDING → RUNNING) 한 번이라 두 실행기가 같은 작업을 동시에 잡지 못한다.
@@ -115,12 +119,22 @@ def run_jira_create_job(
             result = {**found, "created": False, "source": "jira_lookup"}
         else:
             result = create_from_confirmed_ticket(jira, _ticket_payload(db, ticket))
+        work_status = _work_status_to_fill(jira, ticket, result)
     except ConfirmedTicketError as e:
         return _needs_admin(db, job, ticket, now, f"{e.reason}: {', '.join(e.fields)}")
     except JiraError as e:
         return _after_jira_error(db, job, ticket, now, e, policy)
 
-    return _save_success(db, job, ticket, now, result)
+    return _save_success(db, job, ticket, now, result, work_status)
+
+
+def _work_status_to_fill(jira: JiraClient, ticket: Ticket, result: dict[str, Any]) -> str | None:
+    """비어 있는 work_status에 넣을 값. 채울 필요가 없거나 Jira 상태가 매핑에 없으면 None."""
+    if ticket.work_status is not None:
+        return None
+    if result.get("created"):
+        return "RDY"
+    return jira.get_work_status(result["jira_key"])["work_status"]
 
 
 def run_due_jira_create_jobs(
@@ -233,10 +247,14 @@ def _ticket_payload(db: Session, ticket: Ticket) -> dict[str, Any]:
     }
 
 
-def _save_success(db: Session, job: IntegrationJob, ticket: Ticket, now: datetime, result: dict[str, Any]) -> JobResult:
+def _save_success(
+    db: Session, job: IntegrationJob, ticket: Ticket, now: datetime, result: dict[str, Any], work_status: str | None = None
+) -> JobResult:
     key = result["jira_key"]
     ticket.jira_key = key
     ticket.jira_sync_status = "SYNCED"
+    if work_status is not None:
+        ticket.work_status = work_status
     job.status = "DONE"
     job.next_retry_at = None
     job.last_error = None

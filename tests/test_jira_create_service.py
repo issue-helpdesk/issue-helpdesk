@@ -28,14 +28,21 @@ def bigint_as_integer(type_, compiler, **kw):
 class FakeJira:
     """Jira 모의 서버. 호출 기록(calls)을 남기고, 설정에 따라 응답을 바꾼다."""
 
-    def __init__(self, *, existing: bool = False, post_status: int = 201, post_exc: Exception | None = None):
+    def __init__(self, *, existing: bool = False, post_status: int = 201, post_exc: Exception | None = None,
+                 status_id: str = "10005", status_exc: Exception | None = None):
         self.calls: list[tuple[str, str]] = []
         self.existing = existing
         self.post_status = post_status
         self.post_exc = post_exc
+        self.status_id = status_id  # 기존 이슈의 Jira 상태(기본 WIP=10005)
+        self.status_exc = status_exc
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.calls.append((request.method, request.url.path))
+        if request.method == "GET" and "/rest/api/3/issue/" in request.url.path:  # 상태 조회
+            if self.status_exc is not None:
+                raise self.status_exc
+            return httpx.Response(200, json={"fields": {"status": {"id": self.status_id, "name": "x"}}})
         if request.url.path.endswith("search/jql"):
             issues = [{"id": "20001", "key": "ITHD-77", "fields": {"customfield_10043": "RCPT-0042"}}]
             return httpx.Response(200, json={"issues": issues if self.existing else [], "isLast": True})
@@ -81,7 +88,7 @@ def make_ticket(db, **over) -> Ticket:
         summary="VPN 접속 오류", target_system="VPN", symptom="인증 서버 연결 실패", occurred_at="오늘 오전",
         category_code="NET", inquiry_type_id=21, urgency="P2", urgency_reason="개인 업무 전면 중단",
         business_impact="사내 시스템 접속 불가", tried_actions="재설치", group_id=3,
-        jira_sync_status="PENDING", assign_status="PENDING", work_status="RDY",
+        jira_sync_status="PENDING", assign_status="PENDING", work_status=None,  # 접수(TK-04)는 null로 저장한다
     )
     values.update(over)
     ticket = Ticket(**values)
@@ -127,6 +134,7 @@ def test_success_creates_issue_and_saves_key(db):
     assert (result.outcome, result.jira_key) == ("CREATED", "ITHD-999")
     ticket, job = reload(db, Ticket, 42), reload(db, IntegrationJob, job.id)
     assert (ticket.jira_key, ticket.jira_sync_status) == ("ITHD-999", "SYNCED")
+    assert ticket.work_status == "RDY"  # Jira 생성 직후 RDY (docs/06)
     assert (job.status, job.attempts, job.last_error, job.next_retry_at) == ("DONE", 1, None, None)
     assert jira.posts == 1
 
@@ -139,12 +147,38 @@ def test_issue_already_in_jira_is_linked_without_creating(db):
     result = jira_create.run_jira_create_job(db, jira.client(), job.id, now=T0)
 
     assert (result.outcome, result.jira_key) == ("LINKED", "ITHD-77")
-    assert reload(db, Ticket, 42).jira_key == "ITHD-77"
+    row = reload(db, Ticket, 42)
+    assert row.jira_key == "ITHD-77"
+    assert row.work_status == "WIP"  # 기존 이슈는 RDY로 가정하지 않고 Jira 현재 상태를 따른다
     assert jira.posts == 0
 
 
+def test_linked_issue_keeps_work_status_that_is_already_set(db):
+    ticket = make_ticket(db, work_status="FIN")
+    job = make_job(db, ticket)
+    jira = FakeJira(existing=True)
+
+    jira_create.run_jira_create_job(db, jira.client(), job.id, now=T0)
+
+    assert reload(db, Ticket, 42).work_status == "FIN"  # 상태 동기화가 정한 값은 덮어쓰지 않는다
+    assert ("GET", "/rest/api/3/issue/ITHD-77") not in jira.calls
+
+
+def test_status_lookup_failure_retries_without_saving_key(db):
+    ticket = make_ticket(db)
+    job = make_job(db, ticket)
+    jira = FakeJira(existing=True, status_exc=httpx.ReadTimeout("느림"))
+
+    result = jira_create.run_jira_create_job(db, jira.client(), job.id, now=T0)
+
+    assert result.outcome in ("RETRY_SCHEDULED", "VERIFY_SCHEDULED")
+    row = reload(db, Ticket, 42)
+    assert (row.jira_key, row.work_status) == (None, None)  # 반쪽 저장 없이 다음 실행에서 다시 연결
+    assert reload(db, IntegrationJob, job.id).status == "PENDING"
+
+
 def test_ticket_with_saved_key_makes_no_jira_call(db):
-    ticket = make_ticket(db, jira_key="ITHD-5", jira_sync_status="SYNCED")
+    ticket = make_ticket(db, jira_key="ITHD-5", jira_sync_status="SYNCED", work_status="RDY")
     job = make_job(db, ticket)
     jira = FakeJira()
 
@@ -153,6 +187,17 @@ def test_ticket_with_saved_key_makes_no_jira_call(db):
     assert (result.outcome, result.jira_key) == ("SAVED", "ITHD-5")
     assert reload(db, IntegrationJob, job.id).status == "DONE"
     assert jira.calls == []
+
+
+def test_saved_key_with_empty_work_status_is_filled_from_jira(db):
+    ticket = make_ticket(db, jira_key="ITHD-5", jira_sync_status="SYNCED")
+    job = make_job(db, ticket)
+    jira = FakeJira(status_id="10004")  # RDY
+
+    result = jira_create.run_jira_create_job(db, jira.client(), job.id, now=T0)
+
+    assert result.outcome == "SAVED"
+    assert reload(db, Ticket, 42).work_status == "RDY"
 
 
 # ------------------------------------------------------------------ 결과 불명확 → 찾기만

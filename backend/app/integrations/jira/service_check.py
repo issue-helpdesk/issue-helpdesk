@@ -4,9 +4,10 @@
 
 하는 일 (DB는 임시 SQLite 메모리 DB라 아무것도 남지 않는다. Jira에는 시험 이슈 1건이 생긴다)
     1. 시험 접수(Ticket) 1건 + 생성 작업(JIRA_CREATE) 등록
-    2. 작업 실행 → Jira에 이슈 생성, tickets.jira_key·jira_sync_status(SYNCED)·작업 DONE 저장 확인
+    2. 작업 실행 → Jira에 이슈 생성, tickets.jira_key·jira_sync_status(SYNCED)·work_status(RDY)·작업 DONE 저장 확인
     3. 같은 작업을 다시 실행 → 선점 실패(SKIPPED), 같은 접수를 다시 등록 → 같은 작업 (중복 등록 없음)
     4. DB의 jira_key를 지우고(저장 유실 흉내) 새 작업으로 다시 실행 → 새로 만들지 않고 기존 이슈에 연결(LINKED)
+       work_status도 Jira 현재 상태를 읽어 다시 채우는지 본다
        (Jira 검색에 방금 만든 이슈가 나타날 때까지 잠시 기다린 뒤에 한다)
 
 필요한 것: 루트 .env 의 JIRA_BASE_URL · JIRA_EMAIL · JIRA_API_TOKEN, pip install -r requirements.txt
@@ -57,7 +58,7 @@ def _seed(db: Session, receipt_no: str) -> Ticket:
         summary="[테스트] 생성 서비스 점검 — 확인 후 삭제", target_system="VPN", symptom="재택근무 중 VPN 접속이 실패합니다.",
         occurred_at="오늘 오전", category_code="NET", inquiry_type_id=21, urgency="P2",
         urgency_reason="개인 업무 중단", business_impact="사내 시스템 접속 불가", tried_actions="재접속\n PC 재시작",
-        group_id=3, jira_sync_status="PENDING", assign_status="PENDING", work_status="RDY",
+        group_id=3, jira_sync_status="PENDING", assign_status="PENDING", work_status=None,  # 접수(TK-04)는 null로 저장한다
     )
     db.add(ticket)
     db.commit()
@@ -99,6 +100,7 @@ def run_check(jira: JiraClient, *, stamp: str | None = None, wait_tries: int = 1
             ok &= _step(first.outcome == "CREATED", "Jira에 새 이슈가 생김 (CREATED)")
             ok &= _step(bool(ticket.jira_key) and ticket.jira_key == first.jira_key, f"tickets.jira_key 저장: {ticket.jira_key}")
             ok &= _step(ticket.jira_sync_status == "SYNCED", f"jira_sync_status = {ticket.jira_sync_status}")
+            ok &= _step(ticket.work_status == "RDY", f"work_status = {ticket.work_status} (Jira 생성 직후 RDY)")
             ok &= _step((job.status, job.attempts) == ("DONE", 1), f"작업 상태 {job.status}, 시도 {job.attempts}회")
             key = ticket.jira_key
 
@@ -113,7 +115,7 @@ def run_check(jira: JiraClient, *, stamp: str | None = None, wait_tries: int = 1
             ok &= _step(searchable, "Jira 검색에 방금 만든 이슈가 나타남 (안 나타나면 아래 단계는 건너뜀)")
             if searchable:
                 ticket = db.get(Ticket, 42)
-                ticket.jira_key, ticket.jira_sync_status = None, "PENDING"
+                ticket.jira_key, ticket.jira_sync_status, ticket.work_status = None, "PENDING", None
                 done = db.get(IntegrationJob, job.id)
                 done.idempotency_key = f"{done.idempotency_key}:done"  # 새 작업을 등록할 수 있게 비켜 둔다
                 db.commit()
@@ -122,6 +124,9 @@ def run_check(jira: JiraClient, *, stamp: str | None = None, wait_tries: int = 1
                 linked = jira_create.run_jira_create_job(db, jira, retry.id)
                 ok &= _step(linked.outcome == "LINKED" and linked.jira_key == key,
                             f"새로 만들지 않고 기존 이슈에 연결: {linked.outcome} {linked.jira_key} (기대 {key})")
+                db.expire_all()
+                ok &= _step(db.get(Ticket, 42).work_status == "RDY",
+                            f"기존 이슈 연결 시 Jira 현재 상태로 채움: work_status = {db.get(Ticket, 42).work_status} (기대 RDY)")
     finally:
         engine.dispose()
     print(f"  시험 이슈: {jira.base_url}/browse/{key or '(생성 안 됨)'} — 확인 후 Jira에서 직접 지우세요")

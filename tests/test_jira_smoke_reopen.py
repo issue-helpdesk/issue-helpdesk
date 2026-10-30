@@ -26,9 +26,9 @@ def text_of(node):
 class FakeJira:
     """상태·최종 처리 결과 필드·변경 이력만 흉내 낸다. fin_to_wip=False 면 워크플로에 FIN→WIP 전이가 없다."""
 
-    def __init__(self, *, fin_to_wip=True, mode="overwrite", clears_resolution=True):
+    def __init__(self, *, fin_to_wip=True, mode="overwrite", clears_resolution=True, keeps_history=True):
         self.status, self.value, self.history, self.mode = "RDY", None, [], mode
-        self.resolution, self.clears_resolution = None, clears_resolution
+        self.resolution, self.clears_resolution, self.keeps_history = None, clears_resolution, keeps_history
         self.reopen_posts = 0
         self.next = {**NEXT, "FIN": (["WIP"] if fin_to_wip else []) + ["CLS"]}
 
@@ -38,8 +38,9 @@ class FakeJira:
             return httpx.Response(200, json={"transitions": [
                 {"id": f"t-{t}", "to": {"id": IDS[t], "name": t}} for t in self.next[self.status]]})
         if req.method == "GET" and path.endswith("/changelog"):
+            shown = self.history if self.keeps_history else []
             return httpx.Response(200, json={"values": [{"items": [
-                {"fieldId": FINAL_RESULT_FIELD, "fromString": old, "toString": new}]} for old, new in self.history]})
+                {"fieldId": FINAL_RESULT_FIELD, "fromString": old, "toString": new}]} for old, new in shown]})
         if req.method == "POST" and path.endswith("/transitions"):
             body = json.loads(req.content)
             target = body["transition"]["id"].removeprefix("t-")
@@ -98,3 +99,9 @@ def test_ignored_new_result_is_flagged(capsys):
 def test_uncleared_resolution_is_flagged(capsys):
     assert run(FakeJira(clears_resolution=False)) is False
     assert "해결 결과·해결 일시 비워짐: False" in capsys.readouterr().out
+
+
+def test_lost_history_fails_the_check(capsys):
+    assert run(FakeJira(keeps_history=False)) is False
+    out = capsys.readouterr().out
+    assert "변경 이력에 1차 결과가 남아 있음: False" in out and "확인하지 못했습니다" in out
