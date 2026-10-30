@@ -73,6 +73,7 @@ pytest tests/test_jira_integration.py      # 실제 Jira를 부르지 않음 (�
 python backend/app/integrations/jira/smoke_check.py            # 인증 + 기존 테스트 티켓 확인 (새로 만들지 않음)
 python backend/app/integrations/jira/smoke_check.py --create   # 위 + 새 테스트 티켓 1건
 python backend/app/integrations/jira/smoke_check.py --flow     # 위 + 담당자 지정·재조회·상태 전환(RDY→WIP→FIN→CLS)까지
+python backend/app/integrations/jira/service_check.py            # 생성 서비스(services/jira_create.py)를 실제 Jira에 붙여 접수→작업→이슈 생성→jira_key 저장→중복 방지까지 (임시 DB, 시험 이슈 1건)
 python backend/app/integrations/jira/smoke_check.py --reopen   # 새 테스트 티켓으로 FIN→WIP→FIN 재처리를 해 보고 「최종 처리 결과」가 덮어써지는지 확인 (CLS까지 가지 않음)
 ```
 
