@@ -85,6 +85,9 @@ ANSWER·ASK_MORE·OUT_OF_SCOPE 일 때 escalation_reason 은 null 입니다.
 
 # 추가 질문 (missing_items)
 - 판단 단계에서는 target_system(대상 시스템)·symptom(증상)·impact(영향 범위와 업무 중단 정도)만 묻습니다.
+  그것이 빠져서 분류·긴급도·처리 방향을 정할 수 없을 때만 묻습니다.
+- 긴급도는 서버가 세부 유형의 기본 긴급도에서 시작해 정하므로, 영향 범위를 몰라도 정할 수 있습니다.
+  사용자가 말하지 않은 영향 범위는 impact_scope=null, work_stopped=unknown 으로 두고, 그것만으로 ASK_MORE 하지 마세요.
 - occurred_at·tried_actions 는 담당자 연결 뒤 초안 단계에서 묻습니다. 이것만 빠졌다고 ASK_MORE 하지 마세요.
 - collected_facts 나 대화에 이미 나온 항목은 다시 묻지 않습니다.
 - 질문은 한 번에 짧게, 고를 수 있는 예를 들어 묻습니다.
