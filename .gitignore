@@ -18,6 +18,9 @@ __pycache__/
 .env.*
 !.env.example
 
+# 인증서·개인 키 (EC2 접속 키 등)
+*.pem
+
 .venv/
 .pytest_cache/
 
