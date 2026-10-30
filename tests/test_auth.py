@@ -344,6 +344,8 @@ def test_refresh_reuse_revokes_session(client, db):
     old = client.cookies["refresh_token"]
     client.post("/api/v1/auth/refresh")
 
+    # httpx2 는 서버가 준 쿠키와 set() 으로 넣은 쿠키를 따로 보관해 새 토큰이 전송된다. 비우고 옛 토큰만 넣는다
+    client.cookies.clear()
     client.cookies.set("refresh_token", old, path="/api/v1/auth")
     reused = client.post("/api/v1/auth/refresh")
 
