@@ -268,13 +268,29 @@ def test_result_unknown_verifies_never_retries_then_escalates():
 # ---------------------------------------------------------------- 되돌림 금지 · 사번-계정 연결표
 
 
-@pytest.mark.parametrize("current, target", [("10006", "WIP"), ("10006", "RDY"), ("10007", "WIP"), ("10007", "FIN")])
-def test_finished_tickets_cannot_go_back(current, target):
+@pytest.mark.parametrize("current, target", [("10006", "RDY"), ("10007", "WIP"), ("10007", "RDY"), ("10007", "FIN")])
+def test_closed_tickets_and_fin_to_rdy_cannot_go_back(current, target):
     # 워크플로가 허용하더라도(전환 목록에 있어도) ITssue는 되돌리지 않는다
     handler, sent = _workflow(current, [{"id": "1", "to": {"id": "10005"}}, {"id": "2", "to": {"id": "10004"}}, {"id": "3", "to": {"id": "10006"}}])
     with make_client(handler) as c:
         with pytest.raises(JiraError) as e:
             c.transition_issue("ITHD-1", target)
+    assert e.value.reason == "invalid_transition" and not e.value.retryable and sent == []
+
+
+def test_fin_can_go_back_to_wip_only_for_reprocessing():
+    # 미해결 재처리(SRS JIRA-06): FIN → WIP 만 허용한다. 최종 처리 결과는 보내지 않는다.
+    handler, sent = _workflow("10006", [{"id": "5", "to": {"id": "10005"}}, {"id": "4", "to": {"id": "10007"}}])
+    with make_client(handler) as c:
+        assert c.transition_issue("ITHD-1", "WIP") == {"changed": True, "work_status": "WIP"}
+    assert sent == [{"transition": {"id": "5"}}]
+
+
+def test_fin_to_wip_still_needs_the_workflow_transition():
+    handler, sent = _workflow("10006", [{"id": "4", "to": {"id": "10007"}}])  # Jira 워크플로에 FIN → WIP 가 없는 경우
+    with make_client(handler) as c:
+        with pytest.raises(JiraError) as e:
+            c.transition_issue("ITHD-1", "WIP")
     assert e.value.reason == "invalid_transition" and not e.value.retryable and sent == []
 
 

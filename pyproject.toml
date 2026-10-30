@@ -27,6 +27,8 @@ dependencies = [
 embedding = [
     "psutil==7.2.2",
     "sentence-transformers==6.0.1",
+    # 직접 적어야 아래 저장소 지정이 적용된다 (sentence-transformers 가 쓰는 버전과 같다)
+    "torch==2.14.1",
 ]
 
 [dependency-groups]
@@ -36,3 +38,13 @@ dev = [
 ]
 [tool.poe.tasks]
 dev = "uvicorn app.main:app --app-dir backend --reload --reload-dir backend"
+
+# 리눅스(EC2)에서는 CPU용 torch 를 받는다. PyPI 의 리눅스용 torch 는 GPU(CUDA) 판이라 .venv 가 5.7GB 가 된다 (CPU 판 1.3GB).
+# Windows·macOS 는 PyPI 판이 이미 CPU 용이라 그대로 둔다.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
