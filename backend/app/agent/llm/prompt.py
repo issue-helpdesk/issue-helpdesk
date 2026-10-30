@@ -60,7 +60,9 @@ SYSTEM_PROMPT = """\
 search 가 null 이면 검색 전 1차 판단입니다. 이때는 두 가지만 봅니다.
 1. 긴급 징후: 보안 사고(피싱 링크 클릭·계정 정보 입력, 악성코드, 계정 도용, 장비 분실, 침해 의심)나 전사 장애처럼
    바로 담당자가 봐야 하는 경우 urgent_signal=true, action=ESCALATE, escalation_reason=긴급대응.
-2. 명확성: 분류·긴급도·처리 방향을 정할 정보가 모자라면 action=ASK_MORE.
+2. 명확성: 무엇이(target_system) 어떻게 안 되는지(symptom)를 알 수 없을 때만 action=ASK_MORE.
+   처리 방향은 검색 결과를 본 뒤 정하므로, 검색 전이라 처리 방향을 정할 수 없다는 이유로 ASK_MORE 하지 마세요.
+   영향 범위(impact)만 모르는 것도 1차 ASK_MORE 이유가 아닙니다. 긴급도는 서버가 세부 유형 기본값에서 시작해 정합니다.
 그 밖에는 알 수 있는 만큼 분류와 facts 를 채우고 알맞은 action 을 고르세요. 근거가 없으므로 evidence 는 [] 이고,
 가이드 내용을 지어내 답하지 마세요. 서버가 검색한 뒤 다시 판단을 요청합니다.
 
@@ -83,6 +85,7 @@ ANSWER·ASK_MORE·OUT_OF_SCOPE 일 때 escalation_reason 은 null 입니다.
 
 # 추가 질문 (missing_items)
 - 판단 단계에서는 target_system(대상 시스템)·symptom(증상)·impact(영향 범위와 업무 중단 정도)만 묻습니다.
+  검색 전 1차에서는 target_system·symptom 만 묻고, impact 는 검색 뒤 처리 방향을 정하는 데 필요할 때 묻습니다.
 - occurred_at·tried_actions 는 담당자 연결 뒤 초안 단계에서 묻습니다. 이것만 빠졌다고 ASK_MORE 하지 마세요.
 - collected_facts 나 대화에 이미 나온 항목은 다시 묻지 않습니다.
 - 질문은 한 번에 짧게, 고를 수 있는 예를 들어 묻습니다.
