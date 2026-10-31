@@ -9,7 +9,9 @@ RUN npm ci
 
 # VITE_ 값은 빌드할 때 코드에 박힌다. 바꾸면 다시 빌드해야 한다
 ARG VITE_API_BASE_URL=/api/v1
-ARG VITE_USE_MOCK=false
+# backend API 연결 작업 다 끝나면 false. 아직 일부분만 이루어져있어 true
+ARG VITE_USE_MOCK=true
+# 로그인·인증은 연결되어 있어서 테스트할 수 있도록.
 ARG VITE_USE_MOCK_AUTH=false
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_USE_MOCK=$VITE_USE_MOCK \
