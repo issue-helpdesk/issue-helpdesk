@@ -1,0 +1,24 @@
+# 프론트 이미지: Vite 로 빌드한 정적 파일을 nginx 가 내보내고, /api 는 백엔드로 넘긴다.
+#   docker build -t issue-helpdesk-web frontend
+
+FROM node:24-alpine AS build
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# VITE_ 값은 빌드할 때 코드에 박힌다. 바꾸면 다시 빌드해야 한다
+ARG VITE_API_BASE_URL=/api/v1
+ARG VITE_USE_MOCK=false
+ARG VITE_USE_MOCK_AUTH=false
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
+    VITE_USE_MOCK=$VITE_USE_MOCK \
+    VITE_USE_MOCK_AUTH=$VITE_USE_MOCK_AUTH
+
+COPY . .
+RUN npm run build
+
+FROM nginx:1.29-alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80

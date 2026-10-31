@@ -1,0 +1,29 @@
+# 백엔드 이미지 빌드 컨텍스트(저장소 루트)에서 뺄 것.
+
+# 비밀 값
+.env
+.env.*
+!.env.example
+*.pem
+
+# 로컬 환경·캐시
+.venv/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.DS_Store
+.git/
+
+# 프론트는 frontend/Dockerfile 에서 따로 빌드
+frontend/
+
+# 서버 실행에 쓰지 않는 자료 (문서·데이터·도구·테스트)
+dataset/
+design/
+docs/
+tests/
+tools/
+참고/
+
+# 서버가 만드는 파일. 볼륨으로 붙인다
+storage/
