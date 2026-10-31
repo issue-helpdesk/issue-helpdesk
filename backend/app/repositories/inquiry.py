@@ -10,6 +10,7 @@ from app.models import (
     ChatSession,
     DocumentVersion,
     Inquiry,
+    InquiryAssessment,
     KnowledgeDocument,
     LegacyInquiry,
     Message,
@@ -124,6 +125,12 @@ class InquiryRepository:
 
     def messages(self, session_id: int) -> list[Message]:
         return list(self.db.scalars(select(Message).where(Message.session_id == session_id).order_by(Message.seq)))
+
+    def assessments(self, inquiry_id: int) -> list[InquiryAssessment]:
+        """이 문의의 판단 이력. 오래된 것부터."""
+        return list(self.db.scalars(
+            select(InquiryAssessment).where(InquiryAssessment.inquiry_id == inquiry_id).order_by(InquiryAssessment.id)
+        ))
 
     def sessions(self, inquiry_id: int) -> list[ChatSession]:
         return list(self.db.scalars(

@@ -4,6 +4,8 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from app.agent.flow import FlowResult
+from app.agent.sensitive import BLOCKED_NOTICE, mask_secrets
 from app.core.error_codes import ErrorCode
 from app.core.errors import AppError, field_error
 from app.core.permissions import visible_scopes
@@ -12,15 +14,18 @@ from app.models import (
     Category,
     ChatSession,
     Inquiry,
+    InquiryAssessment,
     InquiryType,
     Message,
     SupportGroup,
     User,
 )
 from app.repositories.inquiry import InquiryRepositoryDep
+from app.repositories.reference import ReferenceRepositoryDep
 from app.schemas.common import ItemList, Page, parse_sort
 from app.schemas.inquiry import (
     AiTurn,
+    AssessmentView,
     CategoryRef,
     GroupRef,
     Inquiry as InquiryDetail,
@@ -40,21 +45,26 @@ from app.utils import datetime_utils
 logger = logging.getLogger(__name__)
 
 
-
 class InquiryService:
-    def __init__(self, db: DbSession, inquiries: InquiryRepositoryDep, ai: AiResponderDep) -> None:
+    def __init__(
+        self, db: DbSession, inquiries: InquiryRepositoryDep, references: ReferenceRepositoryDep, ai: AiResponderDep,
+    ) -> None:
         self.db = db
         self.inquiries = inquiries
+        self.references = references
         self.ai = ai
 
     def start(self, content: str, user: User) -> AiTurn:
         inquiry = self.inquiries.add(Inquiry(user_id=user.id, status="IN_PROGRESS", updated_at=datetime_utils.now()))
         session = self.inquiries.add(ChatSession(inquiry_id=inquiry.id))
-        user_message = self.inquiries.add(Message(session_id=session.id, seq=1, sender="USER", content=content))
+        user_message = self.inquiries.add(Message(
+            session_id=session.id, seq=1, sender="USER", content=mask_secrets(content).text,
+        ))
         self.db.commit()
 
-        ai_message = self.reply(inquiry, session, unavailable_error("INQUIRY_ID", "저장된 문의", inquiry.id))
-        return self.ai_turn(inquiry, [user_message, ai_message])
+        ai_message, assessment = self.reply(inquiry, session, user,
+                                            unavailable_error("INQUIRY_ID", "저장된 문의", inquiry.id))
+        return self.ai_turn(inquiry, [user_message, ai_message], assessment)
 
     def send_message(self, inquiry_id: int, content: str, user: User) -> AiTurn:
         inquiry = self.inquiries.get_for_update(inquiry_id)
@@ -69,31 +79,64 @@ class InquiryService:
             ])
 
         user_message = self.inquiries.add(Message(
-            session_id=session.id, seq=self.inquiries.next_seq(session.id), sender="USER", content=content,
+            session_id=session.id, seq=self.inquiries.next_seq(session.id), sender="USER",
+            content=mask_secrets(content).text,
         ))
         inquiry.updated_at = datetime_utils.now()
         self.db.commit()
 
-        ai_message = self.reply(inquiry, session, unavailable_error("MESSAGE_ID", "저장된 메시지", user_message.id))
-        return self.ai_turn(inquiry, [user_message, ai_message])
+        ai_message, assessment = self.reply(inquiry, session, user,
+                                            unavailable_error("MESSAGE_ID", "저장된 메시지", user_message.id))
+        return self.ai_turn(inquiry, [user_message, ai_message], assessment)
 
-    def reply(self, inquiry: Inquiry, session: ChatSession, unavailable: AppError) -> Message:
+    def reply(
+        self, inquiry: Inquiry, session: ChatSession, user: User, unavailable: AppError,
+    ) -> tuple[Message, InquiryAssessment]:
+        """판단 흐름을 돌려 판단 이력·AI 메시지·문의의 현재 판단값을 저장한다 (IQ-01 처리 2·3).
+
+        모델 오류·외부 전송 제한·근거 부족은 흐름이 담당자 연결 제안(ESCALATE)으로 돌려준다.
+        그 밖의 예외(검색 실패, 모델 설정 없음 등)만 503 으로 응답한다.
+        """
         try:
-            result = self.ai.respond(inquiry, self.inquiries.messages(session.id))
+            result = self.ai.respond(inquiry, user, self.inquiries.messages(session.id))
         except Exception:
             logger.exception("AI 처리 실패 inquiry_id=%s", inquiry.id)
             raise unavailable
 
         self.inquiries.get_for_update(inquiry.id)
-        message = self.inquiries.add(Message(
-            session_id=session.id, seq=self.inquiries.next_seq(session.id), sender="AI", content=result.content,
+        out = result.output
+        inquiry_type = self.references.get_inquiry_type_by_code(out.inquiry_type_code) if out.inquiry_type_code else None
+        assessment = self.inquiries.add(InquiryAssessment(
+            inquiry_id=inquiry.id,
+            facts=out.facts.model_dump(mode="json"),
+            missing_items=out.missing_items,
+            urgent_signal=out.urgent_signal,
+            category_code=out.category_code,
+            inquiry_type_id=inquiry_type.id if inquiry_type else None,
+            urgency=result.urgency,
+            urgency_reason=urgency_reason(result),
+            action=out.action,
+            ai_output=result.ai_output,
+            override_reasons=list(result.override_reasons),
         ))
-        inquiry.action = result.action
+        message = self.inquiries.add(Message(
+            session_id=session.id, seq=self.inquiries.next_seq(session.id), sender="AI",
+            content=BLOCKED_NOTICE if result.failure == "ALL_BLOCKED" else out.reply,
+        ))
+        inquiry.category_code = assessment.category_code
+        inquiry.inquiry_type_id = assessment.inquiry_type_id
+        inquiry.urgency = assessment.urgency
+        inquiry.action = assessment.action
+        # 세부 유형의 기본 그룹. 범위 밖이거나 세부 유형을 모르면 서비스데스크가 확인한다 (09 T08, 03 TK-09)
+        if out.action == "OUT_OF_SCOPE" or inquiry_type is None:
+            inquiry.recommended_group_id = self.references.triage_group_id()
+        else:
+            inquiry.recommended_group_id = inquiry_type.default_group_id
         if inquiry.title is None:
-            inquiry.title = result.title
+            inquiry.title = out.title
         inquiry.updated_at = datetime_utils.now()
         self.db.commit()
-        return message
+        return message, assessment
 
     def list_inquiries(self, query: InquiryListQuery, viewer: User) -> Page[InquirySummary]:
         if query.user_id is not None and viewer.service_role != "ADMIN":
@@ -165,11 +208,11 @@ class InquiryService:
         ticket = self.inquiries.ticket(inquiry.id)
         return bool(ticket and ticket.group_id and self.inquiries.is_active_group_member(viewer.id, ticket.group_id))
 
-    def ai_turn(self, inquiry: Inquiry, messages: list[Message]) -> AiTurn:
+    def ai_turn(self, inquiry: Inquiry, messages: list[Message], assessment: InquiryAssessment) -> AiTurn:
         return AiTurn(
             inquiry=self.to_detail(inquiry),
             messages=[to_message_view(m) for m in messages],
-            assessment=None,
+            assessment=AssessmentView.model_validate(assessment),
             next_actions=next_actions(inquiry),
         )
 
@@ -218,6 +261,12 @@ def to_message_view(message: Message, sources: list[MessageSourceView] | None = 
         sources=sources or [],
         created_at=message.created_at,
     )
+
+
+def urgency_reason(result: FlowResult) -> str | None:
+    """긴급도를 서버 규칙이 정했으면 그 이유, 아니면 AI 가 든 이유."""
+    rules = [o["reason"] for o in result.override_reasons if o["field"] == "urgency"]
+    return " ".join(rules or result.output.rationale.urgency_reasons) or None
 
 
 def unavailable_error(reason: str, message: str, value: int) -> AppError:

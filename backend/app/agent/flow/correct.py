@@ -103,7 +103,7 @@ def correct(out: AIOutput, inp: AIInput, *, second: bool, sent: Filtered | None,
             d['inquiry_type_code'] = None
 
     # 6. 이미 답한 항목과 초안 단계 항목은 묻지 않는다
-    known = _known_items(inp.collected_facts)
+    known = known_items(inp.collected_facts)
     d['missing_items'] = list(dict.fromkeys(m for m in d['missing_items'] if m not in ASKED_LATER and m not in known))
 
     # 7. 처리 방향별 필수 값 (08 2.5). ESCALATE 사유는 아래 처리 방향 보정에서 채운다
@@ -148,8 +148,9 @@ def correct(out: AIOutput, inp: AIInput, *, second: bool, sent: Filtered | None,
     return Corrected(AIOutput.model_validate(d), tuple(o))
 
 
-def _known_items(facts: Facts | None) -> set[str]:
-    """collected_facts 에 이미 값이 있는 추가 질문 항목. impact 는 영향 범위와 업무 중단 정도를 둘 다 알 때."""
+def known_items(facts: Facts | None) -> set[str]:
+    """facts 에 이미 값이 있는 추가 질문 항목. impact 는 영향 범위와 업무 중단 정도를 둘 다 알 때.
+    서버가 답을 못 얻은 추가 질문 수(09 4.2)를 셀 때도 쓴다."""
     if facts is None:
         return set()
     known = {k for k in ('target_system', 'symptom') if getattr(facts, k)}
