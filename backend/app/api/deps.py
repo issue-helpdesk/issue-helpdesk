@@ -29,7 +29,14 @@ def require_admin(auth: Annotated[AuthContext, Depends(get_current_auth)]) -> Au
     return auth
 
 
+def require_agent(auth: Annotated[AuthContext, Depends(get_current_auth)]) -> AuthContext:
+    if auth.user.service_role not in ("AGENT", "ADMIN"):
+        raise AppError(ErrorCode.FORBIDDEN)
+    return auth
+
+
 CurrentAuth = Annotated[AuthContext, Depends(get_current_auth)]
 CurrentAuthAllowTempPassword = Annotated[AuthContext, Depends(get_auth_allow_temp_password)]
 AdminAuth = Annotated[AuthContext, Depends(require_admin)]
+AgentAuth = Annotated[AuthContext, Depends(require_agent)]
 
