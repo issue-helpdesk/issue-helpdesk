@@ -80,6 +80,10 @@ class UserRepository:
         )
         return [tuple(row) for row in rows], total
 
+    def all_names(self) -> list[str]:
+        """직원 이름 전체. AI 에 보내기 전 이름을 치환할 때 쓴다 (docs/10 3.1)."""
+        return list(self.db.scalars(select(User.name).distinct()))
+
     def get_department(self, department_id: int) -> Department | None:
         return self.db.get(Department, department_id)
 

@@ -1,10 +1,22 @@
-"""문의·상담 API (IQ) — SQLite 메모리 DB. AI 는 임시 응답(PlaceholderAiResponder)을 쓴다."""
+"""문의·상담 API (IQ) — SQLite 메모리 DB. AI 는 Mock 모델과 가짜 검색으로 판단 흐름을 그대로 돌린다."""
+import json
+from dataclasses import replace
 from datetime import datetime, timezone
 
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import Text, TypeDecorator, create_engine, select
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.sqlite.pysqlite import SQLiteDialect_pysqlite
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
+
+from app.agent.llm import LLMError, MockAdapter
+from app.agent.sensitive import BLOCKED_NOTICE
+from app.main import app
+from app.rag.search import SearchResponse
+from app.rag.search.runtime import get_search_fn
+from app.services.ai_responder import ask_more_counts, build_ai_input, get_llm_port_factory
 
 from app.models import (
     Base,
@@ -12,6 +24,8 @@ from app.models import (
     ChatSession,
     DocumentVersion,
     Inquiry,
+    InquiryAssessment,
+    InquiryType,
     KnowledgeDocument,
     LegacyInquiry,
     Message,
@@ -21,24 +35,108 @@ from app.models import (
     Ticket,
     TicketDraft,
 )
-from app.services.ai_responder import PlaceholderAiResponder
 from app.utils import datetime_utils
 from test_auth import TABLES, add_user, bearer, client, error_code, login  # noqa: F401 (픽스처)
+from test_flow_correct import DOC, QUOTE
 
 INQUIRIES = "/api/v1/inquiries"
 INQUIRY_TABLES = TABLES + ["categories", "inquiry_types", "inquiries", "chat_sessions", "messages",
                            "ticket_drafts", "tickets", "knowledge_documents", "document_versions",
-                           "legacy_inquiries", "message_sources"]
+                           "legacy_inquiries", "message_sources", "inquiry_assessments"]
 VPN = "어제 업데이트 이후로 VPN 접속이 안 돼요.\n재택 중이라 업무를 못 하고 있습니다."
+FACTS = {"summary": "업데이트 이후 VPN 접속 불가", "target_system": "사내 VPN", "symptom": None, "occurred_at": "어제",
+         "impact_scope": "PERSONAL", "work_stopped": "full", "has_workaround": None, "time_constraint": None,
+         "business_impact": None, "security_suspected": False, "tried_actions": []}
+
+
+# ---------------------------------------------------------------- SQLite 에서 Postgres 전용 칸 쓰기
+
+class ListAsJson(TypeDecorator):
+    """text[] 칸을 SQLite 에서는 JSON 글로 저장한다."""
+    impl = Text
+    cache_ok = True
+
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+    def process_bind_param(self, value, dialect):
+        return None if value is None else json.dumps(value, ensure_ascii=False)
+
+    def process_result_value(self, value, dialect):
+        return None if value is None else json.loads(value)
+
+
+SQLiteDialect_pysqlite.colspecs = {**SQLiteDialect_pysqlite.colspecs, ARRAY: ListAsJson}
+
+
+@compiles(ARRAY, "sqlite")
+def array_as_text(type_, compiler, **kw):
+    return "TEXT"
+
+
+def create_sqlite_tables(engine, names):
+    """Postgres 전용 기본값('[]'::jsonb)은 테이블을 만드는 동안만 빼고 되돌린다."""
+    tables = [Base.metadata.tables[name] for name in names]
+    removed = [(c, c.server_default) for t in tables for c in t.columns
+               if "::" in str(getattr(c.server_default, "arg", ""))]
+    for column, _ in removed:
+        column.server_default = None
+    try:
+        Base.metadata.create_all(engine, tables=tables)
+    finally:
+        for column, default in removed:
+            column.server_default = default
 
 
 @pytest.fixture
 def db():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine, tables=[Base.metadata.tables[t] for t in INQUIRY_TABLES])
+    create_sqlite_tables(engine, INQUIRY_TABLES)
     with Session(engine) as session:
         yield session
     engine.dispose()
+
+
+# ---------------------------------------------------------------- Mock 모델·가짜 검색
+
+def ai_reply(action="ASK_MORE", **fields):
+    """Mock 모델이 돌려줄 AI 출력 (docs/08 2장)."""
+    output = {"schema_version": "1.0", "action": action, "urgent_signal": False, "title": "업데이트 이후 VPN 접속 불가",
+              "category_code": "NET", "inquiry_type_code": None, "request_kind": "INCIDENT", "urgency_suggested": "P3",
+              "facts": FACTS, "rationale": {"category": "", "urgency_reasons": ["재택 중 VPN 불가"], "action": ""},
+              "reply": "접속할 때 화면에 나오는 오류 메시지가 있나요?", "evidence": [],
+              "missing_items": ["symptom"] if action == "ASK_MORE" else [], "escalation_reason": None,
+              "confidence": 0.8}
+    return json.dumps(output | fields, ensure_ascii=False)
+
+
+class FakeAi:
+    """요청마다 새 MockAdapter 를 만든다. replies 는 한 요청 안에서 1차·2차 판단 순서로 쓴다."""
+
+    def __init__(self):
+        self.replies = [ai_reply()]
+        self.broken = False
+        self.adapters = []
+        self.searches = []
+        self.documents = ()
+
+    def port(self):
+        if self.broken:
+            raise RuntimeError("model down")
+        self.adapters.append(MockAdapter(self.replies))
+        return self.adapters[-1]
+
+    def search(self, request):
+        self.searches.append(request)
+        return SearchResponse(query=request.query, model="test", threshold=0.6, documents=self.documents)
+
+
+@pytest.fixture(autouse=True)
+def ai(client):
+    fake = FakeAi()
+    app.dependency_overrides[get_llm_port_factory] = lambda: fake.port
+    app.dependency_overrides[get_search_fn] = lambda: fake.search
+    return fake
 
 
 @pytest.fixture
@@ -78,11 +176,12 @@ def test_start_inquiry_saves_inquiry_session_and_messages(client, db, owner, hea
     inquiry = body["inquiry"]
     assert inquiry["user"] == {"id": owner.id, "employeeNo": "E0001", "name": "김민지"}
     assert (inquiry["status"], inquiry["displayStatus"], inquiry["action"]) == ("IN_PROGRESS", "in_progress", "ASK_MORE")
-    assert inquiry["title"] == "어제 업데이트 이후로 VPN 접속이 안 돼요."
+    assert inquiry["title"] == "업데이트 이후 VPN 접속 불가"
     assert [(m["seq"], m["sender"]) for m in body["messages"]] == [(1, "USER"), (2, "AI")]
     assert body["messages"][0]["content"] == VPN
     assert all(m["sessionId"] == inquiry["currentSessionId"] for m in body["messages"])
-    assert body["assessment"] is None
+    assert body["messages"][1]["content"] == "접속할 때 화면에 나오는 오류 메시지가 있나요?"
+    assert body["assessment"]["action"] == "ASK_MORE"
     assert body["nextActions"] == ["REPLY"]
 
     saved = db.scalars(select(Message).order_by(Message.seq)).all()
@@ -111,11 +210,8 @@ def test_start_inquiry_requires_idempotency_key(client, headers):
     assert res.json()["error"]["details"][0]["field"] == "Idempotency-Key"
 
 
-def test_start_inquiry_keeps_user_message_when_ai_fails(client, db, headers, monkeypatch):
-    def broken(self, inquiry, history):
-        raise RuntimeError("model down")
-
-    monkeypatch.setattr(PlaceholderAiResponder, "respond", broken)
+def test_start_inquiry_keeps_user_message_when_ai_fails(client, db, headers, ai):
+    ai.broken = True
 
     res = start(client, headers)
 
@@ -128,6 +224,186 @@ def test_start_inquiry_keeps_user_message_when_ai_fails(client, db, headers, mon
 
 def test_start_inquiry_requires_login(client):
     assert client.post(INQUIRIES, json={"content": VPN}, headers={"Idempotency-Key": "k"}).status_code == 401
+
+
+# ---------------------------------------------------------------- IQ-01·08 AI 판단 흐름
+
+@pytest.fixture
+def taxonomy(db):
+    """분류 NET, 세부 유형 NET-02(기본 그룹 네트워크팀, 기본 긴급도 P3), 서비스데스크."""
+    net, desk = SupportGroup(name="네트워크팀"), SupportGroup(name="서비스데스크", is_triage=True)
+    db.add_all([Category(code="NET", name="VPN·네트워크"), net, desk])
+    db.flush()
+    vpn = InquiryType(code="NET-02", category_code="NET", name="개인 VPN 접속 장애", request_kind="INCIDENT",
+                      default_urgency="P3", default_group_id=net.id)
+    db.add(vpn)
+    db.commit()
+    return net, desk, vpn
+
+
+ANSWER = ai_reply("ANSWER", inquiry_type_code="NET-02", reply="VPN 클라이언트를 업데이트해 보세요.",
+                  evidence=[{"kind": "DOCUMENT", "source_id": DOC.unit_key, "quote": QUOTE}])
+
+
+def assessments(db):
+    return db.scalars(select(InquiryAssessment).order_by(InquiryAssessment.id)).all()
+
+
+def test_answer_after_search(client, db, headers, ai, taxonomy):
+    net, _, vpn = taxonomy
+    ai.replies = [ai_reply("ANSWER", inquiry_type_code="NET-02"), ANSWER]
+    ai.documents = (DOC,)
+
+    body = start(client, headers).json()
+
+    assert len(ai.searches) == 1 and ai.searches[0].service_role == "EMPLOYEE"
+    assert body["messages"][1]["content"] == "VPN 클라이언트를 업데이트해 보세요."
+    inquiry = body["inquiry"]
+    assert (inquiry["action"], inquiry["displayStatus"]) == ("ANSWER", "unconfirmed")
+    assert (inquiry["categoryCode"], inquiry["inquiryTypeId"], inquiry["recommendedGroupId"]) == ("NET", vpn.id, net.id)
+    assert body["nextActions"] == ["CONFIRM_RESOLUTION"]
+
+    (saved,) = assessments(db)
+    assert (saved.action, saved.urgency, saved.inquiry_type_id, saved.missing_items) == ("ANSWER", "P3", vpn.id, [])
+    assert saved.urgency_reason == "재택 중 VPN 불가"         # 규칙이 긴급도를 바꾸지 않았으면 AI 가 든 이유
+    assert saved.facts["summary"] == "업데이트 이후 VPN 접속 불가"
+    assert saved.ai_output["action"] == "ANSWER"
+    assert body["assessment"] == {"missingItems": [], "urgentSignal": False, "categoryCode": "NET",
+                                  "inquiryTypeId": vpn.id, "urgency": saved.urgency,
+                                  "urgencyReason": saved.urgency_reason, "action": "ANSWER"}
+
+
+def test_urgency_rule_reason_is_saved(client, db, headers, ai, taxonomy):
+    no_workaround = {**FACTS, "has_workaround": False}
+    ai.replies = [ai_reply(inquiry_type_code="NET-02", facts=no_workaround)]
+
+    body = start(client, headers).json()
+
+    assert body["assessment"]["urgency"] == "P2"
+    assert body["assessment"]["urgencyReason"] == "개인 업무 전면 중단, 대체 방법 없음"
+
+
+def test_answer_without_evidence_offers_handoff(client, db, headers, ai, taxonomy):
+    ai.replies = [ai_reply("ANSWER"), ai_reply("ANSWER")]
+
+    body = start(client, headers).json()
+
+    assert body["inquiry"]["action"] == "ESCALATE"
+    assert body["nextActions"] == ["DECIDE_HANDOFF"]
+    assert [o["rule"] for o in assessments(db)[0].override_reasons if o["field"] == "action"] == ["NO_EVIDENCE"]
+
+
+def test_urgent_signal_skips_search(client, db, headers, ai, taxonomy):
+    ai.replies = [ai_reply("ANSWER", urgent_signal=True)]
+
+    body = start(client, headers).json()
+
+    assert ai.searches == []
+    assert (body["inquiry"]["action"], body["assessment"]["urgentSignal"]) == ("ESCALATE", True)
+
+
+def test_out_of_scope_recommends_service_desk(client, db, headers, ai, taxonomy):
+    _, desk, _ = taxonomy
+    ai.replies = [ai_reply("OUT_OF_SCOPE", category_code=None), ai_reply("OUT_OF_SCOPE", category_code=None)]
+
+    body = start(client, headers).json()
+
+    assert (body["inquiry"]["action"], body["inquiry"]["recommendedGroupId"]) == ("OUT_OF_SCOPE", desk.id)
+
+
+def test_model_error_offers_handoff_instead_of_failing(client, db, headers, ai, taxonomy):
+    ai.replies = [LLMError("TIMEOUT")]
+
+    res = start(client, headers)
+
+    assert res.status_code == 201
+    assert res.json()["inquiry"]["action"] == "ESCALATE"
+    assert assessments(db)[0].ai_output is None
+
+
+def test_all_blocked_evidence_shows_notice(client, db, headers, ai, taxonomy):
+    ai.replies = [ai_reply("ANSWER"), ANSWER]
+    ai.documents = (replace(DOC, transfer_policy="BLOCKED"),)
+
+    body = start(client, headers).json()
+
+    assert body["messages"][1]["content"] == BLOCKED_NOTICE
+    assert body["inquiry"]["action"] == "ESCALATE"
+    assert len(ai.adapters[0].requests) == 1          # 2차는 Claude 를 부르지 않는다
+
+
+def test_unanswered_questions_reach_limit(client, db, headers, ai, taxonomy):
+    """같은 항목을 두 번 물었는데 답을 못 얻으면 세 번째 판단에서 담당자 연결로 바꾼다 (09 4.2)."""
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    send(client, headers, inquiry_id, content="잘 모르겠어요", key="k-2")
+    send(client, headers, inquiry_id, content="모르겠어요", key="k-3")
+
+    body = send(client, headers, inquiry_id, content="몰라요", key="k-4").json()
+
+    assert body["inquiry"]["action"] == "ESCALATE"
+    assert "ASK_MORE_UNANSWERED" in [o["rule"] for o in assessments(db)[-1].override_reasons]
+
+
+def test_history_and_collected_facts_are_sent(client, db, headers, ai, taxonomy):
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+
+    send(client, headers, inquiry_id, content="인증 서버 오류가 나요")
+
+    sent = json.loads(ai.adapters[-1].requests[0][1])
+    assert sent["message"] == "인증 서버 오류가 나요"
+    assert [m["role"] for m in sent["history"]] == ["user", "assistant"]
+    assert sent["collected_facts"]["target_system"] == "사내 VPN"
+    assert sent["ask_more_count"] == 1
+
+
+def test_secrets_are_masked_before_saving(client, db, headers, ai):
+    body = start(client, headers, content="비밀번호는 Abc123!@ 인데 VPN 로그인이 안 돼요").json()
+
+    saved = db.scalar(select(Message.content).where(Message.seq == 1))
+    assert "Abc123!@" not in saved
+    assert body["messages"][0]["content"] == saved
+    assert "Abc123!@" not in ai.adapters[0].requests[0][1]
+
+
+def assessment(action, missing=(), urgent=False, urgency=None, **facts):
+    return InquiryAssessment(action=action, missing_items=list(missing), urgent_signal=urgent, urgency=urgency,
+                             facts=FACTS | facts)
+
+
+def test_ask_more_counts():
+    asked_symptom = assessment("ASK_MORE", ["symptom"])
+
+    assert ask_more_counts([]) == (0, 0)
+    assert ask_more_counts([asked_symptom]) == (1, 0)                                   # 아직 답을 기다림
+    assert ask_more_counts([asked_symptom, assessment("ASK_MORE", ["symptom"])]) == (2, 1)
+    assert ask_more_counts([asked_symptom, assessment("ANSWER", symptom="인증 오류")]) == (1, 0)
+
+
+def test_build_ai_input_uses_prior_assessments(db, owner):
+    inquiry = Inquiry(id=7, user_id=owner.id, status="IN_PROGRESS")
+    history = [Message(session_id=3, seq=1, sender="USER", content="VPN 안 돼요"),
+               Message(session_id=3, seq=2, sender="AI", content="오류가 나오나요?"),
+               Message(session_id=3, seq=3, sender="USER", content="인증 오류요")]
+    prior = [assessment("ASK_MORE", ["symptom"], urgent=True, urgency="P2"),
+             assessment("ASK_MORE", ["symptom"], urgency="P3", target_system="메일")]
+
+    inp = build_ai_input(inquiry, owner, "IT운영팀", history, prior)
+
+    assert (inp.session_id, inp.inquiry_id, inp.message) == ("3", "7", "인증 오류요")
+    assert [m.role for m in inp.history] == ["user", "assistant"]
+    assert inp.collected_facts.target_system == "메일"
+    assert (inp.ask_more_count, inp.ask_more_unanswered_count) == (2, 1)
+    assert (inp.prior_urgent_signal, inp.prior_urgency) == (True, "P2")
+    assert (inp.user_context.employee_no, inp.user_context.department_name) == ("E0001", "IT운영팀")
+
+
+def test_history_limit_from_env(db, owner, monkeypatch):
+    monkeypatch.setenv("AI_HISTORY_LIMIT", "2")
+    history = [Message(session_id=3, seq=i, sender="USER" if i % 2 else "AI", content=f"글 {i}") for i in range(1, 6)]
+
+    inp = build_ai_input(Inquiry(id=7, user_id=owner.id, status="IN_PROGRESS"), owner, None, history, [])
+
+    assert [m.content for m in inp.history] == ["글 3", "글 4"]       # 이번 글(글 5) 앞의 최근 2개
 
 
 # ---------------------------------------------------------------- IQ-03 문의 상세
@@ -262,13 +538,9 @@ def test_send_message_outside_question_stage(client, db, headers, status, action
     assert db.scalar(select(Message).where(Message.seq == 3)) is None
 
 
-def test_send_message_keeps_user_message_when_ai_fails(client, db, headers, monkeypatch):
+def test_send_message_keeps_user_message_when_ai_fails(client, db, headers, ai):
     inquiry_id = start(client, headers).json()["inquiry"]["id"]
-
-    def broken(self, inquiry, history):
-        raise RuntimeError("model down")
-
-    monkeypatch.setattr(PlaceholderAiResponder, "respond", broken)
+    ai.broken = True
 
     res = send(client, headers, inquiry_id)
 

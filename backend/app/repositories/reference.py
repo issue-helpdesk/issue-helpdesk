@@ -28,6 +28,17 @@ class ReferenceRepository:
             query = query.where(InquiryType.category_code.in_(category_codes))
         return [tuple(row) for row in self.db.execute(query)]
 
+    def get_inquiry_type_by_code(self, code: str) -> InquiryType | None:
+        return self.db.scalar(select(InquiryType).where(InquiryType.code == code))
+
+    def triage_group_id(self) -> int | None:
+        """서비스데스크(확인 그룹). 활성 그룹 중 is_triage 인 것."""
+        return self.db.scalar(
+            select(SupportGroup.id)
+            .where(SupportGroup.is_triage.is_(True), SupportGroup.is_active.is_(True))
+            .order_by(SupportGroup.id)
+        )
+
     def list_support_groups(self, is_active: bool) -> list[SupportGroup]:
         return list(self.db.scalars(
             select(SupportGroup).where(SupportGroup.is_active.is_(is_active)).order_by(SupportGroup.name, SupportGroup.id)
