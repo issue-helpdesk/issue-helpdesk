@@ -282,6 +282,7 @@ def test_confirm_creates_ticket(client, db, owner, headers, answered, draft):
     assert (session.ended_at is not None, session.end_reason) == (True, "HANDED_OFF")
     job = db.scalar(select(IntegrationJob))
     assert (job.job_type, job.status, job.idempotency_key) == ("JIRA_CREATE", "PENDING", f"create:{ticket.receipt_no}")
+    assert (job.payload["receiptNo"], job.payload["groupId"]) == (ticket.receipt_no, ticket.group_id)   # 등록 시점 입력
     log = db.scalar(select(AssignmentLog))
     assert (log.event, log.group_id, log.rule_id, log.actor_id) == ("RECOMMEND", ticket.group_id, None, None)
     audit = db.scalar(select(AuditLog))
@@ -483,6 +484,15 @@ def test_list_filters(client, admin, staff, params, expected):
     params = {k: staff[v].id if v in ("net", "agent") else v for k, v in params.items()}
 
     assert ids(listed(client, admin, **params)) == [staff[name].id for name in expected]
+
+
+def test_failed_transition_needs_admin(client, db, admin, staff):
+    staff["mine"].transition_status = "NEEDS_ADMIN"
+    db.commit()
+
+    assert set(ids(listed(client, admin, needsAdmin="true"))) == {staff["mine"].id, staff["others"].id}
+    item = next(i for i in listed(client, admin).json()["items"] if i["id"] == staff["mine"].id)
+    assert (item["transitionStatus"], item["needsAdmin"]) == ("NEEDS_ADMIN", True)
 
 
 def test_list_filters_by_category_and_urgency(client, db, owner, admin, staff):

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, Identity, Integer, Text, UniqueConstraint, func, text
+from sqlalchemy import CheckConstraint, ForeignKey, Identity, Index, Integer, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -61,6 +61,9 @@ class ChatSession(Base):
     __tablename__ = "chat_sessions"
     __table_args__ = (
         CheckConstraint("end_reason in ('USER_END', 'NO_RESPONSE', 'HANDED_OFF')", name="end_reason"),
+        # 문의당 열린 세션은 하나 (06 v0.8)
+        Index("uq_chat_sessions_one_open", "inquiry_id", unique=True,
+              postgresql_where=text("ended_at is null"), sqlite_where=text("ended_at is null")),
     )
 
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)

@@ -285,9 +285,9 @@ class TicketService:
                 jira_sync_status=ticket.jira_sync_status,
                 assign_status=ticket.assign_status,
                 work_status=ticket.work_status,
-                requested_work_status=None,
-                transition_status="IDLE",
-                work_status_confirmed_at=None,
+                requested_work_status=ticket.requested_work_status,
+                transition_status=ticket.transition_status,
+                work_status_confirmed_at=ticket.work_status_confirmed_at,
                 needs_admin=needs_admin(ticket),
                 display_status=ticket_display_status(ticket),
                 created_at=ticket.created_at,
@@ -395,11 +395,10 @@ class TicketService:
             jira_sync_status=ticket.jira_sync_status,
             assign_status=ticket.assign_status,
             work_status=ticket.work_status,
-            # 상태 변경 요청 칸(docs/06 v0.8)은 아직 테이블에 없어 최초 접수 값으로 준다
-            requested_work_status=None,
-            transition_status="IDLE",
-            work_status_confirmed_at=None,
-            resolution_confirmed_at=None,
+            requested_work_status=ticket.requested_work_status,
+            transition_status=ticket.transition_status,
+            work_status_confirmed_at=ticket.work_status_confirmed_at,
+            resolution_confirmed_at=ticket.resolution_confirmed_at,
             needs_admin=needs_admin(ticket),
             display_status=display_status(inquiry, ticket),
             resolution_note=ticket.resolution_note,
@@ -444,8 +443,8 @@ def draft_not_editable(draft: TicketDraft) -> AppError:
 
 
 def needs_admin(ticket: Ticket) -> bool:
-    """생성·배정 중 하나라도 관리자 확인이 필요하다. 상태 변경 확인(transition_status)은 칸이 생기면 더한다."""
-    return "NEEDS_ADMIN" in (ticket.jira_sync_status, ticket.assign_status)
+    """생성·배정·상태 변경 중 하나라도 관리자 확인이 필요하다 (03 1.2)."""
+    return "NEEDS_ADMIN" in (ticket.jira_sync_status, ticket.assign_status, ticket.transition_status)
 
 
 def jira_url(jira_key: str | None) -> str | None:

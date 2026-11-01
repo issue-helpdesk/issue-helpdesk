@@ -83,14 +83,19 @@ def db():
 
 
 def make_ticket(db, **over) -> Ticket:
+    """문의당 접수는 하나라서(tickets.inquiry_id UNIQUE) 문의를 따로 정하지 않으면 접수 id 와 같은 문의를 만든다."""
     values = dict(
-        id=42, receipt_no="RCPT-0042", draft_id=55, inquiry_id=1, session_id=1,
+        id=42, receipt_no="RCPT-0042", draft_id=55, session_id=1,
         summary="VPN 접속 오류", target_system="VPN", symptom="인증 서버 연결 실패", occurred_at="오늘 오전",
         category_code="NET", inquiry_type_id=21, urgency="P2", urgency_reason="개인 업무 전면 중단",
         business_impact="사내 시스템 접속 불가", tried_actions="재설치", group_id=3,
         jira_sync_status="PENDING", assign_status="PENDING", work_status=None,  # 접수(TK-04)는 null로 저장한다
     )
     values.update(over)
+    inquiry_id = values.setdefault("inquiry_id", values["id"])
+    if db.get(Inquiry, inquiry_id) is None:
+        db.add(Inquiry(id=inquiry_id, user_id=17, status="RECEIVED"))
+        db.flush()
     ticket = Ticket(**values)
     db.add(ticket)
     db.commit()
