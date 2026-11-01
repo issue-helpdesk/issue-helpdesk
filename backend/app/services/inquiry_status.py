@@ -38,3 +38,14 @@ def next_actions(inquiry: Inquiry) -> list[str]:
     if inquiry.action == "ANSWER":
         return ["CONFIRM_RESOLUTION"]
     return ["REPLY"]
+
+
+def resume_actions(inquiry: Inquiry, ticket: Ticket | None) -> list[str]:
+    """IQ-06 이어가기 대상이면 다음 행동, 아니면 빈 목록.
+
+    AI 미확인(CONFIRM_RESOLUTION)·AI 미해결(DECIDE_HANDOFF)·Ticket 해결 확인 대기(FIN)만 이어간다.
+    """
+    if ticket is not None:
+        return ["CONFIRM_TICKET_RESOLUTION"] if ticket.work_status == "FIN" else []
+    actions = next_actions(inquiry)
+    return actions if actions in (["CONFIRM_RESOLUTION"], ["DECIDE_HANDOFF"]) else []

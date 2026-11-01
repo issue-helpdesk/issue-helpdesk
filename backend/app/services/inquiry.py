@@ -1,5 +1,5 @@
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends
@@ -20,6 +20,7 @@ from app.models import (
     SupportGroup,
     User,
 )
+from app.repositories.audit_log import AuditLogRepositoryDep
 from app.repositories.inquiry import InquiryRepositoryDep
 from app.repositories.reference import ReferenceRepositoryDep
 from app.schemas.common import ItemList, Page, parse_sort
@@ -35,23 +36,32 @@ from app.schemas.inquiry import (
     Message as MessageView,
     MessageSource as MessageSourceView,
     Session as SessionView,
+    SessionResume,
     TicketRef,
     UserRef,
 )
 from app.services.ai_responder import AiResponderDep
-from app.services.inquiry_status import CLOSED_STATUSES, display_status, next_actions
+from app.services.inquiry_status import CLOSED_STATUSES, display_status, next_actions, resume_actions
 from app.utils import datetime_utils
 
 logger = logging.getLogger(__name__)
 
+RESOLVED_NOTICE = "해결로 종료되었습니다."
+
 
 class InquiryService:
     def __init__(
-        self, db: DbSession, inquiries: InquiryRepositoryDep, references: ReferenceRepositoryDep, ai: AiResponderDep,
+        self,
+        db: DbSession,
+        inquiries: InquiryRepositoryDep,
+        references: ReferenceRepositoryDep,
+        audit_logs: AuditLogRepositoryDep,
+        ai: AiResponderDep,
     ) -> None:
         self.db = db
         self.inquiries = inquiries
         self.references = references
+        self.audit_logs = audit_logs
         self.ai = ai
 
     def start(self, content: str, user: User) -> AiTurn:
@@ -67,21 +77,14 @@ class InquiryService:
         return self.ai_turn(inquiry, [user_message, ai_message], assessment)
 
     def send_message(self, inquiry_id: int, content: str, user: User) -> AiTurn:
-        inquiry = self.inquiries.get_for_update(inquiry_id)
-        if inquiry is None or inquiry.user_id != user.id:
-            raise AppError(ErrorCode.INQUIRY_NOT_FOUND)
+        inquiry = self.find_own(inquiry_id, user, for_update=True)
         session = self.inquiries.current_session(inquiry.id)
         if inquiry.status in CLOSED_STATUSES or session is None or session.ended_at is not None:
             raise AppError(ErrorCode.INQUIRY_CLOSED)
         if inquiry.status != "IN_PROGRESS" or inquiry.action != "ASK_MORE":
-            raise AppError(ErrorCode.INQUIRY_INVALID_STATE, [
-                {"reason": "CURRENT_STATUS", "message": "현재 상태", "value": inquiry.status},
-            ])
+            raise invalid_state(inquiry)
 
-        user_message = self.inquiries.add(Message(
-            session_id=session.id, seq=self.inquiries.next_seq(session.id), sender="USER",
-            content=mask_secrets(content).text,
-        ))
+        user_message = self.add_message(session, "USER", mask_secrets(content).text)
         inquiry.updated_at = datetime_utils.now()
         self.db.commit()
 
@@ -119,10 +122,7 @@ class InquiryService:
             ai_output=result.ai_output,
             override_reasons=list(result.override_reasons),
         ))
-        message = self.inquiries.add(Message(
-            session_id=session.id, seq=self.inquiries.next_seq(session.id), sender="AI",
-            content=BLOCKED_NOTICE if result.failure == "ALL_BLOCKED" else out.reply,
-        ))
+        message = self.add_message(session, "AI", BLOCKED_NOTICE if result.failure == "ALL_BLOCKED" else out.reply)
         inquiry.category_code = assessment.category_code
         inquiry.inquiry_type_id = assessment.inquiry_type_id
         inquiry.urgency = assessment.urgency
@@ -137,6 +137,61 @@ class InquiryService:
         inquiry.updated_at = datetime_utils.now()
         self.db.commit()
         return message, assessment
+
+    def close(self, inquiry_id: int, user: User) -> InquiryDetail:
+        """IQ-04. 담당자 연결 거절·상담 끝내기. 해결과 구분해 CLOSED_UNRESOLVED 로 남긴다."""
+        inquiry = self.find_own(inquiry_id, user, for_update=True)
+        if inquiry.status != "IN_PROGRESS":
+            raise invalid_state(inquiry)
+
+        now = datetime_utils.now()
+        inquiry.status = "CLOSED_UNRESOLVED"
+        inquiry.closed_at = inquiry.updated_at = now
+        end_session(self.inquiries.current_session(inquiry.id), now)
+        for draft in self.inquiries.editing_drafts(inquiry.id):
+            draft.status, draft.updated_at = "CANCELLED", now
+        if any(a.urgent_signal for a in self.inquiries.assessments(inquiry.id)):
+            self.audit_logs.add("URGENT_CLOSED", "inquiry", inquiry.id, result=inquiry.status, actor_id=user.id)
+        self.db.commit()
+        return self.to_detail(inquiry)
+
+    def resolve(self, inquiry_id: int, result: str, comment: str | None, user: User) -> AiTurn:
+        """IQ-09. AI 답변의 해결 여부. AI 를 다시 부르지 않는다.
+
+        UNRESOLVED 는 문의를 열어 둔 채 결과만 남긴다. 다음은 담당자 연결(TK-01) 또는 종료(IQ-04)다.
+        """
+        inquiry = self.find_own(inquiry_id, user, for_update=True)
+        if inquiry.status == "AI_RESOLVED" and result == "RESOLVED":
+            return AiTurn(inquiry=self.to_detail(inquiry), messages=[], assessment=None,
+                          next_actions=next_actions(inquiry))
+        session = self.inquiries.current_session(inquiry.id)
+        if (display_status(inquiry, self.inquiries.ticket(inquiry.id)) != "unconfirmed"
+                or session is None or session.ended_at is not None):
+            raise invalid_state(inquiry)
+
+        now = datetime_utils.now()
+        inquiry.resolution_result = result
+        inquiry.updated_at = now
+        if result == "RESOLVED":
+            inquiry.status = "AI_RESOLVED"
+            inquiry.closed_at = now
+            end_session(session, now)
+            messages = [self.add_message(session, "SYSTEM", RESOLVED_NOTICE)]
+        else:
+            messages = [self.add_message(session, "USER", mask_secrets(comment).text)] if comment else []
+        self.db.commit()
+        return AiTurn(inquiry=self.to_detail(inquiry), messages=[to_message_view(m) for m in messages],
+                      assessment=None, next_actions=next_actions(inquiry))
+
+    def resume(self, inquiry_id: int, user: User) -> SessionResume:
+        """IQ-06. 기존 세션을 그대로 돌려주고 지금 할 수 있는 행동만 알려준다. 아무것도 저장하지 않는다."""
+        inquiry = self.find_own(inquiry_id, user)
+        session = self.inquiries.current_session(inquiry.id)
+        actions = resume_actions(inquiry, self.inquiries.ticket(inquiry.id))
+        if not actions or session is None:
+            raise invalid_state(inquiry)
+        return SessionResume(session=SessionView.model_validate(session), inquiry=self.to_detail(inquiry),
+                             next_actions=actions)
 
     def list_inquiries(self, query: InquiryListQuery, viewer: User) -> Page[InquirySummary]:
         if query.user_id is not None and viewer.service_role != "ADMIN":
@@ -193,6 +248,17 @@ class InquiryService:
             if scope in allowed:
                 sources.setdefault(source.message_id, []).append(MessageSourceView.model_validate(source))
         return ItemList(items=[to_message_view(m, sources.get(m.id, [])) for m in messages])
+
+    def find_own(self, inquiry_id: int, user: User, for_update: bool = False) -> Inquiry:
+        inquiry = self.inquiries.get_for_update(inquiry_id) if for_update else self.inquiries.get(inquiry_id)
+        if inquiry is None or inquiry.user_id != user.id:
+            raise AppError(ErrorCode.INQUIRY_NOT_FOUND)
+        return inquiry
+
+    def add_message(self, session: ChatSession, sender: str, content: str) -> Message:
+        return self.inquiries.add(Message(
+            session_id=session.id, seq=self.inquiries.next_seq(session.id), sender=sender, content=content,
+        ))
 
     def find_viewable(self, inquiry_id: int, viewer: User) -> Inquiry:
         inquiry = self.inquiries.get(inquiry_id)
@@ -267,6 +333,17 @@ def urgency_reason(result: FlowResult) -> str | None:
     """긴급도를 서버 규칙이 정했으면 그 이유, 아니면 AI 가 든 이유."""
     rules = [o["reason"] for o in result.override_reasons if o["field"] == "urgency"]
     return " ".join(rules or result.output.rationale.urgency_reasons) or None
+
+
+def end_session(session: ChatSession | None, now: datetime) -> None:
+    if session is not None and session.ended_at is None:
+        session.ended_at, session.end_reason = now, "USER_END"
+
+
+def invalid_state(inquiry: Inquiry) -> AppError:
+    return AppError(ErrorCode.INQUIRY_INVALID_STATE, [
+        {"reason": "CURRENT_STATUS", "message": "현재 상태", "value": inquiry.status},
+    ])
 
 
 def unavailable_error(reason: str, message: str, value: int) -> AppError:
