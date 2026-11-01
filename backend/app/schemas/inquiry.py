@@ -138,3 +138,18 @@ class AiTurn(CamelModel):
 
 class MessageRequest(CamelModel):
     content: trimmed_str(1, 4000)
+
+
+class CloseRequest(CamelModel):
+    status: Literal["CLOSED_UNRESOLVED"]
+
+
+class ResolutionRequest(CamelModel):
+    resolution_result: Literal["RESOLVED", "UNRESOLVED"]    # NO_RESPONSE 는 예약값이라 받지 않는다
+    comment: trimmed_str(1, 4000) | None = None           # UNRESOLVED 일 때만 저장한다
+
+
+class SessionResume(CamelModel):
+    session: Session
+    inquiry: Inquiry
+    next_actions: list[str]

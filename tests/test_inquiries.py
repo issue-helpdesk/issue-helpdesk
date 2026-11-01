@@ -19,6 +19,7 @@ from app.rag.search.runtime import get_search_fn
 from app.services.ai_responder import ask_more_counts, build_ai_input, get_llm_port_factory
 
 from app.models import (
+    AuditLog,
     Base,
     Category,
     ChatSession,
@@ -849,3 +850,251 @@ def test_list_search_by_title_receipt_and_doc_code(client, db, owner, headers):
     assert ids(listed(client, headers, q=f"RCPT-{by_receipt.id:04d}")) == [by_receipt.id]
     assert ids(listed(client, headers, q="mail-003")) == [by_doc.id]
     assert listed(client, headers, q=f"RCPT-{by_receipt.id:04d}").json()["items"][0]["receiptNo"] == f"RCPT-{by_receipt.id:04d}"
+
+
+# ---------------------------------------------------------------- IQ-09 해결 확인·IQ-04 종료·IQ-06 이어가기
+
+def started(client, db, headers, **fields):
+    """문의를 시작하고 상태를 바꿔 둔다. 기본은 AI 답변 뒤 해결 확인 대기."""
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    inquiry = db.get(Inquiry, inquiry_id)
+    for name, value in ({"action": "ANSWER"} | fields).items():
+        setattr(inquiry, name, value)
+    db.commit()
+    return inquiry_id
+
+
+def resolve(client, headers, inquiry_id, result="RESOLVED", key="key-9", **fields):
+    return client.put(f"{INQUIRIES}/{inquiry_id}/resolution", json={"resolutionResult": result} | fields,
+                      headers={**headers, "Idempotency-Key": key})
+
+
+def close(client, headers, inquiry_id, status="CLOSED_UNRESOLVED"):
+    return client.patch(f"{INQUIRIES}/{inquiry_id}", json={"status": status}, headers=headers)
+
+
+def resume(client, headers, inquiry_id):
+    return client.post(f"{INQUIRIES}/{inquiry_id}/sessions", headers=headers)
+
+
+def saved_messages(db):
+    return [(m.seq, m.sender, m.content) for m in db.scalars(select(Message).order_by(Message.seq))]
+
+
+def test_resolved_closes_inquiry(client, db, headers, ai):
+    inquiry_id = started(client, db, headers)
+
+    res = resolve(client, headers, inquiry_id, comment="잘 됩니다")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert (body["inquiry"]["status"], body["inquiry"]["displayStatus"]) == ("AI_RESOLVED", "ai_resolved")
+    assert body["inquiry"]["resolutionResult"] == "RESOLVED"
+    assert body["inquiry"]["closedAt"] is not None
+    assert [(m["sender"], m["content"]) for m in body["messages"]] == [("SYSTEM", "해결로 종료되었습니다.")]
+    assert (body["assessment"], body["nextActions"]) == (None, ["START_NEW"])
+    session = db.scalar(select(ChatSession))
+    assert session.ended_at is not None and session.end_reason == "USER_END"
+    assert saved_messages(db)[2:] == [(3, "SYSTEM", "해결로 종료되었습니다.")]      # RESOLVED 의 comment 는 저장하지 않는다
+    assert len(ai.adapters) == 1                                                   # 첫 답변 때만 불렀다
+
+
+def test_unresolved_keeps_inquiry_open_and_offers_handoff(client, db, headers, ai):
+    inquiry_id = started(client, db, headers)
+
+    res = resolve(client, headers, inquiry_id, "UNRESOLVED", comment=" 비밀번호는 Abc123!@ 인데 여전히 안 돼요 ")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert (body["inquiry"]["status"], body["inquiry"]["resolutionResult"]) == ("IN_PROGRESS", "UNRESOLVED")
+    assert body["inquiry"]["displayStatus"] == "in_progress"
+    assert body["nextActions"] == ["DECIDE_HANDOFF"]
+    (message,) = body["messages"]
+    assert (message["seq"], message["sender"]) == (3, "USER")
+    assert "Abc123!@" not in message["content"] and message["content"].endswith("여전히 안 돼요")
+    assert db.scalar(select(ChatSession.ended_at)) is None
+    assert len(ai.adapters) == 1
+
+
+def test_unresolved_without_comment_saves_no_message(client, db, headers):
+    inquiry_id = started(client, db, headers)
+
+    res = resolve(client, headers, inquiry_id, "UNRESOLVED")
+
+    assert res.json()["messages"] == []
+    assert len(saved_messages(db)) == 2
+
+
+def test_resolved_again_returns_current_inquiry(client, db, headers):
+    inquiry_id = started(client, db, headers)
+    resolve(client, headers, inquiry_id)
+
+    res = resolve(client, headers, inquiry_id, key="key-10")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert (body["messages"], body["assessment"], body["nextActions"]) == ([], None, ["START_NEW"])
+    assert len(saved_messages(db)) == 3
+
+
+@pytest.mark.parametrize("fields", [
+    {"action": "ASK_MORE"},
+    {"action": "ESCALATE"},
+    {"resolution_result": "UNRESOLVED"},
+    {"status": "CLOSED_UNRESOLVED"},
+    {"status": "AI_RESOLVED", "resolution_result": "RESOLVED"},
+])
+def test_resolution_outside_confirm_stage(client, db, headers, fields):
+    inquiry_id = started(client, db, headers, **fields)
+    result = "UNRESOLVED" if fields.get("status") == "AI_RESOLVED" else "RESOLVED"
+
+    res = resolve(client, headers, inquiry_id, result)
+
+    assert res.status_code == 409
+    assert error_code(res) == "INQUIRY_INVALID_STATE"
+    assert res.json()["error"]["details"][0]["reason"] == "CURRENT_STATUS"
+
+
+def test_resolution_of_ticket_uses_tk07(client, db, headers):
+    inquiry_id = started(client, db, headers)
+    add_ticket(db, inquiry_id, work_status="FIN")
+
+    assert error_code(resolve(client, headers, inquiry_id)) == "INQUIRY_INVALID_STATE"
+
+
+@pytest.mark.parametrize("body, field", [
+    ({"resolutionResult": "NO_RESPONSE"}, "resolutionResult"),
+    ({"resolutionResult": "UNRESOLVED", "comment": "가" * 4001}, "comment"),
+])
+def test_resolution_validation(client, db, headers, body, field):
+    inquiry_id = started(client, db, headers)
+
+    res = client.put(f"{INQUIRIES}/{inquiry_id}/resolution", json=body, headers={**headers, "Idempotency-Key": "k"})
+
+    assert res.status_code == 422
+    assert res.json()["error"]["details"][0]["field"] == field
+
+
+def test_resolution_requires_idempotency_key(client, db, headers):
+    inquiry_id = started(client, db, headers)
+
+    res = client.put(f"{INQUIRIES}/{inquiry_id}/resolution", json={"resolutionResult": "RESOLVED"}, headers=headers)
+
+    assert res.status_code == 422
+
+
+def test_resolution_only_by_owner(client, db, headers):
+    inquiry_id = started(client, db, headers)
+    add_user(db, "E0002", service_role="ADMIN")
+
+    assert error_code(resolve(client, bearer(login(client, "E0002")), inquiry_id)) == "INQUIRY_NOT_FOUND"
+
+
+def test_close_inquiry(client, db, headers):
+    inquiry_id = started(client, db, headers, action="ESCALATE")
+    session_id = db.scalar(select(ChatSession.id))
+    db.add(TicketDraft(inquiry_id=inquiry_id, session_id=session_id, status="EDITING"))
+    db.commit()
+
+    res = close(client, headers, inquiry_id)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert (body["status"], body["displayStatus"], body["activeDraftId"]) == ("CLOSED_UNRESOLVED", "unresolved", None)
+    assert body["closedAt"] is not None
+    session = db.scalar(select(ChatSession))
+    assert session.ended_at is not None and session.end_reason == "USER_END"
+    assert db.scalar(select(TicketDraft.status)) == "CANCELLED"
+    assert db.scalar(select(AuditLog)) is None
+
+
+def test_close_urgent_inquiry_leaves_audit_log(client, db, owner, headers):
+    inquiry_id = started(client, db, headers, action="ESCALATE")
+    db.add(InquiryAssessment(inquiry_id=inquiry_id, urgent_signal=True, action="ESCALATE", override_reasons=[]))
+    db.commit()
+
+    close(client, headers, inquiry_id)
+
+    log = db.scalar(select(AuditLog))
+    assert (log.event_type, log.target_type, log.target_id, log.actor_id) == ("URGENT_CLOSED", "inquiry", inquiry_id,
+                                                                               owner.id)
+
+
+@pytest.mark.parametrize("status", ["AI_RESOLVED", "CLOSED_UNRESOLVED", "RECEIVED"])
+def test_close_only_in_progress(client, db, headers, status):
+    inquiry_id = started(client, db, headers, status=status)
+
+    res = close(client, headers, inquiry_id)
+
+    assert res.status_code == 409
+    assert res.json()["error"]["details"] == [{"reason": "CURRENT_STATUS", "message": "현재 상태", "value": status}]
+
+
+def test_close_validates_status(client, db, headers):
+    inquiry_id = started(client, db, headers)
+
+    res = close(client, headers, inquiry_id, status="AI_RESOLVED")
+
+    assert res.status_code == 422
+    detail = res.json()["error"]["details"][0]
+    assert (detail["field"], detail["reason"]) == ("status", "INVALID_VALUE")
+
+
+def test_close_only_by_owner(client, db, headers):
+    inquiry_id = started(client, db, headers)
+    add_user(db, "E0002")
+
+    assert error_code(close(client, bearer(login(client, "E0002")), inquiry_id)) == "INQUIRY_NOT_FOUND"
+
+
+@pytest.mark.parametrize("fields, actions", [
+    ({}, ["CONFIRM_RESOLUTION"]),
+    ({"resolution_result": "UNRESOLVED"}, ["DECIDE_HANDOFF"]),
+    ({"action": "ESCALATE"}, ["DECIDE_HANDOFF"]),
+    ({"action": "OUT_OF_SCOPE"}, ["DECIDE_HANDOFF"]),
+])
+def test_resume_existing_session(client, db, headers, fields, actions):
+    inquiry_id = started(client, db, headers, **fields)
+    session_id = db.scalar(select(ChatSession.id))
+
+    res = resume(client, headers, inquiry_id)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert (body["session"]["id"], body["inquiry"]["id"], body["nextActions"]) == (session_id, inquiry_id, actions)
+    assert len(db.scalars(select(ChatSession)).all()) == 1
+    assert len(saved_messages(db)) == 2
+
+
+def test_resume_ticket_awaiting_confirm(client, db, headers):
+    inquiry_id = started(client, db, headers, status="HANDED_OFF", action="ESCALATE")
+    add_ticket(db, inquiry_id, work_status="FIN")
+
+    res = resume(client, headers, inquiry_id)
+
+    assert res.status_code == 200
+    assert res.json()["nextActions"] == ["CONFIRM_TICKET_RESOLUTION"]
+
+
+@pytest.mark.parametrize("fields, work_status", [
+    ({"action": "ASK_MORE"}, None),
+    ({"status": "CLOSED_UNRESOLVED", "action": "ESCALATE"}, None),
+    ({"status": "AI_RESOLVED"}, None),
+    ({"status": "HANDED_OFF", "action": "ESCALATE"}, "WIP"),
+])
+def test_resume_outside_targets(client, db, headers, fields, work_status):
+    inquiry_id = started(client, db, headers, **fields)
+    if work_status:
+        add_ticket(db, inquiry_id, work_status=work_status)
+
+    res = resume(client, headers, inquiry_id)
+
+    assert res.status_code == 409
+    assert error_code(res) == "INQUIRY_INVALID_STATE"
+
+
+def test_resume_only_by_owner(client, db, headers):
+    inquiry_id = started(client, db, headers)
+    add_user(db, "E0002", service_role="ADMIN")
+
+    assert error_code(resume(client, bearer(login(client, "E0002")), inquiry_id)) == "INQUIRY_NOT_FOUND"

@@ -171,6 +171,11 @@ class InquiryRepository:
             select(TicketDraft.id).where(TicketDraft.inquiry_id == inquiry_id, TicketDraft.status == "EDITING")
         )
 
+    def editing_drafts(self, inquiry_id: int) -> list[TicketDraft]:
+        return list(self.db.scalars(
+            select(TicketDraft).where(TicketDraft.inquiry_id == inquiry_id, TicketDraft.status == "EDITING")
+        ))
+
     def ticket(self, inquiry_id: int) -> Ticket | None:
         return self.db.scalars(select(Ticket).where(Ticket.inquiry_id == inquiry_id)).first()
 
