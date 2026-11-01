@@ -20,8 +20,8 @@ from app.models import (
     SupportGroup,
     User,
 )
-from app.repositories.audit_log import AuditLogRepositoryDep
-from app.repositories.inquiry import InquiryRepositoryDep
+from app.repositories.audit_log import AuditLogRepository, AuditLogRepositoryDep
+from app.repositories.inquiry import InquiryRepository, InquiryRepositoryDep
 from app.repositories.reference import ReferenceRepositoryDep
 from app.schemas.common import ItemList, Page, parse_sort
 from app.schemas.inquiry import (
@@ -144,14 +144,7 @@ class InquiryService:
         if inquiry.status != "IN_PROGRESS":
             raise invalid_state(inquiry)
 
-        now = datetime_utils.now()
-        inquiry.status = "CLOSED_UNRESOLVED"
-        inquiry.closed_at = inquiry.updated_at = now
-        end_session(self.inquiries.current_session(inquiry.id), now)
-        for draft in self.inquiries.editing_drafts(inquiry.id):
-            draft.status, draft.updated_at = "CANCELLED", now
-        if any(a.urgent_signal for a in self.inquiries.assessments(inquiry.id)):
-            self.audit_logs.add("URGENT_CLOSED", "inquiry", inquiry.id, result=inquiry.status, actor_id=user.id)
+        close_unresolved(self.inquiries, self.audit_logs, inquiry, user)
         self.db.commit()
         return self.to_detail(inquiry)
 
@@ -335,9 +328,21 @@ def urgency_reason(result: FlowResult) -> str | None:
     return " ".join(rules or result.output.rationale.urgency_reasons) or None
 
 
-def end_session(session: ChatSession | None, now: datetime) -> None:
+def close_unresolved(inquiries: InquiryRepository, audit_logs: AuditLogRepository, inquiry: Inquiry, actor: User) -> None:
+    """접수 없이 미해결로 닫는다 (IQ-04 종료, TK-03 초안 취소). 커밋은 호출자가 한다."""
+    now = datetime_utils.now()
+    inquiry.status = "CLOSED_UNRESOLVED"
+    inquiry.closed_at = inquiry.updated_at = now
+    end_session(inquiries.current_session(inquiry.id), now)
+    for draft in inquiries.editing_drafts(inquiry.id):
+        draft.status, draft.updated_at = "CANCELLED", now
+    if any(a.urgent_signal for a in inquiries.assessments(inquiry.id)):
+        audit_logs.add("URGENT_CLOSED", "inquiry", inquiry.id, result=inquiry.status, actor_id=actor.id)
+
+
+def end_session(session: ChatSession | None, now: datetime, reason: str = "USER_END") -> None:
     if session is not None and session.ended_at is None:
-        session.ended_at, session.end_reason = now, "USER_END"
+        session.ended_at, session.end_reason = now, reason
 
 
 def invalid_state(inquiry: Inquiry) -> AppError:
