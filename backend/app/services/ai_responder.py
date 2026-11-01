@@ -13,7 +13,7 @@ from app.agent.flow import FlowResult, run_flow
 from app.agent.flow.correct import known_items
 from app.agent.llm import AIInput, CategoryInfo, Facts, LLMPort, Taxonomy, TypeInfo, UserContext, get_llm_adapter
 from app.agent.llm import Message as AiMessage
-from app.models import Inquiry, InquiryAssessment, Message, User
+from app.models import Inquiry, InquiryAssessment, InquiryType, Message, User
 from app.rag.search.runtime import SearchFnDep
 from app.repositories.inquiry import InquiryRepositoryDep
 from app.repositories.reference import ReferenceRepositoryDep
@@ -67,12 +67,15 @@ class FlowAiResponder:
         return Taxonomy(
             categories=tuple(CategoryInfo(c.code, c.name, c.description or "")
                              for c in self.references.list_categories()),
-            types=tuple(TypeInfo(t.code, t.category_code, t.name, t.request_kind, t.default_urgency)
-                        for t, _ in self.references.list_inquiry_types([], is_active=True)),
+            types=tuple(type_info(t) for t, _ in self.references.list_inquiry_types([], is_active=True)),
         )
 
 
 AiResponderDep = Annotated[AiResponder, Depends(FlowAiResponder)]
+
+
+def type_info(t: InquiryType) -> TypeInfo:
+    return TypeInfo(t.code, t.category_code, t.name, t.request_kind, t.default_urgency)
 
 
 def build_ai_input(inquiry: Inquiry, user: User, department_name: str | None, history: list[Message],

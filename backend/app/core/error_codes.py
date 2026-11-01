@@ -38,3 +38,10 @@ class ErrorCode(Enum):
     INQUIRY_INVALID_STATE = (409, "현재 문의 상태에서는 처리할 수 없는 요청입니다.")
     AI_UNAVAILABLE = (503, "지금은 AI 답변을 드리기 어렵습니다. 입력하신 내용은 저장되었으니 담당자 연결을 이용해 주세요.")
 
+    # 접수 (5.6)
+    DRAFT_NOT_FOUND = (404, "접수 초안을 찾을 수 없습니다.")
+    DRAFT_ALREADY_EXISTS = (409, "작성 중인 접수 초안이 있습니다.")
+    DRAFT_NOT_EDITABLE = (409, "이미 접수되었거나 취소된 초안입니다.")
+    DRAFT_RECONFIRM_REQUIRED = (409, "초안 내용이 바뀌었습니다. 변경된 내용을 확인한 뒤 다시 접수해 주세요.")
+    TICKET_SAVE_FAILED = (500, "접수를 저장하지 못했습니다. 작성하신 내용은 보존되어 있으니 잠시 후 다시 시도하거나 "
+                               "IT 헬프데스크(내선 1000)·그룹웨어 IT 요청 메뉴를 이용해 주세요.")
