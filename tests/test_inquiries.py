@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.agent.llm import LLMError, MockAdapter
-from app.agent.sensitive import BLOCKED_NOTICE
+from app.agent.sensitive import BLOCKED_NOTICE, MASK_NOTICE, MASK_NOTICE_IDENTITY, MASK_NOTICE_PASSWORD
 from app.main import app
 from app.rag.search import SearchResponse
 from app.rag.search.runtime import get_search_fn
@@ -29,6 +29,7 @@ from app.models import (
     InquiryType,
     KnowledgeDocument,
     LegacyInquiry,
+    LlmCall,
     Message,
     MessageSource,
     SupportGroup,
@@ -43,7 +44,7 @@ from test_flow_correct import DOC, QUOTE
 INQUIRIES = "/api/v1/inquiries"
 INQUIRY_TABLES = TABLES + ["categories", "inquiry_types", "inquiries", "chat_sessions", "messages",
                            "ticket_drafts", "tickets", "knowledge_documents", "document_versions",
-                           "legacy_inquiries", "message_sources", "inquiry_assessments"]
+                           "legacy_inquiries", "message_sources", "inquiry_assessments", "llm_calls"]
 VPN = "어제 업데이트 이후로 VPN 접속이 안 돼요.\n재택 중이라 업무를 못 하고 있습니다."
 FACTS = {"summary": "업데이트 이후 VPN 접속 불가", "target_system": "사내 VPN", "symptom": None, "occurred_at": "어제",
          "impact_scope": "PERSONAL", "work_stopped": "full", "has_workaround": None, "time_constraint": None,
@@ -364,6 +365,79 @@ def test_secrets_are_masked_before_saving(client, db, headers, ai):
     assert "Abc123!@" not in saved
     assert body["messages"][0]["content"] == saved
     assert "Abc123!@" not in ai.adapters[0].requests[0][1]
+
+
+# ---------------------------------------------------------------- 모델 호출·출처·감사 기록 (06 G장, docs/10 5.2)
+
+def audit_rows(db):
+    return [(a.event_type, a.result, a.reason) for a in db.scalars(select(AuditLog).order_by(AuditLog.id))]
+
+
+def test_llm_calls_are_saved(client, db, headers, ai, taxonomy):
+    ai.replies = [ai_reply("ANSWER", inquiry_type_code="NET-02"), ANSWER]
+    ai.documents = (DOC,)
+
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+
+    calls = db.scalars(select(LlmCall).order_by(LlmCall.id)).all()
+    assert [(c.inquiry_id, c.purpose, c.adapter, c.success) for c in calls] == [
+        (inquiry_id, "CLASSIFY", "Mock", True), (inquiry_id, "ANSWER", "Mock", True),
+    ]
+
+
+def test_answer_sources_are_saved_and_returned(client, db, headers, ai, taxonomy):
+    document = KnowledgeDocument(doc_code=DOC.doc_code, doc_type="GUIDE", title="VPN 가이드")
+    db.add(document)
+    db.flush()
+    db.add(DocumentVersion(document_id=document.id, version=DOC.version, view_scope="ALL", ingest_status="DONE"))
+    db.commit()
+    ai.replies = [ai_reply("ANSWER", inquiry_type_code="NET-02"), ANSWER]
+    ai.documents = (DOC,)
+
+    body = start(client, headers).json()
+
+    saved = db.scalar(select(MessageSource))
+    assert (saved.message_id, saved.source_kind, saved.chunk_id) == (body["messages"][1]["id"], "DOCUMENT", 412)
+    assert [(s["docCode"], s["version"], s["location"]) for s in body["messages"][1]["sources"]] == [
+        ("IT-NET-001", "v2.0", "3.1"),
+    ]
+
+
+def test_secret_input_adds_notice_and_audit_log(client, db, owner, headers):
+    body = start(client, headers, content="비밀번호는 Abc123!@ 이고 주민번호 900101-1234567 이에요").json()
+
+    assert [(m["seq"], m["sender"]) for m in body["messages"]] == [(1, "USER"), (2, "SYSTEM"), (3, "SYSTEM"), (4, "AI")]
+    assert [m["content"] for m in body["messages"][1:3]] == [f"{MASK_NOTICE} {MASK_NOTICE_PASSWORD}", MASK_NOTICE_IDENTITY]
+    logs = db.scalars(select(AuditLog).order_by(AuditLog.id)).all()
+    assert [(a.event_type, a.result, a.reason, a.actor_id) for a in logs] == [
+        ("SENSITIVE_INPUT", "PASSWORD", "1건", owner.id), ("SENSITIVE_INPUT", "RRN", "1건", owner.id),
+    ]
+    assert all("Abc123" not in (a.reason or "") for a in logs)
+
+
+def test_plain_input_leaves_no_notice(client, db, headers):
+    body = start(client, headers).json()
+
+    assert [m["sender"] for m in body["messages"]] == ["USER", "AI"]
+    assert audit_rows(db) == []
+
+
+def test_all_blocked_leaves_block_logs(client, db, headers, ai, taxonomy):
+    ai.replies = [ai_reply("ANSWER"), ANSWER]
+    ai.documents = (replace(DOC, transfer_policy="BLOCKED"),)
+
+    start(client, headers)
+
+    assert audit_rows(db) == [("BLOCK", "DOC_BLOCKED", "IT-NET-001"), ("BLOCK", "ALL_BLOCKED", None)]
+
+
+def test_model_error_leaves_fail_log(client, db, headers, ai, taxonomy):
+    ai.replies = [LLMError("TIMEOUT")]
+
+    start(client, headers)
+
+    assert audit_rows(db) == [("FAIL", "AI_FAILED", "TIMEOUT")]
+    assert db.scalar(select(LlmCall.success)) is False
 
 
 def assessment(action, missing=(), urgent=False, urgency=None, **facts):
@@ -909,9 +983,10 @@ def test_unresolved_keeps_inquiry_open_and_offers_handoff(client, db, headers, a
     assert (body["inquiry"]["status"], body["inquiry"]["resolutionResult"]) == ("IN_PROGRESS", "UNRESOLVED")
     assert body["inquiry"]["displayStatus"] == "in_progress"
     assert body["nextActions"] == ["DECIDE_HANDOFF"]
-    (message,) = body["messages"]
+    message, notice = body["messages"]
     assert (message["seq"], message["sender"]) == (3, "USER")
     assert "Abc123!@" not in message["content"] and message["content"].endswith("여전히 안 돼요")
+    assert (notice["seq"], notice["sender"]) == (4, "SYSTEM")                    # 가림 안내
     assert db.scalar(select(ChatSession.ended_at)) is None
     assert len(ai.adapters) == 1
 

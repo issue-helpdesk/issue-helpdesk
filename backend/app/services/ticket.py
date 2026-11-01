@@ -1,6 +1,7 @@
 """접수 초안·최종 접수 (TK-01~04). 초안은 문의자가 고치고, 접수 확정 뒤 Jira 생성은 연동 작업이 한다."""
 import logging
 import os
+from collections import Counter
 from datetime import datetime, timedelta
 from typing import Annotated
 
@@ -9,6 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.agent.flow.urgency import urgency_of
 from app.agent.llm import Facts, safe_default
+from app.agent.sensitive import MASK_NOTICE_DRAFT, mask_secrets
 from app.core.error_codes import ErrorCode
 from app.core.errors import AppError, field_error
 from app.core.permissions import DEFAULT_TICKET_VIEW, TICKET_VIEW_ROLES
@@ -43,7 +45,7 @@ from app.schemas.ticket import (
     TicketSummary,
 )
 from app.services.ai_responder import facts_of, type_info
-from app.services.inquiry import can_view_inquiry, close_unresolved, end_session, invalid_state
+from app.services.inquiry import can_view_inquiry, close_unresolved, end_session, invalid_state, record_sensitive_input
 from app.services.inquiry_status import CLOSED_STATUSES, display_status, ticket_display_status
 from app.services.jira_create import enqueue_jira_create
 from app.utils import datetime_utils
@@ -130,15 +132,24 @@ class TicketService:
             if new_type is None or not new_type.is_active:
                 raise field_error(ErrorCode.VALIDATION_ERROR, "inquiryTypeId", "NOT_FOUND", "존재하지 않는 세부 유형입니다.")
 
+        # 사용자가 고친 글은 가려서 저장한다 (docs/10 4장 ②)
+        masked_counts: Counter[str] = Counter()
         for name in sent - {"inquiry_type_id"}:
-            setattr(draft, name, getattr(body, name))
+            value = getattr(body, name)
+            if value is not None:
+                masked = mask_secrets(value)
+                value = masked.text
+                masked_counts.update(masked.counts)
+            setattr(draft, name, value)
+        record_sensitive_input(self.audit_logs, inquiry.id, user, dict(masked_counts))
         changes = []
         if "inquiry_type_id" in sent and body.inquiry_type_id != draft.inquiry_type_id:
             changes = self.reclassify(inquiry, draft, new_type)
         if sent:
             draft.updated_at = datetime_utils.now()
         self.db.commit()
-        return DraftUpdateResult(draft=self.to_draft(draft), changes=changes)
+        return DraftUpdateResult(draft=self.to_draft(draft), changes=changes,
+                                 mask_notice=MASK_NOTICE_DRAFT if masked_counts else None)
 
     def reclassify(self, inquiry: Inquiry, draft: TicketDraft, new_type: InquiryType | None) -> list[DraftChange]:
         """세부 유형을 바꾸면 분류·긴급도·추천 그룹을 다시 정하고, 바뀐 것만 돌려준다.

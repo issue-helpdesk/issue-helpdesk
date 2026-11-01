@@ -1,11 +1,12 @@
 import logging
+from dataclasses import asdict
 from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends
 
 from app.agent.flow import FlowResult
-from app.agent.sensitive import BLOCKED_NOTICE, mask_secrets
+from app.agent.sensitive import BLOCKED_NOTICE, mask_notices, mask_secrets
 from app.core.error_codes import ErrorCode
 from app.core.errors import AppError, field_error
 from app.core.permissions import visible_scopes
@@ -16,7 +17,9 @@ from app.models import (
     Inquiry,
     InquiryAssessment,
     InquiryType,
+    LlmCall,
     Message,
+    MessageSource,
     SupportGroup,
     Ticket,
     User,
@@ -68,14 +71,12 @@ class InquiryService:
     def start(self, content: str, user: User) -> AiTurn:
         inquiry = self.inquiries.add(Inquiry(user_id=user.id, status="IN_PROGRESS", updated_at=datetime_utils.now()))
         session = self.inquiries.add(ChatSession(inquiry_id=inquiry.id))
-        user_message = self.inquiries.add(Message(
-            session_id=session.id, seq=1, sender="USER", content=mask_secrets(content).text,
-        ))
+        user_messages = self.add_user_message(inquiry, session, user, content)
         self.db.commit()
 
         ai_message, assessment = self.reply(inquiry, session, user,
                                             unavailable_error("INQUIRY_ID", "저장된 문의", inquiry.id))
-        return self.ai_turn(inquiry, [user_message, ai_message], assessment)
+        return self.ai_turn(inquiry, [*user_messages, ai_message], assessment, user)
 
     def send_message(self, inquiry_id: int, content: str, user: User) -> AiTurn:
         inquiry = self.find_own(inquiry_id, user, for_update=True)
@@ -85,13 +86,13 @@ class InquiryService:
         if inquiry.status != "IN_PROGRESS" or inquiry.action != "ASK_MORE":
             raise invalid_state(inquiry)
 
-        user_message = self.add_message(session, "USER", mask_secrets(content).text)
+        user_messages = self.add_user_message(inquiry, session, user, content)
         inquiry.updated_at = datetime_utils.now()
         self.db.commit()
 
         ai_message, assessment = self.reply(inquiry, session, user,
-                                            unavailable_error("MESSAGE_ID", "저장된 메시지", user_message.id))
-        return self.ai_turn(inquiry, [user_message, ai_message], assessment)
+                                            unavailable_error("MESSAGE_ID", "저장된 메시지", user_messages[0].id))
+        return self.ai_turn(inquiry, [*user_messages, ai_message], assessment, user)
 
     def reply(
         self, inquiry: Inquiry, session: ChatSession, user: User, unavailable: AppError,
@@ -124,6 +125,7 @@ class InquiryService:
             override_reasons=list(result.override_reasons),
         ))
         message = self.add_message(session, "AI", BLOCKED_NOTICE if result.failure == "ALL_BLOCKED" else out.reply)
+        self.record_ai_run(inquiry.id, message, result)
         inquiry.category_code = assessment.category_code
         inquiry.inquiry_type_id = assessment.inquiry_type_id
         inquiry.urgency = assessment.urgency
@@ -172,7 +174,7 @@ class InquiryService:
             end_session(session, now)
             messages = [self.add_message(session, "SYSTEM", RESOLVED_NOTICE)]
         else:
-            messages = [self.add_message(session, "USER", mask_secrets(comment).text)] if comment else []
+            messages = self.add_user_message(inquiry, session, user, comment) if comment else []
         self.db.commit()
         return AiTurn(inquiry=self.to_detail(inquiry), messages=[to_message_view(m) for m in messages],
                       assessment=None, next_actions=next_actions(inquiry))
@@ -236,18 +238,43 @@ class InquiryService:
             raise field_error(ErrorCode.VALIDATION_ERROR, "sessionId", "NOT_FOUND", "이 문의의 상담 세션이 아닙니다.")
 
         messages = self.inquiries.inquiry_messages(inquiry.id, session_id)
+        sources = self.visible_sources(messages, viewer)
+        return ItemList(items=[to_message_view(m, sources.get(m.id, [])) for m in messages])
+
+    def visible_sources(self, messages: list[Message], viewer: User) -> dict[int, list[MessageSourceView]]:
+        """메시지별 출처. 보는 사람의 역할로 열람 범위 밖 출처는 뺀다 (청크_메타데이터.md 4장)."""
         allowed = visible_scopes(viewer.service_role)
         sources: dict[int, list[MessageSourceView]] = {}
         for source, scope in self.inquiries.sources_with_scope([m.id for m in messages]):
             if scope in allowed:
                 sources.setdefault(source.message_id, []).append(MessageSourceView.model_validate(source))
-        return ItemList(items=[to_message_view(m, sources.get(m.id, [])) for m in messages])
+        return sources
 
     def find_own(self, inquiry_id: int, user: User, for_update: bool = False) -> Inquiry:
         inquiry = self.inquiries.get_for_update(inquiry_id) if for_update else self.inquiries.get(inquiry_id)
         if inquiry is None or inquiry.user_id != user.id:
             raise AppError(ErrorCode.INQUIRY_NOT_FOUND)
         return inquiry
+
+    def add_user_message(self, inquiry: Inquiry, session: ChatSession, user: User, content: str) -> list[Message]:
+        """사용자 글을 가려서 저장한다. 가렸으면 안내 SYSTEM 메시지와 SENSITIVE_INPUT 기록도 남긴다 (docs/10 5.2·6.1).
+
+        가리다 오류가 나면 아무것도 저장하지 않고 500 이 된다 (docs/10 3.3).
+        """
+        masked = mask_secrets(content)
+        messages = [self.add_message(session, "USER", masked.text)]
+        messages += [self.add_message(session, "SYSTEM", notice) for notice in mask_notices(masked)]
+        record_sensitive_input(self.audit_logs, inquiry.id, user, masked.counts)
+        return messages
+
+    def record_ai_run(self, inquiry_id: int, message: Message, result: FlowResult) -> None:
+        """모델 호출·답변 출처·차단·실패를 남긴다 (06 G장, docs/10 5.2, 09 3.3). 원문은 남기지 않는다."""
+        for call in result.llm_calls:
+            self.inquiries.add(LlmCall(inquiry_id=inquiry_id, **asdict(call)))
+        for row in result.sources:
+            self.inquiries.add(MessageSource(message_id=message.id, **row))
+        for event_type, outcome, reason in ai_audit_events(result):
+            self.audit_logs.add(event_type, "inquiry", inquiry_id, result=outcome, reason=reason)
 
     def add_message(self, session: ChatSession, sender: str, content: str) -> Message:
         return self.inquiries.add(Message(
@@ -263,10 +290,11 @@ class InquiryService:
     def can_view(self, inquiry: Inquiry, viewer: User) -> bool:
         return can_view_inquiry(self.inquiries, inquiry, self.inquiries.ticket(inquiry.id), viewer)
 
-    def ai_turn(self, inquiry: Inquiry, messages: list[Message], assessment: InquiryAssessment) -> AiTurn:
+    def ai_turn(self, inquiry: Inquiry, messages: list[Message], assessment: InquiryAssessment, viewer: User) -> AiTurn:
+        sources = self.visible_sources(messages, viewer)
         return AiTurn(
             inquiry=self.to_detail(inquiry),
-            messages=[to_message_view(m) for m in messages],
+            messages=[to_message_view(m, sources.get(m.id, [])) for m in messages],
             assessment=AssessmentView.model_validate(assessment),
             next_actions=next_actions(inquiry),
         )
@@ -322,6 +350,27 @@ def urgency_reason(result: FlowResult) -> str | None:
     """긴급도를 서버 규칙이 정했으면 그 이유, 아니면 AI 가 든 이유."""
     rules = [o["reason"] for o in result.override_reasons if o["field"] == "urgency"]
     return " ".join(rules or result.output.rationale.urgency_reasons) or None
+
+
+def record_sensitive_input(audit_logs: AuditLogRepository, inquiry_id: int, actor: User, counts: dict[str, int]) -> None:
+    """가린 유형마다 한 줄 (docs/10 5.2). 값과 원문은 남기지 않고 개수만 남긴다."""
+    for kind, count in counts.items():
+        audit_logs.add("SENSITIVE_INPUT", "inquiry", inquiry_id, result=kind, actor_id=actor.id, reason=f"{count}건")
+
+
+def ai_audit_events(result: FlowResult) -> list[tuple[str, str, str | None]]:
+    """(event_type, result, reason) 목록. 시스템이 한 일이라 actor 는 비운다 (docs/10 5.2, 09 3.3)."""
+    events = []
+    if result.evidence is not None:
+        events += [("BLOCK", "DOC_BLOCKED", code) for code in result.evidence.blocked]
+        events += [("FAIL", "FILTER_FAILED", f"④ 검색 근거 {code}") for code in result.evidence.failed]
+    if result.failure == "ALL_BLOCKED":
+        events.append(("BLOCK", "ALL_BLOCKED", None))
+    elif result.failure == "AI_FAILED" and result.error_code == "FILTER_FAILED":
+        events.append(("FAIL", "FILTER_FAILED", "④ 외부 모델 호출 직전"))
+    elif result.failure == "AI_FAILED":
+        events.append(("FAIL", "AI_FAILED", result.error_code))
+    return events
 
 
 def can_view_inquiry(inquiries: InquiryRepository, inquiry: Inquiry, ticket: Ticket | None, viewer: User) -> bool:
