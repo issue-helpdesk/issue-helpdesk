@@ -80,7 +80,8 @@ def enqueue_jira_create(db: Session, ticket: Ticket) -> IntegrationJob:
     existing = db.scalars(select(IntegrationJob).where(IntegrationJob.idempotency_key == key)).first()
     if existing is not None:
         return existing
-    job = IntegrationJob(ticket_id=ticket.id, job_type=JOB_TYPE, status="PENDING", attempts=0, idempotency_key=key)
+    job = IntegrationJob(ticket_id=ticket.id, job_type=JOB_TYPE, status="PENDING", attempts=0, idempotency_key=key,
+                         payload=_ticket_payload(db, ticket))     # 등록 시점 스냅샷 (06 v0.8)
     db.add(job)
     db.flush()
     return job

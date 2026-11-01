@@ -20,7 +20,8 @@ from app.models import (
 T = TypeVar("T")
 
 Assignee = aliased(User)
-NEEDS_ADMIN = or_(Ticket.jira_sync_status == "NEEDS_ADMIN", Ticket.assign_status == "NEEDS_ADMIN")
+NEEDS_ADMIN = or_(Ticket.jira_sync_status == "NEEDS_ADMIN", Ticket.assign_status == "NEEDS_ADMIN",
+                  Ticket.transition_status == "NEEDS_ADMIN")
 # 업무 상태는 진행 순서로 정렬한다. 생성 전(null)이 가장 앞이다
 WORK_STATUS_ORDER = case({"RDY": 1, "WIP": 2, "FIN": 3, "CLS": 4}, value=Ticket.work_status, else_=0)
 SORT_COLUMNS = {
