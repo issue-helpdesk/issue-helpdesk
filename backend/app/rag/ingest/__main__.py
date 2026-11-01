@@ -14,7 +14,7 @@ import time
 from app.rag.embedding import DEFAULT_MODEL, MODELS
 from app.rag.ingest import FakeEmbedder, IngestError, connect, drop_model, is_local, run, summary
 
-ACTIONS = {'new': '새 버전', 'reloaded': '다시 적재', 'unchanged': '변화 없음', 'failed': '실패'}
+ACTIONS = {'new': '새 버전', 'reloaded': '다시 적재', 'relabeled': '이름표만', 'unchanged': '변화 없음', 'failed': '실패'}
 
 
 def main(argv=None) -> int:
@@ -88,6 +88,8 @@ def main(argv=None) -> int:
         extra += ''.join(f' · {m} 임베딩 {n}개 빠짐(다시 넣을 것)' for m, n in (r.get('dropped') or {}).items())
         if r['action'] != 'unchanged' or extra or r['activated']:
             print(f'  {r["doc"]} {r["version"]}: {ACTIONS[r["action"]]}{" · 현행 전환" if r["activated"] else ""}{extra}')
+        if r['action'] == 'relabeled':
+            print(''.join(f'    {c}\n' for c in r['changed']), end='')
     counts = {k: sum(r['action'] == k for r in report.results) for k in ACTIONS}
     if url and not a.dry_run:
         print('문서 ' + ' · '.join(f'{ACTIONS[k]} {n}' for k, n in counts.items()))

@@ -449,3 +449,23 @@ def test_new_version_policy_widened_before_lock(url, tmp_path, monkeypatch):
     assert done and r['action'] == 'failed' and '검증 뒤 DB 정책이 바뀜' in r['error'] and not r['activated']
     v = versions(url, code)
     assert v['v2.0'][1:3] == (True, 'DONE') and v['v2.1'][1:3] == (False, 'FAILED') and v['v2.1'][5] == 0
+
+
+def test_label_only_change_keeps_chunk_ids(url):
+    """뼈대·본문이 같고 이름표만 다르면 (예: 청커가 FAQ 코드를 이어받게 된 뒤 다시 적재) 같은 id 에 이름표만 고쳐 쓴다.
+    현행 청크 id 가 바뀌면 그 사이에 낀 검색이 깨진다. 벡터는 다시 만들지 않는다."""
+    chunks = '''select c.id, c.unit_key, c.meta from document_chunks c join document_versions v on v.id = c.version_id
+                join knowledge_documents d on d.id = v.document_id where d.doc_code = 'IT-ACC-002' order by c.seq'''
+    before = q(url, chunks)
+    with psycopg.connect(url) as conn:                                  # 예전 청커가 넣은 것처럼 FAQ 코드를 비운다
+        conn.execute("update document_chunks set meta = jsonb_set(meta, '{inquiry_type_codes}', '[]') "
+                     "where id = any(%s) and unit_key like '%%/faq:%%'", ([i for i, *_ in before],))
+    embs = [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')]
+    r = run(url, embs, docs=['IT-ACC-002']).results[0]
+    assert r['action'] == 'relabeled' and not r['dropped'] and [e.calls for e in embs] == [0, 0]
+    assert any('faq:FAQ-001: inquiry_type_codes [] → ["ACC-01"]' in c for c in r['changed'])
+    assert r['changed'] and all(c.startswith('이름표 바뀜 faq:') and c.count(' → ') == 1 and 'inquiry_type_codes' in c
+                                for c in r['changed'])               # FAQ 의 코드 칸만 바뀜
+    assert q(url, chunks) == before                                     # id·이름표 모두 원래대로
+    assert versions(url, 'IT-ACC-002')['v2.0'][1:3] == (True, 'DONE')
+    assert run(url, embs, docs=['IT-ACC-002']).results[0]['action'] == 'unchanged'

@@ -14,7 +14,6 @@
 """
 from __future__ import annotations
 
-import json
 import logging
 from collections import defaultdict
 from datetime import timedelta
@@ -24,7 +23,7 @@ from app.rag.chunker import Chunk, chunk_document, chunk_row, document_row, vali
 from app.rag.parser import ParseError, parse
 
 from . import (ERROR_MAX, ROOT, SCOPE_RANK, IngestError, Prepared, Report, _drop_stale, _insert_chunks,
-               _lock_document, _put_embeddings, activate, check_vectors, read_vectors)
+               _lock_document, _put_embeddings, _relabel, activate, check_vectors, read_vectors)
 
 log = logging.getLogger('app.rag.ingest')
 STALE_PENDING = timedelta(minutes=10)                     # 이보다 오래 PENDING 이면 적재가 멈춘 것으로 본다
@@ -221,40 +220,6 @@ def _write(conn, v: dict, p: Prepared, model_id: str, reload: bool, activate_ver
     activated = activate(conn, v['id'], actor_id) if activate_version else False
     conn.commit()
     return 'DONE', activated
-
-
-SHOW_CHANGED = 10                                         # 바뀐 칸 경고는 청크 이만큼까지, 나머지는 개수만
-
-
-def _relabel(conn, vid: int, p: Prepared, warnings: list[str]) -> list[int] | None:
-    """뼈대(seq·unit_key·part·chunk_type)와 본문이 DB 와 같으면 이름표(heading_path·location·meta)만 같은 id 에
-    고쳐 쓰고 청크 id 들을 돌려준다. 조각 식별·본문은 그대로라 겹친 검색이 섞이지 않는다 (순위·이름표는 이전 것을
-    볼 수 있다). 바뀐 칸은 경고 ('item:3.4: inquiry_type_codes [] → ["HW-10"]'). 다르면 아무것도 안 하고 None."""
-    old = conn.execute('select id, seq, unit_key, part, chunk_type, content, heading_path, location, meta '
-                       'from document_chunks where version_id = %s order by seq', (vid,)).fetchall()
-    if [tuple(r[1:6]) for r in old] != [tuple(x[k] for k in ('seq', 'unit_key', 'part', 'chunk_type', 'content'))
-                                         for x in p.rows]:
-        return None
-    from psycopg.types.json import Jsonb
-    changed = []
-    for (cid, *_, heading, location, meta), x in zip(old, p.rows):
-        diff = _diff({'heading_path': heading, 'location': location, **(meta or {})},
-                     {'heading_path': x['heading_path'], 'location': x['location'], **x['meta']})
-        if diff:
-            conn.execute('update document_chunks set heading_path = %s, location = %s, meta = %s where id = %s',
-                         (x['heading_path'], x['location'], Jsonb(x['meta']), cid))
-            changed.append(f"{x['unit_key'].split('/', 1)[-1]}: {', '.join(diff)}")
-    warnings += [f'이름표 바뀜 {c}' for c in changed[:SHOW_CHANGED]]
-    if len(changed) > SHOW_CHANGED:
-        warnings.append(f'이름표 바뀜 외 청크 {len(changed) - SHOW_CHANGED}개')
-    return [r[0] for r in old]
-
-
-def _diff(old: dict, new: dict) -> list[str]:
-    def show(v):
-        s = json.dumps(v, ensure_ascii=False)
-        return s if len(s) <= 60 else s[:57] + '…'
-    return [f'{k} {show(old.get(k))} → {show(new.get(k))}' for k in dict.fromkeys([*old, *new]) if old.get(k) != new.get(k)]
 
 
 def _record_failure(conn, version_id: int, error: str, file_path: str | None) -> str | None:
