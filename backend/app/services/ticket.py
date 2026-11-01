@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.agent.flow.urgency import urgency_of
 from app.agent.llm import Facts, safe_default
@@ -43,16 +43,21 @@ from app.schemas.ticket import (
     TicketDraft as TicketDraftView,
     TicketListQuery,
     TicketSummary,
+    TicketUpdateRequest,
 )
 from app.services.ai_responder import facts_of, type_info
 from app.services.inquiry import can_view_inquiry, close_unresolved, end_session, invalid_state, record_sensitive_input
 from app.services.inquiry_status import CLOSED_STATUSES, display_status, ticket_display_status
 from app.services.jira_create import enqueue_jira_create
+from app.services.jira_transition import enqueue_jira_transition
 from app.utils import datetime_utils
 
 logger = logging.getLogger(__name__)
 
 TRIAGE_REASON = "서비스데스크 확인"
+# 허용하는 업무 상태 변경 (API 03 1.3). 누가 요청할 수 있는지는 required_role()
+TRANSITIONS = {("RDY", "WIP"), ("WIP", "FIN"), ("FIN", "CLS"), ("FIN", "WIP")}
+NOTE_EDITABLE = ("WIP", "FIN")            # 처리 결과만 고칠 수 있는 상태
 
 
 class TicketService:
@@ -319,6 +324,81 @@ class TicketService:
             for h, actor in self.tickets.status_history(ticket.id)
         ])
 
+    def request_transition(self, ticket_id: int, body: TicketUpdateRequest, user: User) -> TicketView:
+        """TK-07. 상태를 바로 바꾸지 않고 요청(requested_work_status·transition_status)과 JIRA_TRANSITION 작업을 남긴다.
+
+        검사 순서: 볼 권한(404) → 실행자(403) → Jira 연동(409) → 허용 변경(409) → 진행 중 작업(409) → 입력(422).
+        """
+        if body.work_status is None and body.resolution_note is None:
+            raise field_error(ErrorCode.VALIDATION_ERROR, "workStatus", "REQUIRED", "변경할 상태나 처리 결과를 보내 주세요.")
+        ticket = self.tickets.get_for_update(ticket_id)
+        inquiry = self.inquiries.get(ticket.inquiry_id) if ticket else None
+        if inquiry is None or not can_view_inquiry(self.inquiries, inquiry, ticket, user):
+            raise AppError(ErrorCode.TICKET_NOT_FOUND)
+
+        current, target = ticket.work_status, body.work_status
+        is_staff = self.is_staff(ticket, user)
+        if body.resolution_note is not None and not is_staff:
+            raise AppError(ErrorCode.FORBIDDEN)
+        if target is not None and not (is_staff if required_role(current, target) == "STAFF" else inquiry.user_id == user.id):
+            raise AppError(ErrorCode.FORBIDDEN)
+        if ticket.jira_sync_status != "SYNCED":
+            raise AppError(ErrorCode.TICKET_NOT_SYNCED)
+        if (target is not None and (current, target) not in TRANSITIONS) or (target is None and current not in NOTE_EDITABLE):
+            raise AppError(ErrorCode.TICKET_INVALID_TRANSITION, [
+                {"reason": "TRANSITION", "message": "요청한 변경", "value": {"from": current, "to": target or current}},
+            ])
+        if ticket.transition_status != "IDLE" or self.tickets.has_active_job(ticket.id, "JIRA_TRANSITION"):
+            raise AppError(ErrorCode.INTEGRATION_JOB_IN_PROGRESS, [
+                {"reason": "TRANSITION_STATUS", "message": "상태 변경 작업 상태", "value": ticket.transition_status},
+            ])
+        if target == "FIN" and not (body.resolution_note or ticket.resolution_note):
+            raise field_error(ErrorCode.TICKET_RESOLUTION_NOTE_REQUIRED, "resolutionNote", "REQUIRED")
+        if (current, target) == ("FIN", "WIP") and not body.reason:
+            raise field_error(ErrorCode.VALIDATION_ERROR, "reason", "REQUIRED", "남은 증상을 입력해 주세요.")
+
+        # 처리 결과·남은 증상도 사용자가 쓴 글이라 Jira 로 보내기 전에 가린다 (docs/10 4장 ②)
+        masked_counts: Counter[str] = Counter()
+        texts = {}
+        for name in ("resolution_note", "reason"):
+            value = getattr(body, name)
+            if value is not None:
+                masked = mask_secrets(value)
+                texts[name] = masked.text
+                masked_counts.update(masked.counts)
+        record_sensitive_input(self.audit_logs, inquiry.id, user, dict(masked_counts))
+
+        now = datetime_utils.now()
+        ticket.requested_work_status = target
+        ticket.transition_status = "PENDING"
+        if target == "CLS":
+            ticket.resolution_confirmed_at = now
+        try:
+            enqueue_jira_transition(self.db, ticket, {
+                "ticketId": ticket.id,
+                "receiptNo": ticket.receipt_no,
+                "jiraKey": ticket.jira_key,
+                "fromStatus": current,
+                "toStatus": target,                        # null 이면 처리 결과만 수정
+                "resolutionNote": texts.get("resolution_note"),
+                "reason": texts.get("reason"),
+                "requestedBy": user.id,
+                "requestedAt": now.isoformat(),
+                "resolutionConfirmedAt": now.isoformat() if target == "CLS" else None,
+            })
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()                             # 같은 접수에 다른 요청이 먼저 작업을 등록했다
+            raise AppError(ErrorCode.INTEGRATION_JOB_IN_PROGRESS)
+        return self.to_ticket(ticket, inquiry)
+
+    def is_staff(self, ticket: Ticket, user: User) -> bool:
+        """ADMIN, 또는 접수 담당 그룹의 활성 구성원인 AGENT."""
+        if user.service_role == "ADMIN":
+            return True
+        return bool(user.service_role == "AGENT" and ticket.group_id
+                    and self.inquiries.is_active_group_member(user.id, ticket.group_id))
+
     def find_viewable(self, ticket_id: int, viewer: User) -> tuple[Ticket, Inquiry]:
         ticket = self.tickets.get(ticket_id)
         inquiry = self.inquiries.get(ticket.inquiry_id) if ticket else None
@@ -409,6 +489,13 @@ class TicketService:
 
 
 TicketServiceDep = Annotated[TicketService, Depends(TicketService)]
+
+
+def required_role(current: str | None, target: str) -> str:
+    """목표 상태를 요청할 수 있는 사람. 미해결(FIN → WIP)만 문의자가 WIP 로 되돌린다."""
+    if target == "CLS" or (target == "WIP" and current == "FIN"):
+        return "REQUESTER"
+    return "STAFF"
 
 
 def facts_fields(facts: Facts | None) -> dict:

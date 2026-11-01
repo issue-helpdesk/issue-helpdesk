@@ -9,6 +9,7 @@ from app.db.session import DbSession
 from app.models import (
     Category,
     Inquiry,
+    IntegrationJob,
     SupportGroup,
     SupportGroupMember,
     Ticket,
@@ -42,6 +43,15 @@ class TicketRepository:
 
     def get(self, ticket_id: int) -> Ticket | None:
         return self.db.get(Ticket, ticket_id)
+
+    def get_for_update(self, ticket_id: int) -> Ticket | None:
+        return self.db.get(Ticket, ticket_id, with_for_update=True, populate_existing=True)
+
+    def has_active_job(self, ticket_id: int, job_type: str) -> bool:
+        return self.db.scalar(
+            select(IntegrationJob.id).where(IntegrationJob.ticket_id == ticket_id, IntegrationJob.job_type == job_type,
+                                            IntegrationJob.status.in_(("PENDING", "RUNNING")))
+        ) is not None
 
     def get_draft(self, draft_id: int) -> TicketDraft | None:
         return self.db.get(TicketDraft, draft_id)

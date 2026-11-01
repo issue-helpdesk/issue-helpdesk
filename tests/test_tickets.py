@@ -589,3 +589,179 @@ def test_status_history_of_other_user(client, staff):
     res = client.get(f"{TICKETS}/{staff['mine'].id}/status-history", headers=as_user(client, "E0003"))
 
     assert error_code(res) == "TICKET_NOT_FOUND"
+
+
+# ---------------------------------------------------------------- TK-07 업무 상태 변경 요청
+
+def transition(client, headers, ticket_id, **body):
+    return client.patch(f"{TICKETS}/{ticket_id}", json=body, headers=headers)
+
+
+def set_work_status(db, ticket, work_status, **fields):
+    ticket.work_status = work_status
+    for name, value in fields.items():
+        setattr(ticket, name, value)
+    db.commit()
+
+
+def jobs(db):
+    return db.scalars(select(IntegrationJob).order_by(IntegrationJob.id)).all()
+
+
+def test_staff_requests_finish(client, db, staff):
+    res = transition(client, as_user(client, "E0002"), staff["mine"].id, workStatus="FIN",
+                     resolutionNote="VPN 인증서를 재발급했습니다.")
+
+    assert res.status_code == 202
+    body = res.json()
+    assert (body["workStatus"], body["requestedWorkStatus"], body["transitionStatus"]) == ("WIP", "FIN", "PENDING")
+    assert body["resolutionNote"] is None                  # Jira 확인 전에는 마지막 확인 값
+    assert body["needsAdmin"] is False
+    (job,) = jobs(db)
+    assert (job.job_type, job.status, job.idempotency_key.startswith("transition:")) == ("JIRA_TRANSITION", "PENDING", True)
+    assert job.payload | {"requestedAt": None} == {
+        "ticketId": staff["mine"].id, "receiptNo": staff["mine"].receipt_no, "jiraKey": "ITHD-1520",
+        "fromStatus": "WIP", "toStatus": "FIN", "resolutionNote": "VPN 인증서를 재발급했습니다.", "reason": None,
+        "requestedBy": staff["agent"].id, "requestedAt": None, "resolutionConfirmedAt": None,
+    }
+
+
+def test_admin_requests_start(client, admin, staff):
+    res = transition(client, admin, staff["secret"].id, workStatus="WIP")
+
+    assert res.status_code == 202
+    assert res.json()["requestedWorkStatus"] == "WIP"
+
+
+def test_finish_uses_saved_resolution_note(client, db, staff):
+    set_work_status(db, staff["mine"], "WIP", resolution_note="이미 등록한 처리 결과")
+
+    res = transition(client, as_user(client, "E0002"), staff["mine"].id, workStatus="FIN")
+
+    assert res.status_code == 202
+    assert jobs(db)[0].payload["resolutionNote"] is None
+
+
+def test_finish_requires_resolution_note(client, staff):
+    res = transition(client, as_user(client, "E0002"), staff["mine"].id, workStatus="FIN")
+
+    assert res.status_code == 422
+    assert error_code(res) == "TICKET_RESOLUTION_NOTE_REQUIRED"
+    assert res.json()["error"]["details"][0] | {"message": None} == {"field": "resolutionNote", "reason": "REQUIRED",
+                                                                      "message": None}
+
+
+def test_requester_confirms_resolution(client, db, headers, staff):
+    set_work_status(db, staff["mine"], "FIN")
+
+    res = transition(client, headers, staff["mine"].id, workStatus="CLS")
+
+    assert res.status_code == 202
+    body = res.json()
+    assert (body["workStatus"], body["requestedWorkStatus"]) == ("FIN", "CLS")
+    assert body["resolutionConfirmedAt"] is not None
+    assert jobs(db)[0].payload["resolutionConfirmedAt"] is not None
+
+
+def test_requester_reports_unresolved_with_masked_reason(client, db, owner, headers, staff):
+    set_work_status(db, staff["mine"], "FIN")
+
+    res = transition(client, headers, staff["mine"].id, workStatus="WIP", reason="비밀번호는 Abc123!@ 인데 아직 안 돼요")
+
+    assert res.status_code == 202
+    reason = jobs(db)[0].payload["reason"]
+    assert "Abc123!@" not in reason and reason.endswith("아직 안 돼요")
+    log = db.scalar(select(AuditLog))
+    assert (log.event_type, log.result, log.actor_id) == ("SENSITIVE_INPUT", "PASSWORD", owner.id)
+
+
+def test_unresolved_requires_reason(client, db, headers, staff):
+    set_work_status(db, staff["mine"], "FIN")
+
+    res = transition(client, headers, staff["mine"].id, workStatus="WIP")
+
+    assert res.status_code == 422
+    assert res.json()["error"]["details"][0]["field"] == "reason"
+
+
+def test_staff_updates_resolution_note_only(client, db, staff):
+    res = transition(client, as_user(client, "E0002"), staff["mine"].id, resolutionNote="원인 추가 확인")
+
+    assert res.status_code == 202
+    assert (res.json()["workStatus"], res.json()["requestedWorkStatus"], res.json()["transitionStatus"]) == ("WIP", None, "PENDING")
+    assert (jobs(db)[0].payload["toStatus"], jobs(db)[0].payload["resolutionNote"]) == (None, "원인 추가 확인")
+
+
+def test_resolution_note_only_outside_wip_or_fin(client, admin, staff):
+    res = transition(client, admin, staff["secret"].id, resolutionNote="메모")          # RDY
+
+    assert res.status_code == 409
+    assert res.json()["error"]["details"][0]["value"] == {"from": "RDY", "to": "RDY"}
+
+
+@pytest.mark.parametrize("who, ticket, work_status, body", [
+    ("E0001", "secret", "RDY", {"workStatus": "WIP"}),                       # 문의자가 진행 시작
+    ("E0001", "mine", "WIP", {"workStatus": "FIN", "resolutionNote": "x"}),  # 문의자가 처리 완료
+    ("E0001", "mine", "WIP", {"resolutionNote": "x"}),                       # 문의자가 처리 결과 작성
+    ("E0002", "mine", "FIN", {"workStatus": "CLS"}),                         # 담당자가 해결 확인
+    ("E0002", "mine", "FIN", {"workStatus": "WIP", "reason": "x"}),          # 담당자가 미해결 처리
+])
+def test_wrong_actor_is_forbidden(client, db, staff, who, ticket, work_status, body):
+    set_work_status(db, staff[ticket], work_status)
+
+    res = transition(client, as_user(client, who), staff[ticket].id, **body)
+
+    assert res.status_code == 403
+    assert error_code(res) == "FORBIDDEN"
+    assert jobs(db) == []
+
+
+def test_skipping_status_is_invalid(client, admin, staff):
+    res = transition(client, admin, staff["secret"].id, workStatus="FIN", resolutionNote="x")
+
+    assert res.status_code == 409
+    assert error_code(res) == "TICKET_INVALID_TRANSITION"
+    assert res.json()["error"]["details"] == [{"reason": "TRANSITION", "message": "요청한 변경",
+                                               "value": {"from": "RDY", "to": "FIN"}}]
+
+
+def test_transition_before_jira_sync(client, admin, staff):
+    res = transition(client, admin, staff["others"].id, workStatus="WIP")      # jira_sync_status NEEDS_ADMIN
+
+    assert error_code(res) == "TICKET_NOT_SYNCED"
+
+
+@pytest.mark.parametrize("transition_status", ["PENDING", "NEEDS_ADMIN"])
+def test_transition_while_previous_unconfirmed(client, db, staff, transition_status):
+    staff["mine"].transition_status = transition_status
+    db.commit()
+
+    res = transition(client, as_user(client, "E0002"), staff["mine"].id, resolutionNote="메모")
+
+    assert res.status_code == 409
+    assert error_code(res) == "INTEGRATION_JOB_IN_PROGRESS"
+
+
+def test_second_request_is_rejected(client, db, staff):
+    agent = as_user(client, "E0002")
+    transition(client, agent, staff["mine"].id, resolutionNote="첫 번째")
+
+    res = transition(client, agent, staff["mine"].id, resolutionNote="두 번째")
+
+    assert error_code(res) == "INTEGRATION_JOB_IN_PROGRESS"
+    assert len(jobs(db)) == 1
+
+
+@pytest.mark.parametrize("body, field", [({}, "workStatus"), ({"workStatus": "RDY"}, "workStatus"),
+                                         ({"reason": "x"}, "workStatus")])
+def test_transition_validation(client, admin, staff, body, field):
+    res = transition(client, admin, staff["mine"].id, **body)
+
+    assert res.status_code == 422
+    assert res.json()["error"]["details"][0]["field"] == field
+
+
+def test_transition_of_invisible_ticket(client, staff):
+    res = transition(client, as_user(client, "E0003"), staff["mine"].id, workStatus="CLS")
+
+    assert error_code(res) == "TICKET_NOT_FOUND"

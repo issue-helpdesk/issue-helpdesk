@@ -13,10 +13,11 @@ from app.schemas.ticket import (
     TicketDraft,
     TicketListQuery,
     TicketSummary,
+    TicketUpdateRequest,
 )
 from app.services.ticket import TicketServiceDep
 
-# 접수 (TK-01~06·08). 초안 생성은 문의 아래 경로라 prefix 없이 둔다
+# 접수 (TK-01~08). 초안 생성은 문의 아래 경로라 prefix 없이 둔다
 router = APIRouter(tags=["tickets"])
 
 
@@ -60,3 +61,11 @@ def get_ticket(ticket_id: int, auth: CurrentAuth, service: TicketServiceDep) -> 
 @router.get("/tickets/{ticket_id}/status-history", response_model=ItemList[StatusHistory])
 def status_history(ticket_id: int, auth: CurrentAuth, service: TicketServiceDep) -> ItemList[StatusHistory]:
     return service.status_history(ticket_id, auth.user)
+
+
+@router.patch("/tickets/{ticket_id}", response_model=Ticket, status_code=status.HTTP_202_ACCEPTED)
+def request_transition(
+    ticket_id: int, body: TicketUpdateRequest, auth: CurrentAuth, service: TicketServiceDep,
+) -> Ticket:
+    """요청만 받는다. 반영 결과는 TK-06 으로 확인한다."""
+    return service.request_transition(ticket_id, body, auth.user)
