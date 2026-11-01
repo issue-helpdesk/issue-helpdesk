@@ -50,6 +50,7 @@ class DraftChange(CamelModel):
 class DraftUpdateResult(CamelModel):
     draft: TicketDraft
     changes: list[DraftChange]
+    mask_notice: str | None = None       # 고친 글에서 민감정보를 가렸으면 초안 카드 위 안내 (docs/10 6.1 MASK_NOTICE_DRAFT)
 
 
 WorkStatus = Literal["RDY", "WIP", "FIN", "CLS"]

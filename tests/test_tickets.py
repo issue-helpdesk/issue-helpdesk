@@ -155,11 +155,23 @@ def test_update_draft_fields(client, headers, draft):
 
     assert res.status_code == 200
     body = res.json()
-    assert body["changes"] == []
+    assert (body["changes"], body["maskNotice"]) == ([], None)
     saved = body["draft"]
     assert (saved["symptom"], saved["businessImpact"], saved["triedActions"]) == ("인증 서버 오류", "재택 근무 불가", None)
     assert saved["summary"] == draft["summary"]             # 보내지 않은 필드는 그대로
     assert saved["updatedAt"] is not None
+
+
+def test_update_draft_masks_secrets(client, db, owner, headers, draft):
+    res = patch_draft(client, headers, draft["id"], {"symptom": "비밀번호는 Abc123!@ 인데 로그인 실패", "summary": "VPN 접속 불가"})
+
+    body = res.json()
+    assert "Abc123!@" not in body["draft"]["symptom"]
+    assert db.get(TicketDraft, draft["id"]).symptom == body["draft"]["symptom"]
+    assert body["maskNotice"].startswith("민감정보가 가림 처리되었어요.")
+    log = db.scalar(select(AuditLog))
+    assert (log.event_type, log.result, log.target_id, log.actor_id) == ("SENSITIVE_INPUT", "PASSWORD", draft["inquiryId"],
+                                                                         owner.id)
 
 
 def test_change_type_recalculates_urgency_and_group(client, db, headers, draft, taxonomy):
@@ -215,7 +227,7 @@ def test_cancel_draft_closes_inquiry(client, db, headers, answered, draft):
     res = patch_draft(client, headers, draft["id"], {"status": "CANCELLED"})
 
     assert res.status_code == 200
-    assert res.json() == {"draft": res.json()["draft"] | {"status": "CANCELLED"}, "changes": []}
+    assert res.json() == {"draft": res.json()["draft"] | {"status": "CANCELLED"}, "changes": [], "maskNotice": None}
     inquiry = db.get(Inquiry, answered)
     assert (inquiry.status, inquiry.closed_at is not None) == ("CLOSED_UNRESOLVED", True)
     session = db.scalar(select(ChatSession))
