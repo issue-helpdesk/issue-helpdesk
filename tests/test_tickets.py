@@ -1,4 +1,6 @@
-"""접수 초안·최종 접수 API (TK-01~04) — SQLite 메모리 DB. 문의는 Mock 모델로 판단 흐름을 돌려 만든다."""
+"""접수 API (TK-01~06·08) — SQLite 메모리 DB. 문의는 Mock 모델로 판단 흐름을 돌려 만든다."""
+from datetime import datetime, timezone
+
 import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.exc import OperationalError
@@ -8,14 +10,17 @@ from sqlalchemy.pool import StaticPool
 from app.models import (
     AssignmentLog,
     AuditLog,
+    Category,
     ChatSession,
     Inquiry,
     InquiryAssessment,
     InquiryType,
     IntegrationJob,
     SupportGroup,
+    SupportGroupMember,
     Ticket,
     TicketDraft,
+    TicketStatusHistory,
 )
 from test_auth import add_user, bearer, client, error_code, login  # noqa: F401 (픽스처)
 from test_flow_correct import DOC
@@ -28,7 +33,7 @@ TICKETS = "/api/v1/tickets"
 @pytest.fixture
 def db():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    create_sqlite_tables(engine, INQUIRY_TABLES + ["integration_jobs", "assignment_logs"])
+    create_sqlite_tables(engine, INQUIRY_TABLES + ["integration_jobs", "assignment_logs", "ticket_status_history"])
     with Session(engine) as session:
         yield session
     engine.dispose()
@@ -331,3 +336,234 @@ def test_confirm_save_failure_keeps_draft(client, db, headers, answered, draft, 
     assert db.get(TicketDraft, draft["id"]).status == "EDITING"
     assert db.get(Inquiry, answered).status == "IN_PROGRESS"
     assert db.scalar(select(Ticket)) is None
+
+
+# ---------------------------------------------------------------- TK-05 접수 목록·TK-06 상세·TK-08 상태 이력
+
+def make_ticket(db, requester, group=None, created_at=None, **fields):
+    """대화 없이 접수까지 마친 문의를 만든다."""
+    inquiry = Inquiry(user_id=requester.id, status="RECEIVED")
+    db.add(inquiry)
+    db.flush()
+    session = ChatSession(inquiry_id=inquiry.id)
+    db.add(session)
+    db.flush()
+    draft = TicketDraft(inquiry_id=inquiry.id, session_id=session.id, status="CONFIRMED")
+    db.add(draft)
+    db.flush()
+    values = {"summary": "VPN 접속 불가", "jira_sync_status": "SYNCED", "assign_status": "ASSIGNED"} | fields
+    ticket = Ticket(receipt_no=f"RCPT-{draft.id:04d}", draft_id=draft.id, inquiry_id=inquiry.id, session_id=session.id,
+                    group_id=group.id if group else None, **values)
+    if created_at is not None:
+        ticket.created_at = created_at
+    db.add(ticket)
+    db.commit()
+    return ticket
+
+
+def add_member(db, group, user, is_active=True):
+    db.add(SupportGroupMember(group_id=group.id, user_id=user.id, member_role="AGENT", assignable=True,
+                              is_active=is_active))
+    db.commit()
+
+
+@pytest.fixture
+def staff(db, owner):
+    """네트워크팀(AGENT E0002 소속)·보안팀, 문의자 owner·E0003. 접수 3건: 내 것 2건(네트워크·보안), 남의 것 1건(네트워크)."""
+    net, sec = SupportGroup(name="네트워크팀"), SupportGroup(name="보안팀")
+    db.add_all([net, sec])
+    db.flush()
+    agent = add_user(db, "E0002", name="박서준", service_role="AGENT")
+    other = add_user(db, "E0003")
+    add_member(db, net, agent)
+    mine = make_ticket(db, owner, net, work_status="WIP", assignee_id=agent.id, jira_key="ITHD-1520")
+    secret = make_ticket(db, owner, sec, work_status="RDY", summary="계정 도용 의심")
+    others = make_ticket(db, other, net, work_status=None, jira_sync_status="NEEDS_ADMIN", assign_status="PENDING")
+    return {"net": net, "sec": sec, "agent": agent, "mine": mine, "secret": secret, "others": others}
+
+
+def listed(client, headers, **params):
+    return client.get(TICKETS, params=params, headers=headers)
+
+
+def ids(res):
+    return [item["id"] for item in res.json()["items"]]
+
+
+def as_user(client, employee_no):
+    return bearer(login(client, employee_no))
+
+
+def test_requester_sees_own_tickets(client, headers, staff):
+    res = listed(client, headers)
+
+    assert res.status_code == 200
+    assert ids(res) == [staff["secret"].id, staff["mine"].id]        # 기본 createdAt desc, 같으면 id desc
+    assert res.json()["totalCount"] == 2
+
+
+def test_summary_fields(client, owner, headers, staff):
+    item = next(i for i in listed(client, headers).json()["items"] if i["id"] == staff["mine"].id)
+
+    assert item["receiptNo"] == staff["mine"].receipt_no
+    assert (item["jiraKey"], item["summary"], item["urgency"]) == ("ITHD-1520", "VPN 접속 불가", None)
+    assert item["requester"] == {"id": owner.id, "employeeNo": "E0001", "name": "김민지"}
+    assert item["group"] == {"id": staff["net"].id, "name": "네트워크팀"}
+    assert item["assignee"] == {"id": staff["agent"].id, "employeeNo": "E0002", "name": "박서준"}
+    assert (item["workStatus"], item["displayStatus"], item["needsAdmin"]) == ("WIP", "progress", False)
+    assert (item["requestedWorkStatus"], item["transitionStatus"]) == (None, "IDLE")
+
+
+def test_agent_sees_tickets_of_own_groups_by_default(client, staff):
+    res = listed(client, as_user(client, "E0002"))
+
+    assert set(ids(res)) == {staff["mine"].id, staff["others"].id}
+
+
+def test_agent_of_inactive_membership_sees_nothing(client, db, staff):
+    db.get(SupportGroupMember, (staff["net"].id, staff["agent"].id)).is_active = False
+    db.commit()
+
+    assert ids(listed(client, as_user(client, "E0002"))) == []
+
+
+def test_agent_can_list_own_requests(client, db, staff):
+    own = make_ticket(db, staff["agent"], staff["sec"])
+
+    assert ids(listed(client, as_user(client, "E0002"), view="REQUESTER")) == [own.id]
+
+
+def test_admin_sees_all_by_default(client, db, staff):
+    add_user(db, "E0009", service_role="ADMIN")
+
+    assert len(ids(listed(client, as_user(client, "E0009")))) == 3
+
+
+@pytest.mark.parametrize("role, view", [("EMPLOYEE", "ASSIGNED"), ("EMPLOYEE", "ALL"), ("AGENT", "ALL")])
+def test_view_outside_role_is_forbidden(client, db, role, view):
+    add_user(db, "E0009", service_role=role)
+
+    res = listed(client, as_user(client, "E0009"), view=view)
+
+    assert res.status_code == 403
+    assert error_code(res) == "FORBIDDEN"
+
+
+@pytest.fixture
+def admin(client, db, staff):
+    add_user(db, "E0009", service_role="ADMIN")
+    return as_user(client, "E0009")
+
+
+@pytest.mark.parametrize("params, expected", [
+    ({"workStatus": ["RDY", "WIP"]}, ["secret", "mine"]),
+    ({"needsAdmin": "true"}, ["others"]),
+    ({"needsAdmin": "false"}, ["secret", "mine"]),
+    ({"jiraSyncStatus": "NEEDS_ADMIN"}, ["others"]),
+    ({"assignStatus": "ASSIGNED"}, ["secret", "mine"]),
+    ({"groupId": "net"}, ["others", "mine"]),
+    ({"assigneeId": "agent"}, ["mine"]),
+    ({"q": "ithd-15"}, ["mine"]),
+    ({"q": "도용"}, ["secret"]),
+    ({"q": "RCPT-0003"}, ["others"]),
+])
+def test_list_filters(client, admin, staff, params, expected):
+    params = {k: staff[v].id if v in ("net", "agent") else v for k, v in params.items()}
+
+    assert ids(listed(client, admin, **params)) == [staff[name].id for name in expected]
+
+
+def test_list_filters_by_category_and_urgency(client, db, owner, admin, staff):
+    db.add(Category(code="NET", name="VPN·네트워크"))
+    hit = make_ticket(db, owner, category_code="NET", urgency="P2")
+    make_ticket(db, owner, category_code="NET", urgency="P3")
+
+    assert ids(listed(client, admin, categoryCode="NET", urgency="P2")) == [hit.id]
+    assert listed(client, admin, categoryCode="NET").json()["items"][0]["category"] == {"code": "NET", "name": "VPN·네트워크"}
+
+
+def test_list_filters_by_created_date_in_kst(client, db, owner):
+    add_user(db, "E0009", service_role="ADMIN")
+    admin = as_user(client, "E0009")
+    before = make_ticket(db, owner, created_at=datetime(2026, 9, 30, 14, 59, tzinfo=timezone.utc))   # 9/30 23:59 KST
+    after = make_ticket(db, owner, created_at=datetime(2026, 9, 30, 15, 0, tzinfo=timezone.utc))     # 10/1 00:00 KST
+
+    assert ids(listed(client, admin, createdFrom="2026-10-01")) == [after.id]
+    assert ids(listed(client, admin, createdTo="2026-09-30")) == [before.id]
+
+
+def test_list_sorts_by_work_status(client, admin, staff):
+    res = listed(client, admin, sort="workStatus,asc")
+
+    assert ids(res) == [staff["others"].id, staff["secret"].id, staff["mine"].id]      # 생성 전 → RDY → WIP
+
+
+def test_list_paging(client, admin, staff):
+    body = listed(client, admin, page=2, size=2).json()
+
+    assert (len(body["items"]), body["page"], body["totalCount"], body["totalPages"]) == (1, 2, 3, 2)
+
+
+@pytest.mark.parametrize("params, status, code", [
+    ({"createdFrom": "2026-10-02", "createdTo": "2026-10-01"}, 400, "INVALID_REQUEST"),
+    ({"workStatus": "DONE"}, 422, "VALIDATION_ERROR"),
+    ({"view": "MINE"}, 422, "VALIDATION_ERROR"),
+    ({"sort": "summary,asc"}, 422, "VALIDATION_ERROR"),
+])
+def test_list_validation(client, headers, params, status, code):
+    res = listed(client, headers, **params)
+
+    assert res.status_code == status
+    assert error_code(res) == code
+
+
+@pytest.mark.parametrize("who, expected", [("E0001", 200), ("E0002", 200), ("E0003", 404), ("E0009", 200)])
+def test_get_ticket_permission(client, admin, staff, who, expected):
+    res = client.get(f"{TICKETS}/{staff['mine'].id}", headers=as_user(client, who))
+
+    assert res.status_code == expected
+    if expected == 404:
+        assert error_code(res) == "TICKET_NOT_FOUND"
+
+
+def test_get_ticket(client, owner, headers, staff):
+    body = client.get(f"{TICKETS}/{staff['mine'].id}", headers=headers).json()
+
+    assert (body["id"], body["receiptNo"], body["requester"]["id"]) == (staff["mine"].id, staff["mine"].receipt_no, owner.id)
+    assert (body["workStatus"], body["displayStatus"], body["assignee"]["name"]) == ("WIP", "progress", "박서준")
+
+
+def test_agent_cannot_view_ticket_of_other_group(client, staff):
+    res = client.get(f"{TICKETS}/{staff['secret'].id}", headers=as_user(client, "E0002"))
+
+    assert error_code(res) == "TICKET_NOT_FOUND"
+
+
+def test_get_missing_ticket(client, headers):
+    assert error_code(client.get(f"{TICKETS}/999", headers=headers)) == "TICKET_NOT_FOUND"
+
+
+def test_status_history(client, db, headers, staff):
+    ticket_id = staff["mine"].id
+    db.add_all([
+        TicketStatusHistory(ticket_id=ticket_id, from_status="RDY", to_status="WIP", source="ITSSUE",
+                            actor_id=staff["agent"].id, changed_at=datetime(2026, 10, 21, 1, 40, tzinfo=timezone.utc)),
+        TicketStatusHistory(ticket_id=ticket_id, from_status=None, to_status="RDY", source="JIRA",
+                            changed_at=datetime(2026, 10, 21, 1, 21, tzinfo=timezone.utc)),
+        TicketStatusHistory(ticket_id=staff["others"].id, to_status="RDY", source="JIRA"),
+    ])
+    db.commit()
+
+    res = client.get(f"{TICKETS}/{ticket_id}/status-history", headers=headers)
+
+    assert res.status_code == 200
+    items = res.json()["items"]
+    assert [(i["fromStatus"], i["toStatus"], i["source"]) for i in items] == [(None, "RDY", "JIRA"), ("RDY", "WIP", "ITSSUE")]
+    assert (items[0]["actor"], items[1]["actor"]["name"]) == (None, "박서준")
+    assert items[1]["changedAt"] == "2026-10-21T10:40:00+09:00"
+
+
+def test_status_history_of_other_user(client, staff):
+    res = client.get(f"{TICKETS}/{staff['mine'].id}/status-history", headers=as_user(client, "E0003"))
+
+    assert error_code(res) == "TICKET_NOT_FOUND"

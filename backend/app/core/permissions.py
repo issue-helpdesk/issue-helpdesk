@@ -8,3 +8,16 @@ VISIBLE_SCOPES = {
 
 def visible_scopes(service_role: str) -> tuple[str, ...]:
     return VISIBLE_SCOPES.get(service_role, ())
+
+
+# 접수 목록(TK-05) view 마다 쓸 수 있는 역할과, view 를 안 보냈을 때의 기본값
+TICKET_VIEW_ROLES = {
+    "REQUESTER": ("EMPLOYEE", "AGENT", "ADMIN"), 
+    "ASSIGNED": ("AGENT", "ADMIN"), 
+    "ALL": ("ADMIN",),
+}
+DEFAULT_TICKET_VIEW = {
+    "EMPLOYEE": "REQUESTER", 
+    "AGENT": "ASSIGNED", 
+    "ADMIN": "ALL",
+}

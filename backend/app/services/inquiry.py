@@ -18,6 +18,7 @@ from app.models import (
     InquiryType,
     Message,
     SupportGroup,
+    Ticket,
     User,
 )
 from app.repositories.audit_log import AuditLogRepository, AuditLogRepositoryDep
@@ -260,12 +261,7 @@ class InquiryService:
         return inquiry
 
     def can_view(self, inquiry: Inquiry, viewer: User) -> bool:
-        if inquiry.user_id == viewer.id or viewer.service_role == "ADMIN":
-            return True
-        if viewer.service_role != "AGENT":
-            return False
-        ticket = self.inquiries.ticket(inquiry.id)
-        return bool(ticket and ticket.group_id and self.inquiries.is_active_group_member(viewer.id, ticket.group_id))
+        return can_view_inquiry(self.inquiries, inquiry, self.inquiries.ticket(inquiry.id), viewer)
 
     def ai_turn(self, inquiry: Inquiry, messages: list[Message], assessment: InquiryAssessment) -> AiTurn:
         return AiTurn(
@@ -326,6 +322,15 @@ def urgency_reason(result: FlowResult) -> str | None:
     """긴급도를 서버 규칙이 정했으면 그 이유, 아니면 AI 가 든 이유."""
     rules = [o["reason"] for o in result.override_reasons if o["field"] == "urgency"]
     return " ".join(rules or result.output.rationale.urgency_reasons) or None
+
+
+def can_view_inquiry(inquiries: InquiryRepository, inquiry: Inquiry, ticket: Ticket | None, viewer: User) -> bool:
+    """본인·ADMIN, 또는 접수 담당 그룹의 활성 구성원 (IQ-03, TK-06). 문의와 접수가 같은 규칙을 쓴다."""
+    if inquiry.user_id == viewer.id or viewer.service_role == "ADMIN":
+        return True
+    if viewer.service_role != "AGENT":
+        return False
+    return bool(ticket and ticket.group_id and inquiries.is_active_group_member(viewer.id, ticket.group_id))
 
 
 def close_unresolved(inquiries: InquiryRepository, audit_logs: AuditLogRepository, inquiry: Inquiry, actor: User) -> None:

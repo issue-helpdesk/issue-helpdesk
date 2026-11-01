@@ -1,6 +1,7 @@
+from datetime import date
 from typing import Literal
 
-from app.schemas.common import CamelModel, KstDatetime, trimmed_str
+from app.schemas.common import CamelModel, KstDatetime, PageQuery, sort_param, trimmed_str
 from app.schemas.inquiry import CategoryRef, GroupRef, InquiryTypeRef, Urgency, UserRef
 
 
@@ -49,6 +50,62 @@ class DraftChange(CamelModel):
 class DraftUpdateResult(CamelModel):
     draft: TicketDraft
     changes: list[DraftChange]
+
+
+WorkStatus = Literal["RDY", "WIP", "FIN", "CLS"]
+JiraSyncStatus = Literal["PENDING", "VERIFYING", "SYNCED", "NEEDS_ADMIN"]
+AssignStatus = Literal["PENDING", "ASSIGNED", "NEEDS_ADMIN"]
+TicketScope = Literal["REQUESTER", "ASSIGNED", "ALL"]
+
+
+class TicketListQuery(PageQuery):
+    view: TicketScope | None = None          # 없으면 권한별 기본값 (EMPLOYEE REQUESTER, AGENT ASSIGNED, ADMIN ALL)
+    sort: list[sort_param("createdAt", "urgency", "workStatus")] = ["createdAt,desc"]
+    work_status: list[WorkStatus] = []
+    jira_sync_status: list[JiraSyncStatus] = []
+    assign_status: list[AssignStatus] = []
+    needs_admin: bool | None = None
+    category_code: list[trimmed_str(1, 20)] = []
+    urgency: list[Urgency] = []
+    group_id: int | None = None
+    assignee_id: int | None = None
+    created_from: date | None = None
+    created_to: date | None = None
+    q: trimmed_str(max_length=100) | None = None
+
+
+class TicketSummary(CamelModel):
+    id: int
+    receipt_no: str
+    jira_key: str | None
+    inquiry_id: int
+    requester: UserRef
+    summary: str
+    category: CategoryRef | None
+    urgency: Urgency | None
+    group: GroupRef | None
+    assignee: UserRef | None
+    jira_sync_status: str
+    assign_status: str
+    work_status: str | None
+    requested_work_status: str | None
+    transition_status: str
+    work_status_confirmed_at: KstDatetime | None
+    needs_admin: bool
+    display_status: str
+    created_at: KstDatetime
+
+
+class StatusHistory(CamelModel):
+    id: int
+    ticket_id: int
+    from_status: str | None
+    to_status: str
+    source: str
+    actor_id: int | None
+    actor: UserRef | None
+    reason: str | None
+    changed_at: KstDatetime
 
 
 class TicketCreateRequest(CamelModel):
