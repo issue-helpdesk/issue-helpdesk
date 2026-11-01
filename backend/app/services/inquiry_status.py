@@ -9,10 +9,15 @@ STATUS_DISPLAY = {"AI_RESOLVED": "ai_resolved", "CLOSED_UNRESOLVED": "unresolved
 
 def display_status(inquiry: Inquiry, ticket: Ticket | None) -> str:
     if ticket is not None:
-        return TICKET_DISPLAY.get(ticket.work_status, "received")
+        return ticket_display_status(ticket)
     if inquiry.status == "IN_PROGRESS" and inquiry.action == "ANSWER" and inquiry.resolution_result is None:
         return "unconfirmed"
     return STATUS_DISPLAY.get(inquiry.status, "in_progress")
+
+
+def ticket_display_status(ticket: Ticket) -> str:
+    """접수가 있으면 업무 상태로 정한다. Jira 생성 전(null)은 접수됨."""
+    return TICKET_DISPLAY.get(ticket.work_status, "received")
 
 
 def display_status_column():

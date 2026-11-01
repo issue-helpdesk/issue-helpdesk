@@ -1,7 +1,7 @@
 """접수 초안·최종 접수 (TK-01~04). 초안은 문의자가 고치고, 접수 확정 뒤 Jira 생성은 연동 작업이 한다."""
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends
@@ -11,6 +11,7 @@ from app.agent.flow.urgency import urgency_of
 from app.agent.llm import Facts, safe_default
 from app.core.error_codes import ErrorCode
 from app.core.errors import AppError, field_error
+from app.core.permissions import DEFAULT_TICKET_VIEW, TICKET_VIEW_ROLES
 from app.db.session import DbSession
 from app.models import (
     AssignmentLog,
@@ -28,18 +29,22 @@ from app.repositories.audit_log import AuditLogRepositoryDep
 from app.repositories.inquiry import InquiryRepositoryDep
 from app.repositories.reference import ReferenceRepositoryDep
 from app.repositories.ticket import TicketRepositoryDep
+from app.schemas.common import ItemList, Page, parse_sort
 from app.schemas.inquiry import CategoryRef, GroupRef, InquiryTypeRef, UserRef
 from app.schemas.ticket import (
     DraftChange,
     DraftUpdateRequest,
     DraftUpdateResult,
+    StatusHistory,
     Ticket as TicketView,
     TicketCreateRequest,
     TicketDraft as TicketDraftView,
+    TicketListQuery,
+    TicketSummary,
 )
 from app.services.ai_responder import facts_of, type_info
-from app.services.inquiry import close_unresolved, end_session, invalid_state
-from app.services.inquiry_status import CLOSED_STATUSES, display_status
+from app.services.inquiry import can_view_inquiry, close_unresolved, end_session, invalid_state
+from app.services.inquiry_status import CLOSED_STATUSES, display_status, ticket_display_status
 from app.services.jira_create import enqueue_jira_create
 from app.utils import datetime_utils
 
@@ -228,6 +233,88 @@ class TicketService:
         self.db.commit()
         return ticket
 
+    def list_tickets(self, query: TicketListQuery, viewer: User) -> Page[TicketSummary]:
+        """TK-05. view 로 범위를 정하고 나머지 조건은 그 범위 안에서 거른다."""
+        view = query.view or DEFAULT_TICKET_VIEW[viewer.service_role]
+        if viewer.service_role not in TICKET_VIEW_ROLES[view]:
+            raise AppError(ErrorCode.FORBIDDEN)
+        if query.created_from and query.created_to and query.created_from > query.created_to:
+            raise AppError(ErrorCode.INVALID_REQUEST)
+
+        rows, total = self.tickets.search(
+            requester_id=viewer.id if view == "REQUESTER" else None,
+            member_id=viewer.id if view == "ASSIGNED" else None,
+            work_statuses=query.work_status,
+            jira_sync_statuses=query.jira_sync_status,
+            assign_statuses=query.assign_status,
+            needs_admin=query.needs_admin,
+            category_codes=query.category_code,
+            urgencies=query.urgency,
+            group_id=query.group_id,
+            assignee_id=query.assignee_id,
+            created_from=datetime_utils.kst_start(query.created_from) if query.created_from else None,
+            created_before=datetime_utils.kst_start(query.created_to + timedelta(days=1)) if query.created_to else None,
+            q=query.q or None,
+            sort=parse_sort(query.sort),
+            offset=query.offset,
+            limit=query.size,
+        )
+        items = [
+            TicketSummary(
+                id=ticket.id,
+                receipt_no=ticket.receipt_no,
+                jira_key=ticket.jira_key,
+                inquiry_id=ticket.inquiry_id,
+                requester=UserRef.model_validate(requester),
+                summary=ticket.summary,
+                category=CategoryRef.model_validate(category) if category else None,
+                urgency=ticket.urgency,
+                group=GroupRef.model_validate(group) if group else None,
+                assignee=UserRef.model_validate(assignee) if assignee else None,
+                jira_sync_status=ticket.jira_sync_status,
+                assign_status=ticket.assign_status,
+                work_status=ticket.work_status,
+                requested_work_status=None,
+                transition_status="IDLE",
+                work_status_confirmed_at=None,
+                needs_admin=needs_admin(ticket),
+                display_status=ticket_display_status(ticket),
+                created_at=ticket.created_at,
+            )
+            for ticket, requester, category, group, assignee in rows
+        ]
+        return Page.of(items, query.page, query.size, total)
+
+    def get_ticket(self, ticket_id: int, viewer: User) -> TicketView:
+        """TK-06."""
+        ticket, inquiry = self.find_viewable(ticket_id, viewer)
+        return self.to_ticket(ticket, inquiry)
+
+    def status_history(self, ticket_id: int, viewer: User) -> ItemList[StatusHistory]:
+        """TK-08."""
+        ticket, _ = self.find_viewable(ticket_id, viewer)
+        return ItemList(items=[
+            StatusHistory(
+                id=h.id,
+                ticket_id=h.ticket_id,
+                from_status=h.from_status,
+                to_status=h.to_status,
+                source=h.source,
+                actor_id=h.actor_id,
+                actor=UserRef.model_validate(actor) if actor else None,
+                reason=h.reason,
+                changed_at=h.changed_at,
+            )
+            for h, actor in self.tickets.status_history(ticket.id)
+        ])
+
+    def find_viewable(self, ticket_id: int, viewer: User) -> tuple[Ticket, Inquiry]:
+        ticket = self.tickets.get(ticket_id)
+        inquiry = self.inquiries.get(ticket.inquiry_id) if ticket else None
+        if inquiry is None or not can_view_inquiry(self.inquiries, inquiry, ticket, viewer):
+            raise AppError(ErrorCode.TICKET_NOT_FOUND)
+        return ticket, inquiry
+
     def lock_own_draft(self, draft_id: int, user: User) -> tuple[Inquiry, TicketDraft]:
         """문의 → 초안 순으로 잠근다 (TK-04 처리 1)."""
         draft = self.tickets.get_draft(draft_id)
@@ -302,7 +389,7 @@ class TicketService:
             transition_status="IDLE",
             work_status_confirmed_at=None,
             resolution_confirmed_at=None,
-            needs_admin="NEEDS_ADMIN" in (ticket.jira_sync_status, ticket.assign_status),
+            needs_admin=needs_admin(ticket),
             display_status=display_status(inquiry, ticket),
             resolution_note=ticket.resolution_note,
             created_at=ticket.created_at,
@@ -343,6 +430,11 @@ def draft_not_editable(draft: TicketDraft) -> AppError:
     return AppError(ErrorCode.DRAFT_NOT_EDITABLE, [
         {"reason": "CURRENT_STATUS", "message": "현재 상태", "value": draft.status},
     ])
+
+
+def needs_admin(ticket: Ticket) -> bool:
+    """생성·배정 중 하나라도 관리자 확인이 필요하다. 상태 변경 확인(transition_status)은 칸이 생기면 더한다."""
+    return "NEEDS_ADMIN" in (ticket.jira_sync_status, ticket.assign_status)
 
 
 def jira_url(jira_key: str | None) -> str | None:
