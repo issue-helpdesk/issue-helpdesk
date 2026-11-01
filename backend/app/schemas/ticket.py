@@ -109,6 +109,12 @@ class StatusHistory(CamelModel):
     changed_at: KstDatetime
 
 
+class TicketUpdateRequest(CamelModel):
+    work_status: Literal["WIP", "FIN", "CLS"] | None = None
+    resolution_note: trimmed_str(1, 4000) | None = None      # 담당 그룹·ADMIN 만. 이것만 보내면 처리 결과만 수정
+    reason: trimmed_str(1, 2000) | None = None               # FIN → WIP(미해결)일 때 남은 증상
+
+
 class TicketCreateRequest(CamelModel):
     draft_id: int
     draft_updated_at: KstDatetime | None     # 필수. 사용자가 확인한 초안의 updatedAt, 수정한 적 없으면 null

@@ -44,5 +44,9 @@ class ErrorCode(Enum):
     DRAFT_NOT_EDITABLE = (409, "이미 접수되었거나 취소된 초안입니다.")
     DRAFT_RECONFIRM_REQUIRED = (409, "초안 내용이 바뀌었습니다. 변경된 내용을 확인한 뒤 다시 접수해 주세요.")
     TICKET_NOT_FOUND = (404, "접수 건을 찾을 수 없습니다.")
+    TICKET_INVALID_TRANSITION = (409, "현재 처리 상태에서 변경할 수 없는 상태입니다.")
+    TICKET_NOT_SYNCED = (409, "Jira 연동이 끝난 뒤에 처리 상태를 변경할 수 있습니다.")
+    TICKET_RESOLUTION_NOTE_REQUIRED = (422, "처리 완료로 변경하려면 처리 결과를 입력해 주세요.")
+    INTEGRATION_JOB_IN_PROGRESS = (409, "이미 연동 작업이 진행 중입니다.")
     TICKET_SAVE_FAILED = (500, "접수를 저장하지 못했습니다. 작성하신 내용은 보존되어 있으니 잠시 후 다시 시도하거나 "
                                "IT 헬프데스크(내선 1000)·그룹웨어 IT 요청 메뉴를 이용해 주세요.")
