@@ -6,6 +6,7 @@ import { resetMockState } from '../src/api/mock/accounts'
 import { resetChatMock } from '../src/api/mock/chatMock'
 import { mockConfig } from '../src/api/mock/chatStore'
 import { resetStaffMock } from '../src/api/mock/staffTickets'
+import { resetUsersMock } from '../src/api/mock/users'
 import { tokenStore } from '../src/core/tokenStore'
 
 beforeEach(() => {
@@ -21,6 +22,7 @@ beforeEach(() => {
   mockConfig.saveFail = false
   resetChatMock()
   resetStaffMock()
+  resetUsersMock()
 })
 
 afterEach(() => {
