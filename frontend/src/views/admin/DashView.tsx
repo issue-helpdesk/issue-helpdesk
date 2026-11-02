@@ -2,13 +2,13 @@
  * 관리자 대시보드 (/dash). (design/ITssue-Prototype.html viewDash)
  * 처리 현황(건수), 연동·배정 확인 띠, 확인할 Jira 알림, 긴급·높음 미해결 상위 3건을 한 화면에 모은다.
  * 건수와 띠는 전체 문의·운영 현황의 해당 조건으로 이어진다. 검색하면 대시보드 대신 검색 결과만 보인다.
- * 보안·감사 알림 띠는 해당 화면을 만들 때 함께 넣는다.
  */
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { getDashSnapshot, searchTickets, type DashSnapshot } from '../../api/dash'
+import { countSecurityAlerts, watchSecurity, type SecCounts } from '../../api/security'
 import { watchTickets } from '../../api/tickets'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
@@ -76,6 +76,7 @@ export function DashView() {
   const [error, setError] = useState('')
   const [q, setQ] = useState('')
   const [hit, setHit] = useState<{ items: TicketSummary[]; total: number } | null>(null)
+  const [sec, setSec] = useState<SecCounts | null>(null)
   const [tick, setTick] = useState(0)
   const [reload, setReload] = useState(0)
   const [opened] = useState(() => new Date().toISOString())
@@ -96,6 +97,13 @@ export function DashView() {
       alive = false
     }
   }, [user, admin, tick, reload])
+
+  useEffect(() => {
+    if (!user || !admin) return
+    return watchSecurity(() => {
+      countSecurityAlerts(user).then(setSec)
+    })
+  }, [user, admin])
 
   const needle = q.trim()
   useEffect(() => {
@@ -211,6 +219,22 @@ export function DashView() {
                       </div>
                       <button type="button" className="btn sm" onClick={() => navigate('/ops')}>
                         운영 현황
+                      </button>
+                    </section>
+                  )}
+                  {sec && sec.신규 + sec['확인 중'] > 0 && (
+                    <section className="hband sec" aria-label="보안·감사 알림">
+                      <div className="hbt">
+                        <h2>
+                          <span className="pulse" />
+                          보안·감사 알림 신규 <em>{sec.신규}</em>건
+                        </h2>
+                        <p>
+                          확인 중 {sec['확인 중']}건 · 미종결 중 심각도 높음 {sec.high}건
+                        </p>
+                      </div>
+                      <button type="button" className="btn sm" onClick={() => navigate('/security')}>
+                        보안·감사 알림
                       </button>
                     </section>
                   )}
