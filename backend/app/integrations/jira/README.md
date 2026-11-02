@@ -1,5 +1,13 @@
 # Jira 연동 (ITHD)
 
+### 2026-11-02 · 생성 성공 후 최초 배정 예약 연결
+
+- 생성·기존 이슈 연결·저장된 키 확인 성공 시 최초 배정을 예약하고 JIRA_ASSIGN 작업을 등록합니다.
+- 생성 전에 예약된 담당자는 유지합니다. 생성 결과와 예약을 같은 트랜잭션에 저장하며, 실패 시 기존 VERIFYING 조회 복구를 사용합니다.
+- 담당자 지정 실행과 worker 연결은 별도입니다. 부재 일정 DB 연결도 포함하지 않습니다.
+- 상세: [생성 후 최초 배정 예약](../../../../docs/integrations/jira/CREATE_AUTO_ASSIGNMENT.md).
+
+
 ITssue가 티켓을 만드는 Jira Software 스페이스 「ITssue HelpDesk」(키 `ITHD`, 사이트 `itssuehelpdesk.atlassian.net`)입니다.
 필드·선택값·상태 ID는 이 사이트 기준이며 `field_mapping.yaml`에 있습니다(2026-10-26에 조회해 맞춤).
 

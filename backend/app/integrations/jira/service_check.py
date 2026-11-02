@@ -30,7 +30,8 @@ from app.integrations.jira import JiraClient, JiraError  # noqa: E402
 from app.models import Base, Category, Inquiry, InquiryType, IntegrationJob, SupportGroup, Ticket, User  # noqa: E402
 from app.services import jira_create  # noqa: E402
 
-TABLES = ["users", "support_groups", "categories", "inquiry_types", "inquiries", "tickets", "integration_jobs"]
+TABLES = ["users", "support_groups", "categories", "inquiry_types", "inquiries", "tickets", "integration_jobs",
+          "support_group_members", "member_skills", "assignment_logs"]
 
 
 @compiles(BigInteger, "sqlite")

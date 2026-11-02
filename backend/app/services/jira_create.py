@@ -22,7 +22,7 @@ DB 상태 규칙 (docs/06 integration_jobs·tickets.jira_sync_status)
     3) VERIFYING 상태에서는 생성 호출 자체를 하지 않는다.
 
 한계(팀 확인 필요)
-    - 이 모듈은 Jira만 호출한다. 개인 담당자 배정(JIRA_ASSIGN)·상태 전환은 다른 작업이다.
+    - 생성 성공 시 공용 함수로 최초 배정을 예약하고 JIRA_ASSIGN 작업을 등록한다. Jira 담당자 지정·상태 전환 실행은 다른 작업이다.
     - 생성 내용은 integration_jobs.payload의 등록 시점 값을 쓴다. jiraKey·jiraSyncStatus만 최신 Ticket에서 읽는다.
       과거 마이그레이션의 빈 payload({})는 현재 DB 값으로 처리하며 경고를 남긴다. 원래 등록값의 복원은 아니다.
     - 실행기가 Jira 응답 직후 DB 저장 전에 죽으면 작업이 RUNNING으로 남는다. requeue_stale_running_jobs()가
@@ -45,7 +45,10 @@ from sqlalchemy.orm import Session
 from app.integrations.jira.client import JiraClient, JiraError
 from app.integrations.jira.confirmed_ticket import ConfirmedTicketError, create_from_confirmed_ticket
 from app.integrations.jira.retry import RetryPolicy, next_step
-from app.models import Category, Inquiry, InquiryType, IntegrationJob, SupportGroup, Ticket, User
+from app.models import (AssignmentLog, Category, Inquiry, InquiryType, IntegrationJob,
+                        SupportGroup, SupportGroupMember, Ticket, User)
+from app.services.assignment import reserve_assignment
+from app.services.jira_assign import enqueue_jira_assign
 from app.utils import datetime_utils
 
 logger = logging.getLogger(__name__)
@@ -263,9 +266,11 @@ def _save_success(
     db: Session, job: IntegrationJob, ticket: Ticket, now: datetime, result: dict[str, Any], work_status: str | None = None
 ) -> JobResult:
     key = result["jira_key"]
+    # Jira 호출 중 TK-09가 저장한 예약을 최신 값으로 읽고, 배정 변경과 저장 구간을 직렬화한다.
+    ticket = db.get(Ticket, ticket.id, with_for_update=True, populate_existing=True)
     ticket.jira_key = key
     ticket.jira_sync_status = "SYNCED"
-    if work_status is not None:
+    if work_status is not None and ticket.work_status is None:
         ticket.work_status = work_status
     job.status = "DONE"
     job.next_retry_at = None
@@ -273,13 +278,17 @@ def _save_success(
     job.updated_at = now
     job_id, ticket_id = job.id, ticket.id
     try:
-        db.commit()
+        db.flush()
     except IntegrityError:
         # 같은 jira_key가 다른 접수에 이미 저장돼 있다. 어느 쪽이 맞는지는 사람이 본다.
         db.rollback()
         return _needs_admin(
             db, db.get(IntegrationJob, job_id), db.get(Ticket, ticket_id), now, "jira_key_conflict"
         )
+
+    # 생성 결과와 예약을 함께 저장한다. DB 예외는 호출자가 rollback하고 기존 VERIFYING 복구를 쓴다.
+    _reserve_initial_assignment(db, ticket, now)
+    db.commit()
 
     if result.get("source") == "saved_ticket":
         outcome = "SAVED"
@@ -289,6 +298,44 @@ def _save_success(
         outcome = "LINKED"
     logger.info("jira create job %s ticket %s → %s %s", job_id, ticket_id, outcome, key)
     return JobResult(job_id, outcome, "DONE", "SYNCED", key)
+
+
+def _reserve_initial_assignment(db: Session, ticket: Ticket, now: datetime) -> None:
+    """생성 성공 저장과 같은 트랜잭션. 기존 배정 판단·작업·이력을 덮어쓰지 않는다."""
+    if ticket.assign_status != "PENDING" or ticket.work_status not in {"RDY", "WIP"}:
+        return
+    # 완료·실패한 작업도 다시 만들지 않는다. 재처리는 TK-09의 별도 요청으로 받는다.
+    if db.scalar(select(IntegrationJob.id).where(
+        IntegrationJob.ticket_id == ticket.id, IntegrationJob.job_type == "JIRA_ASSIGN",
+    ).limit(1)) is not None:
+        return
+
+    if ticket.assignee_id is not None:
+        # Jira 생성 전 직접 지정·자동 선정된 예약. 재선정, revision 증가, 이력 추가 없이 이어간다.
+        member = db.get(SupportGroupMember, (ticket.group_id, ticket.assignee_id)) if ticket.group_id else None
+        enqueue_jira_assign(db, ticket, {
+            "ticketId": ticket.id, "receiptNo": ticket.receipt_no, "jiraKey": ticket.jira_key,
+            "groupId": ticket.group_id, "assigneeId": ticket.assignee_id,
+            "jiraAccountId": member.jira_account_id if member else None,
+            "assignmentRevision": ticket.assignment_revision, "requestedBy": None,
+            "requestedAt": now.isoformat(),
+        })
+        return
+
+    if ticket.assignment_revision != 0 or db.scalar(select(AssignmentLog.id).where(
+        AssignmentLog.ticket_id == ticket.id,
+    ).limit(1)) is not None:
+        return
+    group = db.get(SupportGroup, ticket.group_id, with_for_update=True, populate_existing=True) if ticket.group_id else None
+    inquiry_type = db.get(InquiryType, ticket.inquiry_type_id) if ticket.inquiry_type_id else None
+    if group is None or not group.is_active or (inquiry_type is not None and not inquiry_type.is_active):
+        ticket.assign_status = "NEEDS_ADMIN"
+        ticket.assignment_revision += 1
+        db.add(AssignmentLog(ticket_id=ticket.id, event="FAIL", group_id=ticket.group_id, actor_id=None,
+                             reason="최초 자동배정 (활성 담당 그룹·세부 유형 확인 필요)"))
+        db.flush()
+        return
+    reserve_assignment(db, ticket, ticket.group_id, reason="최초 자동배정", actor_id=None, now=now)
 
 
 def _after_jira_error(
