@@ -356,8 +356,10 @@ class TicketService:
             raise AppError(ErrorCode.INTEGRATION_JOB_IN_PROGRESS, [
                 {"reason": "TRANSITION_STATUS", "message": "상태 변경 작업 상태", "value": ticket.transition_status},
             ])
-        if target == "FIN" and not (body.resolution_note or ticket.resolution_note):
-            raise field_error(ErrorCode.TICKET_RESOLUTION_NOTE_REQUIRED, "resolutionNote", "REQUIRED")
+        if target == "FIN" and not body.resolution_note:
+            # 재완료는 저장된 이전 결과가 있어도 이번 요청에 처리 결과를 받아야 한다.
+            if self.tickets.has_reopened(ticket.id) or not ticket.resolution_note:
+                raise field_error(ErrorCode.TICKET_RESOLUTION_NOTE_REQUIRED, "resolutionNote", "REQUIRED")
         if (current, target) == ("FIN", "WIP") and not body.reason:
             raise field_error(ErrorCode.VALIDATION_ERROR, "reason", "REQUIRED", "남은 증상을 입력해 주세요.")
 

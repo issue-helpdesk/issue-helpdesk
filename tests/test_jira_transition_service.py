@@ -174,6 +174,77 @@ def test_fin_can_use_existing_saved_note_when_request_has_no_new_note(transition
     assert jira.note == "저장된 결과"
 
 
+def add_reopen_history(db, ticket, source="ITSSUE"):
+    db.add(TicketStatusHistory(ticket_id=ticket.id, from_status="FIN", to_status="WIP", source=source,
+                              changed_at=T0 - timedelta(hours=1)))
+    db.commit()
+
+
+@pytest.mark.parametrize("source", ["ITSSUE", "JIRA"])
+@pytest.mark.parametrize("note", [None, "", " \n\t "])
+def test_refinish_without_explicit_note_stops_before_any_jira_call(transition_db, source, note):
+    db = transition_db
+    ticket, job = make_transition(db, "WIP", "FIN", note)
+    ticket.resolution_note = "기존 결과"
+    add_reopen_history(db, ticket, source)
+    original_payload = deepcopy(job.payload)
+    jira = Workflow("WIP", "기존 결과")
+
+    result = service.run_jira_transition_job(db, jira.client(), job.id, now=NOW)
+
+    assert (result.outcome, result.reason) == ("NEEDS_ADMIN", "invalid_fields")
+    ticket = reload(db, Ticket, ticket.id)
+    assert (ticket.work_status, ticket.resolution_note, ticket.finished_at) == ("WIP", "기존 결과", None)
+    assert ticket.transition_status == "NEEDS_ADMIN"
+    assert reload(db, IntegrationJob, job.id).payload == original_payload
+    assert len(db.scalars(select(TicketStatusHistory)).all()) == 1
+    assert jira.calls == []
+
+
+@pytest.mark.parametrize("note", ["추가 조치 후 정상 확인", "기존 결과"])
+def test_refinish_with_explicit_note_confirms_result_and_new_finished_time(transition_db, note):
+    db = transition_db
+    ticket, job = make_transition(db, "WIP", "FIN", note)
+    ticket.resolution_note = "기존 결과"
+    add_reopen_history(db, ticket)
+    jira = Workflow("WIP", "기존 결과")
+
+    result = service.run_jira_transition_job(db, jira.client(), job.id, now=NOW)
+
+    assert result.outcome == "CONFIRMED"
+    ticket = reload(db, Ticket, ticket.id)
+    assert (ticket.work_status, ticket.resolution_note) == ("FIN", note)
+    assert datetime_utils.as_utc(ticket.finished_at) == EVENT_AT
+    assert jira.note == note
+    assert jira.transitions == 1
+
+
+def test_other_ticket_reopen_and_non_reopen_history_do_not_block_first_finish(transition_db):
+    db = transition_db
+    other = make_ticket(db, id=43, receipt_no="RCPT-0043", draft_id=56)
+    add_reopen_history(db, other)
+    ticket, job = make_transition(db, "WIP", "FIN")
+    ticket.resolution_note = "저장된 결과"
+    db.add(TicketStatusHistory(ticket_id=ticket.id, from_status="RDY", to_status="WIP", source="JIRA"))
+    db.commit()
+    jira = Workflow("WIP")
+
+    assert service.run_jira_transition_job(db, jira.client(), job.id, now=NOW).outcome == "CONFIRMED"
+    assert jira.note == "저장된 결과"
+
+
+@pytest.mark.parametrize("status", ["WIP", "FIN"])
+def test_note_only_edit_with_reopen_history_still_succeeds(transition_db, status):
+    db = transition_db
+    ticket, job = make_transition(db, status, None, "수정한 결과")
+    add_reopen_history(db, ticket)
+    jira = Workflow(status, "기존 결과")
+
+    assert service.run_jira_transition_job(db, jira.client(), job.id, now=NOW).outcome == "CONFIRMED"
+    assert (jira.transitions, jira.edits) == (0, 1)
+    assert len(db.scalars(select(TicketStatusHistory)).all()) == 1
+
+
 @pytest.mark.parametrize("field,value", [("resolutionConfirmedAt", None), ("requestedBy", 18)])
 def test_cls_requires_requester_confirmation_before_any_jira_call(transition_db, field, value):
     db = transition_db
