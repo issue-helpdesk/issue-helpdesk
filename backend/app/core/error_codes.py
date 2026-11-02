@@ -52,3 +52,8 @@ class ErrorCode(Enum):
     ASSIGNEE_NOT_ASSIGNABLE = (422, "배정할 수 없는 담당자입니다. 그룹 소속·배정 가능 여부·Jira 계정을 확인해 주세요.")
     TICKET_SAVE_FAILED = (500, "접수를 저장하지 못했습니다. 작성하신 내용은 보존되어 있으니 잠시 후 다시 시도하거나 "
                                "IT 헬프데스크(내선 1000)·그룹웨어 IT 요청 메뉴를 이용해 주세요.")
+
+    # FAQ (5.6)
+    FAQ_NOT_FOUND = (404, "FAQ를 찾을 수 없습니다.")
+    FAQ_CODE_DUPLICATE = (409, "이미 등록된 FAQ 번호입니다.")
+    FAQ_SOURCE_NOT_PUBLIC = (409, "공개 가능한 현행 출처를 확인한 뒤 게시해 주세요.")
