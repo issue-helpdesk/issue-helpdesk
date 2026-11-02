@@ -208,7 +208,8 @@ const shortName = (n: string) => n.split(' ')[0]
 
 const CAP = '그래프에 마우스를 올리거나 표로 바꿔서 값을 읽을 수 있어요'
 
-export function CurveChart({ labels, series, runKey, aria }: { labels: string[]; series: Series[]; runKey: string; aria: string }) {
+/** foot: 가로축 라벨 아래에 한 줄 더 (예: 추정 비용). extra: 마우스를 올렸을 때 덧붙이는 설명. cols: 표 보기에 덧붙이는 열 */
+export function CurveChart({ labels, series, runKey, aria, foot, extra, cols }: { labels: string[]; series: Series[]; runKey: string; aria: string; foot?: string[]; extra?: string[]; cols?: { name: string; v: string[] }[] }) {
   const [table, setTable] = useState(false)
   const [hv, setHv] = useState<{ i: number; cx: number; cy: number } | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -228,10 +229,10 @@ export function CurveChart({ labels, series, runKey, aria }: { labels: string[];
   const uid = `cv${useId().replace(/:/g, '')}`
   const n = labels.length
   const W = Math.max(340, Math.min(cw, 1400))
-  const H = (cw < 520 ? 176 : 196) + 30
+  const H = (cw < 520 ? 176 : 196) + 30 + (foot ? 14 : 0)
   const pr = Math.max(46, ...series.map((s) => LW(`${shortName(s.name)} ${s.v[n - 1]}`))) + 16
   const pt = 14
-  const pb = 26
+  const pb = 26 + (foot ? 14 : 0)
   const top = Math.max(1, ...series.flatMap((s) => s.v))
   const step = top <= 8 ? 2 : top <= 16 ? 4 : (() => { const mag = Math.pow(10, Math.floor(Math.log10(top / 4))); return [1, 2, 5, 10].map((m) => m * mag).find((x) => x >= top / 4) ?? mag })()
   const mx = Math.ceil(top / step) * step
@@ -327,6 +328,11 @@ export function CurveChart({ labels, series, runKey, aria }: { labels: string[];
                     {s.name}(건)
                   </th>
                 ))}
+                {cols?.map((c) => (
+                  <th key={c.name} scope="col">
+                    {c.name}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -336,6 +342,11 @@ export function CurveChart({ labels, series, runKey, aria }: { labels: string[];
                   {series.map((s) => (
                     <td key={s.name} className="num">
                       {s.v[i].toLocaleString()}
+                    </td>
+                  ))}
+                  {cols?.map((c) => (
+                    <td key={c.name} className="num">
+                      {c.v[i]}
                     </td>
                   ))}
                 </tr>
@@ -413,9 +424,16 @@ export function CurveChart({ labels, series, runKey, aria }: { labels: string[];
             })}
             {labels.map((l, i) =>
               (i % every === 0 && n - 1 - i >= every) || i === n - 1 ? (
-                <text key={l} x={X(i).toFixed(1)} y={H - 6} textAnchor="middle" style={{ fontSize: 12, fill: 'var(--mute)' }}>
-                  {l}
-                </text>
+                <g key={l}>
+                  <text x={X(i).toFixed(1)} y={H - 6 - (foot ? 14 : 0)} textAnchor="middle" style={{ fontSize: 12, fill: 'var(--mute)' }}>
+                    {l}
+                  </text>
+                  {foot && (
+                    <text x={X(i).toFixed(1)} y={H - 5} textAnchor="middle" style={{ fontSize: 12, fill: 'var(--mute)', fontFamily: 'var(--mono)' }}>
+                      {foot[i]}
+                    </text>
+                  )}
+                </g>
               ) : null,
             )}
             {hv && (
@@ -439,6 +457,7 @@ export function CurveChart({ labels, series, runKey, aria }: { labels: string[];
               <span>{s.v[hv.i]}건</span>
             </div>
           ))}
+          {extra && <div className="small muted">{extra[hv.i]}</div>}
         </div>
       )}
       <p className="sr" aria-live="polite">

@@ -9,6 +9,7 @@ import { AppShell } from '../ui/AppShell'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import { AccountsView } from '../views/admin/AccountsView'
 import { AllTicketsView } from '../views/admin/AllTicketsView'
+import { AiOpsView } from '../views/admin/AiOpsView'
 import { AdminStatsView } from '../views/admin/AdminStatsView'
 import { DashView } from '../views/admin/DashView'
 import { GuidesView } from '../views/admin/GuidesView'
@@ -73,6 +74,7 @@ export function AppRoutes() {
           <Route path="/ops" element={<OpsView />} />
           <Route path="/security" element={<SecurityView />} />
           <Route path="/guides" element={<GuidesView />} />
+          <Route path="/ai" element={<AiOpsView />} />
           <Route path="/tickets" element={<AllTicketsView />} />
           <Route path="/tickets/:ticketId" element={<AllTicketsView />} />
         </Route>
