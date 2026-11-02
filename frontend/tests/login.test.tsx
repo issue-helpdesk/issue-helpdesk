@@ -183,7 +183,7 @@ describe('로그인 화면', () => {
     tokenStore.clear()
     renderApp()
     await user.click(screen.getByRole('button', { name: '관리자' }))
-    expect(await screen.findByRole('heading', { name: '대시보드' }, SLOW)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '대시보드', level: 1 }, SLOW)).toBeInTheDocument()
   })
 
   it('SSO 탭에서 시연 로그인을 할 수 있다', async () => {
@@ -202,7 +202,7 @@ describe('로그인 화면', () => {
   it('저장된 토큰이 있으면 새로고침 후에도 로그인 상태를 유지한다', async () => {
     tokenStore.set('mock.EMP-1178')
     renderApp('/login')
-    expect(await screen.findByRole('heading', { name: '대시보드' }, SLOW)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '대시보드', level: 1 }, SLOW)).toBeInTheDocument()
   })
 
   it('로그아웃하면 로그인 화면으로 돌아가고 토큰을 지운다', async () => {
