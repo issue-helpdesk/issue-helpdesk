@@ -25,7 +25,7 @@ ITssue가 티켓을 만드는 Jira Software 스페이스 「ITssue HelpDesk」(�
 | `comment_notify.py` | 댓글이 달렸을 때 알림 받을 사번 판별(`route_comment`). 순수 함수 |
 | `retry.py` | 실패 뒤 다음 행동 판단(`next_step`): 재시도·결과 조회·관리자 확인 |
 | `time_off.py` | 연차·반차 일정에서 지금 부재인 사람 목록(`absent_user_ids`). 순수 함수 |
-| `accounts.py` · `jira_accounts.yaml` | 사번 ↔ Jira accountId 연결표(테스트용 6명, 1:1). 값이 비면 Jira 계정 없음으로 봄. `account_id_for`(사번→계정), `employee_no_for`(계정→사번) |
+| `accounts.py` · `jira_accounts.yaml` | 사번 ↔ Jira accountId 연결표(시험용 9명, 6개 그룹, 1:1). 값이 비면 Jira 계정 없음으로 봄. `account_id_for`(사번→계정), `employee_no_for`(계정→사번) |
 
 ## 사용법
 
@@ -136,7 +136,7 @@ if event.is_comment_created:
 - **댓글 이벤트 ID**: 헤더 값 → 변경 이력 ID → `comment:<이벤트>:<댓글ID>:<updated>` → 본문 해시 순입니다. 수정(`comment_updated`)·삭제는 `is_comment_created` 가 False 입니다. 댓글 본문의 멘션(`@이름`)은 글자로만 남기고, 멘션된 사람에게 따로 알리는 일은 하지 않습니다.
 - 상태·담당자 값은 웹훅 본문으로 덮어쓰지 않고, 이벤트를 신호로 받아 `get_work_status`·`get_assignee`로 최신값을 읽어 반영합니다(TK-13).
 - 되돌림 금지는 ITssue가 보내는 전환만 막습니다(FIN → WIP 한 가지만 예외). Jira 화면에서 직접 되돌리는 것은 Jira 워크플로 설정(전환 권한)으로 제한합니다. FIN → WIP 전환에는 해결 결과(resolution)·해결 일시를 비우는 후처리가 설정돼 있어야 합니다(ITHD-355로 확인, 2026-10-30).
-- 사번 연결표(`jira_accounts.yaml`)는 accountId 칸이 비어 있습니다. 팀원의 Jira 프로필 주소 끝 값을 넣습니다.
+- 사번 연결표(`jira_accounts.yaml`)는 2026-11-02 확정한 직원 9명의 실제 accountId를 사용합니다(엔드포인트지원팀 4명, 나머지 5개 그룹 각 1명). 조직 관리자 계정은 제외합니다. 이 파일과 운영 DB의 계정 연결은 별도로 반영해야 합니다.
 - **실제 점검 범위는 아래 날짜별 기록을 따릅니다.** 현재 생성 서비스의 자동배정 연결, 배정·상태 변경 작업 실행기, 운영 DB·API·웹훅 전체 흐름의 실제 Jira 통합 검증은 별도입니다.
 
 테스트: `pytest tests/test_jira_assignment.py` (모의 응답 35개), `pytest tests/test_jira_comment.py` (댓글 알림 33개).

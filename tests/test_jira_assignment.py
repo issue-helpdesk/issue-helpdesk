@@ -324,7 +324,7 @@ def test_default_account_file_covers_six_groups():
     from app.integrations.jira.accounts import ACCOUNTS_PATH
     import yaml
     raw = yaml.safe_load(ACCOUNTS_PATH.read_text(encoding="utf-8"))["accounts"]
-    assert len(raw) == 6 and all(k.startswith("EMP-") for k in raw)
+    assert len(raw) == 9 and all(k.startswith("EMP-") for k in raw)
 
 
 # ---------------------------------------------------------------- 웹훅 서명 (X-Hub-Signature)
