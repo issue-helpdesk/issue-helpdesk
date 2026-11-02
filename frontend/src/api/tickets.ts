@@ -9,9 +9,10 @@
  */
 import { request, sleep } from '../core/apiClient'
 import { MOCK_ONLY, USE_MOCK_TICKET } from '../core/config'
+import { notReady } from './inquiryServer'
 import { staffTransition } from './mock/chatEngine'
 import { later, mockConfig, notify, subscribe } from './mock/chatStore'
-import { TEAM_MEMBERS, addMessage, addHistory, messagesOf, slackOf, allStaffTickets, clearMention, findStaffTicket, historyOf, mutateSeed, pending, recordOfTicket } from './mock/staffTickets'
+import { GROUP_STAFF, TEAM_MEMBERS, addMessage, reassignSeed, addHistory, messagesOf, slackOf, allStaffTickets, clearMention, findStaffTicket, historyOf, mutateSeed, pending, recordOfTicket } from './mock/staffTickets'
 import type { Page } from './inquiries'
 import type { MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMessage, TicketListQuery, TicketSummary, TicketTransitionRequest } from './ticketTypes'
 import { fail, ok, type ApiResult, type User } from './types'
@@ -48,12 +49,14 @@ const summaryOf = (t: TicketDetail): TicketSummary => {
 export async function listTickets(user: User, query: TicketListQuery = {}): Promise<ApiResult<Page<TicketSummary>>> {
   if (!USE_MOCK_TICKET) return request<Page<TicketSummary>>(`/tickets?${toQueryString(query)}`)
   await sleep(150) // 응답 지연 흉내
-  const { page = 1, size = 20, sort = 'createdAt,desc', workStatus, needsAdmin, categoryCode, urgency, assigneeId, createdFrom, q, jiraMention } = query
+  const { page = 1, size = 20, sort = 'createdAt,desc', workStatus, needsAdmin, categoryCode, urgency, assigneeId, createdFrom, q, jiraMention, groupId, jiraSyncStatus } = query
   const needle = (q ?? '').trim().toLowerCase()
   const from = createdFrom ? new Date(`${createdFrom}T00:00:00`).getTime() : 0
   let rows = allStaffTickets().filter((t) => canSee(user, t))
   rows = rows.filter((t) => {
     if (assigneeId && t.assignee?.id !== assigneeId) return false
+    if (groupId && t.group?.id !== groupId) return false
+    if (jiraSyncStatus?.length && !jiraSyncStatus.includes(t.jiraSyncStatus)) return false
     if (workStatus?.length && !(t.workStatus && workStatus.includes(t.workStatus))) return false
     if (needsAdmin !== undefined && t.needsAdmin !== needsAdmin) return false
     if (categoryCode?.length && !(t.category && categoryCode.includes(t.category.code))) return false
@@ -80,6 +83,8 @@ export async function listTickets(user: User, query: TicketListQuery = {}): Prom
         return t.category?.name ?? '힣'
       case 'receiptNo':
         return t.receiptNo
+      case 'assignee':
+        return t.assignee?.name ?? '힣' // 배정 전은 맨 뒤
       default:
         return Date.parse(t.createdAt)
     }
@@ -99,6 +104,32 @@ export async function listTickets(user: User, query: TicketListQuery = {}): Prom
 }
 
 const notFound = () => fail('TICKET_NOT_FOUND', '접수를 찾을 수 없어요.')
+
+/**
+ * 담당자 재배정 (TK-09 PUT /tickets/{id}/assignment). 관리자만, 처리 대기·처리 중인 접수만, 사유 필수.
+ * 서버 모드에서는 Jira 배정 작업이 끝까지 진행되지 않아(실행기 미배포) 요청하지 않고 안내만 한다.
+ */
+export async function reassignTicket(user: User, id: number, body: { assigneeId: number; reason: string }): Promise<ApiResult<TicketDetail>> {
+  if (!USE_MOCK_TICKET) return notReady('담당자 재배정')
+  await sleep(200)
+  if (user.serviceRole !== 'ADMIN') return fail('FORBIDDEN', '관리자만 담당자를 다시 정할 수 있어요.')
+  const t = findStaffTicket(id)
+  if (!t) return notFound()
+  if (!body.reason.trim()) return fail('VALIDATION_ERROR', '재배정 사유를 입력해 주세요.', { details: [{ field: 'reason', reason: 'REQUIRED', message: '재배정 사유를 입력해 주세요.' }] })
+  if (t.workStatus !== 'RDY' && t.workStatus !== 'WIP') return fail('TICKET_INVALID_TRANSITION', '처리 대기·처리 중인 접수만 담당자를 바꿀 수 있어요.')
+  const m = (GROUP_STAFF[t.group?.name ?? ''] ?? []).find((x) => x.id === body.assigneeId)
+  if (!m) return fail('ASSIGNEE_NOT_ASSIGNABLE', '이 담당 그룹의 담당자가 아니에요.')
+  if (!m.jira) return fail('ASSIGNEE_NOT_ASSIGNABLE', 'Jira 계정이 연결되지 않아 배정할 수 없어요.')
+  if (t.assignee?.id === m.id) return fail('ASSIGNEE_NOT_ASSIGNABLE', '이미 이 담당자가 맡고 있어요.')
+  const to = { id: m.id, employeeNo: m.employeeNo, name: m.name }
+  const rec = recordOfTicket(id)
+  if (rec?.inquiry.ticket) {
+    rec.inquiry.ticket.assigneeId = to.id
+    rec.inquiry.ticket.assigneeName = to.name
+    notify()
+  } else reassignSeed(id, to)
+  return ok(findStaffTicket(id)!)
+}
 
 /** 접수 상세 (TK-06). 열면 Jira 알림 표시가 지워진다 (제안). */
 export async function getTicket(user: User, id: number): Promise<ApiResult<TicketDetail>> {

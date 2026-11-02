@@ -13,6 +13,7 @@ import type { MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMess
 import { formatDateTime } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { Icon } from '../../ui/Icon'
+import { ReassignDialog } from '../admin/ReassignDialog'
 import { Modal } from '../../ui/Modal'
 import { UrgencyChip } from './QueueView'
 import { TicketStepper } from '../inquiry/TicketCard'
@@ -130,6 +131,8 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
   const [slack, setSlack] = useState<SlackPreview[]>([])
   // 문의자에게 메시지 (제안)
   const [msgModal, setMsgModal] = useState(false)
+  // 담당자 재배정 (관리자)
+  const [reassign, setReassign] = useState(false)
   const [msgKind, setMsgKind] = useState<MessageKind>('추가 정보 요청')
   const [msgText, setMsgText] = useState('')
   const [msgErr, setMsgErr] = useState('')
@@ -203,6 +206,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
   if (!user) return null
   const mine = !!t && t.assignee?.id === user.id
   const requester = user.serviceRole === 'EMPLOYEE' // 문의자는 진행 단계만 보고, 상태를 바꾸지 못한다
+  const admin = user.serviceRole === 'ADMIN' // 관리자는 상태를 바꾸지 않고, 처리 중인 접수의 담당자를 다시 정한다
   const pending = t?.transitionStatus === 'PENDING'
 
   /** 상태 변경 요청 (TK-07). 응답은 202 이고 Jira 반영이 확인되면 상태가 바뀐다 */
@@ -417,7 +421,12 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                       문의자에게 메시지 <span className="tag gray">제안</span>
                     </button>
                   )}
-                  {!mine && <div className="small muted">다른 담당자가 맡은 접수예요. 상태는 맡은 담당자만 바꿀 수 있어요.</div>}
+                  {admin && (t.workStatus === 'RDY' || t.workStatus === 'WIP') && (
+                    <button type="button" className="btn sec block" style={{ marginTop: 8 }} onClick={() => setReassign(true)}>
+                      담당자 재배정
+                    </button>
+                  )}
+                  {!mine && !admin && <div className="small muted">다른 담당자가 맡은 접수예요. 상태는 맡은 담당자만 바꿀 수 있어요.</div>}
                 </div>
               )}
               {(mention || msgs.length > 0) && (
@@ -529,6 +538,17 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
               </button>
             </div>
           </Modal>
+        )}
+        {reassign && t && (
+          <ReassignDialog
+            t={t}
+            onClose={() => setReassign(false)}
+            onDone={() => {
+              setReassign(false)
+              setToast('재배정했어요. 진행 상태는 그대로 유지돼요.')
+              setTimeout(() => setToast(''), 2500)
+            }}
+          />
         )}
         {toast && (
           <div className="toast" role="status">
