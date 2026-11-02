@@ -31,7 +31,7 @@ from app.models import Base, Category, Inquiry, InquiryType, IntegrationJob, Sup
 from app.services import jira_create  # noqa: E402
 
 TABLES = ["users", "support_groups", "categories", "inquiry_types", "inquiries", "tickets", "integration_jobs",
-          "support_group_members", "member_skills", "assignment_logs"]
+          "support_group_members", "member_skills", "assignment_logs", "time_off"]
 
 
 @compiles(BigInteger, "sqlite")
