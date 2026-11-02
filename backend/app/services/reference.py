@@ -5,6 +5,7 @@ from fastapi import Depends
 
 from app.core.error_codes import ErrorCode
 from app.core.errors import AppError, field_error
+from app.db.session import DbSession
 from app.models import User
 from app.repositories.reference import ReferenceRepositoryDep
 from app.schemas.common import ItemList
@@ -19,10 +20,12 @@ from app.schemas.reference import (
     InquiryTypeQuery,
     SupportGroup,
 )
+from app.services.time_off import current_absentees
 
 
 class ReferenceService:
-    def __init__(self, references: ReferenceRepositoryDep) -> None:
+    def __init__(self, db: DbSession, references: ReferenceRepositoryDep) -> None:
+        self.db = db
         self.references = references
 
     def list_categories(self) -> ItemList[Category]:
@@ -71,6 +74,7 @@ class ReferenceService:
         for user_id, inquiry_type in self.references.find_skills(user_ids) if user_ids else []:
             skills[user_id].append(InquiryTypeRef.model_validate(inquiry_type))
         open_counts = self.references.count_open_tickets(user_ids) if user_ids else {}
+        absent = current_absentees(self.db)
 
         return ItemList(items=[
             GroupMember(
@@ -84,6 +88,7 @@ class ReferenceService:
                 is_active=member.is_active,
                 skills=skills[user.id],
                 open_ticket_count=open_counts.get(user.id, 0),
+                on_leave=user.id in absent,
             )
             for member, user in rows
         ])

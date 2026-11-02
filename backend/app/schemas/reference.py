@@ -42,6 +42,7 @@ class GroupMember(CamelModel):
     is_active: bool
     skills: list[InquiryTypeRef]
     open_ticket_count: int
+    on_leave: bool                  # 지금 연차·반차 중. assignable 필터와 별개로 목록에는 나온다
 
 
 class Department(CamelModel):
