@@ -2,7 +2,7 @@
  * 관리자 대시보드 (/dash). (design/ITssue-Prototype.html viewDash)
  * 처리 현황(건수), 연동·배정 확인 띠, 확인할 Jira 알림, 긴급·높음 미해결 상위 3건을 한 화면에 모은다.
  * 건수와 띠는 전체 문의·운영 현황의 해당 조건으로 이어진다. 검색하면 대시보드 대신 검색 결과만 보인다.
- * 보안·감사 알림 띠와 추이·분포 안내(통계 보기)는 해당 화면을 만들 때 함께 넣는다.
+ * 보안·감사 알림 띠는 해당 화면을 만들 때 함께 넣는다.
  */
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
@@ -134,6 +134,7 @@ export function DashView() {
   ]
 
   return (
+    <div className="stx">
     <main className="main">
       <Topbar title="대시보드" sub="처리 현황과 먼저 볼 문의를 모았어요" lead={<img className="tti" src={titleOps} alt="" width={56} height={56} />} />
       <div className="scroll">
@@ -215,7 +216,7 @@ export function DashView() {
                   )}
                 </div>
 
-                <div className="stx">
+                <div>
                   <div className="hpipe" role="group" aria-label="처리 현황">
                     {pipe.map((k) => (
                       <button key={k.label} type="button" className={k.cls} onClick={() => navigate(k.to)} aria-label={`${k.label} ${k.n}건. ${k.hint}`}>
@@ -297,11 +298,26 @@ export function DashView() {
                     <div className="empty">미해결 긴급·높음 문의가 없어요.</div>
                   )}
                 </section>
+
+                <div className="panel">
+                  <div className="row" style={{ justifyContent: 'space-between', gap: 12 }}>
+                    <div>
+                      <b>추이·분포·진행도는 통계에서 확인해요</b>
+                      <div className="small muted" style={{ marginTop: 2 }}>
+                        접수 추이, 팀별·분류별 진행도, 구성원별 현황, 긴급도 분포를 기간별로 볼 수 있어요.
+                      </div>
+                    </div>
+                    <button type="button" className="btn ghost sm" onClick={() => navigate('/stats')}>
+                      통계 보기
+                    </button>
+                  </div>
+                </div>
               </>
             )}
           </div>
         </div>
       </div>
     </main>
+    </div>
   )
 }

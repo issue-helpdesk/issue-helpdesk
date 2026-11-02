@@ -71,5 +71,11 @@ button.orow{cursor:pointer}button.orow:hover{background:var(--osoft)}
 .ustat .vs{width:1px;height:28px;background:var(--line)}
 .ustat .uc{display:inline-flex;align-items:center;gap:8px}.ustat .uc b{font-size:16px;line-height:24px;font-weight:600;font-variant-numeric:tabular-nums}.ustat .uc span:last-child{font-size:14px;line-height:24px;color:var(--ink2)}
 @media (max-width:700px){.ustat .vs{display:none}}
-.stx{display:contents}
+.stx{display:contents;--g-w:#857DA3;--g-p:#8A64F2;--g-n:#E0457F;--g-c:#0D9488;--s-warn-dot:#B5730F;--s-recv-dot:#7F8794;--s-prog-dot:#8A64F2}
+.stx .hvw .tw svg.hv{min-width:0}
 .page.dpage{gap:12px}
+/* 관리자 통계 (시안 통계 CSS) */
+.panel.sec.k-ai{--bar:var(--ai);box-shadow:inset 5px 0 0 var(--bar),inset 0 0 0 1px var(--line)}.panel.sec.k-tk{--bar:var(--ca);box-shadow:inset 5px 0 0 var(--bar),inset 0 0 0 1px var(--line)}.sch{display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;font-size:12px;line-height:16px;font-weight:700;flex:none}.sch.ai{background:var(--s-info-bg);color:var(--s-info-fg)}.sch.tk{background:var(--s-need-bg);color:var(--s-need-fg)}.sec .sh h3{display:flex;align-items:center;gap:8px}
+.kpi.urg .v b{color:var(--s-urg-fg)}
+.srow .sl small{font-size:12px;color:var(--mute)}
+.nest .nh{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;font-size:13px}.nest .nh .btn{margin-left:auto}

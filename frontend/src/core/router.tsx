@@ -9,6 +9,7 @@ import { AppShell } from '../ui/AppShell'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import { AccountsView } from '../views/admin/AccountsView'
 import { AllTicketsView } from '../views/admin/AllTicketsView'
+import { AdminStatsView } from '../views/admin/AdminStatsView'
 import { DashView } from '../views/admin/DashView'
 import { OpsView } from '../views/admin/OpsView'
 import { FaqView } from '../views/faq/FaqView'
@@ -34,6 +35,12 @@ function RequireAuth() {
 }
 
 /** 알 수 없는 주소로 오면 로그인 상태에 맞는 첫 화면으로 보낸다. */
+/** 통계: 관리자는 티켓·AI 상담 전체, 담당자는 내 통계·팀 통계 */
+function StatsEntry() {
+  const { user } = useAuth()
+  return user?.serviceRole === 'ADMIN' ? <AdminStatsView /> : <StatsView />
+}
+
 function Landing() {
   const { user, loading } = useAuth()
   if (loading) return <LoadingScreen />
@@ -56,7 +63,7 @@ export function AppRoutes() {
           <Route path="/faq" element={<FaqView />} />
           {/* 담당자·관리자. 화면을 만들면 HomePlaceholder 를 실제 화면으로 바꾼다 */}
           <Route path="/my" element={<MyDashView />} />
-          <Route path="/stats" element={<StatsView />} />
+          <Route path="/stats" element={<StatsEntry />} />
           <Route path="/queue" element={<QueueView />} />
           <Route path="/queue/:ticketId" element={<QueueView />} />
           <Route path="/dash" element={<DashView />} />

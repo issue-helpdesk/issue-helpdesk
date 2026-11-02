@@ -47,6 +47,7 @@ const EXTRA_MENU: Partial<Record<ServiceRole, { group: string; items: NavItem[] 
     group: '운영',
     items: [
       { to: '/dash', label: '대시보드', icon: 'home' },
+      { to: '/stats', label: '통계', icon: 'chart' },
       { to: '/ops', label: '운영 현황', icon: 'alert' },
       { to: '/tickets', label: '전체 문의', icon: 'file' },
       { to: '/accounts', label: '계정 관리', icon: 'user' },
