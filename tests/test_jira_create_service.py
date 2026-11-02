@@ -17,7 +17,8 @@ from app.models import Base, Category, Inquiry, InquiryType, IntegrationJob, Sup
 from app.services import jira_create
 from app.utils import datetime_utils
 
-TABLES = ["users", "support_groups", "categories", "inquiry_types", "inquiries", "tickets", "integration_jobs"]
+TABLES = ["users", "support_groups", "categories", "inquiry_types", "inquiries", "tickets", "integration_jobs",
+          "support_group_members", "member_skills", "assignment_logs"]
 T0 = datetime(2026, 10, 30, 9, 0, tzinfo=timezone.utc)
 POST_ISSUE = ("POST", "/rest/api/3/issue")
 
