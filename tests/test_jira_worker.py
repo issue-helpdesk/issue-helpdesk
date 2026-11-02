@@ -253,8 +253,9 @@ def test_unexpected_job_error_rolls_back_and_runs_remaining_jobs_and_types(assig
     jira = FakeJira()
     report = worker.run_round(db, jira.client(), now=T0)
     assert len(report.errors) == 1 and len(seen) == 2
-    assert report.result_types == ['JIRA_CREATE', 'JIRA_ASSIGN']
-    assert [r.outcome for r in report.results] == ['CREATED', 'SKIPPED']
+    # 생성에 성공한 t2는 최초 자동배정(#181)이 JIRA_ASSIGN 작업을 하나 더 등록하므로 같은 회차에 배정 2건이 돈다
+    assert report.result_types == ['JIRA_CREATE', 'JIRA_ASSIGN', 'JIRA_ASSIGN']
+    assert [r.outcome for r in report.results] == ['CREATED', 'SKIPPED', 'SKIPPED']
 
 
 def test_selected_job_type_does_not_process_other_kind(assign_db):
