@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterable
 
 from langgraph.graph import END, START, StateGraph
 
-from app.agent.flow.correct import LIMIT_RULES, Limits, correct, override, unsafe_reply
+from app.agent.flow.correct import LIMIT_RULES, Limits, asks_back, correct, drop_asks_back, override, unsafe_reply
 from app.agent.flow.result import FlowResult, source_rows
 from app.agent.flow.state import FlowState
 from app.agent.flow.urgency import decide_urgency
@@ -48,11 +48,23 @@ def build_flow(port: LLMPort, taxonomy: Taxonomy, staff_names: Iterable[str], se
         ai_output, failure, code = r.ai_output, r.failure, r.error_code
         out, o, step = settle(r.output, failure, code)
         # 08 3.2 9단계. 1차 뒤 검색으로 가면 이 reply 는 보여 주지 않으므로 보지 않는다
-        if failure is None and (second or step) and unsafe_reply(r.output.reply):
+        shown = failure is None and (second or step)
+        if shown and unsafe_reply(r.output.reply):
             if not state.get('retried'):
                 return {'retry': True, 'retried': True}
             ai_output, failure, code = None, 'AI_FAILED', 'UNSAFE_REPLY'
             out, o, step = settle(safe_default(), failure, code)
+        # 보정 뒤 ANSWER 만 본다 (NO_EVIDENCE 로 ESCALATE 가 되면 연결 제안이 맞다)
+        elif shown and out.action == 'ANSWER' and asks_back(out.reply):
+            if not state.get('retried'):
+                return {'retry': True, 'retried': True}
+            trimmed = drop_asks_back(out.reply)
+            if trimmed:
+                o.append(override('reply', out.reply, trimmed, 'ANSWER_ASKS_BACK', '답변 뒤 답할 수 없는 연결 제안·정보 요청을 뺌'))
+                out = out.model_copy(update={'reply': trimmed})
+            else:
+                ai_output, failure, code = None, 'AI_FAILED', 'ANSWER_ASKS_BACK'
+                out, o, step = settle(safe_default(), failure, code)
         return {'retry': False, 'output': out, 'ai_output': ai_output, 'overrides': o, 'failure': failure,
                 'error_code': code, 'next_step': step}
 

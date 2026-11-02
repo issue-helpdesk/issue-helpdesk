@@ -1,6 +1,7 @@
 """AI 출력 보정 (docs/08 3.2 4~9단계와 처리 방향 보정). 판단 흐름의 보정 노드(correct_first·correct_second)가 쓴다.
 
 - unsafe_reply : 9단계. reply 가 비밀번호·인증번호·API 키를 달라고 하거나, 접수·배정됐다고 말하는가
+- asks_back    : 9단계. ANSWER reply 가 연결을 제안하거나 정보를 달라고 하는가. drop_asks_back 이 그 문장을 뺀다
 - correct      : 4~8단계와 처리 방향 보정. 바꾼 것은 override_reasons 항목(08 5.4)으로 함께 돌려준다
 
 1~3단계(버전·JSON·필수 키)는 call_judge 가 한다. 9단계에서 다시 부르는 일은 graph.py 가 한다.
@@ -32,6 +33,14 @@ ASK_SECRET = re.compile(r'(?:비밀번호|비번|패스워드|암호(?!화)|인�
 CLAIM_DONE = re.compile(r'(?:접수|(?:티켓|Ticket)\S*\s?(?:생성|발행)|담당자\S*\s?(?:배정|지정))'
                         r'(?:가|이|는)?\s?(?:완료\s?)?(?:되었|됐|했)', re.IGNORECASE)
 
+# ANSWER 뒤에는 사용자가 글을 쓸 수 없고 해결 확인 버튼만 나온다 (09 answered, API 02 CONFIRM_RESOLUTION).
+# 그래서 연결을 제안하거나 정보를 달라는 문장은 답할 길이 없다 ("화면 메시지를 알려주세요, 연결해 드릴까요?").
+# 다른 사람에게 알리라는 안내("팀장님께 말씀해 주세요")는 넘긴다
+PIECE = re.compile(r'[^.!?\n]+[.!?]*[ \t]*')
+OFFER_HANDOFF = re.compile(r'연결(?:해\s?드릴까요|할까요|하시겠어요|을\s?원하시면)')
+ASK_INPUT = re.compile(r'(?:알려|말씀해)\s?주(?:세요|시면|실래요|시겠어요)')
+TO_OTHER = re.compile(r'\S(?:에게|(?<!함)께)\s')
+
 
 @dataclass(frozen=True)
 class Limits:
@@ -62,6 +71,21 @@ def unsafe_reply(reply: str) -> bool:
         if not DONT.search(s) and (ASK_SECRET.search(s) or CLAIM_DONE.search(s)):
             return True
     return False
+
+
+def _asks_back(piece: str) -> bool:
+    return bool(OFFER_HANDOFF.search(piece) or (ASK_INPUT.search(piece) and not TO_OTHER.search(piece)))
+
+
+def asks_back(reply: str) -> bool:
+    """ANSWER reply 가 연결을 제안하거나 정보를 달라고 하는가. True 면 한 번 다시 생성하고, 또 True 면 그 문장을 뺀다."""
+    return any(_asks_back(p) for p in PIECE.findall(reply))
+
+
+def drop_asks_back(reply: str) -> str:
+    """asks_back 에 걸린 문장만 뺀다. 목록·줄바꿈은 그대로 둔다."""
+    kept = PIECE.sub(lambda m: '' if _asks_back(m.group()) else m.group(), reply)
+    return re.sub(r'\n{3,}', '\n\n', re.sub(r'[ \t]+\n', '\n', kept)).strip()
 
 
 def correct(out: AIOutput, inp: AIInput, *, second: bool, sent: Filtered | None, search: SearchResponse | None,
