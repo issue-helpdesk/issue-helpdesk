@@ -340,7 +340,8 @@ def _audit(conn, event: str, doc_id: int, actor_id: int | None, result: str) -> 
 
 def write_document(conn, p: Prepared, groups: dict[str, int], cache: dict, activate_version: bool = True,
                    force_activate: bool = False) -> dict:
-    """문서 하나를 교체한다 (7장). 결과 {'doc', 'action': new·reloaded·unchanged·failed, 'activated', 'error', …}.
+    """문서 하나를 교체한다 (7장). 결과 {'doc', 'action': new·reloaded·relabeled·unchanged·failed, 'activated', 'error',
+    'changed' (이름표 바뀜 경고), …}.
 
     1. 버전 행 확보: 새 버전이면 PENDING·비현행으로 넣고 커밋한다 (실패해도 FAILED 를 남길 곳). 문서 행은 없을 때만 만든다.
     2. 교체 (한 트랜잭션, 문서 → 버전 → 청크 순으로 잠금):
@@ -348,13 +349,16 @@ def write_document(conn, p: Prepared, groups: dict[str, int], cache: dict, activ
        - 같은 버전 다시 적재: 그 버전 청크를 통째로 지우고 새로 넣는다 (순번 upsert 금지).
          DB의 청크 행이 지금 결과와 똑같으면 지우지 않는다 (청크 id 유지): 지정한 모델 벡터는 맞추고,
          지정하지 않은 모델 중 임베딩 입력(source_text)이 바뀐 벡터는 지우고 알린다 (예전 입력의 벡터를 남기지 않는다).
+         DONE 이고 뼈대·본문만 같으면 (이름표만 다르면) 같은 id 에 이름표만 고쳐 쓴다 (_relabel). 현행의 청크 id 가
+         바뀌면 그 사이에 낀 검색이 깨진다 (업로드 적재 재검수 P2와 같은 이유).
        - 정책 다시 확인: 검증(check_policies) 뒤, 또는 새 버전 행을 커밋한 뒤 잠그기 전에 DB 정책이 manifest 보다
          넓어졌으면 이 문서는 멈춘다 (새 버전도 포함).
        - DONE → 현행 전환: 이번 실행에서 처음 등록한 버전이거나 문서에 현행이 없을 때만 (force_activate 면 늘).
          이미 있던 버전(DONE·FAILED 재시도)은 다른 현행이 있으면 DONE 까지만 한다 (관리자가 고른 현행을 되돌리지 않게).
     3. 실패: 롤백 → 그 버전이 현행이 아니면 FAILED·ingest_error. 이전 현행은 그대로.
     """
-    out = {'doc': p.doc_code, 'version': p.version['version'], 'action': '', 'activated': False, 'error': None}
+    out = {'doc': p.doc_code, 'version': p.version['version'], 'action': '', 'activated': False, 'error': None,
+           'changed': []}
     try:
         doc_id = _document_id(conn, p, groups)
         row = conn.execute('select id from document_versions where document_id = %s and version = %s',
@@ -391,6 +395,10 @@ def write_document(conn, p: Prepared, groups: dict[str, int], cache: dict, activ
         if status == 'DONE' and _same_chunks(conn, vid, p):
             out['action'] = 'unchanged'
             ids = [i for (i,) in conn.execute('select id from document_chunks where version_id = %s order by seq', (vid,))]
+            _put_embeddings(conn, ids, p, {}, update=True)
+            out['dropped'] = _drop_stale(conn, vid, ids, p)
+        elif status == 'DONE' and (ids := _relabel(conn, vid, p, out['changed'])) is not None:
+            out['action'] = 'relabeled'                    # 뼈대·본문이 같으면 같은 id 에 이름표만 (업로드 적재와 같다)
             _put_embeddings(conn, ids, p, {}, update=True)
             out['dropped'] = _drop_stale(conn, vid, ids, p)
         else:
@@ -467,6 +475,40 @@ def _same_chunks(conn, vid: int, p: Prepared) -> bool:
     rows = conn.execute(f'select {", ".join(CHUNK_COLUMNS)} from document_chunks where version_id = %s order by seq',
                         (vid,)).fetchall()
     return [tuple(r) for r in rows] == [tuple(x[k] for k in CHUNK_COLUMNS) for x in p.rows]
+
+
+SHOW_CHANGED = 10                                         # 바뀐 칸 경고는 청크 이만큼까지, 나머지는 개수만
+
+
+def _relabel(conn, vid: int, p: Prepared, warnings: list[str]) -> list[int] | None:
+    """뼈대(seq·unit_key·part·chunk_type)와 본문이 DB 와 같으면 이름표(heading_path·location·meta)만 같은 id 에
+    고쳐 쓰고 청크 id 들을 돌려준다. 조각 식별·본문은 그대로라 겹친 검색이 섞이지 않는다 (순위·이름표는 이전 것을
+    볼 수 있다). 바뀐 칸은 경고 ('item:3.4: inquiry_type_codes [] → ["HW-10"]'). 다르면 아무것도 안 하고 None."""
+    old = conn.execute('select id, seq, unit_key, part, chunk_type, content, heading_path, location, meta '
+                       'from document_chunks where version_id = %s order by seq', (vid,)).fetchall()
+    if [tuple(r[1:6]) for r in old] != [tuple(x[k] for k in ('seq', 'unit_key', 'part', 'chunk_type', 'content'))
+                                         for x in p.rows]:
+        return None
+    from psycopg.types.json import Jsonb
+    changed = []
+    for (cid, *_, heading, location, meta), x in zip(old, p.rows):
+        diff = _diff({'heading_path': heading, 'location': location, **(meta or {})},
+                     {'heading_path': x['heading_path'], 'location': x['location'], **x['meta']})
+        if diff:
+            conn.execute('update document_chunks set heading_path = %s, location = %s, meta = %s where id = %s',
+                         (x['heading_path'], x['location'], Jsonb(x['meta']), cid))
+            changed.append(f"{x['unit_key'].split('/', 1)[-1]}: {', '.join(diff)}")
+    warnings += [f'이름표 바뀜 {c}' for c in changed[:SHOW_CHANGED]]
+    if len(changed) > SHOW_CHANGED:
+        warnings.append(f'이름표 바뀜 외 청크 {len(changed) - SHOW_CHANGED}개')
+    return [r[0] for r in old]
+
+
+def _diff(old: dict, new: dict) -> list[str]:
+    def show(v):
+        s = json.dumps(v, ensure_ascii=False)
+        return s if len(s) <= 60 else s[:57] + '…'
+    return [f'{k} {show(old.get(k))} → {show(new.get(k))}' for k in dict.fromkeys([*old, *new]) if old.get(k) != new.get(k)]
 
 
 def _put_embeddings(conn, ids: list[int], p: Prepared, others: dict[str, list], update: bool = False) -> dict[str, int]:

@@ -4,11 +4,11 @@
  *   GET   /tickets/{id}                  TK-06 접수 상세
  *   PATCH /tickets/{id}                  TK-07 업무 상태 변경·처리 결과 등록 (202, Jira 반영 확인 뒤 확정)
  *   GET   /tickets/{id}/status-history   TK-08 업무 상태 이력
- * 모의 모드(VITE_USE_MOCK=true)에서는 mock/staffTickets.ts 와 문의 저장소를 읽는다. 서버 모드에서는 같은 형태의 응답을 받는다.
+ * 모의 모드(VITE_USE_MOCK_TICKET, 없으면 VITE_USE_MOCK 이 true)에서는 mock/staffTickets.ts 와 문의 저장소를 읽는다. 서버 모드에서는 같은 형태의 응답을 받는다.
  * 실제 서버에서는 상태 변경 뒤 Jira 반영이 서버에서 일어나므로, 화면은 목록·상세를 주기적으로 다시 읽는다.
  */
 import { request, sleep } from '../core/apiClient'
-import { USE_MOCK } from '../core/config'
+import { MOCK_ONLY, USE_MOCK_TICKET } from '../core/config'
 import { staffTransition } from './mock/chatEngine'
 import { later, mockConfig, notify, subscribe } from './mock/chatStore'
 import { TEAM_MEMBERS, addMessage, addHistory, messagesOf, slackOf, allStaffTickets, clearMention, findStaffTicket, historyOf, mutateSeed, pending, recordOfTicket } from './mock/staffTickets'
@@ -46,7 +46,7 @@ const summaryOf = (t: TicketDetail): TicketSummary => {
 
 /** 접수 목록 (TK-05). AGENT 는 view=ASSIGNED 가 기본이다. */
 export async function listTickets(user: User, query: TicketListQuery = {}): Promise<ApiResult<Page<TicketSummary>>> {
-  if (!USE_MOCK) return request<Page<TicketSummary>>(`/tickets?${toQueryString(query)}`)
+  if (!USE_MOCK_TICKET) return request<Page<TicketSummary>>(`/tickets?${toQueryString(query)}`)
   await sleep(150) // 응답 지연 흉내
   const { page = 1, size = 20, sort = 'createdAt,desc', workStatus, needsAdmin, categoryCode, urgency, assigneeId, createdFrom, q, jiraMention } = query
   const needle = (q ?? '').trim().toLowerCase()
@@ -102,7 +102,7 @@ const notFound = () => fail('TICKET_NOT_FOUND', '접수를 찾을 수 없어요.
 
 /** 접수 상세 (TK-06). 열면 Jira 알림 표시가 지워진다 (제안). */
 export async function getTicket(user: User, id: number): Promise<ApiResult<TicketDetail>> {
-  if (!USE_MOCK) return request<TicketDetail>(`/tickets/${id}`)
+  if (!USE_MOCK_TICKET) return request<TicketDetail>(`/tickets/${id}`)
   await sleep(120)
   const t = findStaffTicket(id)
   if (!t || !canSee(user, t)) return notFound()
@@ -114,7 +114,7 @@ export async function getTicket(user: User, id: number): Promise<ApiResult<Ticke
 
 /** 업무 상태 이력 (TK-08) */
 export async function getTicketHistory(user: User, id: number): Promise<ApiResult<{ items: StatusHistory[] }>> {
-  if (!USE_MOCK) return request<{ items: StatusHistory[] }>(`/tickets/${id}/status-history`)
+  if (!USE_MOCK_TICKET) return request<{ items: StatusHistory[] }>(`/tickets/${id}/status-history`)
   await sleep(100)
   const t = findStaffTicket(id)
   if (!t || !canSee(user, t)) return notFound()
@@ -127,7 +127,7 @@ export async function getTicketHistory(user: User, id: number): Promise<ApiResul
  * Jira 반영을 확인하면 상태가 바뀌고 이력이 한 번 남는다. (모의 모드는 잠깐 뒤에 반영한다)
  */
 export async function changeTicketStatus(user: User, id: number, body: TicketTransitionRequest): Promise<ApiResult<TicketDetail>> {
-  if (!USE_MOCK) return request<TicketDetail>(`/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
+  if (!USE_MOCK_TICKET) return request<TicketDetail>(`/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
   await sleep(150)
   const t = findStaffTicket(id)
   if (!t || !canSee(user, t)) return notFound()
@@ -170,7 +170,7 @@ export async function changeTicketStatus(user: User, id: number, body: TicketTra
  */
 export function watchTickets(onChange: () => void): () => void {
   onChange()
-  if (USE_MOCK) return subscribe(onChange)
+  if (USE_MOCK_TICKET) return subscribe(onChange)
   const timer = setInterval(onChange, POLL_MS)
   return () => clearInterval(timer)
 }
@@ -187,7 +187,7 @@ export interface TeamStatus {
   unassigned: number
 }
 export async function getTeamStatus(user: User): Promise<ApiResult<TeamStatus>> {
-  if (!USE_MOCK) return request<TeamStatus>('/tickets/team-status')
+  if (!MOCK_ONLY) return request<TeamStatus>('/tickets/team-status')
   await sleep(120)
   const groupName = user.departmentName ?? ''
   const team = TEAM_MEMBERS[groupName] ?? []
@@ -208,16 +208,16 @@ export async function getTeamStatus(user: User): Promise<ApiResult<TeamStatus>> 
  * 한 구역이 실패해도 다른 구역은 그대로 보인다.
  */
 export async function getStatsSource(user: User, section: 'sum' | 'trend' | 'pri' | 'mem'): Promise<ApiResult<{ items: TicketSummary[]; names: string[] }>> {
-  if (USE_MOCK) {
+  if (USE_MOCK_TICKET) {
     await sleep(350)
     if (section === 'trend' && mockConfig.statFail) {
       mockConfig.statFail = false
       return fail('STATS_UNAVAILABLE', '이 구역을 불러오지 못했어요.')
     }
   }
-  const r = await listTickets(user, { view: 'ASSIGNED', size: 200 })
+  const r = await listTickets(user, { view: 'ASSIGNED', size: USE_MOCK_TICKET ? 200 : 100 })
   if (!r.ok) return r
-  const names = (USE_MOCK ? TEAM_MEMBERS[user.departmentName ?? ''] ?? [] : []).map((m) => m.name)
+  const names = (USE_MOCK_TICKET ? TEAM_MEMBERS[user.departmentName ?? ''] ?? [] : []).map((m) => m.name)
   return ok({ items: r.data.items, names })
 }
 
@@ -226,7 +226,7 @@ export async function getStatsSource(user: User, section: 'sum' | 'trend' | 'pri
  * Slack 미리보기는 담당자·관리자에게만 준다 (실제 발송 없음).
  */
 export async function getTicketMessages(user: User, id: number): Promise<ApiResult<{ messages: TicketMessage[]; slack: SlackPreview[] }>> {
-  if (!USE_MOCK) return request<{ messages: TicketMessage[]; slack: SlackPreview[] }>(`/tickets/${id}/messages`)
+  if (!MOCK_ONLY) return request<{ messages: TicketMessage[]; slack: SlackPreview[] }>(`/tickets/${id}/messages`)
   await sleep(100)
   const t = findStaffTicket(id)
   if (!t || !canSee(user, t)) return notFound()
@@ -235,7 +235,7 @@ export async function getTicketMessages(user: User, id: number): Promise<ApiResu
 
 /** 담당자가 문의자에게 메시지를 보낸다 (제안). 민감정보는 저장 전에 가린다 */
 export async function sendTicketMessage(user: User, id: number, body: { kind: MessageKind; text: string }): Promise<ApiResult<TicketMessage>> {
-  if (!USE_MOCK) return request<TicketMessage>(`/tickets/${id}/messages`, { method: 'POST', body: JSON.stringify(body) })
+  if (!MOCK_ONLY) return request<TicketMessage>(`/tickets/${id}/messages`, { method: 'POST', body: JSON.stringify(body) })
   await sleep(150)
   const t = findStaffTicket(id)
   if (!t || !canSee(user, t)) return notFound()

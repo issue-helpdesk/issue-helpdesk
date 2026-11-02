@@ -12,6 +12,7 @@
 | [`search/`](search/README.md) | M3-1-1 · M3-2 | 검색 요청·결과 형식, 근거 문장 `pick_evidence()`, 검색어 `build_query()`, 검색 `search()`와 권한 필터, 모델 비교 `compare`, 과거 사례 임베딩 |
 | [`embedding/`](embedding/README.md) | M3-1-2 | 로컬 임베딩 모델 KURE-v1·BGE-M3 받기·확인·시험, `Embedder` |
 | [`ingest/`](ingest/README.md) | M2-2-1 · M2-3-1 | 가이드 적재: 준비 → 검증 → 문서마다 교체, 현행 전환 `activate()`, 가짜 임베딩기. 업로드 적재 `ingest_version()` (버전 하나, DC-07 뒤) |
+| [`case_guide/`](case_guide/README.md) | M2-3-2 | 해결 사례 가이드화: CLS 티켓 → 그 문의 유형 가이드의 다음 버전 초안 `draft()` → 검사 `check()` → 등록 `register()` (뒤는 업로드 적재·승인) |
 | [`review/`](review/README.md) | D1~D6 | 가이드 검증 시트(자동 대조·평가셋 겹침·검색 단위 목록)와 검색 질문 점검 |
 | [`evaluation/`](evaluation/README.md) | M2-2-2 | 검색 평가: 가이드 질문 228·평가셋 50으로 묶음별 Hit@k·MRR. BM25 기준선, 실제 검색 search()·DB 벡터 검색기 |
 

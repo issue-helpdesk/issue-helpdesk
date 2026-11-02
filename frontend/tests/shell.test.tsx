@@ -52,10 +52,10 @@ describe('사이드바', () => {
   })
 
   it('담당자에게는 업무 메뉴, 관리자에게는 운영 메뉴가 더해진다', async () => {
-    const { unmount } = renderAs('EMP-1107')
+    const { unmount } = renderAs('EMP-1004')
     expect(await screen.findByRole('button', { name: '처리할 문의' }, SLOW)).toBeInTheDocument()
     unmount()
-    renderAs('EMP-0912')
+    renderAs('EMP-1178')
     expect(await screen.findByRole('button', { name: '대시보드' }, SLOW)).toBeInTheDocument()
   })
 
@@ -98,7 +98,7 @@ describe('사이드바', () => {
 describe('새 문의 (챗봇 시작 화면)', () => {
   it('인사말과 입력창, 분류 칩, 추천 카드가 보인다', async () => {
     renderAs('EMP-1001')
-    expect(await screen.findByText('김서연님, 안녕하세요', {}, SLOW)).toBeInTheDocument()
+    expect(await screen.findByText('이태윤님, 안녕하세요', {}, SLOW)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '무엇을 도와드릴까요?' })).toBeInTheDocument()
     expect(screen.getByLabelText('메시지 입력')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /계정·로그인/ })).toBeInTheDocument()

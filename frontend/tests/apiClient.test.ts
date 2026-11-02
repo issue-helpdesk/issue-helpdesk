@@ -11,7 +11,7 @@ const errorBody = (code: string, message = '서버 문구', details: unknown = n
 const ME = {
   id: 7,
   employeeNo: 'E2024017',
-  name: '김서연',
+  name: '이태윤',
   email: 'a@b.c',
   departmentId: 11,
   department: { id: 11, name: '개발1팀' },

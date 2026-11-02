@@ -17,7 +17,7 @@ import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
 
 const SLOW = { timeout: 3000 }
-const USER = { employeeNo: 'EMP-1003', name: '박민수' }
+const USER = { employeeNo: 'EMP-1003', name: '김민지' }
 
 /** 예약된 시연 동작(답변 준비, 접수 이후 진행)이 끝나길 기다린다 */
 const settle = () => new Promise<void>((r) => setTimeout(r, 30))
@@ -157,7 +157,7 @@ describe('대화 흐름 (API)', () => {
 
   it('다른 사용자의 문의는 열 수 없다', async () => {
     const a = await data(startChat(USER, FULL_VPN))
-    const r = await getChat(a.id, 'EMP-1004')
+    const r = await getChat(a.id, 'EMP-1082')
     expect(r.ok).toBe(false)
   })
 
@@ -276,7 +276,7 @@ describe('접수 흐름 (API)', () => {
     await settle()
     const after = await get(d.id)
     expect(after.ticket?.jiraKey).toMatch(/^ITHD-\d+$/)
-    expect(after.ticket).toMatchObject({ workStatus: 'RDY', assignStatus: 'ASSIGNED', jiraSyncStatus: 'SYNCED', assigneeName: '김담당', groupName: '네트워크팀' })
+    expect(after.ticket).toMatchObject({ workStatus: 'RDY', assignStatus: 'ASSIGNED', jiraSyncStatus: 'SYNCED', assigneeName: '성민경', groupName: '네트워크팀' })
     expect(after.status).toBe('HANDED_OFF')
   })
 
@@ -525,7 +525,7 @@ describe('대화 화면', () => {
   it('접수된 문의(시연 데이터)를 열면 진행 카드·담당자 메시지가 보이고 새 답변 표시가 지워진다', async () => {
     renderAs('EMP-1001', '/chat/101')
     expect(await screen.findByRole('list', { name: '접수 진행 단계' }, SLOW)).toBeInTheDocument()
-    expect(screen.getByText(/김담당 담당자가 처리하고 있어요/)).toBeInTheDocument()
+    expect(screen.getByText(/성민경 담당자가 처리하고 있어요/)).toBeInTheDocument()
     expect(screen.getByText(/VPN 서버 쪽 인증 정보를 확인하고 있어요/)).toBeInTheDocument()
     expect(screen.getByLabelText('메시지 입력')).toHaveAttribute('placeholder', '담당자에게 추가로 전달할 내용을 입력해 주세요.')
     const list = await screen.findByRole('button', { name: /문의 내역/ }, SLOW)

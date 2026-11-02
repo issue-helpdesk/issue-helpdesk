@@ -18,9 +18,15 @@ __pycache__/
 .env.*
 !.env.example
 
+# 인증서·개인 키 (EC2 접속 키 등)
+*.pem
+
 .venv/
 .pytest_cache/
 
 # 프런트엔드 (Node)
 node_modules/
 frontend/dist/
+
+# 서버가 만드는 파일 (해결 사례 가이드 md 등). 저장 위치가 정해지면 옮긴다
+/storage/

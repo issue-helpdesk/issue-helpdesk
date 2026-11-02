@@ -1,0 +1,33 @@
+# EC2 배포용. 저장소 루트에서 실행.
+#   docker compose up -d --build
+# 준비물: 루트 .env (값은 .env.example 참고), 임베딩 모델 폴더 (기본 /home/ubuntu/models, MODELS_DIR 로 바꿀 수 있다)
+# DB 는 외부 Supabase 를 쓰므로 여기에 없다.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    environment:
+      EMBEDDING_MODEL_DIR: /models
+    volumes:
+      - ${MODELS_DIR:-/home/ubuntu/models}:/models:ro
+      - ./storage:/app/storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/live')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # EMBEDDING_PRELOAD=true 면 모델을 여는 데 약 28초 걸린다
+      start_period: 60s
+
+  web:
+    build:
+      context: frontend
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    depends_on:
+      - backend

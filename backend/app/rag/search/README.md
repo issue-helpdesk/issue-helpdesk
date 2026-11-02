@@ -8,7 +8,9 @@
 | [`evidence.py`](evidence.py) | M3-1-1 | 근거 문장 고르기 `pick_evidence()`, 검색어 만들기 `build_query()` |
 | [`service.py`](service.py) | M3-2-2 · M3-2-3 | 검색 `search()`: pgvector 검색, 권한 필터, 단위 복원, 중복 묶기 |
 | [`index.py`](index.py) | M3-3-1 준비 | 과거 사례 임베딩 만들기 `embed_legacy()` |
+| [`runtime.py`](runtime.py) | M3-2-2 | 서버에서 검색 부르기: 임베딩 모델을 한 번만 열고, 요청마다 `search_fn`(`SearchFnDep`)을 만든다 |
 | [`compare.py`](compare.py) | M3-2-1 | 임베딩 모델(+리랭커) 비교. DB 없이 가이드 파일과 Golden Set으로 잰다 |
+| [`틀린_검색_사례_분석.md`](틀린_검색_사례_분석.md) | M3-4-1 | 평가 46문항 중 1위가 틀린 12문항의 원인 분석 |
 
 테스트: `tests/test_search_result.py`·`test_search_evidence.py` (DB 없이), `tests/test_search_db.py` (`TEST_DATABASE_URL`이 있을 때 임시 DB를 만들어 검사)
 
@@ -22,7 +24,19 @@ resp = search(session, SearchRequest(query=build_query(사용자_글_목록),
                                      service_role=로그인_사용자.service_role), embedder)
 ```
 
-- `embedder`는 서버가 켜질 때 한 번 연 `Embedder`를 넘깁니다. 모델을 여는 데 10초 남짓 걸립니다.
+- `embedder`는 서버가 켜질 때 한 번 연 `Embedder`를 넘깁니다. 모델을 여는 데 노트북 10초, EC2(2 vCPU) 약 28초가 걸립니다.
+- **API·서비스에서는 `SearchFnDep`을 받아 M4 판단 흐름에 넘깁니다.** 모델을 여는 일과 DB 세션 연결은 `runtime.py`가 합니다.
+
+  ```python
+  from app.rag.search.runtime import SearchFnDep
+
+  def handler(..., search_fn: SearchFnDep):
+      run_flow(inp, port, taxonomy, staff_names, search_fn)
+  ```
+
+  - 서버(EC2)는 `.env`에 `EMBEDDING_PRELOAD=true`를 두어 시작할 때 모델을 미리 엽니다 (`main.py` lifespan). 모델 파일이 없으면 서버가 시작하지 않습니다.
+  - 꺼져 있으면(기본) 첫 검색 때 엽니다. 모델 파일이 없는 PC에서도 서버는 뜨고, 검색할 때만 오류가 납니다.
+  - 모델이 메모리를 약 2GB 쓰므로 uvicorn worker는 1개로 띄웁니다 (worker마다 모델을 따로 엽니다).
 - 검색은 단독 API가 없고 문의 처리(IQ-08) 안에서 부릅니다 (07 API 설계서).
 - 처리 순서는 청크_메타데이터.md 8장 그대로입니다: 벡터 검색(k × 3) → 단위 복원 → 중복 묶기 → 모자라면 k × 6으로 한 번 더.
 - **권한 필터 (M3-2-3)**: 열람 범위는 SQL 조건(`view_scope = any(역할이 볼 수 있는 범위)`)으로 겁니다. 범위 밖 문서는 결과·근거·`also_in` 어디에도 나오지 않습니다. 붙이는 조각도 같은 조건을 통과해야 합니다.
@@ -131,7 +145,7 @@ resp = search(session, SearchRequest(query=build_query(사용자_글_목록),
 
 ## 3. 열람 범위
 
-`visible_scopes(service_role)`이 역할마다 볼 수 있는 `view_scope`를 돌려줍니다. 검색 쿼리의 조건에 그대로 넣습니다 (청크_메타데이터.md 4장).
+`visible_scopes(service_role)`이 역할마다 볼 수 있는 `view_scope`를 돌려줍니다. 검색 쿼리의 조건에 그대로 넣습니다 (청크_메타데이터.md 4장). 규칙은 문의 출처 등 다른 API와 함께 쓰므로 `app/core/permissions.py` 한 곳에서 관리하고, 이 모듈은 같은 함수를 다시 내보냅니다.
 
 | 역할 | 볼 수 있는 `view_scope` |
 |---|---|
