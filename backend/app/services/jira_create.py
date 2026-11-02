@@ -176,6 +176,7 @@ def requeue_stale_running_jobs(
     *,
     older_than: timedelta = timedelta(minutes=5),
     now: datetime | None = None,
+    ticket_id: int | None = None,
 ) -> int:
     """RUNNING으로 오래 방치된 작업을 다시 대기시킨다. 돌려주는 값은 되돌린 작업 수.
 
@@ -185,6 +186,7 @@ def requeue_stale_running_jobs(
     stale = db.scalars(
         select(IntegrationJob).where(
             IntegrationJob.job_type == JOB_TYPE,
+            True if ticket_id is None else IntegrationJob.ticket_id == ticket_id,
             IntegrationJob.status == "RUNNING",
             IntegrationJob.updated_at < now - older_than,
         )

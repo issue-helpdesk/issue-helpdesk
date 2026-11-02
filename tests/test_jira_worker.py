@@ -143,3 +143,137 @@ def test_loop_stops_when_stop_is_already_set(fake_round):
     factory = _Session(stop)
     assert worker.run_loop(factory, None, interval=0, limit=1, stale_after=timedelta(0), stop=stop) == 0
     assert factory.calls == 0
+
+# 생성·배정·상태 변경 연결 및 한 작업의 실패 격리
+from test_jira_assign_service import (assign_db, make_assignment, FakeAssignment, ACCOUNT)  # noqa: E402,F401
+from test_jira_transition_service import (transition_db, make_transition, Workflow, NOW)  # noqa: E402,F401
+from app.models import Base, TicketStatusHistory  # noqa: E402
+from app.services import jira_create, jira_assign, jira_transition  # noqa: E402
+from sqlalchemy.exc import OperationalError  # noqa: E402
+
+
+def test_round_consumes_assignment_and_confirms_db(assign_db):
+    ticket, job = make_assignment(assign_db)
+    jira = FakeAssignment()
+    report = worker.run_round(assign_db, jira.client(), now=NOW)
+    assert not report.errors
+    assert report.result_types == ['JIRA_ASSIGN']
+    assert [r.outcome for r in report.results] == ['ASSIGNED']
+    assert reload(assign_db, Ticket, ticket.id).assign_status == 'ASSIGNED'
+    assert reload(assign_db, IntegrationJob, job.id).status == 'DONE'
+    assert jira.puts == 1
+
+
+def test_round_consumes_transition_and_confirms_history(transition_db):
+    ticket, job = make_transition(transition_db)
+    jira = Workflow()
+    report = worker.run_round(transition_db, jira.client(), now=NOW)
+    assert not report.errors
+    assert report.result_types == ['JIRA_TRANSITION']
+    assert [r.outcome for r in report.results] == ['CONFIRMED']
+    assert reload(transition_db, Ticket, ticket.id).work_status == 'WIP'
+    assert transition_db.query(TicketStatusHistory).count() == 1
+    assert jira.transitions == 1
+
+
+@pytest.mark.parametrize('kind', ['JIRA_ASSIGN', 'JIRA_TRANSITION'])
+def test_round_recovers_stale_writes_by_lookup_without_sending_again(assign_db, kind):
+    db = assign_db
+    if kind == 'JIRA_ASSIGN':
+        ticket, job = make_assignment(db)
+        jira = FakeAssignment(ACCOUNT)
+    else:
+        Base.metadata.tables['ticket_status_history'].create(db.bind)
+        ticket, job = make_transition(db)
+        jira = Workflow('WIP')
+        jira.histories = [{'created': NOW.isoformat(), 'items': [
+            {'field': 'status', 'from': '10004', 'to': '10005'}]}]
+    job.status, job.updated_at = 'RUNNING', T0 - timedelta(minutes=10)
+    db.commit()
+    report = worker.run_round(db, jira.client(), now=NOW)
+    assert not report.errors and report.requeued == 1
+    assert reload(db, IntegrationJob, job.id).status == 'DONE'
+    assert not any(m in ('POST', 'PUT') for m, p in jira.calls)
+
+
+def test_deferred_reopens_do_not_starve_later_transitions(transition_db):
+    db = transition_db
+    ticket, job = make_transition(db, 'FIN', 'WIP')
+    # 정상 전환을 더 뒤 ID로 넣고 limit=1로 실행한다.
+    t2 = make_ticket(db, id=43, draft_id=56, receipt_no='RCPT-0043', jira_key='ITHD-43',
+                     jira_sync_status='SYNCED', work_status='RDY', requested_work_status='WIP', transition_status='PENDING')
+    payload = {**job.payload, 'ticketId': 43, 'receiptNo': t2.receipt_no, 'jiraKey': t2.jira_key,
+               'fromStatus': 'RDY', 'toStatus': 'WIP', 'requestedBy': 18}
+    normal = jira_transition.enqueue_jira_transition(db, t2, payload)
+    db.commit()
+    jira = Workflow()
+    report = worker.run_round(db, jira.client(), now=NOW, limit=1)
+    assert not report.errors and report.deferred == 1
+    assert [r.job_id for r in report.results] == [normal.id]
+    assert reload(db, IntegrationJob, job.id).status == 'PENDING'
+    assert reload(db, IntegrationJob, job.id).attempts == 0
+    assert reload(db, Ticket, ticket.id).work_status == 'FIN'
+    assert reload(db, Ticket, 43).work_status == 'WIP'
+
+
+@pytest.mark.parametrize('kind', worker.JOB_TYPES)
+def test_ticket_scope_excludes_other_pending_and_stale_jobs(db, kind):
+    mine = make_ticket(db)
+    other = make_ticket(db, id=43, draft_id=56, receipt_no='RCPT-0043')
+    # 외부 호출 없이 malformed 작업을 서비스가 NEEDS_ADMIN으로 처리하게 한다.
+    for t in (mine, other):
+        db.add(IntegrationJob(ticket_id=t.id, job_type=kind, status='RUNNING', attempts=1,
+                              idempotency_key=f'{kind}:{t.id}', payload={}, updated_at=T0-timedelta(minutes=10)))
+    db.commit()
+    jira = FakeJira()
+    report = worker.run_round(db, jira.client(), now=T0, ticket_id=mine.id, job_types=(kind,))
+    assert not report.errors and report.requeued == 1
+    untouched = db.query(IntegrationJob).filter_by(ticket_id=other.id).one()
+    assert (untouched.status, untouched.attempts, untouched.last_error) == ('RUNNING', 1, None)
+
+
+def test_unexpected_job_error_rolls_back_and_runs_remaining_jobs_and_types(assign_db, monkeypatch):
+    db = assign_db
+    t1 = make_ticket(db)
+    t2 = make_ticket(db, id=43, draft_id=56, receipt_no='RCPT-0043')
+    make_job(db, t1)
+    make_job(db, t2)
+    seen = []
+    real = jira_create.run_jira_create_job
+    def fail_first(db, jira, job_id, **kw):
+        seen.append(job_id)
+        if len(seen) == 1:
+            db.execute(__import__('sqlalchemy').text('select 1'))
+            raise OperationalError('COMMIT', {}, Exception('DB unavailable'))
+        return real(db, jira, job_id, **kw)
+    monkeypatch.setattr(jira_create, 'run_jira_create_job', fail_first)
+    _, assignment = make_assignment(db, id=44, draft_id=57, receipt_no='RCPT-0044')
+    monkeypatch.setattr(jira_assign, 'run_jira_assign_job', lambda db, jira, job_id, **kw:
+                        jira_assign.AssignmentResult(job_id, 'SKIPPED'))
+    jira = FakeJira()
+    report = worker.run_round(db, jira.client(), now=T0)
+    assert len(report.errors) == 1 and len(seen) == 2
+    assert report.result_types == ['JIRA_CREATE', 'JIRA_ASSIGN']
+    assert [r.outcome for r in report.results] == ['CREATED', 'SKIPPED']
+
+
+def test_selected_job_type_does_not_process_other_kind(assign_db):
+    ticket, job = make_assignment(assign_db)
+    report = worker.run_round(assign_db, FakeAssignment().client(), now=NOW, job_types=('JIRA_CREATE',))
+    assert not report.errors and not report.results
+    assert reload(assign_db, IntegrationJob, job.id).status == 'PENDING'
+
+
+def test_once_returns_failure_if_round_reports_unexpected_errors(monkeypatch):
+    monkeypatch.setattr(worker, 'run_round', lambda *a, **kw: worker.RoundReport(0, [], errors=['JIRA_ASSIGN:1:OperationalError']))
+    stop = threading.Event()
+    code = worker.run_loop(_Session(stop, stop_after=99), None, interval=0, limit=1,
+                           stale_after=timedelta(minutes=5), stop=stop, once=True)
+    assert code == 1
+
+
+@pytest.mark.parametrize('args', [['--limit','0'], ['--interval','0'], ['--stale-minutes','0'], ['--ticket-id','0']])
+def test_cli_rejects_nonpositive_values_before_connecting(args):
+    with pytest.raises(SystemExit) as exc:
+        worker.main(args)
+    assert exc.value.code == 2
