@@ -45,6 +45,7 @@ CHANNEL = {"전화": "PHONE", "메일": "MAIL", "메신저": "MESSENGER"}
 HANDLING = {"즉시 처리": "IMMEDIATE", "티켓": "TICKET"}
 IMPACT = {"개인": "PERSONAL", "부서": "DEPARTMENT", "전사": "COMPANY"}
 YN = {"Y": True, "N": False}
+TIME_OFF_TYPES = {"ANNUAL", "HALF_AM", "HALF_PM"}
 
 TRIAGE_GROUP = "서비스데스크"   # 담당 그룹이 불확실할 때 확인하는 그룹
 
@@ -54,7 +55,7 @@ LEGACY_POLICY_BY_CATEGORY = {"SEC": ("AGENT", "BLOCKED")}   # 보안 사고 이�
 
 # 적재 순서 = 참조되는 테이블이 먼저
 TABLES = ["departments", "users", "categories", "support_groups", "inquiry_types", "support_group_members",
-          "member_skills", "faqs", "legacy_inquiries"]
+          "member_skills", "faqs", "legacy_inquiries", "time_off"]
 
 
 def read_csv(name):
@@ -97,8 +98,8 @@ class Plan:
 
 def build():
     tax = json.loads((DATA / "taxonomy.json").read_text(encoding="utf-8"))
-    employees, assignees, history, faqs = (read_csv(n) for n in (
-        "employees.csv", "assignees.csv", "history.csv", "faq.csv"))
+    employees, assignees, history, faqs, time_off = (read_csv(n) for n in (
+        "employees.csv", "assignees.csv", "history.csv", "faq.csv", "time_off.csv"))
     p = Plan()
     r = p.rows
 
@@ -190,6 +191,18 @@ def build():
             "resolution": blank(h["resolution"]), "prevention": blank(h["prevention"]),
             "group": h["assigned_team"], "assignee": member_by_name.get(h["assignee"]),
             "view_scope": view, "transfer_policy": transfer})
+
+    # 연차·반차 일정 (가상 HR 데이터). 이름·팀·역할 열은 넣지 않는다
+    for t in time_off:
+        where = f"time_off {t['emp_id']} {t['start_date']}"
+        p.ref(emp, t["emp_id"], where)
+        p.ref(TIME_OFF_TYPES, t["time_off_type"], where)
+        if t["end_date"] < t["start_date"]:
+            p.problems.append(f"{where}: 종료일이 시작일보다 빠름")
+        if t["time_off_type"] != "ANNUAL" and t["start_date"] != t["end_date"]:
+            p.problems.append(f"{where}: 반차는 시작일과 종료일이 같아야 함")
+        r["time_off"].append({"employee_no": t["emp_id"], "time_off_type": t["time_off_type"],
+                              "start_date": t["start_date"], "end_date": t["end_date"], "note": blank(t["note"])})
     return p
 
 
@@ -294,6 +307,12 @@ def load(p, reset_passwords):
                  h["title"], h["description"], h["root_cause"], h["resolution"], h["prevention"],
                  group[h["group"]], user[h["assignee"]], h["view_scope"], h["transfer_policy"])
                 for h in r["legacy_inquiries"]])
+
+        # 이미 있는 일정은 그대로 둔다 (화면에서 고친 내용을 되돌리지 않는다)
+        upsert(cur, "time_off", ["user_id", "time_off_type", "start_date", "end_date", "note"],
+               ["user_id", "time_off_type", "start_date"],
+               [(user[t["employee_no"]], t["time_off_type"], t["start_date"], t["end_date"], t["note"])
+                for t in r["time_off"]], keep=("end_date", "note"))
 
         print(f"\n{'테이블':24}{'파일':>8}{'DB':>8}")
         for table in TABLES:

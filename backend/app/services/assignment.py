@@ -10,7 +10,6 @@
 이 함수는 flush 만 하고 커밋하지 않는다. 같은 접수에 진행 중 배정 작업이 이미 있으면
 작업 등록에서 IntegrityError 가 난다 (uq_integration_jobs_one_active). 부르는 쪽이 롤백한다.
 """
-from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -20,6 +19,7 @@ from app.integrations.jira import Member, pick_assignee
 from app.models import AssignmentLog, InquiryType, IntegrationJob, Ticket
 from app.repositories.assignment import AssignmentRepository
 from app.services.jira_assign import enqueue_jira_assign
+from app.services.time_off import current_absentees
 from app.utils import datetime_utils
 
 
@@ -43,13 +43,12 @@ def reserve_assignment(
     reason: str,
     actor_id: int | None,
     assignee_id: int | None = None,
-    absent_user_ids: Iterable[int] = (),
     now: datetime | None = None,
 ) -> Reservation:
     """group_id 의 담당자로 예약한다 (assignee_id 입력 + assign_status = PENDING).
 
     - assignee_id 가 있으면 직접 지정: 공통 자격만 본다. 팀장·부재 제외는 적용하지 않는다 (docs/11 3.1)
-    - 없으면 자동 선정: pick_assignee (업무량 → 마지막 배정 → 사번). 부재자는 absent_user_ids 로 뺀다
+    - 없으면 자동 선정: pick_assignee (업무량 → 마지막 배정 → 사번). now 시점의 부재자를 뺀다
     - 후보가 없거나 미분류면 담당자를 비우고 NEEDS_ADMIN, 배정 이력 FAIL (docs/11 2.5)
     - assignment_revision 을 올려 이전 판단으로 만든 작업이 새 배정을 덮어쓰지 못하게 한다
     """
@@ -65,7 +64,7 @@ def reserve_assignment(
             raise AssigneeNotAssignable(problem)
         chosen, log_reason = members[assignee_id], reason
     else:
-        decision = pick_assignee(members.values(), scenario, exclude_user_ids=absent_user_ids)
+        decision = pick_assignee(members.values(), scenario, exclude_user_ids=current_absentees(db, now))
         chosen = members[decision.user_id] if decision.selected else None
         log_reason = f"{reason} (자동배정: {decision.reason})" if chosen else f"{reason} ({decision.reason})"
 
