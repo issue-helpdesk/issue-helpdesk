@@ -53,6 +53,10 @@ class ErrorCode(Enum):
     TICKET_SAVE_FAILED = (500, "접수를 저장하지 못했습니다. 작성하신 내용은 보존되어 있으니 잠시 후 다시 시도하거나 "
                                "IT 헬프데스크(내선 1000)·그룹웨어 IT 요청 메뉴를 이용해 주세요.")
 
+    # 연차·반차 일정 (5.6)
+    TIME_OFF_NOT_FOUND = (404, "연차·반차 일정을 찾을 수 없습니다.")
+    TIME_OFF_OVERLAP = (409, "같은 기간에 이미 등록된 연차·반차 일정이 있습니다.")
+
     # FAQ (5.6)
     FAQ_NOT_FOUND = (404, "FAQ를 찾을 수 없습니다.")
     FAQ_CODE_DUPLICATE = (409, "이미 등록된 FAQ 번호입니다.")

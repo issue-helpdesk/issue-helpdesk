@@ -21,7 +21,7 @@ from test_auth import TABLES, add_user, bearer, client, error_code, login  # noq
 
 API = "/api/v1"
 REFERENCE_TABLES = TABLES + ["categories", "inquiry_types", "member_skills", "inquiries", "chat_sessions",
-                             "ticket_drafts", "tickets"]
+                             "ticket_drafts", "tickets", "time_off"]
 
 
 @pytest.fixture
@@ -222,6 +222,7 @@ def test_manager_lists_own_group_members(client, db, team):
         "skills": [{"id": vpn.id, "code": "NET-01", "name": "VPN 접속 불가"},
                    {"id": wifi.id, "code": "NET-02", "name": "Wi-Fi 연결 불가"}],
         "openTicketCount": 2,    # CLS 는 세지 않는다
+        "onLeave": False,
     }
     assert res.json()["items"][2]["hasJiraAccount"] is False   # 공백만 있는 계정은 없는 것으로 본다
 

@@ -1,5 +1,5 @@
 """접수 API (TK-01~06·08) — SQLite 메모리 DB. 문의는 Mock 모델로 판단 흐름을 돌려 만든다."""
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pytest
 from sqlalchemy import create_engine, select
@@ -22,6 +22,7 @@ from app.models import (
     Ticket,
     TicketDraft,
     TicketStatusHistory,
+    TimeOff,
 )
 from app.services.assignment import reserve_assignment
 from test_auth import add_user, bearer, client, error_code, login  # noqa: F401 (픽스처)
@@ -36,7 +37,7 @@ TICKETS = "/api/v1/tickets"
 def db():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     create_sqlite_tables(engine, INQUIRY_TABLES + ["integration_jobs", "assignment_logs", "ticket_status_history",
-                                                   "member_skills"])
+                                                   "member_skills", "time_off"])
     with Session(engine) as session:
         yield session
     engine.dispose()
@@ -1016,9 +1017,17 @@ def test_current_ticket_is_not_counted_for_its_assignee(db, team):
 
 
 def test_absent_member_is_skipped_only_for_auto(db, team):
-    assert reserve(db, team, absent_user_ids={team["free"].id}).assignee_id == team["busy"].id
+    day = date(2026, 11, 3)
+    db.add(TimeOff(user_id=team["free"].id, time_off_type="ANNUAL", start_date=day, end_date=day))
+    db.commit()
+    on_leave = datetime(2026, 11, 3, 1, 0, tzinfo=timezone.utc)                 # KST 10:00
+    after = datetime(2026, 11, 3, 15, 0, tzinfo=timezone.utc)                   # KST 11/04 00:00
+
+    assert reserve(db, team, now=on_leave).assignee_id == team["busy"].id
     db.rollback()
-    assert reserve(db, team, assignee_id=team["free"].id, absent_user_ids={team["free"].id}).assignee_id == team["free"].id
+    assert reserve(db, team, now=after).assignee_id == team["free"].id          # 일정이 끝나면 다시 후보
+    db.rollback()
+    assert reserve(db, team, assignee_id=team["free"].id, now=on_leave).assignee_id == team["free"].id
 
 
 def test_manager_is_not_auto_assigned(db, team):

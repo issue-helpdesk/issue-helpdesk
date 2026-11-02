@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app import __version__
-from app.api import auth, faqs, health, inquiries, reference, tickets, users
+from app.api import auth, faqs, health, inquiries, reference, tickets, time_off, users
 from app.core.errors import register_error_handlers
 from app.rag.search import runtime as search_runtime
 
@@ -30,3 +30,4 @@ app.include_router(inquiries.router, prefix=API_VERSION_V1)
 app.include_router(reference.router, prefix=API_VERSION_V1)
 app.include_router(tickets.router, prefix=API_VERSION_V1)
 app.include_router(faqs.router, prefix=API_VERSION_V1)
+app.include_router(time_off.router, prefix=API_VERSION_V1)

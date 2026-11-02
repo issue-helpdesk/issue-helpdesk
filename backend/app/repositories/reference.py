@@ -4,7 +4,8 @@ from fastapi import Depends
 from sqlalchemy import exists, func, select
 
 from app.db.session import DbSession
-from app.models import Category, Department, InquiryType, MemberSkill, SupportGroup, SupportGroupMember, Ticket, User
+from app.models import Category, Department, InquiryType, MemberSkill, SupportGroup, SupportGroupMember, User
+from app.repositories.assignment import AssignmentRepository
 
 
 class ReferenceRepository:
@@ -96,13 +97,9 @@ class ReferenceRepository:
         return [tuple(row) for row in rows]
 
     def count_open_tickets(self, user_ids: list[int]) -> dict[int, int]:
-        """담당자별로 배정된 RDY·WIP 접수 수. 그룹과 관계없이 그 사람의 전체 업무량이다."""
-        rows = self.db.execute(
-            select(Ticket.assignee_id, func.count())
-            .where(Ticket.assignee_id.in_(user_ids), Ticket.work_status.in_(("RDY", "WIP")))
-            .group_by(Ticket.assignee_id)
-        )
-        return {user_id: count for user_id, count in rows}
+        """담당자별 업무량. 자동배정과 같은 기준이고 (docs/11 3장), 그룹과 관계없이 그 사람의 전체 업무량이다."""
+        workload = AssignmentRepository(self.db).workload(user_ids, None)
+        return {user_id: sum(counts.values()) for user_id, counts in workload.items()}
 
     def list_departments(self, is_active: bool) -> list[Department]:
         return list(self.db.scalars(
