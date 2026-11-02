@@ -3,7 +3,7 @@
  * 문의 한 건의 대화·접수는 chat.ts 에 있다.
  */
 import { request, sleep } from '../core/apiClient'
-import { USE_MOCK } from '../core/config'
+import { USE_MOCK_INQUIRY } from '../core/config'
 import { toSummary } from './inquiryState'
 import { recordsOf, subscribe } from './mock/chatStore'
 import './mock/chatMock'
@@ -16,7 +16,7 @@ const POLL_MS = 8000
 
 /** 로그인한 사용자의 문의 목록 (최근 활동 순). 서버는 토큰으로 사용자를 구분한다. */
 export async function listMyInquiries(employeeNo: string): Promise<ApiResult<InquirySummary[]>> {
-  if (USE_MOCK) {
+  if (USE_MOCK_INQUIRY) {
     await sleep(150) // 응답 지연 흉내
     return ok(recordsOf(employeeNo).map((r) => toSummary(r.inquiry)))
   }
@@ -84,7 +84,7 @@ const dayStart = (d: string) => new Date(`${d}T00:00:00`).getTime()
 
 /** 문의 내역: 조건에 맞는 내 문의를 한 쪽씩 돌려준다. */
 export async function listInquiries(employeeNo: string, query: InquiryListQuery = {}): Promise<ApiResult<Page<InquirySummary>>> {
-  if (!USE_MOCK) return request<Page<InquirySummary>>(`/inquiries?${toQueryString(query)}`)
+  if (!USE_MOCK_INQUIRY) return request<Page<InquirySummary>>(`/inquiries?${toQueryString(query)}`)
   await sleep(150) // 응답 지연 흉내
   const { page = 1, size = 20, sort = 'updatedAt,desc', displayStatus, categoryCode, createdFrom, createdTo, q } = query
   const needle = (q ?? '').trim().toLowerCase()
@@ -142,7 +142,7 @@ export function watchMyInquiries(employeeNo: string, onChange: (list: InquirySum
     })
   }
   load()
-  if (USE_MOCK) return subscribe(load)
+  if (USE_MOCK_INQUIRY) return subscribe(load)
   const timer = setInterval(load, POLL_MS)
   return () => clearInterval(timer)
 }

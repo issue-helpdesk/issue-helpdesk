@@ -4,7 +4,7 @@
  * 로그인 화면에서 계정·로그인 범위의 공개 Guide 안내만 한다. 인증 없이 호출하며 Ticket은 만들지 않는다.
  */
 import { request, sleep } from '../core/apiClient'
-import { SERVICEDESK, USE_MOCK } from '../core/config'
+import { SERVICEDESK, MOCK_ONLY } from '../core/config'
 import { guideSource } from './mock/sources'
 import { ok, type ApiResult, type ConsultReply } from './types'
 
@@ -66,7 +66,7 @@ function mockReply(text: string): ConsultReply {
 
 /** 로그인 전 상담 질문을 보낸다. 실제 경로(/public/consult)는 백엔드와 협의 후 확정한다. */
 export async function askPreLogin(message: string): Promise<ApiResult<ConsultReply>> {
-  if (USE_MOCK) {
+  if (MOCK_ONLY) {
     await sleep(800) // 응답 지연 흉내
     return ok(mockReply(message))
   }

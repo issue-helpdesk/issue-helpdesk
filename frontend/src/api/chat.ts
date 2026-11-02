@@ -16,7 +16,7 @@
  * 실제 서버에서는 접수 이후 진행(Jira 생성·배정·처리)이 서버에서 일어나므로, 화면은 GET 을 주기적으로 다시 읽는다.
  */
 import { request, sleep } from '../core/apiClient'
-import { USE_MOCK } from '../core/config'
+import { USE_MOCK_INQUIRY } from '../core/config'
 import type { DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
 import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, idleWarnInquiry, idleDeleteInquiry, idleBackInquiry, leaveInquiry, resumeInquiry } from './mock/chatEngine'
 import './mock/chatMock'
@@ -60,7 +60,7 @@ async function mockAct(id: number, employeeNo: string, act: (rec: StoreRecord) =
 
 /** 새 문의를 시작한다 */
 export async function startChat(user: { employeeNo: string; name: string }, text: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) {
+  if (USE_MOCK_INQUIRY) {
     await sleep(120)
     const inq = startInquiry(user.employeeNo, user.name, text)
     notify() // 사이드바 최근 문의에 새 문의가 나타난다
@@ -71,7 +71,7 @@ export async function startChat(user: { employeeNo: string; name: string }, text
 
 /** 문의 상세를 읽는다. 열면 새 답변 표시가 지워진다. */
 export async function getChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) {
+  if (USE_MOCK_INQUIRY) {
     await sleep(60)
     if (mockConfig.loadFail) return fail('NETWORK_ERROR', '서버에 연결하지 못했어요.')
     const rec = own(id, employeeNo)
@@ -90,7 +90,7 @@ export async function getChat(id: number, employeeNo: string): Promise<ApiResult
  * 돌려주는 함수를 부르면 구독이 끝난다.
  */
 export function watchChat(id: number, employeeNo: string, onChange: (r: ApiResult<Inquiry>) => void): () => void {
-  if (USE_MOCK) {
+  if (USE_MOCK_INQUIRY) {
     const off = subscribe(() => {
       const rec = own(id, employeeNo)
       // 이 화면을 보고 있으니 새 답변 표시는 바로 지운다
@@ -108,7 +108,7 @@ export function watchChat(id: number, employeeNo: string, onChange: (r: ApiResul
 }
 
 export function sendChat(id: number, employeeNo: string, text: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) {
+  if (USE_MOCK_INQUIRY) {
     return mockAct(id, employeeNo, (rec) => {
       // 접수 이후에는 담당자에게 가는 메시지이고, 답변을 준비하는 중에는 새 메시지를 받지 않는다
       if (rec.inquiry.ticket) sendToStaff(rec, text)
@@ -119,37 +119,37 @@ export function sendChat(id: number, employeeNo: string, text: string): Promise<
 }
 
 export function replyChat(id: number, employeeNo: string, req: ReplyRequest): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => applyReply(rec, req))
+  if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => applyReply(rec, req))
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/replies`, req)
 }
 
 export function editDraft(id: number, employeeNo: string, edit: DraftEdit): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => saveDraft(rec, edit))
+  if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => saveDraft(rec, edit))
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/draft/edit`, edit)
 }
 
 export function confirmChatDraft(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => confirmDraft(rec))
+  if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => confirmDraft(rec))
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/draft/confirm`)
 }
 
 export function cancelChatDraft(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => cancelDraft(rec))
+  if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => cancelDraft(rec))
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/draft/cancel`)
 }
 
 export function resolveChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => confirmResolved(rec))
+  if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => confirmResolved(rec))
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/resolve`)
 }
 
 export function rejectChat(id: number, employeeNo: string, reason: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => denyResolved(rec, reason))
+  if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => denyResolved(rec, reason))
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/reject`, { reason })
 }
 
 export function reopenChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => reopenInquiry(rec))
+  if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => reopenInquiry(rec))
   return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/reopen`)
 }
 
@@ -181,6 +181,6 @@ export function resumeChat(id: number, employeeNo: string): Promise<ApiResult<In
 
 /** 시연 전용: 담당자 처리를 한 단계 앞으로 보낸다 */
 export function advanceChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
-  if (USE_MOCK) return mockAct(id, employeeNo, (rec) => advanceTicket(rec))
+  if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => advanceTicket(rec))
   return Promise.resolve(fail('NOT_SUPPORTED', '시연 전용 기능이에요.'))
 }
