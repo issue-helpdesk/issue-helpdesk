@@ -75,7 +75,7 @@ python backend/app/integrations/jira/smoke_check.py --create   # 위 + 새 테�
 python backend/app/integrations/jira/smoke_check.py --flow     # 위 + 담당자 지정·재조회·상태 전환(RDY→WIP→FIN→CLS)까지
 python backend/app/integrations/jira/service_check.py            # 생성 서비스(services/jira_create.py)를 실제 Jira에 붙여 접수→작업→이슈 생성→jira_key 저장→중복 방지까지 (임시 DB, 시험 이슈 1건)
 python backend/app/integrations/jira/smoke_check.py --reopen   # 새 테스트 티켓으로 FIN→WIP→FIN 재처리를 해 보고 「최종 처리 결과」가 덮어써지는지 확인 (CLS까지 가지 않음)
-uv run python backend/app/integrations/jira/worker.py --once           # 독립 실행기: 대기 중인 Jira 생성 작업을 한 번 처리하고 종료 (--interval 30 이면 30초마다 반복)
+uv run python backend/app/integrations/jira/worker.py --once           # 독립 실행기: 생성·배정·상태 변경 작업을 한 회차 처리하고 종료
 ```
 
 기본 실행은 인증·검색·존재하는 테스트 티켓의 저장값만 확인합니다. 테스트 티켓을 삭제했어도 다시 만들지 않으며 저장값 비교는 생략했다고 표시합니다. 생성·중복 확인은 `--create`를 지정했을 때만 테스트합니다. 새 티켓이 검색에 나타나지 않으면 생성 함수를 재호출하지 않고 점검을 중단합니다. 테스트 티켓은 확인 후 Jira에서 지웁니다.
@@ -134,6 +134,13 @@ if event.is_comment_created:
 테스트: `pytest tests/test_jira_assignment.py` (모의 응답 35개), `pytest tests/test_jira_comment.py` (댓글 알림 33개).
 
 ## 변경 기록
+
+### 2026-11-02 · worker 생성·배정·상태 변경 연결
+
+- 독립 실행기가 세 종류의 중단 복구·단건 실행 서비스를 호출합니다. 작업별 예외는 rollback 후 나머지 작업을 계속합니다.
+- `--ticket-id`는 조회·복구·실행을 해당 접수로 제한하고, `--job-types`는 처리할 종류를 선택합니다. `--limit`은 종류별 상한입니다.
+- FIN→WIP 보류가 뒤의 기본 상태 변경을 막지 않게 합니다. 최초 자동배정 예약·FIN→WIP 실행 정책은 확장하지 않습니다.
+- 별도 Compose 실행 구성과 [운영 방법](../../../../docs/integrations/jira/WORKER.md)을 추가했습니다. 아래 과거 기록의 “worker 미연결”은 당시 범위입니다. 최신 검증 범위는 [검증 기록](../../../../docs/integrations/jira/WORKER_VALIDATION.md)을 따릅니다.
 
 ### 2026-11-02 · 저장된 배정 작업 실행 서비스
 

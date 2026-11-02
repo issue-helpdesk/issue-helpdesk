@@ -304,11 +304,13 @@ def run_due_jira_transition_jobs(db, jira, *, limit=10, now=None, policy=RetryPo
     return [run_jira_transition_job(db, jira, job_id, now=now, policy=policy) for job_id in ids]
 
 
-def requeue_stale_transition_jobs(db, *, older_than=timedelta(minutes=5), now=None) -> int:
+def requeue_stale_transition_jobs(db, *, older_than=timedelta(minutes=5), now=None, ticket_id: int | None = None) -> int:
     """중단된 전환 작업은 조회 전용으로 복구한다. 생성용 VERIFYING으로 바꾸지 않는다."""
     now = now or datetime_utils.now()
     jobs = db.scalars(select(IntegrationJob).where(
-        IntegrationJob.job_type == JOB_TYPE, IntegrationJob.status == "RUNNING",
+        IntegrationJob.job_type == JOB_TYPE,
+        True if ticket_id is None else IntegrationJob.ticket_id == ticket_id,
+        IntegrationJob.status == "RUNNING",
         IntegrationJob.updated_at < now - older_than,
     ).with_for_update()).all()
     for job in jobs:
