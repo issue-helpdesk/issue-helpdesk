@@ -415,6 +415,8 @@ button.srow{cursor:pointer}button.srow:hover{background:var(--osoft)}
 .hd{width:8px;height:8px;border-radius:50%;margin-top:8px;flex:none;background:var(--mute)}.hd.ok{background:var(--s-ok-dot)}.hd.urg{background:var(--s-urg-dot)}
 .side button>span:not(.count){white-space:nowrap}.count.nw{white-space:nowrap;flex:none}
 .side .count{flex:none;white-space:nowrap}.side button>span:not(.count){min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis}
+/* 사이드바 하단 프로필 동그라미: 위 span 규칙(flex:1)에 눌려 찌그러지지 않게 */
+.side .who .pf{flex:none;min-width:34px;overflow:visible}
 .count.has-new{position:relative}.count.has-new:after{content:"";position:absolute;right:-3px;top:-3px;width:9px;height:9px;border-radius:50%;background:var(--s-urg-dot);box-shadow:0 0 0 2px var(--side)}.nav button.on .count.has-new:after{box-shadow:0 0 0 2px var(--white)}
 
 .srch{display:flex;align-items:center;gap:10px;height:44px;padding:0 10px 0 16px;border-radius:999px;background:var(--white);box-shadow:inset 0 0 0 1px var(--fieldline);flex:1 1 260px;min-width:220px;max-width:440px;color:var(--mute);cursor:text}

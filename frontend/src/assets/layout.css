@@ -76,6 +76,8 @@
 .tag.stf{background:#7656E8;color:#fff}
 .side button>span:not(.count){white-space:nowrap;flex:1;overflow:hidden;text-overflow:ellipsis}
 .side .count{flex:none;white-space:nowrap}.side button>span:not(.count){min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis}
+/* 사이드바 하단 프로필 동그라미: 위 span 규칙(flex:1)에 눌려 찌그러지지 않게 */
+.side .who .pf{flex:none;min-width:34px;overflow:visible}
 .side .nav+.nav .grp{padding-top:11px;border-top:1px solid var(--divider)}
 .side .nav+.nav{margin-top:-11px}
 .side .nav .grp{padding:0 12px 4px}
