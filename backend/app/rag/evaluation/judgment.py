@@ -43,6 +43,7 @@ NAMES = {'category': '분류', 'scenario': '세부 유형', 'urgency': '긴급�
 CITED = '근거 일치'                         # ANSWER 의 문서 근거가 정답 항목인가 (참고, 판단 칸 아님)
 SETS = {'eval': ('eval',), 'guide': ('guide',), 'all': ('eval', 'guide')}
 GUIDE_GROUP = '질문시트'                    # 가이드 검색 질문 (정답 칸은 정답 항목에서 끌어낸 참고값)
+EVIDENCE_RULES = {'NO_EVIDENCE', 'GUIDE_INSUFFICIENT'}   # 흐름이 근거 부족으로 ANSWER 를 바꾸는 보정 규칙
 URGENCY_ORDER = ('P1', 'P2', 'P3', 'P4')
 TEAM_ASSIGNED, TEAM_GUIDED, TEAM_SKIP = '배정팀 비교', '안내 지원팀 비교', '팀 평가 제외'
 GUIDED_COL = f'팀 ({TEAM_GUIDED})'
@@ -173,21 +174,25 @@ def team_of(action: str, scenario: str | None, ref: Reference) -> str | None:
 
 # ── 판단기 ─────────────────────────────────────────────────────
 
-def oracle_reply(item: EvalItem, ref: Reference) -> Callable[[str, str], str]:
+def oracle_reply(item: EvalItem, ref: Reference, found: Callable[[], object] = lambda: None) -> Callable[[str, str], str]:
     """정답을 AI 출력 모양으로. 2차(검색 결과가 온 호출)의 ANSWER 는 정답 세부 유형이 붙은 결과(없으면 1위)를 근거로 든다.
-    질문시트는 처리 방향·긴급도 정답이 없어 ANSWER · 유형 기본 긴급도로 두고, 정답 항목인 결과를 근거로 든다."""
+    질문시트는 처리 방향·긴급도 정답이 없어 ANSWER · 유형 기본 긴급도로 두고, 정답 항목인 결과를 근거로 든다.
+    found: 원래 검색 결과 (DbSearch.last). AI 입력에는 묶인 결과(also_in)가 없으므로, 정답이 묶인 대표 결과는
+    여기서 고른다 (평가 정답을 실제 Claude 입력에 넣지 않는다)."""
     kinds = {t.code: t.request_kind for t in ref.taxonomy.types}
     default_urgency = {t.code: t.default_urgency for t in ref.taxonomy.types}
     urgent = item.additional == 'URGENT_HANDOFF'
     action = item.action or 'ANSWER'
-    if item.set == 'guide':
-        def ok(d): return any(unit_ref(k) in item.answer_units for k in (d['unit_key'], *d.get('also_in', ())))
-    else:
-        def ok(d): return item.scenario in d['inquiry_type_codes']
+
+    def ok(d, answers: set[str]) -> bool:
+        return d['unit_key'] in answers if item.set == 'guide' else item.scenario in d['inquiry_type_codes']
 
     def reply(system: str, user: str) -> str:
+        res = found()
+        answers = {x.unit_key for x in res.documents
+                   if {unit_ref(k) for k in (x.unit_key, *x.also_in)} & item.answer_units} if res else set()
         docs = (json.loads(user).get('search') or {}).get('documents') or []
-        cite = next((d for d in docs if ok(d)), docs[0] if docs else None)
+        cite = next((d for d in docs if ok(d, answers)), docs[0] if docs else None)
         evidence = ([{'kind': 'DOCUMENT', 'source_id': cite['unit_key'], 'quote': cite['text'][:40]}]
                     if action == 'ANSWER' and cite and cite['text'] else [])
         return json.dumps({
@@ -206,13 +211,13 @@ def oracle_reply(item: EvalItem, ref: Reference) -> Callable[[str, str], str]:
     return reply
 
 
-def make_port(judge: str, item: EvalItem, ref: Reference):
+def make_port(judge: str, item: EvalItem, ref: Reference, search=None):
     """문항마다 새 포트 (Mock 은 받은 요청을 쌓으므로). claude 는 서버와 같은 어댑터 하나를 다시 쓴다."""
     from app.agent.llm import MockAdapter, get_llm_adapter
     if judge == 'claude':
         return get_llm_adapter()
     if judge == 'mock:oracle':
-        return MockAdapter([oracle_reply(item, ref)])
+        return MockAdapter([oracle_reply(item, ref, (lambda: search.last) if search else (lambda: None))])
     if judge == 'mock:safe':
         return MockAdapter()
     raise ValueError(judge)
@@ -271,7 +276,7 @@ def judge_item(item: EvalItem, judge: str, ref: Reference, search: DbSearch, rou
     inp = AIInput(session_id=f'eval-{item.eval_id}-{round_}', inquiry_id=item.eval_id, message=item.query, history=[],
                   ask_more_count=0, user_context=UserContext(employee_no='EVAL', service_role='EMPLOYEE'), search=None)
     search.last = None
-    r = run_flow(inp, make_port(judge, item, ref), ref.taxonomy, ref.staff, search)
+    r = run_flow(inp, make_port(judge, item, ref, search), ref.taxonomy, ref.staff, search)
     out, found = r.output, search.last
     # 검색 평가 Hit.refs·docs 와 같이 대표 결과와 묶인 결과(also_in)를 함께 본다
     refs = {unit_ref(k) for d in found.documents for k in (d.unit_key, *d.also_in)} if found else set()
@@ -435,7 +440,13 @@ def write(out_dir: str, js: list[Judged], meta: dict) -> dict:
                           '처리 방향': j.predicted['action']} for j in js if j.item.additional != 'NONE'],
                '틀린 문항': [{'회차': j.round, '문항': j.item.eval_id, '원인': cause(j),
                           '틀린 칸': [NAMES[x] for x in FIELDS if is_correct(j, x) is False], '비고': known_note(j)}
-                         for j in js if cause(j)]}
+                         for j in js if cause(j)],
+               # 근거는 판단 칸이 아니라 틀린 문항에 안 나오므로 따로. 흐름이 근거 부족으로 ANSWER 를 바꿔 분모에서 빠진 것도
+               '근거 불일치': [{'회차': j.round, '문항': j.item.eval_id, '정답 항목 찾음': j.found_unit, '근거': j.evidence}
+                          for j in js if j.cited_unit is False],
+               '근거 부족으로 빠짐': [{'회차': j.round, '문항': j.item.eval_id, '보정 규칙': j.overrides,
+                                '정답 항목 찾음': j.found_unit}
+                               for j in js if j.cited_unit is None and set(j.overrides) & EVIDENCE_RULES]}
     with open(os.path.join(out_dir, '요약.json'), 'w', encoding='utf-8') as f:
         json.dump(summary, f, ensure_ascii=False, indent=1)
     with open(os.path.join(out_dir, '요약.md'), 'w', encoding='utf-8') as f:
@@ -491,6 +502,15 @@ def summary_md(summary: dict) -> str:
     out += ['', f'## 틀린 문항 {len(wrong)}개 (모든 회차. 원인은 조사 후보: 검색 → C, 판단 → D)', '',
             '| 회차 | 문항 | 원인 | 틀린 칸 | 비고 |', '|---|---|---|---|---|'] + \
         [f"| {x['회차']} | {x['문항']} | {x['원인']} | {', '.join(x['틀린 칸'])} | {x['비고']} |" for x in wrong]
+    yn = {True: 'Y', False: 'N', None: ''}
+    miss = summary.get('근거 불일치', [])
+    out += ['', f'## {CITED} 틀림 {len(miss)}개 (ANSWER 근거에 정답 항목 없음. 정답 항목 찾음 N → 검색, Y → 판단)', '',
+            '| 회차 | 문항 | 정답 항목 찾음 | 근거 |', '|---|---|---|---|'] + \
+        [f"| {x['회차']} | {x['문항']} | {yn[x['정답 항목 찾음']]} | {'; '.join(x['근거'])} |" for x in miss]
+    gone = summary.get('근거 부족으로 빠짐', [])
+    out += ['', f'## 근거 부족으로 {CITED}에서 빠짐 {len(gone)}개 (흐름이 ANSWER 를 담당자 연결로 바꿈)', '',
+            '| 회차 | 문항 | 보정 규칙 | 정답 항목 찾음 |', '|---|---|---|---|'] + \
+        [f"| {x['회차']} | {x['문항']} | {', '.join(x['보정 규칙'])} | {yn[x['정답 항목 찾음']]} |" for x in gone]
     return '\n'.join(out) + '\n'
 
 
@@ -556,7 +576,9 @@ def main(argv=None) -> int:
     if 'guide' in SETS[a.set]:                         # 질문시트 정답은 질문 파일과 정리본 단위에서 끌어낸다
         import glob
         meta['질문시트 파일'] = file_hash(sorted(glob.glob(os.path.join(QUESTIONS_DIR, '*_질문.csv'))))
-        meta['단위 지문'] = units_fingerprint(units)
+        meta['단위 지문'] = units_fingerprint(units)        # 본문·범위·정책. 유형 코드는 아래 끌어낸 정답 지문으로
+        labels = sorted((i.eval_id, i.scenario or '', '|'.join(sorted(i.answer_units))) for i in items if i.set == 'guide')
+        meta['질문시트 정답 지문'] = hashlib.sha1(json.dumps(labels, ensure_ascii=False).encode('utf-8')).hexdigest()[:12]
     from ..embedding import Embedder
     emb = Embedder(a.model)
     meta['검색 모델'] = emb.model_id

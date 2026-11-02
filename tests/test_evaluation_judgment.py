@@ -243,6 +243,25 @@ def test_citation_counts_grouped_unit_and_skips_non_answers():
     assert judge_item(guide_item(), 'mock:safe', REF, FakeSearch(DOC)).cited_unit is None    # ANSWER 가 아니면 세지 않는다
 
 
+def test_oracle_cites_representative_whose_group_holds_answer():
+    """AI 입력에는 also_in 이 없다 → 정답이 2위 대표 결과에 묶여 있어도 원래 검색 결과로 그 대표를 고른다 (PR #198 검수 P2)."""
+    first = replace(OTHER, unit_key='IT-NET-001@v2.0/item:first')
+    alias = replace(OTHER, unit_key='IT-NET-001@v2.0/item:alias', also_in=(DOC.unit_key,))
+    j = judge_item(guide_item(), 'mock:oracle', REF, FakeSearch(first, alias))
+    assert j.found_unit is True and j.evidence == [alias.unit_key] and j.cited_unit is True
+
+
+def test_summary_lists_citation_misses_and_evidence_escalations(tmp_path):
+    wrong = judge_item(guide_item(answer_units=frozenset({'IT-SEC-001/item:3.1'})), 'mock:oracle', REF, FakeSearch(OTHER))
+    gone = judge_item(guide_item(eval_id='IT-ACC-002#2'), 'mock:oracle', REF, FakeSearch())    # 근거 없음 → 담당자 연결
+    assert gone.cited_unit is None and 'NO_EVIDENCE' in gone.overrides
+    s = write(str(tmp_path), [wrong, gone], {'판단기': 'x'})
+    assert [x['문항'] for x in s['근거 불일치']] == ['IT-ACC-002#1'] and s['틀린 문항'] == []    # 판단 칸은 맞음
+    assert [x['문항'] for x in s['근거 부족으로 빠짐']] == ['IT-ACC-002#2']
+    md = summary_md(s)
+    assert f'{CITED} 틀림 1개' in md and f'근거 부족으로 {CITED}에서 빠짐 1개' in md
+
+
 def test_cli_checks_ids_against_chosen_set(capsys):
     assert main(['--database-url', 'postgresql://nowhere/x', '--ids', 'IT-ACC-001#1']) == 2      # 기본은 평가셋만
     assert '시험지(eval)에 없는 문항' in capsys.readouterr().out
