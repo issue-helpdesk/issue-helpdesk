@@ -67,7 +67,7 @@ export function FaqView() {
       <Topbar title="FAQ" sub="본인에게 열람이 허용된 가이드만 표시돼요" lead={<img className="tti" src={titleFaq} alt="" width={56} height={56} />} />
       <div className="scroll">
         <div className="page">
-          <div>
+          <div className="phead">
             <div className="eyebrow">IT GUIDE</div>
             <h1>먼저 확인해 보세요</h1>
             <p className="muted" style={{ marginTop: 4 }}>

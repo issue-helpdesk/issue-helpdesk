@@ -170,7 +170,7 @@ export function AccountsView() {
       <Topbar title="계정 관리" sub="ITssue 서비스 이용 권한" lead={<img className="tti" src={titleAcct} alt="" width={56} height={56} />} />
       <div className="scroll">
         <div className="page">
-          <div>
+          <div className="phead">
             <div className="eyebrow">ACCOUNTS</div>
             <h1>서비스 이용 권한을 관리해요</h1>
             <p className="muted" style={{ marginTop: 4 }}>

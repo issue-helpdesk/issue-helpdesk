@@ -12,10 +12,11 @@ import './mock/chatMock'
 import { CATEGORIES } from './catalog'
 import type { CategoryCode } from './chatTypes'
 import { formatRelative } from '../core/format'
+import { visiblePoll } from '../core/poll'
 import { ok, type ApiResult, type DisplayStatus, type InquirySummary } from './types'
 
 /** 서버를 다시 읽는 간격(ms) */
-const POLL_MS = 8000
+const POLL_MS = 20_000
 
 /** 로그인한 사용자의 문의 목록 (최근 활동 순). 서버는 토큰으로 사용자를 구분한다. */
 export async function listMyInquiries(employeeNo: string): Promise<ApiResult<InquirySummary[]>> {
@@ -151,8 +152,7 @@ export function watchMyInquiries(employeeNo: string, onChange: (list: InquirySum
   }
   load()
   if (USE_MOCK_INQUIRY) return subscribe(load)
-  const timer = setInterval(load, POLL_MS)
-  return () => clearInterval(timer)
+  return visiblePoll(load, POLL_MS)
 }
 
 /* ------------------------------------------------------------------ 관리자: AI 처리한 상담 (전체 문의의 "AI 처리") */

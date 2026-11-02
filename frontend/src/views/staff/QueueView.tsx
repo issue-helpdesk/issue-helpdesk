@@ -172,7 +172,7 @@ export function QueueView() {
         <Topbar title="처리할 문의" sub={`${user.departmentName} · ${user.name} 담당자`} lead={<img className="tti" src={titleInq} alt="" width={56} height={56} />} />
         <div className="scroll">
           <div className="page">
-            <div>
+            <div className="phead">
               <div className="eyebrow">MY QUEUE</div>
               <h1>처리할 문의를 확인해요</h1>
               <p className="muted" style={{ marginTop: 4 }}>

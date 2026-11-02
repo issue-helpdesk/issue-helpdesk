@@ -141,7 +141,7 @@ export function MyDashView() {
       <Topbar title="내 대시보드" sub={`${user.departmentName} · ${user.name} 담당자`} lead={<img className="tti" src={titleOps} alt="" width={56} height={56} />} />
       <div className="scroll">
         <div className="page">
-          <div>
+          <div className="phead">
             <div className="eyebrow">MY WORK</div>
             <h1>내 담당 문의</h1>
             <p className="muted" style={{ marginTop: 4 }}>

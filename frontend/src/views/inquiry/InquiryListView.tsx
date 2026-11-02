@@ -169,7 +169,7 @@ export function InquiryListView() {
       <Topbar title="문의 내역" sub="내 문의의 진행 상태" lead={<img className="tti" src={titleHist} alt="" width={56} height={56} />} />
       <div className="scroll">
         <div className="page">
-          <div>
+          <div className="phead">
             <div className="eyebrow">MY INQUIRIES</div>
             <h1>내 문의를 한눈에 확인해요</h1>
             <p className="muted" style={{ marginTop: 4 }}>

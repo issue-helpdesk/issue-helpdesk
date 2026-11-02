@@ -10,6 +10,7 @@ import titleOps from '../../assets/mascot/title-ops.webp'
 import { USE_MOCK_OPS } from '../../core/config'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
+import { CountUp } from '../../ui/CountUp'
 import { Icon } from '../../ui/Icon'
 import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
@@ -77,7 +78,7 @@ export function AiOpsView() {
     <main className="main">
       <Topbar title="AI 운영" sub={USE_MOCK_OPS ? '비용과 품질 · 시연 데이터' : '비용과 품질'} lead={<img className="tti" src={titleOps} alt="" width={56} height={56} />} />
       <div className="scroll">
-        <div className="page dpage">
+        <div className="page">
           <div className="phead">
             <div className="eyebrow">AI OPERATIONS</div>
             <h1>AI 비용과 답변 품질을 살펴봐요</h1>
@@ -125,27 +126,27 @@ export function AiOpsView() {
             <div className="kpi">
               <div className="l">기간 내 AI 상담</div>
               <div className="v">
-                <b>{sum ? sum.tot.toLocaleString() : '-'}</b>
+                <b>{sum ? <CountUp value={sum.tot} /> : '-'}</b>
                 <span>건</span>
               </div>
             </div>
             <div className="kpi">
               <div className="l">AI 해결률</div>
               <div className="v">
-                <b>{sum && sum.tot ? Math.round((sum.ai / sum.tot) * 100) : '-'}</b>
+                <b>{sum && sum.tot ? <CountUp value={Math.round((sum.ai / sum.tot) * 100)} delay={60} /> : '-'}</b>
                 <span>%</span>
               </div>
             </div>
             <div className="kpi">
               <div className="l">추정 비용 (기간 합계)</div>
               <div className="v">
-                <b>{sum ? `$${sum.cost.toFixed(1)}` : '-'}</b>
+                <b>{sum ? <CountUp value={sum.cost} prefix="$" decimals={1} delay={120} /> : '-'}</b>
               </div>
             </div>
             <div className="kpi">
               <div className="l">{b?.scope === 'period' ? '기간 예산 사용' : `${cur.last} 예산 사용`}</div>
               <div className="v">
-                <b>{b ? pct : '-'}</b>
+                <b>{b ? <CountUp value={pct} delay={180} /> : '-'}</b>
                 <span>%</span>
               </div>
               {b && (

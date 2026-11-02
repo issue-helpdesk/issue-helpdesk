@@ -15,6 +15,7 @@ import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
+import { CountUp } from '../../ui/CountUp'
 import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
 import { UrgencyChip } from '../staff/QueueView'
@@ -39,7 +40,9 @@ function Kpi({ label, n, to, dot, cls, hint, sug, aria }: { label: string; n: nu
         )}
       </div>
       <div className="v">
-        <b>{n}</b>
+        <b>
+          <CountUp value={n} />
+        </b>
         <span>건</span>
       </div>
       {hint && (
@@ -225,7 +228,7 @@ export function AdminStatsView() {
       <main className="main">
         <Topbar title="통계" sub="티켓과 AI 해결을 구분해서 보여줘요" lead={<img className="tti" src={titleOps} alt="" width={56} height={56} />} />
         <div className="scroll">
-          <div className="page dpage">
+          <div className="page">
             <div className="phead">
               <div className="eyebrow">STATISTICS</div>
               <h1>통계</h1>
@@ -313,14 +316,18 @@ export function AdminStatsView() {
                     <div className="kpi">
                       <div className="l">오늘 접수 (담당자 처리)</div>
                       <div className="v">
-                        <b>{trendWin.length}</b>
+                        <b>
+                          <CountUp value={trendWin.length} />
+                        </b>
                         <span>건</span>
                       </div>
                     </div>
                     <div className="kpi">
                       <div className="l">오늘 AI 해결 (티켓 없음)</div>
                       <div className="v">
-                        <b>{counts?.all ?? 0}</b>
+                        <b>
+                          <CountUp value={counts?.all ?? 0} />
+                        </b>
                         <span>건</span>
                       </div>
                     </div>

@@ -24,6 +24,7 @@ import titleOps from '../../assets/mascot/title-ops.webp'
 import { formatDateTime } from '../../core/format'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
+import { CountUp } from '../../ui/CountUp'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { SortTh } from '../../ui/SortTh'
@@ -49,7 +50,9 @@ function Cell({ cls, label, n, hint }: { cls?: string; label: string; n: number;
     <div className={`sgc${cls ? ` ${cls}` : ''}`}>
       <div className="small muted gl">{label}</div>
       <div className="v">
-        <b>{n}</b>
+        <b>
+          <CountUp value={n} />
+        </b>
         <span>건</span>
       </div>
       <div className="small muted">{hint}</div>
@@ -111,7 +114,7 @@ export function SecurityView() {
       <main className="main">
         <Topbar title="보안·감사 알림" sub="문의가 접수되지 않았어도 감지된 신호" lead={<img className="tti" src={titleOps} alt="" width={56} height={56} />} />
         <div className="scroll">
-          <div className="page dpage">
+          <div className="page">
             <div className="phead">
               <div className="eyebrow">
                 SECURITY <span className="tag gray">시연 데이터</span>

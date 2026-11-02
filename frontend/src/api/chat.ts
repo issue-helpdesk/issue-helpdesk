@@ -14,6 +14,7 @@
  */
 import { sleep } from '../core/apiClient'
 import { USE_MOCK_INQUIRY } from '../core/config'
+import { visiblePoll } from '../core/poll'
 import type { DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
 import { loadInquiry, notReady, serverClose, serverResolve, serverResume, serverSend, serverStart } from './inquiryServer'
 import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, idleWarnInquiry, idleDeleteInquiry, idleBackInquiry, leaveInquiry, resumeInquiry } from './mock/chatEngine'
@@ -21,8 +22,8 @@ import './mock/chatMock'
 import { getRecord, mockConfig, notify, subscribe, type StoreRecord } from './mock/chatStore'
 import { fail, ok, type ApiResult } from './types'
 
-/** 실제 서버를 다시 읽는 간격(ms) */
-const POLL_MS = 4000
+/** 실제 서버를 다시 읽는 간격(ms). 답변은 요청이 끝나면 바로 받으므로, 담당자 메시지·접수 진행을 확인하는 정도로만 읽는다. 탭이 가려져 있으면 읽지 않는다 */
+const POLL_MS = 10_000
 
 /** 서버 모드: 마지막으로 읽은 문의 (답변을 기다리는 동안 보여 줄 화면의 바탕), 보고 있는 화면의 갱신 함수, 진행 중인 요청 수 */
 const lastSeen = new Map<number, Inquiry>()
@@ -83,6 +84,25 @@ export async function startChat(user: { employeeNo: string; name: string }, text
   return track(serverStart(text))
 }
 
+/**
+ * 새 문의를 보내고 기다리는 중인 요청 하나. 서버는 AI 답변을 만들 때까지 응답하지 않아(몇 초~1분 이상) 화면을 먼저 대화 화면(/chat/new)으로
+ * 넘기고, 요청은 화면과 따로 계속 진행한다. 화면이 새로고침으로 사라지면 이 값도 사라진다.
+ */
+interface PendingStart {
+  text: string
+  promise: Promise<ApiResult<Inquiry>>
+}
+let pending: PendingStart | null = null
+/** 새 문의를 보내기 시작한다. run 은 테스트에서 느린 서버를 흉내 낼 때 바꾼다 */
+export function beginChat(user: { employeeNo: string; name: string }, text: string, run: typeof startChat = startChat): PendingStart {
+  pending = { text, promise: run(user, text) }
+  return pending
+}
+export const getPending = () => pending
+export function clearPending() {
+  pending = null
+}
+
 /** 문의 상세를 읽는다. 열면 새 답변 표시가 지워진다. */
 export async function getChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) {
@@ -116,14 +136,14 @@ export function watchChat(id: number, employeeNo: string, onChange: (r: ApiResul
     return off
   }
   optimistic.set(id, onChange)
-  const timer = setInterval(() => {
+  const stop = visiblePoll(() => {
     if (inflight) return // 답변을 기다리는 중에는 화면을 되돌리지 않는다
     loadInquiry(id).then((r) => {
       if (!inflight) onChange(remember(r))
     })
   }, POLL_MS)
   return () => {
-    clearInterval(timer)
+    stop()
     optimistic.delete(id)
   }
 }

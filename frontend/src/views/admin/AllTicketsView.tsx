@@ -255,7 +255,7 @@ export function AllTicketsView() {
   )
 
   const head = (
-    <div>
+    <div className="phead">
       <div className="eyebrow">ALL INQUIRIES</div>
       <h1>모든 문의를 한눈에 확인해요</h1>
       <p className="muted" style={{ marginTop: 4 }}>
