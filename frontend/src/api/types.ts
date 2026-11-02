@@ -99,8 +99,10 @@ export interface Faq {
   categoryCode: CategoryCode
   question: string
   answer: string
-  /** 근거 Guide 출처 */
+  /** 근거 Guide 출처. 서버는 목록에 출처를 주지 않아 비어 있고, 서버 모드에서는 열 때 getFaqSources 로 읽는다 */
   sources: GuideSource[]
+  /** 서버 FAQ 의 숫자 ID (GET /faqs/{id}). 모의 데이터에는 없다 */
+  serverId?: number
 }
 
 /**
