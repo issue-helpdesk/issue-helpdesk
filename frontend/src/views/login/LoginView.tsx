@@ -224,7 +224,7 @@ export function LoginView() {
                 {USE_MOCK_AUTH && (
                   <>
                     <br />
-                    임시 비밀번호 상태 시연: EMP-1010 / {MOCK_TEMP_PASSWORD}
+                    임시 비밀번호 상태 시연: EMP-1300 / {MOCK_TEMP_PASSWORD}
                   </>
                 )}
               </div>

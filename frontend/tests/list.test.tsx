@@ -13,7 +13,7 @@ import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
 
 const SLOW = { timeout: 3000 }
-const USER = { employeeNo: 'EMP-1001', name: '김서연' }
+const USER = { employeeNo: 'EMP-1001', name: '이태윤' }
 
 function renderAs(employeeNo: string, path: string) {
   tokenStore.set(`mock.${employeeNo}`)
