@@ -21,3 +21,27 @@
 .scroll .page>.seg button{min-height:40px;padding:0 18px;border-radius:999px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink2);font-weight:600}
 .scroll .page>.seg button:hover{box-shadow:inset 0 0 0 1px var(--o600)}
 .scroll .page>.seg button.on{background:var(--osoft);box-shadow:inset 0 0 0 1.5px var(--o600);color:var(--link)}
+
+/* 운영 현황 (design/ITssue-Prototype.html 운영 현황 CSS) */
+.opage{display:flex;flex-direction:column;gap:12px}.opage>.panel,.ogrid>.panel{padding:22px 24px}
+.ofil{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.ofil .dsy{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ogrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:stretch}.ogrid>.panel{display:flex;flex-direction:column}
+.ocnt{font-size:14px;font-weight:600;color:var(--mute);margin-left:2px}
+.otb{display:flex;flex-direction:column;flex:1}
+.orow{display:grid;grid-template-columns:96px minmax(0,1fr) auto auto;align-items:center;gap:12px;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:transparent;padding:10px 6px;min-height:52px;color:var(--ink);font:inherit}
+button.orow{cursor:pointer}button.orow:hover{background:var(--osoft)}
+.orow .o-t{min-width:0}.orow .o-t b{display:block;font-size:14px;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.orow .o-t small{display:block;font-size:12px;line-height:18px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.orow .o-e{font-size:13px;color:var(--ink2);white-space:nowrap}.orow .o-e b{color:var(--ink)}
+.orow.l{grid-template-columns:minmax(0,1fr) auto auto auto}.orow .o-main{display:grid;grid-template-columns:96px minmax(0,1fr);align-items:center;gap:12px;min-width:0;text-align:left}
+.onil{flex:1;min-height:52px;display:flex;align-items:center;justify-content:center;text-align:center;border-top:1px solid var(--line);color:var(--mute);font-size:13px;padding:10px 6px}
+.odots{display:inline-flex;align-items:center}.odots i{width:10px;height:10px;border-radius:50%;flex:none}.odots b{width:14px;height:2px;background:var(--line)}
+.panel.need{background:var(--s-urg-bg);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--s-urg-dot) 30%,transparent)}
+.panel.need .orow{border-top-color:color-mix(in srgb,var(--s-urg-dot) 22%,transparent)}.panel.need .ocnt{color:var(--s-urg-fg);font-weight:700}.panel.need .onil{border-top-color:color-mix(in srgb,var(--s-urg-dot) 22%,transparent);color:var(--s-urg-fg);opacity:.75}
+.opage .tbl .c{text-align:center}.ptbl{table-layout:fixed}.ptbl td,.ptbl th{padding-left:10px;padding-right:10px}
+.omore{display:flex;justify-content:center;padding-top:6px;border-top:1px solid var(--line)}
+.opage .subc{margin-bottom:12px}
+.osteps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}.osteps li{display:flex;flex-direction:column;gap:2px;background:var(--shell);border-radius:12px;padding:12px 14px}.osteps li span{font-size:13.5px;line-height:21px;color:var(--ink2)}
+.rres{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line2)}.rres small{display:block;color:var(--mute)}
+@media(max-width:1000px){.ogrid{grid-template-columns:1fr}.orow,.orow.l{grid-template-columns:minmax(0,1fr) auto}.orow .o-p{grid-column:1/-1}.orow .o-main{grid-template-columns:minmax(0,1fr)}}
+/* 페이지 머리말 (시안 .phead): 아래 간격 12px, 설명 줄 높이 16px */
+.phead{margin-bottom:12px}.phead p{font-size:14px;line-height:16px;letter-spacing:0;font-weight:400}

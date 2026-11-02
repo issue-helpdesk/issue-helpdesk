@@ -70,6 +70,8 @@ interface SeedArgs {
   jira?: 'PENDING' | 'VERIFYING' | 'NEEDS_ADMIN'
   /** 배정 상태 (기본: 배정됨) */
   asg?: 'PENDING' | 'ASSIGNED' | 'NEEDS_ADMIN'
+  /** 처리 중 접수에 해결 요청(FIN)을 보냈는데 Jira 반영을 확인하지 못한 상태 */
+  trn?: boolean
   /** 접수한 지 며칠·몇 시간 전인지 */
   ago: { d?: number; h?: number }
   assignee?: UserRef | null
@@ -116,10 +118,10 @@ function seedTicket(a: SeedArgs): TicketDetail {
     jiraSyncStatus: jiraSync,
     assignStatus: asgStatus,
     workStatus: w,
-    requestedWorkStatus: null,
-    transitionStatus: 'IDLE',
+    requestedWorkStatus: a.trn ? 'FIN' : null,
+    transitionStatus: a.trn ? 'NEEDS_ADMIN' : 'IDLE',
     workStatusConfirmedAt: created0 ? null : created,
-    needsAdmin: jiraSync === 'NEEDS_ADMIN' || jiraSync === 'VERIFYING' || asgStatus === 'NEEDS_ADMIN',
+    needsAdmin: jiraSync === 'NEEDS_ADMIN' || jiraSync === 'VERIFYING' || asgStatus === 'NEEDS_ADMIN' || !!a.trn,
     displayStatus: displayOf(w),
     createdAt: created,
     jiraMention: !!a.mention,
@@ -181,6 +183,9 @@ const SEED_ARGS: SeedArgs[] = [
   { n: 37, title: '신규 입사자 계정 요청', cat: 'ACC', p: 'P4', who: '하준', workStatus: null, group: '서비스데스크', ago: { h: 1 }, system: '사내 SSO' },
   { n: 38, title: '파일 서버 용량 증설 요청', cat: 'SYS', p: 'P3', who: '지윤', workStatus: null, group: '시스템인프라팀', ago: { d: 1 }, system: '파일 서버', jira: 'VERIFYING' },
   { n: 39, title: '메일 전송 오류', cat: 'SYS', p: 'P3', who: '서연', workStatus: 'RDY', group: '업무시스템팀', ago: { d: 1, h: 3 }, system: '메일', assignee: null, asg: 'NEEDS_ADMIN' },
+  { n: 40, title: '프린터 드라이버 설치 요청', cat: 'HW', p: 'P3', who: '지은', workStatus: null, group: '엔드포인트지원팀', ago: { h: 3 }, system: '프린터', jira: 'NEEDS_ADMIN' },
+  { n: 41, title: '사내 DNS 서버 응답 지연', cat: 'SYS', p: 'P2', who: '민수', workStatus: 'WIP', group: '시스템인프라팀', ago: { d: 1, h: 2 }, system: 'DNS', assignee: member('시스템인프라팀', 1), trn: true, note: '캐시 서버를 재시작하고 응답 시간을 확인했습니다.' },
+  { n: 42, title: 'ERP 권한 오류', cat: 'ACS', p: 'P2', who: '서연', workStatus: 'RDY', group: '엔드포인트지원팀', ago: { h: 6 }, system: 'ERP', assignee: null, asg: 'NEEDS_ADMIN' },
 ]
 
 let seeds: TicketDetail[] = []
@@ -260,7 +265,7 @@ export function recordOfTicket(id: number): StoreRecord | undefined {
 /** 시연 접수와 문의자 접수를 합친 전체 목록 (최근 접수가 먼저) */
 export function allStaffTickets(): TicketDetail[] {
   const chat = allRecords().map(fromRecord).filter((x): x is TicketDetail => !!x)
-  const seeded = seeds.map((s) => ({ ...s, requestedWorkStatus: pending.get(s.id) ?? null, transitionStatus: pending.has(s.id) ? ('PENDING' as const) : s.transitionStatus }))
+  const seeded = seeds.map((s) => ({ ...s, requestedWorkStatus: pending.get(s.id) ?? s.requestedWorkStatus, transitionStatus: pending.has(s.id) ? ('PENDING' as const) : s.transitionStatus }))
   return [...chat, ...seeded].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
 }
 
@@ -319,7 +324,7 @@ export function reassignSeed(id: number, to: UserRef): boolean {
   return mutateSeed(id, (t) => {
     t.assignee = to
     t.assignStatus = 'ASSIGNED'
-    t.needsAdmin = t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING'
+    t.needsAdmin = t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.transitionStatus === 'NEEDS_ADMIN'
   })
 }
 

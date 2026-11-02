@@ -6,6 +6,7 @@
  * 현재는 Jira 에서 바꾸는 것이 기본이라 이 화면의 변경은 제안이다. Jira 댓글·멘션은 알림만 전달하고 내용은 Jira 에서 읽는다.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CATEGORIES, STAFF_STATUS } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { changeTicketStatus, getTicket, getTicketHistory, getTicketMessages, sendTicketMessage } from '../../api/tickets'
@@ -125,6 +126,7 @@ function statusRows(t: TicketDetail): ReactNode {
 
 export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose }: { id: number; tick: number; slide?: boolean; onSlideEnd?: () => void; onClose: () => void }) {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [t, setT] = useState<TicketDetail | null>(null)
   const [hist, setHist] = useState<StatusHistory[]>([])
   const [msgs, setMsgs] = useState<TicketMessage[]>([])
@@ -419,6 +421,11 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                   {mine && t.workStatus && (
                     <button type="button" className="btn sec block" style={{ marginTop: 8 }} onClick={() => setMsgModal(true)}>
                       문의자에게 메시지 <span className="tag gray">제안</span>
+                    </button>
+                  )}
+                  {admin && t.needsAdmin && (
+                    <button type="button" className="btn pri block" onClick={() => navigate('/ops')}>
+                      연동·배정 확인 화면으로
                     </button>
                   )}
                   {admin && (t.workStatus === 'RDY' || t.workStatus === 'WIP') && (

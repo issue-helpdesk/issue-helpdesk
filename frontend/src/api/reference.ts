@@ -52,7 +52,7 @@ export interface Candidate {
  * 담당 그룹 구성원과 업무량 (재배정 후보). 서버는 RF-04(구성원·배정 가능 여부), TO-01~04(부재), TK-05(업무량)를 합쳐야 하는데
  * 재배정은 Jira 실행기가 배포되기 전에는 요청하지 않으므로 서버 모드에서는 안내만 한다.
  */
-export async function listCandidates(groupName: string): Promise<ApiResult<Candidate[]>> {
-  if (!USE_MOCK_TICKET) return notReady('담당자 재배정')
+export async function listCandidates(groupName: string, what = '담당자 재배정'): Promise<ApiResult<Candidate[]>> {
+  if (!USE_MOCK_TICKET) return notReady(what)
   return ok((GROUP_STAFF[groupName] ?? []).map((m) => ({ id: m.id, name: m.name, avail: m.avail, leave: m.leave, jira: m.jira, ...workloadOf(m.id) })))
 }
