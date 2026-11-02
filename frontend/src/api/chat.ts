@@ -2,22 +2,20 @@
  * 문의 대화 API 어댑터.
  *
  * 모든 동작은 갱신된 문의(Inquiry) 전체를 돌려준다. 서버 전환 후에도 같은 형태를 유지하면 화면은 바뀌지 않는다.
- * 제안 엔드포인트 (시스템 설계서 9.2 를 바탕으로, 백엔드(A)와 맞춘 뒤 확정):
- *   POST /inquiries                       새 문의 시작 (첫 메시지)
- *   GET  /inquiries/{id}                  문의 상세 (열면 새 답변 표시가 지워진다)
- *   POST /inquiries/{id}/messages         메시지 보내기
- *   POST /inquiries/{id}/replies          빠른 응답 버튼
- *   POST /inquiries/{id}/draft/edit       접수 초안 수정 (분류·긴급도 재판단)
- *   POST /inquiries/{id}/draft/confirm    초안 확인 후 접수
- *   POST /inquiries/{id}/draft/cancel     접수하지 않고 종료
- *   POST /inquiries/{id}/resolve          접수 후 "해결"
- *   POST /inquiries/{id}/reject           접수 후 "미해결" (사유 필수)
- *   POST /inquiries/{id}/reopen           끝난 상담 이어가기 (미해결·미접수 종료만, IQ-06)
+ * 서버 경로 (docs/api/02·03, 변환은 inquiryServer.ts):
+ *   POST /inquiries                       IQ-01 새 문의 시작 (첫 메시지, AI 처리 결과)
+ *   GET  /inquiries/{id}, …/messages      IQ-03·07 문의와 메시지
+ *   POST /inquiries/{id}/messages         IQ-08 메시지 보내기
+ *   PUT  /inquiries/{id}/resolution       IQ-09 AI 답변의 해결·미해결
+ *   PATCH /inquiries/{id}                 IQ-04 담당자 연결 거절(문의 종료)
+ *   POST /inquiries/{id}/sessions         IQ-06 기존 문의·세션 이어가기
+ * 접수 초안·최종 접수(TK-01~04)와 접수 이후의 해결·미해결(TK-07)은 아직 서버에 연결하지 않았다.
  * 실제 서버에서는 접수 이후 진행(Jira 생성·배정·처리)이 서버에서 일어나므로, 화면은 GET 을 주기적으로 다시 읽는다.
  */
-import { request, sleep } from '../core/apiClient'
+import { sleep } from '../core/apiClient'
 import { USE_MOCK_INQUIRY } from '../core/config'
 import type { DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
+import { loadInquiry, notReady, serverClose, serverResolve, serverResume, serverSend, serverStart } from './inquiryServer'
 import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, idleWarnInquiry, idleDeleteInquiry, idleBackInquiry, leaveInquiry, resumeInquiry } from './mock/chatEngine'
 import './mock/chatMock'
 import { getRecord, mockConfig, notify, subscribe, type StoreRecord } from './mock/chatStore'
@@ -26,8 +24,24 @@ import { fail, ok, type ApiResult } from './types'
 /** 실제 서버를 다시 읽는 간격(ms) */
 const POLL_MS = 4000
 
-/** POST 요청 (본문은 JSON 으로 보낸다) */
-const post = <T,>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) })
+/** 서버 모드: 마지막으로 읽은 문의 (답변을 기다리는 동안 보여 줄 화면의 바탕), 보고 있는 화면의 갱신 함수, 진행 중인 요청 수 */
+const lastSeen = new Map<number, Inquiry>()
+const optimistic = new Map<number, (r: ApiResult<Inquiry>) => void>()
+let inflight = 0
+
+const remember = (r: ApiResult<Inquiry>) => {
+  if (r.ok) lastSeen.set(r.data.id, r.data)
+  return r
+}
+/** 서버 요청을 하나 실행한다. 진행 중에는 주기적 조회가 화면을 되돌리지 않게 표시해 둔다. */
+async function track(job: Promise<ApiResult<Inquiry>>): Promise<ApiResult<Inquiry>> {
+  inflight++
+  try {
+    return remember(await job)
+  } finally {
+    inflight--
+  }
+}
 
 /**
  * 화면이 보던 문의와 서버의 문의가 어긋났을 때 서버가 주는 409 오류 (API 02, docs/09 T27).
@@ -66,7 +80,7 @@ export async function startChat(user: { employeeNo: string; name: string }, text
     notify() // 사이드바 최근 문의에 새 문의가 나타난다
     return ok(structuredClone(inq))
   }
-  return post<Inquiry>('/inquiries', { text })
+  return track(serverStart(text))
 }
 
 /** 문의 상세를 읽는다. 열면 새 답변 표시가 지워진다. */
@@ -82,7 +96,7 @@ export async function getChat(id: number, employeeNo: string): Promise<ApiResult
     }
     return ok(snapshot(rec))
   }
-  return request<Inquiry>(`/inquiries/${encodeURIComponent(id)}`)
+  return remember(await loadInquiry(id))
 }
 
 /**
@@ -101,10 +115,17 @@ export function watchChat(id: number, employeeNo: string, onChange: (r: ApiResul
     })
     return off
   }
+  optimistic.set(id, onChange)
   const timer = setInterval(() => {
-    request<Inquiry>(`/inquiries/${encodeURIComponent(id)}`).then(onChange)
+    if (inflight) return // 답변을 기다리는 중에는 화면을 되돌리지 않는다
+    loadInquiry(id).then((r) => {
+      if (!inflight) onChange(remember(r))
+    })
   }, POLL_MS)
-  return () => clearInterval(timer)
+  return () => {
+    clearInterval(timer)
+    optimistic.delete(id)
+  }
 }
 
 export function sendChat(id: number, employeeNo: string, text: string): Promise<ApiResult<Inquiry>> {
@@ -115,42 +136,65 @@ export function sendChat(id: number, employeeNo: string, text: string): Promise<
       else if (rec.inquiry.step !== 'answering' && rec.inquiry.step !== 'closed') handle(rec, text, false)
     })
   }
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/messages`, { text })
+  // 서버가 답할 때까지(AI 처리는 몇 초 걸린다) 내 글과 "준비 중" 표시를 먼저 보여 준다
+  const base = lastSeen.get(id)
+  if (base) {
+    const wait: Inquiry = {
+      ...base,
+      step: 'answering',
+      messages: [...base.messages.map((m) => ({ ...m, replies: undefined })), { id: -1, role: 'user', text }, { id: -2, role: 'assistant', typing: { label: '답변을 준비하고 있어요' } }],
+    }
+    optimistic.get(id)?.(ok(wait))
+  }
+  return track(serverSend(id, text))
 }
 
 export function replyChat(id: number, employeeNo: string, req: ReplyRequest): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => applyReply(rec, req))
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/replies`, req)
+  switch (req.action) {
+    case 'resolved':
+      return track(serverResolve(id, 'RESOLVED'))
+    case 'unresolved':
+      return track(serverResolve(id, 'UNRESOLVED'))
+    case 'connect-no':
+      return track(serverClose(id))
+    case 'connect-yes':
+      return Promise.resolve(notReady('담당자 연결(접수 초안)'))
+    case 'quick':
+      return req.arg ? sendChat(id, employeeNo, req.arg) : track(loadInquiry(id))
+    default:
+      return track(loadInquiry(id))
+  }
 }
 
 export function editDraft(id: number, employeeNo: string, edit: DraftEdit): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => saveDraft(rec, edit))
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/draft/edit`, edit)
+  return Promise.resolve(notReady('접수 초안 수정'))
 }
 
 export function confirmChatDraft(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => confirmDraft(rec))
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/draft/confirm`)
+  return Promise.resolve(notReady('최종 접수'))
 }
 
 export function cancelChatDraft(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => cancelDraft(rec))
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/draft/cancel`)
+  return Promise.resolve(notReady('접수 취소'))
 }
 
 export function resolveChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => confirmResolved(rec))
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/resolve`)
+  return Promise.resolve(notReady('접수 이후 해결 확인'))
 }
 
 export function rejectChat(id: number, employeeNo: string, reason: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => denyResolved(rec, reason))
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/reject`, { reason })
+  return Promise.resolve(notReady('접수 이후 미해결 알림'))
 }
 
 export function reopenChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => reopenInquiry(rec))
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/reopen`)
+  return track(serverResume(id))
 }
 
 /** 시연 전용: 응답 없이 시간이 지난 상황 (실제 서버에서는 서버가 정해진 시간 후 처리한다) */
