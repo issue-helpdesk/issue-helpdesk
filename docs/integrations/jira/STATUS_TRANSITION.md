@@ -8,7 +8,7 @@ TK-07이 권한·허용 변경·민감정보를 검증하고 저장한 JIRA_TRAN
 | 항목 | 처리 |
 |---|---|
 | RDY → WIP | Jira 전환·최신 상태·변경 이력 확인 후 DB 상태와 이력 저장 |
-| WIP → FIN | 요청한 처리 결과 또는 기존 DB 결과를 전용 필드에 전달. 확인한 Jira FIN 전환 시각을 finished_at에 저장 |
+| WIP → FIN | 최초 완료는 요청한 처리 결과 또는 기존 DB 결과를 사용. FIN → WIP 이력이 있는 재완료는 요청에 처리 결과 필수. 확인한 Jira FIN 전환 시각을 finished_at에 저장 |
 | FIN → CLS | 문의자·해결 확인 기록 일치와 Jira 최종 처리 결과 확인. Jira CLS 확인 후 요청 시각을 closed_at에 저장하고 문의 해결 결과 확정 |
 | 처리 결과만 수정 | WIP·FIN에서 전용 필드만 수정·재조회. 상태·완료 시각은 유지하고 상태 변경 이력은 추가하지 않음 |
 | FIN → WIP | DEFERRED 반환. 작업 선점·Jira 호출·기존 결과 변경 없음. 이전 결과 보존 정책 합의 후 별도 연결 |
@@ -25,6 +25,11 @@ TK-07이 권한·허용 변경·민감정보를 검증하고 저장한 JIRA_TRAN
 | requeue_stale_transition_jobs() | 중단된 RUNNING 전환 작업을 조회 전용 PENDING으로 복구 |
 
 기존 API 03의 payload를 사용하며 원본 payload는 수정하지 않습니다. 접수 ID·접수번호·Jira 키·요청 상태·요청자·확인 시각이 맞지 않으면 외부 쓰기를 중단합니다. 권한 검증은 기존 TK-07에서 수행합니다.
+
+재완료 여부는 해당 Ticket의 `ticket_status_history`에 FIN → WIP 이력이 있는지로 판단하며 이력의 source는 제한하지 않습니다.
+TK-07은 재완료 요청에 `resolutionNote`가 없거나 null이면 기존 저장값이 있어도 422 `TICKET_RESOLUTION_NOTE_REQUIRED`를 반환합니다.
+실행 서비스도 Jira 호출 전에 같은 규칙을 검사합니다. 이미 등록된 작업에 입력이 없으면 이전 저장값으로 보충하지 않고 NEEDS_ADMIN으로 넘기며 원본 payload를 유지합니다.
+직접 입력한 문구가 이전 결과와 같은지는 비교하지 않습니다. 공백 입력은 기존 유효성 검사로 거부하며, WIP·FIN의 처리 결과만 수정하는 요청은 그대로 허용합니다.
 
 ## 결과 저장·복구
 
@@ -48,5 +53,7 @@ TK-07이 권한·허용 변경·민감정보를 검증하고 저장한 JIRA_TRAN
 ## 검증
 
 모의 HTTP·임시 SQLite로 신규 57개, 기존 포함 Jira 관련 333개 통과. 정상 전환·처리 결과 수정·빈 문단·중복 실행·시간 초과·429·이력 조회 지연·DB 커밋 실패·중단 복구·오래된 실행의 저장 차단을 확인했습니다. 실제 Jira·운영 DB는 호출하지 않았습니다.
+
+재완료 검증 회귀시험 22개 추가. Jira 관련 385개, 티켓·인증·문의 API 관련 275개를 모의 HTTP·SQLite로 확인했습니다. 실제 Jira·PostgreSQL 동시 실행은 검증하지 않았습니다.
 
 Jira 필드 수정·전환·changelog API는 [Atlassian REST v3 Issues 문서](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/)를 기준으로 구현했습니다. API의 실제 사용 가능 여부는 프로젝트 권한·화면·워크플로 설정에 따라 별도로 확인해야 합니다.

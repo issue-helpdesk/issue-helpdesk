@@ -645,6 +645,80 @@ def test_finish_uses_saved_resolution_note(client, db, staff):
     assert jobs(db)[0].payload["resolutionNote"] is None
 
 
+def add_reopen_history(db, ticket, source="ITSSUE"):
+    db.add(TicketStatusHistory(ticket_id=ticket.id, from_status="FIN", to_status="WIP", source=source))
+    db.commit()
+
+
+@pytest.mark.parametrize("source", ["ITSSUE", "JIRA"])
+@pytest.mark.parametrize("body", [{"workStatus": "FIN"}, {"workStatus": "FIN", "resolutionNote": None}])
+def test_refinish_requires_explicit_note_without_enqueuing(client, db, staff, source, body):
+    ticket = staff["mine"]
+    set_work_status(db, ticket, "WIP", resolution_note="기존 결과", finished_at=None)
+    add_reopen_history(db, ticket, source)
+
+    res = transition(client, as_user(client, "E0002"), ticket.id, **body)
+
+    assert res.status_code == 422
+    assert error_code(res) == "TICKET_RESOLUTION_NOTE_REQUIRED"
+    detail = res.json()["error"]["details"][0]
+    assert (detail["field"], detail["reason"]) == ("resolutionNote", "REQUIRED")
+    assert jobs(db) == []
+    db.refresh(ticket)
+    assert (ticket.work_status, ticket.transition_status, ticket.requested_work_status) == ("WIP", "IDLE", None)
+    assert (ticket.resolution_note, ticket.finished_at) == ("기존 결과", None)
+
+
+@pytest.mark.parametrize("note", ["추가 조치 후 정상 확인", "기존 결과"])
+def test_refinish_accepts_explicit_note_even_if_text_matches_previous(client, db, staff, note):
+    ticket = staff["mine"]
+    set_work_status(db, ticket, "WIP", resolution_note="기존 결과")
+    add_reopen_history(db, ticket)
+
+    res = transition(client, as_user(client, "E0002"), ticket.id, workStatus="FIN", resolutionNote=note)
+
+    assert res.status_code == 202
+    assert jobs(db)[0].payload["resolutionNote"] == note
+    db.refresh(ticket)
+    assert ticket.resolution_note == "기존 결과"              # Jira 확인 전에는 덮어쓰지 않는다
+
+
+def test_other_ticket_reopen_and_non_reopen_history_allow_saved_note(client, db, staff):
+    ticket = staff["mine"]
+    set_work_status(db, ticket, "WIP", resolution_note="저장된 결과")
+    add_reopen_history(db, staff["secret"])
+    db.add(TicketStatusHistory(ticket_id=ticket.id, from_status="RDY", to_status="WIP", source="ITSSUE"))
+    db.commit()
+
+    res = transition(client, as_user(client, "E0002"), ticket.id, workStatus="FIN")
+
+    assert res.status_code == 202
+    assert jobs(db)[0].payload["resolutionNote"] is None
+
+
+@pytest.mark.parametrize("status", ["WIP", "FIN"])
+def test_reopen_history_does_not_block_note_only_edit(client, db, staff, status):
+    ticket = staff["mine"]
+    set_work_status(db, ticket, status, resolution_note="기존 결과")
+    add_reopen_history(db, ticket)
+
+    res = transition(client, as_user(client, "E0002"), ticket.id, resolutionNote="수정한 결과")
+
+    assert res.status_code == 202
+    assert (jobs(db)[0].payload["toStatus"], jobs(db)[0].payload["resolutionNote"]) == (None, "수정한 결과")
+
+
+@pytest.mark.parametrize("note", ["", " \n\t "])
+def test_refinish_rejects_blank_note(client, db, staff, note):
+    set_work_status(db, staff["mine"], "WIP", resolution_note="기존 결과")
+    add_reopen_history(db, staff["mine"])
+
+    res = transition(client, as_user(client, "E0002"), staff["mine"].id, workStatus="FIN", resolutionNote=note)
+
+    assert res.status_code == 422
+    assert jobs(db) == []
+
+
 def test_finish_requires_resolution_note(client, staff):
     res = transition(client, as_user(client, "E0002"), staff["mine"].id, workStatus="FIN")
 
