@@ -134,6 +134,13 @@ if event.is_comment_created:
 
 ## 변경 기록
 
+### 2026-11-02 · 저장된 배정 작업 실행 서비스
+
+- `services/jira_assign.py`에 현재 예약·자격·revision 확인, 미배정 Jira 지정·재조회·DB 확정, 배정 작업 재시도·중단 복구를 추가했습니다. PR #174 공용 함수의 `requestedBy=None` 시스템 작업도 받습니다.
+- `client.set_assignee()`는 지정 전송만 담당하며 기존 `assign_issue()`는 지정·재조회 반환 형식을 유지합니다. 다른 Jira 담당자는 현재 payload로 덮어쓰지 않고 관리자 확인으로 넘깁니다.
+- 신규 41개, 기존 포함 Jira 관련 모의 시험 374개 통과. 실제 Jira·운영 DB·worker 배포는 실행하지 않았습니다.
+- 생성 후 최초 자동배정·worker 연결과 승인 재배정의 변경 전 계정 계약은 후속 작업입니다. 자세한 내용은 [배정 작업 실행](../../../../docs/integrations/jira/ASSIGNMENT_EXECUTION.md)을 따릅니다.
+
 ### 2026-11-02 · 처리 결과 수정·기본 상태 변경 실행 서비스
 
 - `client.py`: 상태·최종 처리 결과 조회, 처리 결과만 수정·재조회, 페이지 처리로 Jira 전환 시각 조회를 추가했습니다.

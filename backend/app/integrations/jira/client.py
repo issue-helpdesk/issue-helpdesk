@@ -172,12 +172,16 @@ class JiraClient:
         반환: {"matched": bool, "account_id": 요청한 계정, "actual_account_id": Jira에 있는 계정}
         matched=False 이면 ITssue는 배정을 확정하지 않고 예약을 풀어 팀장 확인으로 넘긴다(`docs/11` 2.5).
         """
-        if not str(account_id or "").strip():
-            raise JiraError("invalid_fields", "담당자 accountId가 비어 있습니다.", retryable=False)
+        self.set_assignee(issue_key, account_id)
         account_id = str(account_id).strip()
-        self._request("PUT", f"/rest/api/3/issue/{issue_key}/assignee", json={"accountId": account_id})
         actual = self.get_assignee(issue_key)["account_id"]
         return {"matched": actual == account_id, "account_id": account_id, "actual_account_id": actual}
+
+    def set_assignee(self, issue_key: str, account_id: str) -> None:
+        """지정 요청만 전송한다. 작업 서비스는 이후 상태·담당자를 함께 재조회해 확인한다."""
+        if not isinstance(account_id, str) or not account_id.strip():
+            raise JiraError("invalid_fields", "담당자 accountId가 비어 있습니다.", retryable=False)
+        self._request("PUT", f"/rest/api/3/issue/{issue_key}/assignee", json={"accountId": account_id.strip()})
 
     def get_work_status(self, issue_key: str) -> dict[str, Any]:
         """Jira 상태를 ITssue 업무 상태(RDY·WIP·FIN·CLS)로 바꿔 돌려준다. 매핑에 없는 상태면 work_status=None."""
