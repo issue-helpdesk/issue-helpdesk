@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- 관리자 통계(AdminStatsView)와 구역·그래프 부품을 함께 쓴다 */
 /**
  * 담당자 통계 (/stats). 기간과 조회 대상(내 통계 / 팀 통계)을 골라 상태별 현황, 접수 추이, 긴급도 분포, 팀원별 진행도를 본다.
  * 구역마다 따로 불러오고(불러오는 중 · 실패 · 다시 시도), 한 구역이 실패해도 다른 구역은 그대로 보인다.
@@ -9,6 +10,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode, Urgency, WorkStatus } from '../../api/chatTypes'
 import { getStatsSource, watchTickets } from '../../api/tickets'
+import type { ApiResult, User } from '../../api/types'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
 import { useAuth } from '../../core/session'
@@ -16,52 +18,54 @@ import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
 import { UrgencyChip } from './QueueView'
 
-type Per = 'd' | 'm' | 'y'
-type Unit = 'd' | 'w' | 'mo'
+export type Per = 'd' | 'm' | 'y'
+export type Unit = 'd' | 'w' | 'mo'
 type Key = 'sum' | 'trend' | 'pri' | 'mem'
-const PERN: Record<Per, string> = { d: '오늘', m: '최근 30일', y: '최근 1년' }
-const PERD: Record<Per, number> = { d: 1, m: 30, y: 366 }
-const UL: Record<Unit, string> = { d: '일별', w: '주별', mo: '월별' }
-const UNITS: Record<Per, Unit[]> = { d: [], m: ['d', 'w'], y: ['w', 'mo'] }
-const UDEF: Record<Per, Unit> = { d: 'd', m: 'd', y: 'mo' }
+export const PERN: Record<Per, string> = { d: '오늘', m: '최근 30일', y: '최근 1년' }
+export const PERD: Record<Per, number> = { d: 1, m: 30, y: 366 }
+export const UL: Record<Unit, string> = { d: '일별', w: '주별', mo: '월별' }
+export const UNITS: Record<Per, Unit[]> = { d: [], m: ['d', 'w'], y: ['w', 'mo'] }
+export const UDEF: Record<Per, Unit> = { d: 'd', m: 'd', y: 'mo' }
 
-const STATES: { k: WorkStatus; short: string; label: string; color: string }[] = [
+export const STATES: { k: WorkStatus; short: string; label: string; color: string }[] = [
   { k: 'RDY', short: '처리 대기', label: '처리 대기 (RDY)', color: 'var(--g-w)' },
   { k: 'WIP', short: '처리 중', label: '처리 중 (WIP)', color: 'var(--g-p)' },
   { k: 'FIN', short: '해결 확인 대기', label: '해결 확인 대기 (FIN)', color: 'var(--g-n)' },
   { k: 'CLS', short: '해결 완료', label: '해결 완료 (CLS)', color: 'var(--g-c)' },
 ]
 const QS: Record<WorkStatus, string> = { RDY: '?tab=open&sub=RDY', WIP: '?tab=open&sub=WIP', FIN: '?tab=fin', CLS: '?tab=cls' }
-const URGS: Urgency[] = ['P1', 'P2', 'P3', 'P4']
-const PRI_RULE: Record<Urgency, string> = {
+export const URGS: Urgency[] = ['P1', 'P2', 'P3', 'P4']
+export const PRI_RULE: Record<Urgency, string> = {
   P1: '전사·여러 부서의 주요 업무 중단 또는 광범위한 보안 대응 필요',
   P2: '부서 단위 업무 영향, 개인 업무 전면 중단 또는 보안 사고 의심',
   P3: '개인 업무 일부에 지장이 있으나 허용된 대체 방법으로 진행 가능',
   P4: '현재 업무 지장이 없는 단순 문의·사전 신청',
 }
-const TREND_NOTE = '해결 완료 선은 그날 접수된 티켓 중 지금 해결 완료(CLS)인 건수(접수일 기준)예요. 해결한 날짜 기준이 아니고, AI 해결은 해결 완료와 합산하지 않아요.'
-const CATC: Record<CategoryCode, string> = { ACC: '#0EA5E9', ACS: '#8A64F2', NET: '#5B7CF0', SW: '#14B8A6', HW: '#D9A21B', SYS: '#E0457F', SEC: '#D92D20' }
-const DAY = 86_400_000
+export const TREND_NOTE = '해결 완료 선은 그날 접수된 티켓 중 지금 해결 완료(CLS)인 건수(접수일 기준)예요. 해결한 날짜 기준이 아니고, AI 해결은 해결 완료와 합산하지 않아요.'
+export const CATC: Record<CategoryCode, string> = { ACC: '#0EA5E9', ACS: '#8A64F2', NET: '#5B7CF0', SW: '#14B8A6', HW: '#D9A21B', SYS: '#E0457F', SEC: '#D92D20' }
+export const DAY = 86_400_000
 
 const hm = () => {
   const d = new Date()
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
-const startOfDay = (t: number) => {
+export const startOfDay = (t: number) => {
   const d = new Date(t)
   d.setHours(0, 0, 0, 0)
   return d.getTime()
 }
 const md = (t: number) => `${new Date(t).getMonth() + 1}.${new Date(t).getDate()}`
-const countBy = (l: TicketSummary[]) => Object.fromEntries(STATES.map((s) => [s.k, l.filter((t) => t.workStatus === s.k).length])) as Record<WorkStatus, number>
-const sumOf = (v: Record<WorkStatus, number>) => STATES.reduce((a, s) => a + v[s.k], 0)
+export const countBy = (l: TicketSummary[]) => Object.fromEntries(STATES.map((s) => [s.k, l.filter((t) => t.workStatus === s.k).length])) as Record<WorkStatus, number>
+export const sumOf = (v: Record<WorkStatus, number>) => STATES.reduce((a, s) => a + v[s.k], 0)
 
 /* ------------------------------------------------------------------ 구역별 불러오기 */
-interface Sec {
+export interface Sec {
   st: 'loading' | 'ok' | 'err'
   dep: string
   items: TicketSummary[]
   names: string[]
+  /** 구역마다 다른 부가 자료 (관리자 통계의 AI 상담 건수 등) */
+  extra?: unknown
   at: string
   ts: number
   /** 몇 번째로 읽었는지 (그래프 애니메이션을 다시 돌리는 열쇠) */
@@ -69,7 +73,7 @@ interface Sec {
 }
 
 /** 구역 하나를 읽는다. 조건(dep)이 바뀌거나 '새로고침'을 누르면 불러오는 중이 되고, 접수가 바뀌면 조용히 다시 읽는다 */
-function useSection(key: Key, dep: string, tick: number) {
+export function useSection(key: string, dep: string, tick: number, load?: (u: User) => Promise<ApiResult<{ items: TicketSummary[]; names: string[]; extra?: unknown }>>) {
   const { user } = useAuth()
   const [s, setS] = useState<Sec>({ st: 'loading', dep, items: [], names: [], at: '', ts: 0, id: 0 })
   const [nonce, setNonce] = useState(0)
@@ -77,14 +81,15 @@ function useSection(key: Key, dep: string, tick: number) {
   useEffect(() => {
     if (!user) return
     let alive = true
-    getStatsSource(user, key).then((r) => {
+    const src: Promise<ApiResult<{ items: TicketSummary[]; names: string[]; extra?: unknown }>> = load ? load(user) : getStatsSource(user, key as Key)
+    src.then((r) => {
       if (!alive) return
-      setS((p) => (p.dep !== dep ? p : r.ok ? { st: 'ok', dep, items: r.data.items, names: r.data.names, at: hm(), ts: Date.now(), id: p.id + 1 } : { ...p, st: 'err' }))
+      setS((p) => (p.dep !== dep ? p : r.ok ? { st: 'ok', dep, items: r.data.items, names: r.data.names, extra: r.data.extra, at: hm(), ts: Date.now(), id: p.id + 1 } : { ...p, st: 'err' }))
     })
     return () => {
       alive = false
     }
-  }, [user, key, dep, nonce, tick])
+  }, [user, key, dep, nonce, tick, load])
   const reload = () => {
     setS((p) => ({ ...p, st: 'loading' }))
     setNonce((n) => n + 1)
@@ -93,15 +98,18 @@ function useSection(key: Key, dep: string, tick: number) {
 }
 
 /** 선택 기간(접수일 기준)과 조회 대상으로 거른다 */
-const windowOf = (s: Sec, per: Per, team: boolean, userId: number) => {
+export const windowOf = (s: Sec, per: Per, team: boolean, userId: number) => {
   const from = per === 'd' ? startOfDay(s.ts) : s.ts - PERD[per] * DAY
   return s.items.filter((t) => Date.parse(t.createdAt) >= from && (team || t.assignee?.id === userId))
 }
 
-function Section({ title, sec, note, children }: { title: string; sec: Sec & { reload: () => void }; note?: string; children: ReactNode }) {
+export function Section({ title, sec, note, kind, children }: { title: string; sec: Sec & { reload: () => void }; note?: string; kind?: 'ai' | 'tk'; children: ReactNode }) {
   const head = (
     <div className="row sh">
-      <h3>{title}</h3>
+      <h3>
+        {kind && <span className={`sch ${kind}`}>{kind === 'ai' ? 'AI' : '티켓'}</span>}
+        {title}
+      </h3>
       <span className="small muted asof">{sec.st === 'ok' ? `집계 기준 ${sec.at}` : ''}</span>
       {sec.st !== 'loading' && (
         <button type="button" className="btn ghost sm" onClick={sec.reload}>
@@ -118,7 +126,7 @@ function Section({ title, sec, note, children }: { title: string; sec: Sec & { r
   )
   if (sec.st === 'loading')
     return (
-      <section className="panel sec" aria-busy="true" aria-label={title}>
+      <section className={`panel sec${kind ? ` k-${kind}` : ''}`} aria-busy="true" aria-label={title}>
         {head}
         <div className="skel" aria-hidden="true">
           <i />
@@ -132,7 +140,7 @@ function Section({ title, sec, note, children }: { title: string; sec: Sec & { r
     )
   if (sec.st === 'err')
     return (
-      <section className="panel sec" aria-label={title}>
+      <section className={`panel sec${kind ? ` k-${kind}` : ''}`} aria-label={title}>
         {head}
         <div className="alert err" role="alert">
           <Icon name="alert" />
@@ -145,7 +153,7 @@ function Section({ title, sec, note, children }: { title: string; sec: Sec & { r
       </section>
     )
   return (
-    <section className="panel sec" aria-label={title}>
+    <section className={`panel sec${kind ? ` k-${kind}` : ''}`} aria-label={title}>
       {head}
       {note && <p className="small muted secnote">{note}</p>}
       {children}
@@ -154,9 +162,9 @@ function Section({ title, sec, note, children }: { title: string; sec: Sec & { r
 }
 
 /* ------------------------------------------------------------------ 곡선 그래프 */
-interface Series {
+export interface Series {
   name: string
-  k: 'ca' | 'cb'
+  k: 'ca' | 'cb' | 'cc'
   dash: string
   v: number[]
 }
@@ -200,7 +208,7 @@ const shortName = (n: string) => n.split(' ')[0]
 
 const CAP = '그래프에 마우스를 올리거나 표로 바꿔서 값을 읽을 수 있어요'
 
-function CurveChart({ labels, series, runKey, aria }: { labels: string[]; series: Series[]; runKey: string; aria: string }) {
+export function CurveChart({ labels, series, runKey, aria }: { labels: string[]; series: Series[]; runKey: string; aria: string }) {
   const [table, setTable] = useState(false)
   const [hv, setHv] = useState<{ i: number; cx: number; cy: number } | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -441,7 +449,7 @@ function CurveChart({ labels, series, runKey, aria }: { labels: string[]; series
 }
 
 /** 선택 단위로 접수 건수와 해결 완료(접수일 기준) 건수를 묶는다. 오래된 쪽부터 */
-function bucket(list: TicketSummary[], per: Per, unit: Unit, ts: number) {
+export function bucket(list: TicketSummary[], per: Per, unit: Unit, ts: number) {
   const today = startOfDay(ts)
   const labels: string[] = []
   const edges: [number, number][] = []
@@ -469,7 +477,7 @@ function bucket(list: TicketSummary[], per: Per, unit: Unit, ts: number) {
 }
 
 /* ------------------------------------------------------------------ 도넛 */
-function Donut({ parts, center, sub, cls }: { parts: { l: string; v: number; c: string }[]; center: number; sub: string; cls?: string }) {
+export function Donut({ parts, center, sub, cls }: { parts: { l: string; v: number; c: string }[]; center: number; sub: string; cls?: string }) {
   const t = parts.reduce((a, p) => a + p.v, 0) || 1
   const R = 48
   const CC = 2 * Math.PI * R
@@ -508,7 +516,7 @@ function Donut({ parts, center, sub, cls }: { parts: { l: string; v: number; c: 
 }
 
 /** 팀원 한 명의 개인 현황: 처리 상태와 분류 도넛 */
-function MemberDonuts({ name, list }: { name: string; list: TicketSummary[] }) {
+export function MemberDonuts({ name, list }: { name: string; list: TicketSummary[] }) {
   const mine = list.filter((t) => t.assignee?.name === name)
   const v = countBy(mine)
   const total = sumOf(v)
@@ -585,6 +593,7 @@ export function StatsView() {
   }
 
   return (
+    <div className="stx">
     <main className="main">
       <Topbar title="통계" sub={`${user.departmentName} · ${user.name} 담당자`} lead={<img className="tti" src={titleOps} alt="" width={56} height={56} />} />
       <div className="scroll">
@@ -767,5 +776,6 @@ export function StatsView() {
         </div>
       </div>
     </main>
+    </div>
   )
 }
