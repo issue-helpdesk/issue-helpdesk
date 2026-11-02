@@ -134,16 +134,16 @@ def run_jira_create_job(
             # 접수 내용은 보존하고, 중복 생성 방지에 쓰는 제어값만 최신 상태로 확인한다.
             data.update(jiraKey=ticket.jira_key, jiraSyncStatus=ticket.jira_sync_status)
             result = create_from_confirmed_ticket(jira, data)
-        work_status = _work_status_to_fill(jira, ticket, result)
+        work_status = work_status_to_fill(jira, ticket, result)
     except ConfirmedTicketError as e:
         return _needs_admin(db, job, ticket, now, f"{e.reason}: {', '.join(e.fields)}")
     except JiraError as e:
         return _after_jira_error(db, job, ticket, now, e, policy)
 
-    return _save_success(db, job, ticket, now, result, work_status)
+    return save_create_success(db, job, ticket, now, result, work_status)
 
 
-def _work_status_to_fill(jira: JiraClient, ticket: Ticket, result: dict[str, Any]) -> str | None:
+def work_status_to_fill(jira: JiraClient, ticket: Ticket, result: dict[str, Any]) -> str | None:
     """비어 있는 work_status에 넣을 값. 채울 필요가 없거나 Jira 상태가 매핑에 없으면 None."""
     if ticket.work_status is not None:
         return None
@@ -264,7 +264,7 @@ def _ticket_payload(db: Session, ticket: Ticket) -> dict[str, Any]:
     }
 
 
-def _save_success(
+def save_create_success(
     db: Session, job: IntegrationJob, ticket: Ticket, now: datetime, result: dict[str, Any], work_status: str | None = None
 ) -> JobResult:
     key = result["jira_key"]

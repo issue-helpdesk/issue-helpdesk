@@ -40,6 +40,8 @@ from app.schemas.ticket import (
     DraftUpdateRequest,
     DraftUpdateResult,
     IntegrationJob as IntegrationJobView,
+    IntegrationRetryRequest,
+    IntegrationRetryResult,
     StatusHistory,
     Ticket as TicketView,
     TicketCreateRequest,
@@ -52,6 +54,7 @@ from app.services.ai_responder import facts_of, type_info
 from app.services.inquiry import can_view_inquiry, close_unresolved, end_session, invalid_state, record_sensitive_input
 from app.services.inquiry_status import CLOSED_STATUSES, display_status, ticket_display_status
 from app.services.assignment import AssigneeNotAssignable, reserve_assignment
+from app.services.integration_retry import JiraOpenerDep, retry_job
 from app.services.jira_create import enqueue_jira_create
 from app.services.jira_transition import enqueue_jira_transition
 from app.utils import datetime_utils
@@ -72,12 +75,14 @@ class TicketService:
         references: ReferenceRepositoryDep,
         tickets: TicketRepositoryDep,
         audit_logs: AuditLogRepositoryDep,
+        open_jira: JiraOpenerDep,
     ) -> None:
         self.db = db
         self.inquiries = inquiries
         self.references = references
         self.tickets = tickets
         self.audit_logs = audit_logs
+        self.open_jira = open_jira
 
     def create_draft(self, inquiry_id: int, user: User) -> TicketDraftView:
         """TK-01. 마지막 판단 이력과 문의의 현재 판단값으로 초안을 채운다."""
@@ -472,6 +477,17 @@ class TicketService:
         if self.tickets.get(ticket_id) is None:
             raise AppError(ErrorCode.TICKET_NOT_FOUND)
         return ItemList(items=[IntegrationJobView.model_validate(job) for job in self.tickets.integration_jobs(ticket_id)])
+
+    def retry_integration_job(
+        self, ticket_id: int, body: IntegrationRetryRequest, user: User,
+    ) -> IntegrationJobView | IntegrationRetryResult:
+        """TK-12. ADMIN 확인은 라우터가 한다."""
+        result = retry_job(self.db, self.open_jira, ticket_id, body.retry_of_job_id, actor_id=user.id, reason=body.reason)
+        if result.job is not None:
+            return IntegrationJobView.model_validate(result.job)
+        ticket = self.tickets.get(ticket_id)
+        return IntegrationRetryResult(ticket=self.to_ticket(ticket, self.inquiries.get(ticket.inquiry_id)),
+                                      recovery_result=result.recovery)
 
     def is_staff(self, ticket: Ticket, user: User) -> bool:
         """ADMIN, 또는 접수 담당 그룹의 활성 구성원인 AGENT."""
