@@ -16,7 +16,34 @@ import { MOCK_ACCOUNTS } from './accounts'
 import { notify, allRecords, type StoreRecord } from './chatStore'
 
 /** 담당 그룹 이름 → 그룹 ID (시연용) */
-const GROUP_ID: Record<string, number> = { 서비스데스크: 1, 엔드포인트지원팀: 2, 네트워크팀: 3, 시스템인프라팀: 4, 업무시스템팀: 5, 정보보안팀: 6 }
+export const GROUP_ID: Record<string, number> = { 서비스데스크: 1, 엔드포인트지원팀: 2, 네트워크팀: 3, 시스템인프라팀: 4, 업무시스템팀: 5, 정보보안팀: 6 }
+
+/** 담당 그룹 구성원 (모의). 이름·사번은 서버 시드의 같은 팀 직원이다 (tests/mockAccounts.test.ts 가 확인한다) */
+export interface StaffMember {
+  id: number
+  employeeNo: string
+  name: string
+  /** 오늘 근무 여부 (서버는 연차·반차 일정 API TO-01~04 로 준다) */
+  avail: boolean
+  /** 부재 사유 (연차·반차) */
+  leave?: string
+  /** Jira 계정이 연결돼 배정이 Jira 에 반영되는지 */
+  jira: boolean
+}
+const sm = (id: number, employeeNo: string, name: string, over: Partial<StaffMember> = {}): StaffMember => ({ id, employeeNo, name, avail: true, jira: true, ...over })
+export const GROUP_STAFF: Record<string, StaffMember[]> = {
+  서비스데스크: [sm(410, 'EMP-1321', '박서연'), sm(411, 'EMP-1325', '이도윤'), sm(412, 'EMP-1389', '최하은', { avail: false, leave: '연차' }), sm(413, 'EMP-1107', '곽지민')],
+  엔드포인트지원팀: [sm(420, 'EMP-1064', '강지호'), sm(421, 'EMP-1204', '윤서아'), sm(422, 'EMP-1411', '정우진'), sm(423, 'EMP-1102', '김수아', { jira: false })],
+  네트워크팀: [sm(2, 'EMP-1004', '성민경'), sm(302, 'EMP-1049', '정서현'), sm(303, 'EMP-1156', '황진혁', { avail: false, leave: '연차' })],
+  시스템인프라팀: [sm(440, 'EMP-1233', '임재원'), sm(441, 'EMP-1241', '한지민'), sm(442, 'EMP-1460', '오승현'), sm(443, 'EMP-1209', '하소율')],
+  업무시스템팀: [sm(450, 'EMP-1130', '권다은'), sm(451, 'EMP-1146', '서준호'), sm(452, 'EMP-1278', '신유나', { avail: false, leave: '오후 반차' }), sm(453, 'EMP-1036', '정수호')],
+  정보보안팀: [sm(460, 'EMP-1408', '황민석'), sm(461, 'EMP-1462', '송예린'), sm(462, 'EMP-1109', '이가영'), sm(463, 'EMP-1288', '소시후')],
+}
+export const GROUP_NAMES = Object.keys(GROUP_STAFF)
+const member = (group: string, i: number): UserRef => {
+  const m = GROUP_STAFF[group][i]
+  return { id: m.id, employeeNo: m.employeeNo, name: m.name }
+}
 
 const ME: UserRef = { id: 2, employeeNo: 'EMP-1004', name: '성민경' }
 const OTHER: UserRef = { id: 302, employeeNo: 'EMP-1049', name: '정서현' }
@@ -35,10 +62,17 @@ interface SeedArgs {
   cat: CategoryCode
   p: Urgency
   who: string
-  workStatus: WorkStatus
+  /** null 이면 아직 Jira 생성·배정 전이다 */
+  workStatus: WorkStatus | null
+  /** 담당 그룹 (기본: 네트워크팀) */
+  group?: string
+  /** workStatus 가 null 일 때 Jira 연동 상태 */
+  jira?: 'PENDING' | 'VERIFYING' | 'NEEDS_ADMIN'
+  /** 배정 상태 (기본: 배정됨) */
+  asg?: 'PENDING' | 'ASSIGNED' | 'NEEDS_ADMIN'
   /** 접수한 지 며칠·몇 시간 전인지 */
   ago: { d?: number; h?: number }
-  assignee?: UserRef
+  assignee?: UserRef | null
   note?: string
   system?: string
   symptom?: string
@@ -53,6 +87,8 @@ const WHO: Record<string, UserRef> = {
   민수: { id: 4, employeeNo: 'EMP-1003', name: '김민지' },
   지은: { id: 5, employeeNo: 'EMP-1082', name: '공은서' },
   신입: { id: 8, employeeNo: 'EMP-1300', name: '최지혜' },
+  하준: { id: 6, employeeNo: 'EMP-1005', name: '최하준' },
+  지윤: { id: 7, employeeNo: 'EMP-1037', name: '황지윤' },
 }
 
 const at = (a: { d?: number; h?: number }) => new Date(Date.now() - ((a.d ?? 0) * 24 + (a.h ?? 0)) * 3_600_000).toISOString()
@@ -61,24 +97,29 @@ function seedTicket(a: SeedArgs): TicketDetail {
   const created = at(a.ago)
   const w = a.workStatus
   const done = w === 'FIN' || w === 'CLS'
+  const group = a.group ?? '네트워크팀'
+  const created0 = !w
+  const jiraSync = created0 ? (a.jira ?? 'PENDING') : 'SYNCED'
+  const asgStatus = a.asg ?? (created0 ? 'PENDING' : 'ASSIGNED')
+  const assignee = 'assignee' in a ? (a.assignee ?? null) : created0 ? null : ME
   return {
     id: 5000 + a.n,
     receiptNo: `RCPT-${String(880 + a.n).padStart(4, '0')}`,
-    jiraKey: `ITHD-${880 + a.n}`,
+    jiraKey: created0 ? null : `ITHD-${880 + a.n}`,
     inquiryId: 9000 + a.n,
     requester: WHO[a.who],
     summary: a.title,
     category: { code: a.cat, name: CATEGORIES[a.cat].name },
     urgency: a.p,
-    group: { id: GROUP_ID.네트워크팀, name: '네트워크팀' },
-    assignee: a.assignee ?? ME,
-    jiraSyncStatus: 'SYNCED',
-    assignStatus: 'ASSIGNED',
+    group: { id: GROUP_ID[group], name: group },
+    assignee,
+    jiraSyncStatus: jiraSync,
+    assignStatus: asgStatus,
     workStatus: w,
     requestedWorkStatus: null,
     transitionStatus: 'IDLE',
-    workStatusConfirmedAt: created,
-    needsAdmin: false,
+    workStatusConfirmedAt: created0 ? null : created,
+    needsAdmin: jiraSync === 'NEEDS_ADMIN' || jiraSync === 'VERIFYING' || asgStatus === 'NEEDS_ADMIN',
     displayStatus: displayOf(w),
     createdAt: created,
     jiraMention: !!a.mention,
@@ -90,7 +131,7 @@ function seedTicket(a: SeedArgs): TicketDetail {
     businessImpact: a.impact ?? '업무에 불편이 있어요.',
     triedActions: a.tried ?? '재접속과 재시작을 해봤어요.',
     aiSummary: 'IT-NET-001 안내 후에도 해결되지 않음',
-    jiraUrl: `https://jira.example.com/browse/ITHD-${880 + a.n}`,
+    jiraUrl: created0 ? null : `https://jira.example.com/browse/ITHD-${880 + a.n}`,
     resolutionNote: done ? (a.note ?? '원인을 확인하고 조치를 완료했습니다.') : null,
     finishedAt: done ? at({ d: Math.max(0, (a.ago.d ?? 0) - 1) }) : null,
     closedAt: w === 'CLS' ? at({ d: Math.max(0, (a.ago.d ?? 0) - 1), h: -2 }) : null,
@@ -115,6 +156,31 @@ const SEED_ARGS: SeedArgs[] = [
   // 다른 담당자(정서현)가 맡은 건: 내 목록에는 보이지 않고 팀 현황에만 들어간다
   { n: 15, title: '방화벽 예외 규칙 요청', cat: 'NET', p: 'P3', who: '민수', workStatus: 'WIP', ago: { d: 2 }, assignee: OTHER },
   { n: 16, title: '외부 접속 포트 확인 요청', cat: 'NET', p: 'P4', who: '지은', workStatus: 'RDY', ago: { d: 1 }, assignee: OTHER },
+  // 다른 담당 그룹의 접수 (관리자의 전체 문의·운영 현황에서 보인다. 담당자 화면의 내 목록에는 나오지 않는다)
+  { n: 17, title: '계정 잠금 해제 요청', cat: 'ACC', p: 'P3', who: '서연', workStatus: 'WIP', group: '서비스데스크', ago: { d: 1 }, system: '사내 SSO', assignee: member('서비스데스크', 0) },
+  { n: 18, title: '임시 비밀번호가 작동하지 않아요', cat: 'ACC', p: 'P3', who: '지은', workStatus: 'RDY', group: '서비스데스크', ago: { h: 6 }, system: '사내 SSO', assignee: member('서비스데스크', 1) },
+  { n: 19, title: 'SSO 로그인 오류', cat: 'ACC', p: 'P2', who: '민수', workStatus: 'FIN', group: '서비스데스크', ago: { d: 3 }, system: '사내 SSO', assignee: member('서비스데스크', 3), note: '세션 캐시를 초기화하고 다시 로그인되는 것을 확인했습니다.' },
+  { n: 20, title: '비밀번호 정책 문의', cat: 'ACC', p: 'P4', who: '신입', workStatus: 'CLS', group: '서비스데스크', ago: { d: 8 }, system: '사내 SSO', assignee: member('서비스데스크', 0), note: '정책 문서를 안내했습니다.' },
+  { n: 21, title: '노트북 화면이 깜빡여요', cat: 'HW', p: 'P3', who: '서연', workStatus: 'WIP', group: '엔드포인트지원팀', ago: { d: 2 }, system: '노트북', assignee: member('엔드포인트지원팀', 0) },
+  { n: 22, title: '모니터 추가 지급 요청', cat: 'HW', p: 'P4', who: '민수', workStatus: 'RDY', group: '엔드포인트지원팀', ago: { d: 1 }, system: '모니터', assignee: member('엔드포인트지원팀', 1) },
+  { n: 23, title: '업무용 소프트웨어 설치 요청', cat: 'SW', p: 'P4', who: '지은', workStatus: 'CLS', group: '엔드포인트지원팀', ago: { d: 10 }, system: '업무용 PC', assignee: member('엔드포인트지원팀', 2), note: '요청한 소프트웨어를 설치했습니다.' },
+  { n: 24, title: 'PC 부팅이 느려요', cat: 'HW', p: 'P3', who: '하준', workStatus: 'WIP', group: '엔드포인트지원팀', ago: { d: 4 }, system: '업무용 PC', assignee: member('엔드포인트지원팀', 0) },
+  { n: 25, title: '파일 서버 접근 권한 요청', cat: 'ACS', p: 'P3', who: '민수', workStatus: 'WIP', group: '시스템인프라팀', ago: { d: 2 }, system: '파일 서버', assignee: member('시스템인프라팀', 1) },
+  { n: 26, title: '업무 서버 응답이 느려요', cat: 'SYS', p: 'P2', who: '서연', workStatus: 'WIP', group: '시스템인프라팀', ago: { h: 9 }, system: '업무 서버', assignee: member('시스템인프라팀', 0), mention: true },
+  { n: 27, title: '백업 복구 요청', cat: 'SYS', p: 'P3', who: '신입', workStatus: 'FIN', group: '시스템인프라팀', ago: { d: 5 }, system: '백업 서버', assignee: member('시스템인프라팀', 2), note: '지정한 시점으로 복구했습니다.' },
+  { n: 28, title: '가상 머신 증설 요청', cat: 'SYS', p: 'P4', who: '지은', workStatus: 'CLS', group: '시스템인프라팀', ago: { d: 14 }, system: '가상 머신', assignee: member('시스템인프라팀', 3), note: 'CPU와 메모리를 증설했습니다.' },
+  { n: 29, title: '전자결재 문서가 열리지 않아요', cat: 'SYS', p: 'P2', who: '지은', workStatus: 'WIP', group: '업무시스템팀', ago: { d: 1 }, system: '전자결재', assignee: member('업무시스템팀', 0) },
+  { n: 30, title: 'ERP 권한 부여 요청', cat: 'ACS', p: 'P3', who: '하준', workStatus: 'RDY', group: '업무시스템팀', ago: { h: 4 }, system: 'ERP', assignee: member('업무시스템팀', 1) },
+  { n: 31, title: '근태 시스템 오류', cat: 'SYS', p: 'P3', who: '민수', workStatus: 'FIN', group: '업무시스템팀', ago: { d: 3 }, system: '근태 시스템', assignee: member('업무시스템팀', 3), note: '집계 배치를 다시 실행했습니다.' },
+  { n: 32, title: '보고서 출력 양식 변경', cat: 'SW', p: 'P4', who: '서연', workStatus: 'CLS', group: '업무시스템팀', ago: { d: 11 }, system: '보고서 시스템', assignee: member('업무시스템팀', 0), note: '양식을 변경했습니다.' },
+  { n: 33, title: '피싱 메일 신고', cat: 'SEC', p: 'P1', who: '민수', workStatus: 'WIP', group: '정보보안팀', ago: { h: 5 }, system: '메일·보안', assignee: member('정보보안팀', 0), reason: '다수 사용자에게 같은 메일이 도착' },
+  { n: 34, title: '의심스러운 로그인 알림', cat: 'SEC', p: 'P2', who: '지윤', workStatus: 'RDY', group: '정보보안팀', ago: { h: 8 }, system: '계정', assignee: member('정보보안팀', 1) },
+  { n: 35, title: '보안 점검 결과 문의', cat: 'SEC', p: 'P4', who: '서연', workStatus: 'CLS', group: '정보보안팀', ago: { d: 18 }, system: '보안 점검', assignee: member('정보보안팀', 2), note: '점검 결과를 안내했습니다.' },
+  { n: 36, title: '외부 USB 사용 승인 요청', cat: 'SEC', p: 'P3', who: '지은', workStatus: 'FIN', group: '정보보안팀', ago: { d: 6 }, system: '보안 정책', assignee: member('정보보안팀', 3), note: '예외 승인을 등록했습니다.' },
+  // 아직 Jira 생성·배정이 끝나지 않은 접수
+  { n: 37, title: '신규 입사자 계정 요청', cat: 'ACC', p: 'P4', who: '하준', workStatus: null, group: '서비스데스크', ago: { h: 1 }, system: '사내 SSO' },
+  { n: 38, title: '파일 서버 용량 증설 요청', cat: 'SYS', p: 'P3', who: '지윤', workStatus: null, group: '시스템인프라팀', ago: { d: 1 }, system: '파일 서버', jira: 'VERIFYING' },
+  { n: 39, title: '메일 전송 오류', cat: 'SYS', p: 'P3', who: '서연', workStatus: 'RDY', group: '업무시스템팀', ago: { d: 1, h: 3 }, system: '메일', assignee: null, asg: 'NEEDS_ADMIN' },
 ]
 
 let seeds: TicketDetail[] = []
@@ -238,12 +304,23 @@ export function historyOf(t: TicketDetail): StatusHistory[] {
 }
 
 /** 같은 그룹 팀원 (모의): 이름과 근무 여부. 서버에는 아직 이 정보를 주는 API 가 없어 제안으로 다룬다 */
-export const TEAM_MEMBERS: Record<string, { name: string; avail: boolean }[]> = {
-  네트워크팀: [
-    { name: '성민경', avail: true },
-    { name: '정서현', avail: true },
-    { name: '황진혁', avail: false },
-  ],
+export const TEAM_MEMBERS: Record<string, { name: string; avail: boolean }[]> = Object.fromEntries(Object.entries(GROUP_STAFF).map(([g, list]) => [g, list.map((m) => ({ name: m.name, avail: m.avail }))]))
+
+/** 담당자별 진행 중(처리 대기·처리 중) 접수 수와 긴급도 분포 */
+export function workloadOf(userId: number) {
+  const mine = allStaffTickets().filter((t) => t.assignee?.id === userId && (t.workStatus === 'RDY' || t.workStatus === 'WIP'))
+  const pri = { P1: 0, P2: 0, P3: 0, P4: 0 }
+  mine.forEach((t) => t.urgency && pri[t.urgency]++)
+  return { rdy: mine.filter((t) => t.workStatus === 'RDY').length, wip: mine.filter((t) => t.workStatus === 'WIP').length, pri }
+}
+
+/** 시연 접수의 담당자를 바꾼다. 문의자 접수는 chatEngine 이 바꾼다 */
+export function reassignSeed(id: number, to: UserRef): boolean {
+  return mutateSeed(id, (t) => {
+    t.assignee = to
+    t.assignStatus = 'ASSIGNED'
+    t.needsAdmin = t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING'
+  })
 }
 
 export const messagesOf = (ticketId: number) => messages.get(ticketId) ?? []

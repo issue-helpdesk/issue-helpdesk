@@ -6,10 +6,12 @@ import { request, sleep } from '../core/apiClient'
 import { USE_MOCK_INQUIRY } from '../core/config'
 import { mapSummaries, type SSummary } from './inquiryServer'
 import { toSummary } from './inquiryState'
+import { aiRows, type AiKind, type AiRow } from './mock/aiRows'
 import { recordsOf, subscribe } from './mock/chatStore'
 import './mock/chatMock'
 import { CATEGORIES } from './catalog'
 import type { CategoryCode } from './chatTypes'
+import { formatRelative } from '../core/format'
 import { ok, type ApiResult, type DisplayStatus, type InquirySummary } from './types'
 
 /** 서버를 다시 읽는 간격(ms) */
@@ -151,4 +153,96 @@ export function watchMyInquiries(employeeNo: string, onChange: (list: InquirySum
   if (USE_MOCK_INQUIRY) return subscribe(load)
   const timer = setInterval(load, POLL_MS)
   return () => clearInterval(timer)
+}
+
+/* ------------------------------------------------------------------ 관리자: AI 처리한 상담 (전체 문의의 "AI 처리") */
+export type { AiKind, AiRow }
+
+export interface AiListQuery {
+  page?: number
+  size?: number
+  /** 기준,방향: title · cat · guide · when (모의). 서버는 createdAt·updatedAt·urgency 만 받는다 */
+  sort?: string
+  /** 접수 기간: 오늘 / 최근 30일 / 최근 1년 */
+  per?: 'd' | 'm' | 'y' | ''
+  kind?: '' | AiKind
+  /** 분류 */
+  categoryCode?: CategoryCode | ''
+  /** 제목·번호·가이드 부분 일치 (서버는 제목·접수번호·가이드 문서 번호) */
+  q?: string
+}
+
+export interface AiPage extends Page<AiRow> {
+  /** 구분별 건수 (기간 조건만 적용, 구분 조건은 적용하지 않음) */
+  counts: Record<'all' | AiKind, number>
+}
+
+const PER_DAYS = { d: 1, m: 30, y: 366 } as const
+/** 구분 → 서버 화면 표시 상태: AI 해결 · 해결 확인 대기(AI 안내, unconfirmed) · 미해결 종료 */
+const KIND_STATUS: Record<AiKind, DisplayStatus> = { ok: 'ai_resolved', pend: 'unconfirmed', unr: 'unresolved' }
+const STATUS_KIND: Partial<Record<DisplayStatus, AiKind>> = { ai_resolved: 'ok', unconfirmed: 'pend', unresolved: 'unr' }
+
+/**
+ * 티켓 없이 AI 안내로 끝난 상담 (관리자). 서버는 문의 목록(IQ-02)을 displayStatus 로 걸러서 받는다.
+ * 목록 응답에 사용한 가이드가 없어서 서버 모드에서는 '-' 로 보이고, 제목·분류·가이드 정렬은 서버가 받지 않는다.
+ */
+export async function listAiInquiries(query: AiListQuery = {}): Promise<ApiResult<AiPage>> {
+  const { page = 1, size = 20, sort, per = '', kind = '', categoryCode = '', q = '' } = query
+  if (!USE_MOCK_INQUIRY) {
+    const from = per ? daysAgoDate(PER_DAYS[per] - 1) : undefined
+    const one = (kinds: AiKind[], n: number, p: number, filtered = false) => {
+      const qs = new URLSearchParams({ page: String(p), size: String(n) })
+      kinds.forEach((k) => qs.append('displayStatus', KIND_STATUS[k]))
+      if (sort) qs.set('sort', sort)
+      if (from) qs.set('createdFrom', from)
+      if (filtered && categoryCode) qs.set('categoryCode', categoryCode)
+      if (filtered && q.trim()) qs.set('q', q.trim())
+      return request<Page<SSummary>>(`/inquiries?${qs.toString()}`)
+    }
+    const all: AiKind[] = ['ok', 'pend', 'unr']
+    const [list, ...cnt] = await Promise.all([one(kind ? [kind] : all, size, page, true), ...all.map((k) => one([k], 1, 1))])
+    if (!list.ok) return list
+    const counts = { all: 0, ok: 0, pend: 0, unr: 0 }
+    cnt.forEach((r, i) => {
+      if (r.ok) {
+        counts[all[i]] = r.data.totalCount
+        counts.all += r.data.totalCount
+      }
+    })
+    const items: AiRow[] = list.data.items.map((s) => ({
+      id: `INQ-${s.id}`,
+      title: s.title ?? '새 문의',
+      categoryCode: s.category?.code ?? null,
+      guide: '-',
+      kind: STATUS_KIND[s.displayStatus] ?? 'ok',
+      when: formatRelative(s.updatedAt ?? s.createdAt),
+      day: 0,
+      at: Date.parse(s.updatedAt ?? s.createdAt),
+    }))
+    return ok({ ...list.data, items, counts })
+  }
+  await sleep(150)
+  const base = aiRows().filter((r) => !per || r.day === -1 || r.day < PER_DAYS[per])
+  const counts = { all: base.length, ok: base.filter((r) => r.kind === 'ok').length, pend: base.filter((r) => r.kind === 'pend').length, unr: base.filter((r) => r.kind === 'unr').length }
+  const needle = q.trim().toLowerCase()
+  let rows = base.filter((r) => (!kind || r.kind === kind) && (!categoryCode || r.categoryCode === categoryCode) && (!needle || [r.title, r.id, r.guide, r.categoryCode && CATEGORIES[r.categoryCode].name].some((v) => v && v.toLowerCase().includes(needle))))
+  if (sort) {
+    const [key, dir] = sort.split(',')
+    const sign = dir === 'desc' ? -1 : 1
+    const val = (r: AiRow): string | number => (key === 'title' ? r.title : key === 'cat' ? (r.categoryCode ?? '힣') : key === 'guide' ? r.guide : r.at)
+    rows = rows.slice().sort((a, b) => {
+      const x = val(a)
+      const y = val(b)
+      return (x < y ? -1 : x > y ? 1 : 0) * sign
+    })
+  }
+  const totalPages = Math.max(1, Math.ceil(rows.length / size))
+  const p = Math.min(Math.max(1, page), totalPages)
+  return ok({ items: rows.slice((p - 1) * size, p * size), page: p, size, totalCount: rows.length, totalPages, counts })
+}
+
+/** n일 전 날짜 (YYYY-MM-DD) */
+function daysAgoDate(n: number): string {
+  const d = new Date(Date.now() - n * 86_400_000)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }

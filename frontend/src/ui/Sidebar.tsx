@@ -46,6 +46,7 @@ const EXTRA_MENU: Partial<Record<ServiceRole, { group: string; items: NavItem[] 
     group: '운영',
     items: [
       { to: '/dash', label: '대시보드', icon: 'home' },
+      { to: '/tickets', label: '전체 문의', icon: 'file' },
       { to: '/accounts', label: '계정 관리', icon: 'user' },
     ],
   },
@@ -114,8 +115,10 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
     onNavigate() // 좁은 화면에서는 이동하면 사이드바를 닫는다
   }
 
+  // 상세가 열려 있어도(/queue/123) 그 메뉴를 강조한다
+  const on = (to: string) => pathname === to || pathname.startsWith(`${to}/`)
   const renderItem = (it: NavItem) => (
-    <button key={it.to} type="button" className={pathname === it.to ? 'on' : ''} aria-current={pathname === it.to ? 'page' : undefined} onClick={() => go(it.to)}>
+    <button key={it.to} type="button" className={on(it.to) ? 'on' : ''} aria-current={on(it.to) ? 'page' : undefined} onClick={() => go(it.to)}>
       <Icon name={it.icon} />
       <span>{it.label}</span>
       {/* 확인하지 않은 담당자 답변 수 (0 이면 숨김, 99 초과는 99+) */}

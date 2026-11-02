@@ -89,6 +89,10 @@ export interface TicketListQuery {
   q?: string
   /** 제안: Jira 알림이 온 건만 */
   jiraMention?: boolean
+  /** 담당 그룹 (관리자 전체 문의) */
+  groupId?: number
+  /** Jira 연동 상태 (아직 Jira 생성 전인 접수를 찾을 때) */
+  jiraSyncStatus?: JiraSyncStatus[]
 }
 
 /** 업무 상태 변경 요청 본문 (TK-07) */
