@@ -54,7 +54,7 @@ with JiraClient.from_env() as jira:
 ## 환경 변수 (서버 `.env`에만)
 
 ```
-JIRA_BASE_URL=https://rlahw5367.atlassian.net
+JIRA_BASE_URL=https://itssuehelpdesk.atlassian.net
 JIRA_EMAIL=<API 토큰을 발급한 Atlassian 계정 이메일>
 JIRA_API_TOKEN=<Atlassian API 토큰>
 ```
@@ -128,11 +128,20 @@ if event.is_comment_created:
 - 상태·담당자 값은 웹훅 본문으로 덮어쓰지 않고, 이벤트를 신호로 받아 `get_work_status`·`get_assignee`로 최신값을 읽어 반영합니다(TK-13).
 - 되돌림 금지는 ITssue가 보내는 전환만 막습니다(FIN → WIP 한 가지만 예외). Jira 화면에서 직접 되돌리는 것은 Jira 워크플로 설정(전환 권한)으로 제한합니다. FIN → WIP 전환에는 해결 결과(resolution)·해결 일시를 비우는 후처리가 설정돼 있어야 합니다(ITHD-355로 확인, 2026-10-30).
 - 사번 연결표(`jira_accounts.yaml`)는 accountId 칸이 비어 있습니다. 팀원의 Jira 프로필 주소 끝 값을 넣습니다.
-- **실제 Jira로는 아직 테스트하지 않았습니다.** 특히 워크플로가 RDY→CLS처럼 건너뛰는 전환을 허용하는지, 담당자 지정 권한이 토큰 계정에 있는지는 실제 ITHD에서 확인이 필요합니다.
+- **실제 점검 범위는 아래 날짜별 기록을 따릅니다.** 현재 생성 서비스의 자동배정 연결, 배정·상태 변경 작업 실행기, 운영 DB·API·웹훅 전체 흐름의 실제 Jira 통합 검증은 별도입니다.
 
 테스트: `pytest tests/test_jira_assignment.py` (모의 응답 35개), `pytest tests/test_jira_comment.py` (댓글 알림 33개).
 
 ## 변경 기록
+
+### 2026-11-02 · 생성 작업의 등록 시점 입력 사용
+
+- `services/jira_create.py`는 `integration_jobs.payload`에 저장된 접수 내용으로 Jira 생성 요청을 만듭니다. 실행 전에 접수·기준정보가 바뀌거나 재시도하더라도 원래 입력을 유지합니다.
+- 중복 생성 방지에 쓰는 `jiraKey`·`jiraSyncStatus`만 최신 Ticket에서 읽습니다. 원본 payload는 수정하지 않습니다. `VERIFYING`은 기존처럼 조회만 하며 생성하지 않습니다.
+- 마이그레이션으로 `{}`가 저장된 과거 작업만 현재 DB 값으로 처리하고, 내용 없이 작업 ID와 경고를 남깁니다. 이 값은 과거 등록값을 복원한 것이 아닙니다. 일부 필드가 빠진 payload나 잘못된 형식은 임의 보충하지 않고 `NEEDS_ADMIN`으로 처리합니다.
+- README와 `.env.example`의 Jira 주소 예시를 `https://itssuehelpdesk.atlassian.net`로 통일했습니다. 실제 서버 `.env`는 별도로 적용해야 합니다.
+- 아래 날짜별 시험·PR 기록은 당시 범위입니다. 현재 `최종 처리 결과`는 `transition_fields.final_result`의 `customfield_10069`로 매핑돼 있습니다. 실제 Jira·운영 DB·배정 실행·웹훅 전체 연결 완료를 뜻하지 않습니다.
+- 확인: Jira 관련 모의 HTTP·임시 SQLite 시험 276개 통과(생성 서비스 25개, 신규 회귀 9개 포함). 이번 변경에서는 실제 Jira와 운영 DB를 호출하지 않았습니다.
 
 ### 2026-10-19 · `feature/jira-create-ticket` (M5-1-2 티켓 생성)
 
@@ -254,3 +263,4 @@ if event.is_comment_created:
 **확인**
 
 - 테스트 96개 통과 (기존 63개 + 새 33개). 실제 Jira는 호출하지 않았고, 댓글 이벤트 본문과 `GET /rest/api/3/issue/{key}/comment/{id}` 응답은 Atlassian 문서 형식을 기준으로 만든 모의값입니다. 실제 ITHD 웹훅으로 `comment_created` 본문(`comment.author.accountId` 등)을 한 번 확인해야 합니다.
+
