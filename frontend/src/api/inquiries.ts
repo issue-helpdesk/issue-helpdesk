@@ -4,6 +4,7 @@
  */
 import { request, sleep } from '../core/apiClient'
 import { USE_MOCK_INQUIRY } from '../core/config'
+import { mapSummaries, type SSummary } from './inquiryServer'
 import { toSummary } from './inquiryState'
 import { recordsOf, subscribe } from './mock/chatStore'
 import './mock/chatMock'
@@ -20,7 +21,9 @@ export async function listMyInquiries(employeeNo: string): Promise<ApiResult<Inq
     await sleep(150) // 응답 지연 흉내
     return ok(recordsOf(employeeNo).map((r) => toSummary(r.inquiry)))
   }
-  return request<InquirySummary[]>('/inquiries')
+  // 서버는 Page 로 준다. 사이드바는 최근 활동 순 몇 건만 쓴다
+  const r = await request<Page<SSummary>>('/inquiries?size=5&sort=updatedAt,desc')
+  return r.ok ? ok(mapSummaries(r.data).items) : r
 }
 
 /* ------------------------------------------------------------------ 문의 내역 (조건 조회) */
@@ -84,7 +87,10 @@ const dayStart = (d: string) => new Date(`${d}T00:00:00`).getTime()
 
 /** 문의 내역: 조건에 맞는 내 문의를 한 쪽씩 돌려준다. */
 export async function listInquiries(employeeNo: string, query: InquiryListQuery = {}): Promise<ApiResult<Page<InquirySummary>>> {
-  if (!USE_MOCK_INQUIRY) return request<Page<InquirySummary>>(`/inquiries?${toQueryString(query)}`)
+  if (!USE_MOCK_INQUIRY) {
+    const r = await request<Page<SSummary>>(`/inquiries?${toQueryString(query)}`)
+    return r.ok ? ok(mapSummaries(r.data)) : r
+  }
   await sleep(150) // 응답 지연 흉내
   const { page = 1, size = 20, sort = 'updatedAt,desc', displayStatus, categoryCode, createdFrom, createdTo, q } = query
   const needle = (q ?? '').trim().toLowerCase()

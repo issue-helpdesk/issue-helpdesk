@@ -2,7 +2,7 @@
  * 문의자 화면 틀 테스트: 사이드바 메뉴 · 새 문의(챗봇 시작) · FAQ.
  * 가짜 응답(mock)으로만 실행하며, 로그인 상태는 가짜 토큰을 직접 넣어 만든다.
  */
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
@@ -30,7 +30,7 @@ describe('화면 전환과 접근성', () => {
     const user = userEvent.setup()
     renderAs('EMP-1001', '/faq')
     await screen.findByRole('heading', { name: '먼저 확인해 보세요' }, SLOW)
-    expect(document.title).toBe('FAQ · ITssue')
+    await waitFor(() => expect(document.title).toBe('FAQ · ITssue')) // 화면 제목은 그린 뒤 효과로 바뀐다
     const skip = screen.getByRole('button', { name: '본문으로 건너뛰기' })
     await user.click(skip)
     const main = document.querySelector('main.main') as HTMLElement
