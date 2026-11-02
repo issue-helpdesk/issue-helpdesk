@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from typing import Any, Mapping
 
 import httpx
@@ -225,6 +226,97 @@ class JiraClient:
                 return {"changed": True, "work_status": target}
         raise JiraError("invalid_transition", f"{issue_key}는 현재 상태에서 {target}으로 바로 전환할 수 없습니다.",
                         retryable=False)
+
+    def get_work_result(self, issue_key: str) -> dict[str, Any]:
+        """상태와 전용 최종 처리 결과를 한 번에 읽는다. 댓글·Jira Resolution을 대신 쓰지 않는다."""
+        field = self._final_result_field()
+        fields = self.get_issue(issue_key, ["status", field])["fields"]
+        status = fields.get("status") or {}
+        result = fields.get(field)
+        # 최종 처리 결과의 빈 문단도 비교 대상이다. 댓글용 변환기의 빈 줄 생략 규칙은 적용하지 않는다.
+        if isinstance(result, Mapping) and result.get("type") == "doc" and isinstance(result.get("content"), list):
+            text = "\n".join(adf_to_text(block) for block in result["content"]).strip()
+        else:
+            text = adf_to_text(result).strip()
+        return {
+            "work_status": work_status_from_jira(status.get("id"), self.mapping),
+            "final_result": text,
+        }
+
+    def update_final_result(self, issue_key: str, final_result: str) -> dict[str, Any]:
+        """WIP·FIN의 처리 결과만 수정하고 상태·저장값을 다시 읽는다.
+
+        같은 값이면 PUT하지 않는다. 전송 또는 이후 조회가 불명확하면 result_unknown을 올린다.
+        호출자는 재전송하기 전에 최신값을 조회해야 한다. Jira의 조회와 수정 사이 원자성은 보장하지 않는다.
+        """
+        if not isinstance(final_result, str) or not 1 <= len(final_result.strip()) <= 4000:
+            raise JiraError("invalid_fields", "최종 처리 결과는 1~4000자여야 합니다.", retryable=False)
+        final_result = final_result.replace("\r\n", "\n").replace("\r", "\n").strip()
+        before = self.get_work_result(issue_key)
+        if before["work_status"] not in {"WIP", "FIN"}:
+            raise JiraError("invalid_transition", "처리 결과 수정은 WIP·FIN에서만 가능합니다.", retryable=False)
+        if before["final_result"] == final_result:
+            return {**before, "changed": False, "matched": True}
+        try:
+            self._request("PUT", f"/rest/api/3/issue/{issue_key}",
+                          json={"fields": {self._final_result_field(): _adf(final_result)}})
+        except JiraError as error:
+            if error.reason in {"timeout", "network", "server_error"}:
+                raise JiraError("result_unknown", "처리 결과 수정 여부를 재조회해야 합니다.",
+                                retryable=False, status_code=error.status_code) from error
+            raise
+        try:
+            after = self.get_work_result(issue_key)
+        except JiraError as error:
+            raise JiraError("result_unknown", "처리 결과 수정 후 조회하지 못했습니다.",
+                            retryable=False, status_code=error.status_code) from error
+        return {**after, "changed": True,
+                "matched": after["work_status"] == before["work_status"] and after["final_result"] == final_result}
+
+    def get_status_changed_at(
+        self, issue_key: str, source: str, target: str, *, not_before: datetime,
+    ) -> datetime:
+        """모든 changelog 페이지에서 요청 이후의 해당 전환 시각을 찾는다. 실행 시각으로 대체하지 않는다."""
+        values = self.mapping["options"]["work_status"]["values"]
+        source_id, target_id = str(values[source]["id"]), str(values[target]["id"])
+        start, latest = 0, None
+        seen_pages: set[str] = set()
+        while True:
+            page = self._request("GET", f"/rest/api/3/issue/{issue_key}/changelog",
+                                 params={"startAt": start, "maxResults": 100})
+            histories = page.get("values") or []
+            signature = json.dumps(histories, sort_keys=True)
+            if histories and signature in seen_pages:
+                raise JiraError("unexpected", "Jira 변경 이력 페이지가 반복됩니다.", retryable=False)
+            seen_pages.add(signature)
+            for history in histories:
+                if not any(item.get("field") == "status" and str(item.get("from")) == source_id
+                           and str(item.get("to")) == target_id for item in history.get("items") or []):
+                    continue
+                try:
+                    changed = datetime.fromisoformat(history["created"].replace("Z", "+00:00"))
+                    if changed.tzinfo is None:
+                        raise ValueError("timezone missing")
+                except (KeyError, TypeError, ValueError) as error:
+                    raise JiraError("unexpected", "Jira 전환 시각을 확인할 수 없습니다.", retryable=False) from error
+                if changed >= not_before and (latest is None or changed > latest):
+                    latest = changed.astimezone(timezone.utc)
+            start += len(histories)
+            if page.get("isLast") is True or (isinstance(page.get("total"), int) and start >= page["total"]):
+                break
+            if not histories:
+                raise JiraError("result_unknown", "Jira 변경 이력을 아직 확인하지 못했습니다.", retryable=False)
+            if "total" not in page and "isLast" not in page and len(histories) < 100:
+                break
+        if latest is None:
+            raise JiraError("result_unknown", "요청에 대응하는 Jira 전환 이력이 아직 없습니다.", retryable=False)
+        return latest
+
+    def _final_result_field(self) -> str:
+        field = self.mapping.get("transition_fields", {}).get("final_result", {}).get("jira")
+        if not isinstance(field, str) or not field.startswith("customfield_"):
+            raise JiraError("invalid_fields", "최종 처리 결과 필드 매핑이 없습니다.", retryable=False)
+        return field
 
     # ---------------------------------------------------------------- 댓글 조회 (알림용)
 

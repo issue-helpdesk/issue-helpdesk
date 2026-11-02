@@ -134,6 +134,13 @@ if event.is_comment_created:
 
 ## 변경 기록
 
+### 2026-11-02 · 처리 결과 수정·기본 상태 변경 실행 서비스
+
+- `client.py`: 상태·최종 처리 결과 조회, 처리 결과만 수정·재조회, 페이지 처리로 Jira 전환 시각 조회를 추가했습니다.
+- `services/jira_transition.py`: 기본 전환(RDY→WIP, WIP→FIN, FIN→CLS)과 WIP·FIN 처리 결과 수정을 실행합니다. 응답·저장 실패와 중단 복구 뒤에는 조회만 하며 원본 payload와 생성 연동 상태는 유지합니다.
+- 신규 모의 시험 57개, 기존 포함 Jira 관련 333개 통과. 실제 Jira·운영 DB·worker 배포는 실행하지 않았습니다.
+- FIN→WIP는 DEFERRED로 남기며 기존 worker도 변경하지 않았습니다. 저장 규칙·실행 함수·후속 연결은 [상태 변경 실행 연결](../../../../docs/integrations/jira/STATUS_TRANSITION.md)을 따릅니다.
+
 ### 2026-11-02 · 생성 작업의 등록 시점 입력 사용
 
 - `services/jira_create.py`는 `integration_jobs.payload`에 저장된 접수 내용으로 Jira 생성 요청을 만듭니다. 실행 전에 접수·기준정보가 바뀌거나 재시도하더라도 원래 입력을 유지합니다.
