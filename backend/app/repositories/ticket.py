@@ -7,6 +7,7 @@ from sqlalchemy.orm import aliased
 
 from app.db.session import DbSession
 from app.models import (
+    AssignmentLog,
     Category,
     Inquiry,
     IntegrationJob,
@@ -21,6 +22,7 @@ from app.models import (
 T = TypeVar("T")
 
 Assignee = aliased(User)
+Actor = aliased(User)
 NEEDS_ADMIN = or_(Ticket.jira_sync_status == "NEEDS_ADMIN", Ticket.assign_status == "NEEDS_ADMIN",
                   Ticket.transition_status == "NEEDS_ADMIN")
 # 업무 상태는 진행 순서로 정렬한다. 생성 전(null)이 가장 앞이다
@@ -136,6 +138,24 @@ class TicketRepository:
             .limit(limit)
         )
         return [tuple(row) for row in rows], total
+
+    def assignment_logs(self, ticket_id: int) -> list[tuple[AssignmentLog, SupportGroup | None, User | None, User | None]]:
+        """(이력, 그룹, 담당자, 실행자). 오래된 것부터."""
+        rows = self.db.execute(
+            select(AssignmentLog, SupportGroup, Assignee, Actor)
+            .outerjoin(SupportGroup, SupportGroup.id == AssignmentLog.group_id)
+            .outerjoin(Assignee, Assignee.id == AssignmentLog.assignee_id)
+            .outerjoin(Actor, Actor.id == AssignmentLog.actor_id)
+            .where(AssignmentLog.ticket_id == ticket_id)
+            .order_by(AssignmentLog.created_at, AssignmentLog.id)
+        )
+        return [tuple(row) for row in rows]
+
+    def integration_jobs(self, ticket_id: int) -> list[IntegrationJob]:
+        return list(self.db.scalars(
+            select(IntegrationJob).where(IntegrationJob.ticket_id == ticket_id)
+            .order_by(IntegrationJob.created_at, IntegrationJob.id)
+        ))
 
     def status_history(self, ticket_id: int) -> list[tuple[TicketStatusHistory, User | None]]:
         rows = self.db.execute(

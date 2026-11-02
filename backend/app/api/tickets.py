@@ -2,11 +2,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Response, status
 
-from app.api.deps import CurrentAuth
+from app.api.deps import AdminAuth, CurrentAuth
 from app.schemas.common import ItemList, Page
 from app.schemas.ticket import (
+    AssignmentLog,
+    AssignmentRequest,
     DraftUpdateRequest,
     DraftUpdateResult,
+    IntegrationJob,
     StatusHistory,
     Ticket,
     TicketCreateRequest,
@@ -17,7 +20,7 @@ from app.schemas.ticket import (
 )
 from app.services.ticket import TicketServiceDep
 
-# 접수 (TK-01~08). 초안 생성은 문의 아래 경로라 prefix 없이 둔다
+# 접수 (TK-01~11). 초안 생성은 문의 아래 경로라 prefix 없이 둔다
 router = APIRouter(tags=["tickets"])
 
 
@@ -69,3 +72,18 @@ def request_transition(
 ) -> Ticket:
     """요청만 받는다. 반영 결과는 TK-06 으로 확인한다."""
     return service.request_transition(ticket_id, body, auth.user)
+
+
+@router.put("/tickets/{ticket_id}/assignment", response_model=Ticket)
+def assign(ticket_id: int, body: AssignmentRequest, auth: CurrentAuth, service: TicketServiceDep) -> Ticket:
+    return service.assign(ticket_id, body, auth.user)
+
+
+@router.get("/tickets/{ticket_id}/assignment-logs", response_model=ItemList[AssignmentLog])
+def assignment_logs(ticket_id: int, auth: CurrentAuth, service: TicketServiceDep) -> ItemList[AssignmentLog]:
+    return service.assignment_logs(ticket_id, auth.user)
+
+
+@router.get("/tickets/{ticket_id}/integration-jobs", response_model=ItemList[IntegrationJob])
+def integration_jobs(ticket_id: int, _: AdminAuth, service: TicketServiceDep) -> ItemList[IntegrationJob]:
+    return service.integration_jobs(ticket_id)

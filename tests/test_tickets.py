@@ -16,6 +16,7 @@ from app.models import (
     InquiryAssessment,
     InquiryType,
     IntegrationJob,
+    MemberSkill,
     SupportGroup,
     SupportGroupMember,
     Ticket,
@@ -33,7 +34,8 @@ TICKETS = "/api/v1/tickets"
 @pytest.fixture
 def db():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    create_sqlite_tables(engine, INQUIRY_TABLES + ["integration_jobs", "assignment_logs", "ticket_status_history"])
+    create_sqlite_tables(engine, INQUIRY_TABLES + ["integration_jobs", "assignment_logs", "ticket_status_history",
+                                                   "member_skills"])
     with Session(engine) as session:
         yield session
     engine.dispose()
@@ -765,3 +767,206 @@ def test_transition_of_invisible_ticket(client, staff):
     res = transition(client, as_user(client, "E0003"), staff["mine"].id, workStatus="CLS")
 
     assert error_code(res) == "TICKET_NOT_FOUND"
+
+
+# ---------------------------------------------------------------- TK-09 배정·재배정·TK-10 배정 이력·TK-11 연동 작업
+
+@pytest.fixture
+def team(db, staff):
+    """네트워크팀 MANAGER E0004, 배정 가능한 담당자 E0005(처리 중 1건)·E0006(0건). mine 은 세부 유형 NET-02."""
+    db.add(Category(code="NET", name="VPN·네트워크"))
+    vpn = InquiryType(code="NET-02", category_code="NET", name="개인 VPN 접속 장애", request_kind="INCIDENT",
+                      default_urgency="P3", default_group_id=staff["net"].id)
+    db.add(vpn)
+    db.flush()
+    manager = add_user(db, "E0004", name="최팀장", service_role="AGENT")
+    busy = add_user(db, "E0005", name="가담당", service_role="AGENT")
+    free = add_user(db, "E0006", name="나담당", service_role="AGENT")
+    db.add(SupportGroupMember(group_id=staff["net"].id, user_id=manager.id, member_role="MANAGER", assignable=False))
+    for user in (busy, free):
+        db.add(SupportGroupMember(group_id=staff["net"].id, user_id=user.id, member_role="AGENT", assignable=True,
+                                  jira_account_id=f"acc-{user.employee_no}"))
+        db.add(MemberSkill(user_id=user.id, inquiry_type_id=vpn.id))
+    staff["mine"].inquiry_type_id = vpn.id
+    staff["secret"].assignee_id = busy.id                   # 보안팀 RDY 1건 → 처리 중 1건
+    db.commit()
+    return staff | {"manager": manager, "busy": busy, "free": free, "vpn": vpn}
+
+
+def assign(client, headers, ticket_id, group_id, assignee_id, reason="휴가로 재배정"):
+    return client.put(f"{TICKETS}/{ticket_id}/assignment", headers=headers,
+                      json={"groupId": group_id, "assigneeId": assignee_id, "reason": reason})
+
+
+def test_manager_reassigns_within_group(client, db, team):
+    ticket = team["mine"]
+
+    res = assign(client, as_user(client, "E0004"), ticket.id, team["net"].id, team["busy"].id)
+
+    assert res.status_code == 200
+    assert (res.json()["assigneeId"], res.json()["assignStatus"]) == (team["busy"].id, "PENDING")
+    assert db.get(Ticket, ticket.id).assignment_revision == 1
+    log = db.scalar(select(AssignmentLog))
+    assert (log.event, log.assignee_id, log.actor_id, log.reason) == ("REASSIGN", team["busy"].id, team["manager"].id,
+                                                                     "휴가로 재배정")
+    audit = db.scalar(select(AuditLog))
+    assert (audit.event_type, audit.result, audit.reason) == ("REASSIGN", "REASSIGN", "휴가로 재배정")
+    (job,) = jobs(db)
+    assert job.job_type == "JIRA_ASSIGN" and job.idempotency_key.startswith("assign:")
+    assert {k: job.payload[k] for k in ("jiraKey", "groupId", "assigneeId", "jiraAccountId", "assignmentRevision")} == {
+        "jiraKey": "ITHD-1520", "groupId": team["net"].id, "assigneeId": team["busy"].id,
+        "jiraAccountId": "acc-E0005", "assignmentRevision": 1,
+    }
+
+
+def test_auto_assign_picks_least_busy(client, db, team):
+    res = assign(client, as_user(client, "E0004"), team["mine"].id, team["net"].id, None)
+
+    assert res.json()["assigneeId"] == team["free"].id
+    assert db.scalar(select(AssignmentLog.reason)) == "휴가로 재배정 (자동배정: 처리 중 접수 최소 0건)"
+
+
+def test_manager_moves_ticket_to_other_group_by_auto_assign(client, db, team):
+    res = assign(client, as_user(client, "E0004"), team["mine"].id, team["sec"].id, None)    # 보안팀엔 배정 가능자 없음
+
+    assert res.status_code == 200
+    body = res.json()
+    assert (body["groupId"], body["assigneeId"], body["assignStatus"], body["needsAdmin"]) == (team["sec"].id, None,
+                                                                                            "NEEDS_ADMIN", True)
+    assert db.scalar(select(AssignmentLog.event)) == "FAIL"
+    assert jobs(db) == []
+
+
+def test_first_assignment_before_jira_creation(client, db, admin, team):
+    ticket = team["others"]                                 # 미분류, 담당자 없음, Jira 생성 전
+
+    res = assign(client, admin, ticket.id, team["net"].id, team["busy"].id)
+
+    assert res.status_code == 200
+    assert db.scalar(select(AssignmentLog.event)) == "ASSIGN"
+    assert jobs(db) == []                                   # 배정은 Jira 생성 뒤에
+
+
+def test_unclassified_ticket_is_not_auto_assigned(client, db, admin, team):
+    res = assign(client, admin, team["others"].id, team["net"].id, None)
+
+    assert (res.json()["assigneeId"], res.json()["assignStatus"]) == (None, "NEEDS_ADMIN")
+
+
+@pytest.mark.parametrize("who, target_group, assignee", [
+    ("E0002", "net", "busy"),          # 그룹 구성원이지만 MANAGER 아님
+    ("E0001", "net", "busy"),          # 문의자
+    ("E0004", "sec", "busy"),          # MANAGER 가 다른 그룹 담당자를 직접 지정
+])
+def test_assign_forbidden(client, db, team, who, target_group, assignee):
+    res = assign(client, as_user(client, who), team["mine"].id, team[target_group].id, team[assignee].id)
+
+    assert res.status_code == 403
+    assert db.scalar(select(AssignmentLog)) is None
+
+
+def test_manager_only_handles_own_group_tickets(client, db, team):
+    sec_manager = add_user(db, "E0007", service_role="AGENT")
+    db.add(SupportGroupMember(group_id=team["sec"].id, user_id=sec_manager.id, member_role="MANAGER", assignable=False))
+    db.commit()
+    headers = as_user(client, "E0007")
+
+    assert assign(client, headers, team["secret"].id, team["net"].id, None).status_code == 200    # 보안팀 접수 → 네트워크팀
+    assert error_code(assign(client, headers, team["mine"].id, team["sec"].id, None)) == "TICKET_NOT_FOUND"   # 남의 그룹
+
+
+def test_assign_invisible_ticket(client, db, team):
+    assert error_code(assign(client, as_user(client, "E0003"), team["mine"].id, team["net"].id, None)) == "TICKET_NOT_FOUND"
+
+
+@pytest.mark.parametrize("assignee", ["agent", "manager"])      # Jira 계정 없음 / 배정 불가
+def test_assignee_must_be_assignable(client, team, assignee):
+    res = assign(client, as_user(client, "E0004"), team["mine"].id, team["net"].id, team[assignee].id)
+
+    assert res.status_code == 422
+    assert error_code(res) == "ASSIGNEE_NOT_ASSIGNABLE"
+    assert res.json()["error"]["details"][0]["field"] == "assigneeId"
+
+
+def test_assignee_needs_skill_for_inquiry_type(client, db, team):
+    db.query(MemberSkill).filter_by(user_id=team["busy"].id).delete()
+    db.commit()
+
+    res = assign(client, as_user(client, "E0004"), team["mine"].id, team["net"].id, team["busy"].id)
+
+    assert error_code(res) == "ASSIGNEE_NOT_ASSIGNABLE"
+
+
+@pytest.mark.parametrize("reason", [None, "   "])
+def test_assign_requires_reason(client, team, reason):
+    res = assign(client, as_user(client, "E0004"), team["mine"].id, team["net"].id, None, reason=reason)
+
+    assert res.status_code == 422
+    assert error_code(res) == "ASSIGNMENT_REASON_REQUIRED"
+
+
+def test_assign_to_inactive_group(client, db, admin, team):
+    team["sec"].is_active = False
+    db.commit()
+
+    res = assign(client, admin, team["mine"].id, team["sec"].id, None)
+
+    assert res.status_code == 422
+    assert res.json()["error"]["details"][0] | {"message": None} == {"field": "groupId", "reason": "NOT_FOUND", "message": None}
+
+
+def test_assign_closed_ticket(client, db, admin, team):
+    set_work_status(db, team["mine"], "CLS")
+
+    res = assign(client, admin, team["mine"].id, team["net"].id, None)
+
+    assert error_code(res) == "TICKET_INVALID_TRANSITION"
+
+
+def test_assign_while_assign_job_active(client, db, team):
+    manager = as_user(client, "E0004")
+    assign(client, manager, team["mine"].id, team["net"].id, team["busy"].id)
+
+    res = assign(client, manager, team["mine"].id, team["net"].id, team["free"].id)
+
+    assert error_code(res) == "INTEGRATION_JOB_IN_PROGRESS"
+    assert len(jobs(db)) == 1
+
+
+def test_assignment_logs(client, db, team):
+    manager = as_user(client, "E0004")
+    db.add(AssignmentLog(ticket_id=team["mine"].id, event="RECOMMEND", group_id=team["net"].id, reason="세부 유형 기본 그룹",
+                         created_at=datetime(2026, 10, 21, 1, 20, tzinfo=timezone.utc)))
+    db.commit()
+    assign(client, manager, team["mine"].id, team["net"].id, team["busy"].id)
+
+    res = client.get(f"{TICKETS}/{team['mine'].id}/assignment-logs", headers=manager)
+
+    assert res.status_code == 200
+    first, second = res.json()["items"]
+    assert (first["event"], first["group"]["name"], first["actor"]) == ("RECOMMEND", "네트워크팀", None)
+    assert (second["event"], second["assignee"]["name"], second["actor"]["name"]) == ("REASSIGN", "가담당", "최팀장")
+
+
+@pytest.mark.parametrize("who, expected", [("E0001", 404), ("E0003", 404), ("E0002", 200), ("E0009", 200)])
+def test_assignment_logs_permission(client, admin, team, who, expected):
+    res = client.get(f"{TICKETS}/{team['mine'].id}/assignment-logs", headers=as_user(client, who))
+
+    assert res.status_code == expected
+
+
+def test_integration_jobs(client, db, admin, team):
+    assign(client, admin, team["mine"].id, team["net"].id, team["busy"].id)
+
+    res = client.get(f"{TICKETS}/{team['mine'].id}/integration-jobs", headers=admin)
+
+    assert res.status_code == 200
+    (job,) = res.json()["items"]
+    assert set(job) == {"id", "ticketId", "jobType", "retryOfJobId", "status", "attempts", "nextRetryAt", "lastError",
+                        "idempotencyKey", "createdAt", "updatedAt"}      # payload 는 내보내지 않는다
+    assert (job["jobType"], job["status"], job["attempts"]) == ("JIRA_ASSIGN", "PENDING", 0)
+
+
+def test_integration_jobs_admin_only(client, admin, team):
+    assert client.get(f"{TICKETS}/{team['mine'].id}/integration-jobs", headers=as_user(client, "E0004")).status_code == 403
+    assert error_code(client.get(f"{TICKETS}/999/integration-jobs", headers=admin)) == "TICKET_NOT_FOUND"

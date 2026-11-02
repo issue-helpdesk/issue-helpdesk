@@ -34,9 +34,12 @@ from app.repositories.ticket import TicketRepositoryDep
 from app.schemas.common import ItemList, Page, parse_sort
 from app.schemas.inquiry import CategoryRef, GroupRef, InquiryTypeRef, UserRef
 from app.schemas.ticket import (
+    AssignmentLog as AssignmentLogView,
+    AssignmentRequest,
     DraftChange,
     DraftUpdateRequest,
     DraftUpdateResult,
+    IntegrationJob as IntegrationJobView,
     StatusHistory,
     Ticket as TicketView,
     TicketCreateRequest,
@@ -48,6 +51,7 @@ from app.schemas.ticket import (
 from app.services.ai_responder import facts_of, type_info
 from app.services.inquiry import can_view_inquiry, close_unresolved, end_session, invalid_state, record_sensitive_input
 from app.services.inquiry_status import CLOSED_STATUSES, display_status, ticket_display_status
+from app.services.jira_assign import enqueue_jira_assign
 from app.services.jira_create import enqueue_jira_create
 from app.services.jira_transition import enqueue_jira_transition
 from app.utils import datetime_utils
@@ -391,6 +395,115 @@ class TicketService:
             self.db.rollback()                             # 같은 접수에 다른 요청이 먼저 작업을 등록했다
             raise AppError(ErrorCode.INTEGRATION_JOB_IN_PROGRESS)
         return self.to_ticket(ticket, inquiry)
+
+    def assign(self, ticket_id: int, body: AssignmentRequest, user: User) -> TicketView:
+        """TK-09. 그룹·담당자를 바꾸고 배정 이력·감사 로그를 남긴다. Jira 가 있으면 JIRA_ASSIGN 작업을 등록한다.
+
+        assigneeId 가 null 이면 그 그룹의 배정 가능한 담당자 가운데 처리 중 접수가 가장 적은 사람을 고른다.
+        """
+        ticket = self.tickets.get_for_update(ticket_id)
+        inquiry = self.inquiries.get(ticket.inquiry_id) if ticket else None
+        if inquiry is None or not can_view_inquiry(self.inquiries, inquiry, ticket, user):
+            raise AppError(ErrorCode.TICKET_NOT_FOUND)
+        if not self.can_assign(ticket, body, user):
+            raise AppError(ErrorCode.FORBIDDEN)
+        if ticket.work_status == "CLS":
+            raise AppError(ErrorCode.TICKET_INVALID_TRANSITION, [
+                {"reason": "CURRENT_STATUS", "message": "현재 상태", "value": ticket.work_status},
+            ])
+        if self.tickets.has_active_job(ticket.id, "JIRA_ASSIGN"):
+            raise AppError(ErrorCode.INTEGRATION_JOB_IN_PROGRESS)
+        if not body.reason:
+            raise field_error(ErrorCode.ASSIGNMENT_REASON_REQUIRED, "reason", "REQUIRED")
+        group = self.references.get_support_group(body.group_id)
+        if group is None or not group.is_active:
+            raise field_error(ErrorCode.VALIDATION_ERROR, "groupId", "NOT_FOUND", "활성 담당 그룹이 아닙니다.")
+
+        # 배정 자격: 활성 계정·AGENT/ADMIN·활성 구성원·assignable·Jira 계정, 세부 유형이 있으면 그 기술 (RF-04 와 같은 조건)
+        candidates = {member.user_id: member for member, _ in
+                      self.references.list_group_members(group.id, True, ticket.inquiry_type_id)}
+        log_reason = body.reason
+        if body.assignee_id is not None:
+            if body.assignee_id not in candidates:
+                raise field_error(ErrorCode.ASSIGNEE_NOT_ASSIGNABLE, "assigneeId", "INVALID_VALUE")
+            assignee_id = body.assignee_id
+        elif ticket.inquiry_type_id is None or not candidates:
+            assignee_id = None                 # 미분류는 서비스데스크가 확인한다. 개인 자동배정을 하지 않는다
+        else:
+            counts = self.references.count_open_tickets(list(candidates))
+            assignee_id = min(candidates, key=lambda uid: (counts.get(uid, 0), uid))
+            log_reason = f"{body.reason} (자동배정: 처리 중 접수 최소 {counts.get(assignee_id, 0)}건)"
+
+        now = datetime_utils.now()
+        previous = ticket.assignee_id
+        ticket.assignment_revision += 1
+        ticket.group_id, ticket.assignee_id = group.id, assignee_id
+        ticket.assign_status = "PENDING" if assignee_id is not None else "NEEDS_ADMIN"
+        if assignee_id is None:
+            event, log_reason = "FAIL", f"{body.reason} (배정 가능한 담당자 없음)"
+        else:
+            event = "REASSIGN" if previous is not None else "ASSIGN"
+        self.tickets.add(AssignmentLog(ticket_id=ticket.id, event=event, group_id=group.id, assignee_id=assignee_id,
+                                       reason=log_reason, actor_id=user.id))
+        self.audit_logs.add("REASSIGN", "ticket", ticket.id, result=event, actor_id=user.id, reason=body.reason)
+        try:
+            # Jira 이슈가 아직 없으면 배정은 Jira 생성 뒤에 한다 (생성 작업 쪽 몫)
+            if ticket.jira_key and assignee_id is not None:
+                enqueue_jira_assign(self.db, ticket, {
+                    "ticketId": ticket.id,
+                    "receiptNo": ticket.receipt_no,
+                    "jiraKey": ticket.jira_key,
+                    "groupId": group.id,
+                    "assigneeId": assignee_id,
+                    "jiraAccountId": candidates[assignee_id].jira_account_id,
+                    "assignmentRevision": ticket.assignment_revision,
+                    "requestedBy": user.id,
+                    "requestedAt": now.isoformat(),
+                })
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()                 # 같은 접수에 다른 배정 요청이 먼저 작업을 등록했다
+            raise AppError(ErrorCode.INTEGRATION_JOB_IN_PROGRESS)
+        return self.to_ticket(ticket, inquiry)
+
+    def can_assign(self, ticket: Ticket, body: AssignmentRequest, user: User) -> bool:
+        """ADMIN 은 모두. MANAGER 는 지금 배정 그룹이 자기 그룹인 접수만, 다른 그룹으로는 자동배정으로만 넘긴다."""
+        if user.service_role == "ADMIN":
+            return True
+        if user.service_role != "AGENT" or ticket.group_id is None:
+            return False
+        if not self.references.is_group_manager(ticket.group_id, user.id):
+            return False
+        return body.group_id == ticket.group_id or body.assignee_id is None
+
+    def assignment_logs(self, ticket_id: int, viewer: User) -> ItemList[AssignmentLogView]:
+        """TK-10. 담당 그룹·ADMIN 만. 문의자 본인도 404."""
+        ticket = self.tickets.get(ticket_id)
+        if ticket is None or not self.is_staff(ticket, viewer):
+            raise AppError(ErrorCode.TICKET_NOT_FOUND)
+        return ItemList(items=[
+            AssignmentLogView(
+                id=log.id,
+                ticket_id=log.ticket_id,
+                event=log.event,
+                group_id=log.group_id,
+                group=GroupRef.model_validate(group) if group else None,
+                assignee_id=log.assignee_id,
+                assignee=UserRef.model_validate(assignee) if assignee else None,
+                rule_id=log.rule_id,
+                reason=log.reason,
+                actor_id=log.actor_id,
+                actor=UserRef.model_validate(actor) if actor else None,
+                created_at=log.created_at,
+            )
+            for log, group, assignee, actor in self.tickets.assignment_logs(ticket.id)
+        ])
+
+    def integration_jobs(self, ticket_id: int) -> ItemList[IntegrationJobView]:
+        """TK-11. ADMIN 확인은 라우터가 한다. payload 는 내보내지 않는다."""
+        if self.tickets.get(ticket_id) is None:
+            raise AppError(ErrorCode.TICKET_NOT_FOUND)
+        return ItemList(items=[IntegrationJobView.model_validate(job) for job in self.tickets.integration_jobs(ticket_id)])
 
     def is_staff(self, ticket: Ticket, user: User) -> bool:
         """ADMIN, 또는 접수 담당 그룹의 활성 구성원인 AGENT."""
