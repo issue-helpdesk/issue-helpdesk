@@ -80,7 +80,7 @@ describe('전체 문의 API (모의)', () => {
     expect(r.ok && r.data.workStatus).toBe('WIP') // 진행 상태는 그대로
     const fin = await listTickets(a, { view: 'ALL', size: 100, workStatus: ['FIN'] })
     expect(await reassignTicket(a, fin.ok ? fin.data.items[0].id : 0, { assigneeId: other, reason: '시험' })).toMatchObject({ ok: false, error: { code: 'TICKET_INVALID_TRANSITION' } })
-    const c = await listCandidates('서비스데스크')
+    const c = await listCandidates(admin(), '서비스데스크')
     expect(c.ok && c.data.find((x) => x.id === other)).toMatchObject({ avail: true, jira: true })
   })
 })
