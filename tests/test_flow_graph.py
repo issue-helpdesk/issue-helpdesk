@@ -133,6 +133,41 @@ def test_unsafe_reply_twice_uses_safe_default():
                                      'reason': 'UNSAFE_REPLY'}
 
 
+ASKS_BACK = '화면 메시지와 접속 장소를 알려주세요, 담당자에게 연결해 드릴까요?'
+EVIDENCE = [{'kind': 'DOCUMENT', 'source_id': DOC.unit_key, 'quote': QUOTE}]
+
+
+def test_answer_asking_back_is_regenerated_once():
+    asking = reply(reply=f'VPN 클라이언트를 업데이트해 보세요. {ASKS_BACK}', evidence=EVIDENCE)
+    r, _, _ = run([reply(), asking, ANSWERED])
+    assert purposes(r) == ['CLASSIFY', 'ANSWER', 'ANSWER']
+    assert (r.next_step, r.output.reply, r.override_reasons) == ('answered', 'VPN 클라이언트를 업데이트해 보세요.', ())
+
+
+def test_answer_asking_back_twice_drops_the_sentence():
+    asking = reply(reply=f'VPN 클라이언트를 업데이트해 보세요. {ASKS_BACK}', evidence=EVIDENCE)
+    r, _, _ = run([reply(), asking, asking])
+    assert (r.next_step, r.failure, r.output.action) == ('answered', None, 'ANSWER')
+    assert r.output.reply == 'VPN 클라이언트를 업데이트해 보세요.'
+    assert r.ai_output['reply'].endswith(ASKS_BACK)                      # 원본은 그대로 남긴다
+    assert r.override_reasons == ({'field': 'reply', 'ai': f'VPN 클라이언트를 업데이트해 보세요. {ASKS_BACK}',
+                                   'final': 'VPN 클라이언트를 업데이트해 보세요.', 'rule': 'ANSWER_ASKS_BACK',
+                                   'reason': '답변 뒤 답할 수 없는 연결 제안·정보 요청을 뺌'},)
+
+
+def test_answer_only_asking_back_uses_safe_default():
+    asking = reply(reply=ASKS_BACK, evidence=EVIDENCE)
+    r, _, _ = run([reply(), asking, asking])
+    assert (r.next_step, r.failure, r.error_code) == ('offer', 'AI_FAILED', 'ANSWER_ASKS_BACK')
+
+
+def test_handoff_offer_is_fine_when_not_answer():
+    # 근거가 없어 ESCALATE 로 바뀌면 연결 제안이 맞으므로 다시 부르지 않는다
+    r, _, _ = run([reply(), reply(reply=ASKS_BACK)])
+    assert purposes(r) == ['CLASSIFY', 'ANSWER']
+    assert (r.next_step, r.output.reply) == ('offer', ASKS_BACK)
+
+
 def test_first_failure_ends_without_search():
     r, _, search = run([LLMError('TIMEOUT')])
     assert (r.next_step, r.failure, r.error_code) == ('offer', 'AI_FAILED', 'TIMEOUT')

@@ -21,7 +21,7 @@ class FlowResult:
     override_reasons: tuple[dict, ...]  # 보정 + 긴급도 규칙이 바꾼 것 (08 5.4)
     llm_calls: tuple[LlmCallRecord, ...]   # 이 메시지에서 부른 모든 호출 (1·2차, 다시 생성 포함)
     failure: str | None = None          # None · AI_FAILED · ALL_BLOCKED
-    error_code: str | None = None       # 실패 사유 (llm README error_code 표 + UNSAFE_REPLY)
+    error_code: str | None = None       # 실패 사유 (llm README error_code 표 + UNSAFE_REPLY·ANSWER_ASKS_BACK)
     sources: tuple[dict, ...] = ()      # message_sources 행. 확정 evidence 가 가리키는 검색 결과를 쓴 순서대로
     evidence: Filtered | None = None    # 2차에서 보낸·뺀 근거 (audit_logs DOC_BLOCKED·FILTER_FAILED). 검색 안 했으면 None
 

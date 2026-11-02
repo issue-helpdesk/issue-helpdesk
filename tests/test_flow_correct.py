@@ -1,7 +1,7 @@
 """AI 출력 보정 (M4-2-1) 테스트. 기준은 docs/08 3.2 4~9단계와 처리 방향 보정. LLM 을 부르지 않는다."""
 import pytest
 
-from app.agent.flow import Limits, correct, unsafe_reply
+from app.agent.flow import Limits, asks_back, correct, drop_asks_back, unsafe_reply
 from app.agent.llm import AIInput, AIOutput, CategoryInfo, Taxonomy, TypeInfo
 from app.agent.sensitive import Filtered
 from app.rag.search import ChunkHit, DocumentResult, LegacyResult, SearchResponse
@@ -190,3 +190,43 @@ def test_unsafe_reply(reply):
 ])
 def test_safe_reply(reply):
     assert not unsafe_reply(reply)
+
+
+# ── 9단계: ANSWER 답변 끝맺음 ─────────────────────
+
+VPN_ASKS_BACK = ('VPN 클라이언트를 최신 버전으로 업데이트한 뒤 다시 연결해 보세요. '
+                 '그래도 해결되지 않으면 화면에 나오는 메시지와 접속 장소를 알려주세요, 담당자에게 연결해 드릴까요?')
+
+
+@pytest.mark.parametrize('reply', [
+    VPN_ASKS_BACK,                                                      # API 테스트에서 나온 문장
+    '해결되지 않으면 담당자에게 연결해 드릴까요?',
+    '담당자 연결을 원하시면 아래 버튼을 눌러 주세요.',
+    '화면 메시지를 알려 주세요.',
+    '휴대폰 번호가 바뀌었거나 인증번호를 받을 수 없으면 말씀해 주세요.',
+    '접속 장소를 알려주시면 확인해 볼게요.',
+    '화면 메시지와 함께 접속 장소를 알려 주세요.',
+])
+def test_asks_back(reply):
+    assert asks_back(reply)
+
+
+@pytest.mark.parametrize('reply', [
+    'VPN 클라이언트를 업데이트해 보세요.',
+    '연결 상태로 바뀌고 그룹웨어가 열리면 해결된 거예요.',
+    '이 방법으로 해결되었나요?',
+    '팀장님께 승인 요청을 말씀해 주세요.',
+    '보안 담당자에게 알려 주세요.',
+    '신청서를 작성해 메일로 보내 주세요.',
+    '비밀번호는 절대 알려 주지 마세요.',
+])
+def test_not_asks_back(reply):
+    assert not asks_back(reply)
+
+
+def test_drop_asks_back_keeps_steps():
+    reply = ('아래 순서로 해 보세요.\n1. VPN 클라이언트를 업데이트합니다.\n2. 우회 포트 모드를 켭니다.\n\n'
+             '연결되면 해결된 거예요. 그래도 안 되면 화면 메시지를 알려 주세요. 담당자에게 연결해 드릴까요?')
+    assert drop_asks_back(reply) == ('아래 순서로 해 보세요.\n1. VPN 클라이언트를 업데이트합니다.\n2. 우회 포트 모드를 켭니다.\n\n'
+                                     '연결되면 해결된 거예요.')
+    assert drop_asks_back(VPN_ASKS_BACK) == 'VPN 클라이언트를 최신 버전으로 업데이트한 뒤 다시 연결해 보세요.'
