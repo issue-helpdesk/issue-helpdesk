@@ -26,6 +26,8 @@ export const USE_MOCK_INQUIRY = area(import.meta.env.VITE_USE_MOCK_INQUIRY)
 export const USE_MOCK_TICKET = area(import.meta.env.VITE_USE_MOCK_TICKET)
 /** FAQ (FQ) */
 export const USE_MOCK_FAQ = area(import.meta.env.VITE_USE_MOCK_FAQ)
+/** 가이드 관리: 문서 목록·버전·업로드·현행 전환·정책 변경 (DC-01·02·06·07·09) */
+export const USE_MOCK_GUIDE = area(import.meta.env.VITE_USE_MOCK_GUIDE)
 
 /**
  * 서버에 API 가 아직 없는 기능(로그인 전 상담, 팀 현황, 문의자에게 메시지·Slack 미리보기)은 위 변수와 상관없이 항상 모의로 동작한다.
