@@ -3,6 +3,13 @@
     uv run python -m app.rag.evaluation.judgment --judge mock:oracle --database-url <로컬 DB>   # 키 없이 끝까지 (도구 확인)
     uv run python -m app.rag.evaluation.judgment --judge mock:safe --database-url <로컬 DB>     # 안전 기본값만 (바닥 점수)
     uv run python -m app.rag.evaluation.judgment --judge claude --database-url <로컬 DB> --limit 3   # 실제 Claude (LLM_API_KEY)
+    uv run python -m app.rag.evaluation.judgment --judge claude --database-url <로컬 DB> --set guide # 질문시트 (참고)
+
+시험지 (--set)
+- eval  : 평가셋 50 (기본, 공식 점수)
+- guide : 가이드 검색 질문(질문시트) 중 직원이 볼 수 있는 문서가 정답인 질문. 정답은 정답 항목에서 끌어낸 참고값
+          (분류·세부 유형·팀만, 긴급도·처리 방향 없음). 평가셋 '전체' 점수와 섞지 않고 '질문시트' 묶음으로 따로 낸다
+- all   : 둘 다 한 번에
 
 판단기 (--judge)
 - claude      : 서버와 같은 모델 설정 (get_llm_adapter: 루트 .env 의 LLM_API_KEY·LLM_MODEL). 문항당 기본 1~2회 호출
@@ -28,10 +35,14 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from ..chunker import unit_ref
-from . import EVAL_CSV, OUT, TAXONOMY, corpus_units, file_hash, git_state, load_eval_set, new_run_dir
+from . import (EVAL_CSV, OUT, QUESTIONS_DIR, TAXONOMY, corpus_units, file_hash, git_state, load_eval_set,
+               load_guide_questions, new_run_dir, restrict_to_role, units_fingerprint)
 
 FIELDS = ('category', 'scenario', 'urgency', 'action', 'team')
 NAMES = {'category': '분류', 'scenario': '세부 유형', 'urgency': '긴급도', 'action': '처리 방향', 'team': '팀'}
+CITED = '근거 일치'                         # ANSWER 의 문서 근거가 정답 항목인가 (참고, 판단 칸 아님)
+SETS = {'eval': ('eval',), 'guide': ('guide',), 'all': ('eval', 'guide')}
+GUIDE_GROUP = '질문시트'                    # 가이드 검색 질문 (정답 칸은 정답 항목에서 끌어낸 참고값)
 URGENCY_ORDER = ('P1', 'P2', 'P3', 'P4')
 TEAM_ASSIGNED, TEAM_GUIDED, TEAM_SKIP = '배정팀 비교', '안내 지원팀 비교', '팀 평가 제외'
 GUIDED_COL = f'팀 ({TEAM_GUIDED})'
@@ -56,13 +67,14 @@ class EvalItem:
     category: str | None           # '-' 는 None (채점에서 뺀다)
     scenario: str | None
     urgency: str | None
-    action: str
+    action: str | None             # 질문시트는 정답이 없어 None
     additional: str                # NONE · URGENT_HANDOFF · POLICY_GUIDANCE
     team: str | None
     team_scoring: str
-    split: str                     # 기존 평가 40건 · 확장 평가 10건
+    split: str                     # 기존 평가 40건 · 확장 평가 10건 · 질문시트
     answer_docs: frozenset = frozenset()    # 시나리오의 가이드 (검색이 찾았는가 → 틀린 원인 나누기)
     answer_units: frozenset = frozenset()   # 그 시나리오 코드가 붙은 단위 (같은 본문 포함, 검색 평가와 같은 정의)
+    set: str = 'eval'              # eval (평가셋) · guide (질문시트)
 
 
 def load_items(path: str = EVAL_CSV, units=None) -> list[EvalItem]:
@@ -77,6 +89,28 @@ def load_items(path: str = EVAL_CSV, units=None) -> list[EvalItem]:
                                 v['expected_team'], r['team_scoring'].strip(), r['dataset_split'].strip(),
                                 *((frozenset(q.answer_docs), frozenset(q.answers)) if (q := qs.get(r['eval_id']))
                                   else ())))
+    return out
+
+
+def load_guide_items(path: str = QUESTIONS_DIR, taxonomy: str = TAXONOMY, units=None) -> list[EvalItem]:
+    """가이드 검색 질문(질문시트) → 문항. 공식 평가셋이 아니라 판단을 더 많은 질문으로 보는 참고 시험지.
+
+    정답은 사람이 단 값이 아니라 정답 항목에서 끌어낸다: 세부 유형 = 정답 항목(같은 본문 포함)의 문의 유형 코드가
+    하나일 때 그 코드, 분류 = 그 코드의 분류, 팀 = taxonomy 의 그 유형 팀. 코드가 없거나 둘 이상이면 세 칸 모두 뺀다.
+    긴급도·처리 방향은 정답이 없어 채점하지 않는다. 직원이 볼 수 없는 문서(매뉴얼)만 정답인 질문은 뺀다
+    (판단 흐름의 사용자가 직원이므로, 검색 평가 --role EMPLOYEE 와 같다)."""
+    units = units if units is not None else corpus_units()
+    codes = {u.ref: u.codes for u in units}
+    with open(taxonomy, encoding='utf-8') as f:
+        team = {s['id']: s['team'] for s in json.load(f)['scenarios']}
+    qs, _ = restrict_to_role(load_guide_questions(units, path), units, 'EMPLOYEE')
+    out = []
+    for q in qs:
+        found = set().union(*(codes.get(a, frozenset()) for a in q.answers)) if q.answers else set()
+        scen = next(iter(found)) if len(found) == 1 else None
+        out.append(EvalItem(q.qid, q.text, scen.split('-', 1)[0] if scen else None, scen, None, None, 'NONE',
+                            team.get(scen) if scen else None, TEAM_GUIDED, GUIDE_GROUP,
+                            frozenset(q.answer_docs), frozenset(q.answers), 'guide'))
     return out
 
 
@@ -140,26 +174,34 @@ def team_of(action: str, scenario: str | None, ref: Reference) -> str | None:
 # ── 판단기 ─────────────────────────────────────────────────────
 
 def oracle_reply(item: EvalItem, ref: Reference) -> Callable[[str, str], str]:
-    """정답을 AI 출력 모양으로. 2차(검색 결과가 온 호출)의 ANSWER 는 정답 세부 유형이 붙은 결과(없으면 1위)를 근거로 든다."""
+    """정답을 AI 출력 모양으로. 2차(검색 결과가 온 호출)의 ANSWER 는 정답 세부 유형이 붙은 결과(없으면 1위)를 근거로 든다.
+    질문시트는 처리 방향·긴급도 정답이 없어 ANSWER · 유형 기본 긴급도로 두고, 정답 항목인 결과를 근거로 든다."""
     kinds = {t.code: t.request_kind for t in ref.taxonomy.types}
+    default_urgency = {t.code: t.default_urgency for t in ref.taxonomy.types}
     urgent = item.additional == 'URGENT_HANDOFF'
+    action = item.action or 'ANSWER'
+    if item.set == 'guide':
+        def ok(d): return any(unit_ref(k) in item.answer_units for k in (d['unit_key'], *d.get('also_in', ())))
+    else:
+        def ok(d): return item.scenario in d['inquiry_type_codes']
 
     def reply(system: str, user: str) -> str:
         docs = (json.loads(user).get('search') or {}).get('documents') or []
-        cite = next((d for d in docs if item.scenario in d['inquiry_type_codes']), docs[0] if docs else None)
+        cite = next((d for d in docs if ok(d)), docs[0] if docs else None)
         evidence = ([{'kind': 'DOCUMENT', 'source_id': cite['unit_key'], 'quote': cite['text'][:40]}]
-                    if item.action == 'ANSWER' and cite and cite['text'] else [])
+                    if action == 'ANSWER' and cite and cite['text'] else [])
         return json.dumps({
-            'schema_version': '1.0', 'action': item.action, 'urgent_signal': urgent, 'title': item.query[:60],
+            'schema_version': '1.0', 'action': action, 'urgent_signal': urgent, 'title': item.query[:60],
             'category_code': item.category, 'inquiry_type_code': item.scenario,
-            'request_kind': kinds.get(item.scenario), 'urgency_suggested': item.urgency,
+            'request_kind': kinds.get(item.scenario),
+            'urgency_suggested': item.urgency or default_urgency.get(item.scenario) or 'P3',
             'facts': {'summary': item.query, 'target_system': None, 'symptom': None, 'occurred_at': None,
                       'impact_scope': None, 'work_stopped': 'unknown', 'has_workaround': None, 'time_constraint': None,
                       'business_impact': None, 'security_suspected': False, 'tried_actions': []},
             'rationale': {'category': '', 'urgency_reasons': [], 'action': '평가 정답'},
             'reply': '안내드립니다.', 'evidence': evidence,
-            'missing_items': ['symptom'] if item.action == 'ASK_MORE' else [],
-            'escalation_reason': ('긴급대응' if urgent else '전문판단') if item.action == 'ESCALATE' else None,
+            'missing_items': ['symptom'] if action == 'ASK_MORE' else [],
+            'escalation_reason': ('긴급대응' if urgent else '전문판단') if action == 'ESCALATE' else None,
             'confidence': 1.0}, ensure_ascii=False)
     return reply
 
@@ -217,6 +259,7 @@ class Judged:
     found_unit: bool | None = None       # 정답 단위가 있었나. 같은 본문이라 묶인 결과(also_in)도 센다
     top_units: list[str] = field(default_factory=list)
     evidence: list[str] = field(default_factory=list)
+    cited_unit: bool | None = None       # ANSWER 의 문서 근거에 정답 항목이 있나 (묶인 결과 포함). ANSWER·근거가 아니면 None
     overrides: list[str] = field(default_factory=list)
     calls: int = 0
     tokens: tuple[int, int] = (0, 0)
@@ -233,6 +276,10 @@ def judge_item(item: EvalItem, judge: str, ref: Reference, search: DbSearch, rou
     # 검색 평가 Hit.refs·docs 와 같이 대표 결과와 묶인 결과(also_in)를 함께 본다
     refs = {unit_ref(k) for d in found.documents for k in (d.unit_key, *d.also_in)} if found else set()
     docs = {x.split('/', 1)[0] for x in refs}
+    group = {d.unit_key: {unit_ref(k) for k in (d.unit_key, *d.also_in)} for d in found.documents} if found else {}
+    cited = [group.get(e.source_id, {unit_ref(e.source_id)}) for e in out.evidence if e.kind == 'DOCUMENT']
+    cited_unit = (any(c & item.answer_units for c in cited)
+                  if out.action == 'ANSWER' and cited and item.answer_units else None)
     return Judged(
         item, round_,
         {'category': out.category_code, 'scenario': out.inquiry_type_code, 'urgency': r.urgency,
@@ -240,7 +287,7 @@ def judge_item(item: EvalItem, judge: str, ref: Reference, search: DbSearch, rou
         out.urgent_signal, r.next_step, r.failure, r.error_code, found is not None,
         bool(docs & item.answer_docs) if found is not None and item.answer_docs else None,
         bool(refs & item.answer_units) if found is not None and item.answer_units else None,
-        [d.unit_key for d in found.documents[:3]] if found else [], [e.source_id for e in out.evidence],
+        [d.unit_key for d in found.documents[:3]] if found else [], [e.source_id for e in out.evidence], cited_unit,
         [o['rule'] for o in r.override_reasons], len(r.llm_calls),
         (sum(c.input_tokens or 0 for c in r.llm_calls), sum(c.output_tokens or 0 for c in r.llm_calls)))
 
@@ -304,27 +351,36 @@ def near_urgency(js: list[Judged]) -> dict:
     return {'n': n, 'acc': ok / n if n else None}
 
 
+def cited_rate(js: list[Judged]) -> dict:
+    marks = [j.cited_unit for j in js if j.cited_unit is not None]
+    return {'n': len(marks), 'acc': sum(marks) / len(marks) if marks else None}
+
+
 def score(js: list[Judged]) -> dict:
-    """{묶음: {칸: {n, acc}}}. 묶음 = 전체 · 기존 40 · 확장 10. 반복하면 회차별로 낸 뒤 범위를 따로 적는다."""
+    """{묶음: {칸: {n, acc}}}. 묶음 = 전체 · 기존 40 · 확장 10 (평가셋), 질문시트. 질문시트는 '전체'에 넣지 않는다
+    (정답을 끌어낸 참고 시험지라 공식 점수와 섞지 않는다). 반복하면 회차별로 낸 뒤 범위를 따로 적는다."""
     groups: dict[str, list[Judged]] = defaultdict(list)
     for j in js:
-        groups['전체'].append(j)
+        if j.item.set == 'eval':
+            groups['전체'].append(j)
         groups[j.item.split].append(j)
     out = {}
     for g, rs in groups.items():
-        d = {f: rate(rs, f) for f in FIELDS}
+        d = {'문항': {'n': len(rs), 'acc': None}} | {f: rate(rs, f) for f in FIELDS}
         d['긴급도 ±1'] = near_urgency(rs)
         d[f'팀 ({TEAM_ASSIGNED})'] = rate([j for j in rs if j.item.team_scoring == TEAM_ASSIGNED], 'team')
         d[GUIDED_COL] = rate([j for j in rs if j.item.team_scoring == TEAM_GUIDED], 'team')
+        d[CITED] = cited_rate(rs)
         out[g] = d
     return out
 
 
 def confusion(js: list[Judged]) -> dict[str, dict[str, int]]:
-    """처리 방향 혼동표 {정답: {예측: 수}}."""
+    """처리 방향 혼동표 {정답: {예측: 수}}. 정답이 없는 문항(질문시트)은 뺀다."""
     c: dict[str, Counter] = defaultdict(Counter)
     for j in js:
-        c[j.item.action][j.predicted['action']] += 1
+        if j.item.action:
+            c[j.item.action][j.predicted['action']] += 1
     return {k: dict(v) for k, v in sorted(c.items())}
 
 
@@ -357,7 +413,7 @@ def write(out_dir: str, js: list[Judged], meta: dict) -> dict:
         w = csv.writer(f)
         w.writerow(['회차', '문항', '묶음', '문의'] + [f'{NAMES[x]} {s}' for x in FIELDS for s in ('정답', '예측', '맞음')] +
                    ['팀 채점', '추가 처리', '긴급 징후', '다음 단계', '실패', '실패 사유', '검색함', '정답 가이드 찾음',
-                    '정답 항목 찾음', '검색 상위 3', '근거', '보정 규칙', '호출 수', '틀린 원인', '비고'])
+                    '정답 항목 찾음', '검색 상위 3', '근거', CITED, '보정 규칙', '호출 수', '틀린 원인', '비고'])
         yn = {True: 'Y', False: 'N', None: ''}
         for j in js:
             it = j.item
@@ -368,7 +424,8 @@ def write(out_dir: str, js: list[Judged], meta: dict) -> dict:
             w.writerow([j.round, it.eval_id, it.split, it.query] + cells +
                        [it.team_scoring, it.additional, 'Y' if j.urgent else '', j.next_step, j.failure or '',
                         j.error_code or '', 'Y' if j.searched else '', yn[j.found_doc], yn[j.found_unit],
-                        '; '.join(j.top_units), '; '.join(j.evidence), '; '.join(j.overrides), j.calls, cause(j),
+                        '; '.join(j.top_units), '; '.join(j.evidence), yn[j.cited_unit], '; '.join(j.overrides),
+                        j.calls, cause(j),
                         known_note(j)])
     rounds = by_round(js)
     # 혼동표·추가 처리·틀린 문항은 모든 회차 (반복하면 한 번이라도 틀린 문항이 빠지지 않게)
@@ -400,21 +457,28 @@ def summary_md(summary: dict) -> str:
     rounds = summary['점수']
     if not rounds:
         return '\n'.join(out + ['', '끝낸 문항이 없습니다.']) + '\n'
-    cols = [*FIELDS, '긴급도 ±1', f'팀 ({TEAM_ASSIGNED})', GUIDED_COL]
+    cols = [*FIELDS, '긴급도 ±1', f'팀 ({TEAM_ASSIGNED})', GUIDED_COL, CITED]
     head = [NAMES.get(c, c) for c in cols]
     for n, sc in rounds.items():
         out += ['', f'## 정확도 ({n}회차, 괄호는 채점한 문항 수)', '', '| 묶음 | ' + ' | '.join(head) + ' |',
                 '|---|' + '---|' * len(cols)]
         out += [f'| {g} | ' + ' | '.join(_pct(d[c]) for c in cols) + ' |' for g, d in sc.items()]
-    # 범위는 끝까지 돈 회차만 (중간에 멈춘 회차는 문항이 적어 같은 시험지가 아니다). 처리 방향 n = 그 회차 문항 수
-    full = max(r['전체']['action']['n'] for r in rounds.values())
-    done = [r for r in rounds.values() if r['전체']['action']['n'] == full]
+    tops = [g for g in ('전체', GUIDE_GROUP) if any(g in r for r in rounds.values())]
+    if GUIDE_GROUP in tops:
+        out += ['', f'{GUIDE_GROUP}: 정답을 정답 항목에서 끌어낸 참고 점수 (사람이 단 정답 아님, 긴급도·처리 방향 정답 없음). '
+                '공식 점수인 평가셋 전체와 섞지 않는다']
+    out += ['', f'{CITED}: ANSWER 로 답한 문항 중 문서 근거에 정답 항목(같은 본문 포함)이 있는 비율 (참고). '
+            '평가셋의 정답 항목은 그 세부 유형 코드가 붙은 모든 항목이라 넓다']
+    # 범위는 끝까지 돈 회차만 (중간에 멈춘 회차는 문항이 적어 같은 시험지가 아니다)
+    size = {n: sum(r[g]['문항']['n'] for g in tops if g in r) for n, r in rounds.items()}
+    done = [rounds[n] for n in rounds if size[n] == max(size.values())]
     if len(done) > 1:
-        out += ['', f'## 반복 {len(done)}회 범위 (전체, 끝까지 돈 회차만)', '', '| 칸 | 최소 | 최대 |', '|---|---|---|']
-        for c in cols:
-            accs = [r['전체'][c]['acc'] for r in done if r['전체'][c]['acc'] is not None]
-            if accs:
-                out.append(f'| {NAMES.get(c, c)} | {min(accs):.0%} | {max(accs):.0%} |')
+        for g in tops:
+            out += ['', f'## 반복 {len(done)}회 범위 ({g}, 끝까지 돈 회차만)', '', '| 칸 | 최소 | 최대 |', '|---|---|---|']
+            for c in cols:
+                accs = [r[g][c]['acc'] for r in done if r[g][c]['acc'] is not None]
+                if accs:
+                    out.append(f'| {NAMES.get(c, c)} | {min(accs):.0%} | {max(accs):.0%} |')
     acts = sorted({a for row in summary['처리 방향 혼동표'].values() for a in row} | set(summary['처리 방향 혼동표']))
     out += ['', f'## 처리 방향 혼동표 (행 = 정답, 열 = 예측, {len(rounds)}회 합)', '',
             '| 정답 \\ 예측 | ' + ' | '.join(acts) + ' |', '|---|' + '---|' * len(acts)]
@@ -436,7 +500,7 @@ def describe(judge: str, ref: Reference, args) -> dict:
         from app.agent.llm import get_llm_adapter
         port = get_llm_adapter()
     return {'판단기': judge, '모델': port.model if port else 'mock', '실행': args.stamp, 'git': git_state(),
-            '판단 코드 지문': flow_fingerprint(), '프롬프트 지문': prompt_fingerprint(ref),
+            '판단 코드 지문': flow_fingerprint(), '프롬프트 지문': prompt_fingerprint(ref), '시험지': args.set,
             '평가셋 파일': file_hash([EVAL_CSV, TAXONOMY]), '검색 대상 지문': ref.data, '문항': args.n_items,
             '반복': args.repeat, '사용자 역할': 'EMPLOYEE', '팀 채점': GUIDED_NOTE}
 
@@ -457,6 +521,8 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog='python -m app.rag.evaluation.judgment')
     ap.add_argument('--judge', default='mock:oracle', choices=JUDGES)
     ap.add_argument('--database-url', required=True, help='검색·분류 체계를 읽을 DB (읽기 전용). 로컬 DB 를 쓴다')
+    ap.add_argument('--set', default='eval', choices=tuple(SETS),
+                    help='eval (평가셋 50, 공식) · guide (질문시트, 참고) · all (둘 다 한 번에)')
     ap.add_argument('--model', default='bge-m3', help='검색 임베딩 모델')
     ap.add_argument('--limit', type=positive, help='앞에서 몇 문항만 (실제 호출 전에 적게 돌려 볼 때)')
     ap.add_argument('--ids', help='쉼표로 문항 id (예: EV-001,EV-040)')
@@ -467,14 +533,16 @@ def main(argv=None) -> int:
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8')
 
-    items = load_items()
+    units = corpus_units()
+    items = (load_items(units=units) if 'eval' in SETS[a.set] else []) + \
+        (load_guide_items(units=units) if 'guide' in SETS[a.set] else [])
     if a.ids:                                          # DB·모델을 열기 전에 고른 문항을 확인한다
         want = {x.strip() for x in a.ids.split(',') if x.strip()}
         if not want:
             print('--ids 에 문항이 없습니다')
             return 2
         if unknown := want - {i.eval_id for i in items}:
-            print(f'평가셋에 없는 문항: {", ".join(sorted(unknown))}')
+            print(f'시험지({a.set})에 없는 문항: {", ".join(sorted(unknown))}')
             return 2
         items = [i for i in items if i.eval_id in want]
     items = items[:a.limit] if a.limit else items
@@ -485,6 +553,10 @@ def main(argv=None) -> int:
     except RuntimeError as ex:
         print(ex)
         return 2
+    if 'guide' in SETS[a.set]:                         # 질문시트 정답은 질문 파일과 정리본 단위에서 끌어낸다
+        import glob
+        meta['질문시트 파일'] = file_hash(sorted(glob.glob(os.path.join(QUESTIONS_DIR, '*_질문.csv'))))
+        meta['단위 지문'] = units_fingerprint(units)
     from ..embedding import Embedder
     emb = Embedder(a.model)
     meta['검색 모델'] = emb.model_id
@@ -499,7 +571,7 @@ def main(argv=None) -> int:
     calls, tin, tout = sum(j.calls for j in js), sum(j.tokens[0] for j in js), sum(j.tokens[1] for j in js)
     meta |= {'끝낸 문항': f'{len(js)} / {len(items) * a.repeat}', '중단': stopped or '없음', '호출': calls,
              '토큰 (입력/출력)': f'{tin}/{tout}', '실패': dict(Counter(j.error_code for j in js if j.failure)) or '없음'}
-    out_dir = new_run_dir(a.out, f"{a.stamp}_판단_{a.judge.replace(':', '-')}")
+    out_dir = new_run_dir(a.out, f"{a.stamp}_판단_{a.judge.replace(':', '-')}" + ('' if a.set == 'eval' else f'_{a.set}'))
     summary = write(out_dir, js, meta)
     print(summary_md(summary))
     print(f'→ {out_dir}')
