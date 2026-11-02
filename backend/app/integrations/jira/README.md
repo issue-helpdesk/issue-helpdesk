@@ -121,6 +121,7 @@ if event.is_comment_created:
 - **중복 생성 방지**는 `create_ticket`이 이미 합니다(접수번호로 먼저 검색). 이 모듈에서 따로 늘리지 않았습니다.
 - **재시도는 판단만** 합니다. 실제로 몇 분 뒤 다시 실행할지(작업 큐)는 백엔드의 `integration_jobs`가 정합니다. `RetryPolicy`의 숫자(3회, 1·5·15분, 결과 조회 15분)는 **제안값**이며 팀 합의 전입니다.
 - `pick_assignee`는 팀장·비활성·자동배정 불가·세부 분류 처리 불가·Jira 계정 없음을 후보에서 뺍니다. 부재자는 `exclude_user_ids`로 넘기며, 그 목록은 `time_off.absent_user_ids(일정, 현재시각)`으로 만듭니다(연차는 종일, 오전 반차는 13시 전까지, 오후 반차는 13시부터 부재. 기준 시각은 `half_day_cutoff`로 바꿀 수 있습니다). `time_off` 표와 일정 입력은 백엔드 몫이며 `docs/11.Jira_티켓_담당자_배정_로직.md` 3.1절에 정리했습니다.
+- 서비스에서는 `services/assignment.reserve_assignment`가 DB의 `time_off`로 부재자를 직접 빼므로(`services/time_off.current_absentees`) 부르는 쪽이 부재자 목록을 넘기지 않습니다(`absent_user_ids` 인자 삭제, PR #182). 위 `absent_user_ids`는 DB 없이 규칙을 시험·계산할 때 쓰는 순수 함수입니다. 두 구현의 기준(연차 종일, 반차 13시)이 어긋나지 않게 함께 확인합니다.
 - **웹훅 비밀값**: Jira 관리자 웹훅은 비밀값(secret)으로 본문에 서명해 `X-Hub-Signature: sha256=…` 헤더로 보냅니다. `verify_hub_signature(본문 바이트, 헤더, 비밀값)`이 이를 검증합니다. 사용자 정의 헤더(`X-Itssue-Webhook-Secret`)를 Jira 설정에서 넣을 수 있다고는 확인하지 못해서 서명 방식을 기본으로 씁니다. `docs/api/03.접수_연동.md`의 TK-13 헤더 서술은 이에 맞춰 고쳐야 합니다.
 - **웹훅 이벤트 ID**: 헤더 값(`delivery_id`) → 변경 이력 ID → 본문 해시 순으로 씁니다. 헤더 이름은 Jira 문서 기준이며 실제 웹훅으로는 아직 확인하지 않았습니다.
 - **댓글 알림 받을 사람**: 문의자·담당자는 Jira의 reporter·assignee 가 아니라 ITssue DB 티켓의 사번을 `route_comment`에 넘깁니다(보고자는 API 토큰 계정이고 이관 티켓은 Jira 담당자가 비어 있을 수 있음). 작성자는 사번 연결표로 찾습니다. 문의자가 달면 담당자에게, 담당자가 달면 문의자에게, 둘 다 아닌 사람(팀장·관리자)이 달면 둘 모두에게 가고, 작성자 본인에게는 가지 않습니다. 연결표에 없는 계정(`unknown_author`)과 ITssue 봇 계정(`ignore_account_ids`, `check_auth()["account_id"]`)은 알림을 만들지 않습니다.
