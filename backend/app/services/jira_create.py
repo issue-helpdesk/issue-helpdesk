@@ -23,10 +23,11 @@ DB 상태 규칙 (docs/06 integration_jobs·tickets.jira_sync_status)
 
 한계(팀 확인 필요)
     - 이 모듈은 Jira만 호출한다. 개인 담당자 배정(JIRA_ASSIGN)·상태 전환은 다른 작업이다.
-    - integration_jobs.payload 컬럼이 모델에 아직 없어서(docs/06 v0.8 설계만 있음) 생성 값은 실행 시점의
-      Ticket 스냅샷 컬럼에서 만든다. 접수 확정 뒤 Ticket 스냅샷 컬럼이 바뀌지 않는다는 전제다.
+    - 생성 내용은 integration_jobs.payload의 등록 시점 값을 쓴다. jiraKey·jiraSyncStatus만 최신 Ticket에서 읽는다.
+      과거 마이그레이션의 빈 payload({})는 현재 DB 값으로 처리하며 경고를 남긴다. 원래 등록값의 복원은 아니다.
     - 실행기가 Jira 응답 직후 DB 저장 전에 죽으면 작업이 RUNNING으로 남는다. requeue_stale_running_jobs()가
-      이를 VERIFYING 경로(찾기만)로 되돌린다. 이 함수를 주기적으로 부르는 곳(스케줄러)은 아직 없다.
+      이를 VERIFYING 경로(찾기만)로 되돌린다. 독립 실행기(integrations/jira/worker.py)가 주기 호출하며,
+      실제 서버의 실행기 배포·프로세스 관리는 별도로 연결해야 한다.
     - 재시도 대기 시간·횟수는 retry.RetryPolicy의 제안값(60·300·900초, 3회)을 그대로 쓴다.
 """
 
@@ -119,7 +120,17 @@ def run_jira_create_job(
                 raise JiraError("result_unknown", "Jira에서 아직 찾지 못했습니다.", retryable=False)
             result = {**found, "created": False, "source": "jira_lookup"}
         else:
-            result = create_from_confirmed_ticket(jira, _ticket_payload(db, ticket))
+            if not isinstance(job.payload, dict):
+                raise ConfirmedTicketError("invalid_type", ("payload",))
+            if job.payload:
+                data = dict(job.payload)
+            else:
+                # 마이그레이션 전 작업에는 등록 시점 입력이 없다. 이 경우에만 현재 DB 값으로 처리한다.
+                logger.warning("jira create job %s uses legacy empty payload", job.id)
+                data = _ticket_payload(db, ticket)
+            # 접수 내용은 보존하고, 중복 생성 방지에 쓰는 제어값만 최신 상태로 확인한다.
+            data.update(jiraKey=ticket.jira_key, jiraSyncStatus=ticket.jira_sync_status)
+            result = create_from_confirmed_ticket(jira, data)
         work_status = _work_status_to_fill(jira, ticket, result)
     except ConfirmedTicketError as e:
         return _needs_admin(db, job, ticket, now, f"{e.reason}: {', '.join(e.fields)}")

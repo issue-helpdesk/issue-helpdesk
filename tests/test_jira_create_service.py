@@ -1,5 +1,7 @@
 """Jira 생성 작업 처리(services/jira_create.py) — SQLite 메모리 DB + Jira 모의 응답. 실제 Jira 호출 없음."""
 
+import json
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -10,6 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.integrations.jira.client import JiraClient
+from app.integrations.jira.mapper import adf_to_text
 from app.models import Base, Category, Inquiry, InquiryType, IntegrationJob, SupportGroup, Ticket, User
 from app.services import jira_create
 from app.utils import datetime_utils
@@ -31,6 +34,7 @@ class FakeJira:
     def __init__(self, *, existing: bool = False, post_status: int = 201, post_exc: Exception | None = None,
                  status_id: str = "10005", status_exc: Exception | None = None):
         self.calls: list[tuple[str, str]] = []
+        self.create_fields: list[dict] = []
         self.existing = existing
         self.post_status = post_status
         self.post_exc = post_exc
@@ -39,6 +43,8 @@ class FakeJira:
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.calls.append((request.method, request.url.path))
+        if (request.method, request.url.path) == POST_ISSUE:
+            self.create_fields.append(json.loads(request.content)["fields"])
         if request.method == "GET" and "/rest/api/3/issue/" in request.url.path:  # 상태 조회
             if self.status_exc is not None:
                 raise self.status_exc
@@ -128,6 +134,132 @@ def test_enqueue_is_idempotent_per_receipt(db):
 
 
 # ------------------------------------------------------------------ 성공 경로
+
+def test_creation_uses_enqueued_content_even_after_ticket_and_references_change(db):
+    ticket = make_ticket(db)
+    job = make_job(db, ticket)
+    saved_payload = deepcopy(job.payload)
+    ticket.summary = "수정된 요약"
+    ticket.symptom = "수정된 증상"
+    ticket.group_id = None
+    db.get(Category, "NET").name = "수정된 분류명"
+    db.get(SupportGroup, 3).name = "수정된 그룹명"
+    db.get(InquiryType, 21).name = "수정된 세부 유형"
+    db.get(User, 17).name = "수정된 이름"
+    db.commit()
+    jira = FakeJira()
+
+    result = jira_create.run_jira_create_job(db, jira.client(), job.id, now=T0)
+
+    assert result.outcome == "CREATED"
+    fields = jira.create_fields[0]
+    assert fields["summary"] == "VPN 접속 오류"
+    assert fields["customfield_10053"] == "VPN·네트워크"
+    assert fields["customfield_10054"] == "VPN 접속 불가"
+    assert fields["customfield_10045"] == "시험 사용자"
+    assert "인증 서버 연결 실패" in adf_to_text(fields["description"])
+    assert "수정된" not in json.dumps(fields, ensure_ascii=False)
+    assert reload(db, IntegrationJob, job.id).payload == saved_payload
+
+
+def test_legacy_empty_payload_uses_current_ticket_and_logs_fallback(db, caplog):
+    ticket = make_ticket(db)
+    job = make_job(db, ticket, payload={})  # 마이그레이션이 채운 기존 작업
+    ticket.summary = "기존 작업의 현재 요약"
+    db.commit()
+    jira = FakeJira()
+
+    result = jira_create.run_jira_create_job(db, jira.client(), job.id, now=T0)
+
+    assert result.outcome == "CREATED"
+    assert jira.create_fields[0]["summary"] == "기존 작업의 현재 요약"
+    assert reload(db, IntegrationJob, job.id).payload == {}
+    assert "uses legacy empty payload" in caplog.text
+    assert "기존 작업의 현재 요약" not in caplog.text
+
+
+def test_latest_saved_key_overrides_enqueued_key_and_status_without_jira_call(db):
+    ticket = make_ticket(db)
+    job = make_job(db, ticket)
+    saved_payload = deepcopy(job.payload)  # jiraKey=None, jiraSyncStatus=PENDING
+    ticket.jira_key, ticket.jira_sync_status, ticket.work_status = "ITHD-5", "SYNCED", "RDY"
+    db.commit()
+    jira = FakeJira()
+
+    result = jira_create.run_jira_create_job(db, jira.client(), job.id, now=T0)
+
+    assert (result.outcome, result.jira_key) == ("SAVED", "ITHD-5")
+    assert jira.calls == []
+    assert reload(db, IntegrationJob, job.id).payload == saved_payload
+
+
+def test_latest_pending_status_overrides_old_synced_snapshot(db):
+    ticket = make_ticket(db, jira_key="ITHD-5", jira_sync_status="SYNCED", work_status="RDY")
+    job = make_job(db, ticket)
+    ticket.jira_key, ticket.jira_sync_status = None, "PENDING"
+    db.commit()
+    jira = FakeJira()
+
+    result = jira_create.run_jira_create_job(db, jira.client(), job.id, now=T0)
+
+    assert (result.outcome, result.jira_key) == ("CREATED", "ITHD-999")
+    assert jira.posts == 1
+    assert reload(db, IntegrationJob, job.id).payload["jiraKey"] == "ITHD-5"
+
+
+def test_partial_payload_is_not_supplemented_from_current_ticket(db):
+    ticket = make_ticket(db)
+    job = make_job(db, ticket)
+    job.payload = {k: v for k, v in job.payload.items() if k != "categoryCode"}
+    db.commit()
+    jira = FakeJira()
+
+    result = jira_create.run_jira_create_job(db, jira.client(), job.id, now=T0)
+
+    assert (result.outcome, result.reason) == ("NEEDS_ADMIN", "missing_value: categoryCode")
+    assert jira.calls == []
+
+
+def test_invalid_payload_type_goes_to_admin_without_jira_call(db):
+    ticket = make_ticket(db)
+    job = make_job(db, ticket, payload=["invalid"])
+    jira = FakeJira()
+
+    result = jira_create.run_jira_create_job(db, jira.client(), job.id, now=T0)
+
+    assert (result.outcome, result.reason) == ("NEEDS_ADMIN", "invalid_type: payload")
+    assert jira.calls == []
+
+
+@pytest.mark.parametrize("payload", [{}, {"summary": "일부 입력"}])
+def test_verifying_looks_up_without_using_creation_payload(db, payload):
+    ticket = make_ticket(db, jira_sync_status="VERIFYING")
+    job = make_job(db, ticket, payload=payload)
+    jira = FakeJira(existing=True)
+
+    result = jira_create.run_jira_create_job(db, jira.client(), job.id, now=T0)
+
+    assert (result.outcome, result.jira_key) == ("LINKED", "ITHD-77")
+    assert jira.posts == 0
+    assert reload(db, IntegrationJob, job.id).payload == payload
+
+
+def test_retry_keeps_original_creation_content(db):
+    ticket = make_ticket(db)
+    job = make_job(db, ticket)
+    jira = FakeJira(post_status=429)
+    first = jira_create.run_jira_create_job(db, jira.client(), job.id, now=T0)
+    assert first.outcome == "RETRY_SCHEDULED"
+    ticket = reload(db, Ticket, ticket.id)
+    ticket.summary = "재시도 전 변경한 요약"
+    db.commit()
+    jira.post_status = 201
+
+    result = jira_create.run_jira_create_job(db, jira.client(), job.id, now=T0 + timedelta(seconds=61))
+
+    assert result.outcome == "CREATED"
+    assert [fields["summary"] for fields in jira.create_fields] == ["VPN 접속 오류", "VPN 접속 오류"]
+
 
 def test_success_creates_issue_and_saves_key(db):
     ticket = make_ticket(db)
