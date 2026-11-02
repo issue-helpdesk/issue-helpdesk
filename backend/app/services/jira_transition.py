@@ -95,7 +95,7 @@ def run_jira_transition_job(
     ticket = db.get(Ticket, job.ticket_id, populate_existing=True)
     write_rejected = False
     try:
-        request = _validate_request(db, job, ticket)
+        request = validate_request(db, job, ticket)
         issue_key = ticket.jira_key
         verify_only = (job.last_error or "").startswith(VERIFY_ONLY)
         latest = jira.get_work_result(issue_key)
@@ -103,7 +103,7 @@ def run_jira_transition_job(
             raise _conflict()
         if request.target == "CLS" and not latest["final_result"] and request.note is None:
             raise JiraError("final_result_missing", "최종 처리 결과 없이 종결하지 않습니다.", retryable=False)
-        applied = _matches_result(latest, request)
+        applied = matches_result(latest, request)
         # 상태 전환 전에는 source==expected인 처리 결과 수정을 별도로 판정한다.
         if not applied:
             if verify_only:
@@ -119,7 +119,7 @@ def run_jira_transition_job(
                 write_rejected = error.reason == "rate_limited"
                 raise
             latest = jira.get_work_result(issue_key)
-            if not _matches_result(latest, request):
+            if not matches_result(latest, request):
                 raise JiraError("result_unknown", "Jira 변경 결과가 아직 요청과 일치하지 않습니다.", retryable=False)
         changed_at = None
         if request.target is not None:
@@ -128,7 +128,7 @@ def run_jira_transition_job(
             )
             # 변경 이력을 읽는 동안 다른 변경이 있었는지도 다시 확인한다.
             latest = jira.get_work_result(issue_key)
-            if not _matches_result(latest, request):
+            if not matches_result(latest, request):
                 raise _conflict()
         return _save_confirmed(db, job_id, attempt, request, latest, changed_at, now)
     except JiraError as error:
@@ -147,7 +147,7 @@ def _apply_request(jira: JiraClient, issue_key: str, request: TransitionRequest)
         jira.update_final_result(issue_key, request.note)
 
 
-def _validate_request(db: Session, job: IntegrationJob, ticket: Ticket | None) -> TransitionRequest:
+def validate_request(db: Session, job: IntegrationJob, ticket: Ticket | None) -> TransitionRequest:
     p = job.payload
     if ticket is None or not isinstance(p, dict):
         raise JiraError("invalid_job", "접수 또는 작업 입력이 없습니다.", retryable=False)
@@ -206,7 +206,7 @@ def _timestamp(value: Any) -> datetime:
         raise JiraError("invalid_job", "작업 시각이 올바르지 않습니다.", retryable=False) from error
 
 
-def _matches_result(latest: dict, request: TransitionRequest) -> bool:
+def matches_result(latest: dict, request: TransitionRequest) -> bool:
     return (latest["work_status"] == request.expected_status
             and (request.note is None or latest["final_result"] == request.note)
             and (request.expected_status not in {"FIN", "CLS"} or bool(latest["final_result"])))
@@ -229,7 +229,7 @@ def _mark_write(db: Session, job_id: int, attempt: int, now: datetime) -> bool:
     job, ticket = _lock_owned(db, job_id, attempt)
     if job is None:
         return False
-    _validate_request(db, job, ticket)
+    validate_request(db, job, ticket)
     job.last_error = VERIFY_ONLY + "write_started"
     job.updated_at = now
     db.commit()
@@ -240,7 +240,7 @@ def _save_confirmed(db, job_id, attempt, request, latest, changed_at, now) -> Tr
     job, ticket = _lock_owned(db, job_id, attempt)
     if job is None:
         return TransitionResult(job_id, "SKIPPED", "ownership_lost")
-    _validate_request(db, job, ticket)
+    validate_request(db, job, ticket)
     if request.target is not None:
         existing = db.scalar(select(TicketStatusHistory.id).where(
             TicketStatusHistory.ticket_id == ticket.id,

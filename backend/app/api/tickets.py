@@ -10,6 +10,8 @@ from app.schemas.ticket import (
     DraftUpdateRequest,
     DraftUpdateResult,
     IntegrationJob,
+    IntegrationRetryRequest,
+    IntegrationRetryResult,
     StatusHistory,
     Ticket,
     TicketCreateRequest,
@@ -87,3 +89,13 @@ def assignment_logs(ticket_id: int, auth: CurrentAuth, service: TicketServiceDep
 @router.get("/tickets/{ticket_id}/integration-jobs", response_model=ItemList[IntegrationJob])
 def integration_jobs(ticket_id: int, _: AdminAuth, service: TicketServiceDep) -> ItemList[IntegrationJob]:
     return service.integration_jobs(ticket_id)
+
+
+@router.post("/tickets/{ticket_id}/integration-jobs", response_model=IntegrationJob | IntegrationRetryResult,
+             status_code=status.HTTP_201_CREATED)
+def retry_integration_job(ticket_id: int, body: IntegrationRetryRequest, auth: AdminAuth, service: TicketServiceDep,
+                          response: Response) -> IntegrationJob | IntegrationRetryResult:
+    result = service.retry_integration_job(ticket_id, body, auth.user)
+    if isinstance(result, IntegrationRetryResult):      # 새 작업 없이 복구로 끝났다
+        response.status_code = status.HTTP_200_OK
+    return result

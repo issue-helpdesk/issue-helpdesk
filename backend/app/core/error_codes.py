@@ -13,6 +13,7 @@ class ErrorCode(Enum):
     TOKEN_EXPIRED = (401, "로그인 시간이 만료되었습니다. 다시 로그인해 주세요.")
     FORBIDDEN = (403, "이 기능을 사용할 권한이 없습니다.")
     NOT_FOUND = (404, "요청한 정보를 찾을 수 없습니다.")
+    SERVICE_UNAVAILABLE = (503, "서비스를 잠시 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.")
     METHOD_NOT_ALLOWED = (405, "지원하지 않는 요청입니다.")
     VALIDATION_ERROR = (422, "입력값을 확인해 주세요.")
     TOO_MANY_REQUESTS = (429, "요청이 많습니다. 잠시 후 다시 시도해 주세요.")
@@ -48,6 +49,8 @@ class ErrorCode(Enum):
     TICKET_NOT_SYNCED = (409, "Jira 연동이 끝난 뒤에 처리 상태를 변경할 수 있습니다.")
     TICKET_RESOLUTION_NOTE_REQUIRED = (422, "처리 완료로 변경하려면 처리 결과를 입력해 주세요.")
     INTEGRATION_JOB_IN_PROGRESS = (409, "이미 연동 작업이 진행 중입니다.")
+    INTEGRATION_RETRY_NOT_ALLOWED = (409, "현재 작업 상태에서는 재처리할 수 없습니다.")
+    INTEGRATION_ALREADY_SYNCED = (409, "이미 Jira에 연동된 접수입니다.")
     ASSIGNMENT_REASON_REQUIRED = (422, "담당자를 지정·변경할 때는 사유를 입력해 주세요.")
     ASSIGNEE_NOT_ASSIGNABLE = (422, "배정할 수 없는 담당자입니다. 그룹 소속·배정 가능 여부·Jira 계정을 확인해 주세요.")
     TICKET_SAVE_FAILED = (500, "접수를 저장하지 못했습니다. 작성하신 내용은 보존되어 있으니 잠시 후 다시 시도하거나 "

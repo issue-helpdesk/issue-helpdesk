@@ -150,6 +150,17 @@ class IntegrationJob(CamelModel):
     updated_at: KstDatetime | None
 
 
+class IntegrationRetryRequest(CamelModel):
+    retry_of_job_id: int
+    reason: trimmed_str(min_length=1, max_length=500)
+
+
+class IntegrationRetryResult(CamelModel):
+    ticket: "Ticket"
+    job: None = None
+    recovery_result: Literal["LINKED_EXISTING", "ALREADY_APPLIED"]
+
+
 class TicketCreateRequest(CamelModel):
     draft_id: int
     draft_updated_at: KstDatetime | None     # 필수. 사용자가 확인한 초안의 updatedAt, 수정한 적 없으면 null
