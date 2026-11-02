@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.integrations.jira.client import JiraClient, JiraError
 from app.integrations.jira.retry import RetryPolicy, next_step
 from app.models import Inquiry, IntegrationJob, Ticket, TicketStatusHistory, User
+from app.repositories.ticket import TicketRepository
 from app.utils import datetime_utils
 
 JOB_TYPE = "JIRA_TRANSITION"
@@ -169,6 +170,9 @@ def _validate_request(db: Session, job: IntegrationJob, ticket: Ticket | None) -
         raise JiraError("invalid_fields", "처리 결과가 올바르지 않습니다.", retryable=False)
     note = note.replace("\r\n", "\n").replace("\r", "\n").strip() if note is not None else None
     if target == "FIN":
+        # 이전에 등록된 작업도 재완료 입력 규칙을 지켜야 한다. Jira 조회·쓰기 전에 막는다.
+        if note is None and TicketRepository(db).has_reopened(ticket.id):
+            raise JiraError("invalid_fields", "재완료 요청에 처리 결과가 필요합니다.", retryable=False)
         note = note or (ticket.resolution_note.replace("\r\n", "\n").replace("\r", "\n").strip()
                         if ticket.resolution_note else None)
     if (target is None or target == "FIN") and not note:

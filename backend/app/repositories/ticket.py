@@ -157,6 +157,15 @@ class TicketRepository:
             .order_by(IntegrationJob.created_at, IntegrationJob.id)
         ))
 
+    def has_reopened(self, ticket_id: int) -> bool:
+        return self.db.scalar(
+            select(TicketStatusHistory.id).where(
+                TicketStatusHistory.ticket_id == ticket_id,
+                TicketStatusHistory.from_status == "FIN",
+                TicketStatusHistory.to_status == "WIP",
+            ).limit(1)
+        ) is not None
+
     def status_history(self, ticket_id: int) -> list[tuple[TicketStatusHistory, User | None]]:
         rows = self.db.execute(
             select(TicketStatusHistory, User)
