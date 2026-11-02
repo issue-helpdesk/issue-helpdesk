@@ -231,3 +231,65 @@ def test_unmapped_jira_account_is_reported_not_guessed():
 def test_blank_numbers_count_as_missing():
     r = route("acc-requester", assignee="  ")
     assert r.reason == "no_counterpart"
+
+
+# ---------------------------------------------------------------- 댓글 쓰기·중복 확인 (미해결 사유 전달)
+
+def test_add_comment_posts_adf_body_once():
+    sent = []
+
+    def handler(request):
+        sent.append((request.method, request.url.path, request.content))
+        return httpx.Response(201, json={"id": "10077"})
+
+    result = make_client(handler).add_comment("ITHD-12", "첫 줄\n둘째 줄")
+    assert result == {"comment_id": "10077"}
+    assert len(sent) == 1 and sent[0][:2] == ("POST", "/rest/api/3/issue/ITHD-12/comment")
+    import json
+    body = json.loads(sent[0][2])["body"]
+    assert adf_to_text(body) == "첫 줄\n둘째 줄"
+
+
+def test_add_comment_rejects_blank_text_without_calling_jira():
+    called = []
+    client = make_client(lambda request: called.append(request) or httpx.Response(201, json={"id": "1"}))
+    with pytest.raises(JiraError) as error:
+        client.add_comment("ITHD-12", "   ")
+    assert error.value.reason == "invalid_fields" and called == []
+
+
+def test_find_comment_matches_marker_across_pages():
+    from app.integrations.jira.mapper import _adf
+    pages = {0: [{"id": "1", "body": _adf("관련 없음")}] * 1, 1: [{"id": "2", "body": _adf("본문\n[RCPT-1 재처리 요청 X]"),
+                                                                    "author": {"accountId": "acc-bot"}}]}
+
+    def handler(request):
+        start = int(request.url.params["startAt"])
+        return httpx.Response(200, json={"comments": pages.get(start, []), "total": 2})
+
+    found = make_client(handler).find_comment("ITHD-12", "[RCPT-1 재처리 요청 X]")
+    assert found == {"comment_id": "2", "author_account_id": "acc-bot"}
+
+
+def test_find_comment_returns_none_when_marker_absent_and_stops_paging():
+    from app.integrations.jira.mapper import _adf
+    calls = []
+
+    def handler(request):
+        calls.append(int(request.url.params["startAt"]))
+        return httpx.Response(200, json={"comments": [{"id": "1", "body": _adf("다른 댓글")}], "total": 1})
+
+    assert make_client(handler).find_comment("ITHD-12", "[없음]") is None
+    assert calls == [0]
+
+
+def test_find_comment_read_timeout_is_retryable_and_blank_marker_is_rejected():
+    def boom(request):
+        raise httpx.ReadTimeout("timeout")
+
+    with pytest.raises(JiraError) as timeout:
+        make_client(boom).find_comment("ITHD-12", "[x]")
+    assert timeout.value.reason == "timeout" and timeout.value.retryable
+    with pytest.raises(JiraError) as blank:
+        make_client(boom).find_comment("ITHD-12", " ")
+    assert blank.value.reason == "invalid_fields"

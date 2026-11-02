@@ -345,6 +345,40 @@ class JiraClient:
             "updated": raw.get("updated"),
         }
 
+    # ---------------------------------------------------------------- 댓글 쓰기 (미해결 사유 전달용)
+
+    def find_comment(self, issue_key: str, marker: str) -> dict[str, Any] | None:
+        """본문에 marker 가 들어 있는 댓글을 처음 찾은 것 하나. 없으면 None. 읽기만 하므로 다시 불러도 안전하다.
+
+        add_comment 앞에서 부르면 시간 초과 뒤 재시도에도 같은 댓글이 두 번 달리지 않는다.
+        """
+        marker = (marker or "").strip()
+        if not marker:
+            raise JiraError("invalid_fields", "댓글 식별 문구가 비어 있습니다.", retryable=False)
+        start, page = 0, 100
+        while True:
+            raw = self._request("GET", f"/rest/api/3/issue/{issue_key}/comment",
+                                params={"startAt": start, "maxResults": page})
+            comments = raw.get("comments") or []
+            for item in comments:
+                if marker in adf_to_text(item.get("body")):
+                    author = item.get("author") if isinstance(item.get("author"), Mapping) else {}
+                    return {"comment_id": str(item.get("id")), "author_account_id": author.get("accountId")}
+            start += len(comments)
+            if not comments or start >= int(raw.get("total") or 0):
+                return None
+
+    def add_comment(self, issue_key: str, text: str) -> dict[str, Any]:
+        """댓글 한 건을 단다. 쓰기라서 시간 초과·통신 오류 뒤에는 달렸는지 find_comment 로 먼저 확인한다(자동 재전송 없음).
+
+        반환: {"comment_id"}. 본문은 호출하는 쪽이 이미 가려서(마스킹) 넘긴다.
+        """
+        text = (text or "").strip()
+        if not text:
+            raise JiraError("invalid_fields", "댓글 내용이 비어 있습니다.", retryable=False)
+        raw = self._request("POST", f"/rest/api/3/issue/{issue_key}/comment", json={"body": _adf(text)})
+        return {"comment_id": str(raw.get("id") or "")}
+
     # ---------------------------------------------------------------- 내부
 
     def _result(self, issue_id: str, key: str) -> dict[str, Any]:
