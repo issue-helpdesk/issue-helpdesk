@@ -9,19 +9,35 @@ import type { Page } from '../inquiries'
 import type { AccountHistoryItem, Department, UserCreateRequest, UserCreateResult, UserListQuery, UserSummary, UserUpdateRequest } from '../userTypes'
 import { MOCK_ACCOUNTS, setTempPassword, unlockAccount } from './accounts'
 
-/** 시연 부서 목록 (RF-05) */
+/** 시연 부서 목록 (RF-05): 서버 시드의 사업부(상위)와 팀 21개. ID 는 모의용 임의 값이다 */
 export const DEPARTMENTS: Department[] = [
-  { id: 11, name: '개발1팀', parentId: 10, isActive: true },
-  { id: 12, name: '개발2팀', parentId: 10, isActive: true },
-  { id: 20, name: '서비스데스크', parentId: null, isActive: true },
-  { id: 21, name: '네트워크팀', parentId: null, isActive: true },
-  { id: 22, name: '보안팀', parentId: null, isActive: true },
-  { id: 23, name: '인프라팀', parentId: null, isActive: true },
-  { id: 31, name: '영업1팀', parentId: 30, isActive: true },
-  { id: 32, name: '영업2팀', parentId: 30, isActive: true },
-  { id: 41, name: '디자인팀', parentId: null, isActive: true },
-  { id: 51, name: '인사팀', parentId: null, isActive: true },
-  { id: 52, name: '재무팀', parentId: null, isActive: true },
+  { id: 1, name: 'SI·솔루션사업', parentId: null, isActive: true },
+  { id: 2, name: 'IT운영·보안', parentId: null, isActive: true },
+  { id: 3, name: '사업·영업', parentId: null, isActive: true },
+  { id: 4, name: '경영지원', parentId: null, isActive: true },
+  { id: 5, name: 'AI·DX', parentId: null, isActive: true },
+  { id: 6, name: 'ITO·클라우드', parentId: null, isActive: true },
+  { id: 11, name: '개발1팀', parentId: 1, isActive: true },
+  { id: 12, name: '개발2팀', parentId: 1, isActive: true },
+  { id: 41, name: '디자인팀', parentId: 1, isActive: true },
+  { id: 20, name: '서비스데스크', parentId: 2, isActive: true },
+  { id: 21, name: '네트워크팀', parentId: 2, isActive: true },
+  { id: 22, name: '정보보안팀', parentId: 2, isActive: true },
+  { id: 23, name: '시스템인프라팀', parentId: 2, isActive: true },
+  { id: 24, name: '업무시스템팀', parentId: 2, isActive: true },
+  { id: 25, name: '엔드포인트지원팀', parentId: 2, isActive: true },
+  { id: 31, name: '영업1팀', parentId: 3, isActive: true },
+  { id: 32, name: '영업2팀', parentId: 3, isActive: true },
+  { id: 33, name: '마케팅팀', parentId: 3, isActive: true },
+  { id: 64, name: '고객지원팀', parentId: 3, isActive: true },
+  { id: 51, name: '인사팀', parentId: 4, isActive: true },
+  { id: 52, name: '재무팀', parentId: 4, isActive: true },
+  { id: 53, name: '경영기획팀', parentId: 4, isActive: true },
+  { id: 54, name: '법무팀', parentId: 4, isActive: true },
+  { id: 55, name: '구매팀', parentId: 4, isActive: true },
+  { id: 61, name: '연구소', parentId: 5, isActive: true },
+  { id: 62, name: '생산관리팀', parentId: 6, isActive: true },
+  { id: 63, name: '품질관리팀', parentId: 6, isActive: true },
 ]
 
 /** 계정에 딸린 값 중 로그인용 User 에 없는 것 (처음 읽을 때 사번으로 만든다) */
@@ -46,8 +62,8 @@ const metaOf = (u: User): Meta => {
   let m = metas.get(u.employeeNo)
   if (!m) {
     m = {
-      email: `${u.employeeNo.toLowerCase()}@itssue.example`,
-      position: u.serviceRole === 'EMPLOYEE' ? '팀원' : '선임',
+      email: `${u.employeeNo.toLowerCase()}@ict.example`,
+      position: u.serviceRole === 'ADMIN' ? '팀장' : '팀원',
       lastLoginAt: u.id % 7 === 0 ? null : daysAgoIso((u.id * 3) % 20),
       createdAt: daysAgoIso(60 + u.id),
     }

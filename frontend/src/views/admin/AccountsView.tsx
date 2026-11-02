@@ -144,7 +144,8 @@ export function AccountsView() {
   const items = useMemo(() => data?.items ?? [], [data])
   // 부서 목록 API 가 아직 없으면 지금 목록에서 본 부서로 대신한다
   const deptOptions = useMemo(() => {
-    if (depts.length) return depts.map((d) => ({ id: d.id, name: d.name }))
+    // 서버는 상위 조직(사업부)도 함께 주므로, 사용자가 속한 가장 아래 부서만 고르게 한다 (RF-05: 트리는 프론트가 구성)
+    if (depts.length) return depts.filter((d) => !depts.some((x) => x.parentId === d.id)).map((d) => ({ id: d.id, name: d.name }))
     const seen = new Map<number, string>()
     items.forEach((u) => u.department && seen.set(u.department.id, u.department.name))
     return [...seen].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'ko'))
