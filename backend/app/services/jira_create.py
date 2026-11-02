@@ -339,4 +339,3 @@ def _error_text(error: JiraError) -> str:
     if error.status_code:
         return f"{error.reason} (HTTP {error.status_code})"
     return error.reason
-

@@ -480,4 +480,3 @@ def test_stale_running_job_is_requeued_as_verifying(db):
                      status="RUNNING", updated_at=T0 - timedelta(minutes=1))
     assert jira_create.requeue_stale_running_jobs(db, now=T0) == 0
     assert reload(db, IntegrationJob, fresh.id).status == "RUNNING"
-

@@ -263,4 +263,3 @@ if event.is_comment_created:
 **확인**
 
 - 테스트 96개 통과 (기존 63개 + 새 33개). 실제 Jira는 호출하지 않았고, 댓글 이벤트 본문과 `GET /rest/api/3/issue/{key}/comment/{id}` 응답은 Atlassian 문서 형식을 기준으로 만든 모의값입니다. 실제 ITHD 웹훅으로 `comment_created` 본문(`comment.author.accountId` 등)을 한 번 확인해야 합니다.
-
