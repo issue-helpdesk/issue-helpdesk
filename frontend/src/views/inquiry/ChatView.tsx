@@ -435,6 +435,11 @@ export function ChatView() {
               새 문의 시작하기
             </button>
           </div>
+          {error && (
+            <div className="ferr" role="alert" style={{ marginTop: 10 }}>
+              {error}
+            </div>
+          )}
         </Modal>
       )}
 

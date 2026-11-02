@@ -155,12 +155,13 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
   const opener = useRef<HTMLElement | null>(null)
   useEffect(() => {
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    closeBtn.current?.focus()
+    // 패널이 화면 오른쪽 밖에서 밀려 들어오는 중이라, 그냥 초점을 옮기면 브라우저가 그 버튼을 보이게 하려고 앱 전체를 옆으로 밀어 버린다(화면이 튄다)
+    closeBtn.current?.focus({ preventScroll: true })
   }, [])
   const finish = () => {
     const el = opener.current
     onClose()
-    if (el && el !== document.body) setTimeout(() => el.isConnected && el.focus(), 0)
+    if (el && el !== document.body) setTimeout(() => el.isConnected && el.focus({ preventScroll: true }), 0)
   }
   const close = () => {
     if (leaving) return

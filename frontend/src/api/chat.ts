@@ -15,8 +15,8 @@
 import { sleep } from '../core/apiClient'
 import { USE_MOCK_INQUIRY } from '../core/config'
 import { visiblePoll } from '../core/poll'
-import type { DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
-import { loadInquiry, notReady, serverClose, serverResolve, serverResume, serverSend, serverStart } from './inquiryServer'
+import type { ChatMessage, DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
+import { NO_CONNECT_LABEL, NO_TICKET_CLOSED, RESOLVED_LABEL, RESOLVED_REPLY, UNRESOLVED_LABEL, UNRESOLVED_REPLY, loadInquiry, notReady, serverClose, serverResolve, serverResume, serverSend, serverStart } from './inquiryServer'
 import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, idleWarnInquiry, idleDeleteInquiry, idleBackInquiry, leaveInquiry, resumeInquiry } from './mock/chatEngine'
 import './mock/chatMock'
 import { getRecord, mockConfig, notify, subscribe, type StoreRecord } from './mock/chatStore'
@@ -24,6 +24,8 @@ import { fail, ok, type ApiResult } from './types'
 
 /** 실제 서버를 다시 읽는 간격(ms). 답변은 요청이 끝나면 바로 받으므로, 담당자 메시지·접수 진행을 확인하는 정도로만 읽는다. 탭이 가려져 있으면 읽지 않는다 */
 const POLL_MS = 10_000
+/** 답을 만드는 중일 때 다시 읽는 간격(ms) */
+const QUICK_MS = 3000
 
 /** 서버 모드: 마지막으로 읽은 문의 (답변을 기다리는 동안 보여 줄 화면의 바탕), 보고 있는 화면의 갱신 함수, 진행 중인 요청 수 */
 const lastSeen = new Map<number, Inquiry>()
@@ -136,14 +138,21 @@ export function watchChat(id: number, employeeNo: string, onChange: (r: ApiResul
     return off
   }
   optimistic.set(id, onChange)
-  const stop = visiblePoll(() => {
+  // 서버가 아직 답을 만드는 중이면(내 글만 저장된 상태) 답이 오는 것을 놓치지 않게 잠깐 짧은 간격으로 다시 읽는다
+  let quick: ReturnType<typeof setTimeout> | undefined
+  const load = () => {
     if (inflight) return // 답변을 기다리는 중에는 화면을 되돌리지 않는다
     loadInquiry(id).then((r) => {
-      if (!inflight) onChange(remember(r))
+      if (inflight) return
+      onChange(remember(r))
+      clearTimeout(quick)
+      if (r.ok && r.data.step === 'answering') quick = setTimeout(load, QUICK_MS)
     })
-  }, POLL_MS)
+  }
+  const stop = visiblePoll(load, POLL_MS)
   return () => {
     stop()
+    clearTimeout(quick)
     optimistic.delete(id)
   }
 }
@@ -169,15 +178,40 @@ export function sendChat(id: number, employeeNo: string, text: string): Promise<
   return track(serverSend(id, text))
 }
 
+/**
+ * 서버 모드: 버튼을 누르면 서버가 답할 때까지 기다리지 않고, 내가 고른 말풍선과 다음 모습을 먼저 보여 준다 (모의와 같은 반응).
+ * 서버 요청이 끝나면 서버의 문의로 바뀌고, 실패하면 이전 화면으로 돌아간다.
+ */
+function showChoice(id: number, label: string, after: 'resolved' | 'unresolved' | 'closed', job: () => Promise<ApiResult<Inquiry>>): Promise<ApiResult<Inquiry>> {
+  const base = lastSeen.get(id)
+  if (!base) return track(job())
+  const kept = base.messages.map((m) => ({ ...m, replies: undefined }))
+  const mine: ChatMessage = { id: -1, role: 'user', text: label }
+  // 서버가 끝난 뒤의 모습과 같게 미리 그린다 (해결: 종료 안내, 미해결: 연결 제안 버튼, 연결 거절: 종료 안내)
+  const wait: Inquiry =
+    after === 'closed'
+      ? { ...base, status: 'CLOSED_UNRESOLVED', step: 'closed', messages: [...kept, mine, ...NO_TICKET_CLOSED] }
+      : after === 'resolved'
+        ? { ...base, status: 'AI_RESOLVED', step: 'closed', messages: [...kept, mine, RESOLVED_REPLY] }
+        : { ...base, step: 'offer', messages: [...kept, mine, { ...UNRESOLVED_REPLY, replies: [{ label: '담당자 연결', action: 'connect-yes', primary: true }, { label: '미연결 (종료)', action: 'connect-no' }] }] }
+  optimistic.get(id)?.(ok(wait))
+  const run = track(job())
+  // 실패하면 먼저 보여 준 말풍선을 거두고 이전 화면으로 돌아간다
+  void run.then((r) => {
+    if (!r.ok) optimistic.get(id)?.(ok(base))
+  })
+  return run
+}
+
 export function replyChat(id: number, employeeNo: string, req: ReplyRequest): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => applyReply(rec, req))
   switch (req.action) {
     case 'resolved':
-      return track(serverResolve(id, 'RESOLVED'))
+      return showChoice(id, RESOLVED_LABEL, 'resolved', () => serverResolve(id, 'RESOLVED'))
     case 'unresolved':
-      return track(serverResolve(id, 'UNRESOLVED'))
+      return showChoice(id, UNRESOLVED_LABEL, 'unresolved', () => serverResolve(id, 'UNRESOLVED'))
     case 'connect-no':
-      return track(serverClose(id))
+      return showChoice(id, NO_CONNECT_LABEL, 'closed', () => serverClose(id))
     case 'connect-yes':
       return Promise.resolve(notReady('담당자 연결(접수 초안)'))
     case 'quick':

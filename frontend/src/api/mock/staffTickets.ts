@@ -205,9 +205,38 @@ const slackLog: (SlackPreview & { ticketId: number })[] = []
 let msgSeq = 1
 let histSeq = 1
 
+/**
+ * 로그인(서버)과 접수(모의)를 섞어 쓸 때: 서버가 정한 사용자 번호(id)가 모의 담당자의 번호와 달라서, 로그인한 담당자의 접수가 비어 보인다.
+ * 사번이 같은 모의 구성원·접수의 담당자·문의자 번호를 로그인한 사용자의 번호로 맞춘다.
+ */
+const bound = new Map<string, number>()
+function applyBound() {
+  if (!bound.size) return
+  const fix = (u: UserRef | null | undefined): UserRef | null | undefined => (u && bound.has(u.employeeNo) ? { ...u, id: bound.get(u.employeeNo)! } : u)
+  Object.values(GROUP_STAFF).forEach((list) => list.forEach((m) => bound.has(m.employeeNo) && (m.id = bound.get(m.employeeNo)!)))
+  seeds.forEach((t) => {
+    t.assignee = fix(t.assignee) ?? null
+    t.requester = fix(t.requester) ?? t.requester
+  })
+}
+export function bindMockUser(employeeNo: string, id: number) {
+  if (bound.get(employeeNo) === id) return
+  bound.set(employeeNo, id)
+  applyBound()
+  notify()
+}
+/** 테스트에서 맞춰 둔 번호를 지운다 (모의 구성원의 원래 번호로 되돌린다) */
+export function clearBoundUsers() {
+  bound.clear()
+  Object.entries(GROUP_STAFF).forEach(([g, list]) => list.forEach((m, i) => (m.id = ORIGINAL_IDS[g][i])))
+  resetStaffMock()
+}
+const ORIGINAL_IDS: Record<string, number[]> = Object.fromEntries(Object.entries(GROUP_STAFF).map(([g, list]) => [g, list.map((m) => m.id)]))
+
 /** 시연 접수와 이력을 처음 상태로 되돌린다 (새로고침과 같은 효과, 테스트에서도 사용) */
 export function resetStaffMock() {
   seeds = SEED_ARGS.map(seedTicket)
+  applyBound()
   explicitHistory.clear()
   messages.clear()
   slackLog.length = 0

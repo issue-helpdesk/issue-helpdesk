@@ -17,6 +17,7 @@ import { listTickets, watchTickets } from '../../api/tickets'
 import type { TicketListQuery, TicketSummary } from '../../api/ticketTypes'
 import titleDone from '../../assets/mascot/title-done.webp'
 import titleInq from '../../assets/mascot/title-inq.webp'
+import { USE_MOCK_INQUIRY, USE_MOCK_TICKET } from '../../core/config'
 import { formatDateTime, formatElapsed } from '../../core/format'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
@@ -328,9 +329,9 @@ export function AllTicketsView() {
                     <table className="tbl">
                       <thead>
                         <tr>
-                          <SortTh col="title" label="문의" sort={aiSort} onSort={onAiSort} />
-                          <SortTh col="cat" label="분류" sort={aiSort} onSort={onAiSort} />
-                          <SortTh col="guide" label="사용한 가이드" sort={aiSort} onSort={onAiSort} />
+                          <SortTh plain={!USE_MOCK_INQUIRY} col="title" label="문의" sort={aiSort} onSort={onAiSort} />
+                          <SortTh plain={!USE_MOCK_INQUIRY} col="cat" label="분류" sort={aiSort} onSort={onAiSort} />
+                          <SortTh plain={!USE_MOCK_INQUIRY} col="guide" label="사용한 가이드" sort={aiSort} onSort={onAiSort} />
                           <th>구분</th>
                           <SortTh col="when" label="시점" sort={aiSort} onSort={onAiSort} />
                         </tr>
@@ -479,12 +480,12 @@ export function AllTicketsView() {
                       <thead>
                         <tr>
                           <SortTh col="pri" label="긴급도" center sort={sort} onSort={onSort} />
-                          <SortTh col="receipt" label="접수번호 / 티켓" sort={sort} onSort={onSort} />
-                          <SortTh col="title" label="제목" sort={sort} onSort={onSort} />
+                          <SortTh plain={!USE_MOCK_TICKET} col="receipt" label="접수번호 / 티켓" sort={sort} onSort={onSort} />
+                          <SortTh plain={!USE_MOCK_TICKET} col="title" label="제목" sort={sort} onSort={onSort} />
                           <SortTh col="status" label="상태" center sort={sort} onSort={onSort} />
                           <SortTh col="when" label="접수일 / 경과" sort={sort} onSort={onSort} />
-                          <SortTh col="cat" label="분류" center sort={sort} onSort={onSort} />
-                          <SortTh col="assignee" label="담당" sort={sort} onSort={onSort} />
+                          <SortTh plain={!USE_MOCK_TICKET} col="cat" label="분류" center sort={sort} onSort={onSort} />
+                          <SortTh plain={!USE_MOCK_TICKET} col="assignee" label="담당" sort={sort} onSort={onSort} />
                         </tr>
                       </thead>
                       <tbody>

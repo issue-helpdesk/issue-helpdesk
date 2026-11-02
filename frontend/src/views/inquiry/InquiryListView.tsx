@@ -12,6 +12,7 @@ import type { CategoryCode } from '../../api/chatTypes'
 import { groupOf, LIST_GROUPS, listInquiries, type InquiryListQuery, type ListGroup, type Page } from '../../api/inquiries'
 import type { InquirySummary } from '../../api/types'
 import titleHist from '../../assets/mascot/title-hist.webp'
+import { USE_MOCK_INQUIRY } from '../../core/config'
 import { formatRelative, formatStart } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { FilterPill } from '../../ui/FilterPill'
@@ -59,7 +60,9 @@ function StatusCell({ s }: { s: InquirySummary }) {
 }
 
 /** 정렬할 수 있는 열 머리 */
-function SortTh({ col, label, tip, sort, onSort }: { col: SortCol; label: string; tip?: string; sort: { col: SortCol; dir: 'asc' | 'desc' }; onSort: (c: SortCol) => void }) {
+function SortTh({ col, label, tip, plain, sort, onSort }: { col: SortCol; label: string; tip?: string; plain?: boolean; sort: { col: SortCol; dir: 'asc' | 'desc' }; onSort: (c: SortCol) => void }) {
+  // 서버는 문의 목록을 최근 메시지(updatedAt)·접수(createdAt)·긴급도 순으로만 정렬한다. 나머지 열은 글자만 보인다
+  if (plain) return <th>{label}</th>
   const on = sort.col === col
   return (
     <th aria-sort={on ? (sort.dir === 'desc' ? 'descending' : 'ascending') : 'none'}>
@@ -218,9 +221,9 @@ export function InquiryListView() {
                   <table className="tbl">
                     <thead>
                       <tr>
-                        <SortTh col="title" label="문의" sort={sort} onSort={onSort} />
-                        <SortTh col="category" label="분류" sort={sort} onSort={onSort} />
-                        <SortTh col="status" label="상태" sort={sort} onSort={onSort} />
+                        <SortTh plain={!USE_MOCK_INQUIRY} col="title" label="문의" sort={sort} onSort={onSort} />
+                        <SortTh plain={!USE_MOCK_INQUIRY} col="category" label="분류" sort={sort} onSort={onSort} />
+                        <SortTh plain={!USE_MOCK_INQUIRY} col="status" label="상태" sort={sort} onSort={onSort} />
                         <th>접수번호</th>
                         <SortTh col="when" label="최근 메시지" tip="마지막 메시지 등록 시각 기준" sort={sort} onSort={onSort} />
                       </tr>

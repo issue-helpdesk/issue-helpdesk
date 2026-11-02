@@ -186,6 +186,13 @@ describe('서버 모드 메시지·해결 확인·종료', () => {
     expect(r.ok && r.data.step).toBe('closed') // 서버가 닫힌 상태로 주면 닫힘이 우선
     expect(sent()[0].url).toBe('/api/v1/inquiries/128/sessions')
   })
+
+  it('담당자 연결을 거절해 끝낸 문의는 서버가 이어가기를 거절(409)하고, 화면은 이유를 알려 준다', async () => {
+    const { chat } = await load()
+    route((u, i) => (u.endsWith('/inquiries/128/sessions') && i.method === 'POST' ? json(409, { error: { code: 'INQUIRY_INVALID_STATE', message: '현재 상태', details: [{ field: 'status', reason: 'CURRENT_STATUS', message: '현재 상태', value: 'CLOSED_UNRESOLVED' }], traceId: 't' } }) : undefined))
+    const r = await chat.reopenChat(128, 'EMP-1300')
+    expect(r).toMatchObject({ ok: false, error: { code: 'INQUIRY_INVALID_STATE', message: '이미 종료된 문의는 이어갈 수 없어요. 새 문의로 시작해 주세요.' } })
+  })
 })
 
 describe('서버 모드 문의 목록', () => {
