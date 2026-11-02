@@ -34,6 +34,10 @@ class JiraSettings:
 def get_jira_settings() -> JiraSettings:
     return JiraSettings()
 
+def get_jira_webhook_secret() -> str | None:
+    """Jira 웹훅 서명 비밀값. 없으면 모든 웹훅을 거절한다."""
+    return os.environ.get("JIRA_WEBHOOK_SECRET") or None
+
 class AuthSettings:
 
     def __init__(self) -> None:
