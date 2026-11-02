@@ -13,7 +13,7 @@ import { cancelChatDraft, isStaleInquiry, confirmChatDraft, editDraft, getChat, 
 import { IDLE_TEXT, type DraftEdit, type GuideSource, type Inquiry, type LegacyCase } from '../../api/chatTypes'
 import { displayStatusOf, inquiryState } from '../../api/inquiryState'
 import type { ApiResult } from '../../api/types'
-import { SERVICEDESK, USE_MOCK } from '../../core/config'
+import { SERVICEDESK, USE_MOCK_INQUIRY } from '../../core/config'
 import { sourceFull } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
@@ -259,7 +259,7 @@ export function ChatView() {
   const lock = paused ? { ph: '아래에서 이어갈 방법을 골라 주세요', why: '' } : wait ? LOCK[wait] : null
   const placeholder = endMsg ?? (lock ? lock.ph : t ? '담당자에게 추가로 전달할 내용을 입력해 주세요.' : '메시지를 입력해 주세요.')
   // 시연: 응답 없음 삭제 안내 · 삭제 · 돌아옴. 질문·연결 제안·초안 단계에서만 쓴다 (접수된 건·끝난 문의·미확인은 대상이 아니다).
-  const demoIdle = USE_MOCK && !!employeeNo && !t && !closed && inquiry.step !== 'answered'
+  const demoIdle = USE_MOCK_INQUIRY && !!employeeNo && !t && !closed && inquiry.step !== 'answered'
   // 이어가기 뒤 담당자 연결 버튼이 대화 위쪽에 멀리 있으면, 버튼을 맨 아래에 다시 보여 준다 (저장되는 메시지가 아니라 화면 표시)
   const lastMsg = inquiry.messages[inquiry.messages.length - 1]
   const tailMsg = !t && inquiry.step === 'offer' ? [...inquiry.messages].reverse().find((m) => !m.locked && m.replies?.some((r) => r.action === 'connect-yes') && !m.replies.some((r) => r.action === 'resolved')) : undefined
