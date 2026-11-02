@@ -2,7 +2,7 @@
  * 시연용 담당자 접수 저장소. 실제 API(VITE_USE_MOCK=false)에서는 쓰이지 않으며 서버가 같은 역할을 한다.
  *
  * 담당자 화면의 접수는 두 곳에서 온다.
- *  1) 이 파일의 시연 접수: 네트워크팀 김담당(EMP-1107)이 맡은 여러 상태의 접수
+ *  1) 이 파일의 시연 접수: 네트워크팀 성민경(EMP-1004)이 맡은 여러 상태의 접수
  *  2) 문의자가 대화에서 접수한 Ticket: 문의 저장소(chatStore)의 문의에 붙어 있고, 담당자 화면에서도 보인다.
  *     담당자가 상태를 바꾸면 문의자 화면의 진행 카드도 함께 바뀐다.
  * 저장소가 바뀌면 chatStore 의 notify 로 알려, 열려 있는 모든 화면이 다시 읽는다.
@@ -18,8 +18,8 @@ import { notify, allRecords, type StoreRecord } from './chatStore'
 /** 담당 그룹 이름 → 그룹 ID (시연용) */
 const GROUP_ID: Record<string, number> = { 서비스데스크: 1, 엔드포인트지원팀: 2, 네트워크팀: 3, 시스템인프라팀: 4, 업무시스템팀: 5, 정보보안팀: 6 }
 
-const ME: UserRef = { id: 2, employeeNo: 'EMP-1107', name: '김담당' }
-const OTHER: UserRef = { id: 302, employeeNo: 'EMP-1108', name: '전다랑' }
+const ME: UserRef = { id: 2, employeeNo: 'EMP-1004', name: '성민경' }
+const OTHER: UserRef = { id: 302, employeeNo: 'EMP-1049', name: '정서현' }
 
 const userOf = (employeeNo: string, fallbackName = ''): UserRef => {
   const a = MOCK_ACCOUNTS.find((x) => x.employeeNo === employeeNo)
@@ -49,10 +49,10 @@ interface SeedArgs {
 }
 
 const WHO: Record<string, UserRef> = {
-  서연: { id: 1, employeeNo: 'EMP-1001', name: '김서연' },
-  민수: { id: 4, employeeNo: 'EMP-1003', name: '박민수' },
-  지은: { id: 5, employeeNo: 'EMP-1004', name: '이지은' },
-  신입: { id: 8, employeeNo: 'EMP-1010', name: '한신입' },
+  서연: { id: 1, employeeNo: 'EMP-1001', name: '이태윤' },
+  민수: { id: 4, employeeNo: 'EMP-1003', name: '김민지' },
+  지은: { id: 5, employeeNo: 'EMP-1082', name: '공은서' },
+  신입: { id: 8, employeeNo: 'EMP-1300', name: '최지혜' },
 }
 
 const at = (a: { d?: number; h?: number }) => new Date(Date.now() - ((a.d ?? 0) * 24 + (a.h ?? 0)) * 3_600_000).toISOString()
@@ -112,7 +112,7 @@ const SEED_ARGS: SeedArgs[] = [
   { n: 12, title: 'Wi-Fi 비밀번호 변경 안내 요청', cat: 'NET', p: 'P4', who: '지은', workStatus: 'CLS', ago: { d: 12 }, note: '변경된 비밀번호를 안내했습니다.' },
   { n: 13, title: '사무실 이전 후 네트워크 포트 점검', cat: 'NET', p: 'P3', who: '민수', workStatus: 'CLS', ago: { d: 15 }, note: '포트 매핑을 확인하고 정상 동작을 확인했습니다.' },
   { n: 14, title: 'VPN 이중 인증 코드가 오지 않아요', cat: 'ACC', p: 'P3', who: '서연', workStatus: 'CLS', ago: { d: 20 }, note: '인증 번호 수신 번호를 갱신했습니다.' },
-  // 다른 담당자(전다랑)가 맡은 건: 내 목록에는 보이지 않고 팀 현황에만 들어간다
+  // 다른 담당자(정서현)가 맡은 건: 내 목록에는 보이지 않고 팀 현황에만 들어간다
   { n: 15, title: '방화벽 예외 규칙 요청', cat: 'NET', p: 'P3', who: '민수', workStatus: 'WIP', ago: { d: 2 }, assignee: OTHER },
   { n: 16, title: '외부 접속 포트 확인 요청', cat: 'NET', p: 'P4', who: '지은', workStatus: 'RDY', ago: { d: 1 }, assignee: OTHER },
 ]
@@ -240,9 +240,9 @@ export function historyOf(t: TicketDetail): StatusHistory[] {
 /** 같은 그룹 팀원 (모의): 이름과 근무 여부. 서버에는 아직 이 정보를 주는 API 가 없어 제안으로 다룬다 */
 export const TEAM_MEMBERS: Record<string, { name: string; avail: boolean }[]> = {
   네트워크팀: [
-    { name: '김담당', avail: true },
-    { name: '전다랑', avail: true },
-    { name: '정네트', avail: false },
+    { name: '성민경', avail: true },
+    { name: '정서현', avail: true },
+    { name: '황진혁', avail: false },
   ],
 }
 

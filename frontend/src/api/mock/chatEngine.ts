@@ -214,8 +214,8 @@ const STAFF_BY_GROUP: Record<string, { id: number; name: string }[]> = {
     { id: 202, name: '배두루' },
   ],
   네트워크팀: [
-    { id: 2, name: '김담당' },
-    { id: 302, name: '전다랑' },
+    { id: 2, name: '성민경' },
+    { id: 302, name: '정서현' },
   ],
   시스템인프라팀: [
     { id: 401, name: '구쿼카' },

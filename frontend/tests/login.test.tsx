@@ -67,7 +67,7 @@ describe('로그인 화면', () => {
     renderApp()
     await user.click(screen.getByRole('button', { name: '로그인' }))
     expect(await screen.findByRole('heading', { name: '새 문의' }, SLOW)).toBeInTheDocument()
-    expect(screen.getByText(/김서연님/)).toBeInTheDocument()
+    expect(screen.getByText(/이태윤님/)).toBeInTheDocument()
     expect(tokenStore.get()).toBe('mock.EMP-1001')
   })
 
@@ -163,10 +163,10 @@ describe('로그인 화면', () => {
   it('잠금 후 10분이 지나면 다시 로그인할 수 있다', async () => {
     const user = userEvent.setup()
     renderApp()
-    expireLockForDemo('EMP-1530') // 10분이 지난 것처럼 만든다
+    expireLockForDemo('EMP-1037') // 10분이 지난 것처럼 만든다
     await user.click(screen.getByRole('button', { name: '잠김 계정' }))
     expect(await screen.findByRole('heading', { name: '새 문의' }, SLOW)).toBeInTheDocument()
-    expect(tokenStore.get()).toBe('mock.EMP-1530')
+    expect(tokenStore.get()).toBe('mock.EMP-1037')
   })
 
   it('로그인 화면에 승인 대기 계정 버튼은 없다', () => {
@@ -200,7 +200,7 @@ describe('로그인 화면', () => {
   })
 
   it('저장된 토큰이 있으면 새로고침 후에도 로그인 상태를 유지한다', async () => {
-    tokenStore.set('mock.EMP-0912')
+    tokenStore.set('mock.EMP-1178')
     renderApp('/login')
     expect(await screen.findByRole('heading', { name: '대시보드' }, SLOW)).toBeInTheDocument()
   })

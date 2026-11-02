@@ -11,7 +11,7 @@ import type { User } from '../types'
 /** 모든 가상 계정의 공통 비밀번호 */
 export const MOCK_PASSWORD = 'demo'
 
-/** 임시 비밀번호 상태를 시연하는 계정(EMP-1010)의 임시 비밀번호 */
+/** 임시 비밀번호 상태를 시연하는 계정(EMP-1300)의 임시 비밀번호 */
 export const MOCK_TEMP_PASSWORD = 'Tmp#Demo1234'
 
 /** 연속 로그인 실패가 이 횟수에 이르면 계정이 잠긴다. */
@@ -22,14 +22,14 @@ export const LOCK_MINUTES = 10
 
 /** 계정 초기 상태 (reset 할 때 이 값으로 되돌린다) */
 const SEED: User[] = [
-  { id: 1, employeeNo: 'EMP-1001', name: '김서연', departmentId: 11, departmentName: '개발1팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
-  { id: 2, employeeNo: 'EMP-1107', name: '김담당', departmentId: 21, departmentName: '네트워크팀', serviceRole: 'AGENT', accountStatus: 'ACTIVE' },
-  { id: 3, employeeNo: 'EMP-0912', name: '최관리', departmentId: 20, departmentName: '서비스데스크', serviceRole: 'ADMIN', accountStatus: 'ACTIVE' },
-  { id: 4, employeeNo: 'EMP-1003', name: '박민수', departmentId: 31, departmentName: '영업1팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
-  { id: 5, employeeNo: 'EMP-1004', name: '이지은', departmentId: 41, departmentName: '디자인팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
-  { id: 6, employeeNo: 'EMP-1488', name: '박과장', departmentId: 32, departmentName: '영업2팀', serviceRole: 'EMPLOYEE', accountStatus: 'INACTIVE' },
-  { id: 7, employeeNo: 'EMP-1530', name: '정과장', departmentId: 31, departmentName: '영업1팀', serviceRole: 'EMPLOYEE', accountStatus: 'LOCKED' },
-  { id: 8, employeeNo: 'EMP-1010', name: '한신입', departmentId: 31, departmentName: '영업1팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 1, employeeNo: 'EMP-1001', name: '이태윤', departmentId: 11, departmentName: '개발1팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 2, employeeNo: 'EMP-1004', name: '성민경', departmentId: 21, departmentName: '네트워크팀', serviceRole: 'AGENT', accountStatus: 'ACTIVE' },
+  { id: 3, employeeNo: 'EMP-1178', name: '이건우', departmentId: 20, departmentName: '서비스데스크', serviceRole: 'ADMIN', accountStatus: 'ACTIVE' },
+  { id: 4, employeeNo: 'EMP-1003', name: '김민지', departmentId: 51, departmentName: '인사팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 5, employeeNo: 'EMP-1082', name: '공은서', departmentId: 41, departmentName: '디자인팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
+  { id: 6, employeeNo: 'EMP-1005', name: '최하준', departmentId: 32, departmentName: '영업2팀', serviceRole: 'EMPLOYEE', accountStatus: 'INACTIVE' },
+  { id: 7, employeeNo: 'EMP-1037', name: '황지윤', departmentId: 31, departmentName: '영업1팀', serviceRole: 'EMPLOYEE', accountStatus: 'LOCKED' },
+  { id: 8, employeeNo: 'EMP-1300', name: '최지혜', departmentId: 12, departmentName: '개발2팀', serviceRole: 'EMPLOYEE', accountStatus: 'ACTIVE' },
 ]
 
 /** 현재 가상 계정 목록. 로그인 실패·잠금에 따라 status 가 바뀐다. */
@@ -52,10 +52,10 @@ export function resetMockState() {
   lockedUntil.clear()
   passwords.clear()
   tempPw.clear()
-  passwords.set('EMP-1010', MOCK_TEMP_PASSWORD)
-  tempPw.add('EMP-1010')
+  passwords.set('EMP-1300', MOCK_TEMP_PASSWORD)
+  tempPw.add('EMP-1300')
   // 시연용으로 처음부터 잠겨 있는 계정은 잠금 시간이 남아 있게 한다
-  lockedUntil.set('EMP-1530', Date.now() + LOCK_MINUTES * 60_000)
+  lockedUntil.set('EMP-1037', Date.now() + LOCK_MINUTES * 60_000)
 }
 resetMockState()
 
@@ -128,9 +128,9 @@ export function expireLockForDemo(id: string) {
 /** 로그인 화면의 "시연용 바로 로그인" 버튼 목록 */
 export const MOCK_QUICK_LOGINS: { id: string; label: string }[] = [
   { id: 'EMP-1001', label: '문의자' },
-  { id: 'EMP-1107', label: '담당자' },
-  { id: 'EMP-0912', label: '관리자' },
-  { id: 'EMP-1010', label: '임시 비밀번호 계정' },
-  { id: 'EMP-1488', label: '이용 제한 계정' },
-  { id: 'EMP-1530', label: '잠김 계정' },
+  { id: 'EMP-1004', label: '담당자' },
+  { id: 'EMP-1178', label: '관리자' },
+  { id: 'EMP-1300', label: '임시 비밀번호 계정' },
+  { id: 'EMP-1005', label: '이용 제한 계정' },
+  { id: 'EMP-1037', label: '잠김 계정' },
 ]

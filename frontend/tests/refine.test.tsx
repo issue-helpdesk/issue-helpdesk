@@ -16,7 +16,7 @@ import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
 
 const SLOW = { timeout: 3000 }
-const USER = { employeeNo: 'EMP-1003', name: '박민수' }
+const USER = { employeeNo: 'EMP-1003', name: '김민지' }
 const FULL_VPN = 'VPN이 자꾸 끊겨요. 어제부터 안 돼요. 저만 안 되고 메일 업무는 가능해요. 재접속해 봤어요.'
 
 const settle = () => new Promise<void>((r) => setTimeout(r, 30))
@@ -247,11 +247,11 @@ describe('로고와 용어', () => {
 
   it('담당자는 내 대시보드, 관리자는 대시보드로 이동한다', async () => {
     const user = userEvent.setup()
-    const { unmount } = renderAt('/faq', 'EMP-1107')
+    const { unmount } = renderAt('/faq', 'EMP-1004')
     await user.click(await screen.findByRole('button', { name: 'ITssue 홈으로' }, SLOW))
     expect(await screen.findByRole('button', { name: '내 대시보드' }, SLOW)).toHaveAttribute('aria-current', 'page')
     unmount()
-    renderAt('/faq', 'EMP-0912')
+    renderAt('/faq', 'EMP-1178')
     await user.click(await screen.findByRole('button', { name: 'ITssue 홈으로' }, SLOW))
     expect(await screen.findByRole('button', { name: '대시보드' }, SLOW)).toHaveAttribute('aria-current', 'page')
   })
