@@ -23,6 +23,7 @@ from app.models import (
     TicketDraft,
     TicketStatusHistory,
 )
+from app.services.assignment import reserve_assignment
 from test_auth import add_user, bearer, client, error_code, login  # noqa: F401 (픽스처)
 from test_flow_correct import DOC
 from test_inquiries import ANSWER, INQUIRY_TABLES, ai, ai_reply, create_sqlite_tables, headers, owner, start, taxonomy  # noqa: F401
@@ -823,7 +824,7 @@ def test_auto_assign_picks_least_busy(client, db, team):
     res = assign(client, as_user(client, "E0004"), team["mine"].id, team["net"].id, None)
 
     assert res.json()["assigneeId"] == team["free"].id
-    assert db.scalar(select(AssignmentLog.reason)) == "휴가로 재배정 (자동배정: 처리 중 접수 최소 0건)"
+    assert db.scalar(select(AssignmentLog.reason)) == "휴가로 재배정 (자동배정: 업무량 최소 (0건))"
 
 
 def test_manager_moves_ticket_to_other_group_by_auto_assign(client, db, team):
@@ -838,7 +839,9 @@ def test_manager_moves_ticket_to_other_group_by_auto_assign(client, db, team):
 
 
 def test_first_assignment_before_jira_creation(client, db, admin, team):
-    ticket = team["others"]                                 # 미분류, 담당자 없음, Jira 생성 전
+    ticket = team["others"]                                 # 담당자 없음, Jira 생성 전
+    ticket.inquiry_type_id = team["vpn"].id
+    db.commit()
 
     res = assign(client, admin, ticket.id, team["net"].id, team["busy"].id)
 
@@ -970,3 +973,72 @@ def test_integration_jobs(client, db, admin, team):
 def test_integration_jobs_admin_only(client, admin, team):
     assert client.get(f"{TICKETS}/{team['mine'].id}/integration-jobs", headers=as_user(client, "E0004")).status_code == 403
     assert error_code(client.get(f"{TICKETS}/999/integration-jobs", headers=admin)) == "TICKET_NOT_FOUND"
+
+
+def test_unclassified_ticket_cannot_be_assigned_directly(client, admin, team):
+    res = assign(client, admin, team["others"].id, team["net"].id, team["busy"].id)          # 미분류
+
+    assert error_code(res) == "ASSIGNEE_NOT_ASSIGNABLE"
+    assert res.json()["error"]["details"][0]["message"] == "미분류 접수는 직접 지정할 수 없음(서비스데스크 확인)"
+
+
+# ---------------------------------------------------------------- 공용 배정 함수 (docs/11 2.4·3장)
+
+def reserve(db, team, **kwargs):
+    ticket = db.get(Ticket, team["mine"].id)
+    return reserve_assignment(db, ticket, team["net"].id, reason="자동배정", actor_id=None, **kwargs)
+
+
+def test_reservation_counts_as_workload(db, team):
+    """예약(PENDING)도 업무량이다. 1건씩 같으면 배정 이력이 없는 사람 → 사번 순."""
+    make_ticket(db, team["busy"], assignee_id=team["free"].id, assign_status="PENDING", work_status=None)
+
+    assert reserve(db, team).assignee_id == team["busy"].id                     # 둘 다 1건, 사번 E0005 먼저
+
+
+def test_tie_goes_to_least_recently_assigned(db, team):
+    make_ticket(db, team["busy"], assignee_id=team["free"].id, assign_status="PENDING", work_status=None)
+    db.add(AssignmentLog(ticket_id=team["secret"].id, event="ASSIGN", assignee_id=team["busy"].id))
+    db.commit()
+
+    reservation = reserve(db, team)
+
+    assert reservation.assignee_id == team["free"].id
+    assert reservation.reason == "자동배정 (자동배정: 업무량 최소 (1건), 동률 2명 중 마지막 배정이 가장 오래된 순)"
+
+
+def test_current_ticket_is_not_counted_for_its_assignee(db, team):
+    ticket = team["mine"]
+    ticket.assignee_id, ticket.assign_status, ticket.work_status = team["free"].id, "ASSIGNED", "WIP"
+    db.commit()
+
+    assert reserve(db, team).assignee_id == team["free"].id                     # 이 접수를 빼면 0건
+
+
+def test_absent_member_is_skipped_only_for_auto(db, team):
+    assert reserve(db, team, absent_user_ids={team["free"].id}).assignee_id == team["busy"].id
+    db.rollback()
+    assert reserve(db, team, assignee_id=team["free"].id, absent_user_ids={team["free"].id}).assignee_id == team["free"].id
+
+
+def test_manager_is_not_auto_assigned(db, team):
+    member = db.get(SupportGroupMember, (team["net"].id, team["manager"].id))
+    member.assignable, member.jira_account_id = True, "acc-E0004"
+    db.add(MemberSkill(user_id=team["manager"].id, inquiry_type_id=team["vpn"].id))
+    for user in ("busy", "free"):
+        db.get(SupportGroupMember, (team["net"].id, team[user].id)).assignable = False
+    db.commit()
+
+    reservation = reserve(db, team)
+
+    assert (reservation.event, reservation.assignee_id, reservation.reason) == ("FAIL", None, "자동배정 (배정 가능한 후보 없음)")
+
+
+def test_reserve_does_not_commit(db, team):
+    reservation = reserve(db, team)
+    assert reservation.job is not None and reservation.event == "REASSIGN"
+
+    db.rollback()
+
+    assert db.get(Ticket, team["mine"].id).assignment_revision == 0
+    assert db.scalar(select(AssignmentLog)) is None and jobs(db) == []
