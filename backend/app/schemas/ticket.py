@@ -115,6 +115,41 @@ class TicketUpdateRequest(CamelModel):
     reason: trimmed_str(1, 2000) | None = None               # FIN → WIP(미해결)일 때 남은 증상
 
 
+class AssignmentRequest(CamelModel):
+    group_id: int
+    assignee_id: int | None                                  # 필수. null 이면 그 그룹에서 자동배정
+    reason: trimmed_str(max_length=500) | None = None        # 비면 ASSIGNMENT_REASON_REQUIRED
+
+
+class AssignmentLog(CamelModel):
+    id: int
+    ticket_id: int
+    event: str
+    group_id: int | None
+    group: GroupRef | None
+    assignee_id: int | None
+    assignee: UserRef | None
+    rule_id: int | None
+    reason: str | None
+    actor_id: int | None
+    actor: UserRef | None
+    created_at: KstDatetime
+
+
+class IntegrationJob(CamelModel):
+    id: int
+    ticket_id: int
+    job_type: str
+    retry_of_job_id: int | None
+    status: str
+    attempts: int
+    next_retry_at: KstDatetime | None
+    last_error: str | None
+    idempotency_key: str
+    created_at: KstDatetime
+    updated_at: KstDatetime | None
+
+
 class TicketCreateRequest(CamelModel):
     draft_id: int
     draft_updated_at: KstDatetime | None     # 필수. 사용자가 확인한 초안의 updatedAt, 수정한 적 없으면 null
