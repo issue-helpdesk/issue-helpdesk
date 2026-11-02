@@ -2,15 +2,15 @@
  * 운영 현황 (관리자, /ops). (design/ITssue-Prototype.html viewExc)
  * 현재 미처리 문의 중 지금 확인하고 처리할 일만 모았다: 긴급 조치(P1), 당일 미종결 예외, 티켓 연동 확인, 담당자 배정 확인, 팀별 개인 현황.
  *
- * 목록은 접수 목록(TK-05 view=ALL)을 조건별로 받아 나눈다 (api/ops.ts). 팀별 개인 현황은 구성원·부재·업무량이 필요해
- * 서버 모드에서는 안내만 보인다. 확인·재시도·담당자 지정도 서버 모드에서는 요청하지 않고 안내만 한다. (Jira 쪽 작업이 끝까지 진행되지 않음)
+ * 목록은 접수 목록(TK-05 view=ALL)을 조건별로 받아 나눈다 (api/ops.ts). 팀별 개인 현황의 구성원·부재·업무량은 RF-04·TO-01·TK-05 로 읽는다 (api/reference.ts).
+ * 확인·재시도·담당자 지정은 서버 모드에서 요청하지 않고 안내만 한다. (Jira 쪽 작업이 끝까지 진행되지 않음)
  */
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { URGENCY_LABEL } from '../../api/catalog'
 import type { Urgency } from '../../api/chatTypes'
 import { getOpsSnapshot, recheckTransition, retryJiraCreate, type OpsSnapshot } from '../../api/ops'
-import { listCandidates, listSupportGroups, type Candidate, type SupportGroupRef } from '../../api/reference'
+import { listBoard, listSupportGroups, type Candidate, type SupportGroupRef } from '../../api/reference'
 import { getTicket, watchTickets } from '../../api/tickets'
 import type { TicketDetail, TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
@@ -122,23 +122,22 @@ export function OpsView() {
 
   // 팀별 개인 현황: 담당 그룹마다 구성원·부재·업무량
   useEffect(() => {
-    if (!admin || !groups.length) return
+    if (!user || !admin || !groups.length) return
     let alive = true
-    Promise.all(groups.map((g) => listCandidates(g.name, '팀별 개인 현황').then((r) => [g.name, r] as const))).then((rs) => {
+    listBoard(user).then((r) => {
       if (!alive) return
-      const bad = rs.find(([, r]) => !r.ok)
-      if (bad && !bad[1].ok) {
-        setPeopleErr(bad[1].error.message)
+      if (!r.ok) {
+        setPeopleErr(r.error.message)
         setPeople({})
         return
       }
       setPeopleErr('')
-      setPeople(Object.fromEntries(rs.map(([name, r]) => [name, r.ok ? r.data : []])))
+      setPeople(r.data)
     })
     return () => {
       alive = false
     }
-  }, [admin, groups, tick, reload])
+  }, [user, admin, groups, tick, reload])
 
   useEffect(() => () => clearTimeout(timer.current), [])
 

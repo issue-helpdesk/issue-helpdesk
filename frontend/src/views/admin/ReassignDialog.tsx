@@ -33,7 +33,8 @@ export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: T
 
   useEffect(() => {
     let alive = true
-    listCandidates(group, verb).then((r) => {
+    if (!user) return
+    listCandidates(user, group).then((r) => {
       if (!alive) return
       if (!r.ok) return setLoadErr(r.error.message)
       setList(r.data)
@@ -45,7 +46,7 @@ export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: T
     return () => {
       alive = false
     }
-  }, [group, cur, verb])
+  }, [user, group, cur])
 
   const recId = list ? list.filter((c) => c.id !== cur && c.jira && c.avail).sort((a, b) => a.rdy + a.wip - (b.rdy + b.wip))[0]?.id : undefined
   const note = (c: Candidate) => (c.id === cur ? '현재 담당' : c.id === recId ? (assign ? '자동배정 추천 (가용 + 업무량 최소)' : '추천 (가용 + 업무량 최소)') : !c.jira ? 'Jira 배정 반영 불가' : !c.avail ? '부재 · 예외로 지정하면 사유에 남겨요' : '')
