@@ -22,6 +22,8 @@ docker compose -f docker-compose.yml -f docker-compose.jira-worker.yml up -d --b
 
 `--limit`은 전체 합계가 아니라 **종류별 상한**이다(기본 10, 한 회차 최대 30건). `--interval`은 회차 종료 뒤 대기 시간이며 기본 30초다. `--stale-minutes`는 중단 복구 기준이며 기본 5분이다. 이 숫자는 운영 확정값이 아니라 조정 가능한 기본값이다.
 
+Compose 파일은 워커를 2개(`deploy.replicas: 2`) 띄운다. 둘 다 세 종류를 모두 처리하며, 한쪽이 멈춰도 다른 쪽이 이어받는다. 개수를 바꾸려면 `up -d --scale jira-worker=<개수>`를 쓴다.
+
 별도 Compose 파일은 실행 방법을 제공한다. 파일 추가 자체가 서버 배포나 상시 실행 완료를 뜻하지 않는다. 기존 API 서버의 시작 코드·DB 구조·권한 규칙·작업 payload는 바꾸지 않는다.
 
 ## 오류·중복·보류
