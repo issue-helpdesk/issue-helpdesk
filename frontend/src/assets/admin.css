@@ -110,3 +110,12 @@ button.grb{width:100%;display:flex;align-items:center;justify-content:space-betw
 .gc-tw{margin-top:12px;padding-top:4px;border-top:1px solid var(--line)}
 .fr{margin-left:auto}.tabs .btn.fr{margin-bottom:6px}
 .tag.gcbar{background:var(--cd)!important}.tag.gcbar::before{display:none}
+
+/* AI 운영 (시안 CSS) */
+.kpi .d{font-size:12px;margin-top:6px;color:var(--mute)}
+.bar{height:10px;background:var(--track);border-radius:5px}.bar>i{display:block;height:10px;border-radius:5px;background:var(--o500)}
+.kpi .d{color:var(--link);font-weight:600}
+.gold{border-top:1px solid var(--line2)}.grow{display:flex;gap:12px;align-items:center;width:100%;background:none;border:0;padding:12px 4px;text-align:left}.grow b{flex:1;min-width:0;font-weight:600;font-size:14px}
+.grow .chv{transition:transform .2s;display:inline-flex}.grow .chv .i{transform:rotate(90deg);width:16px;height:16px}.gold.open .chv{transform:rotate(180deg)}
+.grw,.ghd{display:grid;grid-template-columns:132px minmax(0,1fr) 124px 24px;gap:12px;align-items:center}.ghd{padding:6px 4px;font-size:12px;line-height:16px;font-weight:600;color:var(--mute);border-bottom:1px solid var(--line)}.ghd .c{text-align:center}.grw .gst{display:flex;justify-content:center}.tag.ga{justify-self:start}.tag.ga-info{background:var(--s-info-bg);color:var(--s-info-fg)}.tag.ga-urg{background:var(--s-urg-bg);color:var(--s-urg-fg)}.tag.ga-warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.tag.ga-need{background:var(--s-need-bg);color:var(--s-need-fg)}.tag.ga-prog{background:var(--s-prog-bg);color:var(--s-prog-fg)}.tag.ga-recv{background:var(--s-recv-bg);color:var(--s-recv-fg)}.tag.ga-asg{background:var(--s-asg-bg);color:var(--s-asg-fg)}.tag.ga-re{background:var(--s-re-bg);color:var(--s-re-fg)}@media(max-width:700px){.grw,.ghd{grid-template-columns:96px minmax(0,1fr) 24px}.ghd span:nth-child(3),.grw .gst{display:none}}
+.gold .gb{padding:4px 8px 16px;display:flex;flex-direction:column;gap:10px}

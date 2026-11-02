@@ -3,7 +3,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const AREAS = ['VITE_USE_MOCK_AUTH', 'VITE_USE_MOCK_INQUIRY', 'VITE_USE_MOCK_TICKET', 'VITE_USE_MOCK_FAQ', 'VITE_USE_MOCK_GUIDE'] as const
+const AREAS = ['VITE_USE_MOCK_AUTH', 'VITE_USE_MOCK_INQUIRY', 'VITE_USE_MOCK_TICKET', 'VITE_USE_MOCK_FAQ', 'VITE_USE_MOCK_GUIDE', 'VITE_USE_MOCK_OPS'] as const
 
 /** 환경 변수를 정하고 config 를 새로 읽는다. 적지 않은 변수는 없는 것이고, 빈 문자열은 Docker 빌드 인자가 비어 있는 경우이다 */
 async function load(env: Record<string, string>) {

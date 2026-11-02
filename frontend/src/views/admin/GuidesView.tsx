@@ -6,7 +6,7 @@
  * 서버에 없는 버전 메모·정책 변경 사유·가이드 초안 만들기는 서버 모드에서 안내만 한다. (api/guides.ts, 요청 R-21~23)
  */
 import { useCallback, useEffect, useId, useMemo, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import {
@@ -81,6 +81,7 @@ function clustersOf(tickets: TicketSummary[], guides: Guide[], per: Per) {
 export function GuidesView() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const [guides, setGuides] = useState<Guide[] | null>(null)
   const [vers, setVers] = useState<Record<number, GuideVersion[]>>({})
   const [error, setError] = useState('')
@@ -115,6 +116,18 @@ export function GuidesView() {
       alive = false
     }
   }, [user, admin, tick])
+
+  // 다른 화면에서 ?doc=문서번호 로 오면 그 가이드를 펼친다 (AI 운영의 "해당 가이드로 이동")
+  const wantDoc = params.get('doc')
+  const [shownDoc, setShownDoc] = useState<string | null>(null)
+  if (wantDoc && guides && shownDoc !== wantDoc) {
+    const g = guides.find((x) => x.docCode === wantDoc)
+    setShownDoc(wantDoc)
+    if (g) {
+      setCatOpen((m) => ({ ...m, [g.cat]: true }))
+      setOpenId(g.id)
+    }
+  }
 
   // 열린 가이드의 버전을 읽는다 (서버는 열 때 읽고, 바뀌면 다시 읽는다)
   useEffect(() => {
