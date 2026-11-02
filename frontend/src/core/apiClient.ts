@@ -39,7 +39,8 @@ async function send<T>(path: string, init: RequestInit): Promise<ApiResult<T>> {
   const headers = new Headers(init.headers)
 
   // 본문이 있으면 JSON 으로 보낸다
-  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  // (파일 업로드(FormData)는 브라우저가 경계값이 든 Content-Type 을 정해야 하므로 건드리지 않는다)
+  if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
 
   const token = tokenStore.get()
   if (token) headers.set('Authorization', `Bearer ${token}`)

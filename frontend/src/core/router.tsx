@@ -11,6 +11,7 @@ import { AccountsView } from '../views/admin/AccountsView'
 import { AllTicketsView } from '../views/admin/AllTicketsView'
 import { AdminStatsView } from '../views/admin/AdminStatsView'
 import { DashView } from '../views/admin/DashView'
+import { GuidesView } from '../views/admin/GuidesView'
 import { OpsView } from '../views/admin/OpsView'
 import { SecurityView } from '../views/admin/SecurityView'
 import { FaqView } from '../views/faq/FaqView'
@@ -71,6 +72,7 @@ export function AppRoutes() {
           <Route path="/accounts" element={<AccountsView />} />
           <Route path="/ops" element={<OpsView />} />
           <Route path="/security" element={<SecurityView />} />
+          <Route path="/guides" element={<GuidesView />} />
           <Route path="/tickets" element={<AllTicketsView />} />
           <Route path="/tickets/:ticketId" element={<AllTicketsView />} />
         </Route>

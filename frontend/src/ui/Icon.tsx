@@ -58,6 +58,8 @@ const PATHS = {
   chat: <path d="M4 4.5h12v8H9.5L6 16v-3.5H4z" />,
   home: <path d="M3.5 9 10 3.5 16.5 9v7.5h-4.2V12H7.7v4.5H3.5z" />,
   chevron: <path d="m8 5 5 5-5 5" />,
+  chevronDown: <path d="M5 8l5 5 5-5" />,
+  folder: <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h3.2l1.6 2H15.5A1.5 1.5 0 0 1 17 8.5v6A1.5 1.5 0 0 1 15.5 16h-11A1.5 1.5 0 0 1 3 14.5z" />,
   chart: <path d="M4 16.5h12M6.5 16V10.5M10 16V4.5M13.5 16v-3.5" />,
   check: <path d="m5 10.5 3.2 3.2L15 6.8" />,
   lock: (

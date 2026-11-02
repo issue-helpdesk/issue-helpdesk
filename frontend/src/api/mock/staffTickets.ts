@@ -186,6 +186,14 @@ const SEED_ARGS: SeedArgs[] = [
   { n: 40, title: '프린터 드라이버 설치 요청', cat: 'HW', p: 'P3', who: '지은', workStatus: null, group: '엔드포인트지원팀', ago: { h: 3 }, system: '프린터', jira: 'NEEDS_ADMIN' },
   { n: 41, title: '사내 DNS 서버 응답 지연', cat: 'SYS', p: 'P2', who: '민수', workStatus: 'WIP', group: '시스템인프라팀', ago: { d: 1, h: 2 }, system: 'DNS', assignee: member('시스템인프라팀', 1), trn: true, note: '캐시 서버를 재시작하고 응답 시간을 확인했습니다.' },
   { n: 42, title: 'ERP 권한 오류', cat: 'ACS', p: 'P2', who: '서연', workStatus: 'RDY', group: '엔드포인트지원팀', ago: { h: 6 }, system: 'ERP', assignee: null, asg: 'NEEDS_ADMIN' },
+  // 최근 해결된 같은 주제의 접수 (관리자 가이드 관리의 "해결 사례 → 가이드 초안" 묶음용)
+  { n: 43, title: '임시 비밀번호 발급 요청', cat: 'ACC', p: 'P3', who: '지은', workStatus: 'CLS', group: '서비스데스크', ago: { h: 5 }, system: '사내 SSO', assignee: member('서비스데스크', 0), note: '본인 확인 후 임시 비밀번호를 발급했습니다.' },
+  { n: 44, title: '임시 비밀번호 발급 요청', cat: 'ACC', p: 'P3', who: '신입', workStatus: 'CLS', group: '서비스데스크', ago: { h: 14 }, system: '사내 SSO', assignee: member('서비스데스크', 1), note: '본인 확인 후 임시 비밀번호를 발급했습니다.' },
+  { n: 45, title: '임시 비밀번호 발급 요청', cat: 'ACC', p: 'P4', who: '하준', workStatus: 'CLS', group: '서비스데스크', ago: { h: 30 }, system: '사내 SSO', assignee: member('서비스데스크', 0), note: '본인 확인 후 임시 비밀번호를 발급했습니다.' },
+  { n: 46, title: 'VPN 접속 후 사내망 접근 불가', cat: 'NET', p: 'P3', who: '서연', workStatus: 'CLS', group: '네트워크팀', ago: { h: 8 }, assignee: member('네트워크팀', 1), note: '라우팅 정책을 재배포했습니다.' },
+  { n: 47, title: 'VPN 접속 후 사내망 접근 불가', cat: 'NET', p: 'P3', who: '민수', workStatus: 'CLS', group: '네트워크팀', ago: { h: 20 }, assignee: member('네트워크팀', 1), note: '라우팅 정책을 재배포했습니다.' },
+  { n: 48, title: '메신저 알림이 오지 않아요', cat: 'SYS', p: 'P4', who: '지윤', workStatus: 'CLS', group: '업무시스템팀', ago: { h: 11 }, system: '사내 메신저', assignee: member('업무시스템팀', 0), note: '알림 권한을 켜도록 안내했습니다.' },
+  { n: 49, title: '메신저 알림이 오지 않아요', cat: 'SYS', p: 'P4', who: '서연', workStatus: 'CLS', group: '업무시스템팀', ago: { h: 26 }, system: '사내 메신저', assignee: member('업무시스템팀', 1), note: '알림 권한을 켜도록 안내했습니다.' },
 ]
 
 let seeds: TicketDetail[] = []
