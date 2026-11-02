@@ -73,7 +73,7 @@ class FakeAssignment:
 
 @pytest.fixture
 def assign_db(db):
-    for name in ("support_group_members", "member_skills", "assignment_logs"):
+    for name in ("support_group_members", "member_skills", "assignment_logs", "time_off"):
         Base.metadata.tables[name].create(db.bind)
     db.add_all([
         User(id=18, employee_no="EMP-AGENT", name="시험 담당자", email="a@example.com",
