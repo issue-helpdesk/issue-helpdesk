@@ -189,7 +189,9 @@ class JiraClient:
 
         먼저 현재 상태를 보고, 이미 target 이면 아무것도 보내지 않는다(changed=False). 그래서 시간 초과 뒤 다시 불러도 안전하다.
         Jira 워크플로가 현재 상태에서 target 으로 바로 가는 전환을 허용하지 않으면 invalid_transition(재시도 불가)이다.
-        FIN·CLS 에서 뒤로(WIP·RDY 등) 되돌리는 전환은 Jira 워크플로와 상관없이 막는다(팀 결정). 이미 끝난 일은 새 티켓으로 다룬다.
+        FIN·CLS 에서 뒤로 되돌리는 전환은 Jira 워크플로와 상관없이 막는다(팀 결정). 이미 끝난 일은 새 티켓으로 다룬다.
+        단 하나, FIN → WIP 는 허용한다: 문의자가 해결 확인 전에 "미해결"을 선택했을 때의 재처리다(SRS JIRA-06). CLS 는 어디로도 못 돌아간다.
+        이때 WIP 로 갈 때는 최종 처리 결과를 보내지 않는다. 이전 결과는 Jira 필드에 남아 있다가 다음 FIN 전환에서 새 결과로 바뀐다.
         FIN 으로 옮길 때는 final_result(최종 처리 결과)가 필수다. Jira 전환 화면이 요구하며, 비어 있으면 Jira를 부르기 전에 invalid_fields 로 막는다.
         반환: {"changed": bool, "work_status": target}
         """
@@ -201,9 +203,10 @@ class JiraClient:
         current = self.get_work_status(issue_key)["work_status"]
         if current == target:
             return {"changed": False, "work_status": target}
-        # 팀 결정: 처리 완료(FIN)·종결(CLS)된 티켓은 되돌리지 않는다. 다시 필요하면 새 접수로 만든다.
+        # 팀 결정: 종결(CLS)된 티켓은 되돌리지 않고, 처리 완료(FIN)도 미해결 재처리(FIN → WIP)만 되돌린다. 나머지는 새 접수로 만든다.
         order = ("RDY", "WIP", "FIN", "CLS")
-        if current in ("FIN", "CLS") and order.index(target) < order.index(current):
+        reopen = (current, target) == ("FIN", "WIP")
+        if current in ("FIN", "CLS") and order.index(target) < order.index(current) and not reopen:
             raise JiraError("invalid_transition", f"{issue_key}는 {current} 상태라 {target}으로 되돌릴 수 없습니다. 새 티켓을 만드세요.",
                             retryable=False)
         body_fields: dict[str, Any] = {}

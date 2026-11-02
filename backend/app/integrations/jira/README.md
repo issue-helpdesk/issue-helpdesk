@@ -73,6 +73,9 @@ pytest tests/test_jira_integration.py      # 실제 Jira를 부르지 않음 (�
 python backend/app/integrations/jira/smoke_check.py            # 인증 + 기존 테스트 티켓 확인 (새로 만들지 않음)
 python backend/app/integrations/jira/smoke_check.py --create   # 위 + 새 테스트 티켓 1건
 python backend/app/integrations/jira/smoke_check.py --flow     # 위 + 담당자 지정·재조회·상태 전환(RDY→WIP→FIN→CLS)까지
+python backend/app/integrations/jira/service_check.py            # 생성 서비스(services/jira_create.py)를 실제 Jira에 붙여 접수→작업→이슈 생성→jira_key 저장→중복 방지까지 (임시 DB, 시험 이슈 1건)
+python backend/app/integrations/jira/smoke_check.py --reopen   # 새 테스트 티켓으로 FIN→WIP→FIN 재처리를 해 보고 「최종 처리 결과」가 덮어써지는지 확인 (CLS까지 가지 않음)
+uv run python backend/app/integrations/jira/worker.py --once           # 독립 실행기: 대기 중인 Jira 생성 작업을 한 번 처리하고 종료 (--interval 30 이면 30초마다 반복)
 ```
 
 기본 실행은 인증·검색·존재하는 테스트 티켓의 저장값만 확인합니다. 테스트 티켓을 삭제했어도 다시 만들지 않으며 저장값 비교는 생략했다고 표시합니다. 생성·중복 확인은 `--create`를 지정했을 때만 테스트합니다. 새 티켓이 검색에 나타나지 않으면 생성 함수를 재호출하지 않고 점검을 중단합니다. 테스트 티켓은 확인 후 Jira에서 지웁니다.
@@ -87,7 +90,7 @@ python backend/app/integrations/jira/smoke_check.py --flow     # 위 + 담당자
 |---|---|
 | `assign_issue(key, account_id)` | 담당자 지정 → 다시 조회해 비교. `{matched, account_id, actual_account_id}` 반환. `matched=False`면 배정을 확정하지 않음 |
 | `get_assignee(key)` | Jira에 지금 지정된 담당자 조회 (결과 불명확일 때 확인용) |
-| `transition_issue(key, "WIP")` | 업무 상태(RDY·WIP·FIN·CLS) 전환. 이미 그 상태면 보내지 않음(`changed=False`). 허용되지 않는 전환은 `invalid_transition`. **FIN·CLS에서 뒤로 되돌리는 전환은 막는다**(팀 결정: 끝난 티켓은 다시 열지 않고 새 티켓을 만든다) |
+| `transition_issue(key, "WIP")` | 업무 상태(RDY·WIP·FIN·CLS) 전환. 이미 그 상태면 보내지 않음(`changed=False`). 허용되지 않는 전환은 `invalid_transition`. **FIN·CLS에서 뒤로 되돌리는 전환은 막되, FIN → WIP(미해결 재처리, SRS JIRA-06)만 허용한다**(CLS는 어디로도 못 돌아감. 그 밖의 끝난 티켓은 다시 열지 않고 새 티켓을 만든다) |
 | `get_work_status(key)` | Jira 상태를 RDY·WIP·FIN·CLS로 바꿔 조회 |
 
 두 호출 모두 같은 값으로 다시 불러도 결과가 같게 만들어서(멱등) 시간 초과 뒤 재호출해도 안전합니다.
@@ -123,7 +126,7 @@ if event.is_comment_created:
 - **댓글 알림 받을 사람**: 문의자·담당자는 Jira의 reporter·assignee 가 아니라 ITssue DB 티켓의 사번을 `route_comment`에 넘깁니다(보고자는 API 토큰 계정이고 이관 티켓은 Jira 담당자가 비어 있을 수 있음). 작성자는 사번 연결표로 찾습니다. 문의자가 달면 담당자에게, 담당자가 달면 문의자에게, 둘 다 아닌 사람(팀장·관리자)이 달면 둘 모두에게 가고, 작성자 본인에게는 가지 않습니다. 연결표에 없는 계정(`unknown_author`)과 ITssue 봇 계정(`ignore_account_ids`, `check_auth()["account_id"]`)은 알림을 만들지 않습니다.
 - **댓글 이벤트 ID**: 헤더 값 → 변경 이력 ID → `comment:<이벤트>:<댓글ID>:<updated>` → 본문 해시 순입니다. 수정(`comment_updated`)·삭제는 `is_comment_created` 가 False 입니다. 댓글 본문의 멘션(`@이름`)은 글자로만 남기고, 멘션된 사람에게 따로 알리는 일은 하지 않습니다.
 - 상태·담당자 값은 웹훅 본문으로 덮어쓰지 않고, 이벤트를 신호로 받아 `get_work_status`·`get_assignee`로 최신값을 읽어 반영합니다(TK-13).
-- 되돌림 금지는 ITssue가 보내는 전환만 막습니다. Jira 화면에서 직접 되돌리는 것은 Jira 워크플로 설정에서 막아야 합니다.
+- 되돌림 금지는 ITssue가 보내는 전환만 막습니다(FIN → WIP 한 가지만 예외). Jira 화면에서 직접 되돌리는 것은 Jira 워크플로 설정(전환 권한)으로 제한합니다. FIN → WIP 전환에는 해결 결과(resolution)·해결 일시를 비우는 후처리가 설정돼 있어야 합니다(ITHD-355로 확인, 2026-10-30).
 - 사번 연결표(`jira_accounts.yaml`)는 accountId 칸이 비어 있습니다. 팀원의 Jira 프로필 주소 끝 값을 넣습니다.
 - **실제 Jira로는 아직 테스트하지 않았습니다.** 특히 워크플로가 RDY→CLS처럼 건너뛰는 전환을 허용하는지, 담당자 지정 권한이 토큰 계정에 있는지는 실제 ITHD에서 확인이 필요합니다.
 

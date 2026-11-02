@@ -25,6 +25,9 @@ REASONS = {
     "less_than": "OUT_OF_RANGE",
     "less_than_equal": "OUT_OF_RANGE",
     "value_error": "INVALID_FORMAT",
+    "string_pattern_mismatch": "INVALID_FORMAT",
+    "date_from_datetime_parsing": "INVALID_FORMAT",
+    "extra_forbidden": "NOT_ALLOWED",
 }
 REASON_MESSAGES = {
     "REQUIRED": "필수 입력값입니다.",
@@ -33,6 +36,7 @@ REASON_MESSAGES = {
     "OUT_OF_RANGE": "허용 범위를 벗어났습니다.",
     "INVALID_FORMAT": "형식이 올바르지 않습니다.",
     "INVALID_VALUE": "허용되지 않는 값입니다.",
+    "NOT_ALLOWED": "변경할 수 없는 항목입니다.",
 }
 HTTP_CODES = {
     401: ErrorCode.UNAUTHORIZED,
@@ -56,6 +60,10 @@ class AppError(Exception):
         self.details = details
         self.message = message or code.message
         self.headers = headers
+
+
+def field_error(code: ErrorCode, field: str, reason: str, message: str | None = None) -> AppError:
+    return AppError(code, [{"field": field, "reason": reason, "message": message or code.message}])
 
 
 def trace_id(request: Request) -> str:

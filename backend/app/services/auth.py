@@ -26,7 +26,7 @@ from app.repositories.audit_log import AuditLogRepositoryDep
 from app.repositories.auth_session import AuthSessionRepositoryDep
 from app.repositories.user import UserRepositoryDep
 from app.schemas.auth import Me
-from app.services.user import UserServiceDep
+from app.services.user import UserServiceDep, unlock
 
 MAX_FAILED_LOGINS = 5
 LOCK_MINUTES = 10
@@ -172,12 +172,6 @@ class AuthService:
 
 
 AuthServiceDep = Annotated[AuthService, Depends(AuthService)]
-
-
-def unlock(user: User) -> None:
-    user.account_status = "ACTIVE"
-    user.failed_login_count = 0
-    user.locked_until = None
 
 
 def blocked_error(user: User) -> AppError:

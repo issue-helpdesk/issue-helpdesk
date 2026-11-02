@@ -29,7 +29,7 @@ async function loginTemp() {
   renderApp()
   const id = screen.getByLabelText('사번')
   await user.clear(id)
-  await user.type(id, 'EMP-1010')
+  await user.type(id, 'EMP-1300')
   const pw = screen.getByLabelText('비밀번호')
   await user.clear(pw)
   await user.type(pw, MOCK_TEMP_PASSWORD)
@@ -71,7 +71,7 @@ describe('임시 비밀번호 직후', () => {
 
     // 사번과 같은 값
     await user.clear(nw)
-    await user.type(nw, 'EMP-1010')
+    await user.type(nw, 'EMP-1300')
     await submit()
     expect(nw).toHaveAccessibleDescription(/현재 비밀번호나 사번과 다른 값을 입력해 주세요\./)
 
@@ -109,7 +109,7 @@ describe('임시 비밀번호 직후', () => {
     await user.type(pw, 'NewPass!234')
     const id = screen.getByLabelText('사번')
     await user.clear(id)
-    await user.type(id, 'EMP-1010')
+    await user.type(id, 'EMP-1300')
     await user.click(screen.getByRole('button', { name: '로그인' }))
     expect(await screen.findByRole('heading', { name: '새 문의' }, SLOW)).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -124,7 +124,7 @@ describe('내 프로필', () => {
     const open = await screen.findByRole('button', { name: '내 프로필 열기' }, SLOW)
     await user.click(open)
     const dialog = await screen.findByRole('dialog', { name: '내 프로필' })
-    expect(dialog).toHaveTextContent('김서연')
+    expect(dialog).toHaveTextContent('이태윤')
     expect(dialog).toHaveTextContent('EMP-1001')
     expect(dialog).toHaveTextContent('개발1팀')
     expect(dialog).toHaveTextContent('마지막 변경 후 38일')

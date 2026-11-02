@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 KST = timezone(timedelta(hours=9))
 
@@ -14,3 +14,7 @@ def as_utc(value: datetime) -> datetime:
 
 def to_kst(value: datetime) -> datetime:
     return as_utc(value).astimezone(KST)
+
+
+def kst_start(day: date) -> datetime:
+    return datetime.combine(day, time.min, KST).astimezone(timezone.utc)

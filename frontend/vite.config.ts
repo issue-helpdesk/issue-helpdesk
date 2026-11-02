@@ -29,7 +29,7 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./tests/setup.ts'],
       css: false,
       // 테스트는 항상 가짜 응답(mock)으로 실행한다.
-      env: { VITE_USE_MOCK: 'true', VITE_USE_MOCK_AUTH: 'true' },
+      env: { VITE_USE_MOCK: 'true', VITE_USE_MOCK_AUTH: 'true', VITE_USE_MOCK_INQUIRY: 'true', VITE_USE_MOCK_TICKET: 'true', VITE_USE_MOCK_FAQ: 'true' },
     },
   }
 })
