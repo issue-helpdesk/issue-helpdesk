@@ -6,18 +6,29 @@
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { listFaqs } from '../../api/faq'
+import { getFaqSources, listFaqs } from '../../api/faq'
 import { CATEGORY_NAME } from '../../api/mock/faqs'
+import type { GuideSource } from '../../api/chatTypes'
 import type { ApiResult, Faq } from '../../api/types'
 import { sourceFull } from '../../core/format'
 import titleFaq from '../../assets/mascot/title-faq.webp'
 import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
 
+/** 출처 줄: 서버 FAQ 는 열기 전에는 비어 있어서 읽는 중·읽지 못함·없음을 구분한다 */
+function sourceText(f: Faq, loaded: GuideSource[] | 'err' | undefined): string {
+  const list = f.sources.length ? f.sources : loaded
+  if (list === 'err') return '출처를 불러오지 못했어요.'
+  if (list === undefined) return f.serverId === undefined ? `출처: ${f.sources.map(sourceFull).join(', ')}` : '출처를 불러오는 중이에요…'
+  return list.length ? `출처: ${list.map(sourceFull).join(', ')}` : '출처 정보가 없어요.'
+}
+
 export function FaqView() {
   const navigate = useNavigate()
   const [faqs, setFaqs] = useState<Faq[] | null>(null) // null = 불러오는 중
   const [error, setError] = useState('')
+  // 서버 모드에서 FAQ 를 열 때 읽어 온 출처 (키: FAQ 번호). 'err' 는 읽지 못한 경우
+  const [srcs, setSrcs] = useState<Record<string, GuideSource[] | 'err'>>({})
 
   /** 응답을 화면 상태에 반영한다. */
   const apply = (r: ApiResult<Faq[]>) => {
@@ -37,6 +48,12 @@ export function FaqView() {
       alive = false
     }
   }, [])
+
+  /** FAQ 를 열 때 출처가 없고 서버 FAQ 면 상세에서 출처를 읽는다 */
+  const loadSources = (f: Faq) => {
+    if (f.serverId === undefined || f.sources.length || srcs[f.id]) return
+    getFaqSources(f.serverId).then((r) => setSrcs((m) => ({ ...m, [f.id]: r.ok ? r.data : 'err' })))
+  }
 
   /** 오류 후 다시 불러오기 */
   async function retry() {
@@ -74,7 +91,7 @@ export function FaqView() {
           {faqs?.length === 0 && <div className="empty">표시할 FAQ가 없어요.</div>}
 
           {faqs?.map((f) => (
-            <details key={f.id} className="panel faq" style={{ padding: 0 }}>
+            <details key={f.id} className="panel faq" style={{ padding: 0 }} onToggle={(e) => e.currentTarget.open && loadSources(f)}>
               <summary>
                 <span className={`tag c-${f.categoryCode}`}>{CATEGORY_NAME[f.categoryCode] ?? f.categoryCode}</span>
                 <b>{f.question}</b>
@@ -86,7 +103,7 @@ export function FaqView() {
                 {f.answer}
                 {/* 근거로 쓴 Guide 출처 (SRS ANSWER-01) */}
                 <div className="small muted" style={{ marginTop: 6 }}>
-                  출처: {f.sources.map(sourceFull).join(', ')}
+                  {sourceText(f, srcs[f.id])}
                 </div>
                 <div className="row" style={{ marginTop: 12 }}>
                   <button type="button" className="btn sec sm" onClick={() => navigate('/new', { state: { prefill: f.question } })}>
