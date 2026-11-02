@@ -39,7 +39,7 @@ describe('전체 문의 API (모의)', () => {
     const infra = await listTickets(admin(), { view: 'ALL', size: 100, groupId: 4 })
     expect(infra.ok && infra.data.items.every((t) => t.group?.name === '시스템인프라팀')).toBe(true)
     const pre = await listTickets(admin(), { view: 'ALL', size: 100, jiraSyncStatus: ['PENDING', 'VERIFYING', 'NEEDS_ADMIN'] })
-    expect(pre.ok && pre.data.items.map((t) => t.workStatus)).toEqual([null, null])
+    expect(pre.ok && pre.data.items.map((t) => t.workStatus)).toEqual([null, null, null])
   })
 
   it('AI 처리한 상담은 구분별 건수와 기간으로 걸러 읽는다', async () => {
@@ -89,7 +89,7 @@ describe('전체 문의 화면', () => {
   it('상태 탭 건수와 팀 필터, 담당 열이 보이고, 문의자·담당자는 들어올 수 없다', async () => {
     const { unmount } = renderAs('EMP-1178', '/tickets')
     const seg = await screen.findByRole('group', { name: '처리 상태' }, SLOW)
-    await waitFor(() => expect(within(seg).getByRole('button', { name: /^배정 전 2/ })).toBeInTheDocument(), SLOW)
+    await waitFor(() => expect(within(seg).getByRole('button', { name: /^배정 전 3/ })).toBeInTheDocument(), SLOW)
     expect(within(seg).getByRole('button', { name: /^전체 \d+/ })).toBeInTheDocument()
     expect(await screen.findByRole('columnheader', { name: /담당/ }, SLOW)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /^팀\s*전체/ }))
@@ -106,8 +106,9 @@ describe('전체 문의 화면', () => {
   it('배정 전 탭은 Jira 생성 전 접수를 접수 완료·확인 중 상태로 보여 준다', async () => {
     renderAs('EMP-1178', '/tickets')
     await userEvent.click(await screen.findByRole('button', { name: /^배정 전/ }, SLOW))
-    await waitFor(() => expect(rows()).toHaveLength(2), SLOW)
+    await waitFor(() => expect(rows()).toHaveLength(3), SLOW)
     expect(within(document.body).getByText('접수 완료')).toBeInTheDocument()
+    expect(within(document.body).getByText('Jira 생성 확인 필요')).toBeInTheDocument()
     expect(within(document.body).getByText('생성 여부 확인 중')).toBeInTheDocument()
     expect(rows().every((r) => within(r).getByText('배정 전'))).toBe(true)
   })

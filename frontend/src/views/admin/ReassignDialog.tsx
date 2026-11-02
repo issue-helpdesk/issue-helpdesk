@@ -15,7 +15,8 @@ import { Modal } from '../../ui/Modal'
 
 const URGS: Urgency[] = ['P1', 'P2', 'P3', 'P4']
 
-export function ReassignDialog({ t, onClose, onDone }: { t: TicketDetail; onClose: () => void; onDone: () => void }) {
+/** mode='assign' 은 운영 현황의 「담당자 지정」(담당자가 비어 있는 접수에 처음 지정), 기본은 상세 패널의 「담당자 재배정」 */
+export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: TicketDetail; mode?: 'reassign' | 'assign'; onClose: () => void; onDone: () => void }) {
   const { user } = useAuth()
   const uid = useId()
   const [list, setList] = useState<Candidate[] | null>(null)
@@ -27,10 +28,12 @@ export function ReassignDialog({ t, onClose, onDone }: { t: TicketDetail; onClos
   const [busy, setBusy] = useState(false)
   const group = t.group?.name ?? ''
   const cur = t.assignee?.id ?? null
+  const assign = mode === 'assign'
+  const verb = assign ? '담당자 지정' : '담당자 재배정'
 
   useEffect(() => {
     let alive = true
-    listCandidates(group).then((r) => {
+    listCandidates(group, verb).then((r) => {
       if (!alive) return
       if (!r.ok) return setLoadErr(r.error.message)
       setList(r.data)
@@ -42,15 +45,15 @@ export function ReassignDialog({ t, onClose, onDone }: { t: TicketDetail; onClos
     return () => {
       alive = false
     }
-  }, [group, cur])
+  }, [group, cur, verb])
 
   const recId = list ? list.filter((c) => c.id !== cur && c.jira && c.avail).sort((a, b) => a.rdy + a.wip - (b.rdy + b.wip))[0]?.id : undefined
-  const note = (c: Candidate) => (c.id === cur ? '현재 담당' : c.id === recId ? '추천 (가용 + 업무량 최소)' : !c.jira ? 'Jira 배정 반영 불가' : !c.avail ? '부재 · 예외로 지정하면 사유에 남겨요' : '')
+  const note = (c: Candidate) => (c.id === cur ? '현재 담당' : c.id === recId ? (assign ? '자동배정 추천 (가용 + 업무량 최소)' : '추천 (가용 + 업무량 최소)') : !c.jira ? 'Jira 배정 반영 불가' : !c.avail ? '부재 · 예외로 지정하면 사유에 남겨요' : '')
 
   const submit = async () => {
     if (!user) return
-    if (!why.trim()) return setWhyErr('재배정 사유를 입력해 주세요.')
-    if (pick === null) return setErr('새 담당자를 선택해 주세요.')
+    if (!why.trim()) return setWhyErr(assign ? '지정 사유를 입력해 주세요.' : '재배정 사유를 입력해 주세요.')
+    if (pick === null) return setErr(assign ? '지정할 담당자를 선택해 주세요.' : '새 담당자를 선택해 주세요.')
     setBusy(true)
     const r = await reassignTicket(user, t.id, { assigneeId: pick, reason: why.trim() })
     setBusy(false)
@@ -59,13 +62,15 @@ export function ReassignDialog({ t, onClose, onDone }: { t: TicketDetail; onClos
   }
 
   return (
-    <Modal title="담당자 재배정" onClose={onClose}>
+    <Modal title={verb} onClose={onClose}>
       <p className="small muted" style={{ margin: 0 }}>
         {t.receiptNo} · {group} · {t.urgency && <span className={`pri-${t.urgency.toLowerCase()}`}>{`${t.urgency} ${URGENCY_LABEL[t.urgency]}`}</span>}
       </p>
-      <p style={{ margin: 0 }}>
-        현재 담당 <b>{t.assignee?.name ?? '-'}</b>
-      </p>
+      {!assign && (
+        <p style={{ margin: 0 }}>
+          현재 담당 <b>{t.assignee?.name ?? '-'}</b>
+        </p>
+      )}
       {loadErr ? (
         <div className="alert err" role="alert">
           <div>{loadErr}</div>
@@ -137,8 +142,8 @@ export function ReassignDialog({ t, onClose, onDone }: { t: TicketDetail; onClos
         </div>
       )}
       <div className="field">
-        <label htmlFor={`${uid}-w`}>재배정 사유 (필수)</label>
-        <input id={`${uid}-w`} className={`inp${whyErr ? ' err' : ''}`} value={why} placeholder="예) 휴가, 업무량 조정" autoComplete="off" aria-invalid={!!whyErr} aria-describedby={whyErr ? `${uid}-w-e` : undefined} onChange={(e) => { setWhy(e.target.value); setWhyErr('') }} />
+        <label htmlFor={`${uid}-w`}>{assign ? '지정 사유 (필수)' : '재배정 사유 (필수)'}</label>
+        <input id={`${uid}-w`} className={`inp${whyErr ? ' err' : ''}`} value={why} placeholder={assign ? '예) 자동배정 실패, 업무량 확인 후 지정' : '예) 휴가, 업무량 조정'} autoComplete="off" aria-invalid={!!whyErr} aria-describedby={whyErr ? `${uid}-w-e` : undefined} onChange={(e) => { setWhy(e.target.value); setWhyErr('') }} />
         {whyErr && (
           <div className="ferr" id={`${uid}-w-e`} role="alert">
             {whyErr}
@@ -146,7 +151,13 @@ export function ReassignDialog({ t, onClose, onDone }: { t: TicketDetail; onClos
         )}
       </div>
       <p className="small muted" style={{ margin: 0 }}>
-        재배정하면 처리 이력에 남고 새 담당자·문의자에게 알림이 가요. 진행 상태는 그대로 유지돼요.
+        {assign ? (
+          <>
+            지정하면 처리 이력에 남고 담당자·문의자에게 알림이 가요. <span className="tag gray">제안</span>
+          </>
+        ) : (
+          '재배정하면 처리 이력에 남고 새 담당자·문의자에게 알림이 가요. 진행 상태는 그대로 유지돼요.'
+        )}
       </p>
       {err && (
         <div className="ferr" role="alert">
@@ -158,7 +169,7 @@ export function ReassignDialog({ t, onClose, onDone }: { t: TicketDetail; onClos
           취소
         </button>
         <button type="button" className="btn pri" disabled={busy || !list} onClick={() => void submit()}>
-          재배정
+          {assign ? '지정' : '재배정'}
         </button>
       </div>
     </Modal>

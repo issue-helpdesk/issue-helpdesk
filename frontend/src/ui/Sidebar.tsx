@@ -8,6 +8,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { watchMyInquiries } from '../api/inquiries'
+import { countOpsAttention } from '../api/ops'
 import { listTickets, watchTickets } from '../api/tickets'
 import type { InquirySummary, ServiceRole } from '../api/types'
 import { formatRelative } from '../core/format'
@@ -46,6 +47,7 @@ const EXTRA_MENU: Partial<Record<ServiceRole, { group: string; items: NavItem[] 
     group: '운영',
     items: [
       { to: '/dash', label: '대시보드', icon: 'home' },
+      { to: '/ops', label: '운영 현황', icon: 'alert' },
       { to: '/tickets', label: '전체 문의', icon: 'file' },
       { to: '/accounts', label: '계정 관리', icon: 'user' },
     ],
@@ -68,6 +70,15 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   // 담당자: 처리할 문의 건수(처리 대기·처리 중·해결 확인 대기)와 Jira 알림이 온 건수
   const [queue, setQueue] = useState({ n: 0, nw: 0 })
   const agentId = user?.serviceRole === 'AGENT' ? user.id : null
+  // 관리자: 연동·배정 확인이 필요한 접수 수 (운영 현황 메뉴 옆)
+  const [attention, setAttention] = useState(0)
+  const isAdmin = user?.serviceRole === 'ADMIN'
+  useEffect(() => {
+    if (!user || !isAdmin) return
+    return watchTickets(() => {
+      countOpsAttention(user).then(setAttention)
+    })
+  }, [user, isAdmin])
   useEffect(() => {
     if (!user || agentId === null) return
     return watchTickets(() => {
@@ -131,6 +142,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       )}
       {it.to === '/queue' && queue.nw > 0 && queue.n === 0 && <span className="count nw">NEW {queue.nw}</span>}
       {it.to === '/queue' && queue.nw === 0 && queue.n > 0 && <span className="count">{queue.n}</span>}
+      {it.to === '/ops' && attention > 0 && <span className="count">{attention}</span>}
     </button>
   )
 
