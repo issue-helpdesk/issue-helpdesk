@@ -31,6 +31,7 @@ import { listTickets } from '../../api/tickets'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
 import { formatElapsed } from '../../core/format'
+import { visiblePoll } from '../../core/poll'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
 import { Icon } from '../../ui/Icon'
@@ -144,8 +145,7 @@ export function GuidesView() {
   // 검색 준비(적재)가 진행 중인 버전이 있으면 끝날 때까지 몇 초마다 다시 읽는다
   useEffect(() => {
     if (!Object.values(vers).some((l) => l.some((x) => x.ready === '준비 중'))) return
-    const t = setInterval(() => setTick((n) => n + 1), 4000)
-    return () => clearInterval(t)
+    return visiblePoll(() => setTick((n) => n + 1), 5000)
   }, [vers])
 
   // 해결 사례 묶음: 해결 완료(CLS) 접수를 읽는다 (탭 건수에도 쓴다)
@@ -494,7 +494,7 @@ export function GuidesView() {
       <main className="main">
         <Topbar title="가이드 관리" sub="AI 답변의 근거가 되는 문서" lead={<img className="tti" src={titleOps} alt="" width={56} height={56} />} />
         <div className="scroll">
-          <div className="page dpage">
+          <div className="page">
             <div className="phead">
               <div className="eyebrow">KNOWLEDGE</div>
               <h1>AI 답변의 근거를 관리해요</h1>

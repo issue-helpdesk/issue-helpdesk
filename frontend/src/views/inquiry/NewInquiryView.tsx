@@ -7,7 +7,8 @@
  */
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { startChat } from '../../api/chat'
+import { beginChat, startChat } from '../../api/chat'
+import { USE_MOCK_INQUIRY } from '../../core/config'
 import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
 import { Icon, type IconName } from '../../ui/Icon'
@@ -62,8 +63,14 @@ export function NewInquiryView() {
 
   async function send() {
     if (!text.trim() || sending || !user) return
-    setSending(true)
     setNotice('')
+    // 서버는 AI 답변까지 만들어서 응답하므로 오래 걸린다. 입력창에 머물지 않고 대화 화면으로 먼저 넘어간다
+    if (!USE_MOCK_INQUIRY) {
+      beginChat(user, text.trim())
+      navigate('/chat/new', { state: { fresh: true } })
+      return
+    }
+    setSending(true)
     const r = await startChat(user, text.trim())
     setSending(false)
     if (r.ok) {

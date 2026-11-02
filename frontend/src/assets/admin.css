@@ -73,7 +73,6 @@ button.orow{cursor:pointer}button.orow:hover{background:var(--osoft)}
 @media (max-width:700px){.ustat .vs{display:none}}
 .stx{display:contents;--g-w:#857DA3;--g-p:#8A64F2;--g-n:#E0457F;--g-c:#0D9488;--s-warn-dot:#B5730F;--s-recv-dot:#7F8794;--s-prog-dot:#8A64F2}
 .stx .hvw .tw svg.hv{min-width:0}
-.page.dpage{gap:12px}
 /* 관리자 통계 (시안 통계 CSS) */
 .panel.sec.k-ai{--bar:var(--ai);box-shadow:inset 5px 0 0 var(--bar),inset 0 0 0 1px var(--line)}.panel.sec.k-tk{--bar:var(--ca);box-shadow:inset 5px 0 0 var(--bar),inset 0 0 0 1px var(--line)}.sch{display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;font-size:12px;line-height:16px;font-weight:700;flex:none}.sch.ai{background:var(--s-info-bg);color:var(--s-info-fg)}.sch.tk{background:var(--s-need-bg);color:var(--s-need-fg)}.sec .sh h3{display:flex;align-items:center;gap:8px}
 .kpi.urg .v b{color:var(--s-urg-fg)}
@@ -119,3 +118,16 @@ button.grb{width:100%;display:flex;align-items:center;justify-content:space-betw
 .grow .chv{transition:transform .2s;display:inline-flex}.grow .chv .i{transform:rotate(90deg);width:16px;height:16px}.gold.open .chv{transform:rotate(180deg)}
 .grw,.ghd{display:grid;grid-template-columns:132px minmax(0,1fr) 124px 24px;gap:12px;align-items:center}.ghd{padding:6px 4px;font-size:12px;line-height:16px;font-weight:600;color:var(--mute);border-bottom:1px solid var(--line)}.ghd .c{text-align:center}.grw .gst{display:flex;justify-content:center}.tag.ga{justify-self:start}.tag.ga-info{background:var(--s-info-bg);color:var(--s-info-fg)}.tag.ga-urg{background:var(--s-urg-bg);color:var(--s-urg-fg)}.tag.ga-warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.tag.ga-need{background:var(--s-need-bg);color:var(--s-need-fg)}.tag.ga-prog{background:var(--s-prog-bg);color:var(--s-prog-fg)}.tag.ga-recv{background:var(--s-recv-bg);color:var(--s-recv-fg)}.tag.ga-asg{background:var(--s-asg-bg);color:var(--s-asg-fg)}.tag.ga-re{background:var(--s-re-bg);color:var(--s-re-fg)}@media(max-width:700px){.grw,.ghd{grid-template-columns:96px minmax(0,1fr) 24px}.ghd span:nth-child(3),.grw .gst{display:none}}
 .gold .gb{padding:4px 8px 16px;display:flex;flex-direction:column;gap:10px}
+/* 화면에 들어올 때의 움직임 (시안: 막대·진행 점·도넛·띠). 동작 줄이기 설정이면 움직이지 않는다. fill-mode 를 backwards 로 둬서 끝난 뒤의 마우스 올림 효과를 막지 않는다 */
+@media (prefers-reduced-motion:no-preference){
+@keyframes mgrow{from{transform:scaleX(0)}}
+@keyframes mpop{from{transform:scale(0)}}
+@keyframes mrise{from{opacity:0;transform:translateY(6px)}}
+@keyframes mdonut{from{stroke-dasharray:0 302;opacity:.3}}
+.bar>i,.sbar>div{transform-origin:left center;animation:mgrow 1s cubic-bezier(.16,1,.3,1) backwards}
+.hpipe:before{transform-origin:left center;animation:mgrow .9s .26s cubic-bezier(.16,1,.3,1) backwards}
+.hpipe button:before{animation:mpop .7s cubic-bezier(.34,1.56,.64,1) backwards}
+.hpipe button:nth-child(2):before{animation-delay:.11s}.hpipe button:nth-child(3):before{animation-delay:.22s}.hpipe button:nth-child(4):before{animation-delay:.33s}
+.hband{animation:mrise .45s cubic-bezier(.16,1,.3,1) backwards}
+.donut circle[stroke-dasharray]{animation:mdonut 1.1s cubic-bezier(.16,1,.3,1) backwards}
+}

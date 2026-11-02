@@ -14,6 +14,7 @@ import type { ApiResult, User } from '../../api/types'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
 import { useAuth } from '../../core/session'
+import { CountUp } from '../../ui/CountUp'
 import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
 import { UrgencyChip } from './QueueView'
@@ -617,7 +618,7 @@ export function StatsView() {
       <Topbar title="통계" sub={`${user.departmentName} · ${user.name} 담당자`} lead={<img className="tti" src={titleOps} alt="" width={56} height={56} />} />
       <div className="scroll">
         <div className="page">
-          <div>
+          <div className="phead">
             <div className="eyebrow">STATISTICS</div>
             <h1>통계</h1>
             <p className="muted" style={{ marginTop: 4 }}>
@@ -679,7 +680,9 @@ export function StatsView() {
                     {s.label}
                   </div>
                   <div className="v">
-                    <b>{v[s.k]}</b>
+                    <b>
+                      <CountUp value={v[s.k]} />
+                    </b>
                     <span>건</span>
                   </div>
                   <Icon name="chevron" className="go" />

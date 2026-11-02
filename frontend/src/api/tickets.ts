@@ -18,9 +18,10 @@ import type { MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMess
 import { fail, ok, type ApiResult, type User } from './types'
 import { nowIso } from '../core/format'
 import { maskSensitive } from '../core/mask'
+import { visiblePoll } from '../core/poll'
 
-/** 서버를 다시 읽는 간격(ms) */
-const POLL_MS = 8000
+/** 서버를 다시 읽는 간격(ms). 탭이 가려져 있으면 읽지 않는다 */
+const POLL_MS = 15_000
 
 const toQueryString = (q: TicketListQuery) => {
   const p = new URLSearchParams()
@@ -202,9 +203,19 @@ export async function changeTicketStatus(user: User, id: number, body: TicketTra
 export function watchTickets(onChange: () => void): () => void {
   onChange()
   if (USE_MOCK_TICKET) return subscribe(onChange)
-  const timer = setInterval(onChange, POLL_MS)
-  return () => clearInterval(timer)
+  // 화면 여러 곳(사이드바·목록·대시보드)이 구독해도 타이머는 하나만 둔다
+  subs.add(onChange)
+  stopPoll ??= visiblePoll(() => subs.forEach((f) => f()), POLL_MS)
+  return () => {
+    subs.delete(onChange)
+    if (!subs.size) {
+      stopPoll?.()
+      stopPoll = null
+    }
+  }
 }
+const subs = new Set<() => void>()
+let stopPoll: (() => void) | null = null
 
 /** 우리 팀 현황 (제안): 소속 그룹의 근무 인원과 처리 대기·처리 중·배정 전 건수 */
 export interface TeamStatus {

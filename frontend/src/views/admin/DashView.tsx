@@ -15,6 +15,7 @@ import titleOps from '../../assets/mascot/title-ops.webp'
 import { formatElapsed } from '../../core/format'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
+import { CountUp } from '../../ui/CountUp'
 import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
 import { StaffStatus, UrgencyChip } from '../staff/QueueView'
@@ -146,7 +147,7 @@ export function DashView() {
     <main className="main">
       <Topbar title="대시보드" sub="처리 현황과 먼저 볼 문의를 모았어요" lead={<img className="tti" src={titleOps} alt="" width={56} height={56} />} />
       <div className="scroll">
-        <div className="page dpage">
+        <div className="page">
           <div className="phead">
             <div className="eyebrow">DASHBOARD</div>
             <h1>대시보드</h1>
@@ -242,11 +243,13 @@ export function DashView() {
 
                 <div>
                   <div className="hpipe" role="group" aria-label="처리 현황">
-                    {pipe.map((k) => (
+                    {pipe.map((k, i) => (
                       <button key={k.label} type="button" className={k.cls} onClick={() => navigate(k.to)} aria-label={`${k.label} ${k.n}건. ${k.hint}`}>
                         <span>{k.label}</span>
                         <b>
-                          <i className="n">{k.n}</i>
+                          <i className="n">
+                            <CountUp value={k.n} delay={150 + i * 110} duration={1100} />
+                          </i>
                           <small>건</small>
                         </b>
                       </button>

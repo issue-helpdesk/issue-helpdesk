@@ -19,6 +19,7 @@ import { FaqView } from '../views/faq/FaqView'
 import { ChatView } from '../views/inquiry/ChatView'
 import { InquiryListView } from '../views/inquiry/InquiryListView'
 import { NewInquiryView } from '../views/inquiry/NewInquiryView'
+import { PendingChatView } from '../views/inquiry/PendingChatView'
 import { LoginView } from '../views/login/LoginView'
 import { StatsView } from '../views/staff/StatsView'
 import { MyDashView } from '../views/staff/MyDashView'
@@ -62,6 +63,7 @@ export function AppRoutes() {
           {/* 문의 (모든 역할 공통) */}
           <Route path="/new" element={<NewInquiryView />} />
           <Route path="/list" element={<InquiryListView />} />
+          <Route path="/chat/new" element={<PendingChatView />} />
           <Route path="/chat/:id" element={<ChatView />} />
           <Route path="/faq" element={<FaqView />} />
           {/* 담당자·관리자. 화면을 만들면 HomePlaceholder 를 실제 화면으로 바꾼다 */}
