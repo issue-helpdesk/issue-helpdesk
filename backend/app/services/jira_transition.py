@@ -3,9 +3,10 @@
 TK-07 은 Ticket 의 확인된 상태(work_status)를 바로 바꾸지 않는다. 목표 상태·처리 결과·사유를 payload 에 담아
 작업을 등록하고, Jira 반영이 조회로 확인된 뒤에 상태·처리 결과·시각과 이력을 갱신한다 (API 03 1.3).
 
-기본 전환(RDY→WIP, WIP→FIN, FIN→CLS)과 WIP·FIN 처리 결과 수정을 실행한다.
-FIN→WIP는 과거 결과 보존 정책이 확정될 때까지 DEFERRED로 두며 선점하지 않는다.
-worker·API 등록은 별도 연결한다. 이 서비스는 이미 권한 검증을 마친 TK-07 작업만 받는다.
+기본 전환(RDY→WIP, WIP→FIN, FIN→CLS), 미해결 재처리(FIN→WIP), WIP·FIN 처리 결과 수정을 실행한다.
+FIN→WIP는 Jira 상태를 되돌린 뒤 남은 증상(reason)을 Jira 댓글로 남긴다. 이전 처리 결과·완료 시각은 지우지 않고
+그대로 둔다(재완료 때 새 결과로 덮어쓴다). 이전 결과를 따로 보존할지는 팀 확인이 필요한 사항이다.
+이 서비스는 이미 권한 검증을 마친 TK-07 작업만 받는다.
 """
 import uuid
 from dataclasses import dataclass
@@ -39,6 +40,7 @@ def enqueue_jira_transition(db: Session, ticket: Ticket, payload: dict[str, Any]
 
 VERIFY_ONLY = "verify_only:"
 BASIC_TRANSITIONS = {("RDY", "WIP"), ("WIP", "FIN"), ("FIN", "CLS")}
+REOPEN = ("FIN", "WIP")
 
 
 @dataclass(frozen=True)
@@ -74,11 +76,6 @@ def run_jira_transition_job(
     재시도 숫자는 기존 RetryPolicy 제안값이다. PostgreSQL 동시성·실제 Jira 검증은 별도다.
     """
     now = now or datetime_utils.now()
-    preview = db.get(IntegrationJob, job_id, populate_existing=True)
-    if (preview and preview.job_type == JOB_TYPE and preview.status == "PENDING"
-            and isinstance(preview.payload, dict)
-            and (preview.payload.get("fromStatus"), preview.payload.get("toStatus")) == ("FIN", "WIP")):
-        return TransitionResult(job_id, "DEFERRED", "reopen_policy_pending")
     claimed = db.execute(
         update(IntegrationJob).where(
             IntegrationJob.id == job_id, IntegrationJob.job_type == JOB_TYPE,
@@ -121,6 +118,8 @@ def run_jira_transition_job(
             latest = jira.get_work_result(issue_key)
             if not matches_result(latest, request):
                 raise JiraError("result_unknown", "Jira 변경 결과가 아직 요청과 일치하지 않습니다.", retryable=False)
+        if (request.source, request.target) == REOPEN:
+            _ensure_reason_comment(jira, issue_key, ticket.receipt_no, request)
         changed_at = None
         if request.target is not None:
             changed_at = jira.get_status_changed_at(
@@ -147,6 +146,23 @@ def _apply_request(jira: JiraClient, issue_key: str, request: TransitionRequest)
         jira.update_final_result(issue_key, request.note)
 
 
+def reason_comment_marker(receipt_no: str, requested_at: datetime) -> str:
+    """같은 요청이면 재처리 작업(TK-12)으로 작업 번호가 바뀌어도 같은 식별 문구가 되도록 접수번호·요청 시각으로 만든다."""
+    return f"[{receipt_no} 재처리 요청 {requested_at.astimezone(timezone.utc):%Y-%m-%dT%H:%M:%S.%fZ}]"
+
+
+def _ensure_reason_comment(jira: JiraClient, issue_key: str, receipt_no: str, request: TransitionRequest) -> None:
+    """미해결 사유(남은 증상)를 Jira 댓글로 남긴다. 이미 달린 댓글이 있으면 다시 달지 않는다.
+
+    상태 전환 뒤에 하므로 시간 초과·저장 실패 뒤 재시도(조회 전용 포함)에서도 먼저 조회해 중복을 막는다.
+    사유는 TK-07 접수 때 이미 마스킹됐다.
+    """
+    marker = reason_comment_marker(receipt_no, request.requested_at)
+    if jira.find_comment(issue_key, marker) is not None:
+        return
+    jira.add_comment(issue_key, f"[미해결 재처리 요청]\n남은 증상: {request.reason}\n{marker}")
+
+
 def validate_request(db: Session, job: IntegrationJob, ticket: Ticket | None) -> TransitionRequest:
     p = job.payload
     if ticket is None or not isinstance(p, dict):
@@ -161,7 +177,7 @@ def validate_request(db: Session, job: IntegrationJob, ticket: Ticket | None) ->
     source, target, note = p.get("fromStatus"), p.get("toStatus"), p.get("resolutionNote")
     if not isinstance(source, str) or (target is not None and not isinstance(target, str)):
         raise JiraError("invalid_job", "작업 상태 형식이 올바르지 않습니다.", retryable=False)
-    if not (target is None and source in {"WIP", "FIN"}) and (source, target) not in BASIC_TRANSITIONS:
+    if not (target is None and source in {"WIP", "FIN"}) and (source, target) not in BASIC_TRANSITIONS | {REOPEN}:
         raise JiraError("invalid_transition", "이번 실행기의 지원 전환이 아닙니다.", retryable=False)
     if (ticket.jira_sync_status != "SYNCED" or ticket.transition_status != "PENDING"
             or ticket.requested_work_status != target or ticket.work_status not in {source, target or source}):
@@ -182,6 +198,11 @@ def validate_request(db: Session, job: IntegrationJob, ticket: Ticket | None) ->
     reason = p.get("reason")
     if reason is not None and (not isinstance(reason, str) or not 1 <= len(reason.strip()) <= 2000):
         raise JiraError("invalid_job", "작업 사유가 올바르지 않습니다.", retryable=False)
+    if (source, target) == REOPEN:
+        # 남은 증상은 필수이고, 이전 처리 결과는 재완료 때 새로 받는다
+        if reason is None or note is not None:
+            raise JiraError("invalid_fields", "재처리 요청에는 남은 증상만 필요합니다.", retryable=False)
+        reason = reason.strip()
     actor = p.get("requestedBy")
     if type(actor) is not int or db.get(User, actor) is None:
         raise JiraError("invalid_job", "요청자가 없습니다.", retryable=False)
@@ -261,7 +282,9 @@ def _save_confirmed(db, job_id, attempt, request, latest, changed_at, now) -> Tr
             inquiry.updated_at = now
             ticket.closed_at = request.confirmed_at
     ticket.work_status = request.expected_status
-    ticket.resolution_note = latest["final_result"] or None
+    # 재처리(FIN→WIP) 뒤 Jira가 결과 칸을 비워도 이전 처리 결과는 DB에 남긴다. 재완료 때 새 값으로 덮어쓴다.
+    keep_previous = (request.source, request.target) == REOPEN
+    ticket.resolution_note = latest["final_result"] or (ticket.resolution_note if keep_previous else None)
     ticket.work_status_confirmed_at = now
     ticket.requested_work_status = None
     ticket.transition_status = "IDLE"
