@@ -27,6 +27,8 @@ export function FaqView() {
   const navigate = useNavigate()
   const [faqs, setFaqs] = useState<Faq[] | null>(null) // null = 불러오는 중
   const [error, setError] = useState('')
+  // 분류 칩: ''(전체)이면 모두 보인다
+  const [cat, setCat] = useState('')
   // 서버 모드에서 FAQ 를 열 때 읽어 온 출처 (키: FAQ 번호). 'err' 는 읽지 못한 경우
   const [srcs, setSrcs] = useState<Record<string, GuideSource[] | 'err'>>({})
 
@@ -62,6 +64,10 @@ export function FaqView() {
     apply(await listFaqs())
   }
 
+  // 있는 분류만 칩으로 보인다 (분류 이름 순서는 카탈로그 순서)
+  const cats = Object.keys(CATEGORY_NAME).filter((c) => faqs?.some((f) => f.categoryCode === c))
+  const shown = faqs?.filter((f) => !cat || f.categoryCode === cat)
+
   return (
     <main className="main">
       <Topbar title="FAQ" sub="본인에게 열람이 허용된 가이드만 표시돼요" lead={<img className="tti" src={titleFaq} alt="" width={56} height={56} />} />
@@ -74,6 +80,19 @@ export function FaqView() {
               자주 발생하는 IT 문제와 사내 가이드를 모았어요. FAQ를 읽어도 문의가 접수되지는 않아요.
             </p>
           </div>
+
+          {faqs && faqs.length > 0 && (
+            <div className="subc" role="group" aria-label="분류">
+              <button type="button" className={`chip${!cat ? ' on' : ''}`} aria-pressed={!cat} onClick={() => setCat('')}>
+                전체 <em>{faqs.length}</em>
+              </button>
+              {cats.map((c) => (
+                <button key={c} type="button" className={`chip${cat === c ? ' on' : ''}`} aria-pressed={cat === c} onClick={() => setCat(c)}>
+                  {CATEGORY_NAME[c] ?? c} <em>{faqs.filter((f) => f.categoryCode === c).length}</em>
+                </button>
+              ))}
+            </div>
+          )}
 
           {error && (
             <div className="alert err" role="alert">
@@ -90,7 +109,7 @@ export function FaqView() {
           {faqs === null && !error && <div className="empty" role="status">불러오는 중이에요…</div>}
           {faqs?.length === 0 && <div className="empty">표시할 FAQ가 없어요.</div>}
 
-          {faqs?.map((f) => (
+          {shown?.map((f) => (
             <details key={f.id} className="panel faq" style={{ padding: 0 }} onToggle={(e) => e.currentTarget.open && loadSources(f)}>
               <summary>
                 <span className={`tag c-${f.categoryCode}`}>{CATEGORY_NAME[f.categoryCode] ?? f.categoryCode}</span>

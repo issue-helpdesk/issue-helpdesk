@@ -6,6 +6,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { authApi } from '../api/auth'
+import { bindSessionUser } from '../api/tickets'
 import type { ApiResult, LoginData, LoginRequest, PasswordChangeRequest, User } from '../api/types'
 import { setAuthLostHandler } from './apiClient'
 import { tokenStore } from './tokenStore'
@@ -61,8 +62,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let alive = true // 화면이 사라진 뒤에는 상태를 바꾸지 않기 위한 표시
     authApi.me().then((r) => {
       if (!alive) return
-      if (r.ok) setUser(r.data)
-      else {
+      if (r.ok) {
+        bindSessionUser(r.data)
+        setUser(r.data)
+      } else {
         // 만료·무효 토큰은 버리고, 로그인 화면에서 만료됐다고 알린다 (별도 창은 없다)
         tokenStore.clear()
         setLoginNote('expired')
@@ -78,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const accept = useCallback((r: ApiResult<LoginData>) => {
     if (r.ok) {
       tokenStore.set(r.data.accessToken)
+      bindSessionUser(r.data.user)
       setUser(r.data.user)
       setLoginNote(null)
     }

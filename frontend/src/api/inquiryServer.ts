@@ -143,14 +143,50 @@ const REPLIES: Partial<Record<ChatStep, ChatReply[]>> = {
   ],
 }
 
-function toMessages(list: SMessage[], step: ChatStep): ChatMessage[] {
-  const out: ChatMessage[] = list.map((m): ChatMessage => {
+/** 내 글을 보낸 지 이만큼은 AI 가 아직 답을 만드는 중으로 본다(ms). 서버는 AI 답변을 만들 때까지 오래 걸릴 수 있고(몇 초~1분 이상), 그동안 내 글만 저장돼 있다 */
+export const AI_WAIT_MS = 120_000
+
+/** 마지막이 내 글이고 보낸 지 얼마 안 됐으면, AI 가 못 답한 것이 아니라 아직 답하는 중이다 */
+export function isAnswering(i: SInquiry, list: SMessage[]): boolean {
+  const last = list[list.length - 1]
+  return !i.ticket && i.status === 'IN_PROGRESS' && last?.sender === 'USER' && Date.now() - Date.parse(last.createdAt) < AI_WAIT_MS
+}
+
+/**
+ * 서버가 저장하지 않는 "내가 누른 버튼"과 그 뒤 안내. 모의(시안)는 말풍선과 안내를 대화에 남기지만,
+ * 서버는 해결이면 시스템 안내 한 줄만, 미해결·연결 거절이면 상태만 남긴다. 그래서 문의의 상태에서 같은 대화를 다시 만들어 보여 준다.
+ */
+export const RESOLVED_LABEL = '해결'
+export const UNRESOLVED_LABEL = '미해결'
+export const RESOLVED_REPLY: ChatMessage = { id: -6, role: 'assistant', blocks: [{ type: 'p', text: '**AI 안내로 문제가 해결되었군요!**' }, { type: 'p', text: '이 문의는 **AI 해결**로 기록했어요. 다른 도움이 필요하면 새 문의를 시작해 주세요.' }] }
+export const UNRESOLVED_REPLY: ChatMessage = { id: -7, role: 'assistant', blocks: [{ type: 'p', text: '**아직 문제가 해결되지 않았군요.**' }, { type: 'p', text: '담당자 연결을 통해 추가 도움을 받을 수 있어요.' }] }
+/** 서버가 해결 때 저장하는 시스템 안내 (위 "해결" 안내와 겹쳐서 화면에서는 뺀다) */
+const RESOLVED_NOTICE = '해결로 종료되었습니다.'
+
+/** 담당자 연결 제안에서 "미연결 (종료)"를 눌렀을 때 내 말풍선 글 (모의와 같다) */
+export const NO_CONNECT_LABEL = '미연결 (종료)'
+
+/** 접수 없이 끝났을 때 보여 주는 종료 안내 (모의의 noTicketClosed 와 같은 글) */
+export const NO_TICKET_CLOSED: ChatMessage[] = [
+  { id: -4, role: 'assistant', blocks: [{ type: 'p', text: '**담당자 연결 없이 상담을 종료했어요.**' }, { type: 'p', text: '티켓은 접수되지 않았으며, 문의 내역에서 다시 상담을 이어갈 수 있어요.' }] },
+]
+
+function toMessages(list: SMessage[], step: ChatStep, i: SInquiry, answering = false): ChatMessage[] {
+  const resolved = i.status === 'AI_RESOLVED'
+  const out: ChatMessage[] = list.filter((m) => !(resolved && m.sender === 'SYSTEM' && m.content === RESOLVED_NOTICE)).map((m): ChatMessage => {
     if (m.sender === 'USER') return { id: m.id, role: 'user', text: m.content, createdAt: m.createdAt }
     if (m.sender === 'SYSTEM') return { id: m.id, role: 'sys', text: m.content, createdAt: m.createdAt, tone: /가려|가렸|마스킹/.test(m.content) ? 'sens' : undefined }
     const legacy = m.sources.find((s) => s.sourceKind === 'LEGACY')
     const legacyCase: LegacyCase | undefined = legacy ? { no: '', title: '과거 처리 사례 참고', symptom: '', solution: legacy.excerpt ?? '' } : undefined
     return { id: m.id, role: 'assistant', blocks: toBlocks(m.content), sources: m.sources.filter((s) => s.sourceKind === 'DOCUMENT').map(GUIDE), legacy: legacyCase, createdAt: m.createdAt }
   })
+  // 아직 답하는 중이면 준비 중 표시를 붙인다 ("답하지 못함"으로 단정하지 않는다)
+  if (answering) out.push({ id: -3, role: 'assistant', typing: { label: '답변을 준비하고 있어요' } })
+  // 내가 누른 "해결"·"미해결"과 그 뒤 안내 (서버는 저장하지 않는다)
+  if (resolved) out.push({ id: -8, role: 'user', text: RESOLVED_LABEL }, RESOLVED_REPLY)
+  else if (i.resolutionResult === 'UNRESOLVED') out.push({ id: -9, role: 'user', text: UNRESOLVED_LABEL }, UNRESOLVED_REPLY)
+  // 접수 없이 끝난 문의(담당자 연결 거절): 서버는 종료만 저장하고 안내 글은 저장하지 않아서, 모의와 같은 종료 안내를 화면에서 붙인다
+  if (i.status === 'CLOSED_UNRESOLVED' && !i.ticket) out.push({ id: -5, role: 'user', text: NO_CONNECT_LABEL }, ...NO_TICKET_CLOSED)
   // 버튼은 마지막 AI 메시지에만 붙는다. 내 글에 AI 답이 없으면(답하지 못함) 안내 메시지를 만들어 붙인다
   const replies = REPLIES[step]
   if (replies) {
@@ -211,7 +247,8 @@ const refTicket = (i: SInquiry): Ticket => ({
 })
 
 export function toInquiry(i: SInquiry, messages: SMessage[], next?: string[], ticket?: Ticket | null): Inquiry {
-  const step = stepOf(i, next, messages[messages.length - 1]?.sender)
+  const answering = isAnswering(i, messages)
+  const step: ChatStep = answering ? 'answering' : stepOf(i, next, messages[messages.length - 1]?.sender)
   const firstUser = messages.find((m) => m.sender === 'USER')?.content
   return {
     id: i.id,
@@ -222,7 +259,7 @@ export function toInquiry(i: SInquiry, messages: SMessage[], next?: string[], ti
     unread: 0,
     createdAt: i.createdAt,
     updatedAt: i.updatedAt ?? i.createdAt,
-    messages: toMessages(messages, step),
+    messages: toMessages(messages, step, i, answering),
     draft: null,
     draftState: 'view',
     draftNote: '',
@@ -268,7 +305,10 @@ export async function serverClose(id: number): Promise<ApiResult<Inquiry>> {
 /** 기존 문의·세션 이어가기 (IQ-06) */
 export async function serverResume(id: number): Promise<ApiResult<Inquiry>> {
   const r = await request<{ inquiry: SInquiry; nextActions: string[] }>(`/inquiries/${id}/sessions`, { method: 'POST' })
-  return r.ok ? loadInquiry(id, r.data.nextActions) : r
+  if (r.ok) return loadInquiry(id, r.data.nextActions)
+  // 서버는 미확인·미해결(연결 제안 중)·해결 확인 대기만 이어간다. 담당자 연결을 거절해 끝낸 문의는 이어갈 수 없다 (IQ-06 409)
+  if (r.error.code === 'INQUIRY_INVALID_STATE') return fail('INQUIRY_INVALID_STATE', '이미 종료된 문의는 이어갈 수 없어요. 새 문의로 시작해 주세요.')
+  return r
 }
 
 /** 서버 문의 요약을 화면의 요약으로 */

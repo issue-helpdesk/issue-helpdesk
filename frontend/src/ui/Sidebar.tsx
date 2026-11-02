@@ -71,6 +71,8 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   // 담당자·관리자의 문의 메뉴 접기. undefined 는 자동: 사이드바가 넘칠 때만 접고, 넓어지면 되돌린다
   const [inqOpen, setInqOpen] = useState<boolean | undefined>(undefined)
   const [auto, setAuto] = useState(false)
+  // 메뉴가 길어 최근 문의가 잘리면 5개 대신 2개만 보인다 (그래도 넘치면 문의 그룹을 접는다)
+  const [shortRecent, setShortRecent] = useState(false)
   const sideRef = useRef<HTMLElement>(null)
   // 담당자: 처리할 문의 건수(처리 대기·처리 중·해결 확인 대기)와 Jira 알림이 온 건수
   const [queue, setQueue] = useState({ n: 0, nw: 0 })
@@ -116,20 +118,27 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
     const sd = sideRef.current
     if (!sd || !fold || inqOpen !== undefined || window.innerWidth <= 860) return
     if (sd.scrollHeight > sd.clientHeight + 1) {
+      if (!shortRecent && recent.length > 2) {
+        // 화면에 그려 본 뒤에야 넘치는지 알 수 있어서 이 안에서 정한다
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setShortRecent(true)
+        return
+      }
       setInqOpen(false)
       setAuto(true)
     }
-  }, [fold, inqOpen, recent.length, queue.n])
+  }, [fold, inqOpen, shortRecent, recent.length, queue.n])
   useEffect(() => {
     const back = () => {
-      if (auto && window.innerWidth > 860) {
+      if ((auto || shortRecent) && window.innerWidth > 860) {
         setInqOpen(undefined)
         setAuto(false)
+        setShortRecent(false)
       }
     }
     window.addEventListener('resize', back)
     return () => window.removeEventListener('resize', back)
-  }, [auto])
+  }, [auto, shortRecent])
 
   if (!user) return null
   const unread = recent.reduce((sum, i) => sum + i.unread, 0)
@@ -199,7 +208,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
             </button>
           </div>
           <div className="recent">
-            {recent.slice(0, 5).map((i) => {
+            {recent.slice(0, shortRecent ? 2 : 5).map((i) => {
               const sv = stateView(i)
               const tone = sv.tone
               return (

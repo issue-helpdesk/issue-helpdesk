@@ -8,11 +8,11 @@
  * 실제 서버에서는 상태 변경 뒤 Jira 반영이 서버에서 일어나므로, 화면은 목록·상세를 주기적으로 다시 읽는다.
  */
 import { request, sleep } from '../core/apiClient'
-import { MOCK_ONLY, USE_MOCK_TICKET } from '../core/config'
+import { MOCK_ONLY, USE_MOCK_AUTH, USE_MOCK_TICKET } from '../core/config'
 import { notReady } from './inquiryServer'
 import { staffTransition } from './mock/chatEngine'
 import { later, mockConfig, notify, subscribe } from './mock/chatStore'
-import { GROUP_STAFF, TEAM_MEMBERS, addMessage, reassignSeed, addHistory, messagesOf, slackOf, allStaffTickets, clearMention, findStaffTicket, historyOf, mutateSeed, pending, recordOfTicket } from './mock/staffTickets'
+import { GROUP_STAFF, TEAM_MEMBERS, addMessage, bindMockUser, reassignSeed, addHistory, messagesOf, slackOf, allStaffTickets, clearMention, findStaffTicket, historyOf, mutateSeed, pending, recordOfTicket } from './mock/staffTickets'
 import type { Page } from './inquiries'
 import type { MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMessage, TicketListQuery, TicketSummary, TicketTransitionRequest } from './ticketTypes'
 import { fail, ok, type ApiResult, type User } from './types'
@@ -31,6 +31,14 @@ const toQueryString = (q: TicketListQuery) => {
     else p.set(k, String(v))
   }
   return p.toString()
+}
+
+/**
+ * 로그인은 서버, 접수는 모의로 섞어 쓸 때 로그인한 사용자의 번호를 모의 접수에 맞춘다 (사번이 같은 구성원의 접수가 보이게).
+ * 둘 다 서버거나 둘 다 모의면 아무것도 하지 않는다.
+ */
+export function bindSessionUser(user: User) {
+  if (!USE_MOCK_AUTH && USE_MOCK_TICKET) bindMockUser(user.employeeNo, user.id)
 }
 
 /** 이 사용자가 볼 수 있는 접수인지 (서버는 토큰으로 판단한다): 관리자는 전체, 담당자는 소속 그룹, 문의자는 본인 문의 */

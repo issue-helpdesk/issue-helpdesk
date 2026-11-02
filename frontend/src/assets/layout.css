@@ -62,12 +62,14 @@
 :root{--ag1:rgba(240,100,150,.62);--ag2:rgba(240,80,140,.5);--ag3:rgba(240,80,140,.45)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ag1:rgba(240,80,140,.2);--ag2:rgba(240,80,140,.16);--ag3:rgba(240,80,140,.14)}}
 :root[data-theme="dark"]{--ag1:rgba(240,80,140,.2);--ag2:rgba(240,80,140,.16);--ag3:rgba(240,80,140,.14)}
-.app{position:relative;background:var(--canvas);overflow:hidden}
+.app{position:relative;background:var(--canvas);overflow:hidden;overflow:clip}
 .app::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 42% 34% at 22% 104%,var(--ag1),transparent 72%),radial-gradient(ellipse 36% 32% at 78% 104%,var(--ag2),transparent 72%),radial-gradient(ellipse 60% 22% at 50% 110%,var(--ag3),transparent 75%)}
 .main{background:transparent!important}
 .side{background:color-mix(in srgb,var(--white) 62%,transparent)!important;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-right:1px solid rgba(17,24,39,.06)!important}
 .faq summary{cursor:pointer;display:flex;gap:12px;align-items:center;list-style:none;padding:16px 20px}.faq summary::-webkit-details-marker{display:none}
 .faq summary b{font-size:15px;font-weight:600;flex:1;min-width:0}
+/* 분류 태그: 오른쪽 펼침 버튼·제목과 같은 중심선에 오도록 살짝 올린다 */
+.faq summary .tag{padding:0 8px 1px;position:relative;top:-1px}
 .faq .chv{width:28px;height:28px;border-radius:8px;background:var(--shell);display:flex;align-items:center;justify-content:center;flex:none;transition:transform .2s}
 .faq .chv .i{transform:rotate(90deg);width:16px;height:16px}.faq[open] .chv{transform:rotate(180deg);background:var(--osurf);color:var(--link)}
 .faq summary:hover .chv{background:var(--osurf);color:var(--link)}

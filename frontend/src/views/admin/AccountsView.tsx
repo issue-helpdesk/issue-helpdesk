@@ -11,6 +11,7 @@ import type { Page } from '../../api/inquiries'
 import type { AccountStatus, ApiFail, ServiceRole } from '../../api/types'
 import type { AccountHistoryItem, Department, HistKind, UserSummary } from '../../api/userTypes'
 import titleAcct from '../../assets/mascot/title-acct.webp'
+import { USE_MOCK_AUTH } from '../../core/config'
 import { formatDateTime } from '../../core/format'
 import { HOME_BY_ROLE, ROLE_LABEL } from '../../core/roles'
 import { useAuth } from '../../core/session'
@@ -253,9 +254,9 @@ export function AccountsView() {
                       <tr>
                         <SortTh col="employeeNo" label="사번" sort={sort} onSort={onSort} />
                         <SortTh col="name" label="이름" sort={sort} onSort={onSort} />
-                        <SortTh col="dept" label="부서" sort={sort} onSort={onSort} />
-                        <SortTh col="role" label="역할" sort={sort} onSort={onSort} />
-                        <SortTh col="status" label="상태" sort={sort} onSort={onSort} />
+                        <SortTh plain={!USE_MOCK_AUTH} col="dept" label="부서" sort={sort} onSort={onSort} />
+                        <SortTh plain={!USE_MOCK_AUTH} col="role" label="역할" sort={sort} onSort={onSort} />
+                        <SortTh plain={!USE_MOCK_AUTH} col="status" label="상태" sort={sort} onSort={onSort} />
                         <th>이용 제한·해제</th>
                         <th>비밀번호</th>
                         <th>계정 정보</th>
