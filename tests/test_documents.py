@@ -1,5 +1,9 @@
 """문서 API (DC-01~09). SQLite 메모리 DB 만 쓰고, 적재는 부르는지만 본다."""
+import importlib.util
 import io
+import os
+import time
+import zipfile
 
 import pytest
 from sqlalchemy import create_engine, select
@@ -17,7 +21,7 @@ from app.models import (
     KnowledgeDocument,
     SupportGroup,
 )
-from app.services import document as document_service
+from app.services import document_file
 from app.services.document_ingest import ingest_submitter
 from test_auth import TABLES, add_user, bearer, client, error_code, login  # noqa: F401
 from test_inquiries import create_sqlite_tables
@@ -55,8 +59,8 @@ def submitted():
 
 @pytest.fixture
 def storage(tmp_path, monkeypatch):
-    monkeypatch.setattr(document_service, "ROOT", tmp_path)
-    monkeypatch.setattr(document_service, "STORAGE_DIR", tmp_path / "storage" / "documents")
+    monkeypatch.setattr(document_file, "ROOT", tmp_path)
+    monkeypatch.setattr(document_file, "STORAGE_DIR", tmp_path / "storage" / "documents")
     return tmp_path / "storage" / "documents"
 
 
@@ -297,6 +301,100 @@ def test_upload_rejects_format(client, db, users, submitted, storage):
     assert submitted == [] and not storage.exists()
 
 
+def office_file(*members):
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for member in members:
+            archive.writestr(member, "x")
+    return buffer.getvalue()
+
+
+@pytest.mark.parametrize("name, content", [
+    ("fake.pdf", b"this is not a pdf at all"),
+    ("fake.docx", b"plain text"),
+    ("fake.pptx", b"plain text"),
+    ("other.zip.docx", office_file("hello.txt")),               # zip 이지만 Word 문서가 아니다
+    ("slides.docx", office_file("ppt/presentation.xml")),       # 확장자와 내용이 다르다
+    ("words.pptx", office_file("word/document.xml")),
+    ("old.docx", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1 encrypted"),
+    ("empty.md", b""),
+    ("binary.md", b"MZ\x90\x00\x03"),
+    ("binary.txt", b"\x00\x01\x02"),
+])
+def test_upload_rejects_wrong_content_before_saving(client, db, users, submitted, storage, name, content):
+    document, _ = add_doc(db)
+
+    res = upload(client, users["admin"], document.id, name=name, content=content)
+
+    assert (res.status_code, error_code(res)) == (415, "DOCUMENT_FILE_FORMAT_UNSUPPORTED")
+    assert res.json()["error"]["details"][0]["field"] == "file"
+    assert submitted == []
+    assert list((storage / str(document.id)).iterdir()) == []       # 임시 파일도 남지 않는다
+
+
+def test_upload_rejection_message_explains_reason(client, db, users, submitted, storage):
+    document, _ = add_doc(db)
+
+    res = upload(client, users["admin"], document.id, name="empty.md", content=b"")
+
+    assert res.json()["error"]["details"][0]["message"] == "빈 파일입니다."
+
+
+@pytest.mark.parametrize("name, content", [
+    ("korean.md", "# 안내".encode("utf-8")),
+    ("bom.txt", b"\xef\xbb\xbf# hi"),
+    ("old.txt", "안내".encode("cp949")),
+    ("real.docx", office_file("word/document.xml")),
+    ("real.pptx", office_file("ppt/presentation.xml")),
+])
+def test_upload_accepts_valid_content(client, db, users, submitted, storage, name, content):
+    document, _ = add_doc(db)
+
+    assert upload(client, users["admin"], document.id, name=name, content=content).status_code == 202
+
+
+def test_same_file_is_rejected_everywhere(client, db, users, submitted, storage):
+    first, _ = add_doc(db)
+    second, _ = add_doc(db, "IT-NET-002")
+    saved = upload(client, users["admin"], first.id, content=b"# same")
+
+    res = upload(client, users["admin"], second.id, content=b"# same", version="v9")
+
+    assert (res.status_code, error_code(res)) == (409, "DOCUMENT_FILE_DUPLICATE")
+    assert res.json()["error"]["details"][0]["value"] == {
+        "documentId": first.id, "docCode": "IT-NET-001", "versionId": saved.json()["id"], "version": "v2", "ingestStatus": "PENDING",
+    }
+    assert len(submitted) == 1
+    assert not (storage / str(second.id)).exists() or list((storage / str(second.id)).iterdir()) == []
+
+
+def test_different_file_is_allowed(client, db, users, submitted, storage):
+    document, _ = add_doc(db)
+    upload(client, users["admin"], document.id, content=b"# one", version="v2")
+
+    assert upload(client, users["admin"], document.id, content=b"# two", version="v3").status_code == 202
+
+
+def test_duplicate_checked_at_commit_too(client, db, users, submitted, storage, monkeypatch):
+    """동시에 올라와 앞의 검사를 지나도 DB 가 막고 파일을 남기지 않는다."""
+    from app.services.document import DocumentService
+
+    first, _ = add_doc(db)
+    upload(client, users["admin"], first.id, content=b"# same", version="v2")
+    real, calls = DocumentService.check_duplicate, []
+
+    def miss_first(self, sha256):
+        calls.append(1)
+        if len(calls) > 1:
+            real(self, sha256)
+    monkeypatch.setattr(DocumentService, "check_duplicate", miss_first)
+
+    res = upload(client, users["admin"], first.id, content=b"# same", version="v3")
+
+    assert error_code(res) == "DOCUMENT_FILE_DUPLICATE"
+    assert len(list((storage / str(first.id)).iterdir())) == 1
+
+
 def test_upload_size_limit_uses_constant(client, db, users, submitted, storage, monkeypatch):
     document, _ = add_doc(db)
     monkeypatch.setattr(file_constants, "MAX_DOCUMENT_FILE_MB", 1)
@@ -404,6 +502,201 @@ def test_versions_list_and_detail(client, db, users):
     assert error_code(client.get(f"{DOCS}/{document.id}/versions/{other_version.id}", headers=users["admin"])) == "DOCUMENT_VERSION_NOT_FOUND"
     assert client.get(f"{DOCS}/{document.id}/versions", headers=users["agent"]).status_code == 403
     assert error_code(client.get(f"{DOCS}/999/versions", headers=users["admin"])) == "DOCUMENT_NOT_FOUND"
+
+
+# ------------------------------------------------------------------ DC-10
+
+
+def failed_version(client, db, users, submitted, content=b"# broken"):
+    document, _ = add_doc(db)
+    body = upload(client, users["admin"], document.id, content=content).json()
+    row = db.get(DocumentVersion, body["id"])
+    row.ingest_status, row.ingest_error = "FAILED", "파서 오류"
+    db.commit()
+    submitted.clear()
+    return document, row
+
+
+def retry(client, headers, document, row, name=None, content=None):
+    files = {"file": (name, io.BytesIO(content))} if name else None
+    return client.post(f"{DOCS}/{document.id}/versions/{row.id}/retry", headers=headers, files=files)
+
+
+def test_retry_with_same_file(client, db, users, submitted, storage):
+    document, row = failed_version(client, db, users, submitted)
+    path = row.file_path
+
+    res = retry(client, users["admin"], document, row)
+
+    assert res.status_code == 202
+    assert (res.json()["ingestStatus"], res.json()["ingestError"]) == ("PENDING", None)
+    assert submitted == [row.id]
+    db.expire_all()
+    assert row.file_path == path
+    assert audit_events(db)[-1] == ("DOCUMENT_VERSION_RETRY", "v2 같은 파일")
+
+
+def test_retry_replaces_file_and_removes_old(client, db, users, submitted, storage):
+    document, row = failed_version(client, db, users, submitted)
+    old_path = storage.parent.parent / row.file_path
+
+    res = retry(client, users["admin"], document, row, name="fixed.txt", content=b"# fixed")
+
+    assert res.status_code == 202
+    assert res.json()["fileFormat"] == "TEXT"
+    db.expire_all()
+    assert (storage.parent.parent / row.file_path).read_bytes() == b"# fixed"
+    assert not old_path.exists()
+    assert audit_events(db)[-1] == ("DOCUMENT_VERSION_RETRY", "v2 파일 교체")
+    assert submitted == [row.id]
+
+
+def test_retry_same_content_does_not_replace(client, db, users, submitted, storage):
+    document, row = failed_version(client, db, users, submitted, content=b"# same")
+    path = row.file_path
+
+    assert retry(client, users["admin"], document, row, name="again.md", content=b"# same").status_code == 202
+
+    db.expire_all()
+    assert row.file_path == path
+    assert len(list((storage / str(document.id)).iterdir())) == 1
+
+
+def test_retry_keeps_dataset_original(client, db, users, submitted, storage):
+    """가이드 원본처럼 업로드 폴더 밖의 파일은 교체해도 지우지 않는다."""
+    document, row = failed_version(client, db, users, submitted)
+    original = storage.parent.parent / "dataset" / "guide.md"
+    original.parent.mkdir(parents=True)
+    original.write_text("# original")
+    row.file_path = "dataset/guide.md"
+    db.commit()
+
+    retry(client, users["admin"], document, row, name="fixed.md", content=b"# fixed")
+
+    assert original.exists()
+
+
+@pytest.mark.parametrize("status", ["PENDING", "DONE"])
+def test_retry_only_failed(client, db, users, submitted, storage, status):
+    document, row = failed_version(client, db, users, submitted)
+    row.ingest_status = status
+    db.commit()
+
+    res = retry(client, users["admin"], document, row)
+
+    assert (res.status_code, error_code(res)) == (409, "DOCUMENT_VERSION_NOT_RETRYABLE")
+    assert res.json()["error"]["details"][0]["value"] == status
+    assert submitted == []
+
+
+def test_retry_rejects_bad_or_duplicate_file(client, db, users, submitted, storage):
+    document, row = failed_version(client, db, users, submitted)
+    upload(client, users["admin"], document.id, content=b"# other", version="v3")
+    submitted.clear()
+    before = sorted(p.name for p in (storage / str(document.id)).iterdir())
+
+    fake = retry(client, users["admin"], document, row, name="fake.pdf", content=b"nope")
+    duplicate = retry(client, users["admin"], document, row, name="dup.md", content=b"# other")
+
+    assert error_code(fake) == "DOCUMENT_FILE_FORMAT_UNSUPPORTED"
+    assert error_code(duplicate) == "DOCUMENT_FILE_DUPLICATE"
+    db.expire_all()
+    assert row.ingest_status == "FAILED"
+    assert submitted == []
+    assert sorted(p.name for p in (storage / str(document.id)).iterdir()) == before
+
+
+def test_retry_not_found_and_permissions(client, db, users, submitted, storage):
+    document, row = failed_version(client, db, users, submitted)
+    other, _ = add_doc(db, "IT-NET-002")
+
+    assert retry(client, users["agent"], document, row).status_code == 403
+    assert error_code(retry(client, users["admin"], other, row)) == "DOCUMENT_VERSION_NOT_FOUND"
+    assert error_code(client.post(f"{DOCS}/999/versions/1/retry", headers=users["admin"])) == "DOCUMENT_NOT_FOUND"
+
+
+# ------------------------------------------------------------------ 임시 파일 정리
+
+
+def touch(path, age_hours=0):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"x")
+    mtime = time.time() - age_hours * 3600
+    os.utime(path, (mtime, mtime))
+
+
+def test_cleanup_removes_only_old_temp_files(storage):
+    old, recent, stored = storage / "1" / "a.part", storage / "1" / "b.part", storage / "1" / "c.pdf"
+    touch(old, age_hours=2)
+    touch(recent)
+    touch(stored, age_hours=2)
+
+    assert document_file.cleanup_temp_files() == 1
+
+    assert not old.exists() and recent.exists() and stored.exists()
+
+
+def test_cleanup_logs_unknown_file_without_deleting(storage, caplog):
+    known, unknown = storage / "1" / "known.pdf", storage / "1" / "unknown.pdf"
+    touch(known, age_hours=2)
+    touch(unknown, age_hours=2)
+
+    document_file.cleanup_temp_files(known_paths={document_file.to_stored_path(known)})
+
+    assert known.exists() and unknown.exists()
+    assert "unknown.pdf" in caplog.text and "known.pdf" not in caplog.text.replace("unknown.pdf", "")
+
+
+def test_cleanup_without_folder_does_nothing(storage):
+    assert document_file.cleanup_temp_files() == 0
+
+
+def test_run_cleanup_survives_errors(monkeypatch):
+    from app.services import document_ingest
+
+    def boom(**_):
+        raise OSError("disk")
+    monkeypatch.setattr(document_ingest, "cleanup_temp_files", boom)
+
+    document_ingest.run_cleanup()
+
+
+# ------------------------------------------------------------------ 기존 행 해시 채우기
+
+
+def load_backfill():
+    spec = importlib.util.spec_from_file_location(
+        "backfill_document_hashes", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "db", "backfill_document_hashes.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_backfill_fills_and_reports(db, tmp_path):
+    import hashlib
+
+    backfill = load_backfill().backfill
+    (tmp_path / "a.md").write_bytes(b"# a")
+    (tmp_path / "same.md").write_bytes(b"# a")
+    (tmp_path / "b.md").write_bytes(b"# b")
+    _, (filled, duplicate, missing, no_path, done) = add_doc(db, versions=[(f"v{i}", "ALL", False) for i in range(5)])
+    filled.file_path, duplicate.file_path, missing.file_path, no_path.file_path = "a.md", "same.md", "gone.md", None
+    done.file_path, done.file_sha256 = "b.md", "already"
+    db.commit()
+
+    dry = backfill(db, tmp_path, dry_run=True)
+
+    assert dry.filled == [filled.id] and filled.file_sha256 is None
+
+    report = backfill(db, tmp_path)
+    db.commit()
+
+    assert report.filled == [filled.id]
+    assert report.duplicates == [(duplicate.id, filled.id)]
+    assert report.missing == [missing.id, no_path.id]
+    assert filled.file_sha256 == hashlib.sha256(b"# a").hexdigest()
+    assert (duplicate.file_sha256, done.file_sha256) == (None, "already")
+    assert backfill(db, tmp_path).filled == []          # 다시 돌려도 된다
 
 
 # ------------------------------------------------------------------ DC-09
@@ -630,3 +923,38 @@ def test_run_ingest_survives_errors(ingest_env, monkeypatch):
 
     module.run_ingest(7)
     module.run_resume()
+
+
+def test_size_limit_covers_retry_path(client, db, users, submitted, storage, monkeypatch):
+    document, row = failed_version(client, db, users, submitted)
+    monkeypatch.setattr(file_constants, "MAX_DOCUMENT_FILE_MB", 1)
+
+    res = retry(client, users["admin"], document, row, name="big.md", content=b"x" * (3 * 1024 * 1024))
+
+    assert (res.status_code, error_code(res)) == (413, "DOCUMENT_FILE_TOO_LARGE")
+
+
+def test_upload_accepts_real_pdf(client, db, users, submitted, storage):
+    from pypdf import PdfWriter
+
+    writer, buffer = PdfWriter(), io.BytesIO()
+    writer.add_blank_page(width=200, height=200)
+    writer.write(buffer)
+    document, _ = add_doc(db)
+
+    assert upload(client, users["admin"], document.id, name="real.pdf", content=buffer.getvalue()).status_code == 202
+
+
+def test_upload_rejects_password_pdf(client, db, users, submitted, storage):
+    from pypdf import PdfWriter
+
+    writer, buffer = PdfWriter(), io.BytesIO()
+    writer.add_blank_page(width=200, height=200)
+    writer.encrypt("secret", algorithm="RC4-128")
+    writer.write(buffer)
+    document, _ = add_doc(db)
+
+    res = upload(client, users["admin"], document.id, name="locked.pdf", content=buffer.getvalue())
+
+    assert error_code(res) == "DOCUMENT_FILE_FORMAT_UNSUPPORTED"
+    assert "암호" in res.json()["error"]["details"][0]["message"]

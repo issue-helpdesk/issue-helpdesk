@@ -41,6 +41,13 @@ class DocumentRepository:
         row = self.db.get(DocumentVersion, version_id, with_for_update=for_update, populate_existing=for_update)
         return row if row is not None and row.document_id == document_id else None
 
+    def by_file_hash(self, sha256: str) -> tuple[DocumentVersion, KnowledgeDocument] | None:
+        row = self.db.execute(
+            select(DocumentVersion, KnowledgeDocument).join(KnowledgeDocument, KnowledgeDocument.id == DocumentVersion.document_id)
+            .where(DocumentVersion.file_sha256 == sha256)
+        ).first()
+        return tuple(row) if row else None
+
     def versions(self, document_id: int) -> list[DocumentVersion]:
         return list(self.db.scalars(
             select(DocumentVersion).where(DocumentVersion.document_id == document_id)

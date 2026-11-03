@@ -38,6 +38,9 @@ class DocumentVersion(Base):
         CheckConstraint("not is_current or ingest_status = 'DONE'", name="current_needs_done"),
         Index("uq_document_versions_one_current", "document_id", unique=True, postgresql_where=text("is_current"),
               sqlite_where=text("is_current")),
+        # 같은 파일을 다시 파싱·임베딩하지 않는다. 일괄 적재·사례 가이드 행은 비어 있을 수 있다
+        Index("uq_document_versions_file_sha256", "file_sha256", unique=True,
+              postgresql_where=text("file_sha256 is not null"), sqlite_where=text("file_sha256 is not null")),
     )
 
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)
@@ -45,6 +48,7 @@ class DocumentVersion(Base):
     version: Mapped[str]
     file_path: Mapped[str | None]
     file_format: Mapped[str | None]
+    file_sha256: Mapped[str | None]                                         # 파일 내용 해시
     view_scope: Mapped[str] = mapped_column(server_default="ADMIN")          # 정책 미지정 시 가장 좁게
     transfer_policy: Mapped[str] = mapped_column(server_default="BLOCKED")
     is_current: Mapped[bool] = mapped_column(server_default=text("false"))

@@ -64,6 +64,18 @@ def upload_version(
     return service.upload_version(document_id, file.file, file.filename, version.strip(), view_scope, transfer_policy, auth.user)
 
 
+@router.post("/{document_id}/versions/{version_id}/retry", response_model=DocumentVersion, status_code=status.HTTP_202_ACCEPTED)
+def retry_version(
+    document_id: int,
+    version_id: int,
+    auth: AdminAuth,
+    service: DocumentServiceDep,
+    file: Annotated[UploadFile | None, File()] = None,
+) -> DocumentVersion:
+    """적재에 실패한 버전을 다시 적재한다. 파일을 함께 보내면 교체한다."""
+    return service.retry_version(document_id, version_id, file.file if file else None, file.filename if file else None, auth.user)
+
+
 @router.get("/{document_id}/versions/{version_id}", response_model=DocumentVersion)
 def get_version(document_id: int, version_id: int, _: AdminAuth, service: DocumentServiceDep) -> DocumentVersion:
     return service.get_version(document_id, version_id)

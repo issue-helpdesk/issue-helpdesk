@@ -2,7 +2,6 @@
 
 파일을 읽어 청크·임베딩으로 만드는 일은 app.rag.ingest.upload 가 하고, 여기서는 저장과 등록까지만 한다.
 """
-import uuid
 from pathlib import Path
 from typing import Annotated, BinaryIO
 
@@ -15,7 +14,6 @@ from app.core.errors import AppError, field_error
 from app.core.permissions import visible_scopes
 from app.db.session import DbSession
 from app.models import Category, DocumentVersion, KnowledgeDocument, SupportGroup, User
-from app.rag.ingest import ROOT
 from app.repositories.audit_log import AuditLogRepositoryDep
 from app.repositories.document import DocumentRepositoryDep
 from app.repositories.faq import FaqRepositoryDep
@@ -30,11 +28,10 @@ from app.schemas.document import (
     DocumentVersionUpdateRequest,
 )
 from app.schemas.inquiry import CategoryRef, GroupRef, UserRef
+from app.services.document_file import remove_stored, stage_file, to_stored_path
 from app.services.document_ingest import IngestSubmitterDep
 from app.services.faq import publishable_codes
 from app.utils import datetime_utils
-
-STORAGE_DIR = ROOT / "storage" / "documents"
 
 
 class DocumentService:
@@ -139,39 +136,101 @@ class DocumentService:
         self, document_id: int, file: BinaryIO, filename: str | None, version: str, view_scope: str,
         transfer_policy: str, user: User,
     ) -> DocumentVersionView:
-        """DC-07. 파일 저장 → 버전 행(PENDING) 커밋 → 백그라운드 적재. 현행 전환은 자동으로 하지 않는다."""
+        """DC-07. 내용 확인·중복 검사 → 파일 저장 → 버전 행(PENDING) 커밋 → 백그라운드 적재. 현행 전환은 자동으로 하지 않는다."""
         if self.documents.get(document_id) is None:
             raise AppError(ErrorCode.DOCUMENT_NOT_FOUND)
-        suffix = Path(filename or "").suffix.lower()
-        file_format = file_constants.FILE_FORMATS.get(suffix)
-        if file_format is None:
-            raise field_error(ErrorCode.DOCUMENT_FILE_FORMAT_UNSUPPORTED, "file", "INVALID_VALUE")
-        path = save_file(file, document_id, suffix)
+        suffix, file_format = file_format_of(filename)
+        staged = stage_file(file, document_id, suffix)
+        path = None
         try:
+            self.check_duplicate(staged.sha256)
+            path = staged.keep()
             row = self.documents.add(DocumentVersion(
-                document_id=document_id, version=version, file_path=path.relative_to(ROOT).as_posix(),
-                file_format=file_format, view_scope=view_scope, transfer_policy=transfer_policy,
+                document_id=document_id, version=version, file_path=to_stored_path(path), file_format=file_format,
+                file_sha256=staged.sha256, view_scope=view_scope, transfer_policy=transfer_policy,
                 is_current=False, ingest_status="PENDING", registered_by=user.id,
             ))
             self.db.commit()
         except IntegrityError:
             self.db.rollback()
             path.unlink(missing_ok=True)
+            self.check_duplicate(staged.sha256)         # 같은 파일이 동시에 올라왔다
             raise field_error(ErrorCode.DOCUMENT_VERSION_DUPLICATE, "version", "DUPLICATE")
         except Exception:
-            path.unlink(missing_ok=True)    # 행이 없는 파일이 남지 않게 한다
+            if path is not None:
+                path.unlink(missing_ok=True)            # 행이 없는 파일이 남지 않게 한다
             raise
+        finally:
+            staged.discard()
         self.submit_ingest(row.id)
         return self.version_views([row])[0]
 
-    def get_version(self, document_id: int, version_id: int) -> DocumentVersionView:
-        """DC-08."""
+    def retry_version(
+        self, document_id: int, version_id: int, file: BinaryIO | None, filename: str | None, user: User,
+    ) -> DocumentVersionView:
+        """DC-10. FAILED 버전을 다시 적재한다. 파일을 함께 보내면 교체하고, 안 보내면 같은 파일로 다시 시도한다."""
+        self.check_retryable(self.find_version(document_id, version_id))
+        staged = None
+        if file is not None:
+            suffix, file_format = file_format_of(filename)
+            staged = stage_file(file, document_id, suffix)
+        path, old_path = None, None
+        try:
+            self.lock_document(document_id)
+            row = self.documents.version(document_id, version_id, for_update=True)
+            self.check_retryable(row)
+            if staged is not None and staged.sha256 != row.file_sha256:     # 같은 내용이면 교체할 것이 없다
+                self.check_duplicate(staged.sha256)
+                path = staged.keep()
+                old_path = row.file_path
+                row.file_path, row.file_format, row.file_sha256 = to_stored_path(path), file_format, staged.sha256
+            row.ingest_status, row.ingest_error = "PENDING", None
+            self.audit_logs.add("DOCUMENT_VERSION_RETRY", "document", document_id, actor_id=user.id,
+                                result=f"{row.version} {'파일 교체' if path else '같은 파일'}")
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            path.unlink(missing_ok=True)
+            self.check_duplicate(staged.sha256)
+            raise
+        except Exception:
+            if path is not None:
+                path.unlink(missing_ok=True)
+            raise
+        finally:
+            if staged is not None:
+                staged.discard()
+        remove_stored(old_path)                         # 커밋 뒤에 지운다. 지우지 못해도 다음 시작 때 로그로 보인다
+        self.submit_ingest(row.id)
+        return self.version_views([row])[0]
+
+    def check_retryable(self, row: DocumentVersion) -> None:
+        if row.ingest_status != "FAILED":
+            raise AppError(ErrorCode.DOCUMENT_VERSION_NOT_RETRYABLE, [
+                {"reason": "INGEST_STATUS", "message": "적재 상태", "value": row.ingest_status},
+            ])
+
+    def check_duplicate(self, sha256: str) -> None:
+        found = self.documents.by_file_hash(sha256)
+        if found is not None:
+            version, document = found
+            raise AppError(ErrorCode.DOCUMENT_FILE_DUPLICATE, [
+                {"field": "file", "reason": "DUPLICATE", "message": ErrorCode.DOCUMENT_FILE_DUPLICATE.message,
+                 "value": {"documentId": document.id, "docCode": document.doc_code, "versionId": version.id,
+                           "version": version.version, "ingestStatus": version.ingest_status}},
+            ])
+
+    def find_version(self, document_id: int, version_id: int) -> DocumentVersion:
         if self.documents.get(document_id) is None:
             raise AppError(ErrorCode.DOCUMENT_NOT_FOUND)
         row = self.documents.version(document_id, version_id)
         if row is None:
             raise AppError(ErrorCode.DOCUMENT_VERSION_NOT_FOUND)
-        return self.version_views([row])[0]
+        return row
+
+    def get_version(self, document_id: int, version_id: int) -> DocumentVersionView:
+        """DC-08."""
+        return self.version_views([self.find_version(document_id, version_id)])[0]
 
     def update_version(
         self, document_id: int, version_id: int, body: DocumentVersionUpdateRequest, user: User,
@@ -267,26 +326,12 @@ class DocumentService:
         return [to_version(r, counts.get(r.id, 0), users.get(r.registered_by)) for r in rows]
 
 
-def save_file(file: BinaryIO, document_id: int, suffix: str) -> Path:
-    """크기를 확인하며 저장한다. 사용자가 보낸 파일 이름은 경로에 쓰지 않는다. 다 받은 뒤에 이름을 바꿔 쓰다 만 파일이 남지 않게 한다."""
-    folder = STORAGE_DIR / str(document_id)
-    folder.mkdir(parents=True, exist_ok=True)
-    name = uuid.uuid4().hex
-    temp, path = folder / f"{name}.part", folder / f"{name}{suffix}"
-    limit, size = file_constants.MAX_DOCUMENT_FILE_MB * 1024 * 1024, 0
-    try:
-        with temp.open("wb") as out:
-            while chunk := file.read(file_constants.READ_SIZE_BYTES):
-                size += len(chunk)
-                if size > limit:
-                    raise AppError(ErrorCode.DOCUMENT_FILE_TOO_LARGE, [
-                        {"field": "file", "reason": "OUT_OF_RANGE", "message": "최대 크기", "value": f"{file_constants.MAX_DOCUMENT_FILE_MB}MB"},
-                    ])
-                out.write(chunk)
-        temp.rename(path)
-    finally:
-        temp.unlink(missing_ok=True)
-    return path
+def file_format_of(filename: str | None) -> tuple[str, str]:
+    suffix = Path(filename or "").suffix.lower()
+    file_format = file_constants.FILE_FORMATS.get(suffix)
+    if file_format is None:
+        raise field_error(ErrorCode.DOCUMENT_FILE_FORMAT_UNSUPPORTED, "file", "INVALID_VALUE")
+    return suffix, file_format
 
 
 def to_document(document: KnowledgeDocument, current: DocumentVersion | None, category: Category | None,
