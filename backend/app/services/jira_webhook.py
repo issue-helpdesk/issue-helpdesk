@@ -26,6 +26,7 @@ from app.models import (
     InquiryType,
     IntegrationJob,
     JiraWebhookEvent,
+    Notification,
     Ticket,
     TicketStatusHistory,
 )
@@ -204,6 +205,7 @@ def sync_work_status(db: Session, ticket: Ticket, latest: dict, changed_at: date
                                changed_at=changed_at))
     if target == "FIN":
         ticket.finished_at = changed_at
+        db.add(Notification(ticket_id=ticket.id, recipient_id=db.get(Inquiry, ticket.inquiry_id).user_id, kind="FIN"))
     elif ticket.work_status == "FIN" and target == "WIP":
         ticket.finished_at = None
     elif target == "CLS":
@@ -245,6 +247,7 @@ def sync_assignee(db: Session, ticket: Ticket, account_id: str | None, now: date
         db.add(AssignmentLog(ticket_id=ticket.id, event=event, group_id=ticket.group_id, assignee_id=member.user_id,
                              actor_id=None, reason="Jira 에서 담당자 변경"))
     ticket.assign_status = "ASSIGNED"
+    db.add(Notification(ticket_id=ticket.id, recipient_id=ticket.assignee_id, kind="ASSIGNED"))
     inquiry = db.get(Inquiry, ticket.inquiry_id, with_for_update=True, populate_existing=True)
     if inquiry.status == "RECEIVED":
         inquiry.status, inquiry.updated_at = "HANDED_OFF", now

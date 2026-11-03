@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from app.integrations.jira.client import JiraClient, JiraError
 from app.integrations.jira.mapper import work_status_from_jira
 from app.integrations.jira.retry import RetryPolicy, next_step
-from app.models import (AssignmentLog, Inquiry, InquiryType, IntegrationJob, MemberSkill,
+from app.models import (AssignmentLog, Inquiry, InquiryType, IntegrationJob, MemberSkill, Notification,
                         SupportGroup, SupportGroupMember, Ticket, User)
 from app.utils import datetime_utils
 
@@ -95,6 +95,8 @@ def run_jira_assign_job(
             return AssignmentResult(job_id, "SKIPPED", "ownership_lost")
         _validate(db, jira, owned, latest_ticket)
         inquiry = db.get(Inquiry, latest_ticket.inquiry_id, with_for_update=True, populate_existing=True)
+        if latest_ticket.assign_status != "ASSIGNED":
+            db.add(Notification(ticket_id=latest_ticket.id, recipient_id=latest_ticket.assignee_id, kind="ASSIGNED"))
         latest_ticket.assign_status = "ASSIGNED"
         if inquiry.status == "RECEIVED":
             inquiry.status, inquiry.updated_at = "HANDED_OFF", now

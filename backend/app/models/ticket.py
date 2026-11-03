@@ -159,16 +159,18 @@ class JiraWebhookEvent(Base):
 
 
 class Notification(Base):
+    """화면 알림. 발송 상태 없이 읽음 시각만 둔다."""
     __tablename__ = "notifications"
     __table_args__ = (
-        CheckConstraint("status in ('PENDING', 'SENT', 'FAILED')", name="status"),
+        CheckConstraint("kind in ('ASSIGNED', 'FIN')", name="kind"),
+        Index("ix_notifications_recipient", "recipient_id", "id"),
+        Index("ix_notifications_unread", "recipient_id", "ticket_id",
+              postgresql_where=text("read_at is null"), sqlite_where=text("read_at is null")),
     )
 
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)
     ticket_id: Mapped[int] = mapped_column(ForeignKey("tickets.id"), index=True)
     recipient_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     kind: Mapped[str]
-    status: Mapped[str]
-    attempts: Mapped[int] = mapped_column(Integer, server_default=text("0"))
-    sent_at: Mapped[datetime | None]
+    read_at: Mapped[datetime | None]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
