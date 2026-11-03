@@ -7,6 +7,7 @@ judge_first ─▶ correct_first ─┬─ 다시 생성 ─▶ judge_first
 decide_urgency ─▶ package ─▶ 끝
 
 - 1차에서 Claude 가 실패하면(AI_FAILED) 검색·2차 없이 offer 로 끝낸다 (09 T11).
+- 2차는 1차 판단을 넘겨 검색 뒤에 정해지는 칸만 받는다 (08 2.6, call_judge 의 first).
 - 체크포인트는 쓰지 않는다. 메시지마다 처음부터 돌고, 대화 사이 값은 서버가 AIInput 으로 넘긴다 (09 4.2).
 """
 from collections.abc import Callable, Iterable
@@ -32,8 +33,12 @@ def build_flow(port: LLMPort, taxonomy: Taxonomy, staff_names: Iterable[str], se
 
     def judge(state: FlowState, second: bool) -> dict:
         inp = state['inp'].model_copy(update={'search': state['search'] if second else None})
-        r = call_judge(inp, port, taxonomy, staff, 'ANSWER' if second else 'CLASSIFY')
-        return {'judge': r, 'second': second, 'calls': list(r.calls)}
+        r = call_judge(inp, port, taxonomy, staff, 'ANSWER' if second else 'CLASSIFY',
+                       state['first'] if second else None)
+        update = {'judge': r, 'second': second, 'calls': list(r.calls)}
+        if not second:
+            update['first'] = r.output          # 다시 생성했으면 마지막 1차 값. 1차가 실패하면 2차로 가지 않는다
+        return update
 
     def check(state: FlowState) -> dict:
         r, second = state['judge'], state['second']

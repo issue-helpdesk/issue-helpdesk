@@ -12,6 +12,7 @@ class FlowState(TypedDict, total=False):
     inp: AIInput                        # 서버가 넘긴 입력. search 는 흐름이 채운다
     second: bool                        # 지금 2차(검색 뒤) 판단인가
     judge: JudgeResult                  # 이번 call_judge 결과
+    first: AIOutput                     # 1차 판단 출력 (보정 전). 2차가 분류·facts·제목을 이어 쓴다 (08 2.6)
     retried: bool                       # 이번 판단에서 reply 때문에 이미 다시 불렀는가 (9단계는 한 번만)
     retry: bool                         # 보정 노드가 다시 생성을 요청함
     search: SearchResponse | None

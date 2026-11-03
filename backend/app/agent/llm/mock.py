@@ -17,9 +17,13 @@ class MockAdapter:
         self.model = model
         self._replies = list(replies) or [safe_default().model_dump_json()]
         self.requests: list[tuple[str, str]] = []      # 받은 (system, user). 시험에서 보낸 글을 확인한다
+        self.schemas: list[dict] = []                   # 받은 출력 형식
+        self.thinks: list[bool] = []                    # 받은 think 값
 
-    def complete(self, system: str, user: str, schema: dict) -> LLMReply:
+    def complete(self, system: str, user: str, schema: dict, *, think: bool = True) -> LLMReply:
         self.requests.append((system, user))
+        self.schemas.append(schema)
+        self.thinks.append(think)
         reply = self._replies[min(len(self.requests), len(self._replies)) - 1]
         if isinstance(reply, LLMError):
             raise reply

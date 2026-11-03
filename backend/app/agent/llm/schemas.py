@@ -94,24 +94,51 @@ class AIOutput(_Strict):
     confidence: float | None = Field(ge=0, le=1)
 
 
-def output_json_schema() -> dict:
-    """Claude 출력 형식(output_config.format)에 넣을 JSON Schema.
+# ── 2차 판단 출력 (08 2.6) ─────────────────────────────────
+# 2차(검색 뒤)는 검색 결과로 정해지는 칸만 받고, 나머지 칸은 같은 메시지의 1차 판단 값을 쓴다.
+# 1차와 같은 칸을 다시 쓰지 않아 출력이 줄고 빨라진다 (2026-11-03 시험: 2차 출력 약 1,300 → 640토큰)
+SECOND_FIELDS = ('action', 'reply', 'evidence', 'missing_items', 'escalation_reason', 'confidence')
 
-    Pydantic 이 만든 schema 에서 출력 형식이 받지 않는 것(title·숫자 범위)과 코드 설명(description)을 빼고,
+
+class SecondOutput(_Strict):
+    action: Action
+    reply: str
+    evidence: list[Evidence]
+    missing_items: list[MissingItem]
+    escalation_reason: EscalationReason
+    confidence: float | None = Field(ge=0, le=1)
+    action_reason: str                      # 처리 방향 근거. rationale.action 에 넣는다
+
+
+def merge_second(first: AIOutput, part: SecondOutput) -> AIOutput:
+    """1차 판단에 2차 칸을 덮어 2장 출력 모양으로 만든다."""
+    return first.model_copy(update={k: getattr(part, k) for k in SECOND_FIELDS}
+                            | {'rationale': first.rationale.model_copy(update={'action': part.action_reason})})
+
+
+def _clean(node):
+    """Pydantic 이 만든 schema 에서 출력 형식이 받지 않는 것(title·숫자 범위)과 코드 설명(description)을 빼고,
     허용값이 있는 칸은 {'enum': [...]} 하나로 둔다. 숫자 범위는 응답을 받은 뒤 Pydantic 이 검사한다.
     """
-    def clean(node):
-        if isinstance(node, dict):
-            if 'enum' in node:
-                return {'enum': node['enum']}
-            # 값이 dict 인 'title' 은 출력 칸 이름(AIOutput.title)이라 남긴다
-            return {k: clean(v) for k, v in node.items()
-                    if not (k in ('title', 'description', 'minimum', 'maximum') and not isinstance(v, dict))}
-        if isinstance(node, list):
-            return [clean(v) for v in node]
-        return node
+    if isinstance(node, dict):
+        if 'enum' in node:
+            return {'enum': node['enum']}
+        # 값이 dict 인 'title' 은 출력 칸 이름(AIOutput.title)이라 남긴다
+        return {k: _clean(v) for k, v in node.items()
+                if not (k in ('title', 'description', 'minimum', 'maximum') and not isinstance(v, dict))}
+    if isinstance(node, list):
+        return [_clean(v) for v in node]
+    return node
 
-    return clean(AIOutput.model_json_schema())
+
+def output_json_schema() -> dict:
+    """Claude 출력 형식(output_config.format)에 넣을 JSON Schema."""
+    return _clean(AIOutput.model_json_schema())
+
+
+def second_output_json_schema() -> dict:
+    """2차 판단 출력 형식 (08 2.6)."""
+    return _clean(SecondOutput.model_json_schema())
 
 
 def safe_default(escalation_reason: str = '전문판단', reason: str = 'AI 판단 실패') -> AIOutput:
