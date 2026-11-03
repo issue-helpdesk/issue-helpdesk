@@ -268,7 +268,7 @@ function lockReplies(inq: Inquiry, keepId?: number) {
 const SECURITY_NOTICE = '보안 사고가 의심되는 경우 즉시 IT 지원 담당자에게 연락해 주세요.\n의심스러운 링크나 첨부파일은 열지 말고, 계정 정보를 입력하지 마세요.\nIT 지원 담당자: 내선 1000'
 
 /** 접수 없이 끝났을 때(담당자 연결 거절·접수 초안 취소) 같은 모양으로 보이는 종료 안내 */
-const noTicketClosed = (): ChatBlock[] => [p('**담당자 연결 없이 상담을 종료했어요.**'), p('티켓은 접수되지 않았으며, 문의 내역에서 다시 상담을 이어갈 수 있어요.')]
+const noTicketClosed = (): ChatBlock[] => [p('**담당자 연결 없이 상담을 종료했어요.**'), p('티켓은 접수되지 않았으며, 같은 문제로 다시 연결을 원하시면 새 문의로 시작해 주세요.')]
 
 const yesNo = (): { replies: ChatReply[] } => ({
   replies: [

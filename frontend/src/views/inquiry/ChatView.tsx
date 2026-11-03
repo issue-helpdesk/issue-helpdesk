@@ -9,7 +9,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { cancelChatDraft, isStaleInquiry, confirmChatDraft, editDraft, getChat, idleBackChat, idleDeleteChat, idleWarnChat, leaveChat, rejectChat, reopenChat, replyChat, resolveChat, resumeChat, sendChat, watchChat } from '../../api/chat'
+import { cancelChatDraft, isStaleInquiry, confirmChatDraft, editDraft, getChat, idleBackChat, idleDeleteChat, idleWarnChat, leaveChat, rejectChat, replyChat, resolveChat, resumeChat, sendChat, watchChat } from '../../api/chat'
 import { IDLE_TEXT, type DraftEdit, type GuideSource, type Inquiry, type LegacyCase } from '../../api/chatTypes'
 import { displayStatusOf, inquiryState } from '../../api/inquiryState'
 import type { ApiResult } from '../../api/types'
@@ -401,7 +401,7 @@ export function ChatView() {
           </div>
         </Modal>
       )}
-      {/* 미확인·미해결·미접수 종료 문의를 열었을 때: 이어서 할지 새로 시작할지 고른다. ✕는 창만 닫는다. */}
+      {/* 미확인 문의를 열었을 때: 이어서 할지 새로 시작할지 고른다. ✕는 창만 닫는다. */}
       {!paused && gated && entry?.popup && entry.kind && (
         <Modal key="entry" title={ENTRY_POPUP[entry.kind].title} variant="choice" dismissible={false} closeButton onClose={() => setEntry((e) => (e ? { ...e, popup: false } : e))} lead={<Pav size={84} />}>
           <p>{ENTRY_POPUP[entry.kind].body}</p>
@@ -411,8 +411,7 @@ export function ChatView() {
               className="btn pri"
               disabled={busy}
               onClick={async () => {
-                // 미확인은 기존 해결·미해결 버튼을 풀기만 하고, 미해결·미접수 종료는 같은 대화의 담당자 연결 제안부터 다시 시작한다
-                if (entry.kind !== 'ua' && !(await apply(reopenChat(id, employeeNo!)))) return
+                // 미확인은 기존 해결·미해결 버튼을 풀기만 한다
                 setEntry((e) => (e ? { ...e, popup: false, done: true } : e))
               }}
             >
