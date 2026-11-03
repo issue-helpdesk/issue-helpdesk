@@ -43,7 +43,8 @@ CLS 티켓 ─▶ draft() ─▶ 관리자 수정 ─▶ register() ─▶ inges
 | 같은 가이드에 승인 전 사례 초안이 있음 | 새 버전을 만들지 않고 그 초안에 이어 쓴다 (3.N+1, 개정 이력 그 버전 줄에 덧붙임) |
 | 사례가 아닌 다른 초안이 있음 | 경고 (둘 다 승인하면 나중 것만 현행) |
 | 접수 번호가 이미 기준 md 에 있음 | 거부 (두 번 넣지 않음). 개정 이력 표식 `해결 사례 반영 (<접수 번호>)`에서 **정확히** 뽑아 비교 (`TK-1`과 `TK-10`은 다르다) |
-| 민감정보 | **경고만** (지우거나 막지 않음). 새로 더한 줄만, D 의 탐지 규칙: 전화·이메일·사번·직원 이름(`Pseudonymizer`), 비밀·고유식별(`mask_secrets`). 경고에는 종류와 줄 번호만, 값은 넣지 않는다 |
+| 민감정보 | **경고만** (지우거나 막지 않음). 새로 더한 줄만, D 의 탐지 규칙 = docs/10 2장 목록 전부: 전화·이메일·사번·직원 이름(`Pseudonymizer`), 비밀·고유식별(`mask_secrets`). 해결 사례 검토에 쓸 목록은 2장 목록이다 (docs/10 1.3). 경고에는 종류와 줄 번호만, 값은 넣지 않는다 |
+| 열람 범위·전송 정책 | **관리자가 등록할 때 고른다** (docs/10 1.3 "해결 사례를 Guide 로 쓸 때 `transfer_policy`를 반드시 고르게 한다"). 현행 값과 다르면 경고 (승인하면 가이드 전체에 적용). 없는 값은 거부 |
 
 민감정보를 막지 않는 이유: 초안은 비현행이라 검색·외부 전송에 나가지 않고, 승인 전 사람의 검토(정확성·정보 보호·공개 범위)가 명세에 있다 (GUIDE-03).
 정규식으로 막으면 기존 가이드 문의처의 공식 연락처(`it-helpdesk@ict.example`, 내선)도 걸린다.
@@ -60,7 +61,7 @@ CLS 티켓 ─▶ draft() ─▶ 관리자 수정 ─▶ register() ─▶ inges
 ### 등록 `register()`
 
 - 파일: `<files_root>/storage/case_guides/<문서 번호>/<버전>_<접수 번호>.md`. 쓸 때마다 다른 경로 (M2-3-1 전제). 이어 쓰기에서 경로가 바뀌므로, 이전 파일을 읽던 적재는 쓰기 전에 알아채고 건너뛴다 (업로드 적재 쓰기 행). `file_path`에는 **files_root 기준 상대 경로**만 넣는다: 저장 위치를 옮길 때는 폴더를 옮기고 `files_root`만 바꾼다
-- 버전 행: 새 버전이면 PENDING·비현행으로 넣고, 열람 범위·전송 정책은 현행 버전 값을 쓴다. 이어 쓰기면 그 초안 행의 `file_path`를 바꾸고 PENDING 으로 (적재가 청크를 통째로 바꾼다)
+- 버전 행: 새 버전이면 PENDING·비현행으로 넣고, 열람 범위·전송 정책은 **관리자가 고른 값**(`view_scope`·`transfer_policy`, 필수)을 쓴다. 이어 쓰기면 그 초안 행의 `file_path`와 정책을 바꾸고 PENDING 으로 (적재가 청크를 통째로 바꾼다)
 - 감사 로그 `CASE_GUIDE_REGISTER` (result `<접수 번호> → <버전>`). 후보 목록 `candidates()`는 이것으로 등록한 티켓을 뺀다
 - 문서를 잠근 뒤 다시 본다: 초안을 만든 뒤 현행이 바뀌었거나, 이어 쓰던 초안이 바뀌었거나, 같은 버전이 그새 생겼으면 거부 ("초안을 다시 만드세요"). 거부하면 파일도 남기지 않는다
 - 승인(현행 전환)은 하지 않는다. 승인하면 가이드 전체가 새 버전으로 바뀐다 (항목 하나만 승인하는 방법은 없다)
@@ -70,10 +71,10 @@ CLS 티켓 ─▶ draft() ─▶ 관리자 수정 ─▶ register() ─▶ inges
 ```
 python -m app.rag.case_guide --database-url <DB> candidates [--category SW]
 python -m app.rag.case_guide --database-url <DB> draft --ticket 12 [--doc IT-SW-001] --out case.md     # + case.md.json
-python -m app.rag.case_guide --database-url <DB> register --file case.md [--admin-id 3] [--embedder fake]
+python -m app.rag.case_guide --database-url <DB> register --file case.md --view-scope ALL --transfer-policy ALLOWED [--admin-id 3] [--embedder fake]
 ```
 
-`draft --out`은 초안 정보를 `<out>.json`에 같이 쓰고, `register`는 그 기준으로 검사한다 (`--draft`로 다른 위치). 정보가 없으면 등록하지 않는다.
+`draft`는 현행 버전의 열람 범위·전송 정책을 같이 보여 준다 (`register`에서 고를 때 참고). `draft --out`은 초안 정보를 `<out>.json`에 같이 쓰고, `register`는 그 기준으로 검사한다 (`--draft`로 다른 위치). 정보가 없으면 등록하지 않는다.
 그새 같은 가이드에 다른 사례가 등록됐으면 "그새 생겼습니다/바뀌었습니다"로 거부되니 `draft`부터 다시 한다.
 localhost 가 아닌 DB 는 `--allow-remote`, 저장 루트는 `--files-root` (기본: 저장소 루트, `/storage/`는 git 에 안 올림).
 
@@ -93,6 +94,7 @@ localhost 가 아닌 DB 는 `--allow-remote`, 저장 루트는 `--files-root` (�
 - `register()` 뒤에는 **바로 `ingest_version()`**을 부른다 (업로드 DC-07 과 같은 백그라운드). 멈추면 10분 뒤 `resume_pending`이 받는다
 - **새 경로·원본 보존은 필수**: 오래된 적재를 막는 것은 `file_path` 문자열 비교다 (내용 해시가 아님). 같은 경로에 파일을 덮어쓰거나 경로를 다시 쓰면 알아채지 못한다. `register()`는 등록마다 새 경로를 만든다
 - **표식 보존 ≠ 내용 보존**: `check()`는 기준에 있던 사례의 개정 이력 표식과 기존 항목 번호가 남았는지만 본다. 관리자가 사례 본문을 고치거나 지운 것이 맞는지(정확성·정보 보호·공개 범위)는 승인자가 검토한다 (GUIDE-03)
+- **열람 범위·전송 정책은 관리자가 고르게** 한다 (docs/10 1.3). 검토 화면에서 현행 값을 보여 주고 고른 값을 `register()`에 넘긴다. 고르지 않은 값을 서버가 채우지 않는다
 - 승인은 기존 `activate()` (DC-09). 승인하면 가이드 전체가 새 버전으로 바뀐다
 - 감사 로그 `event_type = 'CASE_GUIDE_REGISTER'`, `result = '<접수 번호> → <버전>'`
 
@@ -100,4 +102,5 @@ localhost 가 아닌 DB 는 `--allow-remote`, 저장 루트는 `--files-root` (�
 
 - 검토·승인 API(A)·화면(F): 명세에 없다 ("등록 흐름 미정"). 위 약속대로 이 함수를 부르면 된다
 - 저장 위치: 업로드 파일 저장 위치(A)가 정해지면 `files_root`를 맞춘다
-- 민감정보 규칙: D 가 가이드 공개용 규칙을 정하면 `sensitive_warnings()`만 바꾼다
+- 민감정보 규칙: D 의 정책(docs/10, 10.26 확정)이 해결 사례 검토에 2장 목록을 쓰라고 정했고, 이미 그 목록을 쓴다. 2장이 바뀌면 D 의 필터를 따라 함께 바뀐다
+- 검토·승인 화면(F, 관리자 가이드 관리 11.02, Mock 모드)과 다른 점: 화면은 해결 사례 **묶음**에서 초안(신규 가이드 포함), 이 함수는 CLS 티켓 **하나** → 기존 가이드 다음 버전. 화면은 md 를 고치는 단계 없이 바로 만들고, 정책을 고르지 않으며, "민감정보는 초안에 넣지 않는다"고 안내한다 (이 함수는 경고만). API·화면을 붙일 때 맞춘다 (요청 R-23)

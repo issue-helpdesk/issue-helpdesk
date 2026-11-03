@@ -18,6 +18,8 @@ from test_ingest_upload import EMB, REPO, guide_file, needs_db, url, version  # 
 
 BASE = (REPO / guide_file('IT-SW-001')).read_text(encoding='utf-8')
 TODAY = date(2026, 10, 29)
+POLICY = {'view_scope': 'ALL', 'transfer_policy': 'ALLOWED'}         # 관리자가 고른 값 (시험 가이드의 현행과 같다)
+POLICY_ARGS = ['--view-scope', 'ALL', '--transfer-policy', 'ALLOWED']
 
 
 def ticket_row(**kw):
@@ -194,14 +196,15 @@ def test_end_to_end_searchable_after_approval(url, tmp_path):
         assert any(c['ticket_id'] == tid and c['doc_code'] == 'IT-SW-001' for c in candidates(conn, 'SW'))
         d = draft(conn, tid, files_root=tmp_path)
         assert (d.doc_code, d.version, d.section_no, d.draft_version_id) == ('IT-SW-001', 'v2.1', '3.8', None)
-        out = register(conn, d, d.md, None, tmp_path)
+        out = register(conn, d, d.md, None, tmp_path, **POLICY)
         assert out['file_path'] == f'{CASE_DIR.as_posix()}/IT-SW-001/v2.1_TK-E2E-1.md'
         assert (tmp_path / out['file_path']).read_text(encoding='utf-8') == d.md
         res = ingest_version(conn, out['version_id'], EMB, tmp_path)
         assert res['status'] == 'DONE' and res['activated'] is False
         assert all(c['ticket_id'] != tid for c in candidates(conn))            # 등록한 티켓은 후보에서 빠진다
     st = version(url, out['version_id'])
-    assert st[:5] == ('DONE', None, False, 'ALL', 'ALLOWED')                    # 정책은 현행 값
+    assert st[:5] == ('DONE', None, False, 'ALL', 'ALLOWED')                    # 정책은 관리자가 고른 값
+    assert not any('현행(' in w for w in out['warnings'])                       # 현행과 같으면 경고 없음
     query = next(c.text for c in items(d.md) if c.section_no == '3.8')
     assert ('IT-SW-001', 'v2.1', '3.8') not in _search(url, query)              # 초안은 검색에 안 나온다
     with connect(url) as conn:
@@ -219,19 +222,39 @@ def test_second_case_continues_draft_and_duplicate_refused(url, tmp_path):
     a, b = _ticket(url, 'TK-C-1', code='SW-03'), _ticket(url, 'TK-C-2', code='SW-03', summary='실행하면 바로 꺼짐')
     with connect(url) as conn:
         d1 = draft(conn, a, files_root=tmp_path)
-        v1 = register(conn, d1, d1.md, None, tmp_path)['version_id']
+        v1 = register(conn, d1, d1.md, None, tmp_path, **POLICY)['version_id']
         assert ingest_version(conn, v1, EMB, tmp_path)['status'] == 'DONE'
         with pytest.raises(CaseGuideError, match='이미 IT-SW-003에 반영'):
             draft(conn, a, files_root=tmp_path)
         d2 = draft(conn, b, files_root=tmp_path)
         assert (d2.version, d2.draft_version_id) == (d1.version, v1) and '(TK-C-1)' in d2.base_md
         assert any('이어서' in w for w in d2.warnings)
-        out = register(conn, d2, d2.md, None, tmp_path)
+        out = register(conn, d2, d2.md, None, tmp_path, **POLICY)
         assert out['version_id'] == v1 and out['file_path'].endswith('_TK-C-2.md')
         assert ingest_version(conn, v1, EMB, tmp_path)['status'] == 'DONE'
         sections = [m['section_no'] for (m,) in conn.execute(
             "select meta from document_chunks where version_id = %s and chunk_type = 'ITEM' and part = 1 order by seq", (v1,))]
     assert sections[-2:] == [d1.section_no, d2.section_no]
+
+
+@needs_db
+def test_register_uses_chosen_policy(url, tmp_path):
+    """docs/10 1.3: 해결 사례를 Guide 로 쓸 때 정책은 관리자가 고른다. 현행과 다르면 경고, 이어 쓰기도 고른 값으로 바꾼다.
+    없는 값은 파일을 쓰기 전에 거부한다."""
+    _current_guide(url, 'IT-HW-002')
+    a, b = _ticket(url, 'TK-P-1', code='HW-05'), _ticket(url, 'TK-P-2', code='HW-05', summary='교체 신청 뒤 연락 없음')
+    with connect(url) as conn:
+        d1 = draft(conn, a, files_root=tmp_path)
+        with pytest.raises(CaseGuideError, match='없는 값입니다: 전송 정책 OPEN'):
+            register(conn, d1, d1.md, None, tmp_path, view_scope='ALL', transfer_policy='OPEN')
+        assert not (tmp_path / CASE_DIR).exists()
+        out = register(conn, d1, d1.md, None, tmp_path, view_scope='AGENT', transfer_policy='BLOCKED')
+        assert any('현행(ALL·ALLOWED)과 다르게 AGENT·BLOCKED' in w for w in out['warnings'])
+        assert version(url, out['version_id'])[3:5] == ('AGENT', 'BLOCKED')
+        d2 = draft(conn, b, files_root=tmp_path)                                 # 같은 초안에 이어 쓰기
+        again = register(conn, d2, d2.md, None, tmp_path, **POLICY)
+    assert again['version_id'] == out['version_id']
+    assert version(url, out['version_id'])[3:5] == ('ALL', 'ALLOWED')
 
 
 @needs_db
@@ -241,9 +264,9 @@ def test_register_refuses_stale_draft(url, tmp_path):
     a, b = _ticket(url, 'TK-S-1', code='SW-02'), _ticket(url, 'TK-S-2', code='SW-02')
     with connect(url) as conn:
         da, db = draft(conn, a, files_root=tmp_path), draft(conn, b, files_root=tmp_path)
-        register(conn, da, da.md, None, tmp_path)
+        register(conn, da, da.md, None, tmp_path, **POLICY)
         with pytest.raises(CaseGuideError, match='그새 생겼습니다'):
-            register(conn, db, db.md, None, tmp_path)
+            register(conn, db, db.md, None, tmp_path, **POLICY)
     assert not list((tmp_path / CASE_DIR / 'IT-SW-002').glob('*TK-S-2*'))      # 거부하면 파일도 안 남는다
 
 
@@ -266,15 +289,19 @@ def test_cli(url, tmp_path, capsys):
     assert main([*base, 'candidates']) == 0 and 'TK-CLI-1 [HW-01] → IT-HW-001' in capsys.readouterr().out
     out = tmp_path / 'case.md'
     assert main([*base, 'draft', '--ticket', str(tid), '--out', str(out)]) == 0
-    assert '새 항목' in capsys.readouterr().out
+    text = capsys.readouterr().out
+    assert '새 항목' in text and '현행 정책: 열람 범위 ALL · 전송 정책 ALLOWED' in text   # 관리자가 고를 때 참고
     assert Path(f'{out}.json').exists()
-    assert main([*base, 'register', '--file', str(out), '--embedder', 'fake']) == 0
+    with pytest.raises(SystemExit):                                              # 정책은 반드시 고른다 (docs/10 1.3)
+        main([*base, 'register', '--file', str(out), '--embedder', 'fake'])
+    capsys.readouterr()
+    assert main([*base, 'register', '--file', str(out), '--embedder', 'fake', *POLICY_ARGS]) == 0
     text = capsys.readouterr().out
     assert '적재: DONE' in text and '승인(현행 전환) 전에는' in text
     assert main([*base, 'draft', '--ticket', str(tid)]) == 1 and '이미 IT-HW-001에 반영' in capsys.readouterr().out
     bare = tmp_path / 'bare.md'
     bare.write_text(out.read_text(encoding='utf-8'), encoding='utf-8')
-    assert main([*base, 'register', '--file', str(bare), '--embedder', 'fake']) == 2   # 초안 정보 없이는 등록 안 됨
+    assert main([*base, 'register', '--file', str(bare), '--embedder', 'fake', *POLICY_ARGS]) == 2   # 초안 정보 없이는 등록 안 됨
 
 
 # ── 검수 반영 (작업대/검수/M2-3-2_리뷰.md) ──────────────────────
@@ -287,7 +314,7 @@ def test_append_while_old_ingest_runs_keeps_latest(url, tmp_path):
     b = _ticket(url, 'TK-RACE-B', code='NET-02', note='SECOND_CASE_UNIQUE_FIX 사내망 다시 연결')
     with connect(url) as conn:
         first = draft(conn, a, files_root=tmp_path)
-        vid = register(conn, first, first.md, None, tmp_path)['version_id']
+        vid = register(conn, first, first.md, None, tmp_path, **POLICY)['version_id']
     newer = {}
 
     class Racing:
@@ -297,7 +324,7 @@ def test_append_while_old_ingest_runs_keeps_latest(url, tmp_path):
             if not newer:
                 with connect(url) as other:
                     second = draft(other, b, files_root=tmp_path)
-                    newer.update(register(other, second, second.md, None, tmp_path))
+                    newer.update(register(other, second, second.md, None, tmp_path, **POLICY))
             return EMB.embed_documents(texts)
 
     with connect(url) as conn:
@@ -321,9 +348,9 @@ def test_cli_old_md_cannot_erase_other_case(url, tmp_path, capsys):
     fa, fb = tmp_path / 'a.md', tmp_path / 'b.md'
     assert main([*base, 'draft', '--ticket', str(a), '--out', str(fa)]) == 0
     assert main([*base, 'draft', '--ticket', str(b), '--out', str(fb)]) == 0
-    assert main([*base, 'register', '--file', str(fb), '--embedder', 'fake']) == 0
+    assert main([*base, 'register', '--file', str(fb), '--embedder', 'fake', *POLICY_ARGS]) == 0
     capsys.readouterr()
-    assert main([*base, 'register', '--file', str(fa), '--embedder', 'fake']) == 1
+    assert main([*base, 'register', '--file', str(fa), '--embedder', 'fake', *POLICY_ARGS]) == 1
     assert '그새 생겼습니다' in capsys.readouterr().out
     with connect(url) as conn:
         path, = conn.execute("select v.file_path from document_versions v join knowledge_documents d on d.id = v.document_id "
@@ -349,7 +376,7 @@ def test_receipt_prefix_is_not_duplicate(url, tmp_path):
     ten, one = _ticket(url, 'TK-PREFIX-10', code='ACC-01'), _ticket(url, 'TK-PREFIX-1', code='ACC-01')
     with connect(url) as conn:
         d = draft(conn, ten, files_root=tmp_path)
-        register(conn, d, d.md, None, tmp_path)
+        register(conn, d, d.md, None, tmp_path, **POLICY)
         d1 = draft(conn, one, files_root=tmp_path)
     assert d1.draft_version_id is not None and receipts(d1.md) == {'TK-PREFIX-10', 'TK-PREFIX-1'}
 
