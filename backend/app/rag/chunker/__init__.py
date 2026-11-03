@@ -36,7 +36,7 @@ from ..parser import PARSER_VERSION
 from ..parser.common import CIRCLED, NUM_RE
 from ..parser.models import Element, ParsedDocument
 
-CHUNKER_VERSION = '1.0'  # 청크 경계·글이 바뀌는 수정을 하면 올린다 (chunk_key 는 같은 버전 안에서만 안정적)
+CHUNKER_VERSION = '1.1'  # 청크 경계·글이 바뀌는 수정을 하면 올린다 (chunk_key 는 같은 버전 안에서만 안정적)
 TRANSFER_POLICIES = ('ALLOWED', 'MASKED', 'BLOCKED')    # document_versions.transfer_policy
 VIEW_SCOPES = {'사내 일반': 'ALL', '사내 제한': 'AGENT'}   # 문서 열람 등급 → document_versions.view_scope
 DOC_TYPES = {'guide': 'GUIDE', 'manual': 'MANUAL', 'standard': 'STANDARD', 'policy': 'POLICY'}   # → knowledge_documents.doc_type
@@ -82,7 +82,7 @@ class Chunk:
     urgency: str = ''             # 매뉴얼 '기본 긴급도' (P1~P4)
     page_start: int | None = None  # 쪽 범위 (pdf·pptx). docx·md 는 None
     page_end: int | None = None
-    images: list[str] = field(default_factory=list)         # 그림 파일 이름 (원본 문서 옆 images/ 기준)
+    images: list[dict] = field(default_factory=list)        # [{'key': '분류/파일 이름', 'caption': 그림 설명}] (_images)
     category: str = ''            # 문서 값 (표에는 넣지 않는다. 검색은 document_versions·knowledge_documents 와 조인)
     doc_type: str = ''
     access_level: str = ''
@@ -99,7 +99,8 @@ class _Atom:
     text: str
     page: int | None
     sub: str = ''                 # 속한 소제목
-    image: str = ''
+    image: str = ''               # 그림 파일 이름
+    caption: str = ''             # 그림 설명
 
 
 def document_row(doc: ParsedDocument) -> dict:
@@ -327,7 +328,7 @@ def _atoms(pieces: list[Element]) -> list[_Atom]:
             for part in _table_parts(rows, width):
                 out.append(_Atom(part, e.page, sub))
         elif e.kind == 'image':
-            out.append(_Atom(f'[그림] {e.text}'.rstrip(), e.page, sub, e.meta.get('name', '')))
+            out.append(_Atom(f'[그림] {e.text}'.rstrip(), e.page, sub, e.meta.get('name', ''), e.text))
         elif e.kind == 'list_item':
             bare = NUM_RE.match(e.text) or e.text[:1] in CIRCLED
             out.append(_Atom(e.text if bare else f'- {e.text}', e.page, sub))
@@ -446,10 +447,21 @@ def _make(doc, kind, path, props, atoms, part, parts) -> Chunk:
         escalation_teams=_teams(pd.get('이관 대상', '')),
         urgency=pd.get('기본 긴급도', ''),
         page_start=pages[0] if pages else None, page_end=pages[-1] if pages else None,
-        images=[a.image for a in atoms if a.image],
+        images=_images(doc, atoms),
         category=m.get('category', ''), doc_type=m.get('doc_type', ''), access_level=m.get('access_level', ''),
         char_count=len(text), content_hash=_sha1(body),
     )
+
+
+def _images(doc, atoms) -> list[dict]:
+    """그림 파일이 따로 있는 md·txt 의 그림만 {'key': '분류/파일 이름', 'caption': 그림 설명}.
+    key 는 저장 위치와 무관한 이름표로, 그림 파일은 dataset/guide_images/{key} 에 있다 (청크_메타데이터.md 5장 그림).
+    분류는 머리말 category 로, 없으면 그림을 넣지 않는다 (파일 위치로 추측하지 않는다).
+    docx·pptx·pdf 의 그림은 파일 안에 들어 있어 따로 내려 줄 파일이 없으므로 넣지 않는다 (설명은 본문 '[그림] …')."""
+    cat = doc.meta.get('category', '')
+    if doc.format not in ('md', 'txt') or not cat:
+        return []
+    return [{'key': f'{cat}/{a.image}', 'caption': a.caption} for a in atoms if a.image]
 
 
 def _teams(value: str) -> list[str]:

@@ -57,7 +57,7 @@ guides/
 
 - 문서 하나에 같은 내용의 파일 4개: `.pdf` · `.pptx` (장표), `.docx` (편집용), `.md` (코드 저장소·RAG 등록용)
 - 파일 이름: `{문서 번호}_{문서명}.{확장자}`
-- 그림 이름: 분류가 달라도 겹치지 않게 분류를 앞에 붙인다 (예: `acc001_31_error.png`, `IT-HW-001_01.png`, `sec_m001_flow.png`). 서버용 사본은 `dataset/guide_images/{분류}/`에 모으고 `분류/파일 이름`으로 찾는다. 그림은 이 폴더(원본)를 고친 뒤 모으기 명령을 다시 돌린다 (2026-11-03, `backend/app/rag/ingest/README.md` 그림 모으기)
+- 그림 이름: 분류가 달라도 겹치지 않게 분류를 앞에 붙인다 (예: `acc001_31_error.png`, `IT-HW-001_01.png`, `sec_m001_flow.png`). 서버용 사본은 `dataset/guide_images/{분류}/`(+ 그림 목록 `index.csv`)에 있고 `분류/파일 이름`으로 찾는다. 그림을 고치거나 더하면 이 폴더(원본)와 사본을 같이 고친다 — 시험(`tests/test_guide_images.py`)이 둘이 같은지 본다 (2026-11-03, `backend/app/rag/청크_메타데이터.md` 5장 그림)
 
 ## 열람 등급
 
