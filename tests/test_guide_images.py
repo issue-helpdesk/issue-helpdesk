@@ -30,13 +30,14 @@ def _images(root, pattern):
 
 @pytest.fixture(scope='module')
 def uses():
-    """청크가 쓰는 그림: 그림을 쓰는 곳마다 (이름표, 문서 번호, 위치, 설명)."""
+    """청크가 쓰는 그림: 그림을 쓰는 곳마다 (이름표, 문서 번호, 문서 제목, 위치, 항목, 설명)."""
     out = []
     for doc_no, m in manifest().items():
         if m.get('rag_target') is not True:
             continue
         for c in chunk_document(parse(os.path.join(GUIDES, m['files']['md']))):
-            out += [(im['key'], doc_no, chunk_row(c)['location'], im['caption']) for im in c.images]
+            out += [(im['key'], doc_no, m['title'], chunk_row(c)['location'], ' > '.join(c.heading_path), im['caption'])
+                    for im in c.images]
     return out
 
 
@@ -63,7 +64,7 @@ def test_chunk_keys_exist_in_copy(uses):
 def test_index_matches_chunks(uses):
     with open(os.path.join(COPY, 'index.csv'), encoding='utf-8-sig', newline='') as f:
         rows = list(csv.DictReader(f))
-    assert [(r['이름표'], r['문서 번호'], r['위치'], r['그림 설명']) for r in rows] == uses
+    assert [(r['이름표'], r['문서 번호'], r['문서 제목'], r['위치'], r['항목'], r['그림 설명']) for r in rows] == uses
     for r in rows:
         cat, name = r['이름표'].split('/')
         assert (r['파일 이름'], r['분류']) == (name, cat)
