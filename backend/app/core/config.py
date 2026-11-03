@@ -13,6 +13,7 @@ class Settings:
         if not url:
             raise RuntimeError("DATABASE_URL 이 없습니다. 루트 .env 를 확인하세요.")
         self.database_url = to_sqlalchemy_url(url)
+        self.dsn = url                      # psycopg 로 바로 붙는 곳(문서 적재)이 쓴다
 
 @lru_cache
 def get_settings() -> Settings:

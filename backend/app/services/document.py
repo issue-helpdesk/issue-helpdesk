@@ -1,0 +1,336 @@
+"""가이드 문서 관리 (DC-01~09). 열람 범위는 현행 버전의 view_scope 로 정한다 (API 04 1장).
+
+파일을 읽어 청크·임베딩으로 만드는 일은 app.rag.ingest.upload 가 하고, 여기서는 저장과 등록까지만 한다.
+"""
+import uuid
+from pathlib import Path
+from typing import Annotated, BinaryIO
+
+from fastapi import Depends
+from sqlalchemy.exc import IntegrityError
+
+from app.constants import file as file_constants
+from app.core.error_codes import ErrorCode
+from app.core.errors import AppError, field_error
+from app.core.permissions import visible_scopes
+from app.db.session import DbSession
+from app.models import Category, DocumentVersion, KnowledgeDocument, SupportGroup, User
+from app.rag.ingest import ROOT
+from app.repositories.audit_log import AuditLogRepositoryDep
+from app.repositories.document import DocumentRepositoryDep
+from app.repositories.faq import FaqRepositoryDep
+from app.schemas.common import ItemList, Page, parse_sort
+from app.schemas.document import (
+    CurrentVersion,
+    Document,
+    DocumentCreateRequest,
+    DocumentListQuery,
+    DocumentUpdateRequest,
+    DocumentVersion as DocumentVersionView,
+    DocumentVersionUpdateRequest,
+)
+from app.schemas.inquiry import CategoryRef, GroupRef, UserRef
+from app.services.document_ingest import IngestSubmitterDep
+from app.services.faq import publishable_codes
+from app.utils import datetime_utils
+
+STORAGE_DIR = ROOT / "storage" / "documents"
+
+
+class DocumentService:
+    def __init__(
+        self,
+        db: DbSession,
+        documents: DocumentRepositoryDep,
+        faqs: FaqRepositoryDep,
+        audit_logs: AuditLogRepositoryDep,
+        submit_ingest: IngestSubmitterDep,
+    ) -> None:
+        self.db = db
+        self.documents = documents
+        self.faqs = faqs
+        self.audit_logs = audit_logs
+        self.submit_ingest = submit_ingest
+
+    def list_documents(self, query: DocumentListQuery, viewer: User) -> Page[Document]:
+        """DC-01. ADMIN 이 아니면 활성이고 현행 버전이 열람 범위 안인 문서만."""
+        is_admin = viewer.service_role == "ADMIN"
+        if not is_admin and (query.is_active is not None or query.has_current_version is not None):
+            raise AppError(ErrorCode.FORBIDDEN)
+        rows, total = self.documents.search(
+            doc_types=query.doc_type,
+            category_codes=query.category_code,
+            q=query.q or None,
+            is_active=(True if query.is_active is None else query.is_active) if is_admin else True,
+            has_current=query.has_current_version,
+            scopes=None if is_admin else visible_scopes(viewer.service_role),
+            sort=parse_sort(query.sort),
+            offset=query.offset,
+            limit=query.size,
+        )
+        items = [to_document(d, v, c, g, is_admin) for d, v, c, g in rows]
+        return Page.of(items, query.page, query.size, total)
+
+    def create(self, body: DocumentCreateRequest) -> Document:
+        """DC-02. 메타정보만 만든다. 파일은 DC-07 로 올린다."""
+        self.check_category(body.doc_type, body.category_code)
+        self.check_group(body.owner_group_id)
+        try:
+            document = self.documents.add(KnowledgeDocument(
+                doc_code=body.doc_code, doc_type=body.doc_type, title=body.title, category_code=body.category_code,
+                owner_group_id=body.owner_group_id,
+            ))
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            raise field_error(ErrorCode.DOCUMENT_CODE_DUPLICATE, "docCode", "DUPLICATE")
+        return self.view(document, is_admin=True)
+
+    def get_document(self, document_id: int, viewer: User) -> Document:
+        """DC-03. 범위 밖은 제목·번호도 드러내지 않게 없는 것처럼 404."""
+        is_admin = viewer.service_role == "ADMIN"
+        document = self.documents.get(document_id)
+        if document is None:
+            raise AppError(ErrorCode.DOCUMENT_NOT_FOUND)
+        current = self.documents.current_version(document.id)
+        if not is_admin and (not document.is_active or current is None
+                             or current.view_scope not in visible_scopes(viewer.service_role)):
+            raise AppError(ErrorCode.DOCUMENT_NOT_FOUND)
+        return self.view(document, is_admin)
+
+    def update(self, document_id: int, body: DocumentUpdateRequest, user: User) -> Document:
+        """DC-04. 보낸 필드만 바꾼다."""
+        document = self.lock_document(document_id)
+        sent = body.model_fields_set
+        if "category_code" in sent:
+            self.check_category(document.doc_type, body.category_code)
+        if "owner_group_id" in sent:
+            self.check_group(body.owner_group_id)
+        for name in sent - {"is_active"}:
+            setattr(document, name, getattr(body, name))
+        if "is_active" in sent and body.is_active is not None and body.is_active != document.is_active:
+            if body.is_active:
+                document.is_active = True
+                self.audit_logs.add("DOCUMENT_RESTORE", "document", document.id, result=document.doc_code, actor_id=user.id)
+            else:
+                self.deactivate(document, user)
+        self.db.commit()
+        return self.view(document, is_admin=True)
+
+    def delete(self, document_id: int, user: User) -> None:
+        """DC-05. 행은 지우지 않고 검색·답변 대상에서 뺀다. 이미 삭제됐어도 204."""
+        document = self.lock_document(document_id)
+        if document.is_active:
+            self.deactivate(document, user)
+        self.db.commit()
+
+    def deactivate(self, document: KnowledgeDocument, user: User) -> None:
+        document.is_active = False
+        self.audit_logs.add("DOCUMENT_DELETE", "document", document.id, result=document.doc_code, actor_id=user.id)
+        self.recheck_faqs(document.id, user)
+
+    def list_versions(self, document_id: int) -> ItemList[DocumentVersionView]:
+        """DC-06."""
+        if self.documents.get(document_id) is None:
+            raise AppError(ErrorCode.DOCUMENT_NOT_FOUND)
+        return ItemList(items=self.version_views(self.documents.versions(document_id)))
+
+    def upload_version(
+        self, document_id: int, file: BinaryIO, filename: str | None, version: str, view_scope: str,
+        transfer_policy: str, user: User,
+    ) -> DocumentVersionView:
+        """DC-07. 파일 저장 → 버전 행(PENDING) 커밋 → 백그라운드 적재. 현행 전환은 자동으로 하지 않는다."""
+        if self.documents.get(document_id) is None:
+            raise AppError(ErrorCode.DOCUMENT_NOT_FOUND)
+        suffix = Path(filename or "").suffix.lower()
+        file_format = file_constants.FILE_FORMATS.get(suffix)
+        if file_format is None:
+            raise field_error(ErrorCode.DOCUMENT_FILE_FORMAT_UNSUPPORTED, "file", "INVALID_VALUE")
+        path = save_file(file, document_id, suffix)
+        try:
+            row = self.documents.add(DocumentVersion(
+                document_id=document_id, version=version, file_path=path.relative_to(ROOT).as_posix(),
+                file_format=file_format, view_scope=view_scope, transfer_policy=transfer_policy,
+                is_current=False, ingest_status="PENDING", registered_by=user.id,
+            ))
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            path.unlink(missing_ok=True)
+            raise field_error(ErrorCode.DOCUMENT_VERSION_DUPLICATE, "version", "DUPLICATE")
+        except Exception:
+            path.unlink(missing_ok=True)    # 행이 없는 파일이 남지 않게 한다
+            raise
+        self.submit_ingest(row.id)
+        return self.version_views([row])[0]
+
+    def get_version(self, document_id: int, version_id: int) -> DocumentVersionView:
+        """DC-08."""
+        if self.documents.get(document_id) is None:
+            raise AppError(ErrorCode.DOCUMENT_NOT_FOUND)
+        row = self.documents.version(document_id, version_id)
+        if row is None:
+            raise AppError(ErrorCode.DOCUMENT_VERSION_NOT_FOUND)
+        return self.version_views([row])[0]
+
+    def update_version(
+        self, document_id: int, version_id: int, body: DocumentVersionUpdateRequest, user: User,
+    ) -> DocumentVersionView:
+        """DC-09. 현행 전환·정책 변경. 열람 범위나 현행이 바뀌면 관련 FAQ 를 같은 트랜잭션에서 다시 본다."""
+        self.lock_document(document_id)
+        row = self.documents.version(document_id, version_id, for_update=True)
+        if row is None:
+            raise AppError(ErrorCode.DOCUMENT_VERSION_NOT_FOUND)
+        sent = body.model_fields_set
+        if body.is_current is None and "is_current" in sent:
+            raise field_error(ErrorCode.VALIDATION_ERROR, "isCurrent", "INVALID_VALUE")
+        activating = body.is_current is True and not row.is_current
+        if activating and row.ingest_status != "DONE":
+            raise AppError(ErrorCode.DOCUMENT_VERSION_NOT_READY, [
+                {"reason": "INGEST_STATUS", "message": "적재 상태", "value": row.ingest_status},
+            ])
+
+        scope_changed = self.change_policy(row, body, user)
+        if activating:
+            self.activate(row, user)
+        if activating or (scope_changed and row.is_current):
+            self.recheck_faqs(document_id, user)
+        self.db.commit()
+        return self.version_views([row])[0]
+
+    def change_policy(self, row: DocumentVersion, body: DocumentVersionUpdateRequest, user: User) -> bool:
+        """정책을 바꾸고 운영 기록을 남긴다. 돌려주는 값은 열람 범위가 바뀌었는지."""
+        sent = body.model_fields_set
+        old_scope, old_policy = row.view_scope, row.transfer_policy
+        new_scope = body.view_scope if "view_scope" in sent and body.view_scope is not None else old_scope
+        new_policy = body.transfer_policy if "transfer_policy" in sent and body.transfer_policy is not None else old_policy
+        if (new_scope, new_policy) == (old_scope, old_policy):
+            return False
+        row.view_scope, row.transfer_policy = new_scope, new_policy
+        self.audit_logs.add("DOCUMENT_POLICY_CHANGE", "document", row.document_id, actor_id=user.id,
+                            result=f"{row.version} {old_scope}/{old_policy} → {new_scope}/{new_policy}")
+        return new_scope != old_scope
+
+    def activate(self, row: DocumentVersion, user: User) -> None:
+        """기존 현행 → false, 이 버전 → true. 기록 형식은 적재의 activate() 와 같다."""
+        old = self.documents.current_version(row.document_id)
+        if old is not None:
+            old.is_current = False
+            self.db.flush()                 # 현행은 문서마다 하나라는 제약 때문에 먼저 내린다
+        row.is_current = True
+        row.activated_at = row.activated_at or datetime_utils.now()
+        self.audit_logs.add("DOCUMENT_VERSION_ACTIVATE", "document", row.document_id, actor_id=user.id,
+                            result=f"{old.version if old else '없음'} → {row.version}")
+
+    def recheck_faqs(self, document_id: int, user: User) -> None:
+        """이 문서와 연결된 게시 FAQ 가운데 조건을 잃은 것을 비게시로 바꾼다 (API 04 게시·출처 정책). 문서와 무관한 FAQ 는 보지 않는다."""
+        self.db.flush()
+        codes = self.documents.faq_codes(document_id)
+        if not codes:
+            return
+        faqs = self.documents.active_faqs_for_update(codes)
+        publishable = publishable_codes(self.faqs.links())
+        for faq in faqs:
+            if faq.faq_code not in publishable:
+                faq.is_active = False
+                faq.updated_by, faq.updated_at = user.id, datetime_utils.now()
+                self.audit_logs.add("FAQ_AUTO_UNPUBLISH", "faq", faq.id, result=faq.faq_code, actor_id=user.id,
+                                    reason=f"문서 {document_id} 변경으로 공개 출처 없음")
+
+    def lock_document(self, document_id: int) -> KnowledgeDocument:
+        document = self.documents.get_for_update(document_id)
+        if document is None:
+            raise AppError(ErrorCode.DOCUMENT_NOT_FOUND)
+        return document
+
+    def check_category(self, doc_type: str, code: str | None) -> None:
+        if doc_type == "STANDARD":
+            if code is not None:
+                raise field_error(ErrorCode.VALIDATION_ERROR, "categoryCode", "NOT_ALLOWED", "공통 기준 문서에는 분류를 넣지 않습니다.")
+        elif code is None:
+            raise field_error(ErrorCode.VALIDATION_ERROR, "categoryCode", "REQUIRED", "분류를 선택해 주세요.")
+        elif self.documents.ref(Category, code) is None:
+            raise field_error(ErrorCode.VALIDATION_ERROR, "categoryCode", "NOT_FOUND", "존재하지 않는 분류입니다.")
+
+    def check_group(self, group_id: int | None) -> None:
+        if group_id is not None and self.documents.ref(SupportGroup, group_id) is None:
+            raise field_error(ErrorCode.VALIDATION_ERROR, "ownerGroupId", "NOT_FOUND", "존재하지 않는 담당 그룹입니다.")
+
+    def view(self, document: KnowledgeDocument, is_admin: bool) -> Document:
+        return to_document(document, self.documents.current_version(document.id),
+                           self.documents.ref(Category, document.category_code),
+                           self.documents.ref(SupportGroup, document.owner_group_id), is_admin)
+
+    def version_views(self, rows: list[DocumentVersion]) -> list[DocumentVersionView]:
+        counts = self.documents.chunk_counts([r.id for r in rows])
+        users = self.documents.users({r.registered_by for r in rows if r.registered_by is not None})
+        return [to_version(r, counts.get(r.id, 0), users.get(r.registered_by)) for r in rows]
+
+
+def save_file(file: BinaryIO, document_id: int, suffix: str) -> Path:
+    """크기를 확인하며 저장한다. 사용자가 보낸 파일 이름은 경로에 쓰지 않는다. 다 받은 뒤에 이름을 바꿔 쓰다 만 파일이 남지 않게 한다."""
+    folder = STORAGE_DIR / str(document_id)
+    folder.mkdir(parents=True, exist_ok=True)
+    name = uuid.uuid4().hex
+    temp, path = folder / f"{name}.part", folder / f"{name}{suffix}"
+    limit, size = file_constants.MAX_DOCUMENT_FILE_MB * 1024 * 1024, 0
+    try:
+        with temp.open("wb") as out:
+            while chunk := file.read(file_constants.READ_SIZE_BYTES):
+                size += len(chunk)
+                if size > limit:
+                    raise AppError(ErrorCode.DOCUMENT_FILE_TOO_LARGE, [
+                        {"field": "file", "reason": "OUT_OF_RANGE", "message": "최대 크기", "value": f"{file_constants.MAX_DOCUMENT_FILE_MB}MB"},
+                    ])
+                out.write(chunk)
+        temp.rename(path)
+    finally:
+        temp.unlink(missing_ok=True)
+    return path
+
+
+def to_document(document: KnowledgeDocument, current: DocumentVersion | None, category: Category | None,
+                group: SupportGroup | None, is_admin: bool) -> Document:
+    return Document(
+        id=document.id,
+        doc_code=document.doc_code,
+        doc_type=document.doc_type,
+        title=document.title,
+        category_code=document.category_code,
+        category=CategoryRef.model_validate(category) if category else None,
+        owner_group_id=document.owner_group_id,
+        owner_group=GroupRef.model_validate(group) if group else None,
+        is_active=document.is_active,
+        current_version=CurrentVersion(
+            id=current.id,
+            version=current.version,
+            file_format=current.file_format,
+            view_scope=current.view_scope if is_admin else None,
+            transfer_policy=current.transfer_policy if is_admin else None,
+            registered_at=current.registered_at,
+        ) if current else None,
+        created_at=document.created_at,
+    )
+
+
+def to_version(row: DocumentVersion, chunk_count: int, registrar: User | None) -> DocumentVersionView:
+    return DocumentVersionView(
+        id=row.id,
+        document_id=row.document_id,
+        version=row.version,
+        file_format=row.file_format,
+        view_scope=row.view_scope,
+        transfer_policy=row.transfer_policy,
+        activated_at=row.activated_at,
+        is_current=row.is_current,
+        version_state="CURRENT" if row.is_current else "EXPIRED" if row.activated_at else "DRAFT",
+        ingest_status=row.ingest_status,
+        ingest_error=row.ingest_error,
+        chunk_count=chunk_count,
+        registered_by=row.registered_by,
+        registered_by_user=UserRef.model_validate(registrar) if registrar else None,
+        registered_at=row.registered_at,
+    )
+
+
+DocumentServiceDep = Annotated[DocumentService, Depends(DocumentService)]
