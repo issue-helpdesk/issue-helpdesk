@@ -88,7 +88,7 @@ export function AllTicketsView() {
     setSlide(openId !== null)
   }
 
-  // 대시보드에서 오면 주소의 값으로 시작한다 (?st=open&cat=NET&pri=P12&team=…&staff=…&per=m&alarm=1&unres=1&mode=ai&aik=ok)
+  // 대시보드에서 오면 주소의 값으로 시작한다 (?st=open&cat=NET&pri=P12&team=…&staff=…&per=m&unres=1&mode=ai&aik=ok)
   const [params] = useSearchParams()
   const pick = <T extends string>(k: string, ok: readonly T[], d: T): T => (ok.includes(params.get(k) as T) ? (params.get(k) as T) : d)
   const [mode, setMode] = useState<Mode>(() => pick('mode', ['staff', 'ai'] as const, 'staff'))
@@ -98,7 +98,6 @@ export function AllTicketsView() {
   const [team, setTeam] = useState(() => params.get('team') ?? '')
   const [staff, setStaff] = useState(() => params.get('staff') ?? '')
   const [per, setPer] = useState<string>(() => pick('per', ['', 'd', 'm', 'y'] as const, ''))
-  const [alarm, setAlarm] = useState(() => params.get('alarm') === '1')
   const [unres, setUnres] = useState(() => params.get('unres') === '1')
   const [aik, setAik] = useState<'' | AiKind>(() => pick('aik', ['', 'ok', 'pend', 'unr'] as const, ''))
   // AI 처리 보기의 검색어·분류 (접수 기간은 담당자 처리와 함께 쓴다)
@@ -112,7 +111,6 @@ export function AllTicketsView() {
   const [data, setData] = useState<Page<TicketSummary> | null>(null)
   const [ai, setAi] = useState<AiPage | null>(null)
   const [counts, setCounts] = useState<Record<string, number> | null>(null)
-  const [mentions, setMentions] = useState<{ items: TicketSummary[]; total: number }>({ items: [], total: 0 })
   const [groups, setGroups] = useState<SupportGroupRef[]>([])
   const [staffList, setStaffList] = useState<StaffRef[]>([])
   const [error, setError] = useState('')
@@ -148,10 +146,9 @@ export function AllTicketsView() {
       groupId: team ? groups.find((g) => g.name === team)?.id : undefined,
       assigneeId: staff ? staffList.find((s) => s.name === staff)?.id : undefined,
       createdFrom: days === undefined ? undefined : daysAgo(days),
-      jiraMention: alarm || undefined,
       q: q.trim() || undefined,
     }
-  }, [st, unres, cat, pri, team, staff, per, alarm, q, page, sort, groups, staffList])
+  }, [st, unres, cat, pri, team, staff, per, q, page, sort, groups, staffList])
 
   useEffect(() => {
     if (!user || mode !== 'staff') return
@@ -176,7 +173,6 @@ export function AllTicketsView() {
     Promise.all([one({}), one({ jiraSyncStatus: ['PENDING', 'VERIFYING', 'NEEDS_ADMIN'] }), one({ workStatus: ['RDY'] }), one({ workStatus: ['WIP'] }), one({ workStatus: ['FIN'] }), one({ workStatus: ['CLS'] })]).then(([all, none, RDY, WIP, FIN, CLS]) => {
       if (alive) setCounts({ '': all, none, open: RDY + WIP, RDY, WIP, FIN, CLS })
     })
-    listTickets(user, { view: 'ALL', size: 3, jiraMention: true }).then((r) => alive && r.ok && setMentions({ items: r.data.items, total: r.data.totalCount }))
     return () => {
       alive = false
     }
@@ -205,14 +201,13 @@ export function AllTicketsView() {
     set(v)
     setPage(1)
   }
-  const active = [cat, pri, team, staff, per, alarm && 'a', unres && 'u'].filter(Boolean).length
+  const active = [cat, pri, team, staff, per, unres && 'u'].filter(Boolean).length
   const clear = () => {
     setCat('')
     setPri('')
     setTeam('')
     setStaff('')
     setPer('')
-    setAlarm(false)
     setUnres(false)
     setPage(1)
   }
@@ -374,25 +369,6 @@ export function AllTicketsView() {
           <div className="page">
             {head}
 
-            {mentions.total > 0 && (
-              <div className="alert err bn" role="status">
-                <Icon name="bell" />
-                <div className="bnl">
-                  <b>문의자가 답변했어요.</b>
-                  {mentions.items.map((t) => (
-                    <button key={t.id} type="button" className="lk rl" onClick={() => open(t.id)}>
-                      <span className="rc">{t.receiptNo}</span>
-                      <span className="sp" aria-hidden="true">
-                        ·
-                      </span>
-                      {t.summary}
-                    </button>
-                  ))}
-                  {mentions.total > 3 && <span className="rmore">외 {mentions.total - 3}건</span>}
-                </div>
-              </div>
-            )}
-
             {seg}
 
             <div className="d2seg" role="group" aria-label="처리 상태">
@@ -433,15 +409,6 @@ export function AllTicketsView() {
               <FilterPill label="팀" value={team} options={groups.map((g) => ({ value: g.name, label: g.name }))} onChange={reset(setTeam)} />
               <FilterPill label="담당자" value={staff} options={staffList.map((s) => ({ value: s.name, label: `${s.name} · ${s.group}` }))} onChange={reset(setStaff)} />
               {perChip}
-              {alarm && (
-                <span className="d2p act">
-                  <small>알림</small>
-                  <span>확인할 Jira 알림</span>
-                  <button type="button" className="x" aria-label="Jira 알림 필터 해제" onClick={() => reset(setAlarm)(false)}>
-                    ✕
-                  </button>
-                </span>
-              )}
               {unres && (
                 <span className="d2p act">
                   <small>상태</small>
@@ -503,7 +470,6 @@ export function AllTicketsView() {
                               <button type="button" className="lk" onClick={() => open(t.id)}>
                                 {t.summary}
                               </button>
-                              {t.jiraMention && <span className="newd" role="img" aria-label="새 답변" />}
                               <small>{t.requester.name}</small>
                             </td>
                             <td className="c">{t.workStatus ? <StaffStatus t={t} /> : <PreStatus t={t} />}</td>

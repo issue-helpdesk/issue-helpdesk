@@ -78,15 +78,14 @@ export function QueueView() {
     setSlide(openId !== null)
   }
 
-  // 대시보드에서 오면 주소의 값으로 시작한다 (?tab=open&sub=RDY, ?pri=P1, ?per=m, ?new=1)
+  // 대시보드에서 오면 주소의 값으로 시작한다 (?tab=open&sub=RDY, ?pri=P1, ?per=m,)
   const [params] = useSearchParams()
   const fromUrl = <T extends string>(k: string, ok: readonly T[], d: T): T => (ok.includes(params.get(k) as T) ? (params.get(k) as T) : d)
-  const [tab, setTab] = useState<Tab>(() => fromUrl('tab', ['all', 'open', 'fin', 'cls'] as const, params.get('new') || params.get('pri') || params.get('per') ? 'all' : 'open'))
+  const [tab, setTab] = useState<Tab>(() => fromUrl('tab', ['all', 'open', 'fin', 'cls'] as const, params.get('pri') || params.get('per') ? 'all' : 'open'))
   const [sub, setSub] = useState<'' | 'RDY' | 'WIP'>(() => fromUrl('sub', ['', 'RDY', 'WIP'] as const, ''))
   const [q, setQ] = useState('')
   const [pri, setPri] = useState<string>(() => fromUrl('pri', ['', 'P1', 'P2', 'P3', 'P4'] as const, ''))
   const [per, setPer] = useState<string>(() => fromUrl('per', ['', 'd', 'm', 'y'] as const, ''))
-  const [onlyNew, setOnlyNew] = useState(() => params.get('new') === '1') // 확인할 Jira 알림이 온 건만
   const [sort, setSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' } | null>(null)
   const [page, setPage] = useState(1)
   const [data, setData] = useState<Page<TicketSummary> | null>(null)
@@ -112,9 +111,8 @@ export function QueueView() {
       urgency: pri ? [pri as Urgency] : undefined,
       createdFrom: days === undefined ? undefined : daysAgo(days),
       q: q.trim() || undefined,
-      jiraMention: onlyNew || undefined,
     }
-  }, [user?.id, tab, sub, page, sort, pri, per, q, onlyNew])
+  }, [user?.id, tab, sub, page, sort, pri, per, q])
 
   useEffect(() => {
     if (!user) return
@@ -151,15 +149,10 @@ export function QueueView() {
   }
   const count = (statuses: WorkStatus[]) => mine.filter((t) => t.workStatus && statuses.includes(t.workStatus)).length
   const subCount = (s: 'RDY' | 'WIP') => mine.filter((t) => t.workStatus === s).length
-  const mentions = mine.filter((t) => t.jiraMention)
-  const cond = !!(q.trim() || pri || per || onlyNew)
+  const cond = !!(q.trim() || pri || per)
   // 조건을 모두 풀면 '전체 상태' 탭은 사라지고 진행 중으로 돌아간다
-  const clearFilter = (set: (v: never) => void, v: unknown) => {
-    set(v as never)
-    setPage(1)
-  }
-  const tabs = pri || per || onlyNew ? [ALL_TAB, ...TABS] : TABS
-  if (tab === 'all' && !(pri || per || onlyNew)) setTab('open')
+  const tabs = pri || per ? [ALL_TAB, ...TABS] : TABS
+  if (tab === 'all' && !(pri || per)) setTab('open')
   const onSort = (col: SortCol) => {
     setSort((s) => (s && s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: col === 'when' ? 'desc' : 'asc' }))
     setPage(1)
@@ -181,24 +174,6 @@ export function QueueView() {
               </p>
             </div>
 
-            {mentions.length > 0 && (
-              <div className="alert err bn" role="status">
-                <Icon name="bell" />
-                <div className="bnl">
-                  <b>문의자가 답변했어요.</b>
-                  {mentions.slice(0, 3).map((t) => (
-                    <button key={t.id} type="button" className="lk rl" onClick={() => open(t.id)}>
-                      <span className="rc">{t.receiptNo}</span>
-                      <span className="sp" aria-hidden="true">
-                        ·
-                      </span>
-                      {t.summary}
-                    </button>
-                  ))}
-                  {mentions.length > 3 && <span className="rmore">외 {mentions.length - 3}건</span>}
-                </div>
-              </div>
-            )}
 
             <div className="tabs" role="tablist" aria-label="처리 상태">
               {tabs.map((t) => (
@@ -224,17 +199,6 @@ export function QueueView() {
               </span>
               <FilterPill label="긴급도" value={pri} options={URGENCIES.map((p) => ({ value: p, label: `${p} · ${URGENCY_LABEL[p]}` }))} onChange={reset(setPri)} />
               <FilterPill label="접수 기간" value={per} options={PERIODS.map((p) => ({ value: p.value, label: p.label }))} onChange={reset(setPer)} />
-              {onlyNew && (
-                <span className="d2p act">
-                  <span className="ddb">
-                    <small>알림</small>
-                    <span>확인할 Jira 알림</span>
-                  </span>
-                  <button type="button" className="x" aria-label="Jira 알림 필터 해제" onClick={() => clearFilter(setOnlyNew, false)}>
-                    ✕
-                  </button>
-                </span>
-              )}
             </div>
 
             {tab === 'open' && (
@@ -291,7 +255,6 @@ export function QueueView() {
                               <button type="button" className="lk" onClick={() => open(t.id)}>
                                 {t.summary}
                               </button>
-                              {t.jiraMention && <span className="newd" role="img" aria-label="새 답변" />}
                               <small>{t.requester.name}</small>
                             </td>
                             <td className="c">

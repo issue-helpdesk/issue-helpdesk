@@ -78,7 +78,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   // 메뉴가 길어 최근 문의가 잘리면 5개 대신 2개만 보인다 (그래도 넘치면 문의 그룹을 접는다)
   const [shortRecent, setShortRecent] = useState(false)
   const sideRef = useRef<HTMLElement>(null)
-  // 담당자: 처리할 문의 건수(처리 대기·처리 중·해결 확인 대기)와 Jira 알림이 온 건수
+  // 담당자: 처리할 문의 건수(처리 대기·처리 중·해결 확인 대기)와 새 알림(담당자 배정) 개수
   const [queue, setQueue] = useState({ n: 0, nw: 0 })
   const agentId = user?.serviceRole === 'AGENT' ? user.id : null
   // 관리자: 연동·배정 확인이 필요한 접수 수 (운영 현황 메뉴 옆)
@@ -102,7 +102,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
     if (!user || agentId === null) return
     return watchTickets(() => {
       listTickets(user, { view: 'ASSIGNED', assigneeId: agentId, size: 100 }).then((r) => {
-        if (r.ok) setQueue((q) => ({ n: r.data.items.filter((t) => t.workStatus && t.workStatus !== 'CLS').length, nw: USE_MOCK_NOTIFY ? r.data.items.filter((t) => t.jiraMention).length : q.nw }))
+        if (r.ok) setQueue((q) => ({ n: r.data.items.filter((t) => t.workStatus && t.workStatus !== 'CLS').length, nw: q.nw }))
       })
     })
   }, [user, agentId])

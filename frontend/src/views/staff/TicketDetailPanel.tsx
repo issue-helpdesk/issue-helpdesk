@@ -142,8 +142,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
   const [msgErr, setMsgErr] = useState('')
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
-  // 처음 열 때만 Jira 알림 안내를 보여 준다 (열면 알림 표시가 지워진다)
-  const [mention, setMention] = useState(false)
   const [modal, setModal] = useState(false)
   const [note, setNote] = useState('')
   const [noteErr, setNoteErr] = useState('')
@@ -192,7 +190,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
       if (r.ok) {
         setT(r.data)
         setError('')
-        if (r.data.jiraMention) setMention(true)
         // 이 접수의 내 알림(담당자 배정 등)은 열었으니 읽음으로 바꾸고 사이드바 개수를 다시 읽는다 (NT-04)
         markTicketRead(id).then((x) => x.ok && x.data.updatedCount > 0 && refreshUnread())
       } else setError(r.error.message)
@@ -447,7 +444,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                   {!mine && !admin && <div className="small muted">다른 담당자가 맡은 접수예요. 상태는 맡은 담당자만 바꿀 수 있어요.</div>}
                 </div>
               )}
-              {(mention || msgs.length > 0) && (
+              {msgs.length > 0 && (
                 <div>
                   <h4>
                     메시지 <span className="tag gray">제안</span>
@@ -465,16 +462,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                         </div>
                       </li>
                     ))}
-                    {mention && !requester && (
-                      <li>
-                        <Icon name="bell" />
-                        <div>
-                          <b>Jira 알림 · 문의자 멘션</b>
-                          문의자로부터 해당 티켓 멘션이 왔으니 Jira에서 내용을 확인해 주세요.
-                          <small>알림만 전달돼요(메시지 내용은 Jira에서 확인)</small>
-                        </div>
-                      </li>
-                    )}
                   </ul>
                 </div>
               )}

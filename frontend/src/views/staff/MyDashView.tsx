@@ -44,7 +44,6 @@ function Row({ t, onOpen }: { t: TicketSummary; onOpen: () => void }) {
       </span>
       <span className="c-t">
         <b>{t.summary}</b>
-        {t.jiraMention && <span className="newd" role="img" aria-label="새 답변" />}
         <small>
           {cat} · {t.receiptNo}
           {t.jiraKey ? ` · ${t.jiraKey}` : ''} · {t.requester.name}
@@ -108,12 +107,11 @@ export function MyDashView() {
     const l = list.filter((t) => t.workStatus === s)
     return l.length ? `가장 오래된 건 ${formatElapsed(l.reduce((a, b) => (Date.parse(a.createdAt) < Date.parse(b.createdAt) ? a : b)).createdAt)}` : '해당하는 문의가 없어요'
   }
-  const jn = list.filter((t) => t.jiraMention).length
   const todo = useMemo(
     () =>
       list
         .filter((t) => t.workStatus === 'RDY' || t.workStatus === 'WIP')
-        .sort((a, b) => URG[a.urgency ?? 'P4'] - URG[b.urgency ?? 'P4'] || Number(!!b.jiraMention) - Number(!!a.jiraMention) || age(b) - age(a)),
+        .sort((a, b) => URG[a.urgency ?? 'P4'] - URG[b.urgency ?? 'P4'] || age(b) - age(a)),
     [list],
   )
   const needle = q.trim().toLowerCase()
@@ -203,24 +201,6 @@ export function MyDashView() {
                   {tile('var(--g-c)', '해결 완료 (CLS)', n('CLS'), '?tab=cls', '해결 완료된 문의 보기')}
                 </div>
 
-                <section className={`wband${jn ? ' need wlink' : ''}`} aria-label="확인할 Jira 알림">
-                  <div>
-                    <b>
-                      {jn > 0 && <i className="wd" aria-hidden="true" />}확인할 Jira 알림 {jn}건
-                    </b>{' '}
-                    <span className="tag gray">제안</span>
-                    <div className="small wsub" style={{ marginTop: 2 }}>
-                      {jn ? 'Jira 댓글·멘션이 도착했어요. Jira에서 내용을 확인해 주세요.' : '확인할 Jira 알림이 없어요'}
-                    </div>
-                  </div>
-                  <span className="wr">
-                    <span className="small wnote">
-                      Jira 댓글·멘션이 도착하면 이곳에 표시돼요 <span className="tag gray">시연 데이터</span>
-                    </span>
-                    {jn > 0 && <Icon name="chevron" className="wch" />}
-                  </span>
-                  {jn > 0 && <button type="button" className="wover" onClick={() => go('?new=1')} aria-label={`확인할 Jira 알림 ${jn}건. 알림이 온 문의만 보기`} />}
-                </section>
 
                 <section className="panel" aria-label="먼저 볼 문의" style={{ padding: '22px 24px' }}>
                   <div className="sech">

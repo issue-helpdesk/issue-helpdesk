@@ -46,14 +46,6 @@ describe('접수 목록·상세 API (모의)', () => {
     expect(await by({ q: '프린터' })).toEqual(['프린터 네트워크 연결 오류'])
   })
 
-  it('상세를 처음 열 때만 Jira 알림이 있고, 두 번째부터는 지워진다', async () => {
-    const u = staff()
-    const a = await getTicket(u, 5001)
-    const b = await getTicket(u, 5001)
-    expect(a.ok && a.data.jiraMention).toBe(true)
-    expect(b.ok && b.data.jiraMention).toBe(false)
-  })
-
   it('상태 변경은 202 처럼 PENDING 으로 답하고, 규칙에 어긋나면 막는다', async () => {
     mockConfig.pipelineScale = 1 // Jira 반영 확인 구간(1.2초)을 실제로 거친다
     const u = staff()
@@ -150,12 +142,10 @@ describe('담당자 내 대시보드', () => {
     expect(await within(team).findByText('부재 1명', { exact: false }, SLOW)).toBeInTheDocument()
   })
 
-  it('Jira 알림 띠를 누르면 알림이 온 문의만 처리할 문의에서 본다', async () => {
+  it('Jira 댓글·멘션 알림 띠는 없다 (이번 기능에서 제외)', async () => {
     renderAs('EMP-1004', '/my')
-    await userEvent.click(await screen.findByRole('button', { name: /확인할 Jira 알림 2건/ }, SLOW))
-    expect(await screen.findByText('확인할 Jira 알림', { selector: 'span' }, SLOW)).toBeInTheDocument()
-    expect(await screen.findByRole('tab', { name: /전체 상태/ })).toBeInTheDocument()
-    await waitFor(() => expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(3), SLOW) // 머리글 + 2건
+    await screen.findByRole('button', { name: /^처리 대기 \(RDY\)/ }, SLOW)
+    expect(screen.queryByRole('button', { name: /확인할 Jira 알림/ })).toBeNull()
   })
 
   it('건수 칸을 누르면 그 상태의 목록으로 이어지고, 검색하면 검색 결과만 나온다', async () => {
@@ -251,11 +241,12 @@ describe('문의자에게 메시지(제안)·Slack 미리보기·사이드바 �
     expect(screen.queryByRole('button', { name: /문의자에게 메시지/ })).toBeNull()
   })
 
-  it('사이드바 처리할 문의에 건수와 새 알림 표시가 붙고, 알림이 온 건수가 보인다', async () => {
+  it('사이드바 처리할 문의에 건수가 붙고, Jira 댓글·멘션 알림 표시(NEW)는 없다', async () => {
     renderAs('EMP-1004', '/my')
     const nav = await within(await screen.findByRole('navigation', { name: '주 메뉴' }, SLOW)).findByRole('button', { name: /처리할 문의/ }, SLOW)
     await waitFor(() => expect(nav).toHaveTextContent('11'), SLOW) // 처리 대기+처리 중+해결 확인 대기
-    expect(within(nav).getByRole('img')).toHaveAttribute('aria-label', expect.stringContaining('새 알림 2건'))
+    expect(nav).not.toHaveTextContent('NEW')
+    expect(within(nav).queryByRole('img')).toBeNull()
   })
 })
 

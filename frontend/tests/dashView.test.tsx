@@ -44,7 +44,6 @@ describe('대시보드 API (모의)', () => {
     // P1 이 먼저
     expect(u.top[0].urgency).toBe('P1')
     expect(u.top.every((t) => t.workStatus !== 'CLS')).toBe(true)
-    expect(r.data.mentions).toBeGreaterThan(0)
   })
 
   it('검색은 접수번호·제목으로 최근 10건까지 찾는다', async () => {
@@ -55,14 +54,15 @@ describe('대시보드 API (모의)', () => {
 })
 
 describe('대시보드 화면', () => {
-  it('처리 현황·연동 확인 띠·Jira 알림·긴급 미해결이 보이고, 담당자는 들어올 수 없다', async () => {
+  it('처리 현황·연동 확인 띠·긴급 미해결이 보이고, 담당자는 들어올 수 없다', async () => {
     const { unmount } = renderAs('EMP-1178', '/dash')
     expect(await screen.findByRole('heading', { name: '대시보드', level: 1 }, SLOW)).toBeInTheDocument()
     const pipe = await screen.findByRole('group', { name: '처리 현황' })
     await waitFor(() => expect(within(pipe).getByRole('button', { name: /^처리 대기 \(RDY\) [1-9]/ })).toBeInTheDocument(), SLOW)
     expect(within(pipe).getByRole('button', { name: /^연동·배정 확인 [1-9]/ })).toHaveClass('al')
     expect(await screen.findByRole('region', { name: '연동·배정 확인 필요' }, SLOW)).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: '확인할 Jira 알림' })).toHaveClass('need')
+    // Jira 댓글·멘션 알림은 이번 기능에서 제외했다
+    expect(screen.queryByRole('region', { name: '확인할 Jira 알림' })).toBeNull()
     const urg = screen.getByRole('region', { name: '긴급·높음 미해결' })
     await waitFor(() => expect(urg.querySelectorAll('.dtr')).toHaveLength(3), SLOW)
     unmount()

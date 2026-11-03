@@ -12,7 +12,7 @@ import { MOCK_ONLY, USE_MOCK_AUTH, USE_MOCK_TICKET } from '../core/config'
 import { notReady } from './inquiryServer'
 import { staffTransition } from './mock/chatEngine'
 import { later, mockConfig, notify, subscribe } from './mock/chatStore'
-import { GROUP_STAFF, TEAM_MEMBERS, addMessage, bindMockUser, reassignSeed, addHistory, messagesOf, slackOf, allStaffTickets, clearMention, findStaffTicket, historyOf, mutateSeed, pending, recordOfTicket } from './mock/staffTickets'
+import { GROUP_STAFF, TEAM_MEMBERS, addMessage, bindMockUser, reassignSeed, addHistory, messagesOf, slackOf, allStaffTickets, findStaffTicket, historyOf, mutateSeed, pending, recordOfTicket } from './mock/staffTickets'
 import type { Page } from './inquiries'
 import type { MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMessage, TicketListQuery, TicketSummary, TicketTransitionRequest } from './ticketTypes'
 import { fail, ok, type ApiResult, type User } from './types'
@@ -58,7 +58,7 @@ const summaryOf = (t: TicketDetail): TicketSummary => {
 export async function listTickets(user: User, query: TicketListQuery = {}): Promise<ApiResult<Page<TicketSummary>>> {
   if (!USE_MOCK_TICKET) return request<Page<TicketSummary>>(`/tickets?${toQueryString(query)}`)
   await sleep(150) // 응답 지연 흉내
-  const { page = 1, size = 20, sort = 'createdAt,desc', workStatus, needsAdmin, categoryCode, urgency, assigneeId, createdFrom, q, jiraMention, groupId, jiraSyncStatus } = query
+  const { page = 1, size = 20, sort = 'createdAt,desc', workStatus, needsAdmin, categoryCode, urgency, assigneeId, createdFrom, q, groupId, jiraSyncStatus } = query
   const needle = (q ?? '').trim().toLowerCase()
   const from = createdFrom ? new Date(`${createdFrom}T00:00:00`).getTime() : 0
   let rows = allStaffTickets().filter((t) => canSee(user, t))
@@ -71,7 +71,6 @@ export async function listTickets(user: User, query: TicketListQuery = {}): Prom
     if (categoryCode?.length && !(t.category && categoryCode.includes(t.category.code))) return false
     if (urgency?.length && !(t.urgency && urgency.includes(t.urgency))) return false
     if (from && Date.parse(t.createdAt) < from) return false
-    if (jiraMention && !t.jiraMention) return false
     if (needle) {
       const hay = [t.receiptNo, t.jiraKey, t.summary, t.requester.name, t.assignee?.name, t.category?.name]
       if (!hay.some((x) => x && String(x).toLowerCase().includes(needle))) return false
@@ -103,8 +102,8 @@ export async function listTickets(user: User, query: TicketListQuery = {}): Prom
     const y = val(b)
     const c = (x < y ? -1 : x > y ? 1 : 0) * sign
     if (c) return c
-    // 같으면 Jira 알림이 온 건 먼저, 그다음 오래된 건 먼저 (먼저 볼 문의)
-    return (b.jiraMention ? 1 : 0) - (a.jiraMention ? 1 : 0) || Date.parse(a.createdAt) - Date.parse(b.createdAt)
+    // 같으면 오래된 건 먼저 (먼저 볼 문의)
+    return Date.parse(a.createdAt) - Date.parse(b.createdAt)
   })
   const totalCount = rows.length
   const totalPages = Math.max(1, Math.ceil(totalCount / size))
@@ -140,16 +139,13 @@ export async function reassignTicket(user: User, id: number, body: { assigneeId:
   return ok(findStaffTicket(id)!)
 }
 
-/** 접수 상세 (TK-06). 열면 Jira 알림 표시가 지워진다 (제안). */
+/** 접수 상세 (TK-06) */
 export async function getTicket(user: User, id: number): Promise<ApiResult<TicketDetail>> {
   if (!USE_MOCK_TICKET) return request<TicketDetail>(`/tickets/${id}`)
   await sleep(120)
   const t = findStaffTicket(id)
   if (!t || !canSee(user, t)) return notFound()
-  const had = !!t.jiraMention // 처음 열 때만 알림 안내를 보여 준다
-  clearMention(id)
-  if (had) notify() // 사이드바의 NEW 표시가 줄어든다
-  return ok({ ...t, jiraMention: had })
+  return ok({ ...t })
 }
 
 /**

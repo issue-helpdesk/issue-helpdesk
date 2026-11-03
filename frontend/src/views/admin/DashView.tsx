@@ -1,6 +1,6 @@
 /**
  * 관리자 대시보드 (/dash). (design/ITssue-Prototype.html viewDash)
- * 처리 현황(건수), 연동·배정 확인 띠, 확인할 Jira 알림, 긴급·높음 미해결 상위 3건을 한 화면에 모은다.
+ * 처리 현황(건수), 연동·배정 확인 띠, 긴급·높음 미해결 상위 3건을 한 화면에 모은다.
  * 건수와 띠는 전체 문의·운영 현황의 해당 조건으로 이어진다. 검색하면 대시보드 대신 검색 결과만 보인다.
  */
 import { useEffect, useState } from 'react'
@@ -132,7 +132,6 @@ export function DashView() {
         ] as const
       ).filter((k) => k[1])
     : []
-  const jn = snap?.mentions ?? 0
   const un = snap?.unresolved
 
   const pipe = [
@@ -256,25 +255,6 @@ export function DashView() {
                     ))}
                   </div>
                 </div>
-
-                <section className={`wband${jn ? ' need wlink' : ''}`} aria-label="확인할 Jira 알림">
-                  <div>
-                    <b>
-                      {jn > 0 && <i className="wd" aria-hidden="true" />}확인할 Jira 알림 {jn}건
-                    </b>{' '}
-                    <span className="tag gray">제안</span>
-                    <div className="small wsub" style={{ marginTop: 2 }}>
-                      {jn ? 'Jira 댓글·멘션이 도착했어요. Jira에서 내용을 확인해 주세요.' : '확인할 Jira 알림이 없어요'}
-                    </div>
-                  </div>
-                  <span className="wr">
-                    <span className="small wnote">
-                      Jira 댓글·멘션이 도착하면 이곳에 표시돼요 <span className="tag gray">시연 데이터</span>
-                    </span>
-                    {jn > 0 && <Icon name="chevron" className="wch" />}
-                  </span>
-                  {jn > 0 && <button type="button" className="wover" onClick={() => navigate('/tickets?alarm=1')} aria-label={`확인할 Jira 알림 ${jn}건. 알림이 온 문의만 보기`} />}
-                </section>
 
                 <section className="panel urg" aria-label="긴급·높음 미해결" style={{ padding: '22px 24px' }}>
                   <div className="sech">

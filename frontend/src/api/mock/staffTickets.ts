@@ -81,7 +81,6 @@ interface SeedArgs {
   impact?: string
   tried?: string
   reason?: string
-  mention?: boolean
 }
 
 const WHO: Record<string, UserRef> = {
@@ -124,7 +123,6 @@ function seedTicket(a: SeedArgs): TicketDetail {
     needsAdmin: jiraSync === 'NEEDS_ADMIN' || jiraSync === 'VERIFYING' || asgStatus === 'NEEDS_ADMIN' || !!a.trn,
     displayStatus: displayOf(w),
     createdAt: created,
-    jiraMention: !!a.mention,
     targetSystem: a.system ?? 'VPN·네트워크',
     symptom: a.symptom ?? a.title,
     occurredAt: '어제부터요.',
@@ -141,9 +139,9 @@ function seedTicket(a: SeedArgs): TicketDetail {
 }
 
 const SEED_ARGS: SeedArgs[] = [
-  { n: 1, title: '악성 첨부파일 의심 메일 수신', cat: 'SEC', p: 'P1', who: '민수', workStatus: 'WIP', ago: { d: 4, h: 4 }, mention: true, system: '메일·보안', impact: '부서 전원이 같은 메일을 받았어요.', tried: '열어 보지 않고 보관해 두었어요.' },
+  { n: 1, title: '악성 첨부파일 의심 메일 수신', cat: 'SEC', p: 'P1', who: '민수', workStatus: 'WIP', ago: { d: 4, h: 4 }, system: '메일·보안', impact: '부서 전원이 같은 메일을 받았어요.', tried: '열어 보지 않고 보관해 두었어요.' },
   { n: 2, title: 'VPN 인증서 만료 알림이 계속 떠요', cat: 'NET', p: 'P2', who: '서연', workStatus: 'WIP', ago: { d: 1, h: 7 } },
-  { n: 3, title: '사내 Wi-Fi 접속 불가 (3층)', cat: 'NET', p: 'P2', who: '지은', workStatus: 'WIP', ago: { d: 1, h: 7 }, mention: true, impact: '3층 전체가 접속되지 않아요.' },
+  { n: 3, title: '사내 Wi-Fi 접속 불가 (3층)', cat: 'NET', p: 'P2', who: '지은', workStatus: 'WIP', ago: { d: 1, h: 7 }, impact: '3층 전체가 접속되지 않아요.' },
   { n: 4, title: '재택 VPN 인증 오류', cat: 'NET', p: 'P3', who: '신입', workStatus: 'RDY', ago: { d: 2, h: 7 }, tried: '비밀번호를 다시 입력해 봤어요.' },
   { n: 5, title: '원격 접속 속도가 너무 느려요', cat: 'NET', p: 'P3', who: '민수', workStatus: 'WIP', ago: { d: 6, h: 5 } },
   { n: 6, title: '사내 메신저 연결이 자주 끊겨요', cat: 'SYS', p: 'P3', who: '서연', workStatus: 'WIP', ago: { d: 3 } },
@@ -168,7 +166,7 @@ const SEED_ARGS: SeedArgs[] = [
   { n: 23, title: '업무용 소프트웨어 설치 요청', cat: 'SW', p: 'P4', who: '지은', workStatus: 'CLS', group: '엔드포인트지원팀', ago: { d: 10 }, system: '업무용 PC', assignee: member('엔드포인트지원팀', 2), note: '요청한 소프트웨어를 설치했습니다.' },
   { n: 24, title: 'PC 부팅이 느려요', cat: 'HW', p: 'P3', who: '하준', workStatus: 'WIP', group: '엔드포인트지원팀', ago: { d: 4 }, system: '업무용 PC', assignee: member('엔드포인트지원팀', 0) },
   { n: 25, title: '파일 서버 접근 권한 요청', cat: 'ACS', p: 'P3', who: '민수', workStatus: 'WIP', group: '시스템인프라팀', ago: { d: 2 }, system: '파일 서버', assignee: member('시스템인프라팀', 1) },
-  { n: 26, title: '업무 서버 응답이 느려요', cat: 'SYS', p: 'P2', who: '서연', workStatus: 'WIP', group: '시스템인프라팀', ago: { h: 9 }, system: '업무 서버', assignee: member('시스템인프라팀', 0), mention: true },
+  { n: 26, title: '업무 서버 응답이 느려요', cat: 'SYS', p: 'P2', who: '서연', workStatus: 'WIP', group: '시스템인프라팀', ago: { h: 9 }, system: '업무 서버', assignee: member('시스템인프라팀', 0) },
   { n: 27, title: '백업 복구 요청', cat: 'SYS', p: 'P3', who: '신입', workStatus: 'FIN', group: '시스템인프라팀', ago: { d: 5 }, system: '백업 서버', assignee: member('시스템인프라팀', 2), note: '지정한 시점으로 복구했습니다.' },
   { n: 28, title: '가상 머신 증설 요청', cat: 'SYS', p: 'P4', who: '지은', workStatus: 'CLS', group: '시스템인프라팀', ago: { d: 14 }, system: '가상 머신', assignee: member('시스템인프라팀', 3), note: 'CPU와 메모리를 증설했습니다.' },
   { n: 29, title: '전자결재 문서가 열리지 않아요', cat: 'SYS', p: 'P2', who: '지은', workStatus: 'WIP', group: '업무시스템팀', ago: { d: 1 }, system: '전자결재', assignee: member('업무시스템팀', 0) },
@@ -275,7 +273,6 @@ function fromRecord(rec: StoreRecord): TicketDetail | null {
     needsAdmin: t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.assignStatus === 'NEEDS_ADMIN',
     displayStatus: displayOf(t.workStatus),
     createdAt: t.createdAt,
-    jiraMention: false,
     targetSystem: d?.targetSystem ?? null,
     symptom: d?.summary ?? null,
     occurredAt: d?.occurredAt ?? null,
@@ -315,12 +312,6 @@ export function mutateSeed(id: number, fn: (t: TicketDetail) => void): boolean {
   fn(s)
   notify()
   return true
-}
-
-/** Jira 알림을 열어 본 것으로 표시한다 */
-export function clearMention(id: number) {
-  const s = seeds.find((x) => x.id === id)
-  if (s?.jiraMention) s.jiraMention = false
 }
 
 /* ------------------------------------------------------------------ 이력 */
