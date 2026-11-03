@@ -65,6 +65,8 @@ class ErrorCode(Enum):
     DOCUMENT_VERSION_NOT_READY = (409, "검색 준비가 끝난 버전만 현행으로 바꿀 수 있습니다.")
     DOCUMENT_FILE_FORMAT_UNSUPPORTED = (415, "PDF·DOCX·PPTX·MD·TXT 파일만 등록할 수 있습니다.")
     DOCUMENT_FILE_TOO_LARGE = (413, "파일 크기가 너무 큽니다.")
+    DOCUMENT_FILE_DUPLICATE = (409, "같은 파일이 이미 등록되어 있습니다.")
+    DOCUMENT_VERSION_NOT_RETRYABLE = (409, "적재에 실패한 버전만 다시 시도할 수 있습니다.")
 
     # 화면 알림
     NOTIFICATION_NOT_FOUND = (404, "알림을 찾을 수 없습니다.")

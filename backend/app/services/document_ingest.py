@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.rag.ingest import connect
 from app.rag.ingest.upload import ingest_version, resume_pending
 from app.rag.search.runtime import get_embedder
+from app.services.document_file import STORAGE_DIR, cleanup_temp_files
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,22 @@ def submit_ingest(version_id: int) -> None:
 def submit_resume() -> None:
     """서버 시작 때 부른다. 시작을 막지 않도록 줄에 넣기만 한다."""
     _executor.submit(run_resume)
+
+
+def submit_cleanup() -> None:
+    """서버 시작 때 부른다. 남은 임시 파일을 지운다."""
+    _executor.submit(run_cleanup)
+
+
+def run_cleanup() -> None:
+    try:
+        cleanup_temp_files()
+        if STORAGE_DIR.exists():                # 업로드한 적이 없으면 DB 에 붙지 않는다
+            with connect(get_settings().dsn, allow_remote=True) as conn:
+                paths = {p for (p,) in conn.execute("select file_path from document_versions where file_path is not null")}
+            cleanup_temp_files(known_paths=paths)
+    except Exception:
+        logger.exception("업로드 파일 정리 실패")
 
 
 def run_ingest(version_id: int) -> None:

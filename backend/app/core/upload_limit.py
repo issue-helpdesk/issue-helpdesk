@@ -12,7 +12,7 @@ from app.constants import file as file_constants
 from app.core.error_codes import ErrorCode
 from app.core.errors import error_response
 
-UPLOAD_PATH = re.compile(r"^/api/v1/documents/\d+/versions/?$")
+UPLOAD_PATH = re.compile(r"^/api/v1/documents/\d+/versions(/\d+/retry)?/?$")
 
 
 class _BodyTooLarge(Exception):

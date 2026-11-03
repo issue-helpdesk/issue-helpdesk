@@ -7,13 +7,14 @@ from app.api import auth, documents, faqs, health, inquiries, jira_webhook, noti
 from app.core.errors import register_error_handlers
 from app.core.upload_limit import UploadLimitMiddleware
 from app.rag.search import runtime as search_runtime
-from app.services.document_ingest import submit_resume
+from app.services.document_ingest import submit_cleanup, submit_resume
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # EMBEDDING_PRELOAD=true 면 임베딩 모델을 미리 연다 (EC2 약 28초). 꺼져 있으면 첫 검색 때 연다
     search_runtime.preload()
+    submit_cleanup()
     # 모델이 있는 서버에서만 멈춘 문서 적재를 잇는다. 모델 없는 개발 PC 는 건너뛴다
     if search_runtime.preload_enabled():
         submit_resume()
