@@ -244,24 +244,34 @@ def test_update_category_rule(client, db, users):
     assert res.json()["error"]["details"][0]["reason"] == "REQUIRED"
 
 
-def test_delete_and_restore(client, db, users):
+def set_active(client, headers, document_id, value):
+    return client.patch(f"{DOCS}/{document_id}", json={"isActive": value}, headers=headers)
+
+
+def test_deactivate_and_activate(client, db, users):
     document, _ = add_doc(db)
 
-    assert client.delete(f"{DOCS}/{document.id}", headers=users["admin"]).status_code == 204
-    assert client.delete(f"{DOCS}/{document.id}", headers=users["admin"]).status_code == 204     # 다시 불러도 204
+    assert set_active(client, users["admin"], document.id, False).json()["isActive"] is False
+    assert set_active(client, users["admin"], document.id, False).status_code == 200     # 다시 불러도 200, 기록은 한 번
     assert document.is_active is False
     assert client.get(f"{DOCS}/{document.id}", headers=users["employee"]).status_code == 404
-    assert audit_events(db) == [("DOCUMENT_DELETE", "IT-NET-001")]
+    assert audit_events(db) == [("DOCUMENT_DEACTIVATE", "IT-NET-001")]
 
-    assert client.patch(f"{DOCS}/{document.id}", json={"isActive": True}, headers=users["admin"]).json()["isActive"] is True
-    assert audit_events(db)[-1] == ("DOCUMENT_RESTORE", "IT-NET-001")
+    assert set_active(client, users["admin"], document.id, True).json()["isActive"] is True
+    assert audit_events(db)[-1] == ("DOCUMENT_ACTIVATE", "IT-NET-001")
 
 
-def test_delete_permissions(client, db, users):
+def test_deactivate_permissions(client, db, users):
     document, _ = add_doc(db)
 
-    assert client.delete(f"{DOCS}/{document.id}", headers=users["agent"]).status_code == 403
-    assert error_code(client.delete(f"{DOCS}/999", headers=users["admin"])) == "DOCUMENT_NOT_FOUND"
+    assert set_active(client, users["agent"], document.id, False).status_code == 403
+    assert error_code(set_active(client, users["admin"], 999, False)) == "DOCUMENT_NOT_FOUND"
+
+
+def test_no_delete_api(client, db, users):
+    document, _ = add_doc(db)
+
+    assert client.delete(f"{DOCS}/{document.id}", headers=users["admin"]).status_code == 405
 
 
 # ------------------------------------------------------------------ DC-06~08
@@ -824,7 +834,7 @@ def test_deleting_document_unpublishes_linked_faq(client, db, users):
     document, _ = add_doc(db, faqs=("FAQ-001",))
     faq = add_faq(db, "FAQ-001")
 
-    client.delete(f"{DOCS}/{document.id}", headers=users["admin"])
+    set_active(client, users["admin"], document.id, False)
 
     db.expire_all()
     assert faq.is_active is False
@@ -835,7 +845,7 @@ def test_faq_with_other_public_source_stays(client, db, users):
     add_doc(db, "IT-NET-002", faqs=("FAQ-001",))
     faq = add_faq(db, "FAQ-001")
 
-    client.delete(f"{DOCS}/{document.id}", headers=users["admin"])
+    set_active(client, users["admin"], document.id, False)
 
     db.expire_all()
     assert faq.is_active is True
@@ -865,10 +875,10 @@ def test_unrelated_faq_is_not_touched(client, db, users):
     assert other.is_active is True
 
 
-def test_restoring_does_not_republish(client, db, users):
+def test_activating_does_not_republish(client, db, users):
     document, _ = add_doc(db, faqs=("FAQ-001",))
     faq = add_faq(db, "FAQ-001")
-    client.delete(f"{DOCS}/{document.id}", headers=users["admin"])
+    set_active(client, users["admin"], document.id, False)
 
     client.patch(f"{DOCS}/{document.id}", json={"isActive": True}, headers=users["admin"])
 

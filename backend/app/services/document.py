@@ -100,7 +100,7 @@ class DocumentService:
         return self.view(document, is_admin)
 
     def update(self, document_id: int, body: DocumentUpdateRequest, user: User) -> Document:
-        """DC-04. 보낸 필드만 바꾼다."""
+        """DC-04. 보낸 필드만 바꾼다. 활성·비활성 전환도 여기서 한다."""
         document = self.lock_document(document_id)
         sent = body.model_fields_set
         if "category_code" in sent:
@@ -112,22 +112,16 @@ class DocumentService:
         if "is_active" in sent and body.is_active is not None and body.is_active != document.is_active:
             if body.is_active:
                 document.is_active = True
-                self.audit_logs.add("DOCUMENT_RESTORE", "document", document.id, result=document.doc_code, actor_id=user.id)
+                self.audit_logs.add("DOCUMENT_ACTIVATE", "document", document.id, result=document.doc_code, actor_id=user.id)
             else:
                 self.deactivate(document, user)
         self.db.commit()
         return self.view(document, is_admin=True)
 
-    def delete(self, document_id: int, user: User) -> None:
-        """DC-05. 행은 지우지 않고 검색·답변 대상에서 뺀다. 이미 삭제됐어도 204."""
-        document = self.lock_document(document_id)
-        if document.is_active:
-            self.deactivate(document, user)
-        self.db.commit()
-
     def deactivate(self, document: KnowledgeDocument, user: User) -> None:
+        """행은 지우지 않고 검색·답변 대상에서 뺀다."""
         document.is_active = False
-        self.audit_logs.add("DOCUMENT_DELETE", "document", document.id, result=document.doc_code, actor_id=user.id)
+        self.audit_logs.add("DOCUMENT_DEACTIVATE", "document", document.id, result=document.doc_code, actor_id=user.id)
         self.recheck_faqs(document.id, user)
 
     def list_versions(self, document_id: int) -> ItemList[DocumentVersionView]:
