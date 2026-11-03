@@ -58,6 +58,7 @@ class DocumentListQuery(PageQuery):
     category_code: list[trimmed_str(1, 20)] = []
     q: trimmed_str(max_length=100) | None = None
     is_active: bool | None = None               # ADMIN 만. 기본 true
+    include_inactive: bool | None = None        # ADMIN 만. true 면 비활성 문서도 준다. isActive 를 함께 보내면 isActive 를 따른다
     has_current_version: bool | None = None     # ADMIN 만
 
 

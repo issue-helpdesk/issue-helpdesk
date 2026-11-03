@@ -52,13 +52,17 @@ class DocumentService:
     def list_documents(self, query: DocumentListQuery, viewer: User) -> Page[Document]:
         """DC-01. ADMIN 이 아니면 활성이고 현행 버전이 열람 범위 안인 문서만."""
         is_admin = viewer.service_role == "ADMIN"
-        if not is_admin and (query.is_active is not None or query.has_current_version is not None):
+        if not is_admin and (query.is_active is not None or query.include_inactive is not None
+                             or query.has_current_version is not None):
             raise AppError(ErrorCode.FORBIDDEN)
+        is_active = query.is_active
+        if is_active is None and not query.include_inactive:
+            is_active = True
         rows, total = self.documents.search(
             doc_types=query.doc_type,
             category_codes=query.category_code,
             q=query.q or None,
-            is_active=(True if query.is_active is None else query.is_active) if is_admin else True,
+            is_active=is_active if is_admin else True,
             has_current=query.has_current_version,
             scopes=None if is_admin else visible_scopes(viewer.service_role),
             sort=parse_sort(query.sort),
