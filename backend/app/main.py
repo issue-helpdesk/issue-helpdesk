@@ -3,7 +3,21 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app import __version__
-from app.api import auth, documents, faqs, health, inquiries, jira_webhook, notifications, reference, tickets, time_off, users
+from app.api import (
+    audit_logs,
+    auth,
+    dashboard,
+    documents,
+    faqs,
+    health,
+    inquiries,
+    jira_webhook,
+    notifications,
+    reference,
+    tickets,
+    time_off,
+    users,
+)
 from app.core.errors import register_error_handlers
 from app.core.upload_limit import UploadLimitMiddleware
 from app.rag.search import runtime as search_runtime
@@ -41,3 +55,5 @@ app.include_router(faqs.router, prefix=API_VERSION_V1)
 app.include_router(time_off.router, prefix=API_VERSION_V1)
 app.include_router(jira_webhook.router, prefix=API_VERSION_V1)
 app.include_router(notifications.router, prefix=API_VERSION_V1)
+app.include_router(dashboard.router, prefix=API_VERSION_V1)
+app.include_router(audit_logs.router, prefix=API_VERSION_V1)
