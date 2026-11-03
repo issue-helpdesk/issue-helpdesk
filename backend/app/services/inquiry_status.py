@@ -16,13 +16,21 @@ def display_status(inquiry: Inquiry, ticket: Ticket | None) -> str:
 
 
 def ticket_display_status(ticket: Ticket) -> str:
-    """접수가 있으면 업무 상태로 정한다. Jira 생성 전(null)은 접수됨."""
+    """접수가 있으면 업무 상태로 정한다. Jira 생성 전(null)은 접수됨.
+
+    RDY 라도 담당자가 아직 정해지지 않았으면(assign_status 가 ASSIGNED 가 아니면) 접수됨이다 (R-34).
+    RDY 는 Jira 에 티켓이 만들어졌다는 뜻이지 담당자 배정이 끝났다는 뜻이 아니다.
+    """
+    if ticket.work_status == "RDY" and ticket.assign_status != "ASSIGNED":
+        return "received"
     return TICKET_DISPLAY.get(ticket.work_status, "received")
 
 
 def display_status_column():
+    """ticket_display_status 와 같은 기준의 SQL 식. 목록 필터와 목록의 표시 값이 상세와 어긋나지 않게 한다."""
     return case(
         (Ticket.id.is_not(None), case(
+            (and_(Ticket.work_status == "RDY", Ticket.assign_status != "ASSIGNED"), "received"),
             *[(Ticket.work_status == work, shown) for work, shown in TICKET_DISPLAY.items()],
             else_="received",
         )),
