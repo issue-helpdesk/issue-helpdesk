@@ -10,14 +10,14 @@ import { Icon } from './Icon'
 import { SideToggle } from './SideToggle'
 import { useShell } from './shellContext'
 
-/** lead: 제목 왼쪽 이미지 (대화 화면의 잇슈, 화면별 제목 이미지) */
-export function Topbar({ title, sub, right, lead }: { title: string; sub?: string; right?: ReactNode; lead?: ReactNode }) {
+/** lead: 제목 왼쪽 이미지 (대화 화면의 잇슈, 화면별 제목 이미지). quiet: 실제 제목을 아직 모를 때(불러오는 중) 제목 글을 보이지 않게 두고 높이만 지킨다 */
+export function Topbar({ title, sub, right, lead, quiet = false }: { title: string; sub?: string; right?: ReactNode; lead?: ReactNode; quiet?: boolean }) {
   const { toggleNav } = useShell()
   const ref = useRef<HTMLElement>(null)
   // 화면 제목으로 문서 제목을 갱신한다
   useEffect(() => {
-    document.title = `${title} · ITssue`
-  }, [title])
+    if (!quiet) document.title = `${title} · ITssue`
+  }, [title, quiet])
   useLayoutEffect(() => {
     const el = ref.current
     const main = el?.parentElement
@@ -55,7 +55,7 @@ export function Topbar({ title, sub, right, lead }: { title: string; sub?: strin
         </button>
         {lead}
         {/* 제목이 바뀌면(채팅에서 문의를 바꿔 열 때 임시 제목 → 실제 제목) 제목 블록이 다시 나타나는 모션을 쓴다 */}
-        <div className="tt tin" key={title}>
+        <div className={quiet ? 'tt' : 'tt tin'} key={quiet ? '' : title} style={quiet ? { visibility: 'hidden' } : undefined} aria-hidden={quiet || undefined}>
           <h2>{title}</h2>
           {sub && <div className="sub">{sub}</div>}
         </div>

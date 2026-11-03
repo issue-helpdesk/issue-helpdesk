@@ -238,7 +238,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
                   </b>
                   <small>
                     <span className="rs" style={{ color: `var(--s-${tone}-fg)` }}>
-                      <i style={{ background: `var(--s-${tone}-dot)` }} />
+                      <i className={sv.ring ? 'ring' : undefined} style={{ background: `var(--s-${tone}-dot)` }} />
                       {sv.label}
                     </span>{' '}
                     · {formatRelative(i.updatedAt)}

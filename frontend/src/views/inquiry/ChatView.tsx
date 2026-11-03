@@ -226,7 +226,7 @@ export function ChatView() {
   if (inquiry === undefined) {
     return (
       <main className="main">
-        <Topbar title="문의 대화" />
+        <Topbar title="문의 대화" quiet />
         <div className="scroll" />
       </main>
     )
@@ -235,7 +235,7 @@ export function ChatView() {
     const failed = loaded?.failed
     return (
       <main className="main">
-        <Topbar title="문의 대화" />
+        <Topbar title="문의 대화" quiet />
         <div className="scroll">
           {failed ? (
             <EmptyState
@@ -329,7 +329,7 @@ export function ChatView() {
                 접수 상세
               </button>
             )}
-            <StateBadge tone={state.tone} label={state.label} sub={state.sub} />
+            <StateBadge tone={state.tone} label={state.label} sub={state.sub} ring={state.ring} />
           </>
         }
         lead={

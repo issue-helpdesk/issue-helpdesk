@@ -10,6 +10,9 @@
 .b-ok{background:var(--s-ok-bg);color:var(--s-ok-fg)}.b-ok i{background:var(--s-ok-dot)}
 .b-urg{background:var(--s-urg-bg);color:var(--s-urg-fg)}.b-urg i{background:var(--s-urg-dot)}
 .b-warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.b-warn i{background:var(--s-warn-dot)}
+.b-info{background:var(--s-info-bg);color:var(--s-info-fg)}.b-info i{background:var(--s-info-dot)}
+/* 끝난 문의(미연결 종료)는 점을 속이 빈 링으로 그려 색만으로 구분하지 않게 한다 */
+.badge i.ring,.rs i.ring{background:transparent!important;box-shadow:inset 0 0 0 1.5px currentColor}
 .count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--o600);color:#fff;font-size:12px;font-weight:700;text-box:trim-both cap alphabetic}
 .tag{display:inline-flex;align-items:center;height:22px;padding:1px 8px 0;border-radius:6px;background:var(--osurf);color:var(--o700);font-size:12px;font-weight:700;letter-spacing:.02em}
 .tag.gray{background:var(--shell);color:var(--mute)}
