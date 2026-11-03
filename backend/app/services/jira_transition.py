@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.integrations.jira.client import JiraClient, JiraError
 from app.integrations.jira.retry import RetryPolicy, next_step
-from app.models import Inquiry, IntegrationJob, Ticket, TicketStatusHistory, User
+from app.models import Inquiry, IntegrationJob, Notification, Ticket, TicketStatusHistory, User
 from app.repositories.ticket import TicketRepository
 from app.utils import datetime_utils
 
@@ -275,6 +275,7 @@ def _save_confirmed(db, job_id, attempt, request, latest, changed_at, now) -> Tr
             ))
         if request.target == "FIN":
             ticket.finished_at = changed_at
+            db.add(Notification(ticket_id=ticket.id, recipient_id=db.get(Inquiry, ticket.inquiry_id).user_id, kind="FIN"))
         if request.target == "CLS":
             inquiry = db.get(Inquiry, ticket.inquiry_id, with_for_update=True, populate_existing=True)
             inquiry.resolution_result = "RESOLVED"

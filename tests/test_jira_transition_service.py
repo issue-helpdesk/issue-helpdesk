@@ -10,7 +10,7 @@ from sqlalchemy.exc import OperationalError
 
 from app.integrations.jira.client import JiraClient, JiraError
 from app.integrations.jira.mapper import _adf
-from app.models import Base, Inquiry, IntegrationJob, Ticket, TicketStatusHistory, User
+from app.models import Base, Inquiry, IntegrationJob, Notification, Ticket, TicketStatusHistory, User
 from app.services import jira_transition as service
 from app.utils import datetime_utils
 from test_jira_create_service import T0, db, make_ticket, reload  # noqa: F401
@@ -171,6 +171,9 @@ def test_basic_transition_confirms_jira_state_result_and_actual_history_time(tra
     assert service.run_jira_transition_job(db, jira.client(), job.id, now=NOW).outcome == "SKIPPED"
     assert len(db.scalars(select(TicketStatusHistory)).all()) == 1
     assert jira.transitions == 1
+    # 처리 완료만 문의자에게 알린다
+    assert [(n.recipient_id, n.kind) for n in transition_db.scalars(select(Notification))] == (
+        [(17, "FIN")] if target == "FIN" else [])
 
 
 @pytest.mark.parametrize("status", ["WIP", "FIN"])

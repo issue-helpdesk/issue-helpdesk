@@ -10,7 +10,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.integrations.jira.client import JiraClient
-from app.models import (AssignmentLog, Base, Inquiry, IntegrationJob, MemberSkill,
+from app.models import (AssignmentLog, Base, Inquiry, IntegrationJob, MemberSkill, Notification,
                         SupportGroup, SupportGroupMember, Ticket, User)
 from app.services import jira_assign as service
 from app.services.assignment import reserve_assignment
@@ -122,6 +122,7 @@ def test_assign_or_confirm_existing_target_without_duplicate_history(assign_db, 
     assert jira.puts == puts
     assert len(db.scalars(select(AssignmentLog)).all()) == 1
     assert service.run_jira_assign_job(db, jira.client(), job.id, now=NOW).outcome == "SKIPPED"
+    assert [(n.recipient_id, n.kind) for n in db.scalars(select(Notification))] == [(18, "ASSIGNED")]
     assert jira.puts == puts
 
 

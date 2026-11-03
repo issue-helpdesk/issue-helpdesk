@@ -37,7 +37,7 @@ TICKETS = "/api/v1/tickets"
 def db():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     create_sqlite_tables(engine, INQUIRY_TABLES + ["integration_jobs", "assignment_logs", "ticket_status_history",
-                                                   "member_skills", "time_off"])
+                                                   "member_skills", "time_off", "notifications"])
     with Session(engine) as session:
         yield session
     engine.dispose()
