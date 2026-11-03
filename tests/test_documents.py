@@ -771,6 +771,27 @@ def test_version_patch_permissions(client, db, users):
     assert patch_version(client, users["agent"], document, current, {"viewScope": "ALL"}).status_code == 403
 
 
+# ------------------------------------------------------------------ 비활성 문서 목록
+
+
+def test_list_include_inactive(client, users, scoped):
+    res = client.get(DOCS, headers=users["admin"], params={"includeInactive": "true"})
+
+    assert ids(res) == ["IT-NET-001", "IT-NET-002", "IT-NET-003", "IT-NET-004", "IT-NET-005"]
+    assert res.json()["items"][4]["isActive"] is False
+
+
+def test_list_is_active_wins_over_include_inactive(client, users, scoped):
+    res = client.get(DOCS, headers=users["admin"], params={"includeInactive": "true", "isActive": "false"})
+
+    assert ids(res) == ["IT-NET-005"]
+
+
+@pytest.mark.parametrize("who", ["employee", "agent"])
+def test_list_include_inactive_admin_only(client, users, scoped, who):
+    assert client.get(DOCS, headers=users[who], params={"includeInactive": "true"}).status_code == 403
+
+
 # ------------------------------------------------------------------ FAQ 재검사
 
 
