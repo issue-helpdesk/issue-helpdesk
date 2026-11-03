@@ -7,7 +7,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/App'
 import { MOCK_ACCOUNTS } from '../src/api/mock/accounts'
-import { createGuideDraft, listGuideVersions, listGuides, resetGuideMock, setGuideCurrent, setGuideNote, setGuideTransfer, uploadGuide } from '../src/api/guides'
+import { createGuideDraft, listGuideVersions, listGuides, nextDocCode, nextVersion, normalizeVersion, resetGuideMock, setGuideCurrent, setGuideNote, setGuideTransfer, uploadGuide, uploadGuideVersion } from '../src/api/guides'
 import type { User } from '../src/api/types'
 import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
@@ -66,6 +66,21 @@ describe('가이드 API (모의)', () => {
     }, { timeout: 4500 })
   })
 
+  it('기존 가이드에 새 버전을 올리고, 같은 버전 이름은 막는다. 번호·버전 이름 도우미', async () => {
+    expect(await uploadGuideVersion(admin(), 1, { file: file(), version: 'v2', scope: '사내 일반', tx: '허용' })).toMatchObject({ ok: false, error: { code: 'DOCUMENT_VERSION_DUPLICATE' } })
+    const r = await uploadGuideVersion(admin(), 1, { file: file(), version: 'v4', scope: '사내 제한', tx: '금지' })
+    expect(r.ok && r.data).toMatchObject({ version: 'v4', state: '초안', ready: '준비 중', scope: '사내 제한', tx: '금지' })
+    const v = await listGuideVersions(admin(), 1)
+    expect(v.ok && v.data.map((x) => x.version)).toEqual(['v4', 'v3', 'v2', 'v1'])
+    const l = await listGuides(admin())
+    if (!l.ok) throw new Error('목록')
+    expect(nextDocCode(l.data, 'NET')).toBe('IT-NET-002')
+    expect(nextDocCode(l.data, 'ACC')).toBe('IT-ACC-004')
+    expect(nextDocCode([], 'SW')).toBe('IT-SW-001')
+    expect(nextVersion(v.ok ? v.data : [])).toBe('v5')
+    expect([normalizeVersion('4'), normalizeVersion(' V4 '), normalizeVersion('v1.3'), normalizeVersion('a')]).toEqual(['v4', 'v4', 'v1.3', null])
+  })
+
   it('해결 사례 초안은 기존 가이드에 새 버전을, 없으면 새 가이드를 만든다', async () => {
     const up = await createGuideDraft(admin(), { cat: 'NET', title: 'VPN 가이드 보강', existId: 1, note: '주간 분석' })
     expect(up.ok && up.data.version).toBe('v4')
@@ -106,20 +121,49 @@ describe('가이드 관리 화면', () => {
     expect(await screen.findByText('외부 전송 정책을 금지로 바꿨어요.', {}, SLOW)).toBeInTheDocument()
   })
 
-  it('가이드 파일 업로드는 파일·문서 번호·제목을 요구하고 올리면 새 가이드가 열린다', async () => {
+  it('새 가이드 만들기: 문서 번호는 분류에 따라 자동으로 정해지고(입력 불가) 올리면 새 가이드가 열린다', async () => {
     renderAs('EMP-1178', '/guides')
     await userEvent.click(await screen.findByRole('button', { name: /가이드 파일 업로드/ }, SLOW))
     const dlg = await screen.findByRole('dialog', { name: '가이드 파일 업로드' })
+    await userEvent.click(within(dlg).getByRole('button', { name: '새 가이드 만들기' }))
     await userEvent.click(within(dlg).getByRole('button', { name: '업로드' }))
     expect(await within(dlg).findByText('파일을 선택해 주세요.')).toBeInTheDocument()
-    expect(within(dlg).getByText('문서 번호를 입력해 주세요.')).toBeInTheDocument()
+    expect(within(dlg).getByText('분류를 선택해 주세요.')).toBeInTheDocument()
+    expect(within(dlg).getByText('가이드 제목을 입력해 주세요.')).toBeInTheDocument()
     await userEvent.upload(within(dlg).getByLabelText('파일'), file())
-    await userEvent.type(within(dlg).getByLabelText('문서 번호'), 'IT-NET-004')
-    await userEvent.type(within(dlg).getByLabelText('가이드 제목'), '사내 Wi-Fi 접속 가이드')
+    expect(within(dlg).getByRole('button', { name: '선택 취소' })).toBeInTheDocument()
     await userEvent.selectOptions(within(dlg).getByLabelText('분류'), 'NET')
+    const code = within(dlg).getByLabelText('문서 번호')
+    expect(code).toHaveValue('IT-NET-002')
+    expect(code).toHaveAttribute('readonly')
+    expect(within(dlg).getByLabelText('버전')).toHaveValue('v1')
+    await userEvent.type(within(dlg).getByLabelText('가이드 제목'), '사내 Wi-Fi 접속 가이드')
     await userEvent.click(within(dlg).getByRole('button', { name: '업로드' }))
     expect(await screen.findByText('업로드했어요. 검색 준비 중이에요.', {}, SLOW)).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: /IT-NET-004 사내 Wi-Fi 접속 가이드/ }, SLOW)).toHaveAttribute('aria-expanded', 'true')
+    expect(await screen.findByRole('button', { name: /IT-NET-002 사내 Wi-Fi 접속 가이드/ }, SLOW)).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('기존 가이드에 새 버전 만들기: 문서를 고르면 모든 버전이 보이고, 겹치는 버전은 막힌다', async () => {
+    renderAs('EMP-1178', '/guides')
+    await userEvent.click(await screen.findByRole('button', { name: /가이드 파일 업로드/ }, SLOW))
+    const dlg = await screen.findByRole('dialog', { name: '가이드 파일 업로드' })
+    // 가이드 목록이 오면 기본이 "기존 가이드에 새 버전 만들기"가 된다
+    await waitFor(() => expect(within(dlg).getByRole('button', { name: '기존 가이드에 새 버전 만들기' })).toHaveAttribute('aria-pressed', 'true'), SLOW)
+    await userEvent.upload(within(dlg).getByLabelText('파일'), file())
+    await userEvent.selectOptions(within(dlg).getByLabelText('분류'), 'NET')
+    await userEvent.selectOptions(within(dlg).getByLabelText('문서'), within(dlg).getByRole('option', { name: /IT-NET-001/ }))
+    expect(await within(dlg).findByText('이 가이드의 버전 3개')).toBeInTheDocument()
+    expect(within(dlg).getAllByRole('listitem').map((li) => li.textContent)).toEqual([expect.stringContaining('v3'), expect.stringContaining('v2'), expect.stringContaining('v1')])
+    expect(within(dlg).getByLabelText('버전')).toHaveValue('v4')
+    const ver = within(dlg).getByLabelText('버전')
+    await userEvent.clear(ver)
+    await userEvent.type(ver, '2')
+    await userEvent.click(within(dlg).getByRole('button', { name: '업로드' }))
+    expect(await within(dlg).findByText('이미 있는 버전이에요. 다른 번호를 적어 주세요.')).toBeInTheDocument()
+    await userEvent.clear(ver)
+    await userEvent.type(ver, 'v4')
+    await userEvent.click(within(dlg).getByRole('button', { name: '업로드' }))
+    expect(await screen.findByText('업로드했어요. 검색 준비 중이에요.', {}, SLOW)).toBeInTheDocument()
   })
 
   it('해결 사례 탭에서 묶음을 보고 초안 미리보기를 열 수 있다', async () => {
