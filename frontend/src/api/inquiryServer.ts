@@ -237,7 +237,7 @@ function toMessages(list: SMessage[], step: ChatStep, i: SInquiry, answering = f
   const resolved = i.status === 'AI_RESOLVED'
   const out: ChatMessage[] = list.filter((m) => !(resolved && m.sender === 'SYSTEM' && m.content === RESOLVED_NOTICE)).map((m): ChatMessage => {
     if (m.sender === 'USER') return { id: m.id, role: 'user', text: m.content, createdAt: m.createdAt }
-    if (m.sender === 'SYSTEM') return { id: m.id, role: 'sys', text: m.content, createdAt: m.createdAt, tone: /가려|가렸|마스킹/.test(m.content) ? 'sens' : undefined }
+    if (m.sender === 'SYSTEM') return { id: m.id, role: 'sys', text: m.content, createdAt: m.createdAt, tone: /민감정보|개인정보가 감지|가림|가려|가렸|마스킹/.test(m.content) ? 'sens' : undefined }
     const legacy = m.sources.find((s) => s.sourceKind === 'LEGACY')
     const legacyCase: LegacyCase | undefined = legacy ? { no: '', title: '과거 처리 사례 참고', symptom: '', solution: legacy.excerpt ?? '' } : undefined
     return { id: m.id, role: 'assistant', blocks: toBlocks(m.content), sources: m.sources.filter((s) => s.sourceKind === 'DOCUMENT').map(GUIDE), legacy: legacyCase, createdAt: m.createdAt }

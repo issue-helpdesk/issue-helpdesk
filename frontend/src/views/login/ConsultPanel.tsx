@@ -76,6 +76,15 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    // Alt+Enter 도 줄바꿈
+    if (e.key === 'Enter' && e.altKey && !e.nativeEvent.isComposing) {
+      e.preventDefault()
+      const el = e.currentTarget
+      const [from, to] = [el.selectionStart, el.selectionEnd]
+      setText(`${text.slice(0, from)}\n${text.slice(to)}`)
+      requestAnimationFrame(() => el.setSelectionRange(from + 1, from + 1))
+      return
+    }
     // Enter 로 전송하되, 한글 조합 중에는 보내지 않는다 (디자인 가이드). Shift+Enter 는 줄바꿈
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
