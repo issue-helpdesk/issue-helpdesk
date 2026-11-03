@@ -179,6 +179,7 @@ def test_reflects_status_with_history(db, ticket):
     assert (ticket.work_status, ticket.resolution_note, ticket.transition_status) == ("FIN", "재설치로 해결", "IDLE")
     assert ticket.finished_at is not None
     (history,) = histories(db, ticket)
+    assert history.resolution_note == "재설치로 해결"
     assert (history.from_status, history.to_status, history.source, history.actor_id) == ("WIP", "FIN", "JIRA", None)
 
 
@@ -513,3 +514,15 @@ def test_worker_round_reports_webhook_failure_without_losing_job_results(db, tic
     report = worker.run_round(db, FakeJira(), now=NOW)
 
     assert report.errors == ["WEBHOOK:run:RuntimeError"] and report.results == []
+
+
+def test_refinish_keeps_each_result_in_history(db, ticket):
+    """재완료로 접수의 값을 덮어써도 완료마다의 처리 결과가 이력에 남는다."""
+    process(db, FakeJira(work_status="FIN", final_result="재설치"), add_event(db, ticket.id, key="changelog:1"))
+    process(db, FakeJira(work_status="WIP", final_result=""), add_event(db, ticket.id, key="changelog:2"))
+    process(db, FakeJira(work_status="FIN", final_result="인증서 재발급"), add_event(db, ticket.id, key="changelog:3"))
+
+    db.refresh(ticket)
+    assert ticket.resolution_note == "인증서 재발급"
+    rows = sorted(histories(db, ticket), key=lambda h: h.id)
+    assert [(h.to_status, h.resolution_note) for h in rows] == [("FIN", "재설치"), ("WIP", None), ("FIN", "인증서 재발급")]

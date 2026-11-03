@@ -335,6 +335,7 @@ class TicketService:
                 actor_id=h.actor_id,
                 actor=UserRef.model_validate(actor) if actor else None,
                 reason=h.reason,
+                resolution_note=h.resolution_note,
                 changed_at=h.changed_at,
             )
             for h, actor in self.tickets.status_history(ticket.id)

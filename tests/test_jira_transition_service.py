@@ -242,6 +242,9 @@ def test_refinish_with_explicit_note_confirms_result_and_new_finished_time(trans
     assert (ticket.work_status, ticket.resolution_note) == ("FIN", note)
     assert datetime_utils.as_utc(ticket.finished_at) == EVENT_AT
     assert jira.note == note
+    finish = db.scalar(select(TicketStatusHistory).where(TicketStatusHistory.ticket_id == ticket.id,
+                                                         TicketStatusHistory.to_status == "FIN"))
+    assert finish.resolution_note == note
     assert jira.transitions == 1
 
 
@@ -375,6 +378,15 @@ def test_reopen_then_refinish_overwrites_result_and_requires_new_one(transition_
     # 재완료는 새 처리 결과가 필요하다(이전 값으로 통과시키지 않음)
     assert service.run_jira_transition_job(db, jira.client(), refinish.id, now=NOW).outcome == "NEEDS_ADMIN"
     assert jira.status == "WIP"
+
+
+def test_reopen_history_has_no_resolution_note(transition_db):
+    db = transition_db
+    ticket, job = make_transition(db, "FIN", "WIP")
+    jira = Workflow("FIN", "기존 결과")
+    assert service.run_jira_transition_job(db, jira.client(), job.id, now=NOW).outcome == "CONFIRMED"
+    reopen = db.scalar(select(TicketStatusHistory).where(TicketStatusHistory.ticket_id == ticket.id))
+    assert (reopen.to_status, reopen.resolution_note) == ("WIP", None)
 
 
 def test_external_conflicting_status_is_not_overwritten(transition_db):
