@@ -20,6 +20,7 @@ import { useAuth } from '../../core/session'
 import { FilterPill } from '../../ui/FilterPill'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
+import { Toast } from '../../ui/Toast'
 import { Topbar } from '../../ui/Topbar'
 import { StaffStatus, UrgencyChip } from '../staff/QueueView'
 import { ReassignDialog } from './ReassignDialog'
@@ -604,11 +605,7 @@ export function OpsView() {
           }}
         />
       )}
-      {toast && (
-        <div className="toast" role="status">
-          {toast}
-        </div>
-      )}
+      <Toast text={toast} />
     </>
   )
 }

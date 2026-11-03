@@ -41,9 +41,14 @@
 .brand{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .sbopen{display:none}
 @media (min-width:861px){
+  /* 접을 때: 왼쪽 열이 줄어드는 만큼 사이드바가 같은 속도로 왼쪽으로 밀려 나간다 (폭은 그대로 두어 안의 글이 흔들리지 않는다) */
+  .app{transition:grid-template-columns .35s cubic-bezier(.4,0,.2,1)}
+  .app .side{width:248px;min-width:0;transition:transform .35s cubic-bezier(.4,0,.2,1),visibility 0s}
   .app.side-off,.app.side-off.has-detail{grid-template-columns:0 minmax(0,1fr)}
-  .app.side-off .side{visibility:hidden;width:0;min-width:0;padding-left:0;padding-right:0;border-right:0!important;overflow:hidden}
-  .app.side-off .sbopen{display:inline-flex}
+  .app.side-off .side{visibility:hidden;transform:translateX(-100%);transition:transform .35s cubic-bezier(.4,0,.2,1),visibility 0s .35s}
+  .app.side-off .sbopen{display:inline-flex;animation:sbin .3s .2s ease-out backwards}
+  @keyframes sbin{from{opacity:0;transform:translateX(-6px)}}
+  @media (prefers-reduced-motion:reduce){.app,.app .side,.app.side-off .side{transition:none}.app.side-off .sbopen{animation:none}}
   .xo{position:absolute;top:16px;left:16px;z-index:7}
 }
 @media (max-width:860px){.sbt{display:none}}

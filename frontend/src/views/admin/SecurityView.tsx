@@ -27,6 +27,7 @@ import { useAuth } from '../../core/session'
 import { CountUp } from '../../ui/CountUp'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
+import { Toast } from '../../ui/Toast'
 import { SortTh } from '../../ui/SortTh'
 import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
@@ -230,11 +231,7 @@ export function SecurityView() {
         </div>
       </main>
       {openId && <SecurityDialog id={openId} onClose={() => setOpenId(null)} onToast={say} />}
-      {toast && (
-        <div className="toast" role="status">
-          {toast}
-        </div>
-      )}
+      <Toast text={toast} />
     </>
   )
 }

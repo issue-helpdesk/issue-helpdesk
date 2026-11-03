@@ -15,6 +15,7 @@ import titleOps from '../../assets/mascot/title-ops.webp'
 import { formatElapsed } from '../../core/format'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
+import { Collapse } from '../../ui/Collapse'
 import { CountUp } from '../../ui/CountUp'
 import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
@@ -78,6 +79,8 @@ export function DashView() {
   const [q, setQ] = useState('')
   const [hit, setHit] = useState<{ items: TicketSummary[]; total: number } | null>(null)
   const [sec, setSec] = useState<SecCounts | null>(null)
+  // 보안 알림 건수가 오지 않아도 화면을 무한정 붙잡지 않는다
+  const [secWait, setSecWait] = useState(true)
   const [tick, setTick] = useState(0)
   const [reload, setReload] = useState(0)
   const [opened] = useState(() => new Date().toISOString())
@@ -106,6 +109,11 @@ export function DashView() {
     })
   }, [user, admin])
 
+  useEffect(() => {
+    const t = setTimeout(() => setSecWait(false), 1200)
+    return () => clearTimeout(t)
+  }, [])
+
   const needle = q.trim()
   useEffect(() => {
     if (!user || !admin || !needle) return
@@ -123,6 +131,10 @@ export function DashView() {
   const open = (t: TicketSummary) => navigate(`/tickets/${t.id}`)
   const at = snap?.asOf ?? opened
   const ex = snap?.attention
+  // 배너가 늦게 끼어들어 아래 내용이 밀리지 않도록, 처음에는 데이터가 모두 올 때까지 본문을 그리지 않는다
+  const loading = !error && (snap === null || (sec === null && secWait))
+  const showEx = !!ex && ex.total > 0
+  const showSec = !!sec && sec.신규 + sec['확인 중'] > 0
   const kinds = ex
     ? (
         [
@@ -205,15 +217,20 @@ export function DashView() {
                   <div className="empty">{hit ? '조건에 맞는 문의가 없어요.' : '찾는 중이에요…'}</div>
                 )}
               </section>
+            ) : loading ? (
+              <div className="empty" role="status">
+                불러오는 중이에요…
+              </div>
             ) : (
               <>
-                <div className="dattn">
-                  {ex && ex.total > 0 && (
+                {/* 데이터가 늦게 오면 배너가 갑자기 끼어들어 아래 내용을 밀어내므로, 높이가 열리며 들어오게 한다 */}
+                <Collapse open={showEx || showSec} className="dattn">
+                  <Collapse open={showEx}>
                     <section className="hband" aria-label="연동·배정 확인 필요">
                       <div className="hbt">
                         <h2>
                           <span className="pulse" />
-                          연동·배정 확인이 필요한 문의 <em>{ex.total}</em>건
+                          연동·배정 확인이 필요한 문의 <em>{ex?.total}</em>건
                         </h2>
                         <p>{kinds.map((k) => `${k[0]} ${k[1]}건`).join(' · ')}</p>
                       </div>
@@ -221,24 +238,24 @@ export function DashView() {
                         운영 현황
                       </button>
                     </section>
-                  )}
-                  {sec && sec.신규 + sec['확인 중'] > 0 && (
+                  </Collapse>
+                  <Collapse open={showSec}>
                     <section className="hband sec" aria-label="보안·감사 알림">
                       <div className="hbt">
                         <h2>
                           <span className="pulse" />
-                          보안·감사 알림 신규 <em>{sec.신규}</em>건
+                          보안·감사 알림 신규 <em>{sec?.신규}</em>건
                         </h2>
                         <p>
-                          확인 중 {sec['확인 중']}건 · 미종결 중 심각도 높음 {sec.high}건
+                          확인 중 {sec?.['확인 중']}건 · 미종결 중 심각도 높음 {sec?.high}건
                         </p>
                       </div>
                       <button type="button" className="btn sm" onClick={() => navigate('/security')}>
                         보안·감사 알림
                       </button>
                     </section>
-                  )}
-                </div>
+                  </Collapse>
+                </Collapse>
 
                 <div>
                   <div className="hpipe" role="group" aria-label="처리 현황">

@@ -6,7 +6,7 @@
  *
  * 키보드: 사이드바를 열면 첫 메뉴로 초점이 가고, Esc 로 닫으면 메뉴 버튼으로 돌아간다.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../core/session'
 import { PasswordDialog } from './PasswordDialog'
@@ -72,6 +72,17 @@ export function AppShell() {
     main.tabIndex = -1
     const a = document.activeElement
     if (!a || a === document.body || a.closest('.side')) main.focus({ preventScroll: true })
+  }, [pathname])
+  // 화면이 바뀌면 새 화면의 덩어리들이 위로 올라오며 차례로 나타난다 (layout.css 의 main.enter). 그리기 전에 붙여서 한 프레임도 깜빡이지 않게 한다
+  useLayoutEffect(() => {
+    const main = document.querySelector<HTMLElement>('main.main')
+    if (!main) return
+    main.classList.add('enter')
+    const t = setTimeout(() => main.classList.remove('enter'), 1800)
+    return () => {
+      clearTimeout(t)
+      main.classList.remove('enter')
+    }
   }, [pathname])
   const skip = () => document.getElementById('main')?.focus()
 

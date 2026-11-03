@@ -68,7 +68,7 @@ export function PendingChatView() {
       <Topbar title="새 문의" sub="답변을 준비하고 있어요" lead={<Pav pose="base" size={44} />} />
       <div className="scroll">
         <div className="thread" role="log" aria-live="polite" aria-label="문의 대화">
-          <div className="msg u">{text}</div>
+          <div className="msg u rise-u">{text}</div>
           {error ? (
             <div className="msg a">
               <Pav pose="base" />
@@ -85,7 +85,7 @@ export function PendingChatView() {
               </div>
             </div>
           ) : (
-            <div className="msg a">
+            <div className="msg a rise">
               <Pav pose="base" />
               <div className="body" role="status">
                 <span className="dots" aria-hidden="true">

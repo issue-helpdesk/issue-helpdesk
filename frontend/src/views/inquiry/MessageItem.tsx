@@ -86,7 +86,7 @@ interface Props {
 }
 
 export function MessageItem({ inquiry, message: m, busy, actions, fresh = false, pose = 'base', poseText = '', replyLock = false, hideReplies = false }: Props) {
-  if (m.role === 'user') return <div className="msg u">{m.text}</div>
+  if (m.role === 'user') return <div className={`msg u${fresh ? ' rise-u' : ''}`}>{m.text}</div>
   if (m.role === 'sys') {
     // 안내 문구는 첫 줄이 제목, 나머지가 설명이다 (민감정보 가림 안내, 보안 사고 안내 등). tone 으로 색을 구분한다.
     const [head, ...rest] = (m.text ?? '').split('\n')
@@ -129,7 +129,7 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false,
   // AI 가 답변을 준비하는 중
   if (m.typing) {
     return (
-      <div className="msg a">
+      <div className={`msg a${fresh ? ' rise' : ''}`}>
         <Pav pose={pose} />
         <div className="body" role="status">
           <span className="dots" aria-hidden="true">

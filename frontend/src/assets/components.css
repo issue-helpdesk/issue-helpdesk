@@ -150,3 +150,14 @@
 /* 시스템 안내 색: 민감정보 가림 안내는 분홍, 보안 사고 안내(긴급 징후)는 노랑 */
 .msg.sys.sens{background:var(--s-need-bg);color:var(--s-need-fg)}.msg.sys.sens b{color:inherit}
 .msg.sys.warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.msg.sys.warn b{color:inherit}
+
+/* 선택 버튼 슬라이딩 (ui/segSlide.ts): 누른 버튼 쪽으로 칠이 늘어났다 줄어들며 이동하고 색이 서서히 바뀐다.
+   칠(배경·그림자)에는 전환을 두지 않는다: 서서히 빠지고 차는 사이에 비는 순간이 생겨 깜빡이기 때문. 글자색만 움직임보다 조금 짧게 바꾼다 */
+.seg,.d2seg,.subc{position:relative}
+.seg>button,.d2seg>button,.subc>.chip{position:relative;z-index:1;transition:color calc(var(--seg-dur,520ms)*.6) ease}
+/* 움직이는 동안은 도착할 버튼의 칠을 잠깐 비워 두고, 대신 따라가는 조각(.seg-ghost)이 그 모양으로 지나간다 */
+.seg-moving>button.on{background:transparent!important;box-shadow:none!important}
+.seg-ghost{position:absolute;z-index:0;pointer-events:none;margin:0;will-change:width}
+/* 버튼마다 칠이 따로 있는 알약형은 조각을 버튼 위에 얹고 테두리만 보이게 한다 */
+.seg-ghost.ring{z-index:2;background:transparent!important}
+@media (prefers-reduced-motion:reduce){.seg>button,.d2seg>button,.subc>.chip{transition:none}}

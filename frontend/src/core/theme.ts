@@ -26,6 +26,36 @@ export function applyStoredTheme() {
   if (v) document.documentElement.setAttribute('data-theme', v)
 }
 
+type ViewTransitionDoc = Document & { startViewTransition?: (update: () => void) => { ready: Promise<void> } }
+
+/**
+ * 누른 버튼(from)에서 원이 퍼지며 새 모드로 덮이게 바꾼다 (View Transitions API).
+ * 지원하지 않는 브라우저나 모션 줄이기 설정에서는 바로 바꾼다. after 는 화면 상태(React)를 같은 순간에 맞출 때 쓴다.
+ */
+export function setThemeAnimated(mode: ThemeMode, from: HTMLElement, after?: () => void) {
+  const apply = () => {
+    setTheme(mode)
+    after?.()
+  }
+  const doc = document as ViewTransitionDoc
+  if (!doc.startViewTransition || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return apply()
+  const r = from.getBoundingClientRect()
+  const x = r.left + r.width / 2
+  const y = r.top + r.height / 2
+  const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))
+  doc
+    .startViewTransition(apply)
+    .ready.then(() => {
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+        { duration: 650, easing: 'cubic-bezier(.4,0,.2,1)', pseudoElement: '::view-transition-new(root)' },
+      )
+    })
+    .catch(() => {
+      /* 전환이 취소돼도 모드는 이미 바뀐다 */
+    })
+}
+
 export function setTheme(mode: ThemeMode) {
   document.documentElement.setAttribute('data-theme', mode)
   try {
