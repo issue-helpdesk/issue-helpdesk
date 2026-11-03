@@ -9,8 +9,10 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CATEGORIES, STAFF_STATUS } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
-import { changeTicketStatus, getTicket, getTicketHistory, getTicketMessages, sendTicketMessage } from '../../api/tickets'
+import { markTicketRead, refreshUnread } from '../../api/notifications'
+import { changeTicketStatus, getTicket, getTicketHistory, getTicketMessages, sendTicketMessage, syncTicket } from '../../api/tickets'
 import type { MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMessage } from '../../api/ticketTypes'
+import { USE_MOCK_TICKET } from '../../core/config'
 import { formatDateTime } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { Icon } from '../../ui/Icon'
@@ -140,8 +142,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
   const [msgErr, setMsgErr] = useState('')
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
-  // 처음 열 때만 Jira 알림 안내를 보여 준다 (열면 알림 표시가 지워진다)
-  const [mention, setMention] = useState(false)
   const [modal, setModal] = useState(false)
   const [note, setNote] = useState('')
   const [noteErr, setNoteErr] = useState('')
@@ -190,9 +190,16 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
       if (r.ok) {
         setT(r.data)
         setError('')
-        if (r.data.jiraMention) setMention(true)
+        // 이 접수의 내 알림(담당자 배정 등)은 열었으니 읽음으로 바꾸고 사이드바 개수를 다시 읽는다 (NT-04)
+        markTicketRead(id).then((x) => x.ok && x.data.updatedCount > 0 && refreshUnread())
       } else setError(r.error.message)
     })
+    // 서버 모드: Jira 의 최신 상태를 읽어 오게 하고(TK-14), 달라졌으면 화면에 반영한다
+    if (!USE_MOCK_TICKET) {
+      syncTicket(user, id).then((r) => {
+        if (alive && r.ok) setT((cur) => (cur ? { ...cur, ...r.data } : cur))
+      })
+    }
     getTicketHistory(user, id).then((r) => {
       if (alive && r.ok) setHist(r.data.items)
     })
@@ -437,7 +444,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                   {!mine && !admin && <div className="small muted">다른 담당자가 맡은 접수예요. 상태는 맡은 담당자만 바꿀 수 있어요.</div>}
                 </div>
               )}
-              {(mention || msgs.length > 0) && (
+              {msgs.length > 0 && (
                 <div>
                   <h4>
                     메시지 <span className="tag gray">제안</span>
@@ -455,16 +462,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                         </div>
                       </li>
                     ))}
-                    {mention && !requester && (
-                      <li>
-                        <Icon name="bell" />
-                        <div>
-                          <b>Jira 알림 · 문의자 멘션</b>
-                          문의자로부터 해당 티켓 멘션이 왔으니 Jira에서 내용을 확인해 주세요.
-                          <small>알림만 전달돼요(메시지 내용은 Jira에서 확인)</small>
-                        </div>
-                      </li>
-                    )}
                   </ul>
                 </div>
               )}

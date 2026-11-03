@@ -8,10 +8,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { watchMyInquiries } from '../api/inquiries'
+import { watchUnread } from '../api/notifications'
 import { countOpsAttention } from '../api/ops'
 import { countSecurityAlerts, watchSecurity } from '../api/security'
 import { listTickets, watchTickets } from '../api/tickets'
 import type { InquirySummary, ServiceRole } from '../api/types'
+import { USE_MOCK_NOTIFY } from '../core/config'
 import { formatRelative } from '../core/format'
 import { refreshInquiryList } from '../core/poll'
 import { HOME_BY_ROLE, ROLE_LABEL } from '../core/roles'
@@ -76,7 +78,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   // 메뉴가 길어 최근 문의가 잘리면 5개 대신 2개만 보인다 (그래도 넘치면 문의 그룹을 접는다)
   const [shortRecent, setShortRecent] = useState(false)
   const sideRef = useRef<HTMLElement>(null)
-  // 담당자: 처리할 문의 건수(처리 대기·처리 중·해결 확인 대기)와 Jira 알림이 온 건수
+  // 담당자: 처리할 문의 건수(처리 대기·처리 중·해결 확인 대기)와 새 알림(담당자 배정) 개수
   const [queue, setQueue] = useState({ n: 0, nw: 0 })
   const agentId = user?.serviceRole === 'AGENT' ? user.id : null
   // 관리자: 연동·배정 확인이 필요한 접수 수 (운영 현황 메뉴 옆)
@@ -100,9 +102,14 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
     if (!user || agentId === null) return
     return watchTickets(() => {
       listTickets(user, { view: 'ASSIGNED', assigneeId: agentId, size: 100 }).then((r) => {
-        if (r.ok) setQueue({ n: r.data.items.filter((t) => t.workStatus && t.workStatus !== 'CLS').length, nw: r.data.items.filter((t) => t.jiraMention).length })
+        if (r.ok) setQueue((q) => ({ n: r.data.items.filter((t) => t.workStatus && t.workStatus !== 'CLS').length, nw: q.nw }))
       })
     })
+  }, [user, agentId])
+  // 서버 모드: 새 알림(담당자 배정) 개수는 서버가 알려 주는 안 읽은 개수(NT-02)를 쓴다
+  useEffect(() => {
+    if (!user || agentId === null || USE_MOCK_NOTIFY) return
+    return watchUnread((c) => setQueue((q) => ({ ...q, nw: c.count })))
   }, [user, agentId])
 
   // 최근 문의 목록을 불러오고, 새 문의나 진행 상황이 바뀔 때마다 다시 받는다

@@ -24,6 +24,8 @@ export const USE_MOCK_AUTH = area(import.meta.env.VITE_USE_MOCK_AUTH)
 export const USE_MOCK_INQUIRY = area(import.meta.env.VITE_USE_MOCK_INQUIRY)
 /** 담당자 접수 목록·상세·업무 상태 변경·이력 (TK-05~08). 모의에서는 문의 저장소와 연결돼 있어서, 접수까지 서버로 확인하려면 INQUIRY 도 함께 서버로 둔다 */
 export const USE_MOCK_TICKET = area(import.meta.env.VITE_USE_MOCK_TICKET)
+/** 화면 알림: 담당자 배정·처리 완료 알림과 안 읽은 개수 (NT-01~04). 모의에서는 알림이 없다 */
+export const USE_MOCK_NOTIFY = area(import.meta.env.VITE_USE_MOCK_NOTIFY)
 /** FAQ (FQ) */
 export const USE_MOCK_FAQ = area(import.meta.env.VITE_USE_MOCK_FAQ)
 /** 가이드 관리: 문서 목록·버전·업로드·현행 전환·정책 변경 (DC-01·02·06·07·09) */

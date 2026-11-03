@@ -35,11 +35,6 @@ export interface TicketSummary {
   needsAdmin: boolean
   displayStatus: DisplayStatus
   createdAt: string
-  /**
-   * Jira 댓글·멘션 알림이 도착했는데 아직 열어 보지 않은 건. (제안: TK-13 웹훅 → 화면 알림은 후속이라 문서에 응답 필드가 없다.)
-   * 알림만 전달하고 댓글 내용은 Jira 에서 읽는다.
-   */
-  jiraMention?: boolean
 }
 
 /** 상세 접수 (Ticket) */
@@ -87,8 +82,6 @@ export interface TicketListQuery {
   /** 이 날짜 00:00부터 (YYYY-MM-DD) */
   createdFrom?: string
   q?: string
-  /** 제안: Jira 알림이 온 건만 */
-  jiraMention?: boolean
   /** 담당 그룹 (관리자 전체 문의) */
   groupId?: number
   /** Jira 연동 상태 (아직 Jira 생성 전인 접수를 찾을 때) */
