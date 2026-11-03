@@ -149,6 +149,22 @@ class ResolutionRequest(CamelModel):
     comment: trimmed_str(1, 4000) | None = None           # UNRESOLVED 일 때만 저장한다
 
 
+class Assessment(CamelModel):
+    id: int
+    inquiry_id: int
+    facts: dict | None
+    missing_items: list[str]
+    urgent_signal: bool
+    category_code: str | None
+    inquiry_type_id: int | None
+    urgency: str | None
+    urgency_reason: str | None
+    action: str | None
+    ai_output: dict | None              # AI 원래 판단. 안전 기본값·근거 전체 차단이면 null
+    override_reasons: list[dict]        # 규칙이 바꾼 내역
+    created_at: KstDatetime
+
+
 class SessionResume(CamelModel):
     session: Session
     inquiry: Inquiry

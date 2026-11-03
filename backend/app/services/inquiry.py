@@ -30,6 +30,7 @@ from app.repositories.reference import ReferenceRepositoryDep
 from app.schemas.common import ItemList, Page, parse_sort
 from app.schemas.inquiry import (
     AiTurn,
+    Assessment as AssessmentHistory,
     AssessmentView,
     CategoryRef,
     GroupRef,
@@ -47,6 +48,7 @@ from app.schemas.inquiry import (
 from app.services.ai_responder import AiResponderDep
 from app.services.inquiry_status import CLOSED_STATUSES, display_status, next_actions, resume_actions
 from app.utils import datetime_utils
+from app.utils.dict_utils import camel_keys
 
 logger = logging.getLogger(__name__)
 
@@ -227,6 +229,29 @@ class InquiryService:
 
     def get_inquiry(self, inquiry_id: int, viewer: User) -> InquiryDetail:
         return self.to_detail(self.find_viewable(inquiry_id, viewer))
+
+    def list_assessments(self, inquiry_id: int) -> ItemList[AssessmentHistory]:
+        """IQ-10. AI 원래 판단과 규칙이 바꾼 내역. 저장된 JSON 키는 응답 규칙에 맞춰 camelCase 로 준다."""
+        if self.inquiries.get(inquiry_id) is None:
+            raise AppError(ErrorCode.INQUIRY_NOT_FOUND)
+        return ItemList(items=[
+            AssessmentHistory(
+                id=a.id,
+                inquiry_id=a.inquiry_id,
+                facts=camel_keys(a.facts),
+                missing_items=a.missing_items or [],
+                urgent_signal=a.urgent_signal,
+                category_code=a.category_code,
+                inquiry_type_id=a.inquiry_type_id,
+                urgency=a.urgency,
+                urgency_reason=a.urgency_reason,
+                action=a.action,
+                ai_output=camel_keys(a.ai_output),
+                override_reasons=camel_keys(a.override_reasons),
+                created_at=a.created_at,
+            )
+            for a in self.inquiries.assessments(inquiry_id)
+        ])
 
     def list_sessions(self, inquiry_id: int, viewer: User) -> ItemList[SessionView]:
         inquiry = self.find_viewable(inquiry_id, viewer)

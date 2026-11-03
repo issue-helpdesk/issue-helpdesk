@@ -1210,3 +1210,69 @@ def test_resume_only_by_owner(client, db, headers):
     add_user(db, "E0002", service_role="ADMIN")
 
     assert error_code(resume(client, bearer(login(client, "E0002")), inquiry_id)) == "INQUIRY_NOT_FOUND"
+
+
+# ------------------------------------------------------------------ IQ-10
+
+
+def get_assessments(client, headers, inquiry_id):
+    return client.get(f"{INQUIRIES}/{inquiry_id}/assessments", headers=headers)
+
+
+def test_assessments_show_ai_output_and_overrides(client, db, ai, headers, taxonomy):
+    add_user(db, "E0009", service_role="ADMIN")
+    admin = bearer(login(client, "E0009"))
+    ai.replies = [ANSWER]
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    saved = db.scalar(select(InquiryAssessment).where(InquiryAssessment.inquiry_id == inquiry_id))
+    saved.override_reasons = [{"field": "urgency", "ai": "P3", "final": "P2", "rule": "SEC_MIN_P2", "reason": "최소 P2"}]
+    db.commit()
+
+    res = get_assessments(client, admin, inquiry_id)
+
+    assert res.status_code == 200
+    (item,) = res.json()["items"]
+    assert (item["id"], item["inquiryId"], item["action"], item["urgency"]) == (saved.id, inquiry_id, saved.action, saved.urgency)
+    assert item["inquiryTypeId"] == taxonomy[2].id
+    assert item["missingItems"] == []
+    assert item["overrideReasons"] == [{"field": "urgency", "ai": "P3", "final": "P2", "rule": "SEC_MIN_P2", "reason": "최소 P2"}]
+    assert item["createdAt"].endswith("+09:00")
+    assert item["aiOutput"]["categoryCode"] == saved.ai_output["category_code"]
+    assert item["aiOutput"]["inquiryTypeCode"] == "NET-02"
+    assert "category_code" not in item["aiOutput"]
+    assert "targetSystem" in item["facts"] and "target_system" not in item["facts"]
+
+
+def test_assessments_in_order_and_keeps_empty_values(client, db, ai, headers, owner):
+    add_user(db, "E0009", service_role="ADMIN")
+    admin = bearer(login(client, "E0009"))
+    inquiry = Inquiry(user_id=owner.id, status="IN_PROGRESS")
+    db.add(inquiry)
+    db.flush()
+    db.add_all([InquiryAssessment(inquiry_id=inquiry.id, ai_output=None, facts=None, missing_items=None, override_reasons=[]),
+                InquiryAssessment(inquiry_id=inquiry.id, action="ASK_MORE", override_reasons=[])])
+    db.commit()
+
+    (first, second) = get_assessments(client, admin, inquiry.id).json()["items"]
+
+    assert (first["aiOutput"], first["facts"], first["missingItems"], first["action"]) == (None, None, [], None)
+    assert second["action"] == "ASK_MORE"
+
+
+def test_assessments_not_found(client, db, ai, headers):
+    add_user(db, "E0009", service_role="ADMIN")
+    res = get_assessments(client, bearer(login(client, "E0009")), 999)
+    assert (res.status_code, error_code(res)) == (404, "INQUIRY_NOT_FOUND")
+
+
+@pytest.mark.parametrize("role", ["EMPLOYEE", "AGENT"])
+def test_assessments_admin_only(client, db, ai, headers, taxonomy, role):
+    """문의자 본인이나 담당자에게도 내부 판단은 보여 주지 않는다."""
+    ai.replies = [ANSWER]
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    if role == "EMPLOYEE":
+        res = get_assessments(client, headers, inquiry_id)
+    else:
+        add_user(db, "E0002", service_role="AGENT")
+        res = get_assessments(client, bearer(login(client, "E0002")), inquiry_id)
+    assert (res.status_code, error_code(res)) == (403, "FORBIDDEN")
