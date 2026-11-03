@@ -103,6 +103,8 @@ export interface Faq {
   sources: GuideSource[]
   /** 서버 FAQ 의 숫자 ID (GET /faqs/{id}). 모의 데이터에는 없다 */
   serverId?: number
+  /** 게시 중인지 (없으면 게시 중). 관리자 목록에서만 게시 중단된 FAQ 가 함께 온다 */
+  active?: boolean
 }
 
 /**
