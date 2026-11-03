@@ -111,25 +111,26 @@ export function FaqView() {
               </p>
             </div>
 
-            {faqs && faqs.length > 0 && (
+            {faqs && (faqs.length > 0 || admin) && (
               <div className="subc" role="group" aria-label="분류">
-                <button type="button" className={`chip${!cat ? ' on' : ''}`} aria-pressed={!cat} onClick={() => setCat('')}>
-                  전체 <em>{faqs.length}</em>
-                </button>
-                {cats.map((c) => (
-                  <button key={c} type="button" className={`chip${cat === c ? ' on' : ''}`} aria-pressed={cat === c} onClick={() => setCat(c)}>
-                    {CATEGORY_NAME[c] ?? c} <em>{faqs.filter((f) => f.categoryCode === c).length}</em>
+                {faqs && faqs.length > 0 && (
+                  <>
+                    <button type="button" className={`chip${!cat ? ' on' : ''}`} aria-pressed={!cat} onClick={() => setCat('')}>
+                      전체 <em>{faqs.length}</em>
+                    </button>
+                    {cats.map((c) => (
+                      <button key={c} type="button" className={`chip${cat === c ? ' on' : ''}`} aria-pressed={cat === c} onClick={() => setCat(c)}>
+                        {CATEGORY_NAME[c] ?? c} <em>{faqs.filter((f) => f.categoryCode === c).length}</em>
+                      </button>
+                    ))}
+                  </>
+                )}
+                {admin && (
+                  <button type="button" className="btn pri sm faqadd" onClick={() => setAdding(true)}>
+                    <Icon name="plus" />
+                    FAQ 등록
                   </button>
-                ))}
-              </div>
-            )}
-
-            {admin && (
-              <div className="row">
-                <button type="button" className="btn pri sm fr" onClick={() => setAdding(true)}>
-                  <Icon name="plus" />
-                  FAQ 등록
-                </button>
+                )}
               </div>
             )}
 

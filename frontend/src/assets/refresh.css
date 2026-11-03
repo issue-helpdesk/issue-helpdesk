@@ -103,3 +103,26 @@
 /* ---- 글자 세로 보정: 한글 글꼴(Noto Sans KR)은 칸 가운데에 두어도 글자가 약 1px 아래로 보입니다. 아래쪽 안쪽 여백을 글자 크기의 0.12em 더해 글자를 올립니다(12px → 약 0.7px). ---- */
 .btn:not(.ico),.chip,.tag,.count,.pcn,[class*="pri-p"],.rr-s,.gcn,.pf,.skip,.pn,.d2pg button,.seg button,.chip em,.ocnt,button em,button.on,button.pn{padding-bottom:.12em!important}
 .count{padding-bottom:.18em!important}
+
+/* 가이드 업로드 창: 올리는 방식 알약 · 하위 버전 목록 · 읽기 전용 칸 */
+.inp[readonly]{background:var(--shell);color:var(--mute);border-color:var(--line);cursor:not-allowed;box-shadow:none}
+.seg.gu-seg{display:flex;flex-wrap:wrap;background:transparent;padding:0;gap:8px;margin:8px 0 0}
+.seg.gu-seg button{flex:1;min-height:40px;padding:0 14px;border-radius:999px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink2);font-weight:600}
+.seg.gu-seg button:hover{box-shadow:inset 0 0 0 1px var(--o600)}
+.seg.gu-seg button.on{background:var(--osoft);box-shadow:inset 0 0 0 1.5px var(--o600);color:var(--link)}
+.gu-f{margin-top:16px}.gu-seg+.gu-f{margin-top:10px}
+.gu-f .gfrow{display:flex;gap:8px;align-items:center}.gu-f .gfrow .inp{flex:1;min-width:0;padding:9px 12px}
+.gu2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.gu-cur{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;border:1px solid var(--line);cursor:pointer;margin:14px 0 10px}.gu-cur input{margin-top:3px}
+.gu-cur small{display:block;color:var(--mute);font-size:12.5px;line-height:1.45;margin-top:2px}
+.guv{margin:14px 0 0;border:1px solid var(--line);border-radius:12px;padding:12px 14px 10px;background:var(--card)}
+.guvh{display:flex;align-items:baseline;gap:10px;line-height:22px}.guvh .mono{font-size:12.5px;color:var(--mute)}.guvh b{font-size:14px;font-weight:600}
+.guvs{margin:2px 0 8px;font-size:12px;line-height:18px;color:var(--mute)}
+.guvl{list-style:none;margin:0 0 0 6px;padding:0 0 0 14px;border-left:2px solid var(--line)}
+.guvl li{position:relative;display:flex;align-items:center;gap:10px;min-height:34px;padding:4px 0;line-height:20px}
+.guvl li::before{content:"";position:absolute;left:-14px;top:50%;width:10px;border-top:2px solid var(--line)}
+.guvn{width:32px;flex:none;font-size:13.5px;font-weight:600}.guvl small{color:var(--mute);font-size:12.5px;line-height:18px}
+@media (max-width:520px){.gu2{grid-template-columns:1fr}}
+
+/* FAQ: 등록 버튼은 분류 칩과 같은 줄 오른쪽 끝 */
+.subc{align-items:center}.subc .faqadd{margin-left:auto}

@@ -157,6 +157,8 @@ export interface UploadInput {
   cat: CategoryCode
   scope: GuideScope
   tx: GuideTx
+  /** 첫 버전 이름. 비우면 v1 */
+  version?: string
 }
 /** 가이드 파일 업로드: 문서를 만들고(DC-02) 첫 버전 v1 을 올린다(DC-07). 검색 준비(적재)가 끝나기 전에는 현행으로 바꿀 수 없다 */
 export async function uploadGuide(user: User, input: UploadInput): Promise<ApiResult<Guide>> {
@@ -167,7 +169,7 @@ export async function uploadGuide(user: User, input: UploadInput): Promise<ApiRe
   if (USE_MOCK_GUIDE) {
     await sleep(250)
     if (store.some((g) => g.docCode === code)) return fail('DOCUMENT_CODE_DUPLICATE', '이미 있는 문서 번호예요.', { details: [{ field: 'docCode', reason: 'DUPLICATE', message: '이미 있는 문서 번호예요.' }] })
-    const g: MockGuide = { id: ++seq.doc, docCode: code, title: input.title.trim(), cat: input.cat, versions: [v(++seq.ver, 'v1', '초안', input.scope, input.tx, '준비 중', `업로드 · ${input.file.name}`)] }
+    const g: MockGuide = { id: ++seq.doc, docCode: code, title: input.title.trim(), cat: input.cat, versions: [v(++seq.ver, input.version?.trim() || 'v1', '초안', input.scope, input.tx, '준비 중', `업로드 · ${input.file.name}`)] }
     store.push(g)
     notify()
     // 검색 준비(텍스트 추출·색인)는 잠시 뒤에 끝난다
@@ -184,12 +186,60 @@ export async function uploadGuide(user: User, input: UploadInput): Promise<ApiRe
   if (!doc.ok) return doc
   const form = new FormData()
   form.append('file', input.file)
-  form.append('version', 'v1')
+  form.append('version', input.version?.trim() || 'v1')
   form.append('viewScope', SCOPE_TO[input.scope])
   form.append('transferPolicy', TX_TO[input.tx])
   const ver = await request<SVer>(`/documents/${doc.data.id}/versions`, { method: 'POST', body: form })
   if (!ver.ok) return ver
   return ok({ id: doc.data.id, docCode: code, title: input.title.trim(), cat: input.cat, current: null, versions: [toVersion(ver.data)] })
+}
+
+const VERSION_DUP = { field: 'version', reason: 'DUPLICATE', message: '이미 있는 버전이에요. 다른 번호를 적어 주세요.' }
+
+/** 기존 가이드에 새 버전 올리기 (DC-07). 같은 버전 이름이 있으면 DOCUMENT_VERSION_DUPLICATE. 현행 전환은 자동으로 하지 않는다 */
+export async function uploadGuideVersion(user: User, docId: number, input: { file: File; version: string; scope: GuideScope; tx: GuideTx }): Promise<ApiResult<GuideVersion>> {
+  const no = adminOnly(user)
+  if (no) return no
+  const version = input.version.trim()
+  if (USE_MOCK_GUIDE) {
+    await sleep(250)
+    const g = store.find((x) => x.id === docId)
+    if (!g) return fail('DOCUMENT_NOT_FOUND', '문서를 찾을 수 없어요.')
+    if (g.versions.some((x) => x.version === version)) return fail('DOCUMENT_VERSION_DUPLICATE', VERSION_DUP.message, { details: [VERSION_DUP] })
+    const x = v(++seq.ver, version, '초안', input.scope, input.tx, '준비 중', `업로드 · ${input.file.name}`)
+    g.versions.unshift(x)
+    notify()
+    timers.push(
+      setTimeout(() => {
+        x.ready = '준비 완료'
+        notify()
+      }, 2800),
+    )
+    return ok({ ...x })
+  }
+  const form = new FormData()
+  form.append('file', input.file)
+  form.append('version', version)
+  form.append('viewScope', SCOPE_TO[input.scope])
+  form.append('transferPolicy', TX_TO[input.tx])
+  const r = await request<SVer>(`/documents/${docId}/versions`, { method: 'POST', body: form })
+  return r.ok ? ok(toVersion(r.data)) : r
+}
+
+/** 버전 이름을 v4 꼴로 정리한다. 숫자(점으로 이어도 됨)가 아니면 null */
+export function normalizeVersion(raw: string): string | null {
+  const m = /^v?(\d+(?:\.\d+)*)$/i.exec(raw.trim())
+  return m ? `v${m[1]}` : null
+}
+/** 다음 버전 이름 (가장 큰 앞자리 숫자 + 1) */
+export function nextVersion(versions: { version: string }[]): string {
+  const top = Math.max(0, ...versions.map((x) => Number(/\d+/.exec(x.version)?.[0] ?? 0)))
+  return `v${top + 1}`
+}
+/** 새 가이드의 문서 번호: 같은 분류의 다음 번호. 직접 적게 하면 겹치므로 화면이 정해 준다 (서버에 채번 API가 없다, R-22) */
+export function nextDocCode(guides: { docCode: string }[], cat: CategoryCode): string {
+  const top = Math.max(0, ...guides.map((g) => Number(new RegExp(`^IT-${cat}-(\\d{3})`).exec(g.docCode)?.[1] ?? 0)))
+  return `IT-${cat}-${String(top + 1).padStart(3, '0')}`
 }
 
 /** 열람 범위·외부 전송 정책 변경. 더 느슨하게 바꿀 때의 사유는 서버에 저장할 곳이 없어 모의에서만 남긴다 (R-22) */
