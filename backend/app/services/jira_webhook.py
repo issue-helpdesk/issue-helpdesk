@@ -1,7 +1,8 @@
-"""Jira 웹훅 이벤트 저장과 DB 반영 (TK-13). 상태·처리 결과·담당자만 다룬다. 댓글은 IGNORED 로 저장만 한다.
+"""Jira 웹훅 이벤트 저장과 DB 반영 (TK-13·14). 상태·처리 결과·담당자만 다룬다. 댓글은 IGNORED 로 저장만 한다.
 
     record_webhook_event     API 가 부른다. 저장·중복 검사만 하고 Jira 를 부르지 않는다
     run_due_webhook_events   실행기가 회차마다 부른다. 이벤트 한 건은 process_webhook_event 가 처리한다
+    sync_ticket              새로고침(TK-14). 이벤트 없이 접수 하나를 바로 다시 읽어 같은 규칙으로 반영한다
 
     run_due_webhook_events(db, jira, limit=10)
 
@@ -9,6 +10,7 @@
 ITssue 가 보낸 변경이 되돌아온 이벤트는 작업이 끝날 때까지 기다렸다가, 값이 같아 그대로 DONE 이 된다.
 """
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -35,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 ISSUE_UPDATED = "jira:issue_updated"
 GIVE_UP_AFTER = timedelta(hours=24)         # 표에 시도 횟수 칸이 없어 수신 시각으로 포기를 정한다
+SYNC_INTERVAL = timedelta(seconds=30)       # 새로고침을 연타해도 Jira 호출이 늘지 않게 한다
 JOB_TYPES = ("JIRA_TRANSITION", "JIRA_ASSIGN")
 
 
@@ -110,9 +113,41 @@ def process_webhook_event(db: Session, jira: JiraClient, event_id: int, *, now: 
         return WebhookResult(event.id, "WAITING", "job_in_progress")
     if latest["work_status"] is None:   # 매핑에 없는 Jira 상태는 반영하지 않는다
         return close(db, event, "NEEDS_ADMIN", "unmapped_status")
-    sync_work_status(db, ticket, latest, event, now)
+    sync_work_status(db, ticket, latest, event.changed_at, now)
     sync_assignee(db, ticket, account_id, now)
     return close(db, event, "DONE")
+
+
+def sync_ticket(db: Session, open_jira: Callable[[], JiraClient], ticket: Ticket, *, now: datetime | None = None) -> str:
+    """접수 하나를 Jira 최신 값으로 맞추고 커밋한다. 화면이 부르므로 Jira 오류를 올리지 않는다. 결과는 로그·시험용이다."""
+    now = now or datetime_utils.now()
+    if ticket.jira_sync_status != "SYNCED" or not ticket.jira_key or ticket.work_status == "CLS":
+        return "SKIPPED"
+    confirmed = ticket.work_status_confirmed_at
+    if confirmed is not None and datetime_utils.as_utc(now) - datetime_utils.as_utc(confirmed) < SYNC_INTERVAL:
+        return "RECENT"
+    if has_active_job(db, ticket.id):           # 실행기 저장과 겹치지 않게 한다
+        return "JOB_IN_PROGRESS"
+    try:
+        with open_jira() as jira:
+            latest = jira.get_work_result(ticket.jira_key)
+            account_id = jira.get_assignee(ticket.jira_key)["account_id"]
+    except JiraError as error:
+        logger.warning("jira sync ticket %s failed (%s)", ticket.id, error.reason)
+        return "JIRA_UNAVAILABLE"
+
+    ticket = db.get(Ticket, ticket.id, with_for_update=True, populate_existing=True)
+    if has_active_job(db, ticket.id):           # 읽는 사이에 작업이 등록됐다
+        db.commit()
+        return "JOB_IN_PROGRESS"
+    if latest["work_status"] is None:           # 매핑에 없는 Jira 상태는 반영하지 않는다
+        db.commit()
+        return "UNMAPPED"
+    sync_work_status(db, ticket, latest, None, now)
+    sync_assignee(db, ticket, account_id, now)
+    ticket.work_status_confirmed_at = now
+    db.commit()
+    return "SYNCED"
 
 
 def close(db: Session, event: JiraWebhookEvent, status: str, reason: str | None = None) -> WebhookResult:
@@ -144,7 +179,7 @@ def has_open_failure(db: Session, ticket_id: int, job_type: str) -> bool:
     ).limit(1)) is not None
 
 
-def sync_work_status(db: Session, ticket: Ticket, latest: dict, event: JiraWebhookEvent, now: datetime) -> None:
+def sync_work_status(db: Session, ticket: Ticket, latest: dict, changed_at: datetime | None, now: datetime) -> None:
     """Jira 최신 상태·처리 결과를 반영한다. 정상 완료로 볼 수 없는 변경은 값을 바꾸지 않고 관리자 확인으로 둔다."""
     if ticket.jira_sync_status != "SYNCED":
         return
@@ -164,7 +199,7 @@ def sync_work_status(db: Session, ticket: Ticket, latest: dict, event: JiraWebho
         logger.warning("jira webhook ticket %s: %s → %s 확인 필요", ticket.id, ticket.work_status, target)
         return
 
-    changed_at = event.changed_at or now
+    changed_at = changed_at or now
     db.add(TicketStatusHistory(ticket_id=ticket.id, from_status=ticket.work_status, to_status=target, source="JIRA",
                                changed_at=changed_at))
     if target == "FIN":
