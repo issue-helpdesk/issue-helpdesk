@@ -1,6 +1,6 @@
-# Jira 생성·배정·상태 변경 실행기
+# Jira 생성·배정·상태 변경·웹훅 반영 실행기
 
-`integrations/jira/worker.py`는 생성 → 배정 → 상태 변경 순서로 기존 실행 서비스를 호출한다. 각 종류의 오래된 RUNNING 작업을 해당 서비스의 복구 함수로 되돌리고, 실행 시각이 된 PENDING 작업을 ID 순으로 처리한다.
+`integrations/jira/worker.py`는 생성 → 배정 → 상태 변경 순서로 기존 실행 서비스를 호출한다. 각 종류의 오래된 RUNNING 작업을 해당 서비스의 복구 함수로 되돌리고, 실행 시각이 된 PENDING 작업을 ID 순으로 처리한다. 그 뒤 같은 회차에서 API가 저장해 둔 웹훅 이벤트(`jira_webhook_events`의 PENDING)를 `run_due_webhook_events`로 DB에 반영한다. 웹훅을 마지막에 두는 이유는, ITssue가 보낸 변경이 Jira에서 되돌아온 이벤트가 앞 단계 작업이 끝난 뒤에 값이 같아 그대로 끝나게 하기 위해서다.
 
 ## 실행
 
@@ -11,6 +11,9 @@ uv run python backend/app/integrations/jira/worker.py --once
 # 특정 접수만 조회·복구·실행. 다른 접수의 방치 작업도 건드리지 않는다.
 uv run python backend/app/integrations/jira/worker.py --once --ticket-id <접수 ID>
 
+# 웹훅 이벤트 반영만 끄기 (작업 처리는 그대로)
+uv run python backend/app/integrations/jira/worker.py --once --no-webhook
+
 # 생성만 기존 방식으로 운영하거나, 배정·전환만 별도 점검
 uv run python backend/app/integrations/jira/worker.py --job-types JIRA_CREATE
 uv run python backend/app/integrations/jira/worker.py --once --job-types JIRA_ASSIGN JIRA_TRANSITION --ticket-id <접수 ID>
@@ -20,7 +23,7 @@ uv run python backend/app/integrations/jira/worker.py --once --job-types JIRA_AS
 docker compose -f docker-compose.yml -f docker-compose.jira-worker.yml up -d --build jira-worker
 ```
 
-`--limit`은 전체 합계가 아니라 **종류별 상한**이다(기본 10, 한 회차 최대 30건). `--interval`은 회차 종료 뒤 대기 시간이며 기본 30초다. `--stale-minutes`는 중단 복구 기준이며 기본 5분이다. 이 숫자는 운영 확정값이 아니라 조정 가능한 기본값이다.
+`--limit`은 전체 합계가 아니라 **종류별 상한**이다(기본 10, 작업 종류별 한 회차 최대 30건이며, 웹훅은 별도로 Jira를 호출한 이벤트 기준 10건). `--ticket-id`를 주면 웹훅 이벤트는 접수별로 고르는 기능이 없어 처리하지 않는다. `--interval`은 회차 종료 뒤 대기 시간이며 기본 30초다. `--stale-minutes`는 중단 복구 기준이며 기본 5분이다. 이 숫자는 운영 확정값이 아니라 조정 가능한 기본값이다.
 
 Compose 파일은 워커를 2개(`deploy.replicas: 2`) 띄운다. 둘 다 세 종류를 모두 처리하며, 한쪽이 멈춰도 다른 쪽이 이어받는다. 개수를 바꾸려면 `up -d --scale jira-worker=<개수>`를 쓴다.
 
@@ -37,6 +40,6 @@ Compose 파일은 워커를 2개(`deploy.replicas: 2`) 띄운다. 둘 다 세 �
 
 ## 남은 범위
 
-이미 다른 Jira 담당자가 있는 승인 재배정, 정식 웹훅·알림·주기적 상태 대조, FIN→WIP 때 이전 결과를 따로 보존하는 방식은 별도다. 최초 자동배정(PR #181)과 재완료 입력 강제(PR #179)는 반영됐고, 생성 성공 뒤 등록된 배정 작업은 같은 회차에 이어서 실행된다.
+이미 다른 Jira 담당자가 있는 승인 재배정, 댓글 알림, 주기적 상태 대조, FIN→WIP 때 이전 결과를 따로 보존하는 방식은 별도다. 웹훅 이벤트 반영은 실행기에 연결됐지만 실제 Jira 웹훅→서버 DB 반영 시험과 서버 상시 실행은 아직 하지 않았다. 최초 자동배정(PR #181)과 재완료 입력 강제(PR #179)는 반영됐고, 생성 성공 뒤 등록된 배정 작업은 같은 회차에 이어서 실행된다.
 
 검증 결과와 실제 단건 시험 범위는 [WORKER_VALIDATION.md](WORKER_VALIDATION.md)에 기록한다.

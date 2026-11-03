@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import select
 
 from app.integrations.jira import JiraError
+from app.integrations.jira import worker
 from app.models import AssignmentLog, Base, Inquiry, IntegrationJob, JiraWebhookEvent, TicketStatusHistory
 from app.services.jira_webhook import process_webhook_event, run_due_webhook_events
 from test_auth import add_user, client, error_code  # noqa: F401
@@ -446,3 +447,54 @@ def test_run_due_counts_only_jira_calls(db, ticket, team):
 
     assert [r.outcome for r in results] == ["WAITING", "DONE"]
     assert first.status == "DONE" and second.status == "PENDING"
+
+
+# ------------------------------------------------------------------ 실행기 연결
+
+
+def test_worker_round_applies_received_event(client, db, ticket):
+    """API 가 저장한 이벤트를 실행기 한 회차가 DB 에 반영한다 (수신 → 저장 → 실행기 → 반영)."""
+    send(client, issue_updated())
+    assert ticket.work_status == "WIP"                       # 받기만 해서는 바뀌지 않는다
+
+    report = worker.run_round(db, FakeJira(work_status="FIN", final_result="재설치로 해결"), now=NOW)
+
+    assert report.errors == [] and report.result_types == ["WEBHOOK"]
+    assert [r.outcome for r in report.results] == ["DONE"] and "WEBHOOK:DONE 1" in report.summary()
+    assert db.scalars(select(JiraWebhookEvent)).one().status == "DONE"
+    assert (ticket.work_status, ticket.resolution_note) == ("FIN", "재설치로 해결")
+    assert [h.to_status for h in histories(db, ticket)] == ["FIN"]
+
+
+def test_worker_round_leaves_event_when_webhook_is_off_or_ticket_scoped(db, ticket):
+    add_event(db, ticket.id)
+
+    off = worker.run_round(db, FakeJira(work_status="FIN", final_result="해결"), now=NOW, webhook=False)
+    scoped = worker.run_round(db, FakeJira(work_status="FIN", final_result="해결"), now=NOW, ticket_id=ticket.id)
+
+    assert off.results == [] and scoped.results == []
+    assert db.scalars(select(JiraWebhookEvent)).one().status == "PENDING" and ticket.work_status == "WIP"
+
+
+def test_worker_round_runs_webhook_after_jobs_and_waits_for_active_job(db, ticket):
+    """ITssue 작업이 진행 중인 접수의 이벤트는 기다린다. 다음 회차에 작업이 끝난 뒤 반영된다."""
+    add_event(db, ticket.id)
+    add_job(db, ticket, status="RUNNING")                    # 방치 판정 전의 진행 중 작업
+
+    first = worker.run_round(db, FakeJira(work_status="FIN", final_result="해결"), now=NOW, job_types=("JIRA_CREATE",))
+
+    assert [(r.outcome, r.reason) for r in first.results] == [("WAITING", "job_in_progress")]
+    assert db.scalars(select(JiraWebhookEvent)).one().status == "PENDING"
+
+
+def test_worker_round_reports_webhook_failure_without_losing_job_results(db, ticket, monkeypatch):
+    add_event(db, ticket.id)
+
+    def boom(*a, **kw):
+        raise RuntimeError("DB 끊김")
+
+    monkeypatch.setattr("app.services.jira_webhook.run_due_webhook_events", boom)
+
+    report = worker.run_round(db, FakeJira(), now=NOW)
+
+    assert report.errors == ["WEBHOOK:run:RuntimeError"] and report.results == []
