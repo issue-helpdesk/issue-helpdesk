@@ -48,7 +48,7 @@ export const LIST_GROUPS: { key: ListGroup; label: string; statuses: DisplayStat
   // 해결 확인 대기: 담당자 처리 완료 뒤(awaiting_confirm)와 AI 답변 뒤(unconfirmed). 두 값은 그대로 보내고 화면 이름만 같다.
   { key: 'awaiting_confirm', label: '해결 확인 대기', statuses: ['awaiting_confirm', 'unconfirmed'] },
   { key: 'resolved', label: '해결 완료', statuses: ['resolved'] },
-  { key: 'unresolved', label: '미해결', statuses: ['unresolved'] },
+  { key: 'unresolved', label: '미연결 종료', statuses: ['unresolved'] },
 ]
 
 /** 문의 한 건이 속한 상태 분류 */

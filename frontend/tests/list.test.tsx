@@ -87,7 +87,7 @@ describe('문의 목록 조건 조회 (API)', () => {
 })
 
 describe('문의 내역 화면', () => {
-  it('상태 알약으로 그 문의만 남기고, "미확인" 항목 없이 해결 확인 대기와 미해결을 따로 볼 수 있다', async () => {
+  it('상태 알약으로 그 문의만 남기고, "미확인" 항목 없이 해결 확인 대기와 미연결 종료를 따로 볼 수 있다', async () => {
     const user = userEvent.setup()
     renderAs('EMP-1001', '/list')
     expect(await screen.findByRole('heading', { name: '내 문의를 한눈에 확인해요' }, SLOW)).toBeInTheDocument()
@@ -99,7 +99,7 @@ describe('문의 내역 화면', () => {
     const names = screen.getAllByRole('option').map((o) => o.textContent)
     expect(names.some((n) => /미확인/.test(n ?? ''))).toBe(false)
     expect(names).toContain('해결 확인 대기 · 2')
-    expect(names).toContain('미해결 · 2')
+    expect(names).toContain('미연결 종료 · 2')
     await user.click(screen.getByRole('option', { name: /^AI 해결/ }))
     await waitFor(() => expect(titles()).toEqual(['계정 잠금 해제 방법']), SLOW)
     // 해결 확인 대기: 담당자 처리 완료 뒤 건과 AI 답변 뒤 건이 함께 나오고, 보조 라벨로 구분한다
@@ -110,7 +110,7 @@ describe('문의 내역 화면', () => {
     expect(within(table).getByText('담당자 처리')).toBeInTheDocument()
     expect(within(table).getByText('AI 안내')).toBeInTheDocument()
     await openStatus()
-    await user.click(screen.getByRole('option', { name: /^미해결/ }))
+    await user.click(screen.getByRole('option', { name: /^미연결 종료/ }))
     await waitFor(() => expect(titles()).toEqual(['프린터 드라이버 설치가 안 돼요', '사내 메신저 알림이 안 와요']), SLOW)
     // 조건을 풀면 다시 전부
     await user.click(screen.getByRole('button', { name: '✕ 조건 해제' }))
