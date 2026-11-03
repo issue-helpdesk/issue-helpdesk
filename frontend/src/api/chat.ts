@@ -9,14 +9,17 @@
  *   PUT  /inquiries/{id}/resolution       IQ-09 AI 답변의 해결·미해결
  *   PATCH /inquiries/{id}                 IQ-04 담당자 연결 거절(문의 종료)
  *   POST /inquiries/{id}/sessions         IQ-06 기존 문의·세션 이어가기
- * 접수 초안·최종 접수(TK-01~04)와 접수 이후의 해결·미해결(TK-07)은 아직 서버에 연결하지 않았다.
+ *   POST /inquiries/{id}/ticket-drafts    TK-01 담당자 연결 동의(초안 생성)  ┐
+ *   PATCH /ticket-drafts/{id}             TK-03 초안 수정·취소               │ SERVER_INTAKE=true 일 때만 서버로 보낸다
+ *   POST /tickets                         TK-04 최종 접수                    │ (꺼져 있으면 NOT_READY 안내)
+ *   PATCH /tickets/{id}                   TK-07 접수 이후 해결·미해결        ┘
  * 실제 서버에서는 접수 이후 진행(Jira 생성·배정·처리)이 서버에서 일어나므로, 화면은 GET 을 주기적으로 다시 읽는다.
  */
 import { sleep } from '../core/apiClient'
-import { USE_MOCK_INQUIRY } from '../core/config'
+import { SERVER_INTAKE, USE_MOCK_INQUIRY } from '../core/config'
 import { pollHints, refreshInquiryList, visiblePoll } from '../core/poll'
 import type { ChatMessage, DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
-import { NO_CONNECT_LABEL, NO_TICKET_CLOSED, RESOLVED_LABEL, RESOLVED_REPLY, UNRESOLVED_LABEL, UNRESOLVED_REPLY, loadInquiry, notReady, serverClose, serverResolve, serverResume, serverSend, serverStart } from './inquiryServer'
+import { NO_CONNECT_LABEL, NO_TICKET_CLOSED, RESOLVED_LABEL, RESOLVED_REPLY, UNRESOLVED_LABEL, UNRESOLVED_REPLY, isStaleDraft, loadInquiry, notReady, serverClose, serverConfirm, serverDraftCancel, serverDraftCreate, serverDraftSave, serverResolve, serverResume, serverSend, serverStart, serverTicketStatus } from './inquiryServer'
 import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, idleWarnInquiry, idleDeleteInquiry, idleBackInquiry, leaveInquiry, resumeInquiry } from './mock/chatEngine'
 import './mock/chatMock'
 import { getRecord, mockConfig, notify, subscribe, type StoreRecord } from './mock/chatStore'
@@ -230,6 +233,16 @@ function showChoice(id: number, label: string, after: 'resolved' | 'unresolved' 
   return run
 }
 
+/**
+ * 접수 관련 서버 요청 하나. 초안이 낡았다는 오류(다른 화면에서 수정·이미 접수/취소)면 최신 문의를 다시 읽어 화면을 맞춘다.
+ * 오류 안내는 호출한 화면(ChatView)이 보여 준다.
+ */
+async function intake(id: number, job: Promise<ApiResult<Inquiry>>): Promise<ApiResult<Inquiry>> {
+  const r = await track(job)
+  if (!r.ok && isStaleDraft(r.error.code)) void track(loadInquiry(id)).then((latest) => optimistic.get(id)?.(latest))
+  return r
+}
+
 export function replyChat(id: number, employeeNo: string, req: ReplyRequest): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => applyReply(rec, req))
   switch (req.action) {
@@ -240,7 +253,7 @@ export function replyChat(id: number, employeeNo: string, req: ReplyRequest): Pr
     case 'connect-no':
       return showChoice(id, NO_CONNECT_LABEL, 'closed', () => serverClose(id))
     case 'connect-yes':
-      return Promise.resolve(notReady('담당자 연결(접수 초안)'))
+      return SERVER_INTAKE ? intake(id, serverDraftCreate(id)) : Promise.resolve(notReady('담당자 연결(접수 초안)'))
     case 'quick':
       return req.arg ? sendChat(id, employeeNo, req.arg) : track(loadInquiry(id))
     default:
@@ -250,27 +263,27 @@ export function replyChat(id: number, employeeNo: string, req: ReplyRequest): Pr
 
 export function editDraft(id: number, employeeNo: string, edit: DraftEdit): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => saveDraft(rec, edit))
-  return Promise.resolve(notReady('접수 초안 수정'))
+  return SERVER_INTAKE ? intake(id, serverDraftSave(id, edit)) : Promise.resolve(notReady('접수 초안 수정'))
 }
 
 export function confirmChatDraft(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => confirmDraft(rec))
-  return Promise.resolve(notReady('최종 접수'))
+  return SERVER_INTAKE ? intake(id, serverConfirm(id)) : Promise.resolve(notReady('최종 접수'))
 }
 
 export function cancelChatDraft(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => cancelDraft(rec))
-  return Promise.resolve(notReady('접수 취소'))
+  return SERVER_INTAKE ? intake(id, serverDraftCancel(id)) : Promise.resolve(notReady('접수 취소'))
 }
 
 export function resolveChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => confirmResolved(rec))
-  return Promise.resolve(notReady('접수 이후 해결 확인'))
+  return SERVER_INTAKE ? track(serverTicketStatus(id, lastSeen.get(id)?.ticket?.id, { workStatus: 'CLS' })) : Promise.resolve(notReady('접수 이후 해결 확인'))
 }
 
 export function rejectChat(id: number, employeeNo: string, reason: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => denyResolved(rec, reason))
-  return Promise.resolve(notReady('접수 이후 미해결 알림'))
+  return SERVER_INTAKE ? track(serverTicketStatus(id, lastSeen.get(id)?.ticket?.id, { workStatus: 'WIP', reason })) : Promise.resolve(notReady('접수 이후 미해결 알림'))
 }
 
 export function reopenChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
