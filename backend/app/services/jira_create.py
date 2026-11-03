@@ -45,7 +45,7 @@ from sqlalchemy.orm import Session
 from app.integrations.jira.client import JiraClient, JiraError
 from app.integrations.jira.confirmed_ticket import ConfirmedTicketError, create_from_confirmed_ticket
 from app.integrations.jira.retry import RetryPolicy, next_step
-from app.models import (AssignmentLog, Category, Inquiry, InquiryType, IntegrationJob,
+from app.models import (AssignmentLog, Category, Department, Inquiry, InquiryType, IntegrationJob,
                         SupportGroup, SupportGroupMember, Ticket, User)
 from app.services.assignment import reserve_assignment
 from app.services.jira_assign import enqueue_jira_assign
@@ -237,16 +237,19 @@ def _ticket_payload(db: Session, ticket: Ticket) -> dict[str, Any]:
     inquiry_type = db.get(InquiryType, ticket.inquiry_type_id) if ticket.inquiry_type_id else None
     inquiry = db.get(Inquiry, ticket.inquiry_id)
     requester = db.get(User, inquiry.user_id) if inquiry is not None else None
+    department = db.get(Department, requester.department_id) if requester is not None and requester.department_id else None
     return {
         "id": ticket.id,
         "draftId": ticket.draft_id,
         "receiptNo": ticket.receipt_no,
+        "title": inquiry.title if inquiry is not None else None,     # Jira 제목. 없으면 summary 를 쓴다
         "summary": ticket.summary,
         "categoryCode": ticket.category_code,
         "urgency": ticket.urgency,
         "category": {"code": category.code, "name": category.name} if category else None,
         "inquiryType": (
-            {"id": inquiry_type.id, "code": inquiry_type.code, "name": inquiry_type.name} if inquiry_type else None
+            {"id": inquiry_type.id, "code": inquiry_type.code, "name": inquiry_type.name,
+             "requestKind": inquiry_type.request_kind} if inquiry_type else None
         ),
         "groupId": ticket.group_id,
         "group": {"id": group.id, "name": group.name} if group else None,
@@ -257,7 +260,8 @@ def _ticket_payload(db: Session, ticket: Ticket) -> dict[str, Any]:
         "triedActions": ticket.tried_actions,
         "urgencyReason": ticket.urgency_reason,
         "requester": (
-            {"id": requester.id, "employeeNo": requester.employee_no, "name": requester.name} if requester else None
+            {"id": requester.id, "employeeNo": requester.employee_no, "name": requester.name,
+             "departmentName": department.name if department else None} if requester else None
         ),
         "jiraSyncStatus": ticket.jira_sync_status,
         "jiraKey": ticket.jira_key,

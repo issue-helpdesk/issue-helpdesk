@@ -162,6 +162,34 @@ def test_long_summary_is_preserved_in_full_description(ticket):
     assert ticket["summary"].strip() in adf_to_text(fields["description"])
 
 
+def test_title_is_inquiry_title_and_summary_stays_in_description(ticket):
+    ticket["title"] = "VPN이 자꾸 끊겨요"
+    from app.integrations.jira.mapper import adf_to_text, to_jira_fields
+    fields = to_jira_fields(to_jira_ticket(ticket))
+    assert fields["summary"] == "VPN이 자꾸 끊겨요"
+    assert ticket["summary"] in adf_to_text(fields["description"])      # 문의 요약은 접수 내용에 남는다
+
+
+@pytest.mark.parametrize("title", [None, "", "   "])
+def test_title_falls_back_to_summary_when_inquiry_has_no_title(ticket, title):
+    ticket["title"] = title
+    assert to_jira_ticket(ticket)["title"] == ticket["summary"]
+
+
+def test_requester_department_and_request_kind_reach_jira_fields(ticket):
+    ticket["requester"]["departmentName"] = "연구소"
+    ticket["inquiryType"]["requestKind"] = "INCIDENT"
+    from app.integrations.jira.mapper import to_jira_fields
+    fields = to_jira_fields(to_jira_ticket(ticket))
+    assert fields["customfield_10046"] == "연구소"       # 문의자 부서
+    assert fields["customfield_10049"] == "장애"          # 티켓 유형 (Jira 저장값)
+
+
+def test_department_and_request_kind_are_optional(ticket):
+    payload = to_jira_ticket(ticket)
+    assert "requester_department_name" not in payload and "request_kind" not in payload
+
+
 def test_only_allowlisted_confirmed_fields_are_forwarded(ticket):
     ticket.update(apiToken="do-not-send", messages=["private chat"], aiSummary="not in Ticket contract")
     payload = to_jira_ticket(ticket)

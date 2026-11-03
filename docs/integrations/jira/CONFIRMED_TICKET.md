@@ -21,13 +21,16 @@
 |---|---|---|
 | `id`, `draftId` | 결과 연결용 | 양의 정수 필요 |
 | `receiptNo` | `receipt_no` | 필수, 255자 초과 시 거부 |
-| `summary` | `title` | 필수, 제목은 기존 255자 제한 적용·전체 요약은 본문 보존 |
+| `title` (문의 제목 `inquiries.title`) | `title` (Jira 제목) | 선택. 비어 있으면 `summary`를 제목으로 쓴다. 255자 제한 적용 |
+| `summary` | 본문 `[문의 요약]` | 필수. 제목이 문의 제목이면 요약은 본문에만 들어간다. 문의 제목이 없을 때만 제목으로도 쓴다 |
 | `categoryCode`, `urgency` | `category_code`, `urgency` | 현재 매핑의 코드 사용, 누락·미등록 값 거부 |
 | `category.name` | `category_name` | 선택, 값이 있으면 기존 분류명 필드로 전달 |
 | `inquiryType.name`, `inquiryType.code` | `inquiry_type_name`, `inquiry_type_code` | 선택, 값이 있으면 기존 세부 분류명·시나리오 ID 필드로 전달 |
 | `groupId`, `group.id`, `group.name` | `group_name` | 두 ID 일치, 현재 Jira 매핑에 있는 그룹 이름 필요 |
 | `targetSystem`, `symptom`, `occurredAt`, `businessImpact`, `triedActions`, `urgencyReason` | `description` | 값이 있는 항목만 제목과 함께 본문 구성 |
 | `requester.employeeNo`, `requester.name` | 문의자 사번·이름 | 선택, 계약에 있는 항목만 전달 |
+| `requester.departmentName` | 문의자 부서 | 선택. 문의자의 소속 부서명(`departments.name`) |
+| `inquiryType.requestKind` | 티켓 유형 | 선택. 세부 유형의 `INCIDENT`/`REQUEST`/`QUESTION` |
 | `jiraSyncStatus`, `jiraKey` | 실행 조건 | 아래 기준 적용 |
 
 선택 항목의 누락·null·빈 문자열은 생략하며 코드에서 이름을 추측하지 않는다. 참조 객체나 값의 자료형이 계약과 다르면 Jira 호출 전에 입력 오류를 반환한다. 기존 매핑 파일·필수 항목은 변경하지 않는다.
