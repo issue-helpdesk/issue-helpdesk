@@ -36,7 +36,8 @@ class DocumentVersion(Base):
         CheckConstraint("ingest_status in ('PENDING', 'DONE', 'FAILED')", name="ingest_status"),
         # 현행 버전은 문서마다 최대 하나, 적재가 끝난 버전만 현행 (SRS GUIDE-05)
         CheckConstraint("not is_current or ingest_status = 'DONE'", name="current_needs_done"),
-        Index("uq_document_versions_one_current", "document_id", unique=True, postgresql_where=text("is_current")),
+        Index("uq_document_versions_one_current", "document_id", unique=True, postgresql_where=text("is_current"),
+              sqlite_where=text("is_current")),
     )
 
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)

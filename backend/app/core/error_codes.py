@@ -57,6 +57,15 @@ class ErrorCode(Enum):
     TICKET_SAVE_FAILED = (500, "접수를 저장하지 못했습니다. 작성하신 내용은 보존되어 있으니 잠시 후 다시 시도하거나 "
                                "IT 헬프데스크(내선 1000)·그룹웨어 IT 요청 메뉴를 이용해 주세요.")
 
+    # 문서 (DC)
+    DOCUMENT_NOT_FOUND = (404, "문서를 찾을 수 없습니다.")
+    DOCUMENT_CODE_DUPLICATE = (409, "이미 등록된 문서 번호입니다.")
+    DOCUMENT_VERSION_NOT_FOUND = (404, "문서 버전을 찾을 수 없습니다.")
+    DOCUMENT_VERSION_DUPLICATE = (409, "이미 등록된 버전입니다.")
+    DOCUMENT_VERSION_NOT_READY = (409, "검색 준비가 끝난 버전만 현행으로 바꿀 수 있습니다.")
+    DOCUMENT_FILE_FORMAT_UNSUPPORTED = (415, "PDF·DOCX·PPTX·MD·TXT 파일만 등록할 수 있습니다.")
+    DOCUMENT_FILE_TOO_LARGE = (413, "파일 크기가 너무 큽니다.")
+
     # 화면 알림
     NOTIFICATION_NOT_FOUND = (404, "알림을 찾을 수 없습니다.")
 
