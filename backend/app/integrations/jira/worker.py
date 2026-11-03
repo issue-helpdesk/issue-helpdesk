@@ -5,7 +5,6 @@
 
 한 번 돌 때 생성 → 배정 → 상태 변경 순으로 각 서비스의 중단 복구·단건 실행 함수를 호출한다.
 --limit 은 종류별 상한이다. --ticket-id 를 주면 조회·복구·실행 모두 해당 접수만 처리한다.
-FIN→WIP는 실행 서비스의 보류 정책을 유지하며 다른 상태 변경의 실행 한도를 차지하지 않는다.
 
 필요한 것: 루트 .env 의 DATABASE_URL · JIRA_BASE_URL · JIRA_EMAIL · JIRA_API_TOKEN
 서버 안에 붙이는 일(앱 시작 시 백그라운드로 띄우기)은 main.py 담당이 정한다. 이 파일은 main.py 를 건드리지 않는다.
@@ -49,7 +48,6 @@ class RoundReport:
     results: list[JobResult | AssignmentResult | TransitionResult]
     result_types: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
-    deferred: int = 0
 
     def summary(self) -> str:
         counts: dict[str, int] = {}
@@ -57,35 +55,18 @@ class RoundReport:
             label = f"{self.result_types[i]}:{r.outcome}" if self.result_types else r.outcome
             counts[label] = counts.get(label, 0) + 1
         done = ", ".join(f"{k} {v}" for k, v in sorted(counts.items())) or "처리할 작업 없음"
-        return f"되돌린 방치 작업 {self.requeued}건 · {done} · 보류 {self.deferred}건 · 오류 {len(self.errors)}건"
+        return f"되돌린 방치 작업 {self.requeued}건 · {done} · 오류 {len(self.errors)}건"
 
 
-def _due_ids(db: Session, job_type: str, *, limit: int, now: datetime, ticket_id: int | None):
-    """ID 순으로 페이지를 읽는다. 보류 재처리가 뒤의 기본 전환을 막지 않는다."""
-    ids, deferred, after = [], 0, 0
-    while len(ids) < limit:
-        query = select(IntegrationJob.id, IntegrationJob.payload).where(
-            IntegrationJob.job_type == job_type, IntegrationJob.status == "PENDING",
-            IntegrationJob.id > after,
-            or_(IntegrationJob.next_retry_at.is_(None), IntegrationJob.next_retry_at <= now),
-        )
-        if ticket_id is not None:
-            query = query.where(IntegrationJob.ticket_id == ticket_id)
-        rows = db.execute(query.order_by(IntegrationJob.id).limit(limit)).all()
-        if not rows:
-            break
-        for job_id, payload in rows:
-            after = job_id
-            if (job_type == "JIRA_TRANSITION" and isinstance(payload, dict)
-                    and (payload.get("fromStatus"), payload.get("toStatus")) == ("FIN", "WIP")):
-                deferred += 1
-                continue
-            ids.append(job_id)
-            if len(ids) == limit:
-                break
-        if len(rows) < limit:
-            break
-    return ids, deferred
+def _due_ids(db: Session, job_type: str, *, limit: int, now: datetime, ticket_id: int | None) -> list[int]:
+    """실행할 때가 된 PENDING 작업 ID를 오래된 순으로 최대 limit 건."""
+    query = select(IntegrationJob.id).where(
+        IntegrationJob.job_type == job_type, IntegrationJob.status == "PENDING",
+        or_(IntegrationJob.next_retry_at.is_(None), IntegrationJob.next_retry_at <= now),
+    )
+    if ticket_id is not None:
+        query = query.where(IntegrationJob.ticket_id == ticket_id)
+    return list(db.scalars(query.order_by(IntegrationJob.id).limit(limit)))
 
 
 def run_round(
@@ -116,8 +97,7 @@ def run_round(
         recover, execute = handlers[kind]
         try:
             report.requeued += recover(db, older_than=stale_after, now=now, ticket_id=ticket_id)
-            ids, deferred = _due_ids(db, kind, limit=limit, now=now, ticket_id=ticket_id)
-            report.deferred += deferred
+            ids = _due_ids(db, kind, limit=limit, now=now, ticket_id=ticket_id)
             # 선택 조회의 트랜잭션을 닫고 단건 서비스가 다시 선점·검증한다.
             db.rollback()
         except Exception as error:

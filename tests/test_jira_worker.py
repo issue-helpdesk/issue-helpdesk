@@ -196,23 +196,23 @@ def test_round_recovers_stale_writes_by_lookup_without_sending_again(assign_db, 
     assert not any(m in ('POST', 'PUT') for m, p in jira.calls)
 
 
-def test_deferred_reopens_do_not_starve_later_transitions(transition_db):
+def test_round_runs_reopen_in_id_order_and_respects_limit(transition_db):
     db = transition_db
     ticket, job = make_transition(db, 'FIN', 'WIP')
-    # 정상 전환을 더 뒤 ID로 넣고 limit=1로 실행한다.
     t2 = make_ticket(db, id=43, draft_id=56, receipt_no='RCPT-0043', jira_key='ITHD-43',
                      jira_sync_status='SYNCED', work_status='RDY', requested_work_status='WIP', transition_status='PENDING')
     payload = {**job.payload, 'ticketId': 43, 'receiptNo': t2.receipt_no, 'jiraKey': t2.jira_key,
-               'fromStatus': 'RDY', 'toStatus': 'WIP', 'requestedBy': 18}
+               'fromStatus': 'RDY', 'toStatus': 'WIP', 'reason': None, 'requestedBy': 18}
     normal = jira_transition.enqueue_jira_transition(db, t2, payload)
     db.commit()
-    jira = Workflow()
-    report = worker.run_round(db, jira.client(), now=NOW, limit=1)
-    assert not report.errors and report.deferred == 1
-    assert [r.job_id for r in report.results] == [normal.id]
-    assert reload(db, IntegrationJob, job.id).status == 'PENDING'
-    assert reload(db, IntegrationJob, job.id).attempts == 0
-    assert reload(db, Ticket, ticket.id).work_status == 'FIN'
+    jira = Workflow('FIN', '기존 결과')
+    first = worker.run_round(db, jira.client(), now=NOW, limit=1)       # 종류별 상한 1건: 오래된 재처리가 먼저
+    assert not first.errors and [r.job_id for r in first.results] == [job.id]
+    assert reload(db, Ticket, ticket.id).work_status == 'WIP' and jira.comment_posts == 1
+    assert reload(db, Ticket, 43).work_status == 'RDY'
+    jira.status = 'RDY'
+    second = worker.run_round(db, jira.client(), now=NOW, limit=1)
+    assert not second.errors and [r.job_id for r in second.results] == [normal.id]
     assert reload(db, Ticket, 43).work_status == 'WIP'
 
 
@@ -253,8 +253,9 @@ def test_unexpected_job_error_rolls_back_and_runs_remaining_jobs_and_types(assig
     jira = FakeJira()
     report = worker.run_round(db, jira.client(), now=T0)
     assert len(report.errors) == 1 and len(seen) == 2
-    assert report.result_types == ['JIRA_CREATE', 'JIRA_ASSIGN']
-    assert [r.outcome for r in report.results] == ['CREATED', 'SKIPPED']
+    # 생성에 성공한 t2는 최초 자동배정(#181)이 JIRA_ASSIGN 작업을 하나 더 등록하므로 같은 회차에 배정 2건이 돈다
+    assert report.result_types == ['JIRA_CREATE', 'JIRA_ASSIGN', 'JIRA_ASSIGN']
+    assert [r.outcome for r in report.results] == ['CREATED', 'SKIPPED', 'SKIPPED']
 
 
 def test_selected_job_type_does_not_process_other_kind(assign_db):

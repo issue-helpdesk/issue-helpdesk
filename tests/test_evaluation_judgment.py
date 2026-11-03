@@ -7,9 +7,9 @@ from dataclasses import replace
 import pytest
 
 from app.agent.llm import CategoryInfo, Taxonomy, TypeInfo
-from app.rag.evaluation.judgment import (GUIDED_COL, TEAM_ASSIGNED, TEAM_GUIDED, TEAM_SKIP, EvalItem, Judged,
-                                         Reference, cause, judge_item, load_items, main, near_urgency, run, score,
-                                         summary_md, team_of, write)
+from app.rag.evaluation.judgment import (CITED, GUIDE_GROUP, GUIDED_COL, TEAM_ASSIGNED, TEAM_GUIDED, TEAM_SKIP,
+                                         EvalItem, Judged, Reference, cause, confusion, judge_item, load_guide_items,
+                                         load_items, main, near_urgency, run, score, summary_md, team_of, write)
 from app.rag.search import ChunkHit, DocumentResult, SearchResponse
 
 REF = Reference(
@@ -193,3 +193,75 @@ def test_known_miss_is_counted_but_annotated(tmp_path):
     j = judged(ev040, team='서비스데스크')
     assert score([j])['전체']['team'] == {'n': 1, 'acc': 0.0}                  # 점수에는 그대로 센다
     assert '알려진 틀림' in summary_md(write(str(tmp_path), [j], {'판단기': 'x'}))
+
+
+def guide_item(**kw) -> EvalItem:
+    """질문시트 문항: 긴급도·처리 방향 정답 없음, 팀은 안내 지원팀 비교."""
+    return item(**({'eval_id': 'IT-ACC-002#1', 'urgency': None, 'action': None, 'split': GUIDE_GROUP, 'set': 'guide',
+                    'answer_units': frozenset({'IT-ACC-002/faq:FAQ-001'})} | kw))
+
+
+def test_load_guide_items_derives_labels_from_answer_unit():
+    items = load_guide_items()
+    by = {i.eval_id: i for i in items}
+    assert items and all(i.set == 'guide' and i.split == GUIDE_GROUP for i in items)
+    assert all(i.action is None and i.urgency is None and i.team_scoring == TEAM_GUIDED for i in items)
+    # 직원이 못 보는 매뉴얼만 정답이면 뺀다 (같은 본문이 직원용 문서에도 있는 매뉴얼 질문은 남는다)
+    assert all(any(not d.endswith('-M') for d in i.answer_docs) for i in items)
+    acc = by['IT-ACC-001#1']                                                      # 정답 IT-ACC-001/item:3.1
+    assert acc.scenario and acc.category == acc.scenario.split('-')[0] and acc.team
+    assert 'IT-ACC-001/item:3.1' in acc.answer_units
+    for i in items:                                                              # 유형을 못 정하면 세 칸 모두 비운다
+        assert (i.scenario is None) == (i.category is None) == (i.team is None)
+
+
+def test_guide_items_score_apart_from_official_total():
+    """질문시트는 '전체'(평가셋 공식 점수)에 섞지 않고, 정답 없는 칸은 채점하지 않는다."""
+    s = score([judged(item()), judged(guide_item(), urgency='P1', action='ESCALATE', team='정보보안팀')])
+    assert s['전체']['action']['n'] == 1 and s['전체']['문항']['n'] == 1
+    g = s[GUIDE_GROUP]
+    assert (g['urgency']['n'], g['action']['n'], g['category']) == (0, 0, {'n': 1, 'acc': 1.0})
+    assert g['team'] == {'n': 1, 'acc': 0.0} and g[GUIDED_COL]['n'] == 1
+    assert confusion([judged(guide_item(), action='ANSWER')]) == {}
+    md = summary_md({'meta': {'판단기': 'x'}, '점수': {1: score([judged(guide_item())]), 2: score([judged(guide_item())])},
+                     '처리 방향 혼동표': {}, '추가 처리': [], '틀린 문항': []})
+    assert f'반복 2회 범위 ({GUIDE_GROUP}' in md and '참고 점수' in md
+
+
+def test_oracle_on_guide_item_cites_answer_unit_and_scores_citation():
+    j = judge_item(guide_item(), 'mock:oracle', REF, FakeSearch(OTHER, DOC))
+    assert j.predicted['action'] == 'ANSWER' and j.predicted['urgency'] == 'P3'   # 정답이 없으면 ANSWER · 유형 기본 긴급도
+    assert j.evidence == [DOC.unit_key] and j.cited_unit is True
+    assert score([j])[GUIDE_GROUP][CITED] == {'n': 1, 'acc': 1.0}
+
+
+def test_citation_counts_grouped_unit_and_skips_non_answers():
+    grouped = replace(OTHER, also_in=(DOC.unit_key,))                       # 근거로 든 결과에 정답이 묶여 있으면 맞음
+    wrong = guide_item(answer_units=frozenset({'IT-SEC-001/item:3.1'}))
+    assert judge_item(guide_item(), 'mock:oracle', REF, FakeSearch(grouped)).cited_unit is True
+    assert judge_item(wrong, 'mock:oracle', REF, FakeSearch(OTHER)).cited_unit is False
+    assert judge_item(guide_item(), 'mock:safe', REF, FakeSearch(DOC)).cited_unit is None    # ANSWER 가 아니면 세지 않는다
+
+
+def test_oracle_cites_representative_whose_group_holds_answer():
+    """AI 입력에는 also_in 이 없다 → 정답이 2위 대표 결과에 묶여 있어도 원래 검색 결과로 그 대표를 고른다 (PR #198 검수 P2)."""
+    first = replace(OTHER, unit_key='IT-NET-001@v2.0/item:first')
+    alias = replace(OTHER, unit_key='IT-NET-001@v2.0/item:alias', also_in=(DOC.unit_key,))
+    j = judge_item(guide_item(), 'mock:oracle', REF, FakeSearch(first, alias))
+    assert j.found_unit is True and j.evidence == [alias.unit_key] and j.cited_unit is True
+
+
+def test_summary_lists_citation_misses_and_evidence_escalations(tmp_path):
+    wrong = judge_item(guide_item(answer_units=frozenset({'IT-SEC-001/item:3.1'})), 'mock:oracle', REF, FakeSearch(OTHER))
+    gone = judge_item(guide_item(eval_id='IT-ACC-002#2'), 'mock:oracle', REF, FakeSearch())    # 근거 없음 → 담당자 연결
+    assert gone.cited_unit is None and 'NO_EVIDENCE' in gone.overrides
+    s = write(str(tmp_path), [wrong, gone], {'판단기': 'x'})
+    assert [x['문항'] for x in s['근거 불일치']] == ['IT-ACC-002#1'] and s['틀린 문항'] == []    # 판단 칸은 맞음
+    assert [x['문항'] for x in s['근거 부족으로 빠짐']] == ['IT-ACC-002#2']
+    md = summary_md(s)
+    assert f'{CITED} 틀림 1개' in md and f'근거 부족으로 {CITED}에서 빠짐 1개' in md
+
+
+def test_cli_checks_ids_against_chosen_set(capsys):
+    assert main(['--database-url', 'postgresql://nowhere/x', '--ids', 'IT-ACC-001#1']) == 2      # 기본은 평가셋만
+    assert '시험지(eval)에 없는 문항' in capsys.readouterr().out
