@@ -28,6 +28,7 @@
 .opage{display:flex;flex-direction:column;gap:12px}.opage>.panel,.ogrid>.panel{padding:22px 24px}
 .ofil{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.ofil .dsy{margin-left:auto;display:flex;align-items:center;gap:8px}
 .ogrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:stretch}.ogrid>.panel{display:flex;flex-direction:column}
+.panel h3.sht{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px}.panel h3.sht .ocnt{margin-left:0}
 .ocnt{font-size:14px;font-weight:600;color:var(--mute);margin-left:2px}
 .otb{display:flex;flex-direction:column;flex:1}
 .orow{display:grid;grid-template-columns:96px minmax(0,1fr) auto auto;align-items:center;gap:12px;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:transparent;padding:10px 6px;min-height:52px;color:var(--ink);font:inherit}

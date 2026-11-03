@@ -271,17 +271,6 @@ export function DashView() {
                       <b>{un?.total ?? 0}</b>
                       <span>건</span>
                     </div>
-                    <i className="vs" aria-hidden="true" />
-                    <div className="uc">
-                      <UrgencyChip u="P1" />
-                      <b>{un?.p1 ?? 0}</b>
-                      <span>건</span>
-                    </div>
-                    <div className="uc">
-                      <UrgencyChip u="P2" />
-                      <b>{un?.p2 ?? 0}</b>
-                      <span>건</span>
-                    </div>
                   </div>
                   {!snap ? (
                     <div className="empty" role="status">
