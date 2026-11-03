@@ -54,7 +54,8 @@ export function Topbar({ title, sub, right, lead }: { title: string; sub?: strin
           <Icon name="chevron" />
         </button>
         {lead}
-        <div className="tt">
+        {/* 제목이 바뀌면(채팅에서 문의를 바꿔 열 때 임시 제목 → 실제 제목) 제목 블록이 다시 나타나는 모션을 쓴다 */}
+        <div className="tt tin" key={title}>
           <h2>{title}</h2>
           {sub && <div className="sub">{sub}</div>}
         </div>

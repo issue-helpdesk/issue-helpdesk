@@ -196,6 +196,9 @@ const RESOLVED_NOTICE = '해결로 종료되었습니다.'
 /** 담당자 연결 제안에서 "미연결 (종료)"를 눌렀을 때 내 말풍선 글 (모의와 같다) */
 export const NO_CONNECT_LABEL = '미연결 (종료)'
 
+/** AI 가 답을 만들지 못했을 때 화면이 붙이는 안내 (서버는 저장하지 않는다) */
+const NO_ANSWER_TEXT = '지금은 답변을 만들지 못했어요. 담당자에게 연결해 드릴까요?'
+
 /** 접수 없이 끝났을 때 보여 주는 종료 안내 (모의의 noTicketClosed 와 같은 글) */
 export const NO_TICKET_CLOSED: ChatMessage[] = [
   { id: -4, role: 'assistant', blocks: [{ type: 'p', text: '**담당자 연결 없이 상담을 종료했어요.**' }, { type: 'p', text: '티켓은 접수되지 않았으며, 같은 문제로 다시 연결을 원하시면 새 문의로 시작해 주세요.' }] },
@@ -244,6 +247,11 @@ function toMessages(list: SMessage[], step: ChatStep, i: SInquiry, answering = f
   })
   // 아직 답하는 중이면 준비 중 표시를 붙인다 ("답하지 못함"으로 단정하지 않는다)
   if (answering) out.push({ id: -3, role: 'assistant', typing: { label: '답변을 준비하고 있어요' } })
+  // 내 글에 AI 답이 없는 채로 담당자 연결을 거절했거나 접수 초안으로 넘어간 문의: "답변을 만들지 못했어요" 안내도 서버가 저장하지 않아서
+  // (연결 제안 단계에서만 화면이 만들어 붙인다) 버튼을 누르는 순간 사라진다. 누른 버튼·종료 안내 앞에 같은 안내를 버튼 없이 남겨 대화 흐름을 지킨다
+  if (!answering && !resolved && list[list.length - 1]?.sender === 'USER' && ((i.status === 'CLOSED_UNRESOLVED' && !i.ticket) || step === 'draft')) {
+    out.push({ id: -3, role: 'assistant', blocks: [{ type: 'p', text: NO_ANSWER_TEXT }] })
+  }
   // 내가 누른 "해결"·"미해결"과 그 뒤 안내 (서버는 저장하지 않는다)
   if (resolved) out.push({ id: -8, role: 'user', text: RESOLVED_LABEL }, RESOLVED_REPLY)
   else if (i.resolutionResult === 'UNRESOLVED') out.push({ id: -9, role: 'user', text: UNRESOLVED_LABEL }, UNRESOLVED_REPLY)
@@ -258,7 +266,7 @@ function toMessages(list: SMessage[], step: ChatStep, i: SInquiry, answering = f
   const replies = REPLIES[step]
   if (replies) {
     if (list[list.length - 1]?.sender === 'USER' && step === 'offer') {
-      out.push({ id: -3, role: 'assistant', blocks: [{ type: 'p', text: '지금은 답변을 만들지 못했어요. 담당자에게 연결해 드릴까요?' }], replies })
+      out.push({ id: -3, role: 'assistant', blocks: [{ type: 'p', text: NO_ANSWER_TEXT }], replies })
     } else {
       for (let k = out.length - 1; k >= 0; k--) {
         if (out[k].role === 'assistant') {

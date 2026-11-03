@@ -45,6 +45,24 @@ describe('접수 없이 끝낸 문의 (담당자 연결 거절)', () => {
     expect(i.messages[n - 2]).toMatchObject({ role: 'user', text: '미연결 (종료)' })
   })
 
+  it('AI 가 답하지 못한 채 "미연결 (종료)"를 눌러도 "답변을 만들지 못했어요" 안내는 남는다', () => {
+    const list = [msg(1, 'USER', 90_000), msg(2, 'AI', 80_000), msg(3, 'USER', AI_WAIT_MS + 10_000)]
+    const i = toInquiry(inquiry({ status: 'CLOSED_UNRESOLVED', action: 'ESCALATE' }), list)
+    expect(i.step).toBe('closed')
+    const texts = i.messages.map((m) => (m.role === 'user' ? `나:${m.text}` : JSON.stringify(m.blocks ?? '')))
+    // 내 글 → 답변 못 만듦 안내 → 내가 누른 미연결 → 종료 안내 순서이고, 안내에는 버튼이 없다
+    const k = texts.findIndex((t) => t.includes('지금은 답변을 만들지 못했어요'))
+    expect(k).toBeGreaterThan(0)
+    expect(texts[k + 1]).toBe('나:미연결 (종료)')
+    expect(texts[k + 2]).toContain('상담을 종료했어요')
+    expect(i.messages[k].replies).toBeUndefined()
+  })
+
+  it('답변이 있었던 문의를 끝낼 때는 그 안내를 붙이지 않는다', () => {
+    const list = [msg(1, 'USER', 90_000), msg(2, 'AI', 80_000)]
+    expect(JSON.stringify(toInquiry(inquiry({ status: 'CLOSED_UNRESOLVED', action: 'ESCALATE' }), list).messages)).not.toContain('답변을 만들지 못했어요')
+  })
+
   it('접수된 문의나 진행 중인 문의에는 붙이지 않는다', () => {
     const list = [msg(1, 'USER', 90_000), msg(2, 'AI', 80_000)]
     expect(JSON.stringify(toInquiry(inquiry(), list).messages)).not.toContain('상담을 종료했어요')

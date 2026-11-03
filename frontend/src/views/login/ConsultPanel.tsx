@@ -46,10 +46,15 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
   const nextId = useRef(10)
   const thread = useRef<HTMLDivElement>(null)
 
-  // 새 메시지가 생기면 대화창을 맨 아래로 내린다
+  // 새 메시지가 생기면 대화창을 맨 아래로 부드럽게 내린다 (처음 보여 주는 안내 글은 바로)
+  const first = useRef(true)
   useEffect(() => {
     const el = thread.current
-    if (el) el.scrollTop = el.scrollHeight
+    if (!el) return
+    const smooth = !first.current && typeof el.scrollTo === 'function' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    first.current = false
+    if (smooth) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    else el.scrollTop = el.scrollHeight
   }, [msgs])
 
   /** 질문을 보내고 답변을 받아 대화에 추가한다. */
@@ -98,10 +103,12 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
 
       <div className="th" ref={thread} role="log" aria-live="polite">
         {msgs.map((m) => {
-          if (m.role === 'user') return <div className="msg u" key={m.id}>{m.text}</div>
+          // 처음 안내 글(id<10)은 그대로 두고, 대화 중 새로 생긴 말풍선만 모션으로 나타난다
+          const fresh = m.id >= 10
+          if (m.role === 'user') return <div className={`msg u${fresh ? ' rise-u' : ''}`} key={m.id}>{m.text}</div>
           if (m.role === 'typing')
             return (
-              <div className="msg a" key={m.id}>
+              <div className={`msg a${fresh ? ' rise' : ''}`} key={m.id}>
                 <Pav />
                 <div className="body">
                   <span className="dots"><i /><i /><i /></span> <span className="muted small">처리 중</span>
@@ -109,7 +116,7 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
               </div>
             )
           return (
-            <div className="msg a" key={m.id}>
+            <div className={`msg a${fresh ? ' rise' : ''}`} key={m.id}>
               <Pav />
               <div className="body">
                 {m.reply.paragraphs.map((p, i) => (
