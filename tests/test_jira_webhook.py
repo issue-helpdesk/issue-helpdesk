@@ -449,6 +449,21 @@ def test_run_due_counts_only_jira_calls(db, ticket, team):
     assert first.status == "DONE" and second.status == "PENDING"
 
 
+def test_event_finished_by_another_worker_while_reading_jira_is_skipped(db, ticket):
+    """실행기가 둘이면 Jira 를 읽는 사이 다른 쪽이 같은 이벤트를 끝낼 수 있다. 늦은 쪽은 반영하지 않고 넘어간다."""
+    event = add_event(db, ticket.id)
+
+    class Raced(FakeJira):
+        def get_assignee(self, key):
+            db.execute(JiraWebhookEvent.__table__.update().where(JiraWebhookEvent.id == event.id).values(status="DONE"))
+            return super().get_assignee(key)
+
+    result = process(db, Raced(work_status="FIN", final_result="해결"), event)
+
+    assert result.outcome == "SKIPPED"
+    assert ticket.work_status == "WIP" and histories(db, ticket) == []
+
+
 # ------------------------------------------------------------------ 실행기 연결
 
 

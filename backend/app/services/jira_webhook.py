@@ -108,6 +108,10 @@ def process_webhook_event(db: Session, jira: JiraClient, event_id: int, *, now: 
         return WebhookResult(event.id, "RETRY", error.reason)
 
     ticket = db.get(Ticket, ticket_id, with_for_update=True, populate_existing=True)
+    db.refresh(event)                   # 실행기가 둘 이상이면 같은 이벤트를 먼저 끝낸 쪽이 있을 수 있다
+    if event.status != "PENDING":
+        db.rollback()
+        return WebhookResult(event_id, "SKIPPED")
     if has_active_job(db, ticket.id):   # 읽는 사이에 작업이 등록됐다
         db.commit()
         return WebhookResult(event.id, "WAITING", "job_in_progress")
