@@ -108,4 +108,44 @@ describe('사이드바 문의 목록 주기 조회 (watchMyInquiries)', () => {
     expect(fetchMock.mock.calls.length).toBeGreaterThan(n)
     off()
   })
+  it('읽는 중에 같은 요청이 여러 번 와도 한 번만 더 읽고, 늦게 온 옛 응답은 반영하지 않는다', async () => {
+    let n = 0
+    const resolvers: ((v: Response) => void)[] = []
+    const fetchMock = vi.fn().mockImplementation(() => new Promise<Response>((res) => { n++; resolvers.push(res) }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { watchMyInquiries } = await import('../src/api/inquiries')
+    const { refreshInquiryList } = await import('../src/core/poll')
+    const seen: number[] = []
+    const off = watchMyInquiries('EMP-1001', (l) => seen.push(l.length))
+    await vi.advanceTimersByTimeAsync(10)
+    expect(n).toBe(1)
+    refreshInquiryList()
+    refreshInquiryList()
+    refreshInquiryList()
+    await vi.advanceTimersByTimeAsync(10)
+    expect(n).toBe(1) // 읽는 중에는 더 보내지 않는다
+    resolvers[0](json({ items: [], page: 1, size: 100, totalCount: 0, totalPages: 1 }))
+    await vi.advanceTimersByTimeAsync(10)
+    expect(n).toBe(2) // 끝난 뒤 한 번만 더
+    off()
+  })
+
+  it('탭 복귀를 연타해도 15초 안에는 다시 읽지 않는다', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => json({ items: [], page: 1, size: 100, totalCount: 0, totalPages: 1 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { watchMyInquiries } = await import('../src/api/inquiries')
+    const off = watchMyInquiries('EMP-1001', () => {})
+    await vi.advanceTimersByTimeAsync(10)
+    const n = fetchMock.mock.calls.length
+    for (let i = 0; i < 5; i++) {
+      document.dispatchEvent(new Event('visibilitychange'))
+      await vi.advanceTimersByTimeAsync(1000)
+    }
+    expect(fetchMock.mock.calls.length).toBe(n)
+    await vi.advanceTimersByTimeAsync(20_000)
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(10)
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(n)
+    off()
+  })
 })

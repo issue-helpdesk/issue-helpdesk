@@ -22,6 +22,8 @@ import { ok, type ApiResult, type DisplayStatus, type InquirySummary } from './t
  * 대화 화면이 상태 변화를 알아챘을 때(refreshInquiryList). 이 간격은 그 사이에 놓친 변화를 잡는 용도라 길게 둔다.
  */
 const POLL_MS = 120_000
+/** 간격·탭 복귀 조회 사이의 최소 간격(ms). 탭을 연타해도 이 안에서는 다시 읽지 않는다 */
+const MIN_GAP_MS = 15_000
 
 /** 로그인한 사용자의 문의 목록 (최근 활동 순). 서버는 토큰으로 사용자를 구분한다. */
 export async function listMyInquiries(employeeNo: string): Promise<ApiResult<InquirySummary[]>> {
@@ -150,16 +152,36 @@ export async function listInquiries(employeeNo: string, query: InquiryListQuery 
  * 모의 모드에서는 저장소 변경을, 서버 모드에서는 주기적 조회를 쓴다. 돌려주는 함수를 부르면 구독이 끝난다.
  */
 export function watchMyInquiries(employeeNo: string, onChange: (list: InquirySummary[]) => void): () => void {
+  // 읽기가 겹치지 않게 합치고(읽는 중에 또 요청이 오면 끝난 뒤 한 번만 더 읽는다), 늦게 온 옛 응답이 최신 목록을 덮지 않게 한다
+  let running = false
+  let again = false
+  let seq = 0
+  let lastLoad = 0
   const load = () => {
-    listMyInquiries(employeeNo).then((r) => {
-      if (r.ok) onChange(r.data)
-    })
+    if (running) {
+      again = true
+      return
+    }
+    running = true
+    lastLoad = Date.now()
+    const mine = ++seq
+    listMyInquiries(employeeNo)
+      .then((r) => {
+        if (r.ok && mine === seq) onChange(r.data)
+      })
+      .finally(() => {
+        running = false
+        if (again) {
+          again = false
+          load()
+        }
+      })
   }
   load()
   if (USE_MOCK_INQUIRY) return subscribe(load)
-  // 대화 화면이 열려 있으면 그 화면이 자기 문의를 직접 읽고 바뀐 것을 알려 주므로 안전 간격 조회는 건너뛴다
+  // 간격·탭 복귀로 읽는 조회: 대화 화면이 열려 있으면 그 화면이 자기 문의를 직접 읽으니 건너뛰고, 15초 안에 또 읽지 않는다
   const poll = () => {
-    if (pollHints.chatViews > 0) return
+    if (pollHints.chatViews > 0 || Date.now() - lastLoad < MIN_GAP_MS) return
     load()
   }
   pollHints.listLoaders.add(load)
