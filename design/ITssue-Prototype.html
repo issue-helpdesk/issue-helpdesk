@@ -158,6 +158,7 @@ h1,h2,h3,h4,p{margin:0}
 /* ---- chat ---- */
 .thread{max-width:820px;width:100%;margin:0 auto;padding:28px 32px 24px;display:flex;flex-direction:column;gap:20px}
 .msg.u{align-self:flex-end;max-width:78%;background:var(--bubble);color:var(--onbubble);padding:10px 16px;border-radius:18px 18px 6px 18px;font-size:15px;line-height:24px}
+.msg.u,.msg.staff .sb{white-space:pre-wrap;overflow-wrap:anywhere}.msg.u.clip .mt{display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}.msg.u.clip.open .mt{display:block}.msg.u .mmore{display:block;margin-top:6px;padding:0;border:0;background:transparent;color:inherit;opacity:.85;font-size:13px;line-height:20px;font-weight:600;text-decoration:underline;cursor:pointer}
 .msg.a{display:flex;gap:12px;align-items:flex-start}
 .msg.a .body{flex:1;min-width:0;max-width:88%;font-size:15px;line-height:27px}
 .msg.a .body p+p{margin-top:8px}
@@ -1505,9 +1506,11 @@ function viewChat(){
   const right=t?`<button class="btn pri sm dtl" data-act="detail" data-id="${t.receipt}">${ic('file','',16)}접수 상세</button>`:'';
   return `<main class="main">${bgsvg('c')}${topbar(i.title,t?t.receipt+(t.id?' · '+t.id:''):i.id,right+inqBadge(i),(()=>{let pk='base';for(let k=i.msgs.length-1;k>=0;k--){const m=i.msgs[k];if(m.r==='a'||m.card){pk=poseOf(i,m,k);break}}return `<span class="tlead">${pav(pk)}</span>`})())}<div class="scroll"><div class="thread">${msgs}${tmsgs}</div></div>${foot}</main>`;
 }
+/* 긴 글은 6줄까지만 보이고 "전체 보기"로 펼친다 */
+function ubub(t){const long=t.length>200||t.split('\n').length>6;return long?`<div class="msg u clip"><span class="mt">${ESC(t)}</span><button type="button" class="mmore" data-act="msg-more" aria-expanded="false">전체 보기</button></div>`:`<div class="msg u">${ESC(t)}</div>`;}
 function renderMsg(i,m,idx){
-  if(m.r==='u')return `<div class="msg u">${ESC(m.t)}</div>`;
-  if(m.r==='t')return m.from==='문의자'?`<div class="msg u">${ESC(m.t)}</div>`:`<div class="msg a staff"><span class="sav" aria-hidden="true">${ESC(m.from.slice(0,1))}</span><div class="body"><div class="sh"><b>${ESC(m.from.replace(' 담당자',''))}</b><span class="tag stf">담당자${m.grp?' · '+ESC(m.grp):''}</span><span class="small muted">${ESC(m.kind)} · ${ESC(m.time)}</span></div><div class="sb">${ESC(m.t)}</div></div></div>`;
+  if(m.r==='u')return ubub(m.t);
+  if(m.r==='t')return m.from==='문의자'?ubub(m.t):`<div class="msg a staff"><span class="sav" aria-hidden="true">${ESC(m.from.slice(0,1))}</span><div class="body"><div class="sh"><b>${ESC(m.from.replace(' 담당자',''))}</b><span class="tag stf">담당자${m.grp?' · '+ESC(m.grp):''}</span><span class="small muted">${ESC(m.kind)} · ${ESC(m.time)}</span></div><div class="sb">${ESC(m.t)}</div></div></div>`;
   if(m.r==='sys')return `<div class="msg sys${m.warn?' warn':''}${m.tone?' '+m.tone:''}">${m.html}</div>`;
   if(m.typing)return `<div class="msg a">${pav('base')}<div class="body"><span class="dots"><i></i><i></i><i></i></span> <span class="muted small">${ESC(m.label||'처리 중')}</span></div></div>`;
   let h=m.html||'';
@@ -2581,6 +2584,7 @@ const A={
   'faq-off'(e,d){const f=S.faqs[+d.k];f.off=!f.off;log((f.off?'FAQ 게시 중단 · ':'FAQ 다시 게시 · ')+f.q);render();toast(f.off?'게시를 멈췄어요. 문의자에게는 보이지 않아요.':'다시 게시했어요. 문의자 FAQ 화면에 보여요.');},
   'faq-del'(e,d){const f=S.faqs.splice(+d.k,1)[0];log('FAQ 삭제 · '+f.q);render();toast('FAQ를 삭제했어요.');},
   gtab(e,d){S.guideTab=d.t;render();},
+  'msg-more'(el){const b=el.closest('.msg'),o=b.classList.toggle('open');el.textContent=o?'접기':'전체 보기';el.setAttribute('aria-expanded',o);},
   'g-up'(){S.gu={mode:S.guides.length?'ver':'new',cat:'',doc:'',title:'',ver:'',scope:'관리자 전용',tx:'금지',cur:false};openModal('가이드 파일 업로드',guModal());},
   'gu-fclr'(){const f=document.getElementById('m-f');f.value='';document.getElementById('m-fx').hidden=true;},
   'gu-mode'(e,d){S.gu.mode=d.m;S.gu.doc='';S.gu.ver=d.m==='new'?'v1':'';guPaint();},
@@ -2902,6 +2906,7 @@ document.addEventListener('input',ev=>{
 document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset&&el.dataset.in==='fsc'){fsRepaint(el.value);return;}if(el.dataset&&el.dataset.in==='fsck'){fsSync();return;}if(el.dataset&&el.dataset.in==='gu'){const k=el.dataset.k;S.gu[k]=el.type==='checkbox'?el.checked:el.value;if(k==='cat'){S.gu.doc='';if(S.gu.mode==='new'&&!S.gu.ver)S.gu.ver='v1';guPaint();}else if(k==='doc'){const g=S.guides.find(x=>x.id===el.value);if(g){const l=g.vers[0];S.gu.ver='v'+(Math.max(...g.vers.map(x=>x.v))+1);S.gu.scope=l.scope;S.gu.tx=l.tx;}guPaint();}return;}if(el.dataset&&el.dataset.in==='secsel'){S.secF.type=el.value;render();return;}if(el.dataset&&el.dataset.in==='tfsel'){S.tf[el.dataset.k]=el.value||undefined;S.page.tk=1;render();return;}if(el.dataset&&el.dataset.in==='gfile'){const f=el.files[0];const x=document.getElementById('m-fx');if(x)x.hidden=!f;const t=document.getElementById('m-t');if(f&&t&&!t.value){t.value=f.name.replace(/\.[^.]+$/,'');if(S.gu)S.gu.title=t.value;}}if(el.dataset&&el.dataset.in==='flag'){S.flags[el.dataset.k]=el.checked;}});
 document.addEventListener('keydown',ev=>{
   const el=ev.target;
+  if(ev.key==='Enter'&&ev.altKey&&!ev.isComposing&&(el.id==='cmp'||el.id==='pre-in')){ev.preventDefault();el.setRangeText('\n',el.selectionStart,el.selectionEnd,'end');el.dispatchEvent(new Event('input',{bubbles:true}));return;}
   if(ev.key==='Enter'&&!ev.shiftKey&&!ev.isComposing){
     if(el.id==='cmp'){ev.preventDefault();A.send();}
     else if(el.id==='pre-in'){ev.preventDefault();A['pre-send']();}
