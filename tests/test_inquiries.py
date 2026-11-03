@@ -155,13 +155,13 @@ def start(client, headers, content=VPN, key="key-1"):
     return client.post(INQUIRIES, json={"content": content}, headers={**headers, "Idempotency-Key": key})
 
 
-def add_ticket(db, inquiry_id, group_id=None, work_status=None):
+def add_ticket(db, inquiry_id, group_id=None, work_status=None, assign_status="ASSIGNED"):
     session_id = db.scalar(select(ChatSession.id).where(ChatSession.inquiry_id == inquiry_id))
     draft = TicketDraft(inquiry_id=inquiry_id, session_id=session_id, status="CONFIRMED")
     db.add(draft)
     db.flush()
     ticket = Ticket(receipt_no=f"RCPT-{inquiry_id:04d}", draft_id=draft.id, inquiry_id=inquiry_id, session_id=session_id,
-                    summary="VPN 접속 불가", group_id=group_id, jira_sync_status="SYNCED", assign_status="ASSIGNED",
+                    summary="VPN 접속 불가", group_id=group_id, jira_sync_status="SYNCED", assign_status=assign_status,
                     work_status=work_status)
     db.add(ticket)
     db.commit()
@@ -544,6 +544,28 @@ def test_display_status_follows_ticket(client, db, headers, work_status, display
     assert body["ticket"] == {"id": ticket.id, "receiptNo": ticket.receipt_no, "jiraKey": None, "workStatus": work_status}
 
 
+@pytest.mark.parametrize("assign_status, display", [
+    ("PENDING", "received"), ("NEEDS_ADMIN", "received"), ("ASSIGNED", "assigned"),
+])
+def test_display_status_of_ready_ticket_waits_for_assignment(client, db, headers, assign_status, display):
+    """R-34. RDY 는 Jira 접수가 끝났다는 뜻이라, 담당자가 정해지기 전에는 접수로 보인다."""
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    add_ticket(db, inquiry_id, work_status="RDY", assign_status=assign_status)
+
+    assert client.get(f"{INQUIRIES}/{inquiry_id}", headers=headers).json()["displayStatus"] == display
+
+
+@pytest.mark.parametrize("work_status", ["WIP", "FIN", "CLS"])
+def test_display_status_after_work_started_ignores_assign_status(client, db, headers, work_status):
+    """R-34 는 RDY 만 바꾼다. 이미 진행된 접수는 배정 상태가 어떻든 업무 상태를 따른다."""
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    add_ticket(db, inquiry_id, work_status=work_status, assign_status="PENDING")
+
+    shown = client.get(f"{INQUIRIES}/{inquiry_id}", headers=headers).json()["displayStatus"]
+
+    assert shown == {"WIP": "progress", "FIN": "awaiting_confirm", "CLS": "resolved"}[work_status]
+
+
 def test_get_inquiry_not_found(client, headers):
     assert error_code(client.get(f"{INQUIRIES}/999", headers=headers)) == "INQUIRY_NOT_FOUND"
 
@@ -860,6 +882,21 @@ def test_list_display_status_matches_detail(client, headers, every_state):
                                    "progress", "awaiting_confirm", "resolved"])
 def test_list_filters_by_display_status(client, headers, every_state, shown):
     assert ids(listed(client, headers, displayStatus=shown)) == [every_state[shown]]
+
+
+def test_list_and_filter_follow_assignment_for_ready_ticket(client, db, owner, headers):
+    """R-34. 같은 RDY 접수라도 배정 전·후가 목록 값과 필터에서 상세와 똑같이 갈린다."""
+    waiting = add_inquiry(db, owner, status="HANDED_OFF")
+    add_ticket(db, waiting.id, work_status="RDY", assign_status="PENDING")
+    done = add_inquiry(db, owner, status="HANDED_OFF")
+    add_ticket(db, done.id, work_status="RDY", assign_status="ASSIGNED")
+
+    shown = {item["id"]: item["displayStatus"] for item in listed(client, headers, size=100).json()["items"]}
+    assert shown == {waiting.id: "received", done.id: "assigned"}
+    assert ids(listed(client, headers, displayStatus="received")) == [waiting.id]
+    assert ids(listed(client, headers, displayStatus="assigned")) == [done.id]
+    for inquiry_id, display in shown.items():
+        assert client.get(f"{INQUIRIES}/{inquiry_id}", headers=headers).json()["displayStatus"] == display
 
 
 def test_list_filters_by_status_category_and_urgency(client, db, owner, headers):
