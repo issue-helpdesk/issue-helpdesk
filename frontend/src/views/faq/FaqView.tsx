@@ -16,6 +16,7 @@ import { useAuth } from '../../core/session'
 import titleFaq from '../../assets/mascot/title-faq.webp'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
+import { Toast } from '../../ui/Toast'
 import { SourceList } from '../../ui/SourceList'
 import { SourcePreview } from '../../ui/SourcePreview'
 import { Topbar } from '../../ui/Topbar'
@@ -26,6 +27,13 @@ function Sources({ f, loaded, onOpen }: { f: Faq; loaded: GuideSource[] | 'err' 
   if (list === 'err') return <>출처를 불러오지 못했어요.</>
   if (list === undefined) return <>{f.serverId === undefined ? '출처 정보가 없어요.' : '출처를 불러오는 중이에요…'}</>
   return list.length ? <SourceList sources={list} onOpen={onOpen} /> : <>출처 정보가 없어요.</>
+}
+
+/** 사라지는 모션(.faq.fout, 420ms)이 보이도록 결과를 그만큼 늦춘다. 모션을 쓸 수 없는 환경(테스트, 모션 줄이기)에서는 늦추지 않는다 */
+async function withExitMotion<T>(job: Promise<ApiResult<T>>): Promise<ApiResult<T>> {
+  const motion = typeof Element.prototype.animate === 'function' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  const [r] = await Promise.all([job, motion ? new Promise((done) => setTimeout(done, 430)) : null])
+  return r
 }
 
 export function FaqView() {
@@ -44,6 +52,10 @@ export function FaqView() {
   const [toast, setToast] = useState('')
   const [reload, setReload] = useState(0)
   const [preview, setPreview] = useState<GuideSource | null>(null)
+  // 삭제하는 중인 FAQ (사라지는 모션용)
+  const [leaving, setLeaving] = useState<string | null>(null)
+  // 다시 불러오면서 새로 생긴 FAQ 는 위에서 열리며 들어온다 (처음 불러올 때는 그대로 보인다)
+  const [known, setKnown] = useState<{ ids: Set<string>; fresh: Set<string> } | null>(null)
   // 새 문의 화면의 추천 FAQ 에서 넘어오면(?open=FAQ-001) 그 FAQ 를 펼쳐서 보여 준다
   const openId = useSearchParams()[0].get('open')
 
@@ -91,6 +103,10 @@ export function FaqView() {
     if (!r.ok) return say(r.error.message)
     say(done)
     setReload((n) => n + 1)
+  }
+
+  if (faqs && (!known || faqs.some((f) => !known.ids.has(f.id)))) {
+    setKnown({ ids: new Set(faqs.map((f) => f.id)), fresh: known ? new Set(faqs.filter((f) => !known.ids.has(f.id)).map((f) => f.id)) : new Set() })
   }
 
   // 있는 분류만 칩으로 보인다 (분류 이름 순서는 카탈로그 순서)
@@ -156,7 +172,7 @@ export function FaqView() {
             {shown?.map((f) => {
               const off = f.active === false
               return (
-                <details key={f.id} id={`faq-${f.id}`} className="panel faq" open={f.id === openId ? true : undefined} style={{ padding: 0, opacity: off ? 0.72 : undefined }} onToggle={(e) => e.currentTarget.open && loadSources(f)}>
+                <details key={f.id} id={`faq-${f.id}`} className={`panel faq${leaving === f.id ? ' fout' : known?.fresh.has(f.id) ? ' fnew' : ''}`} open={f.id === openId ? true : undefined} style={{ padding: 0, opacity: off ? 0.72 : undefined }} onToggle={(e) => e.currentTarget.open && loadSources(f)}>
                   <summary>
                     <span className={`tag c-${f.categoryCode}`}>{CATEGORY_NAME[f.categoryCode] ?? f.categoryCode}</span>
                     <b>{f.question}</b>
@@ -223,7 +239,9 @@ export function FaqView() {
               onClick={() => {
                 const f = deleting
                 setDeleting(null)
-                void run(deleteFaq(f), 'FAQ를 삭제했어요.')
+                setLeaving(f.id)
+                // 사라지는 모션이 끝난 뒤에 목록을 다시 불러온다. 실패하면 항목을 되돌린다
+                void run(withExitMotion(deleteFaq(f)).then((r) => (r.ok ? r : (setLeaving(null), r))), 'FAQ를 삭제했어요.')
               }}
             >
               삭제
@@ -231,11 +249,7 @@ export function FaqView() {
           </div>
         </Modal>
       )}
-      {toast && (
-        <div className="toast" role="status">
-          {toast}
-        </div>
-      )}
+      <Toast text={toast} />
     </>
   )
 }

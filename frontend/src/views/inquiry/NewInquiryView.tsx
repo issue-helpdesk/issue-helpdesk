@@ -52,10 +52,11 @@ export function NewInquiryView() {
   const [sending, setSending] = useState(false)
   const navigate = useNavigate()
   // 추천 카드는 실제 FAQ 에서 고른다. 누르면 입력창에 채우지 않고 그 FAQ 가 펼쳐진 FAQ 화면으로 간다
-  const [suggested, setSuggested] = useState<Faq[]>([])
+  // null = 불러오는 중. 카드 자리를 미리 잡아 두어, 늦게 도착해도 가운데 정렬된 인사말·입력창이 위로 튀지 않게 한다
+  const [suggested, setSuggested] = useState<Faq[] | null>(null)
   useEffect(() => {
     let alive = true
-    listFaqs(false).then((r) => alive && r.ok && setSuggested(pickSuggested(r.data)))
+    listFaqs(false).then((r) => alive && setSuggested(r.ok ? pickSuggested(r.data) : []))
     return () => {
       alive = false
     }
@@ -125,23 +126,33 @@ export function NewInquiryView() {
             </div>
           )}
 
-          <div className="cats">
-            {CATEGORY_CHIPS.map(([icon, label, sentence]) => (
-              <button key={label} type="button" className="chip" style={{ minHeight: 44, background: 'var(--white)' }} onClick={() => fill(sentence)}>
-                <Icon name={icon} />
-                {label}
-              </button>
-            ))}
+          {/* .fold: 입력이 길어지면 접히는 영역 (layout.css) */}
+          <div className="fold">
+            <div className="inner">
+              <div className="cats">
+                {CATEGORY_CHIPS.map(([icon, label, sentence]) => (
+                  <button key={label} type="button" className="chip" style={{ minHeight: 44, background: 'var(--white)' }} onClick={() => fill(sentence)}>
+                    <Icon name={icon} />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {suggested.length > 0 && (
-            <div className="faqs3" aria-label="자주 묻는 질문">
-              {suggested.map((f) => (
-                <button key={f.id} type="button" className="faqc" onClick={() => navigate(`/faq?open=${encodeURIComponent(f.id)}`)}>
-                  <b>{f.question}</b>
-                  <small>{CATEGORY_NAME[f.categoryCode] ?? f.categoryCode} · FAQ에서 보기</small>
-                </button>
-              ))}
+          {(suggested === null || suggested.length > 0) && (
+            <div className="fold">
+              <div className="inner">
+                <div className="faqs3" aria-label="자주 묻는 질문" aria-busy={suggested === null}>
+                  {suggested === null && [0, 1, 2].map((i) => <span key={i} className="faqc ph" aria-hidden="true" />)}
+                  {suggested?.map((f) => (
+                    <button key={f.id} type="button" className="faqc" onClick={() => navigate(`/faq?open=${encodeURIComponent(f.id)}`)}>
+                      <b>{f.question}</b>
+                      <small>{CATEGORY_NAME[f.categoryCode] ?? f.categoryCode} · FAQ에서 보기</small>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 

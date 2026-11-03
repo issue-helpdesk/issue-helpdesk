@@ -14,6 +14,7 @@ import type { ApiResult, User } from '../../api/types'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
 import { useAuth } from '../../core/session'
+import { Collapse } from '../../ui/Collapse'
 import { CountUp } from '../../ui/CountUp'
 import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
@@ -785,7 +786,7 @@ export function StatsView() {
                           <small>{t ? `완료 ${Math.round((mv.CLS / t) * 100)}%` : '-'}</small>
                         </div>
                       </button>
-                      {sel && <MemberDonuts name={n} list={memWin} />}
+                      <Collapse open={sel}>{sel && <MemberDonuts name={n} list={memWin} />}</Collapse>
                     </div>
                   )
                 })}

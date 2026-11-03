@@ -31,6 +31,24 @@ interface Props {
   children: ReactNode
 }
 
+/**
+ * 닫히는 모션. 부모가 창을 바로 지우므로, 이미 떼어진 화면 조각을 복제해 body 에 잠깐 남기고
+ * 배경은 페이드아웃, 창은 살짝 내려가며 작아지게 한 뒤 치운다. 모션을 쓸 수 없는 환경(테스트, 모션 줄이기)에서는 아무것도 남기지 않는다.
+ */
+function fadeOut(ov: HTMLElement) {
+  if (typeof ov.animate !== 'function' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+  const ghost = ov.cloneNode(true) as HTMLElement
+  ghost.classList.add('leaving')
+  ghost.setAttribute('aria-hidden', 'true')
+  ghost.removeAttribute('role')
+  ghost.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'))
+  ghost.querySelectorAll('button,input,select,textarea,a').forEach((el) => el.setAttribute('tabindex', '-1'))
+  document.body.appendChild(ghost)
+  const ease = { duration: 200, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' as const }
+  ghost.firstElementChild?.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(12px) scale(.96)' }], ease)
+  ghost.animate([{ opacity: 1 }, { opacity: 0 }], ease).finished.then(() => ghost.remove(), () => ghost.remove())
+}
+
 /** 넓게 보기 선택은 이번 접속 동안 기억한다 */
 let srcWide = false
 
@@ -62,6 +80,7 @@ export function Modal({ title, sub, onClose = () => {}, dismissible = true, vari
 
   useEffect(() => {
     const box = ref.current
+    const ov = ovRef.current
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const root = document.getElementById('root')
     root?.setAttribute('inert', '')
@@ -95,6 +114,8 @@ export function Modal({ title, sub, onClose = () => {}, dismissible = true, vari
     return () => {
       document.removeEventListener('keydown', onKey)
       root?.removeAttribute('inert')
+      // 개발 모드(StrictMode)는 창이 그대로 있는 채로 효과만 한 번 껐다 켠다. 화면에서 실제로 떼어졌을 때만 닫힘 모션을 남긴다
+      if (ov && !ov.isConnected) fadeOut(ov)
       // 창을 열었던 버튼이 아직 화면에 있으면 그곳으로 돌아간다
       if (opener && document.contains(opener)) opener.focus()
     }

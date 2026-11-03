@@ -38,8 +38,10 @@ import { formatElapsed } from '../../core/format'
 import { visiblePoll } from '../../core/poll'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
+import { Collapse } from '../../ui/Collapse'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
+import { Toast } from '../../ui/Toast'
 import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
 import { StaffStatus } from '../staff/QueueView'
@@ -228,6 +230,7 @@ export function GuidesView() {
           </span>
           <span className="gbs">{g.current?.tx === '금지' ? <StateBadge tone="urg" label="외부 전송 금지" /> : g.current?.tx === '마스킹 후 허용' ? <StateBadge tone="warn" label="마스킹 후 전송" /> : null}</span>
         </button>
+        <Collapse open={open}>
         {open && (
           <div className="tw gvt" style={{ marginTop: 12 }}>
             {!list ? (
@@ -296,6 +299,7 @@ export function GuidesView() {
             )}
           </div>
         )}
+        </Collapse>
       </div>
     )
   }
@@ -332,7 +336,9 @@ export function GuidesView() {
                   </span>
                 </span>
               </button>
-              {open && <div className="gcp">{gs.map(gpanel)}</div>}
+              <Collapse open={open} className="gcp">
+                {open && gs.map(gpanel)}
+              </Collapse>
             </section>
           )
         })}
@@ -458,6 +464,7 @@ export function GuidesView() {
                       {c.exist ? '버전 업데이트 초안' : '신규 가이드 초안'}
                     </button>
                   </div>
+                  <Collapse open={open}>
                   {open && (
                     <div className="tw gc-tw">
                       <table className="tbl">
@@ -501,6 +508,7 @@ export function GuidesView() {
                       )}
                     </div>
                   )}
+                  </Collapse>
                 </section>
               )
             })}
@@ -636,11 +644,7 @@ export function GuidesView() {
           }}
         />
       )}
-      {toast && (
-        <div className="toast" role="status">
-          {toast}
-        </div>
-      )}
+      <Toast text={toast} />
     </>
   )
 }

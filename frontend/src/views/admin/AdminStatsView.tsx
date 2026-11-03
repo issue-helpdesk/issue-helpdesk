@@ -15,6 +15,7 @@ import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
+import { Collapse } from '../../ui/Collapse'
 import { CountUp } from '../../ui/CountUp'
 import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
@@ -124,7 +125,7 @@ export function AdminStatsView() {
   const ai = useSection('ai', per, tick, loadAi)
   const sum = useSection('sum', per, tick, loadSum)
   const trend = useSection('trend', `${per}|${unitNow}`, tick, loadTrend)
-  const prog = useSection('prog', `${per}|${mode}`, tick, loadProg)
+  const prog = useSection('prog', per, tick, loadProg) // 팀별·분류별은 같은 자료를 다르게 묶을 뿐이라 모드를 바꿔도 카드를 다시 읽지 않는다
   const pri = useSection('pri', per, tick, loadPri)
   const mem = useSection('mem', `${per}|${mode}|${sel ?? ''}`, tick, loadMem)
   const uid = user?.id ?? 0
@@ -212,7 +213,7 @@ export function AdminStatsView() {
           {rows.map((r) => (
             <div key={r.n}>
               <StackRow label={r.n} v={r.v} mx={mx} sel={member === r.n} onClick={() => setMember(member === r.n ? null : r.n)} />
-              {member === r.n && <MemberDonuts name={r.n} list={win} />}
+              <Collapse open={member === r.n}>{member === r.n && <MemberDonuts name={r.n} list={win} />}</Collapse>
             </div>
           ))}
         </div>
@@ -349,7 +350,7 @@ export function AdminStatsView() {
                 </div>
               </div>
               <Legend />
-              <div className="srows">
+              <div className="srows swap" key={mode}>
                 {items.map((i) => (
                   <div key={i.k}>
                     <StackRow
@@ -363,7 +364,7 @@ export function AdminStatsView() {
                         setMember(null)
                       }}
                     />
-                    {i.k === sel && nested()}
+                    <Collapse open={i.k === sel}>{i.k === sel && nested()}</Collapse>
                   </div>
                 ))}
               </div>

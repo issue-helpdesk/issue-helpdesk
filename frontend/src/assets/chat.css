@@ -59,6 +59,9 @@
 /* AI 답변 도착: 말풍선이 6px 아래에서 올라온다 (새 답변에만) */
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .msg.a.rise .body{animation:rise .18s var(--ease) both}
+/* 내가 보낸 말풍선: 오른쪽 아래에서 튀어나온다 (방금 보낸 것만) */
+.msg.u.rise-u{transform-origin:100% 100%;animation:uin .32s var(--ease) backwards}
+@keyframes uin{from{opacity:0;transform:translateY(10px) scale(.9)}}
 @media (prefers-reduced-motion:reduce){
   .stepper .st.cur .n::before,.stepper .st.cur .n::after,.stepper .st.done.chg .n,.stepper .st:last-child.done.chg .n,.msg.a.rise .body{animation:none}
   .stepper .st:last-child.done.chg .n .i path{animation:drawck .3s var(--ease) .12s forwards;stroke-dashoffset:0}.stepper .st .n .sp{display:none;background:#F0508C}
@@ -83,11 +86,14 @@
 .rdlg p{margin:6px 0 16px;font-size:13.5px;line-height:21px;color:var(--mute)}
 .rdlg .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 /* 선택 창이 처음 뜰 때와 단계가 바뀔 때: 뒤는 160ms 페이드, 창은 가운데에서 살짝 튀며 커진다 (한 번) */
-.ov.rs{animation:rdbg .16s linear both}
-.modal.rdlg,.modal.pwm{animation:rdpop .28s cubic-bezier(.34,1.56,.64,1) both}
+.ov,.ov.rs{animation:rdbg .16s linear both}
+.modal,.modal.rdlg,.modal.pwm{animation:rdpop .28s cubic-bezier(.34,1.56,.64,1) both}
+/* 닫힐 때(ui/Modal.tsx 가 복제해 둔 창): 배경은 페이드아웃, 창은 살짝 내려가며 작아진다 */
+.ov.leaving{pointer-events:none;animation:none}
+.ov.leaving .modal{animation:none}
 @keyframes rdbg{from{opacity:0}to{opacity:1}}
 @keyframes rdpop{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.ov.rs,.modal.rdlg,.modal.pwm{animation:none}}
+@media (prefers-reduced-motion:reduce){.ov,.ov.rs,.modal,.modal.rdlg,.modal.pwm,.msg.u.rise-u{animation:none}}
 /* 끝난·이어갈 수 있는 문의의 잠긴 입력창: 입력창 전체가 "이어가기 선택 열기" 버튼 자리가 된다 */
 .cmpw{position:relative;max-width:760px;margin:0 auto}.cmpw .composer{max-width:none}
 .cmp-hit{position:absolute;inset:0;border:0;background:transparent;border-radius:24px;cursor:pointer}.cmp-hit:focus-visible{outline:2px solid var(--o600);outline-offset:2px}

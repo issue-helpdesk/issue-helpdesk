@@ -21,3 +21,8 @@ h1,h2,h3,h4,p{margin:0}
 :root{--divider:#D5D9DF;--ease:cubic-bezier(.2,.8,.2,1);--hvg:#F3F4F6;--prg:#E5E7EB}
 :root[data-theme="dark"]{--divider:#3D3459;--hvg:#2D2748;--prg:#373058}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--divider:#3D3459;--hvg:#2D2748;--prg:#373058}}
+
+/* 라이트/다크 전환: 기본 크로스페이드를 끄고, 새 화면이 누른 버튼에서 원으로 퍼진다 (core/theme.ts 가 clip-path 를 움직인다) */
+::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}
+::view-transition-old(root){z-index:1}
+::view-transition-new(root){z-index:2}

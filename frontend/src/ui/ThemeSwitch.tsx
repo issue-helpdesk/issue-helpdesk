@@ -3,7 +3,8 @@
  * 로그인 화면 오른쪽 위와 사이드바 아래에 둔다.
  */
 import { useState } from 'react'
-import { currentTheme, setTheme, type ThemeMode } from '../core/theme'
+import { flushSync } from 'react-dom'
+import { currentTheme, setThemeAnimated, type ThemeMode } from '../core/theme'
 import { Icon } from './Icon'
 
 const MODES: { mode: ThemeMode; label: string; icon: 'sun' | 'moon' }[] = [
@@ -22,9 +23,10 @@ export function ThemeSwitch() {
           aria-pressed={cur === m.mode}
           aria-label={m.label}
           title={m.label}
-          onClick={() => {
-            setTheme(m.mode)
-            setCur(m.mode)
+          onClick={(e) => {
+            if (cur === m.mode) return
+            // 화면이 바뀌는 순간에 눌림 표시도 같이 바뀌도록 전환 안에서 상태를 맞춘다
+            setThemeAnimated(m.mode, e.currentTarget, () => flushSync(() => setCur(m.mode)))
           }}
         >
           <Icon name={m.icon} />

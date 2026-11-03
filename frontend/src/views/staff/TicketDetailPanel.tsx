@@ -18,6 +18,7 @@ import { useAuth } from '../../core/session'
 import { Icon } from '../../ui/Icon'
 import { ReassignDialog } from '../admin/ReassignDialog'
 import { Modal } from '../../ui/Modal'
+import { Toast } from '../../ui/Toast'
 import { UrgencyChip } from './QueueView'
 import { TicketStepper } from '../inquiry/TicketCard'
 
@@ -555,11 +556,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
             }}
           />
         )}
-        {toast && (
-          <div className="toast" role="status">
-            {toast}
-          </div>
-        )}
+        <Toast text={toast} />
         {modal && (
           <Modal title="처리 결과 등록" onClose={() => setModal(false)}>
             <p className="small muted">문의자에게 보이는 내용이에요. 비밀번호·인증번호는 적지 마세요.</p>
