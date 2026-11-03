@@ -56,7 +56,7 @@ function Hl({ text, q }: { text: string; q: string }) {
 /** 상태 칸: 이름은 같고 의미가 다른 상태는 배지 아래 보조 라벨로 나눈다 (예: 해결 확인 대기 / AI 안내) */
 function StatusCell({ s }: { s: InquirySummary }) {
   const v = stateView(s)
-  return <StateBadge tone={v.tone} label={v.label} sub={v.sub} block />
+  return <StateBadge tone={v.tone} label={v.label} sub={v.sub} block ring={v.ring} />
 }
 
 /** 정렬할 수 있는 열 머리 */

@@ -142,13 +142,25 @@ export function ChatView() {
   useEffect(() => {
     if (lastRole === 'user') stick.current = true
   }, [count, lastRole])
+  // 대화창을 맨 아래로 내린다. 새 글이 올 때는 부드럽게, 처음 열 때는 바로(맨 아래에서 시작). 부드럽게 내려가는 동안에는
+  // 스크롤 위치가 잠깐 아래에서 멀어져 보여도 "맨 아래를 따라가는 중" 상태를 풀지 않는다
+  const smoothUntil = useRef(0)
+  const readyAt = useRef(0)
+  const toBottom = (el: HTMLElement, smooth: boolean) => {
+    if (smooth && typeof el.scrollTo === 'function' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      smoothUntil.current = Date.now() + 800
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    } else el.scrollTop = el.scrollHeight
+  }
   useEffect(() => {
     const el = scrollRef.current
     if (!el || !ready) return
+    readyAt.current = Date.now()
     const down = () => {
-      if (stick.current) el.scrollTop = el.scrollHeight
+      if (stick.current) toBottom(el, Date.now() - readyAt.current > 800)
     }
     const onScroll = () => {
+      if (Date.now() < smoothUntil.current) return
       stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
     }
     el.addEventListener('scroll', onScroll, { passive: true })
@@ -165,7 +177,7 @@ export function ChatView() {
   // 글이 늘거나 진행 카드가 바뀔 때에도 아래를 따라간다
   useEffect(() => {
     const el = scrollRef.current
-    if (el && stick.current) el.scrollTop = el.scrollHeight
+    if (el && stick.current) toBottom(el, Date.now() - readyAt.current > 800)
   }, [count, inquiry?.ticket?.workStatus, inquiry?.ticket?.assignStatus])
 
   /** 동작을 보내고 돌아온 문의로 화면을 바꾼다. 실패하면 안내 문구를 보여 준다. */
@@ -214,7 +226,7 @@ export function ChatView() {
   if (inquiry === undefined) {
     return (
       <main className="main">
-        <Topbar title="문의 대화" />
+        <Topbar title="문의 대화" quiet />
         <div className="scroll" />
       </main>
     )
@@ -223,7 +235,7 @@ export function ChatView() {
     const failed = loaded?.failed
     return (
       <main className="main">
-        <Topbar title="문의 대화" />
+        <Topbar title="문의 대화" quiet />
         <div className="scroll">
           {failed ? (
             <EmptyState
@@ -309,17 +321,7 @@ export function ChatView() {
       <Topbar
         title={inquiry.title}
         sub={t ? `${t.receiptNo}${t.jiraKey ? ` · ${t.jiraKey}` : ''}` : undefined}
-        right={
-          <>
-            {t && (
-              <button type="button" className="btn pri sm dtl" onClick={() => setDetail(true)}>
-                <Icon name="file" />
-                접수 상세
-              </button>
-            )}
-            <StateBadge tone={state.tone} label={state.label} sub={state.sub} />
-          </>
-        }
+        status={<StateBadge tone={state.tone} label={state.label} sub={state.sub} ring={state.ring} />}
         lead={
           <span className="tlead">
             <Pav pose={latestPose(inquiry)} size={44} />

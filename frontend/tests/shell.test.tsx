@@ -40,7 +40,7 @@ describe('화면 전환과 접근성', () => {
 })
 
 describe('사이드바', () => {
-  it('문의자는 새 문의 · 문의 내역 · FAQ 메뉴와 사용자 정보가 보인다', async () => {
+  it('문의자는 새 문의 · 문의 내역 · FAQ 메뉴가 보이고, 사용자 정보는 오른쪽 위 메뉴에 있다', async () => {
     renderAs('EMP-1001')
     const nav = await screen.findByRole('navigation', { name: '주 메뉴' }, SLOW)
     expect(within(nav).getByRole('button', { name: /새 문의/ })).toHaveAttribute('aria-current', 'page')
@@ -48,7 +48,9 @@ describe('사이드바', () => {
     expect(within(nav).getByRole('button', { name: 'FAQ' })).toBeInTheDocument()
     // 문의자에게는 업무·운영 메뉴가 없다
     expect(within(nav).queryByRole('button', { name: '처리할 문의' })).not.toBeInTheDocument()
-    expect(screen.getByText('개발1팀 · 문의자')).toBeInTheDocument()
+    // 사용자 정보(소속·역할)는 오른쪽 위 사용자 메뉴를 열면 보인다
+    await userEvent.setup().click(screen.getByRole('button', { name: '내 메뉴' }))
+    expect(screen.getByRole('menu', { name: '내 메뉴' })).toHaveTextContent('개발1팀 · 문의자')
   })
 
   it('담당자에게는 업무 메뉴, 관리자에게는 운영 메뉴가 더해진다', async () => {
@@ -76,7 +78,8 @@ describe('사이드바', () => {
   it('로그아웃하면 로그인 화면으로 돌아간다', async () => {
     const user = userEvent.setup()
     renderAs('EMP-1001')
-    await user.click(await screen.findByRole('button', { name: '로그아웃' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '내 메뉴' }, SLOW))
+    await user.click(screen.getByRole('menuitem', { name: '로그아웃' }))
     expect(screen.getByRole('heading', { name: 'IT 문제, 먼저 물어보세요' })).toBeInTheDocument()
     expect(tokenStore.get()).toBeNull()
   })

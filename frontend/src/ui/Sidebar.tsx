@@ -24,6 +24,7 @@ import { SideToggle } from './SideToggle'
 import { useShell } from './shellContext'
 import { stateView } from './stateStyle'
 import { ThemeSwitch } from './ThemeSwitch'
+import { USER_IN_TOP_RIGHT } from './userPlacement'
 
 interface NavItem {
   to: string
@@ -238,7 +239,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
                   </b>
                   <small>
                     <span className="rs" style={{ color: `var(--s-${tone}-fg)` }}>
-                      <i style={{ background: `var(--s-${tone}-dot)` }} />
+                      <i className={sv.ring ? 'ring' : undefined} style={{ background: `var(--s-${tone}-dot)` }} />
                       {sv.label}
                     </span>{' '}
                     · {formatRelative(i.updatedAt)}
@@ -250,36 +251,40 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
         </div>
       )}
 
-      <div className="modebar">
-        <small>화면 모드</small>
-        <ThemeSwitch />
-      </div>
-
-      <div className="who">
-        {/* 이름 영역을 누르면 "내 프로필" 창이 열린다 */}
-        <button type="button" className="whobtn" aria-label="내 프로필 열기" onClick={openProfile}>
-          <span className="pf">{initials(user.name)}</span>
-          <div>
-            <div className="nm">{user.name}</div>
-            <small>
-              {user.departmentName} · {ROLE_LABEL[user.serviceRole]}
-            </small>
+      {!USER_IN_TOP_RIGHT && (
+        <>
+          <div className="modebar">
+            <small>화면 모드</small>
+            <ThemeSwitch />
           </div>
-        </button>
-        <button
-          className="btn ghost sm out"
-          type="button"
-          aria-label="로그아웃"
-          title="로그아웃"
-          onClick={() => {
-            // 로그아웃하면 토큰을 지우고 로그인 화면으로 돌아간다 (뒤로가기로 돌아오지 못하게 replace)
-            logout()
-            navigate('/login', { replace: true })
-          }}
-        >
-          <Icon name="logout" />
-        </button>
-      </div>
+
+          <div className="who">
+            {/* 이름 영역을 누르면 "내 프로필" 창이 열린다 */}
+            <button type="button" className="whobtn" aria-label="내 프로필 열기" onClick={openProfile}>
+              <span className="pf">{initials(user.name)}</span>
+              <div>
+                <div className="nm">{user.name}</div>
+                <small>
+                  {user.departmentName} · {ROLE_LABEL[user.serviceRole]}
+                </small>
+              </div>
+            </button>
+            <button
+              className="btn ghost sm out"
+              type="button"
+              aria-label="로그아웃"
+              title="로그아웃"
+              onClick={() => {
+                // 로그아웃하면 토큰을 지우고 로그인 화면으로 돌아간다 (뒤로가기로 돌아오지 못하게 replace)
+                logout()
+                navigate('/login', { replace: true })
+              }}
+            >
+              <Icon name="logout" />
+            </button>
+          </div>
+        </>
+      )}
     </aside>
   )
 }

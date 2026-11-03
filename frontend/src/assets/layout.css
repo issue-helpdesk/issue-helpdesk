@@ -10,6 +10,9 @@
 .b-ok{background:var(--s-ok-bg);color:var(--s-ok-fg)}.b-ok i{background:var(--s-ok-dot)}
 .b-urg{background:var(--s-urg-bg);color:var(--s-urg-fg)}.b-urg i{background:var(--s-urg-dot)}
 .b-warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.b-warn i{background:var(--s-warn-dot)}
+.b-info{background:var(--s-info-bg);color:var(--s-info-fg)}.b-info i{background:var(--s-info-dot)}
+/* 끝난 문의(미연결 종료)는 점을 속이 빈 링으로 그려 색만으로 구분하지 않게 한다 */
+.badge i.ring,.rs i.ring{background:transparent!important;box-shadow:inset 0 0 0 1.5px currentColor}
 .count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--o600);color:#fff;font-size:12px;font-weight:700;text-box:trim-both cap alphabetic}
 .tag{display:inline-flex;align-items:center;height:22px;padding:1px 8px 0;border-radius:6px;background:var(--osurf);color:var(--o700);font-size:12px;font-weight:700;letter-spacing:.02em}
 .tag.gray{background:var(--shell);color:var(--mute)}
@@ -213,8 +216,62 @@ main.enter .scroll>.page>:nth-child(3),main.enter .scroll>.hero>:nth-child(3){--
 main.enter .scroll>.page>:nth-child(4),main.enter .scroll>.hero>:nth-child(4){--i:3}
 main.enter .scroll>.page>:nth-child(5),main.enter .scroll>.hero>:nth-child(5){--i:4}
 main.enter .scroll>.page>:nth-child(n+6),main.enter .scroll>.hero>:nth-child(n+6){--i:5}
-@media (prefers-reduced-motion:reduce){main.enter .scroll>.page>*,main.enter .scroll>.hero>*,main.enter .scroll>.thread{animation:none}}
+/* 상단바(캐릭터·제목): 본문보다 먼저, 위에서 살짝 내려오며 나타난다 */
+@keyframes pgdn{from{opacity:0;transform:translateY(-8px)}}
+.top .tt.tin{animation:pgdn calc(.35s*var(--spd)) cubic-bezier(.22,1,.36,1) backwards}
+main.enter>.top>.row>*,main.enter>.top>.row:nth-child(2){animation:pgdn calc(.35s*var(--spd)) cubic-bezier(.22,1,.36,1) backwards;animation-delay:calc(var(--i,0)*.05s*var(--spd))}
+main.enter>.top>.row>:nth-child(2){--i:1}main.enter>.top>.row>:nth-child(3){--i:2}main.enter>.top>.row>:nth-child(n+4){--i:3}
+@media (prefers-reduced-motion:reduce){main.enter .scroll>.page>*,main.enter .scroll>.hero>*,main.enter .scroll>.thread,main.enter>.top>.row>*,main.enter>.top>.row:nth-child(2),.top .tt.tin{animation:none}}
 
 /* 팀별/분류별처럼 목록만 바뀌는 곳: 카드는 그대로 두고 막대 목록만 살짝 올라오며 다시 나타난다 */
 .srows.swap{animation:pgin .4s cubic-bezier(.22,1,.36,1) backwards}
 @media (prefers-reduced-motion:reduce){.srows.swap{animation:none}}
+
+/* ───── 오른쪽 위 컨트롤 (ui/UserControls.tsx): 화면 모드 1칸(올리면 3칸) + 사용자 메뉴 ─────
+   상세 패널(.detail, z-index 40)은 이 위에 겹쳐 열려서 패널이 열려 있는 동안은 컨트롤을 덮는다 */
+.tr{position:absolute;right:16px;z-index:7;display:flex;align-items:center;gap:8px}
+.top>.tr{top:50%;margin-top:-22px}
+.tr.fl{top:12px}
+.main>.top{padding-right:144px}
+@media (max-width:860px){.main>.top{padding-right:128px}.tr{right:max(12px,env(safe-area-inset-right,0px))}}
+/* 1칸: 지금 모드 아이콘 하나 → 마우스를 올리거나 키보드로 오면 3칸으로 펼쳐진다 (터치는 누르면 펼침) */
+.t1{position:relative;width:44px;height:44px}
+.t1 .one{position:absolute;right:0;top:0;width:44px;height:44px;padding:0;border-radius:50%;border:0;background:var(--white);color:var(--ink2);box-shadow:inset 0 0 0 1px var(--line),var(--shadow);display:grid;place-items:center;cursor:pointer;transition:opacity .15s}
+.t1 .tgm{position:absolute;right:0;top:0;height:44px;align-items:center;padding:3px 4px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line),var(--shadow);opacity:0;pointer-events:none;transform-origin:100% 50%;transform:scaleX(.5);transition:opacity .18s,transform .22s cubic-bezier(.22,1,.36,1)}
+.t1:hover .tgm,.t1:has(:focus-visible) .tgm,.t1.open .tgm{opacity:1;pointer-events:auto;transform:none}
+.t1:hover .one,.t1:has(:focus-visible) .one,.t1.open .one{opacity:0}
+/* 사용자 메뉴 */
+.um{position:relative}
+.tr .av{width:44px;height:44px;padding:0;border-radius:50%;border:0;background:var(--osurf);color:var(--o700);font-weight:700;font-size:14px;box-shadow:inset 0 0 0 1px var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer}
+:root[data-theme="dark"] .tr .av{color:#FFB0CF}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tr .av{color:#FFB0CF}}
+.pop{position:absolute;top:52px;right:0;min-width:220px;background:var(--white);border-radius:14px;box-shadow:inset 0 0 0 1px var(--line),var(--pop);padding:10px;font-size:13px;z-index:8}
+.pop .nm{padding:4px 6px 8px;border-bottom:1px solid var(--line2);margin-bottom:6px}.pop .nm b{display:block;font-size:13.5px}.pop .nm small{display:block;color:var(--mute);font-size:12px}
+.pop .lk{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;text-align:left;padding:9px 8px;border-radius:8px;color:var(--ink2);font:inherit;font-size:13.5px;cursor:pointer}
+.pop .lk:hover,.pop .lk:focus-visible{background:var(--shell);color:var(--ink)}
+@media (prefers-reduced-motion:reduce){.t1 .one,.t1 .tgm{transition:none}}
+/* 상단바 제목 아래 상태 배지 (미연결 종료 등) */
+.tst{display:flex;align-items:center;gap:8px;margin-top:2px;min-width:0}
+.tst .badge{height:20px;padding:0 8px;font-size:11.5px}
+.tst>span:not(.badge){white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* 오른쪽 위 컨트롤 자리를 비웠으므로, 상단바 왼쪽 묶음(캐릭터·제목·보조 글)은 줄어들 수 있어야 하고 긴 글은 말줄임으로 자른다 */
+.main>.top>.row:first-child{min-width:0;flex:1 1 auto}
+.top .tt h2,.top .tt .sub:not(.tst){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 오른쪽 위 컨트롤은 상단바(캐릭터 44~56px)와 균형이 맞도록 44px(앱의 버튼 기본 높이)로 키우고, 아이콘·글자도 한 단계 키운다 */
+.t1 .one .i{width:22px;height:22px}
+.t1 .tgm button{width:40px;height:36px}
+.t1 .tgm button .i{width:20px;height:20px}
+/* 사용자 메뉴 팝업: 아바타 쪽에서 살짝 커지며 나타나고, 닫을 때는 작아지며 사라진다 */
+.pop{transform-origin:100% 0;animation:popin .2s cubic-bezier(.22,1,.36,1) backwards}
+.pop.out{opacity:0;transform:translateY(-6px) scale(.95);transition:opacity .14s,transform .16s cubic-bezier(.4,0,1,1);pointer-events:none;animation:none}
+@keyframes popin{from{opacity:0;transform:translateY(-8px) scale(.92)}}
+@media (prefers-reduced-motion:reduce){.pop,.pop.out{animation:none;transition:none}}
+
+/* ───── "맨 위로" 버튼 (ui/ScrollTop.tsx): 오른쪽 아래. 상세 패널(z-index 40) 아래, 창(70) 아래에 둔다 ───── */
+.totop{position:fixed;right:24px;z-index:30;width:44px;height:44px;padding:0;border:0;border-radius:50%;background:var(--white);color:var(--ink2);box-shadow:inset 0 0 0 1px var(--line),var(--pop);display:grid;place-items:center;cursor:pointer;animation:totopin .28s cubic-bezier(.22,1,.36,1) backwards;transition:background .15s,color .15s,transform .15s}
+.totop .i{width:20px;height:20px}
+.totop:hover{background:var(--osoft);color:var(--link);transform:translateY(-2px)}
+.totop:focus-visible{outline:2px solid var(--o600);outline-offset:2px}
+.totop.out{opacity:0;transform:translateY(8px);pointer-events:none;animation:none;transition:opacity .18s,transform .2s cubic-bezier(.4,0,1,1)}
+@keyframes totopin{from{opacity:0;transform:translateY(10px) scale(.9)}}
+@media (max-width:860px){.totop{right:max(14px,env(safe-area-inset-right,0px))}}
+@media (prefers-reduced-motion:reduce){.totop,.totop.out{animation:none;transition:none}}

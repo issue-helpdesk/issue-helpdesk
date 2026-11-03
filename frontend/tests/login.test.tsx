@@ -210,7 +210,9 @@ describe('로그인 화면', () => {
     renderApp()
     await user.click(screen.getByRole('button', { name: '로그인' }))
     await screen.findByRole('heading', { name: '새 문의' }, SLOW)
-    await user.click(screen.getByRole('button', { name: '로그아웃' }))
+    // 로그아웃은 오른쪽 위 사용자 메뉴 안에 있다
+    await user.click(screen.getByRole('button', { name: '내 메뉴' }))
+    await user.click(screen.getByRole('menuitem', { name: '로그아웃' }))
     expect(screen.getByRole('heading', { name: 'IT 문제, 먼저 물어보세요' })).toBeInTheDocument()
     expect(tokenStore.get()).toBeNull()
   })

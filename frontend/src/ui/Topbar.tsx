@@ -9,15 +9,17 @@ import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { Icon } from './Icon'
 import { SideToggle } from './SideToggle'
 import { useShell } from './shellContext'
+import { UserControls } from './UserControls'
 
-/** lead: 제목 왼쪽 이미지 (대화 화면의 잇슈, 화면별 제목 이미지) */
-export function Topbar({ title, sub, right, lead }: { title: string; sub?: string; right?: ReactNode; lead?: ReactNode }) {
+/** status: 제목 아래에 놓는 상태 배지 (보조 글이 있으면 그 옆). 오른쪽 위는 화면 모드·사용자 메뉴(UserControls)가 쓰므로 상태는 오른쪽에 두지 않는다
+ * lead: 제목 왼쪽 이미지 (대화 화면의 잇슈, 화면별 제목 이미지). quiet: 실제 제목을 아직 모를 때(불러오는 중) 제목 글을 보이지 않게 두고 높이만 지킨다 */
+export function Topbar({ title, sub, right, lead, status, quiet = false }: { title: string; sub?: string; right?: ReactNode; lead?: ReactNode; status?: ReactNode; quiet?: boolean }) {
   const { toggleNav } = useShell()
   const ref = useRef<HTMLElement>(null)
   // 화면 제목으로 문서 제목을 갱신한다
   useEffect(() => {
-    document.title = `${title} · ITssue`
-  }, [title])
+    if (!quiet) document.title = `${title} · ITssue`
+  }, [title, quiet])
   useLayoutEffect(() => {
     const el = ref.current
     const main = el?.parentElement
@@ -54,12 +56,19 @@ export function Topbar({ title, sub, right, lead }: { title: string; sub?: strin
           <Icon name="chevron" />
         </button>
         {lead}
-        <div className="tt">
+        {/* 제목이 바뀌면(채팅에서 문의를 바꿔 열 때 임시 제목 → 실제 제목) 제목 블록이 다시 나타나는 모션을 쓴다 */}
+        <div className={quiet ? 'tt' : 'tt tin'} key={quiet ? '' : title} style={quiet ? { visibility: 'hidden' } : undefined} aria-hidden={quiet || undefined}>
           <h2>{title}</h2>
-          {sub && <div className="sub">{sub}</div>}
+          {(status || sub) && (
+            <div className="sub tst">
+              {status}
+              {sub && <span>{sub}</span>}
+            </div>
+          )}
         </div>
       </div>
       {right && <div className="row" style={{ gap: 8 }}>{right}</div>}
+      <UserControls />
     </header>
   )
 }
