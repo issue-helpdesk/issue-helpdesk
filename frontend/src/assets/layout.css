@@ -260,3 +260,8 @@ main.enter>.top>.row>:nth-child(2){--i:1}main.enter>.top>.row>:nth-child(3){--i:
 .t1 .one .i{width:22px;height:22px}
 .t1 .tgm button{width:40px;height:36px}
 .t1 .tgm button .i{width:20px;height:20px}
+/* 사용자 메뉴 팝업: 아바타 쪽에서 살짝 커지며 나타나고, 닫을 때는 작아지며 사라진다 */
+.pop{transform-origin:100% 0;animation:popin .2s cubic-bezier(.22,1,.36,1) backwards}
+.pop.out{opacity:0;transform:translateY(-6px) scale(.95);transition:opacity .14s,transform .16s cubic-bezier(.4,0,1,1);pointer-events:none;animation:none}
+@keyframes popin{from{opacity:0;transform:translateY(-8px) scale(.92)}}
+@media (prefers-reduced-motion:reduce){.pop,.pop.out{animation:none;transition:none}}

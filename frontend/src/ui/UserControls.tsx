@@ -13,6 +13,10 @@ import { useShell } from './shellContext'
 import { ThemeSwitch } from './ThemeSwitch'
 import { USER_IN_TOP_RIGHT } from './userPlacement'
 
+/** 메뉴가 닫히는 모션(.pop.out)이 끝나는 시간(ms) */
+const CLOSE_MS = 160
+const canMotion = () => typeof Element.prototype.animate === 'function' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
 /** 이름 끝 두 글자를 프로필 동그라미에 보여 준다 (이름이 아직 없으면 빈 칸) */
 const initials = (name?: string) => (name ?? '').slice(-2)
 
@@ -21,6 +25,15 @@ export function UserControls({ floating = false }: { floating?: boolean }) {
   const { openProfile } = useShell()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  // 닫을 때 작아지며 사라지는 모션이 끝날 때까지는 메뉴를 그대로 둔다 (모션을 쓸 수 없는 환경에서는 바로 지운다)
+  const [mounted, setMounted] = useState(false)
+  if (open && !mounted) setMounted(true)
+  useEffect(() => {
+    if (open || !mounted) return
+    const t = setTimeout(() => setMounted(false), CLOSE_MS)
+    return () => clearTimeout(t)
+  }, [open, mounted])
+  const show = canMotion() ? mounted : open
   const box = useRef<HTMLDivElement>(null)
   const first = useRef<HTMLButtonElement>(null)
 
@@ -53,8 +66,8 @@ export function UserControls({ floating = false }: { floating?: boolean }) {
         <button type="button" className="av" aria-label="내 메뉴" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           {initials(user.name)}
         </button>
-        {open && (
-          <div className="pop" role="menu" aria-label="내 메뉴">
+        {show && (
+          <div className={`pop${open ? '' : ' out'}`} role="menu" aria-label="내 메뉴">
             <div className="nm">
               <b>{user.name}</b>
               <small>
