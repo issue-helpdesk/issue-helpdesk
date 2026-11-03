@@ -68,6 +68,12 @@ def status_history(ticket_id: int, auth: CurrentAuth, service: TicketServiceDep)
     return service.status_history(ticket_id, auth.user)
 
 
+@router.post("/tickets/{ticket_id}/sync", response_model=Ticket)
+def sync_ticket(ticket_id: int, auth: CurrentAuth, service: TicketServiceDep) -> Ticket:
+    """화면 새로고침. Jira 최신 값을 반영해 돌려준다."""
+    return service.sync_ticket(ticket_id, auth.user)
+
+
 @router.patch("/tickets/{ticket_id}", response_model=Ticket, status_code=status.HTTP_202_ACCEPTED)
 def request_transition(
     ticket_id: int, body: TicketUpdateRequest, auth: CurrentAuth, service: TicketServiceDep,
