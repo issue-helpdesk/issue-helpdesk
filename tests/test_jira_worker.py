@@ -6,10 +6,20 @@ from datetime import timedelta
 import pytest
 
 from app.integrations.jira import worker
-from app.models import IntegrationJob, Ticket
+from app.models import Base, IntegrationJob, Ticket
 import httpx
 
 from test_jira_create_service import FakeJira as _BaseJira, POST_ISSUE, T0, db, make_job, make_ticket, reload  # noqa: F401  (db 는 fixture)
+
+
+@pytest.fixture(autouse=True)
+def webhook_table(request):
+    """run_round 가 웹훅 이벤트도 읽으므로, 이 파일의 DB fixture(db·assign_db·transition_db)에 표를 만들어 둔다."""
+    for name in ("db", "assign_db", "transition_db"):
+        if name in request.fixturenames:
+            session = request.getfixturevalue(name)
+            Base.metadata.tables["jira_webhook_events"].create(session.bind, checkfirst=True)
+            return
 
 
 class FakeJira(_BaseJira):
