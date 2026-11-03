@@ -13,10 +13,12 @@ import { countSecurityAlerts, watchSecurity } from '../api/security'
 import { listTickets, watchTickets } from '../api/tickets'
 import type { InquirySummary, ServiceRole } from '../api/types'
 import { formatRelative } from '../core/format'
+import { refreshInquiryList } from '../core/poll'
 import { HOME_BY_ROLE, ROLE_LABEL } from '../core/roles'
 import { useAuth } from '../core/session'
 import { Icon, type IconName } from './Icon'
 import { Logo } from './Logo'
+import { SideToggle } from './SideToggle'
 import { useShell } from './shellContext'
 import { stateView } from './stateStyle'
 import { ThemeSwitch } from './ThemeSwitch'
@@ -109,6 +111,15 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
     if (!employeeNo) return
     return watchMyInquiries(employeeNo, setRecent)
   }, [employeeNo])
+  // 서버가 변화를 알려 주지 않으므로 화면을 옮길 때 한 번 다시 읽는다 (짧은 시간에 여러 번 옮겨도 15초에 한 번만)
+  const lastRefresh = useRef<number | null>(null)
+  useEffect(() => {
+    const now = Date.now()
+    const first = lastRefresh.current === null // 처음 열 때는 목록을 이미 읽는다
+    if (!first && now - (lastRefresh.current ?? 0) < 15_000) return
+    lastRefresh.current = now
+    if (!first) refreshInquiryList()
+  }, [pathname])
 
   const extra = EXTRA_MENU[user?.serviceRole ?? 'EMPLOYEE']
   const fold = !!extra
@@ -176,6 +187,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
         <button type="button" className="brandbtn" aria-label="ITssue 홈으로" onClick={() => go(HOME_BY_ROLE[user.serviceRole])}>
           <Logo width={118} kind="word" />
         </button>
+        <SideToggle />
       </div>
 
       <nav className="nav" aria-label="주 메뉴">

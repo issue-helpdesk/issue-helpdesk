@@ -7,6 +7,7 @@
  */
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { Icon } from './Icon'
+import { SideToggle } from './SideToggle'
 import { useShell } from './shellContext'
 
 /** lead: 제목 왼쪽 이미지 (대화 화면의 잇슈, 화면별 제목 이미지) */
@@ -34,6 +35,7 @@ export function Topbar({ title, sub, right, lead }: { title: string; sub?: strin
   return (
     <header className="top" ref={ref}>
       <div className="row" style={{ flexWrap: 'nowrap', gap: 10 }}>
+        <SideToggle open />
         <button className="btn sec sm ico menu" type="button" aria-label="메뉴 열기" onClick={toggleNav}>
           <Icon name="chevron" />
         </button>

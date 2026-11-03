@@ -14,11 +14,11 @@ import { IDLE_TEXT, type DraftEdit, type GuideSource, type Inquiry, type LegacyC
 import { displayStatusOf, inquiryState } from '../../api/inquiryState'
 import type { ApiResult } from '../../api/types'
 import { SERVICEDESK, USE_MOCK_INQUIRY } from '../../core/config'
-import { sourceFull } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
 import { EmptyState } from '../../ui/EmptyState'
 import { Icon } from '../../ui/Icon'
+import { SourcePreview } from '../../ui/SourcePreview'
 import { Modal } from '../../ui/Modal'
 import { StateBadge } from '../../ui/StateBadge'
 import { stateView } from '../../ui/stateStyle'
@@ -287,7 +287,7 @@ export function ChatView() {
         right={
           <>
             {t && (
-              <button type="button" className="btn soft sm" onClick={() => setDetail(true)}>
+              <button type="button" className="btn pri sm dtl" onClick={() => setDetail(true)}>
                 <Icon name="file" />
                 접수 상세
               </button>
@@ -363,20 +363,7 @@ export function ChatView() {
         )}
       </div>
 
-      {modal?.kind === 'source' && (
-        <Modal title={sourceFull(modal.source)} onClose={() => setModal(null)}>
-          <p className="small muted">출처 미리보기 (시연)</p>
-          <div className="card w">
-            <b>{modal.source.section}</b>
-            <p style={{ marginTop: 6, lineHeight: '24px' }}>{modal.source.excerpt}</p>
-          </div>
-          <div className="acts">
-            <button type="button" className="btn pri" onClick={() => setModal(null)}>
-              닫기
-            </button>
-          </div>
-        </Modal>
-      )}
+      {modal?.kind === 'source' && <SourcePreview source={modal.source} demo={USE_MOCK_INQUIRY} onClose={() => setModal(null)} />}
 
       {modal?.kind === 'legacy' && (
         <Modal title={`과거 처리 사례 · ${modal.legacy.no}`} onClose={() => setModal(null)}>

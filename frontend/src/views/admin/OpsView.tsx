@@ -71,6 +71,13 @@ const linkWhy = (t: TicketSummary) => (t.transitionStatus === 'NEEDS_ADMIN' ? 'J
 const sub = (t: TicketSummary) => `${t.receiptNo} · ${t.group?.name ?? '-'} · ${t.assignee?.name ?? '배정 전'}`
 
 type Key = 'U' | 'X' | 'L' | 'A'
+/** 최근 처리 결과: 같은 접수의 요청 → 결과를 한 건으로 묶는다 */
+interface Res {
+  id: number
+  no: string
+  jira: string
+  steps: { at: string; text: string; st: 'req' | 'done' }[]
+}
 
 export function OpsView() {
   const { user } = useAuth()
@@ -83,7 +90,10 @@ export function OpsView() {
   const [more, setMore] = useState<Record<Key, boolean>>({ U: false, X: false, L: false, A: false })
   const [people, setPeople] = useState<Record<string, Candidate[]>>({})
   const [peopleErr, setPeopleErr] = useState('')
-  const [results, setResults] = useState<{ at: string; no: string; id: number; text: string }[]>([])
+  const [results, setResults] = useState<Res[]>([])
+  const [resMore, setResMore] = useState(false)
+  const [curOpen, setCurOpen] = useState(false)
+  const [pending, setPending] = useState<number[]>([])
   const [toast, setToast] = useState('')
   const [check, setCheck] = useState<TicketSummary | null>(null)
   const [assign, setAssign] = useState<TicketDetail | null>(null)
@@ -147,10 +157,15 @@ export function OpsView() {
     timer.current = setTimeout(() => setToast(''), 3000)
   }, [])
 
-  const note = useCallback(
-    (t: { id: number; receiptNo: string }, text: string) => setResults((l) => [{ at: hm(new Date().toISOString()), no: t.receiptNo, id: t.id, text }, ...l].slice(0, 5)),
-    [],
-  )
+  /** 같은 접수의 요청과 결과는 한 줄로 묶고, 가장 최근에 건드린 건이 맨 위에 온다 */
+  const note = useCallback((t: { id: number; receiptNo: string; jiraKey?: string | null }, text: string, st: 'req' | 'done' = 'done') => {
+    setResults((l) => {
+      const old = l.find((x) => x.id === t.id)
+      const g: Res = old ?? { id: t.id, no: t.receiptNo, jira: '', steps: [] }
+      const next: Res = { ...g, jira: t.jiraKey ?? g.jira, steps: [...g.steps, { at: hm(new Date().toISOString()), text, st }].slice(-4) }
+      return [next, ...l.filter((x) => x.id !== t.id)].slice(0, 30)
+    })
+  }, [])
 
   const grp = chip || team || groups[0]?.name || ''
   const members = people[grp] ?? []
@@ -159,23 +174,27 @@ export function OpsView() {
   const asOf = snap?.asOf ?? opened
 
   const goCheck = useCallback(
-    async (kind: 'link' | 'trn') => {
+    async (kind: 'link' | 'trn', reason: string) => {
       if (!user || !check) return
       setBusy(true)
       setCheckErr('')
-      const r = kind === 'trn' ? await recheckTransition(user, check.id) : await retryJiraCreate(user, check.id)
+      const t = check
+      const started = Date.now()
+      const r = kind === 'trn' ? await recheckTransition(user, t.id, reason) : await retryJiraCreate(user, t.id, reason)
       setBusy(false)
       if (!r.ok) return setCheckErr(r.error.message)
-      const t = check
       setCheck(null)
+      // 요청을 받은 뒤 실제로 반영될 때까지는 행 버튼이 "처리 중"으로 바뀐다 (최소 1.2초는 보여서 눌렀다는 걸 알 수 있게)
+      setPending((l) => [...l, t.id])
+      note(t, kind === 'trn' ? '상태 다시 반영 요청' : '티켓 생성 재요청', 'req')
+      say('재처리를 등록했어요. 잠시 뒤 반영돼요.')
+      await new Promise((res) => setTimeout(res, Math.max(0, 1200 - (Date.now() - started))))
+      setPending((l) => l.filter((x) => x !== t.id))
       if (kind === 'trn') {
         const to = r.data.workStatus === 'FIN' ? '해결 확인 대기' : r.data.workStatus === 'CLS' ? '해결 완료' : r.data.workStatus === 'WIP' ? '처리 중' : '처리 대기'
-        note(t, `Jira 상태를 확인하고 ${to}(으)로 반영했어요`)
-        say(`Jira 반영을 확인했어요. 상태가 ${to}(으)로 바뀌었어요.`)
+        note({ ...t, jiraKey: r.data.jiraKey }, `${to}(으)로 반영`)
       } else {
-        const who = r.data.assignee ? `${r.data.assignee.name} 님에게 자동 배정했어요` : '담당자는 배정 확인에서 지정해 주세요'
-        note(t, `기존 티켓이 없어 새로 생성했어요: ${r.data.jiraKey} · ${who}`)
-        say(`기존 티켓이 없어 새로 생성했어요: ${r.data.jiraKey}`)
+        note({ ...t, jiraKey: r.data.jiraKey }, `티켓 생성 · ${r.data.jiraKey}${r.data.assignee ? ` · ${r.data.assignee.name} 자동 배정` : ''}`)
       }
       setReload((n) => n + 1)
     },
@@ -238,7 +257,16 @@ export function OpsView() {
       <span className="o-e">
         <b>{formatElapsed(t.createdAt)}</b> 경과
       </span>
-      {mode === 'link' ? (
+      {pending.includes(t.id) ? (
+        <button type="button" className="btn pri sm" aria-busy="true" aria-disabled="true">
+          <span>처리 중</span>
+          <span className="dots" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+        </button>
+      ) : mode === 'link' ? (
         <button type="button" className="btn pri sm" onClick={() => { setCheckErr(''); setCheck(t) }}>
           확인
         </button>
@@ -342,22 +370,67 @@ export function OpsView() {
                 <div className="sech">
                   <div>
                     <h3 className="sht">최근 처리 결과</h3>
-                    <p className="shs">알림이 사라져도 여기서 다시 볼 수 있어요. 새로 열면 지워져요.</p>
+                    <p className="shs">같은 건의 요청과 결과는 한 줄로 모아 보여요. 새로 열면 지워져요.</p>
                   </div>
+                  {results.length > 3 && <span className="ocnt">{results.length}건</span>}
                 </div>
-                {results.map((x, i) => (
-                  <div key={i} className="rres">
-                    <div>
-                      <b>
-                        {x.no} · {x.text}
-                      </b>
-                      <small>{x.at}</small>
+                {(resMore ? results : results.slice(0, 3)).map((g) => {
+                  const last = g.steps[g.steps.length - 1]
+                  const doing = last.st === 'req'
+                  return (
+                    <div key={g.id} className="rres">
+                      <div className="rr-m">
+                        <div className="rr-t">
+                          <span className="mono">{g.no}</span>
+                          {g.jira && (
+                            <>
+                              {' · '}
+                              <span className="mono">{g.jira}</span>
+                            </>
+                          )}
+                          <span className={`rr-s ${doing ? 'ing' : 'ok'}`}>
+                            {doing ? (
+                              <>
+                                처리 중
+                                <span className="dots" aria-hidden="true">
+                                  <i />
+                                  <i />
+                                  <i />
+                                </span>
+                              </>
+                            ) : (
+                              '완료'
+                            )}
+                          </span>
+                        </div>
+                        <div className="rr-l">
+                          {g.steps.map((x, i) => (
+                            <Fragment key={i}>
+                              {i > 0 && (
+                                <i className="ar" aria-hidden="true">
+                                  →
+                                </i>
+                              )}
+                              <span>
+                                <time>{x.at}</time> {x.text}
+                              </span>
+                            </Fragment>
+                          ))}
+                        </div>
+                      </div>
+                      <button type="button" className="btn ghost sm" onClick={() => open(g.id)}>
+                        처리 이력 보기
+                      </button>
                     </div>
-                    <button type="button" className="btn ghost sm" onClick={() => open(x.id)}>
-                      처리 이력 보기
+                  )
+                })}
+                {results.length > 3 && (
+                  <div className="omore">
+                    <button type="button" className="btn ghost sm" aria-expanded={resMore} onClick={() => setResMore((v) => !v)}>
+                      {resMore ? '접기' : `나머지 ${results.length - 3}건 보기`}
                     </button>
                   </div>
-                ))}
+                )}
               </section>
             )}
 
@@ -420,17 +493,23 @@ export function OpsView() {
                 </div>
               ) : (
                 <>
-                  <div className="subc" role="group" aria-label="담당 그룹">
-                    {groups.map((g) => {
-                      const list = people[g.name] ?? []
-                      return (
-                        <button key={g.id} type="button" className={`chip${g.name === grp ? ' on' : ''}`} aria-pressed={g.name === grp} onClick={() => setChip(g.name)}>
-                          {g.name} <em>{`${list.filter((c) => c.avail).length}/${list.length}`}</em>
-                        </button>
-                      )
-                    })}
+                  <div className="ocurh">
+                    <div className="subc" role="group" aria-label="담당 그룹">
+                      {groups.map((g) => {
+                        const list = people[g.name] ?? []
+                        return (
+                          <button key={g.id} type="button" className={`chip${g.name === grp ? ' on' : ''}`} aria-pressed={g.name === grp} onClick={() => setChip(g.name)}>
+                            {g.name} <em>{`${list.filter((c) => c.avail).length}/${list.length}`}</em>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <button type="button" className="tgc" aria-expanded={curOpen} aria-controls="ocur-b" aria-label={`${grp} 담당자 ${curOpen ? '접기' : '펼치기'}`} title={curOpen ? '접기' : `${members.length}명 보기`} onClick={() => setCurOpen((v) => !v)}>
+                      <Icon name="chevron" />
+                    </button>
                   </div>
-                  <div className="tw">
+                  {curOpen && (
+                  <div className="tw" id="ocur-b">
                     <table className="tbl ptbl">
                       <colgroup>
                         <col style={{ width: '14%' }} />
@@ -489,6 +568,7 @@ export function OpsView() {
                       </tbody>
                     </table>
                   </div>
+                  )}
                 </>
               ),
             )}
@@ -506,7 +586,7 @@ export function OpsView() {
             setCheck(null)
             open(check.id)
           }}
-          onGo={(kind) => void goCheck(kind)}
+          onGo={(kind, reason) => void goCheck(kind, reason)}
         />
       )}
       {assign && (
@@ -531,34 +611,70 @@ export function OpsView() {
   )
 }
 
-function CheckDialog({ t, busy, err, onClose, onDetail, onGo }: { t: TicketSummary; busy: boolean; err: string; onClose: () => void; onDetail: () => void; onGo: (kind: 'link' | 'trn') => void }) {
+const WORK_LABEL = { RDY: '처리 대기', WIP: '처리 중', FIN: '해결 확인 대기', CLS: '해결 완료' } as const
+
+function CheckDialog({ t, busy, err, onClose, onDetail, onGo }: { t: TicketSummary; busy: boolean; err: string; onClose: () => void; onDetail: () => void; onGo: (kind: 'link' | 'trn', reason: string) => void }) {
   const trn = t.transitionStatus === 'NEEDS_ADMIN'
-  const to = t.requestedWorkStatus === 'FIN' ? '해결 확인 대기' : t.requestedWorkStatus === 'CLS' ? '해결 완료' : t.requestedWorkStatus === 'WIP' ? '처리 중' : '요청한 상태'
+  const [why, setWhy] = useState('')
+  const [whyErr, setWhyErr] = useState('')
+  const to = t.requestedWorkStatus ? WORK_LABEL[t.requestedWorkStatus] : '요청한 상태'
+  const now = t.workStatus ? WORK_LABEL[t.workStatus] : '이전 상태'
+  const verifying = t.jiraSyncStatus === 'VERIFYING'
+  const submit = () => {
+    const w = why.trim()
+    if (!w) return setWhyErr('재처리 사유를 입력해 주세요.')
+    onGo(trn ? 'trn' : 'link', w)
+  }
   return (
     <Modal title={trn ? 'Jira 상태 확인' : 'Jira 생성 확인'} onClose={onClose}>
       <p className="small muted" style={{ margin: 0 }}>
-        {t.receiptNo} · {t.group?.name ?? '-'} · <UrgencyChip u={t.urgency} />
+        접수 <span className="mono">{t.receiptNo}</span> · {t.jiraKey ? <>Jira <b className="mono">{t.jiraKey}</b></> : 'Jira 티켓 없음'} · {t.group?.name ?? '-'} · <UrgencyChip u={t.urgency} />
       </p>
-      <ol className="osteps">
-        <li>
-          <b>① Jira에서 찾기</b>
-          <span>
-            {trn ? (
-              <>
-                Jira에서 이 티켓의 현재 상태를 먼저 확인하세요. 이미 <b>{to}</b>로 바뀌어 있으면 다시 반영하지 않고 완료로 처리해요. 상태는 Jira 확인 전에는 바뀌지 않아요.
-              </>
-            ) : (
-              <>
-                Jira에 접수번호 <b className="mono">{t.receiptNo}</b>로 만들어진 티켓이 있는지 먼저 확인하세요. 확인하기 전에는 다시 만들지 마세요. (중복 생성 방지)
-              </>
-            )}
+      <div className="mdl-issue">
+        <div className="stlist" aria-label="확인이 필요한 내용">
+          <div className={`sx live ${trn || !verifying ? 'tn-urg' : 'tn-warn'}`}>
+            <span className="mk">
+              <Icon name="alert" />
+            </span>
+            <span className="l">{trn ? '상태 변경' : 'Jira 연동'}</span>
+            <span className="vb">
+              <span className={`sbd ${trn || !verifying ? 'tn-urg' : 'tn-warn'}`}>
+                <i />
+                {trn ? 'Jira 동기화 필요' : verifying ? '생성 여부 확인 중' : 'Jira 생성 확인 필요'}
+              </span>
+            </span>
+            <span className="sxs">{trn ? `${now} → ${to} 변경이 Jira에 반영됐는지 확인하지 못함` : linkWhy(t)}</span>
+          </div>
+        </div>
+      </div>
+      <p className="mdl-how">
+        {trn ? (
+          <>
+            Jira에서 현재 상태를 먼저 읽어 와요. 이미 <b>{to}</b>이면 다시 요청하지 않고 완료로 처리하고, 아직 <b>{now}</b>이면 <b>{to}</b>로 바꾸는 요청을 다시 보내요.
+          </>
+        ) : (
+          <>
+            Jira에서 접수번호 <b className="mono">{t.receiptNo}</b>로 만든 티켓이 있는지 먼저 찾아요. 있으면 그 티켓을 연결하고, 없을 때만 새로 만들어요. (중복 생성 방지)
+          </>
+        )}
+      </p>
+      <div className="field">
+        <label htmlFor="ops-why">
+          재처리 사유 <span className="muted">(필수)</span>
+        </label>
+        <textarea id="ops-why" className={`ta${whyErr ? ' err' : ''}`} maxLength={500} value={why} placeholder="예) Jira 장애 복구 후 재처리" aria-invalid={!!whyErr} aria-describedby={whyErr ? 'ops-why-e' : undefined} onChange={(e) => { setWhy(e.target.value); setWhyErr('') }} />
+        {whyErr && (
+          <div className="ferr" id="ops-why-e" role="alert">
+            {whyErr}
+          </div>
+        )}
+        <div className="wcnt">
+          <span className="hint">처리 이력과 감사 기록에 남아요.</span>
+          <span className="hint">
+            <b>{why.length}</b>/500
           </span>
-        </li>
-        <li>
-          <b>② 결과 기록</b>
-          <span>확인한 결과에 맞는 버튼을 눌러 주세요. 처리 이력에 남아요.</span>
-        </li>
-      </ol>
+        </div>
+      </div>
       {err && (
         <div className="ferr" role="alert">
           {err}
@@ -571,7 +687,7 @@ function CheckDialog({ t, busy, err, onClose, onDetail, onGo }: { t: TicketSumma
         <button type="button" className="btn sec" onClick={onDetail}>
           상세
         </button>
-        <button type="button" className="btn pri" disabled={busy} onClick={() => onGo(trn ? 'trn' : 'link')}>
+        <button type="button" className="btn pri" disabled={busy} onClick={submit}>
           {trn ? 'Jira 상태 확인·다시 반영' : 'Jira 생성 확인·재시도'}
         </button>
       </div>

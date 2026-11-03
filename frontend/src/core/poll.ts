@@ -24,3 +24,13 @@ export function visiblePoll(fn: () => void, ms: number): () => void {
     document.removeEventListener('visibilitychange', onVisible)
   }
 }
+
+/**
+ * 주기 조회를 하는 화면끼리 서로 알리는 표시.
+ * - chatViews: 대화 화면이 열려 있는 수. 대화 화면이 자기 문의를 직접 읽고 있으면 사이드바의 목록 조회는 드물게 한다.
+ * - listLoaders: 사이드바 문의 목록을 지금 바로 다시 읽는 함수. 대화 화면에서 상태가 바뀐 걸 알았을 때 한 번 불러 준다.
+ */
+export const pollHints = { chatViews: 0, listLoaders: new Set<() => void>() }
+
+/** 문의 목록(사이드바)을 지금 한 번 다시 읽게 한다 */
+export const refreshInquiryList = () => pollHints.listLoaders.forEach((f) => f())

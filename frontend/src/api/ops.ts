@@ -65,7 +65,7 @@ const needsOf = (t: TicketDetail) => t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jir
  * Jira 생성 확인·재시도. Jira 에 같은 접수번호의 이슈가 없다는 확인을 거친 뒤 눌러서 새로 만든다 (중복 생성 방지).
  * 모의에서는 이슈를 만들고 처리 대기로 두며, 같은 그룹에서 근무 중이고 Jira 계정이 있는 가장 한가한 사람에게 자동 배정한다. 없으면 배정 확인으로 넘긴다.
  */
-export async function retryJiraCreate(user: User, id: number): Promise<ApiResult<TicketDetail>> {
+export async function retryJiraCreate(user: User, id: number, _reason: string): Promise<ApiResult<TicketDetail>> {
   if (!USE_MOCK_TICKET) return notReady('Jira 생성 확인·재시도')
   if (user.serviceRole !== 'ADMIN') return fail('FORBIDDEN', '관리자만 확인할 수 있어요.')
   const t = findStaffTicket(id)
@@ -92,7 +92,7 @@ export async function retryJiraCreate(user: User, id: number): Promise<ApiResult
 }
 
 /** Jira 상태 확인·다시 반영: 요청한 상태 변경을 Jira 에서 확인하지 못한 접수를 확인 후 반영한다 */
-export async function recheckTransition(user: User, id: number): Promise<ApiResult<TicketDetail>> {
+export async function recheckTransition(user: User, id: number, _reason: string): Promise<ApiResult<TicketDetail>> {
   if (!USE_MOCK_TICKET) return notReady('Jira 상태 확인·다시 반영')
   if (user.serviceRole !== 'ADMIN') return fail('FORBIDDEN', '관리자만 확인할 수 있어요.')
   const t = findStaffTicket(id)

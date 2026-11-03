@@ -12,11 +12,16 @@ import './mock/chatMock'
 import { CATEGORIES } from './catalog'
 import type { CategoryCode } from './chatTypes'
 import { formatRelative } from '../core/format'
-import { visiblePoll } from '../core/poll'
+import { pollHints, visiblePoll } from '../core/poll'
 import { ok, type ApiResult, type DisplayStatus, type InquirySummary } from './types'
 
 /** 서버를 다시 읽는 간격(ms) */
-const POLL_MS = 20_000
+/**
+ * 서버 모드에서 사이드바 문의 목록을 다시 읽는 안전 간격(ms).
+ * 서버가 변화를 알려 주는 방법(푸시·알림)이 아직 없어서 이벤트로 읽는다: 처음 열 때, 탭이 다시 보일 때, 화면을 옮길 때,
+ * 대화 화면이 상태 변화를 알아챘을 때(refreshInquiryList). 이 간격은 그 사이에 놓친 변화를 잡는 용도라 길게 둔다.
+ */
+const POLL_MS = 120_000
 
 /** 로그인한 사용자의 문의 목록 (최근 활동 순). 서버는 토큰으로 사용자를 구분한다. */
 export async function listMyInquiries(employeeNo: string): Promise<ApiResult<InquirySummary[]>> {
@@ -152,7 +157,17 @@ export function watchMyInquiries(employeeNo: string, onChange: (list: InquirySum
   }
   load()
   if (USE_MOCK_INQUIRY) return subscribe(load)
-  return visiblePoll(load, POLL_MS)
+  // 대화 화면이 열려 있으면 그 화면이 자기 문의를 직접 읽고 바뀐 것을 알려 주므로 안전 간격 조회는 건너뛴다
+  const poll = () => {
+    if (pollHints.chatViews > 0) return
+    load()
+  }
+  pollHints.listLoaders.add(load)
+  const stop = visiblePoll(poll, POLL_MS)
+  return () => {
+    stop()
+    pollHints.listLoaders.delete(load)
+  }
 }
 
 /* ------------------------------------------------------------------ 관리자: AI 처리한 상담 (전체 문의의 "AI 처리") */

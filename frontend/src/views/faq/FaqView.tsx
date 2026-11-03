@@ -6,25 +6,26 @@
  * 관리자는 FAQ 를 등록하고, 게시를 멈췄다 다시 게시하고, 삭제할 수 있다 (FQ-03~05).
  */
 import { useEffect, useId, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { createFaq, deleteFaq, getFaqSources, listFaqs, setFaqActive } from '../../api/faq'
 import { CATEGORY_NAME } from '../../api/mock/faqs'
 import type { CategoryCode, GuideSource } from '../../api/chatTypes'
 import type { ApiResult, Faq } from '../../api/types'
 import { USE_MOCK_FAQ } from '../../core/config'
-import { sourceFull } from '../../core/format'
 import { useAuth } from '../../core/session'
 import titleFaq from '../../assets/mascot/title-faq.webp'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
+import { SourceList } from '../../ui/SourceList'
+import { SourcePreview } from '../../ui/SourcePreview'
 import { Topbar } from '../../ui/Topbar'
 
-/** 출처 줄: 서버 FAQ 는 열기 전에는 비어 있어서 읽는 중·읽지 못함·없음을 구분한다 */
-function sourceText(f: Faq, loaded: GuideSource[] | 'err' | undefined): string {
+/** 출처 줄: 서버 FAQ 는 열기 전에는 비어 있어서 읽는 중·읽지 못함·없음을 구분한다. 같은 가이드는 제목을 한 번만 쓴다 */
+function Sources({ f, loaded, onOpen }: { f: Faq; loaded: GuideSource[] | 'err' | undefined; onOpen: (s: GuideSource) => void }) {
   const list = f.sources.length ? f.sources : loaded
-  if (list === 'err') return '출처를 불러오지 못했어요.'
-  if (list === undefined) return f.serverId === undefined ? `출처: ${f.sources.map(sourceFull).join(', ')}` : '출처를 불러오는 중이에요…'
-  return list.length ? `출처: ${list.map(sourceFull).join(', ')}` : '출처 정보가 없어요.'
+  if (list === 'err') return <>출처를 불러오지 못했어요.</>
+  if (list === undefined) return <>{f.serverId === undefined ? '출처 정보가 없어요.' : '출처를 불러오는 중이에요…'}</>
+  return list.length ? <SourceList sources={list} onOpen={onOpen} /> : <>출처 정보가 없어요.</>
 }
 
 export function FaqView() {
@@ -42,6 +43,9 @@ export function FaqView() {
   const [deleting, setDeleting] = useState<Faq | null>(null)
   const [toast, setToast] = useState('')
   const [reload, setReload] = useState(0)
+  const [preview, setPreview] = useState<GuideSource | null>(null)
+  // 새 문의 화면의 추천 FAQ 에서 넘어오면(?open=FAQ-001) 그 FAQ 를 펼쳐서 보여 준다
+  const openId = useSearchParams()[0].get('open')
 
   const say = (m: string) => {
     setToast(m)
@@ -61,6 +65,12 @@ export function FaqView() {
       alive = false
     }
   }, [user, admin, reload])
+
+  // 추천 FAQ 로 들어왔으면 목록이 그려진 뒤 그 FAQ 가 보이는 곳으로 내려간다
+  useEffect(() => {
+    if (!openId || !faqs) return
+    document.getElementById(`faq-${openId}`)?.scrollIntoView?.({ block: 'center' })
+  }, [openId, faqs])
 
   /** FAQ 를 열 때 출처가 없고 서버 FAQ 면 상세에서 출처를 읽는다 */
   const loadSources = (f: Faq) => {
@@ -145,7 +155,7 @@ export function FaqView() {
             {shown?.map((f) => {
               const off = f.active === false
               return (
-                <details key={f.id} className="panel faq" style={{ padding: 0, opacity: off ? 0.72 : undefined }} onToggle={(e) => e.currentTarget.open && loadSources(f)}>
+                <details key={f.id} id={`faq-${f.id}`} className="panel faq" open={f.id === openId ? true : undefined} style={{ padding: 0, opacity: off ? 0.72 : undefined }} onToggle={(e) => e.currentTarget.open && loadSources(f)}>
                   <summary>
                     <span className={`tag c-${f.categoryCode}`}>{CATEGORY_NAME[f.categoryCode] ?? f.categoryCode}</span>
                     <b>{f.question}</b>
@@ -158,7 +168,7 @@ export function FaqView() {
                     {f.answer}
                     {/* 근거로 쓴 Guide 출처 (SRS ANSWER-01) */}
                     <div className="small muted" style={{ marginTop: 6 }}>
-                      {sourceText(f, srcs[f.id])}
+                      <Sources f={f} loaded={srcs[f.id]} onOpen={setPreview} />
                     </div>
                     <div className="row" style={{ marginTop: 12 }}>
                       <button type="button" className="btn sec sm" onClick={() => navigate('/new', { state: { prefill: f.question } })}>
@@ -183,6 +193,7 @@ export function FaqView() {
         </div>
       </main>
 
+      {preview && <SourcePreview source={preview} demo={USE_MOCK_FAQ} onClose={() => setPreview(null)} />}
       {adding && (
         <AddFaqDialog
           onClose={() => setAdding(false)}

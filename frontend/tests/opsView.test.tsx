@@ -13,6 +13,7 @@ import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
 import type { User } from '../src/api/types'
 
+const WHY = 'Jira 장애 복구 후 재처리'
 const SLOW = { timeout: 3000 }
 
 function renderAs(employeeNo: string, path: string) {
@@ -61,7 +62,7 @@ describe('운영 현황 API (모의)', () => {
     const before = await getOpsSnapshot(admin())
     if (!before.ok) throw new Error('목록 실패')
     const target = before.data.link.find((t) => t.jiraSyncStatus === 'NEEDS_ADMIN')!
-    const r = await retryJiraCreate(admin(), target.id)
+    const r = await retryJiraCreate(admin(), target.id, WHY)
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.data.jiraKey).toMatch(/^ITHD-\d+$/)
@@ -70,7 +71,7 @@ describe('운영 현황 API (모의)', () => {
     // 같은 그룹에서 근무 중이고 Jira 계정이 있는 사람(김수아는 Jira 미연결)
     expect(r.data.assignee?.name).toBeTruthy()
     expect(r.data.assignee?.name).not.toBe('김수아')
-    const again = await retryJiraCreate(admin(), target.id)
+    const again = await retryJiraCreate(admin(), target.id, WHY)
     expect(again.ok).toBe(false)
     const after = await getOpsSnapshot(admin())
     expect(after.ok && after.data.link.some((t) => t.id === target.id)).toBe(false)
@@ -81,14 +82,14 @@ describe('운영 현황 API (모의)', () => {
     if (!before.ok) throw new Error('목록 실패')
     const target = before.data.link.find((t) => t.transitionStatus === 'NEEDS_ADMIN')!
     expect(target.requestedWorkStatus).toBe('FIN')
-    const r = await recheckTransition(admin(), target.id)
+    const r = await recheckTransition(admin(), target.id, WHY)
     expect(r.ok && r.data.workStatus).toBe('FIN')
     expect(r.ok && r.data.transitionStatus).toBe('IDLE')
-    expect((await recheckTransition(admin(), target.id)).ok).toBe(false)
+    expect((await recheckTransition(admin(), target.id, WHY)).ok).toBe(false)
   })
 
   it('관리자만 확인할 수 있다', async () => {
-    const r = await retryJiraCreate(staff(), 5037)
+    const r = await retryJiraCreate(staff(), 5037, WHY)
     expect(r.ok).toBe(false)
   })
 })
@@ -104,7 +105,10 @@ describe('운영 현황 화면', () => {
     // 팀별 개인 현황: 첫 그룹의 구성원 표와 근무/전체 칩
     const grp = await screen.findByRole('group', { name: '담당 그룹' }, SLOW)
     expect(within(grp).getByRole('button', { name: /^서비스데스크\s*3\/4/ })).toBeInTheDocument()
+    // 팀별 개인 현황은 처음에 접혀 있고, 팀 칩 옆 버튼으로 펼친다
+    expect(screen.queryByText('부재 (연차)')).toBeNull()
     await userEvent.click(within(grp).getByRole('button', { name: /^네트워크팀/ }))
+    await userEvent.click(screen.getByRole('button', { name: /담당자 펼치기/ }))
     expect(await screen.findByText('부재 (연차)')).toBeInTheDocument()
     unmount()
     renderAs('EMP-1004', '/ops')
@@ -132,10 +136,17 @@ describe('운영 현황 화면', () => {
     const row = section(/티켓 연동 확인/).querySelector('.orow.l') as HTMLElement
     await userEvent.click(within(row).getByRole('button', { name: '확인' }))
     const dlg = await screen.findByRole('dialog')
-    expect(within(dlg).getByText('① Jira에서 찾기')).toBeInTheDocument()
-    await userEvent.click(within(dlg).getByRole('button', { name: /^Jira (생성 확인·재시도|상태 확인·다시 반영)$/ }))
+    // 어떤 문제인지 카드로 보이고, 사유가 없으면 막는다
+    expect(within(dlg).getByLabelText('확인이 필요한 내용')).toBeInTheDocument()
+    const go = within(dlg).getByRole('button', { name: /^Jira (생성 확인·재시도|상태 확인·다시 반영)$/ })
+    await userEvent.click(go)
+    expect(await within(dlg).findByText('재처리 사유를 입력해 주세요.')).toBeInTheDocument()
+    await userEvent.type(within(dlg).getByLabelText(/재처리 사유/), WHY)
+    await userEvent.click(go)
     const done = await screen.findByRole('region', { name: '최근 처리 결과' }, SLOW)
     expect(within(done).getByRole('button', { name: '처리 이력 보기' })).toBeInTheDocument()
+    // 요청 직후 그 줄의 버튼은 "처리 중"이었다가 반영되면 "완료"가 된다
+    expect(await within(done).findByText('완료', {}, SLOW)).toBeInTheDocument()
   })
 
   it('담당자 지정은 후보를 고르고 사유를 적어야 한다', async () => {
