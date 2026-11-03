@@ -1,6 +1,5 @@
 /* 컴포넌트 규칙: 버튼·입력·칩·메시지·알림·로그인 화면 (design/ITssue-Prototype.html 기준) */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:12px;border:0;font-weight:600;font-size:14px;line-height:20px;white-space:nowrap;transition:background .12s,box-shadow .12s}
-.btn.pri{background:#B8286A;color:#fff;box-shadow:none}.btn.pri:hover{background:#A3205F}
 .btn.sec{background:var(--white);color:var(--ink);box-shadow:inset 0 0 0 1px var(--fieldline)}.btn.sec:hover{background:var(--hvg)}
 .btn.ghost{background:transparent;color:var(--link);padding:0 10px}.btn.ghost:hover{background:var(--osoft)}
 .btn.sm{min-height:44px;padding:0 14px;font-size:13px;border-radius:12px}
@@ -41,7 +40,6 @@
 @media (prefers-reduced-motion:reduce){.dots i{animation:none}}
 .composer{display:flex;align-items:flex-end;gap:6px;max-width:760px;margin:0 auto;background:var(--white);border-radius:24px;padding:8px 8px 8px 12px;box-shadow:0 12px 40px rgba(143,29,82,.14),0 0 0 1px var(--line)}
 .composer textarea{flex:1;border:0;background:transparent;resize:none;min-height:44px;max-height:140px;padding:10px 6px;font-size:16px;line-height:24px;outline:0}
-.composer .btn.ico.pri{background:#B8286A}
 .eyebrow{font-size:12px;font-weight:700;color:var(--link);letter-spacing:.04em}
 .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .sp{flex:1}
@@ -72,11 +70,7 @@
 /* #root 높이 (로그인 화면이 화면 전체를 쓰도록) */
 #root { height: 100%; }
 
-/* 주요 버튼 색: 오렌지 600 (흰 글자 대비 4.6:1). 오렌지 550은 글자를 올리는 면에 쓰지 않는다 (디자인 가이드) */
-.btn.pri,
-.composer .btn.ico.pri {background:#B8286A}
-.btn.pri:hover:not([disabled]),
-.composer .btn.ico.pri:hover:not([disabled]) { background: var(--o700); }
+/* 주요 버튼은 refresh.css (연한 분홍 면 + 선, 시안 4) */
 
 /* 로그인 화면 좁은 폭 (프로토타입 860px 이하). 입력 글자는 모바일에서 16px 이상 (디자인 가이드) */
 @media (max-width: 860px) {
@@ -132,7 +126,7 @@
 /* 로그인 진행 표시: 요청 중에도 버튼은 흐려지지 않고 그대로 읽힌다. 입력칸은 잠그되(readOnly) 값은 그대로 보인다 */
 .btn[aria-busy="true"]{cursor:progress}
 .btn[aria-disabled="true"]{cursor:progress}
-.btn.pri .dots i{background:#fff}
+.btn.pri .dots i{background:var(--btn-t)}
 .slownote{margin:0;font-size:13px;color:var(--mute)}
 /* 로그인 상태 확인 화면 (새로고침 직후 저장된 로그인을 확인하는 동안) */
 .boot{position:fixed;inset:0;display:grid;place-items:center;background:var(--canvas);z-index:60}

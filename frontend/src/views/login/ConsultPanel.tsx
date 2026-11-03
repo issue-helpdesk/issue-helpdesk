@@ -6,10 +6,12 @@
  */
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { askPreLogin } from '../../api/consult'
+import type { GuideSource } from '../../api/chatTypes'
 import type { ConsultReply } from '../../api/types'
 import { sourceFull } from '../../core/format'
 import { MASK_NOTICE, maskNotices, maskSensitive } from '../../core/mask'
 import { Icon } from '../../ui/Icon'
+import { SourcePreview } from '../../ui/SourcePreview'
 import { Pav } from '../../ui/Pav'
 import { RichText } from '../../ui/RichText'
 
@@ -40,6 +42,7 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
   const [text, setText] = useState('')
   // 답변을 기다리는 동안은 입력과 중복 전송을 막는다
   const [busy, setBusy] = useState(false)
+  const [preview, setPreview] = useState<GuideSource | null>(null)
   const nextId = useRef(10)
   const thread = useRef<HTMLDivElement>(null)
 
@@ -114,7 +117,7 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
                 ))}
                 {/* 근거로 쓴 Guide 출처 (SRS ANSWER-01) */}
                 {m.reply.sources.map((s) => (
-                  <button className="src" type="button" title="출처 Guide" key={`${s.docCode}-${s.section}`}>
+                  <button className="src" type="button" title="출처 Guide 미리보기" key={`${s.docCode}-${s.section}`} onClick={() => setPreview(s)}>
                     <Icon name="file" size={16} />
                     {sourceFull(s)}
                   </button>
@@ -158,6 +161,7 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
       <div className="hint" style={{ marginTop: 8 }}>
         {NOTE} 로그인 전에는 Ticket을 만들지 않아요.
       </div>
+      {preview && <SourcePreview source={preview} demo onClose={() => setPreview(null)} />}
     </section>
   )
 }

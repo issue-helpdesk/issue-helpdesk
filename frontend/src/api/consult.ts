@@ -8,6 +8,22 @@ import { SERVICEDESK, MOCK_ONLY } from '../core/config'
 import { guideSource } from './mock/sources'
 import { ok, type ApiResult, type ConsultReply } from './types'
 
+/** 출처 미리보기에 보여 줄 가이드 요약 (시연용. 실제 연결 후에는 서버가 준 본문을 쓴다) */
+const LOCK_GUIDE = `### 이런 경우
+- 로그인에 5회 연속 실패해 계정이 잠겼어요.
+### 조치 방법
+1. 10분을 기다리면 잠금이 자동으로 해제돼요.
+2. 해제된 뒤 비밀번호를 정확히 입력해 보세요.
+3. 그래도 안 되면 서비스데스크에 연락해 주세요.
+### 해결 확인
+- 로그인이 되면 해결된 것입니다.`
+const MFA_GUIDE = `### 이런 경우
+- OTP 번호가 계속 맞지 않거나 MFA 인증 창이 넘어가지 않아요.
+### 조치 방법
+1. OTP 앱의 **시간 자동 설정**이 켜져 있는지 확인해요.
+2. 브라우저를 모두 닫고 다시 시도해요.
+3. 기기를 바꿨다면 MFA 재등록을 요청해요.`
+
 /** 보안 사고가 의심되는 표현. 일반 안내 대신 담당자 연결 경로를 알려 준다. */
 const SECURITY = /(피싱|악성|랜섬|해킹|도용|탈취|도난|분실|유출|의심.{0,6}(메일|링크|파일|접속)|(링크|첨부).{0,8}(눌렀|열었|클릭))/
 
@@ -32,7 +48,7 @@ function mockReply(text: string): ConsultReply {
       paragraphs: [
         '로그인 5회 실패 시 계정이 잠기고 **10분 후 자동으로 해제**돼요. 해제된 뒤 비밀번호를 정확히 입력해 보세요. 그래도 안 되면 서비스데스크에 연락해 주세요.',
       ],
-      sources: [guideSource('IT-ACC-001 사내 SSO 로그인 오류 대응 가이드 v2 · 3.2')],
+      sources: [guideSource('IT-ACC-001 사내 SSO 로그인 오류 대응 가이드 v2 · 3.2', LOCK_GUIDE)],
     }
   }
   if (/(비밀번호|패스워드|재설정|초기화)/.test(t)) {
@@ -50,7 +66,7 @@ function mockReply(text: string): ConsultReply {
       paragraphs: [
         'OTP 앱의 **시간 자동 설정**이 켜져 있는지 확인하고, 브라우저를 모두 닫고 다시 시도해 보세요. 기기를 바꿨다면 MFA 재등록이 필요할 수 있어요.',
       ],
-      sources: [guideSource('IT-ACC-003 MFA 인증 오류 대응 가이드 v2 · 3.3')],
+      sources: [guideSource('IT-ACC-003 MFA 인증 오류 대응 가이드 v2 · 3.3', MFA_GUIDE)],
     }
   }
 

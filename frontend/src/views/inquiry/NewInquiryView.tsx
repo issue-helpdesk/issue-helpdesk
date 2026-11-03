@@ -2,17 +2,21 @@
  * 새 문의 화면 (챗봇 시작 화면).
  *
  * 인사말, 문의 입력창, 자주 묻는 분류 칩, 추천 FAQ 카드를 보여 준다.
- * 칩이나 카드를 누르면 입력창에 문장이 채워지고, 사용자가 확인한 뒤 보낸다.
+ * 칩을 누르면 입력창에 문장이 채워지고, 사용자가 확인한 뒤 보낸다. 추천 FAQ 카드는 그 FAQ 가 열린 FAQ 화면으로 이동한다.
  * 보내면 문의가 만들어지고 대화 화면(/chat/:id)으로 이동한다.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { beginChat, startChat } from '../../api/chat'
+import { listFaqs } from '../../api/faq'
+import { CATEGORY_NAME } from '../../api/mock/faqs'
+import type { Faq } from '../../api/types'
 import { USE_MOCK_INQUIRY } from '../../core/config'
 import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
 import { Icon, type IconName } from '../../ui/Icon'
 import { Mascot } from '../../ui/Mascot'
+import { SideToggle } from '../../ui/SideToggle'
 import { useShell } from '../../ui/shellContext'
 
 /** 자주 묻는 분류 칩: [아이콘, 이름, 입력창에 채울 문장] */
@@ -24,12 +28,12 @@ const CATEGORY_CHIPS: [IconName, string, string][] = [
   ['chat', '사내 시스템', '전자결재 접속이 안 돼요'],
 ]
 
-/** 추천 FAQ 카드: [제목, 설명, 입력창에 채울 문장] */
-const SUGGESTED: [string, string, string][] = [
-  ['비밀번호를 잊었어요', '초기화 방법 안내', '비밀번호를 잊어버렸어요'],
-  ['VPN이 자주 끊겨요', '재택 환경 점검', '재택근무 중 VPN이 자주 끊겨요'],
-  ['폴더 권한이 필요해요', '신청 절차 안내', '공유 폴더 접근권한을 신청하고 싶어요'],
-]
+/** 추천 FAQ: 분류가 겹치지 않게 이 순서로 한 건씩 고른다 (최대 3건) */
+const SUGGEST_ORDER = ['ACC', 'NET', 'ACS', 'SW', 'HW', 'SYS', 'SEC']
+const pickSuggested = (faqs: Faq[]) =>
+  SUGGEST_ORDER.map((c) => faqs.find((f) => f.categoryCode === c))
+    .filter((f): f is Faq => !!f)
+    .slice(0, 3)
 
 const NOTE = '비밀번호·인증번호·API 키는 입력하지 마세요.'
 
@@ -47,6 +51,15 @@ export function NewInquiryView() {
   const [notice, setNotice] = useState('')
   const [sending, setSending] = useState(false)
   const navigate = useNavigate()
+  // 추천 카드는 실제 FAQ 에서 고른다. 누르면 입력창에 채우지 않고 그 FAQ 가 펼쳐진 FAQ 화면으로 간다
+  const [suggested, setSuggested] = useState<Faq[]>([])
+  useEffect(() => {
+    let alive = true
+    listFaqs(false).then((r) => alive && r.ok && setSuggested(pickSuggested(r.data)))
+    return () => {
+      alive = false
+    }
+  }, [])
 
   // 같은 화면에서 다른 FAQ 로 다시 들어오면(전달된 문장이 바뀌면) 입력창 내용을 새 문장으로 바꾼다
   const [lastPrefill, setLastPrefill] = useState(prefill)
@@ -93,6 +106,9 @@ export function NewInquiryView() {
         <button className="btn sec sm ico xmenu" type="button" aria-label="메뉴 열기" onClick={toggleNav}>
           <Icon name="chevron" />
         </button>
+        <span className="xo">
+          <SideToggle open />
+        </span>
 
         <div className="hero">
           <Mascot />
@@ -118,14 +134,16 @@ export function NewInquiryView() {
             ))}
           </div>
 
-          <div className="faqs3">
-            {SUGGESTED.map(([title, desc, sentence]) => (
-              <button key={title} type="button" className="faqc" onClick={() => fill(sentence)}>
-                <b>{title}</b>
-                <small>{desc}</small>
-              </button>
-            ))}
-          </div>
+          {suggested.length > 0 && (
+            <div className="faqs3" aria-label="자주 묻는 질문">
+              {suggested.map((f) => (
+                <button key={f.id} type="button" className="faqc" onClick={() => navigate(`/faq?open=${encodeURIComponent(f.id)}`)}>
+                  <b>{f.question}</b>
+                  <small>{CATEGORY_NAME[f.categoryCode] ?? f.categoryCode} · FAQ에서 보기</small>
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="hint" style={{ marginTop: 22 }}>
             AI가 먼저 안내해 드려요. 해결되지 않으면 내용을 확인한 뒤 담당자에게 접수할 수 있어요 · {NOTE}

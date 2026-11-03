@@ -14,7 +14,7 @@
  */
 import { sleep } from '../core/apiClient'
 import { USE_MOCK_INQUIRY } from '../core/config'
-import { visiblePoll } from '../core/poll'
+import { pollHints, refreshInquiryList, visiblePoll } from '../core/poll'
 import type { ChatMessage, DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
 import { NO_CONNECT_LABEL, NO_TICKET_CLOSED, RESOLVED_LABEL, RESOLVED_REPLY, UNRESOLVED_LABEL, UNRESOLVED_REPLY, loadInquiry, notReady, serverClose, serverResolve, serverResume, serverSend, serverStart } from './inquiryServer'
 import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, idleWarnInquiry, idleDeleteInquiry, idleBackInquiry, leaveInquiry, resumeInquiry } from './mock/chatEngine'
@@ -26,6 +26,21 @@ import { fail, ok, type ApiResult } from './types'
 const POLL_MS = 10_000
 /** 답을 만드는 중일 때 다시 읽는 간격(ms) */
 const QUICK_MS = 3000
+/** 접수 전이라 바뀔 일이 드문 문의를 읽는 간격은 POLL_MS 의 이 배수 */
+const SLOW_EVERY = 6
+
+/**
+ * 이 문의를 주기적으로 다시 읽어야 하는지.
+ * - stop: 종료됐고 접수가 없거나 해결 완료라 서버에서 바뀔 일이 없다. (이어가기·새 메시지는 사용자가 직접 요청하므로 그때 읽는다)
+ * - slow: 접수 전이고 답변을 만드는 중도 아니라 담당자 쪽에서 바뀔 일이 없다.
+ * - normal: 접수 이후 담당자 메시지·진행 상황을 확인해야 한다.
+ */
+export function pollMode(i: Inquiry): 'stop' | 'slow' | 'normal' {
+  if (i.paused) return 'slow'
+  if (i.step === 'closed' && (!i.ticket || i.ticket.workStatus === 'CLS')) return 'stop'
+  if (!i.ticket && i.step !== 'answering') return 'slow'
+  return 'normal'
+}
 
 /** 서버 모드: 마지막으로 읽은 문의 (답변을 기다리는 동안 보여 줄 화면의 바탕), 보고 있는 화면의 갱신 함수, 진행 중인 요청 수 */
 const lastSeen = new Map<number, Inquiry>()
@@ -43,6 +58,8 @@ async function track(job: Promise<ApiResult<Inquiry>>): Promise<ApiResult<Inquir
     return remember(await job)
   } finally {
     inflight--
+    // 내가 한 동작(보내기·해결·미해결·미연결 종료·이어가기)은 사이드바 최근 문의의 상태도 바꾼다. 사이드바는 주기로 읽지 않으니 바로 다시 읽게 한다
+    refreshInquiryList()
   }
 }
 
@@ -138,15 +155,24 @@ export function watchChat(id: number, employeeNo: string, onChange: (r: ApiResul
     return off
   }
   optimistic.set(id, onChange)
+  pollHints.chatViews++
   // 서버가 아직 답을 만드는 중이면(내 글만 저장된 상태) 답이 오는 것을 놓치지 않게 잠깐 짧은 간격으로 다시 읽는다
   let quick: ReturnType<typeof setTimeout> | undefined
+  let tick = 0
   const load = () => {
     if (inflight) return // 답변을 기다리는 중에는 화면을 되돌리지 않는다
+    const seen = lastSeen.get(id)
+    const mode = seen ? pollMode(seen) : 'normal'
+    tick++
+    if (mode === 'stop' || (mode === 'slow' && tick % SLOW_EVERY !== 0)) return // 바뀔 일이 없는 문의는 읽지 않는다
     loadInquiry(id).then((r) => {
       if (inflight) return
+      const before = lastSeen.get(id)
       onChange(remember(r))
       clearTimeout(quick)
       if (r.ok && r.data.step === 'answering') quick = setTimeout(load, QUICK_MS)
+      // 이 화면이 먼저 안 상태 변화는 사이드바 목록에도 바로 알려, 사이드바가 따로 읽을 때까지 기다리지 않게 한다
+      if (r.ok && before && (before.status !== r.data.status || before.step !== r.data.step || before.unread !== r.data.unread || before.ticket?.workStatus !== r.data.ticket?.workStatus)) refreshInquiryList()
     })
   }
   const stop = visiblePoll(load, POLL_MS)
@@ -154,6 +180,7 @@ export function watchChat(id: number, employeeNo: string, onChange: (r: ApiResul
     stop()
     clearTimeout(quick)
     optimistic.delete(id)
+    pollHints.chatViews--
   }
 }
 

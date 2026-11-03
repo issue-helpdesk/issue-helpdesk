@@ -8,14 +8,16 @@
 .hlist li{display:flex;gap:12px;align-items:flex-start;padding:10px 4px;border-top:1px solid var(--line)}.hlist li:first-child{border-top:0}
 .hlist small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
 .hd{width:8px;height:8px;border-radius:50%;margin-top:8px;flex:none;background:var(--mute)}
-.hd.ok{background:var(--s-ok-dot)}.hd.urg{background:var(--s-urg-dot)}.hd.warn{background:var(--s-warn-dot)}.hd.prog{background:var(--s-prog-dot)}.hd.re{background:var(--s-re-dot)}
+.hd.ok{background:var(--s-ok-dot)}.hd.urg{background:var(--s-urg-dot)}.hd.warn{background:var(--s-warn-dot)}.hd.prog{background:var(--s-prog-dot)}.hd.re{background:var(--s-re-dot)}
+
 /* 담당자 재배정 창 */
 .modal:has(.ost){width:min(900px,100%)}.modal .tw{flex:none}
 .tbl.ost td,.tbl.ost th{white-space:nowrap}.tbl.ost td:last-child{white-space:normal}.tbl.ost input[type=radio]{width:18px;height:18px;accent-color:var(--o600)}
 .tbl tr.vold td{color:var(--mute)}
 .pcs{display:inline-flex;flex-wrap:wrap;gap:4px}.pcn{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:7px;font-size:12px;font-weight:700;white-space:nowrap}.pcn b{font-weight:700}.pcn.z{color:var(--mute);background:transparent;box-shadow:inset 0 0 0 1px var(--line);font-weight:600;opacity:.4}
 .stt{display:inline-flex;align-items:center;gap:6px;font-weight:600;white-space:nowrap}.stt i{width:8px;height:8px;border-radius:50%;flex:none}.stt.on{color:var(--s-ok-fg)}.stt.on i{background:var(--s-ok-dot)}.stt.off{color:var(--mute)}.stt.off i{background:var(--s-recv-dot)}
-.od{color:var(--s-urg-fg);font-weight:600}
+.od{color:var(--s-urg-fg);font-weight:600}
+
 /* 페이지 맨 위의 구분 토글(전체 문의: 담당자 처리 / AI 처리)은 둥근 칩으로 보인다 */
 .scroll .page>.seg{background:transparent;padding:0;gap:8px}
 .scroll .page>.seg button{min-height:40px;padding:0 18px;border-radius:999px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink2);font-weight:600}
@@ -115,7 +117,6 @@ button.grb{width:100%;display:flex;align-items:center;justify-content:space-betw
 .bar{height:10px;background:var(--track);border-radius:5px}.bar>i{display:block;height:10px;border-radius:5px;background:var(--o500)}
 .kpi .d{color:var(--link);font-weight:600}
 .gold{border-top:1px solid var(--line2)}.grow{display:flex;gap:12px;align-items:center;width:100%;background:none;border:0;padding:12px 4px;text-align:left}.grow b{flex:1;min-width:0;font-weight:600;font-size:14px}
-.grow .chv{transition:transform .2s;display:inline-flex}.grow .chv .i{transform:rotate(90deg);width:16px;height:16px}.gold.open .chv{transform:rotate(180deg)}
 .grw,.ghd{display:grid;grid-template-columns:132px minmax(0,1fr) 124px 24px;gap:12px;align-items:center}.ghd{padding:6px 4px;font-size:12px;line-height:16px;font-weight:600;color:var(--mute);border-bottom:1px solid var(--line)}.ghd .c{text-align:center}.grw .gst{display:flex;justify-content:center}.tag.ga{justify-self:start}.tag.ga-info{background:var(--s-info-bg);color:var(--s-info-fg)}.tag.ga-urg{background:var(--s-urg-bg);color:var(--s-urg-fg)}.tag.ga-warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.tag.ga-need{background:var(--s-need-bg);color:var(--s-need-fg)}.tag.ga-prog{background:var(--s-prog-bg);color:var(--s-prog-fg)}.tag.ga-recv{background:var(--s-recv-bg);color:var(--s-recv-fg)}.tag.ga-asg{background:var(--s-asg-bg);color:var(--s-asg-fg)}.tag.ga-re{background:var(--s-re-bg);color:var(--s-re-fg)}@media(max-width:700px){.grw,.ghd{grid-template-columns:96px minmax(0,1fr) 24px}.ghd span:nth-child(3),.grw .gst{display:none}}
 .gold .gb{padding:4px 8px 16px;display:flex;flex-direction:column;gap:10px}
 /* 화면에 들어올 때의 움직임 (시안: 막대·진행 점·도넛·띠). 동작 줄이기 설정이면 움직이지 않는다. fill-mode 를 backwards 로 둬서 끝난 뒤의 마우스 올림 효과를 막지 않는다 */

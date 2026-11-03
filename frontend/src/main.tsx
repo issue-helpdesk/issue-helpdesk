@@ -33,6 +33,7 @@ import './assets/chat.css'
 import './assets/list.css'
 import './assets/staff.css'
 import './assets/admin.css'
+import './assets/refresh.css'
 
 // 우리 프로젝트에서 작성한 코드. 전체 앱, 로그인 상태 관리, 테마 적용 기능을 가져온다.
 import App from './App.tsx'

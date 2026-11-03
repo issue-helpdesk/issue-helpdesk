@@ -70,9 +70,6 @@
 .faq summary b{font-size:15px;font-weight:600;flex:1;min-width:0}
 /* 분류 태그: 오른쪽 펼침 버튼·제목과 같은 중심선에 오도록 살짝 올린다 */
 .faq summary .tag{padding:0 8px 1px;position:relative;top:-1px}
-.faq .chv{width:28px;height:28px;border-radius:8px;background:var(--shell);display:flex;align-items:center;justify-content:center;flex:none;transition:transform .2s}
-.faq .chv .i{transform:rotate(90deg);width:16px;height:16px}.faq[open] .chv{transform:rotate(180deg);background:var(--osurf);color:var(--link)}
-.faq summary:hover .chv{background:var(--osurf);color:var(--link)}
 .faq .fb{padding:0 20px 18px;line-height:26px}
 .rs{display:inline-flex;align-items:center;gap:5px;font-weight:600}.rs i{width:6px;height:6px;border-radius:50%;display:inline-block}
 .tag.stf{background:#7656E8;color:#fff}
@@ -161,6 +158,4 @@
 main.main[tabindex="-1"]:focus{outline:none}
 .nav .grp.tg{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:0;cursor:pointer;min-height:44px;border-radius:12px;font-family:inherit;text-align:left}
 .nav .grp.tg:hover{background:var(--hvg);color:var(--ink)}
-.nav .grp.tg .chv{width:28px;height:28px;border-radius:8px;background:var(--shell);display:flex;align-items:center;justify-content:center;flex:none;transition:transform .2s}
-.nav .grp.tg .chv .i{transform:rotate(90deg);width:16px;height:16px}.nav .grp.tg[aria-expanded="true"] .chv{transform:rotate(180deg);background:var(--osurf);color:var(--link)}.nav .grp.tg:hover .chv{background:var(--osurf);color:var(--link)}
 @media (prefers-reduced-motion:reduce){.nav .grp.tg .chv{transition:none}}

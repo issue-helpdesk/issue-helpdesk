@@ -13,6 +13,17 @@ import { PasswordDialog } from './PasswordDialog'
 import { Sidebar } from './Sidebar'
 import { ShellContext } from './shellContext'
 
+const SIDE_KEY = 'itssue-side'
+
+/** 접힘 상태는 이 브라우저에만 기억한다. 저장소를 못 쓰는 환경에서도 화면은 그대로 동작한다 */
+function readSideOff() {
+  try {
+    return localStorage.getItem(SIDE_KEY) === 'off'
+  } catch {
+    return false
+  }
+}
+
 export function AppShell() {
   // 사이드바를 연 시점의 경로를 기억한다. 다른 화면으로 이동하면 경로가 달라져 자동으로 닫힌 것으로 본다.
   const [openPath, setOpenPath] = useState<string | null>(null)
@@ -22,11 +33,23 @@ export function AppShell() {
   // "내 프로필" 창. 임시 비밀번호 상태에서는 사용자가 열지 않아도 닫을 수 없는 창이 먼저 뜬다.
   const [profileOpen, setProfileOpen] = useState(false)
   const forced = !!user?.passwordChangeRequired
+  const [sideOff, setSideOff] = useState(readSideOff)
 
   const toggleNav = useCallback(() => setOpenPath((cur) => (cur === pathname ? null : pathname)), [pathname])
   const closeNav = useCallback(() => setOpenPath(null), [])
   const openProfile = useCallback(() => setProfileOpen(true), [])
-  const value = useMemo(() => ({ toggleNav, openProfile }), [toggleNav, openProfile])
+  const toggleSide = useCallback(() => {
+    const next = !sideOff
+    setSideOff(next)
+    try {
+      localStorage.setItem(SIDE_KEY, next ? 'off' : 'on')
+    } catch {
+      /* 저장소를 못 쓰면 이번 화면에서만 적용된다 */
+    }
+    // 눌렀던 버튼이 사라지므로 반대쪽 버튼으로 초점을 옮긴다
+    setTimeout(() => document.querySelector<HTMLElement>(next ? '.top .sbopen, .xo .sbopen' : '.side .sbt')?.focus({ preventScroll: true }), 0)
+  }, [sideOff])
+  const value = useMemo(() => ({ toggleNav, openProfile, sideOff, toggleSide }), [toggleNav, openProfile, sideOff, toggleSide])
 
   // 사이드바가 열리면 첫 메뉴로 초점을 옮기고, Esc 로 닫으면 메뉴 버튼으로 돌려 보낸다
   useEffect(() => {
@@ -54,7 +77,7 @@ export function AppShell() {
 
   return (
     <ShellContext.Provider value={value}>
-      <div className={`app${navOpen ? ' nav-open' : ''}`}>
+      <div className={`app${sideOff ? ' side-off' : ''}${navOpen ? ' nav-open' : ''}`}>
         <button type="button" className="skip" onClick={skip}>
           본문으로 건너뛰기
         </button>

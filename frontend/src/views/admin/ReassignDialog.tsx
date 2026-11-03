@@ -103,7 +103,15 @@ export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: T
                 const isCur = c.id === cur
                 const ok = c.jira && !isCur
                 return (
-                  <tr key={c.id} className={isCur ? 'vold' : undefined}>
+                  <tr
+                    key={c.id}
+                    className={`${isCur ? 'vold ' : ''}${ok ? 'pick' : 'dis'}`.trim()}
+                    onClick={() => {
+                      if (!ok) return
+                      setPick(c.id)
+                      setErr('')
+                    }}
+                  >
                     <td>
                       <input type="radio" name={`${uid}-as`} id={`${uid}-as-${c.id}`} value={c.id} checked={pick === c.id} disabled={!ok} onChange={() => { setPick(c.id); setErr('') }} />
                     </td>

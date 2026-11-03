@@ -102,7 +102,19 @@ describe('새 문의 (챗봇 시작 화면)', () => {
     expect(screen.getByRole('heading', { name: '무엇을 도와드릴까요?' })).toBeInTheDocument()
     expect(screen.getByLabelText('메시지 입력')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /계정·로그인/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /비밀번호를 잊었어요/ })).toBeInTheDocument()
+    // 추천 카드는 실제 FAQ 에서 고르고, 분류가 겹치지 않는다
+    const cards = await screen.findAllByRole('button', { name: /FAQ에서 보기/ }, SLOW)
+    expect(cards).toHaveLength(3)
+    expect(screen.getByRole('button', { name: /계정이 잠겼어요. 어떻게 해야 하나요\?/ })).toBeInTheDocument()
+  })
+
+  it('추천 FAQ 카드를 누르면 입력창을 채우지 않고 그 FAQ 가 펼쳐진 FAQ 화면으로 간다', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1001')
+    await user.click(await screen.findByRole('button', { name: /계정이 잠겼어요. 어떻게 해야 하나요\?/ }, SLOW))
+    expect(await screen.findByRole('heading', { name: '먼저 확인해 보세요' }, SLOW)).toBeInTheDocument()
+    await waitFor(() => expect(document.querySelector('details.faq[open]')?.textContent).toContain('계정이 잠겼어요. 어떻게 해야 하나요?'))
+    expect(document.querySelectorAll('details.faq[open]')).toHaveLength(1)
   })
 
   it('칩을 누르면 입력창에 문장만 채워지고 바로 보내지지 않는다', async () => {
@@ -156,7 +168,10 @@ describe('FAQ', () => {
     renderAs('EMP-1001', '/faq')
     await user.click(await screen.findByText('계정이 잠겼어요. 어떻게 해야 하나요?', {}, SLOW))
     expect(screen.getByText(/10분 후 자동으로 해제돼요/)).toBeInTheDocument()
-    expect(screen.getByText(/IT-ACC-001 사내 SSO 로그인 오류 대응 가이드 v2 · 3\.2/)).toBeInTheDocument()
+    // 같은 가이드는 제목을 한 번만 쓰고, 위치는 눌러서 미리 볼 수 있는 버튼이다
+    expect(screen.getByText('IT-ACC-001 사내 SSO 로그인 오류 대응 가이드 v2')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /3\.2/ }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
   })
 
   it('"상담하기"를 누르면 새 문의 입력창에 그 질문이 채워진다', async () => {

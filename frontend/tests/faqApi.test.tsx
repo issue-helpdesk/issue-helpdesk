@@ -93,7 +93,8 @@ describe('서버 모드 FAQ 화면', () => {
     const q1 = await screen.findByText('질문 1')
     expect(urls()).toHaveLength(1) // 목록만. 출처는 아직 읽지 않았다
     await userEvent.click(q1)
-    expect(await screen.findByText(/출처: IT-ACC-001 계정·로그인 가이드 v1.0 · FAQ Q1/)).toBeInTheDocument()
+    expect(await screen.findByText('IT-ACC-001 계정·로그인 가이드 v1.0')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /FAQ Q1/ })).toBeInTheDocument()
     await userEvent.click(q1) // 닫았다가
     await userEvent.click(q1) // 다시 열어도 다시 읽지 않는다
     expect(urls()).toHaveLength(2)
