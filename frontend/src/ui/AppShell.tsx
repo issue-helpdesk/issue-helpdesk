@@ -10,6 +10,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'reac
 import { Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../core/session'
 import { PasswordDialog } from './PasswordDialog'
+import { ScrollTop } from './ScrollTop'
 import { Sidebar } from './Sidebar'
 import { ShellContext } from './shellContext'
 
@@ -96,6 +97,8 @@ export function AppShell() {
         <div className="scrim" onClick={closeNav} />
         <Sidebar onNavigate={closeNav} />
         <Outlet />
+        {/* 본문이 길게 스크롤될 때만 나타나는 "맨 위로" 버튼 */}
+        <ScrollTop />
         {(forced || profileOpen) && <PasswordDialog forced={forced} onClose={() => setProfileOpen(false)} />}
       </div>
     </ShellContext.Provider>
