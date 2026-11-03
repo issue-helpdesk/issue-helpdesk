@@ -57,6 +57,7 @@ from app.services.assignment import AssigneeNotAssignable, reserve_assignment
 from app.services.integration_retry import JiraOpenerDep, retry_job
 from app.services.jira_create import enqueue_jira_create
 from app.services.jira_transition import enqueue_jira_transition
+from app.services.jira_webhook import sync_ticket
 from app.utils import datetime_utils
 
 logger = logging.getLogger(__name__)
@@ -313,6 +314,12 @@ class TicketService:
     def get_ticket(self, ticket_id: int, viewer: User) -> TicketView:
         """TK-06."""
         ticket, inquiry = self.find_viewable(ticket_id, viewer)
+        return self.to_ticket(ticket, inquiry)
+
+    def sync_ticket(self, ticket_id: int, viewer: User) -> TicketView:
+        """TK-14. 볼 수 있는 사람만. Jira 를 읽지 못해도 마지막 확인 값을 돌려준다."""
+        ticket, inquiry = self.find_viewable(ticket_id, viewer)
+        sync_ticket(self.db, self.open_jira, ticket)
         return self.to_ticket(ticket, inquiry)
 
     def status_history(self, ticket_id: int, viewer: User) -> ItemList[StatusHistory]:

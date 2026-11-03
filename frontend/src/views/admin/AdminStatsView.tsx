@@ -271,7 +271,7 @@ export function AdminStatsView() {
               <div className="sk" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))' }}>
                 <Kpi label="AI 해결" n={counts?.ok ?? 0} to={`/tickets?mode=ai&aik=ok&${q}`} aria={`AI 해결 ${counts?.ok ?? 0}건. AI 해결 목록 보기`} hint="AI 답변으로 해결된 문의" />
                 <Kpi label="해결 확인 대기 (AI 답변 후)" n={counts?.pend ?? 0} sug to={`/tickets?mode=ai&aik=pend&${q}`} aria={`해결 확인 대기 ${counts?.pend ?? 0}건. 해당 목록 보기`} hint="미확인 · 해결·미해결을 아직 고르지 않았어요" />
-                <Kpi label="미해결 종료" n={counts?.unr ?? 0} sug to={`/tickets?mode=ai&aik=unr&${q}`} aria={`미해결 종료 ${counts?.unr ?? 0}건. 해당 목록 보기`} hint="해결되지 않고 끝난 문의 (접수하지 않고 끝낸 문의 포함)" />
+                <Kpi label="미연결 종료" n={counts?.unr ?? 0} sug to={`/tickets?mode=ai&aik=unr&${q}`} aria={`미연결 종료 ${counts?.unr ?? 0}건. 해당 목록 보기`} hint="해결되지 않고 끝난 문의 (접수하지 않고 끝낸 문의 포함)" />
               </div>
               <p className="small muted secnote">담당자 처리(티켓)와는 따로 세요. AI 해결과 해결 완료(CLS)는 합치지 않아요.</p>
             </Section>

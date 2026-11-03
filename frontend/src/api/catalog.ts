@@ -45,7 +45,7 @@ export const INQUIRY_STATUS_LABEL: Record<InquiryStatus, string> = {
   IN_PROGRESS: '진행 중',
   AI_RESOLVED: 'AI 해결',
   UNCONFIRMED: '미확인',
-  CLOSED_UNRESOLVED: '미해결 종료',
+  CLOSED_UNRESOLVED: '미연결 종료',
   RECEIVED: '접수',
   HANDED_OFF: '담당자 배정',
 }

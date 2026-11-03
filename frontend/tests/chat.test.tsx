@@ -572,26 +572,18 @@ describe('대화 화면', () => {
     expect(await screen.findByText(/AI 안내로 문제가 해결되었군요/, {}, SLOW)).toBeInTheDocument()
   })
 
-  it('미해결 종료 문의는 입력창이 잠기고, 이어가면 맨 아래에 담당자 연결 버튼이 다시 나온다', async () => {
-    const user = userEvent.setup()
+  it('미연결 종료 문의는 이어가기 창 없이 입력창이 잠기고 새 문의로 안내한다', async () => {
     renderAs('EMP-1001', '/chat/106')
-    const dlg = await screen.findByRole('dialog', { name: '해결되지 않은 문의를 이어갈까요?' }, SLOW)
-    expect(screen.getByLabelText('메시지 입력')).toHaveAttribute('placeholder', '아직 해결되지 않은 문의예요. 대화를 이어갈 수 있어요.')
-    expect(within(dlg).getByRole('button', { name: '새 문의 시작하기' })).toBeInTheDocument()
-    const count = (await get(106, 'EMP-1001')).messages.length
-    await user.click(within(dlg).getByRole('button', { name: '이어서 대화하기' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: '담당자 연결' })).toBeEnabled(), SLOW)
-    expect((await get(106, 'EMP-1001')).messages).toHaveLength(count) // 새 안내 메시지는 없다
-    await user.click(screen.getByRole('button', { name: '담당자 연결' }))
-    expect(await screen.findByText('접수 초안', {}, SLOW)).toBeInTheDocument()
+    expect(await screen.findByLabelText('메시지 입력', {}, SLOW)).toHaveAttribute('placeholder', '담당자 연결 없이 종료한 문의예요. 이어갈 수 없어서 새 문의로 시작해 주세요.')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('미연결 종료')).toBeInTheDocument()
   })
 
-  it('접수하지 않고 종료한 문의는 입력창 문구와 이어가기 창 문구가 따로 있고, 배지는 미해결 종료로 묶인다', async () => {
+  it('접수하지 않고 종료한 문의도 이어가기 창 없이 입력창 문구로 안내하고, 배지는 미연결 종료로 묶인다', async () => {
     renderAs('EMP-1001', '/chat/107')
-    const dlg = await screen.findByRole('dialog', { name: '이전 문의를 다시 이어갈까요?' }, SLOW)
-    expect(dlg).toHaveTextContent('티켓을 접수하지 않고 종료한 문의예요')
-    expect(screen.getByLabelText('메시지 입력')).toHaveAttribute('placeholder', '티켓을 접수하지 않고 종료한 문의예요.')
-    expect(screen.getByText('미해결 종료')).toBeInTheDocument()
+    expect(await screen.findByLabelText('메시지 입력', {}, SLOW)).toHaveAttribute('placeholder', '티켓을 접수하지 않고 종료한 문의예요. 새 문의로 시작해 주세요.')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('미연결 종료')).toBeInTheDocument()
     // 취소한 초안 카드의 버튼은 눌 수 없다
     expect(screen.queryByRole('button', { name: '접수하기' })).not.toBeInTheDocument()
   })
