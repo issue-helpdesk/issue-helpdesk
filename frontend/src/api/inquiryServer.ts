@@ -6,10 +6,11 @@
  *   nextActions  REPLY → 정보 수집(collect) · CONFIRM_RESOLUTION → 해결 확인(answered, 해결·미해결 버튼)
  *                DECIDE_HANDOFF → 담당자 연결 제안(offer, 연결·종료 버튼) · START_NEW → 종료(closed)
  * 서버에 없는 것(새 답변 표시, 담당자 안내 메시지, 응답 없음 삭제·돌아옴 안내)은 값이 비어 있어 화면에서 나타나지 않는다.
- * 접수 초안·최종 접수(TK-01~04)와 접수 이후의 해결·미해결(TK-07)은 아직 연결하지 않았다.
+ * 접수 초안·최종 접수(TK-01~04)와 접수 이후의 해결·미해결(TK-07)은 SERVER_INTAKE 가 켜졌을 때만 서버로 보낸다(config.ts).
  */
 import { request } from '../core/apiClient'
-import type { ChatBlock, ChatMessage, ChatReply, ChatStep, CategoryCode, Inquiry, InquiryStatus, LegacyCase, Ticket, Urgency, WorkStatus } from './chatTypes'
+import { SERVER_INTAKE } from '../core/config'
+import type { ChatBlock, ChatMessage, ChatReply, ChatStep, CategoryCode, Draft, DraftEdit, Inquiry, InquiryStatus, LegacyCase, RejudgedField, Ticket, Urgency, WorkStatus } from './chatTypes'
 import type { Page } from './inquiries'
 import type { TicketDetail } from './ticketTypes'
 import { fail, ok, type ApiResult, type DisplayStatus, type InquirySummary, type InquiryStateKind } from './types'
@@ -52,6 +53,35 @@ interface SInquiry {
   ticket: STicketRef | null
   createdAt: string
   updatedAt: string | null
+}
+/** 접수 초안 (TK-01·02·03) */
+interface SDraft {
+  id: number
+  inquiryId: number
+  summary: string | null
+  targetSystem: string | null
+  occurredAt: string | null
+  categoryCode: CategoryCode | null
+  inquiryType: { id: number; code: string; name: string } | null
+  urgency: Urgency | null
+  urgencyReason: string | null
+  businessImpact: string | null
+  triedActions: string | null
+  recommendedGroupId: number | null
+  recommendedGroup: { id: number; name: string } | null
+  status: string
+  updatedAt: string | null
+}
+interface SDraftChange {
+  field: string
+  before: string | number | null
+  after: string | number | null
+  reason: string | null
+}
+interface SDraftResult {
+  draft: SDraft
+  changes: SDraftChange[]
+  maskNotice: string | null
 }
 interface AiTurn {
   inquiry: SInquiry
@@ -116,15 +146,15 @@ export function toBlocks(content: string): ChatBlock[] {
 }
 
 /** 단계: 서버가 준 nextActions 가 있으면 그것으로, 없으면(조회) 문의 상태로 정한다 */
-export function stepOf(i: SInquiry, next?: string[], lastSender?: SMessage['sender']): ChatStep {
+export function stepOf(i: SInquiry, next?: string[], lastSender?: SMessage['sender'], intake = false): ChatStep {
   if (i.ticket || i.status === 'RECEIVED' || i.status === 'HANDED_OFF') return 'submitted'
   if (i.status === 'AI_RESOLVED' || i.status === 'CLOSED_UNRESOLVED') return 'closed'
   if (next?.includes('START_NEW')) return 'closed'
   if (next?.includes('CONFIRM_RESOLUTION')) return 'answered'
   if (next?.includes('DECIDE_HANDOFF')) return 'offer'
   if (next?.includes('REPLY')) return 'collect'
-  // 조회: 접수 초안이 있으면 연결 제안 단계로 둔다 (초안 화면은 아직 연결하지 않았다)
-  if (i.activeDraftId) return 'offer'
+  // 조회: 접수 초안이 있으면, 접수를 서버로 보내는 환경에서는 초안 단계로, 아니면 연결 제안 단계로 둔다
+  if (i.activeDraftId) return intake ? 'draft' : 'offer'
   // 내 글에 AI 답이 없다: AI 가 답하지 못했다(503). 서버에는 "AI 응답 불가" 표시가 없어서 마지막 메시지로 알아낸다 (docs/api/02 IQ-01)
   if (lastSender === 'USER') return 'offer'
   if (i.displayStatus === 'unconfirmed') return 'answered'
@@ -171,7 +201,39 @@ export const NO_TICKET_CLOSED: ChatMessage[] = [
   { id: -4, role: 'assistant', blocks: [{ type: 'p', text: '**담당자 연결 없이 상담을 종료했어요.**' }, { type: 'p', text: '티켓은 접수되지 않았으며, 같은 문제로 다시 연결을 원하시면 새 문의로 시작해 주세요.' }] },
 ]
 
-function toMessages(list: SMessage[], step: ChatStep, i: SInquiry, answering = false): ChatMessage[] {
+/* ------------------------------------------------------------------ 접수 초안 */
+const DRAFT_INTRO = '지금까지 확인한 내용을 정리했어요. 맞는지 확인하고, 필요하면 수정해 주세요.'
+/** 서버가 만든 메시지가 아니라 화면이 붙이는 카드 메시지의 id (서버 메시지 id 는 양수) */
+export const DRAFT_CARD_ID = -10
+export const TICKET_CARD_ID = -11
+
+export function toDraft(d: SDraft): Draft {
+  return {
+    title: d.inquiryType?.name ?? `${d.targetSystem ?? 'IT'} 지원 문의`,
+    categoryCode: d.categoryCode,
+    targetSystem: d.targetSystem ?? '확인 필요',
+    summary: d.summary ?? '',
+    occurredAt: d.occurredAt ?? '확인 필요',
+    businessImpact: d.businessImpact ?? '확인 필요',
+    triedActions: d.triedActions ?? '확인 필요',
+    aiSummary: '', // 서버에는 AI 안내 요약 칸이 없다
+    urgency: d.urgency ?? 'P3',
+    urgencyReasons: (d.urgencyReason ?? '').split('\n').map((x) => x.trim()).filter(Boolean),
+    groupId: d.recommendedGroupId,
+    groupName: d.recommendedGroup?.name ?? '',
+    inquiryTypeCode: d.inquiryType?.code ?? null,
+    inquiryTypeName: d.inquiryType?.name ?? null,
+  }
+}
+
+/** 최종 접수(TK-04)에 보낼 값: 사용자가 본 초안의 id 와 수정 시각 */
+const draftRefs = new Map<number, { id: number; updatedAt: string | null }>()
+/** 초안을 고친 직후의 "다시 판단됨" 안내. 같은 수정 시각의 초안에만 붙인다(주기 조회가 지우지 않게 서버 응답이 아닌 여기에 둔다) */
+const draftNotes = new Map<number, { updatedAt: string | null; note: string; rejudged: RejudgedField[] }>()
+
+const REJUDGED: Record<string, RejudgedField> = { categoryCode: 'category', inquiryTypeId: 'inquiryType', urgency: 'urgency', recommendedGroupId: 'group' }
+
+function toMessages(list: SMessage[], step: ChatStep, i: SInquiry, answering = false, intake = false): ChatMessage[] {
   const resolved = i.status === 'AI_RESOLVED'
   const out: ChatMessage[] = list.filter((m) => !(resolved && m.sender === 'SYSTEM' && m.content === RESOLVED_NOTICE)).map((m): ChatMessage => {
     if (m.sender === 'USER') return { id: m.id, role: 'user', text: m.content, createdAt: m.createdAt }
@@ -187,6 +249,11 @@ function toMessages(list: SMessage[], step: ChatStep, i: SInquiry, answering = f
   else if (i.resolutionResult === 'UNRESOLVED') out.push({ id: -9, role: 'user', text: UNRESOLVED_LABEL }, UNRESOLVED_REPLY)
   // 접수 없이 끝난 문의(담당자 연결 거절): 서버는 종료만 저장하고 안내 글은 저장하지 않아서, 모의와 같은 종료 안내를 화면에서 붙인다
   if (i.status === 'CLOSED_UNRESOLVED' && !i.ticket) out.push({ id: -5, role: 'user', text: NO_CONNECT_LABEL }, ...NO_TICKET_CLOSED)
+  // 접수 초안·접수 카드: 서버는 카드를 메시지로 저장하지 않아서 상태에서 만들어 붙인다
+  if (intake && step === 'draft') out.push({ id: DRAFT_CARD_ID, role: 'assistant', blocks: [{ type: 'p', text: DRAFT_INTRO }], card: 'draft' })
+  if (intake && i.ticket) {
+    out.push({ id: TICKET_CARD_ID, role: 'assistant', blocks: [{ type: 'p', text: `접수되었어요. 접수번호는 **${i.ticket.receiptNo}** 입니다. 담당자 연결을 진행하고 있어요. 진행 상황은 아래 카드에서 바로 볼 수 있어요.` }], card: 'ticket' })
+  }
   // 버튼은 마지막 AI 메시지에만 붙는다. 내 글에 AI 답이 없으면(답하지 못함) 안내 메시지를 만들어 붙인다
   const replies = REPLIES[step]
   if (replies) {
@@ -207,6 +274,7 @@ function toMessages(list: SMessage[], step: ChatStep, i: SInquiry, answering = f
 /** 접수 상세(TK-06)를 문의 화면의 접수 카드로 */
 export function toTicket(d: TicketDetail): Ticket {
   return {
+    id: d.id,
     receiptNo: d.receiptNo,
     jiraKey: d.jiraKey,
     title: d.summary,
@@ -229,6 +297,7 @@ export function toTicket(d: TicketDetail): Ticket {
 
 /** 접수 상세를 읽지 못했을 때를 위한 요약 (문의 응답의 TicketRef 와 추천 그룹으로 채운다) */
 const refTicket = (i: SInquiry): Ticket => ({
+  id: i.ticket!.id,
   receiptNo: i.ticket!.receiptNo,
   jiraKey: i.ticket!.jiraKey,
   title: i.title ?? '',
@@ -246,9 +315,9 @@ const refTicket = (i: SInquiry): Ticket => ({
   needReply: false,
 })
 
-export function toInquiry(i: SInquiry, messages: SMessage[], next?: string[], ticket?: Ticket | null): Inquiry {
+export function toInquiry(i: SInquiry, messages: SMessage[], next?: string[], ticket?: Ticket | null, draft?: Draft | null, draftNote = '', intake = false): Inquiry {
   const answering = isAnswering(i, messages)
-  const step: ChatStep = answering ? 'answering' : stepOf(i, next, messages[messages.length - 1]?.sender)
+  const step: ChatStep = answering ? 'answering' : stepOf(i, next, messages[messages.length - 1]?.sender, intake)
   const firstUser = messages.find((m) => m.sender === 'USER')?.content
   return {
     id: i.id,
@@ -259,10 +328,10 @@ export function toInquiry(i: SInquiry, messages: SMessage[], next?: string[], ti
     unread: 0,
     createdAt: i.createdAt,
     updatedAt: i.updatedAt ?? i.createdAt,
-    messages: toMessages(messages, step, i, answering),
-    draft: null,
+    messages: toMessages(messages, step, i, answering, intake),
+    draft: step === 'draft' ? (draft ?? null) : null,
     draftState: 'view',
-    draftNote: '',
+    draftNote,
     ticket: i.ticket ? (ticket ?? refTicket(i)) : null,
   }
 }
@@ -278,7 +347,21 @@ export async function loadInquiry(id: number, next?: string[]): Promise<ApiResul
     const t = await request<TicketDetail>(`/tickets/${inq.data.ticket.id}`)
     if (t.ok) ticket = toTicket(t.data)
   }
-  return ok(toInquiry(inq.data, msgs.data.items, next, ticket))
+  // 접수를 서버로 보내는 환경에서만 작성 중인 초안을 읽는다 (TK-02)
+  let draft: Draft | null = null
+  let note = ''
+  if (SERVER_INTAKE && !inq.data.ticket && inq.data.activeDraftId) {
+    const d = await request<SDraft>(`/ticket-drafts/${inq.data.activeDraftId}`)
+    if (!d.ok) return d
+    draft = toDraft(d.data)
+    draftRefs.set(id, { id: d.data.id, updatedAt: d.data.updatedAt })
+    const kept = draftNotes.get(id)
+    if (kept && kept.updatedAt === d.data.updatedAt) {
+      note = kept.note
+      draft.rejudged = kept.rejudged
+    }
+  }
+  return ok(toInquiry(inq.data, msgs.data.items, next, ticket, draft, note, SERVER_INTAKE))
 }
 
 /**
@@ -342,8 +425,72 @@ export function toServerSummary(s: SSummary): InquirySummary {
 export const mapSummaries = (p: Page<SSummary>): Page<InquirySummary> => ({ ...p, items: p.items.map(toServerSummary) })
 export type { SSummary }
 
+/* ------------------------------------------------------------------ 접수 (TK-01·03·04)·접수 이후 해결 확인 (TK-07) */
+/** 담당자 연결 동의: 접수 초안을 만든다 (TK-01). 이미 작성 중인 초안이 있으면(409) 그 초안을 연다 */
+export async function serverDraftCreate(id: number): Promise<ApiResult<Inquiry>> {
+  const r = await request<SDraft>(`/inquiries/${id}/ticket-drafts`, { method: 'POST' })
+  if (r.ok || r.error.code === 'DRAFT_ALREADY_EXISTS') return loadInquiry(id)
+  return r
+}
+
+/** 초안 수정 (TK-03). 서버가 긴급도·담당 그룹을 다시 판단한 결과(changes)와 가린 민감정보 안내(maskNotice)를 화면 안내로 바꾼다 */
+export async function serverDraftSave(id: number, edit: DraftEdit): Promise<ApiResult<Inquiry>> {
+  const ref = draftRefs.get(id)
+  if (!ref) return fail('DRAFT_NOT_FOUND', '작성 중인 초안을 찾지 못했어요. 화면을 새로 열어 주세요.')
+  // 서버는 빈 문자열을 받지 않는다(1자 이상). 비워 둔 칸은 보내지 않아 기존 값을 유지한다
+  const body: Record<string, string> = {}
+  for (const [k, v] of Object.entries({ summary: edit.summary, occurredAt: edit.occurredAt, businessImpact: edit.businessImpact, triedActions: edit.triedActions })) {
+    if (v?.trim()) body[k] = v.trim()
+  }
+  const r = await request<SDraftResult>(`/ticket-drafts/${ref.id}`, { method: 'PATCH', body: JSON.stringify(body) })
+  if (!r.ok) return r
+  const reasons = r.data.changes.map((c) => c.reason).filter(Boolean).join(' ')
+  const base = r.data.changes.length
+    ? `수정한 내용을 반영해 다시 판단했어요. ${reasons} 변경된 내용으로 다시 확인해 주세요.`.replace('  ', ' ')
+    : '수정 내용을 반영했어요. 최종 접수 전에 한 번 더 확인해 주세요.'
+  const mask = r.data.maskNotice?.replace(/\s*\n\s*/g, ' ').trim()
+  draftNotes.set(id, {
+    updatedAt: r.data.draft.updatedAt,
+    note: mask ? `${mask} ${base}` : base,
+    rejudged: [...new Set(r.data.changes.map((c) => REJUDGED[c.field]).filter(Boolean))],
+  })
+  return loadInquiry(id)
+}
+
+/** 접수하지 않고 종료 (TK-03 status=CANCELLED): 초안이 취소되고 문의가 미연결 종료가 된다 */
+export async function serverDraftCancel(id: number): Promise<ApiResult<Inquiry>> {
+  const ref = draftRefs.get(id)
+  if (!ref) return fail('DRAFT_NOT_FOUND', '작성 중인 초안을 찾지 못했어요. 화면을 새로 열어 주세요.')
+  const r = await request<SDraftResult>(`/ticket-drafts/${ref.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'CANCELLED' }) })
+  if (!r.ok) return r
+  draftRefs.delete(id)
+  draftNotes.delete(id)
+  return loadInquiry(id)
+}
+
+/** 최종 접수 (TK-04). 사용자가 본 초안의 수정 시각을 보내, 다른 화면에서 바뀐 초안이면 서버가 거절한다(DRAFT_RECONFIRM_REQUIRED) */
+export async function serverConfirm(id: number): Promise<ApiResult<Inquiry>> {
+  const ref = draftRefs.get(id)
+  if (!ref) return fail('DRAFT_NOT_FOUND', '작성 중인 초안을 찾지 못했어요. 화면을 새로 열어 주세요.')
+  const r = await request<{ id: number }>('/tickets', { method: 'POST', body: JSON.stringify({ draftId: ref.id, draftUpdatedAt: ref.updatedAt }) })
+  if (!r.ok) return r
+  draftRefs.delete(id)
+  draftNotes.delete(id)
+  return loadInquiry(id)
+}
+
+/** 초안이 서버에서 바뀌었거나 이미 접수·취소돼서 화면의 초안이 낡았음을 뜻하는 오류 */
+export const isStaleDraft = (code: string) => ['DRAFT_RECONFIRM_REQUIRED', 'DRAFT_NOT_EDITABLE', 'DRAFT_NOT_FOUND'].includes(code)
+
+/** 접수 이후 문의자의 해결(CLS)·미해결(WIP+남은 증상) 선택 (TK-07). Jira 상태 변경은 실행기가 이어서 처리하므로 화면 반영은 조금 늦을 수 있다 */
+export async function serverTicketStatus(id: number, ticketId: number | undefined, body: { workStatus: 'CLS' } | { workStatus: 'WIP'; reason: string }): Promise<ApiResult<Inquiry>> {
+  if (!ticketId) return fail('TICKET_NOT_FOUND', '접수 정보를 찾지 못했어요. 화면을 새로 열어 주세요.')
+  const r = await request<unknown>(`/tickets/${ticketId}`, { method: 'PATCH', body: JSON.stringify(body) })
+  return r.ok ? loadInquiry(id) : r
+}
+
 /**
- * 접수 초안·최종 접수·접수 이후의 해결 확인은 Jira 연동(실행기)이 준비되기 전에는 서버로 보내지 않는다.
- * 접수를 만들면 공유 DB 에 접수와 Jira 작업이 남고 Jira 단계가 끝나지 않기 때문이다. 이 안내만 돌려주고 서버는 부르지 않는다.
+ * 접수를 서버로 보내지 않는 환경(SERVER_INTAKE 꺼짐)에서 접수 관련 동작이 눌렸을 때의 안내.
+ * 접수를 만들면 공유 DB 에 접수와 Jira 작업이 남고, 작업 실행기가 없으면 끝나지 않고 쌓이기 때문이다. 서버는 부르지 않는다.
  */
 export const notReady = (what: string) => fail('NOT_READY', `${what}은(는) Jira 연동이 준비된 뒤에 열려요. 지금은 사용할 수 없어요.`)

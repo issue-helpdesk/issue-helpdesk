@@ -151,6 +151,8 @@ export type DraftState = 'view' | 'confirmed' | 'cancel'
 
 /** 접수된 Ticket 중 문의자에게 보이는 정보 */
 export interface Ticket {
+  /** 서버 접수 ID (tickets.id). 접수 이후 해결·미해결(TK-07)을 보낼 때 쓴다. 모의에는 없다 */
+  id?: number
   /** 접수번호 RCPT-#### */
   receiptNo: string
   /** Jira 이슈 키 ITHD-####. 생성 전에는 null */
