@@ -198,6 +198,9 @@ h1,h2,h3,h4,p{margin:0}
 
 /* ---- new inquiry (empty) ---- */
 .hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 32px 56px;gap:0;text-align:center}
+.hero>*{flex-shrink:0}
+/* 입력이 3줄 넘게 길어지면 분류 칩·FAQ 카드는 접어 입력창이 눌리지 않게 한다 */
+.hero:has(.composer textarea.grown) :is(.cats,.faqs3){display:none}
 .hero h1{font-size:36px;line-height:46px;font-weight:600;letter-spacing:-.01em;margin-top:6px}
 .hero .hi{font-size:14px;color:var(--mute);margin-top:18px}
 .hero .composer{width:100%;max-width:720px;margin-top:30px;min-height:72px;align-items:center;padding:8px 10px 8px 14px}
@@ -1315,7 +1318,7 @@ function animateViz(){
   root.querySelectorAll('svg[viewBox]').forEach((sv,si)=>{const w=+(sv.getAttribute('viewBox').split(' ')[2]||0);if(w<360||!sv.querySelector('path')||sv.classList.contains('hv'))return;
     once(okey('trend',sv,si,'svg[viewBox]',ctx),()=>lineRise(sv,0));});
 }
-function autosize(t){t.style.height='auto';t.style.height=Math.min(140,t.scrollHeight)+'px';}
+function autosize(t){t.style.height='auto';t.classList.toggle('grown',t.scrollHeight>72);t.style.height=Math.min(140,t.scrollHeight)+'px';}
 /* 보내기 버튼: 글이 비어 있거나 입력창이 꺼져 있으면 비활성(흐리게), 글자가 들어오면 활성 */
 function syncSend(t){const b=t&&t.closest('.composer')&&t.closest('.composer').querySelector('.btn.ico.pri');if(b)b.disabled=!!t.disabled||!t.value.trim();}
 
@@ -2906,7 +2909,6 @@ document.addEventListener('input',ev=>{
 document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset&&el.dataset.in==='fsc'){fsRepaint(el.value);return;}if(el.dataset&&el.dataset.in==='fsck'){fsSync();return;}if(el.dataset&&el.dataset.in==='gu'){const k=el.dataset.k;S.gu[k]=el.type==='checkbox'?el.checked:el.value;if(k==='cat'){S.gu.doc='';if(S.gu.mode==='new'&&!S.gu.ver)S.gu.ver='v1';guPaint();}else if(k==='doc'){const g=S.guides.find(x=>x.id===el.value);if(g){const l=g.vers[0];S.gu.ver='v'+(Math.max(...g.vers.map(x=>x.v))+1);S.gu.scope=l.scope;S.gu.tx=l.tx;}guPaint();}return;}if(el.dataset&&el.dataset.in==='secsel'){S.secF.type=el.value;render();return;}if(el.dataset&&el.dataset.in==='tfsel'){S.tf[el.dataset.k]=el.value||undefined;S.page.tk=1;render();return;}if(el.dataset&&el.dataset.in==='gfile'){const f=el.files[0];const x=document.getElementById('m-fx');if(x)x.hidden=!f;const t=document.getElementById('m-t');if(f&&t&&!t.value){t.value=f.name.replace(/\.[^.]+$/,'');if(S.gu)S.gu.title=t.value;}}if(el.dataset&&el.dataset.in==='flag'){S.flags[el.dataset.k]=el.checked;}});
 document.addEventListener('keydown',ev=>{
   const el=ev.target;
-  if(ev.key==='Enter'&&ev.altKey&&!ev.isComposing&&(el.id==='cmp'||el.id==='pre-in')){ev.preventDefault();el.setRangeText('\n',el.selectionStart,el.selectionEnd,'end');el.dispatchEvent(new Event('input',{bubbles:true}));return;}
   if(ev.key==='Enter'&&!ev.shiftKey&&!ev.isComposing){
     if(el.id==='cmp'){ev.preventDefault();A.send();}
     else if(el.id==='pre-in'){ev.preventDefault();A['pre-send']();}
