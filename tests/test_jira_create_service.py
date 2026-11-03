@@ -13,11 +13,11 @@ from sqlalchemy.pool import StaticPool
 
 from app.integrations.jira.client import JiraClient
 from app.integrations.jira.mapper import adf_to_text
-from app.models import Base, Category, Inquiry, InquiryType, IntegrationJob, SupportGroup, Ticket, User
+from app.models import Base, Category, Department, Inquiry, InquiryType, IntegrationJob, SupportGroup, Ticket, User
 from app.services import jira_create
 from app.utils import datetime_utils
 
-TABLES = ["users", "support_groups", "categories", "inquiry_types", "inquiries", "tickets", "integration_jobs",
+TABLES = ["departments", "users", "support_groups", "categories", "inquiry_types", "inquiries", "tickets", "integration_jobs",
           "support_group_members", "member_skills", "assignment_logs", "time_off", "notifications"]
 T0 = datetime(2026, 10, 30, 9, 0, tzinfo=timezone.utc)
 POST_ISSUE = ("POST", "/rest/api/3/issue")
@@ -132,6 +132,26 @@ def test_enqueue_is_idempotent_per_receipt(db):
     assert first.id == second.id
     assert (first.job_type, first.status, first.attempts) == ("JIRA_CREATE", "PENDING", 0)
     assert first.idempotency_key == "create:RCPT-0042"
+
+
+def test_payload_carries_inquiry_title_requester_department_and_request_kind(db):
+    db.add(Department(id=9, name="연구소"))
+    db.flush()
+    db.get(User, 17).department_id = 9
+    db.add(Inquiry(id=7, user_id=17, status="RECEIVED", title="VPN이 자꾸 끊겨요"))
+    db.commit()
+    ticket = make_ticket(db, inquiry_id=7)
+
+    payload = jira_create.enqueue_jira_create(db, ticket).payload
+
+    assert payload["title"] == "VPN이 자꾸 끊겨요"
+    assert payload["requester"]["departmentName"] == "연구소"
+    assert payload["inquiryType"]["requestKind"] == "INCIDENT"
+
+
+def test_payload_without_inquiry_title_or_department_keeps_working(db):
+    payload = jira_create.enqueue_jira_create(db, make_ticket(db)).payload
+    assert payload["title"] is None and payload["requester"]["departmentName"] is None
 
 
 # ------------------------------------------------------------------ 성공 경로
