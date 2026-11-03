@@ -9,8 +9,10 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CATEGORIES, STAFF_STATUS } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
-import { changeTicketStatus, getTicket, getTicketHistory, getTicketMessages, sendTicketMessage } from '../../api/tickets'
+import { markTicketRead, refreshUnread } from '../../api/notifications'
+import { changeTicketStatus, getTicket, getTicketHistory, getTicketMessages, sendTicketMessage, syncTicket } from '../../api/tickets'
 import type { MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMessage } from '../../api/ticketTypes'
+import { USE_MOCK_TICKET } from '../../core/config'
 import { formatDateTime } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { Icon } from '../../ui/Icon'
@@ -191,8 +193,16 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
         setT(r.data)
         setError('')
         if (r.data.jiraMention) setMention(true)
+        // 이 접수의 내 알림(담당자 배정 등)은 열었으니 읽음으로 바꾸고 사이드바 개수를 다시 읽는다 (NT-04)
+        markTicketRead(id).then((x) => x.ok && x.data.updatedCount > 0 && refreshUnread())
       } else setError(r.error.message)
     })
+    // 서버 모드: Jira 의 최신 상태를 읽어 오게 하고(TK-14), 달라졌으면 화면에 반영한다
+    if (!USE_MOCK_TICKET) {
+      syncTicket(user, id).then((r) => {
+        if (alive && r.ok) setT((cur) => (cur ? { ...cur, ...r.data } : cur))
+      })
+    }
     getTicketHistory(user, id).then((r) => {
       if (alive && r.ok) setHist(r.data.items)
     })

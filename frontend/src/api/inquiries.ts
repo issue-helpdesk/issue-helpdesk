@@ -13,6 +13,7 @@ import { CATEGORIES } from './catalog'
 import type { CategoryCode } from './chatTypes'
 import { formatRelative } from '../core/format'
 import { pollHints, visiblePoll } from '../core/poll'
+import { listUnread, watchUnread } from './notifications'
 import { ok, type ApiResult, type DisplayStatus, type InquirySummary } from './types'
 
 /** 서버를 다시 읽는 간격(ms) */
@@ -32,8 +33,13 @@ export async function listMyInquiries(employeeNo: string): Promise<ApiResult<Inq
     return ok(recordsOf(employeeNo).map((r) => toSummary(r.inquiry)))
   }
   // 서버는 Page 로 준다. 사이드바는 최근 활동 순 몇 건만 쓴다
-  const r = await request<Page<SSummary>>('/inquiries?size=5&sort=updatedAt,desc')
-  return r.ok ? ok(mapSummaries(r.data).items) : r
+  const [r, news] = await Promise.all([request<Page<SSummary>>('/inquiries?size=5&sort=updatedAt,desc'), listUnread()])
+  if (!r.ok) return r
+  const items = mapSummaries(r.data).items
+  // 처리 완료(FIN) 같은 화면 알림이 안 읽힌 문의는 새 답변 표시(unread)를 켠다
+  const unread = new Map<number, number>()
+  if (news.ok) for (const n of news.data) unread.set(n.inquiryId, (unread.get(n.inquiryId) ?? 0) + 1)
+  return ok(items.map((i) => ({ ...i, unread: unread.get(i.id) ?? i.unread })))
 }
 
 /* ------------------------------------------------------------------ 문의 내역 (조건 조회) */
@@ -186,8 +192,15 @@ export function watchMyInquiries(employeeNo: string, onChange: (list: InquirySum
   }
   pollHints.listLoaders.add(load)
   const stop = visiblePoll(poll, POLL_MS)
+  // 알림 개수(NT-02)는 가볍게 읽을 수 있으니 따로 보고, 안 읽은 알림이 바뀌면 목록을 다시 읽는다(처음 한 번은 위에서 이미 읽는다)
+  let first = true
+  const offUnread = watchUnread(() => {
+    if (first) first = false
+    else load()
+  })
   return () => {
     stop()
+    offUnread()
     pollHints.listLoaders.delete(load)
   }
 }

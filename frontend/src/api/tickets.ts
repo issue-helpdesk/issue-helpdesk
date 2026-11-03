@@ -152,6 +152,16 @@ export async function getTicket(user: User, id: number): Promise<ApiResult<Ticke
   return ok({ ...t, jiraMention: had })
 }
 
+/**
+ * 새로고침 동기화 (TK-14): 접수를 열 때 서버가 Jira 의 최신 상태·처리 결과·담당자를 읽어 반영해 돌려준다.
+ * 웹훅이 유실되거나 실행기가 멈춘 경우의 보완이다. 서버가 30초 안 재호출 등은 Jira 를 부르지 않고 현재 값을 돌려주므로 열 때마다 불러도 된다.
+ * 모의 모드에서는 필요 없어서 현재 값을 그대로 돌려준다.
+ */
+export async function syncTicket(user: User, id: number): Promise<ApiResult<TicketDetail>> {
+  if (USE_MOCK_TICKET) return getTicket(user, id)
+  return request<TicketDetail>(`/tickets/${id}/sync`, { method: 'POST' })
+}
+
 /** 업무 상태 이력 (TK-08) */
 export async function getTicketHistory(user: User, id: number): Promise<ApiResult<{ items: StatusHistory[] }>> {
   if (!USE_MOCK_TICKET) return request<{ items: StatusHistory[] }>(`/tickets/${id}/status-history`)

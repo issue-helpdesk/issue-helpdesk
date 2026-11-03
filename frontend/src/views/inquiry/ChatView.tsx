@@ -12,8 +12,11 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { cancelChatDraft, isStaleInquiry, confirmChatDraft, editDraft, getChat, idleBackChat, idleDeleteChat, idleWarnChat, leaveChat, rejectChat, replyChat, resolveChat, resumeChat, sendChat, watchChat } from '../../api/chat'
 import { IDLE_TEXT, type DraftEdit, type GuideSource, type Inquiry, type LegacyCase } from '../../api/chatTypes'
 import { displayStatusOf, inquiryState } from '../../api/inquiryState'
+import { markTicketRead, refreshUnread } from '../../api/notifications'
+import { syncTicket } from '../../api/tickets'
 import type { ApiResult } from '../../api/types'
-import { SERVICEDESK, USE_MOCK_INQUIRY } from '../../core/config'
+import { SERVICEDESK, USE_MOCK_INQUIRY, USE_MOCK_NOTIFY } from '../../core/config'
+import { refreshInquiryList } from '../../core/poll'
 import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
 import { EmptyState } from '../../ui/EmptyState'
@@ -90,6 +93,28 @@ export function ChatView() {
   }, [id, employeeNo, navigate, reloadKey])
 
   const inquiry = loaded?.id === id ? loaded.data : undefined // undefined=불러오는 중, null=없음
+
+  // 접수가 있는 문의를 열면: 그 접수의 내 알림을 읽음으로 바꾸고(NT-04), 서버 모드에서는 Jira 의 최신 상태를 한 번 읽어 오게 한다(TK-14)
+  const ticketId = inquiry?.ticket?.id
+  const ticketWork = inquiry?.ticket?.workStatus
+  const openedTicket = useRef<number | null>(null)
+  useEffect(() => {
+    if (ticketId === undefined || openedTicket.current === ticketId || !user) return
+    openedTicket.current = ticketId
+    if (!USE_MOCK_NOTIFY) {
+      markTicketRead(ticketId).then((r) => {
+        if (r.ok && r.data.updatedCount > 0) {
+          refreshInquiryList()
+          refreshUnread()
+        }
+      })
+    }
+    if (!USE_MOCK_INQUIRY && ticketWork !== 'CLS') {
+      syncTicket(user, ticketId).then((r) => {
+        if (r.ok && r.data.workStatus !== ticketWork) setReloadKey((k) => k + 1)
+      })
+    }
+  }, [ticketId, ticketWork, user])
   const count = inquiry?.messages.length ?? 0
 
   // 새로 생긴 AI 답변만 한 번 움직인다. 처음 불러온 메시지와 단순한 다시 그리기에서는 움직이지 않는다.
