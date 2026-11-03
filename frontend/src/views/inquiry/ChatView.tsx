@@ -321,16 +321,14 @@ export function ChatView() {
       <Topbar
         title={inquiry.title}
         sub={t ? `${t.receiptNo}${t.jiraKey ? ` · ${t.jiraKey}` : ''}` : undefined}
+        status={<StateBadge tone={state.tone} label={state.label} sub={state.sub} ring={state.ring} />}
         right={
-          <>
-            {t && (
-              <button type="button" className="btn pri sm dtl" onClick={() => setDetail(true)}>
-                <Icon name="file" />
-                접수 상세
-              </button>
-            )}
-            <StateBadge tone={state.tone} label={state.label} sub={state.sub} ring={state.ring} />
-          </>
+          t && (
+            <button type="button" className="btn pri sm dtl" onClick={() => setDetail(true)}>
+              <Icon name="file" />
+              접수 상세
+            </button>
+          )
         }
         lead={
           <span className="tlead">

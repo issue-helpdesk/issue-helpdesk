@@ -18,6 +18,7 @@ import { Icon, type IconName } from '../../ui/Icon'
 import { Mascot } from '../../ui/Mascot'
 import { SideToggle } from '../../ui/SideToggle'
 import { useShell } from '../../ui/shellContext'
+import { UserControls } from '../../ui/UserControls'
 
 /** 자주 묻는 분류 칩: [아이콘, 이름, 입력창에 채울 문장] */
 const CATEGORY_CHIPS: [IconName, string, string][] = [
@@ -99,6 +100,8 @@ export function NewInquiryView() {
 
   return (
     <main className="main">
+      {/* 이 화면은 상단바가 없어서 화면 모드·사용자 메뉴를 오른쪽 위에 띄운다 */}
+      <UserControls floating />
       <div className="scroll">
         {/* 화면 이름은 스크린리더용으로만 두고, 시각적으로는 큰 인사말을 보여 준다 */}
         <h2 className="sr">새 문의</h2>
