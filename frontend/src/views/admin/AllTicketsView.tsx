@@ -321,7 +321,14 @@ export function AllTicketsView() {
               ) : rows.length ? (
                 <>
                   <div className="tw">
-                    <table className="tbl">
+                    <table className="tbl fx fx2">
+                      <colgroup>
+                        <col style={{ width: '32%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '28%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '14%' }} />
+                      </colgroup>
                       <thead>
                         <tr>
                           <SortTh plain={!USE_MOCK_INQUIRY} col="title" label="문의" sort={aiSort} onSort={onAiSort} />
@@ -443,7 +450,16 @@ export function AllTicketsView() {
               ) : items.length ? (
                 <>
                   <div className="tw">
-                    <table className="tbl">
+                    <table className="tbl fx fx2">
+                      <colgroup>
+                        <col style={{ width: '9%' }} />
+                        <col style={{ width: '13%' }} />
+                        <col style={{ width: '27%' }} />
+                        <col style={{ width: '13%' }} />
+                        <col style={{ width: '11%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '15%' }} />
+                      </colgroup>
                       <thead>
                         <tr>
                           <SortTh col="pri" label="긴급도" center sort={sort} onSort={onSort} />

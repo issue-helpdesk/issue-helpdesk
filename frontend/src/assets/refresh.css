@@ -92,6 +92,14 @@
 .rwhy{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.rwhy .chip{min-height:32px;padding:0 10px;font-size:13px}
 .rwhy .chip[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--btn-l)!important;color:var(--link)!important;background:var(--osoft)!important}
 
+/* ---- 목록 표 열 너비 고정: 필터를 바꿔 내용이 달라져도 열 폭이 흔들리지 않게 한다 ---- */
+.tbl.fx{table-layout:fixed;width:100%}
+.tbl.fx td .lk{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.tbl.fx td,.tbl.fx th{overflow:hidden}
+/* 제목이 긴 표(접수 목록): 제목은 두 줄까지 보이고 말줄임, 접수번호·분류·접수일은 줄바꿈 없이 자기 칸 안에 둔다 */
+.tbl.fx2 td .lk{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;overflow:hidden;text-overflow:ellipsis;word-break:break-word}
+.tbl.fx2 td.mono{white-space:nowrap}
+
 /* ---- 글자 세로 보정: 한글 글꼴(Noto Sans KR)은 칸 가운데에 두어도 글자가 약 1px 아래로 보입니다. 아래쪽 안쪽 여백을 글자 크기의 0.12em 더해 글자를 올립니다(12px → 약 0.7px). ---- */
 .btn:not(.ico),.chip,.tag,.count,.pcn,[class*="pri-p"],.rr-s,.gcn,.pf,.skip,.pn,.d2pg button,.seg button,.chip em,.ocnt,button em,button.on,button.pn{padding-bottom:.12em!important}
 .count{padding-bottom:.18em!important}

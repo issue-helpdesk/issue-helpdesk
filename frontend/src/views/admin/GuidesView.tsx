@@ -507,14 +507,16 @@ export function GuidesView() {
                 <b>외부 AI 전송</b>은 이 가이드 내용을 AI 모델에 보내 답변을 만들어도 되는지에 관한 설정이에요(문서 열람 권한인 열람 범위와는 별개). <b>허용</b>은 그대로 보내고, <b>마스킹 후 허용</b>은 민감정보를 가린 내용만 보내요. <b>금지</b>인 가이드 내용은 외부 AI에 보내지 않아요. 사용할 수 있는 근거가 없으면 담당자 연결을 제안해요. 열람 범위와 전송 정책을 정하지 않으면 관리자 전용·금지로 처리돼요.
               </p>
             </div>
-            <div className="tabs">
-              <button type="button" className={tab === 'list' ? 'on' : ''} onClick={() => setTab('list')}>
-                가이드 목록 <span className="count">{guides?.length ?? 0}</span>
-              </button>
-              <button type="button" className={tab === 'case' ? 'on' : ''} onClick={() => setTab('case')}>
-                해결 사례 → 가이드 초안 <span className="count">{gc.cl.length}</span>
-              </button>
-              <button type="button" className="btn pri sm fr" onClick={() => setDlg({ kind: 'upload' })}>
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div className="seg" role="group" aria-label="보기">
+                <button type="button" className={tab === 'list' ? 'on' : ''} aria-pressed={tab === 'list'} onClick={() => setTab('list')}>
+                  가이드 목록 <span className="count">{guides?.length ?? 0}</span>
+                </button>
+                <button type="button" className={tab === 'case' ? 'on' : ''} aria-pressed={tab === 'case'} onClick={() => setTab('case')}>
+                  해결 사례 → 가이드 초안 <span className="count">{gc.cl.length}</span>
+                </button>
+              </div>
+              <button type="button" className="btn pri sm" onClick={() => setDlg({ kind: 'upload' })}>
                 <Icon name="plus" />
                 가이드 파일 업로드
               </button>
