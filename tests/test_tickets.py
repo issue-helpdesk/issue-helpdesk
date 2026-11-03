@@ -1,8 +1,10 @@
 """접수 API (TK-01~06·08) — SQLite 메모리 DB. 문의는 Mock 모델로 판단 흐름을 돌려 만든다."""
-from datetime import date, datetime, timezone
+import importlib.util
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -1125,3 +1127,48 @@ def test_reserve_does_not_commit(db, team):
 
     assert db.get(Ticket, team["mine"].id).assignment_revision == 0
     assert db.scalar(select(AssignmentLog)) is None and jobs(db) == []
+
+
+def test_status_history_shows_result_of_each_finish(client, db, headers, staff):
+    ticket_id = staff["mine"].id
+    db.add_all([
+        TicketStatusHistory(ticket_id=ticket_id, from_status="WIP", to_status="FIN", source="JIRA", resolution_note="재설치",
+                            changed_at=datetime(2026, 10, 21, 1, 0, tzinfo=timezone.utc)),
+        TicketStatusHistory(ticket_id=ticket_id, from_status="FIN", to_status="WIP", source="ITSSUE", reason="여전히 안 됨",
+                            changed_at=datetime(2026, 10, 21, 2, 0, tzinfo=timezone.utc)),
+        TicketStatusHistory(ticket_id=ticket_id, from_status="WIP", to_status="FIN", source="ITSSUE", resolution_note="인증서 재발급",
+                            changed_at=datetime(2026, 10, 21, 3, 0, tzinfo=timezone.utc)),
+    ])
+    db.commit()
+
+    items = client.get(f"{TICKETS}/{ticket_id}/status-history", headers=headers).json()["items"]
+
+    assert [(i["toStatus"], i["reason"], i["resolutionNote"]) for i in items] == [
+        ("FIN", None, "재설치"), ("WIP", "여전히 안 됨", None), ("FIN", None, "인증서 재발급"),
+    ]
+
+
+def test_migration_fills_only_last_finish(db, staff):
+    """지금 값은 마지막 완료의 결과다. 그 앞 완료의 값은 이미 덮어써서 알 수 없다."""
+    path = Path(__file__).parents[1] / "backend/app/db/migrations/versions/b6f2c81d4e93_add_status_history_resolution_note.py"
+    spec = importlib.util.spec_from_file_location("fill_last_finish", path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    mine, others = staff["mine"], staff["others"]
+    mine.resolution_note, others.resolution_note = "최근 결과", None
+    day = datetime(2026, 10, 21, tzinfo=timezone.utc)
+    first, reopen, last, other = (
+        TicketStatusHistory(ticket_id=mine.id, from_status="WIP", to_status="FIN", source="JIRA", changed_at=day),
+        TicketStatusHistory(ticket_id=mine.id, from_status="FIN", to_status="WIP", source="JIRA", changed_at=day + timedelta(hours=1)),
+        TicketStatusHistory(ticket_id=mine.id, from_status="WIP", to_status="FIN", source="JIRA", changed_at=day + timedelta(hours=2)),
+        TicketStatusHistory(ticket_id=others.id, from_status="WIP", to_status="FIN", source="JIRA", changed_at=day),
+    )
+    db.add_all([last, reopen, first, other])
+    db.commit()
+
+    db.execute(text(migration.FILL_LAST_FINISH))
+    db.commit()
+
+    for row in (first, reopen, last, other):
+        db.refresh(row)
+    assert (first.resolution_note, reopen.resolution_note, last.resolution_note, other.resolution_note) == (None, None, "최근 결과", None)

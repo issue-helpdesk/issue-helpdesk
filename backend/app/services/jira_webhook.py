@@ -206,7 +206,7 @@ def sync_work_status(db: Session, ticket: Ticket, latest: dict, changed_at: date
 
     changed_at = changed_at or now
     db.add(TicketStatusHistory(ticket_id=ticket.id, from_status=ticket.work_status, to_status=target, source="JIRA",
-                               changed_at=changed_at))
+                               resolution_note=note if target == "FIN" else None, changed_at=changed_at))
     if target == "FIN":
         ticket.finished_at = changed_at
         db.add(Notification(ticket_id=ticket.id, recipient_id=db.get(Inquiry, ticket.inquiry_id).user_id, kind="FIN"))

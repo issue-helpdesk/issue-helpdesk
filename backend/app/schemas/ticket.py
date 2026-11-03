@@ -106,6 +106,7 @@ class StatusHistory(CamelModel):
     actor_id: int | None
     actor: UserRef | None
     reason: str | None
+    resolution_note: str | None             # toStatus 가 FIN 일 때의 처리 결과
     changed_at: KstDatetime
 
 

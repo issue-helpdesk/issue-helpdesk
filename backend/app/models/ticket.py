@@ -95,6 +95,7 @@ class TicketStatusHistory(Base):
     source: Mapped[str]
     actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     reason: Mapped[str | None]
+    resolution_note: Mapped[str | None]         # FIN 이 될 때의 처리 결과. 재완료로 덮어써도 여기 남는다
     changed_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 

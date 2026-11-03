@@ -272,6 +272,7 @@ def _save_confirmed(db, job_id, attempt, request, latest, changed_at, now) -> Tr
             db.add(TicketStatusHistory(
                 ticket_id=ticket.id, from_status=request.source, to_status=request.target,
                 source="ITSSUE", actor_id=request.actor_id, reason=request.reason, changed_at=changed_at,
+                resolution_note=(latest["final_result"] or None) if request.target == "FIN" else None,
             ))
         if request.target == "FIN":
             ticket.finished_at = changed_at
