@@ -58,6 +58,8 @@ async function track(job: Promise<ApiResult<Inquiry>>): Promise<ApiResult<Inquir
     return remember(await job)
   } finally {
     inflight--
+    // 내가 한 동작(보내기·해결·미해결·미연결 종료·이어가기)은 사이드바 최근 문의의 상태도 바꾼다. 사이드바는 주기로 읽지 않으니 바로 다시 읽게 한다
+    refreshInquiryList()
   }
 }
 

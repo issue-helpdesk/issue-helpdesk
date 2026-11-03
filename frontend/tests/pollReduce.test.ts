@@ -68,6 +68,20 @@ describe('대화 화면 주기 조회 (watchChat)', () => {
   })
 })
 
+describe('내가 한 동작 뒤 사이드바 갱신', () => {
+  it('보내기·종료 같은 동작이 끝나면 사이드바 목록을 바로 다시 읽게 한다 (미연결 종료 뒤 "진행 중"으로 남던 문제)', async () => {
+    const serverSend = vi.fn().mockResolvedValue(inquiry({ step: 'closed', status: 'CLOSED_UNRESOLVED' }))
+    vi.doMock('../src/api/inquiryServer', async (orig) => ({ ...(await orig<object>()), serverSend }))
+    const chat = await import('../src/api/chat')
+    const { pollHints } = await import('../src/core/poll')
+    const reload = vi.fn()
+    pollHints.listLoaders.add(reload)
+    await chat.sendChat(1, 'EMP-1001', '안녕하세요')
+    expect(reload).toHaveBeenCalled()
+    pollHints.listLoaders.delete(reload)
+  })
+})
+
 describe('사이드바 문의 목록 주기 조회 (watchMyInquiries)', () => {
   const page = { items: [], page: 1, size: 100, totalCount: 0, totalPages: 1 }
 
