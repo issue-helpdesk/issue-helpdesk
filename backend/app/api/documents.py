@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, Query, Response, UploadFile, status
+from fastapi import APIRouter, File, Form, Query, UploadFile, status
 
 from app.api.deps import AdminAuth, CurrentAuth
 from app.schemas.common import ItemList, Page
@@ -37,12 +37,6 @@ def get_document(document_id: int, auth: CurrentAuth, service: DocumentServiceDe
 @router.patch("/{document_id}", response_model=Document)
 def update_document(document_id: int, body: DocumentUpdateRequest, auth: AdminAuth, service: DocumentServiceDep) -> Document:
     return service.update(document_id, body, auth.user)
-
-
-@router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_document(document_id: int, auth: AdminAuth, service: DocumentServiceDep) -> Response:
-    service.delete(document_id, auth.user)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{document_id}/versions", response_model=ItemList[DocumentVersion])
