@@ -55,6 +55,22 @@ def test_success_paths_reserve_once_without_assigning_jira(assign_db, path):
     assert len(assignments(db, ticket)) == len(logs(db, ticket)) == 1
 
 
+def test_recommend_log_from_ticket_confirmation_does_not_block_initial_assignment(assign_db):
+    """실제 접수(TK-04)는 RECOMMEND 이력을 먼저 남긴다. 그래도 생성 뒤 최초 자동배정은 예약돼야 한다."""
+    db = assign_db
+    ticket = make_ticket(db)
+    db.add(AssignmentLog(ticket_id=ticket.id, event="RECOMMEND", group_id=3, reason="세부 유형 기본 그룹"))
+    db.commit()
+    job = make_job(db, ticket)
+
+    jira_create.run_jira_create_job(db, FakeJira().client(), job.id, now=T0)
+
+    ticket = reload(db, Ticket, ticket.id)
+    assert (ticket.assign_status, ticket.assignee_id, ticket.assignment_revision) == ("PENDING", 18, 1)
+    assert len(assignments(db, ticket)) == 1
+    assert [log.event for log in logs(db, ticket)] == ["RECOMMEND", "ASSIGN"]
+
+
 def test_creation_then_assignment_executor_confirms_handoff(assign_db):
     db = assign_db
     ticket = make_ticket(db)

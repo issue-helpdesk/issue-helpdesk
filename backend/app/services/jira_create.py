@@ -328,8 +328,9 @@ def _reserve_initial_assignment(db: Session, ticket: Ticket, now: datetime) -> N
         })
         return
 
+    # 접수(TK-04)가 남기는 RECOMMEND 는 추천 그룹 기록일 뿐 배정 판단이 아니다. ASSIGN·REASSIGN·FAIL 이 있어야 이미 판단한 것으로 본다.
     if ticket.assignment_revision != 0 or db.scalar(select(AssignmentLog.id).where(
-        AssignmentLog.ticket_id == ticket.id,
+        AssignmentLog.ticket_id == ticket.id, AssignmentLog.event != "RECOMMEND",
     ).limit(1)) is not None:
         return
     group = db.get(SupportGroup, ticket.group_id, with_for_update=True, populate_existing=True) if ticket.group_id else None
