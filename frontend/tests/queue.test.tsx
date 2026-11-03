@@ -112,9 +112,10 @@ describe('처리할 문의 화면', () => {
 })
 
 describe('문의자 접수 상세 (문의 대화)', () => {
-  it('접수 상세 버튼으로 패널이 열리고 진행 단계가 보이며, 상태를 바꾸는 버튼은 없다', async () => {
+  it('접수 카드의 상세 보기로 패널이 열리고 진행 단계가 보이며, 상태를 바꾸는 버튼은 없다 (상단바에는 접수 상세 버튼을 두지 않는다)', async () => {
     renderAs('EMP-1001', '/chat/101')
-    await userEvent.click(await screen.findByRole('button', { name: /접수 상세/ }, SLOW))
+    await userEvent.click((await screen.findAllByRole('button', { name: /상세 보기/ }, SLOW))[0])
+    expect(screen.queryByRole('button', { name: '접수 상세' })).toBeNull()
     const panel = await screen.findByRole('complementary', { name: '티켓 상세' })
     expect(await within(panel).findByRole('list', { name: '접수 진행 단계' }, SLOW)).toBeInTheDocument()
     expect(within(panel).getByText('RCPT-1041', { selector: 'dd' })).toBeInTheDocument()
