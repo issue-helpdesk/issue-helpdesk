@@ -32,6 +32,10 @@ const urls = () => fetchMock.mock.calls.map((c) => String(c[0]))
 async function load() {
   vi.resetModules()
   vi.stubEnv('VITE_USE_MOCK_FAQ', 'false')
+  vi.doMock('../src/core/session', () => {
+    const auth = { user: { role: 'EMPLOYEE' } }
+    return { useAuth: () => auth }
+  })
   return { api: await import('../src/api/faq'), view: await import('../src/views/faq/FaqView') }
 }
 
