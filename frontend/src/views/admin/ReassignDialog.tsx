@@ -16,6 +16,10 @@ import { Modal } from '../../ui/Modal'
 const URGS: Urgency[] = ['P1', 'P2', 'P3', 'P4']
 
 /** mode='assign' 은 운영 현황의 「담당자 지정」(담당자가 비어 있는 접수에 처음 지정), 기본은 상세 패널의 「담당자 재배정」 */
+/** 자주 쓰는 사유. 누르면 입력칸이 채워지고, 직접 고쳐 쓸 수도 있다 */
+const WHY_ASSIGN = ['자동배정 실패', '업무량 분배', '휴가·부재 대체', '전문 분야 담당', '긴급 건 우선 배정']
+const WHY_REASSIGN = ['휴가·부재', '업무량 분배', '전문 분야 변경', '팀 내 재조정', '긴급 건 우선 배정']
+
 export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: TicketDetail; mode?: 'reassign' | 'assign'; onClose: () => void; onDone: () => void }) {
   const { user } = useAuth()
   const uid = useId()
@@ -153,6 +157,13 @@ export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: T
       <div className="field">
         <label htmlFor={`${uid}-w`}>{assign ? '지정 사유 (필수)' : '재배정 사유 (필수)'}</label>
         <input id={`${uid}-w`} className={`inp${whyErr ? ' err' : ''}`} value={why} placeholder={assign ? '예) 자동배정 실패, 업무량 확인 후 지정' : '예) 휴가, 업무량 조정'} autoComplete="off" aria-invalid={!!whyErr} aria-describedby={whyErr ? `${uid}-w-e` : undefined} onChange={(e) => { setWhy(e.target.value); setWhyErr('') }} />
+        <div className="rwhy" role="group" aria-label="자주 쓰는 사유">
+          {(assign ? WHY_ASSIGN : WHY_REASSIGN).map((w) => (
+            <button key={w} type="button" className="chip" aria-pressed={why === w} onClick={() => { setWhy(w); setWhyErr('') }}>
+              {w}
+            </button>
+          ))}
+        </div>
         {whyErr && (
           <div className="ferr" id={`${uid}-w-e`} role="alert">
             {whyErr}

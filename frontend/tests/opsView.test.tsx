@@ -158,6 +158,12 @@ describe('운영 현황 화면', () => {
     expect(await within(dlg).findByText('자동배정 추천 (가용 + 업무량 최소)', {}, SLOW)).toBeInTheDocument()
     await userEvent.click(within(dlg).getByRole('button', { name: '지정' }))
     expect(await within(dlg).findByText('지정 사유를 입력해 주세요.')).toBeInTheDocument()
+    // 자주 쓰는 사유를 누르면 입력칸이 채워지고 직접 고쳐 쓸 수도 있다
+    await userEvent.click(within(dlg).getByRole('button', { name: '휴가·부재 대체' }))
+    expect(within(dlg).getByLabelText('지정 사유 (필수)')).toHaveValue('휴가·부재 대체')
+    expect(within(dlg).getByRole('button', { name: '휴가·부재 대체' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(dlg).queryByText('지정 사유를 입력해 주세요.')).toBeNull()
+    await userEvent.clear(within(dlg).getByLabelText('지정 사유 (필수)'))
     await userEvent.type(within(dlg).getByLabelText('지정 사유 (필수)'), '자동배정 실패')
     await userEvent.click(within(dlg).getByRole('button', { name: '지정' }))
     const done = await screen.findByRole('region', { name: '최근 처리 결과' }, SLOW)

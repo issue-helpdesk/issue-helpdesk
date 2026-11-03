@@ -147,9 +147,10 @@ describe('새 문의 (챗봇 시작 화면)', () => {
     expect(box).toHaveValue('첫 줄\n둘째 줄')
   })
 
-  it('첨부 버튼은 준비 중이라 막혀 있다', async () => {
+  it('입력창에 파일 첨부 아이콘이 없다 (이번 기능 범위에서 제외)', async () => {
     renderAs('EMP-1001')
-    expect(await screen.findByRole('button', { name: '첨부 파일 (준비 중)' }, SLOW)).toBeDisabled()
+    await screen.findByLabelText('메시지 입력', {}, SLOW)
+    expect(screen.queryByRole('button', { name: /첨부/ })).not.toBeInTheDocument()
   })
 })
 

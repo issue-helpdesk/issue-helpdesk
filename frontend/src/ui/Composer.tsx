@@ -40,10 +40,6 @@ export function Composer({ value, onChange, onSend, placeholder = '메시지를 
 
   return (
     <div className={`composer${locked ? ' off' : ''}`}>
-      {/* 첨부는 접수 후 담당자와 주고받는 흐름에서 다룰 예정이라 지금은 막아 둔다 */}
-      <button className="btn ico sm" type="button" style={{ background: 'transparent', color: 'var(--mute)' }} aria-label="첨부 파일 (준비 중)" disabled>
-        <Icon name="paperclip" />
-      </button>
       <textarea
         ref={ref}
         rows={1}
