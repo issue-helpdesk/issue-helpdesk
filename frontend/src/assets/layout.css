@@ -44,6 +44,9 @@
 .scroll{flex:1;min-height:0;overflow:auto}
 .notice{max-width:760px;margin:8px auto 0;text-align:center;font-size:12px;color:var(--mute)}
 .hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 32px 56px;gap:0;text-align:center}
+.hero>*{flex-shrink:0}
+/* 입력이 3줄 넘게 길어지면 분류 칩·FAQ 카드는 접어 입력창이 눌리지 않게 한다 */
+.hero:has(.composer textarea.grown) :is(.cats,.faqs3){display:none}
 .hero h1{font-size:36px;line-height:46px;font-weight:600;letter-spacing:-.01em;margin-top:6px}
 .hero .hi{font-size:14px;color:var(--mute);margin-top:18px}
 .hero .composer{width:100%;max-width:720px;margin-top:30px;min-height:72px;align-items:center;padding:8px 10px 8px 14px}

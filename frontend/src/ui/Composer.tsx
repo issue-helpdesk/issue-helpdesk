@@ -28,19 +28,11 @@ export function Composer({ value, onChange, onSend, placeholder = '메시지를 
     const el = ref.current
     if (!el) return
     el.style.height = 'auto'
+    el.classList.toggle('grown', el.scrollHeight > 72)
     el.style.height = `${Math.min(140, el.scrollHeight)}px`
   }, [value])
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    // Alt+Enter 도 Shift+Enter 처럼 줄바꿈 (브라우저는 Alt+Enter 로 줄을 바꿔 주지 않아 직접 넣는다)
-    if (e.key === 'Enter' && e.altKey && !e.nativeEvent.isComposing) {
-      e.preventDefault()
-      const el = e.currentTarget
-      const [from, to] = [el.selectionStart, el.selectionEnd]
-      onChange(`${value.slice(0, from)}\n${value.slice(to)}`)
-      requestAnimationFrame(() => el.setSelectionRange(from + 1, from + 1))
-      return
-    }
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       if (value.trim()) onSend()
