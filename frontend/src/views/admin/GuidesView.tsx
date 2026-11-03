@@ -850,6 +850,23 @@ function UploadDialog({ guides, onClose, onDone }: { guides: Guide[]; onClose: (
         </>
       ) : (
         <>
+          {cat && (
+            <div className="gucat" aria-label={`${CATEGORIES[cat].name} 분류의 기존 가이드`}>
+              <div className="guvs">이 분류에 있는 가이드 {inCat.length}개</div>
+              {inCat.length ? (
+                <ul>
+                  {inCat.map((g) => (
+                    <li key={g.id}>
+                      <span className="mono">{g.docCode}</span>
+                      <span>{g.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="hint">아직 없어요. 첫 가이드가 돼요.</div>
+              )}
+            </div>
+          )}
           {field('code', '문서 번호', <input id={`${uid}-code`} className="inp" value={newCode} placeholder="분류를 선택하면 자동으로 정해져요" readOnly tabIndex={-1} aria-readonly="true" />, '직접 적을 수 없어요. 같은 분류의 다음 번호로 자동 부여돼요.')}
           {field('title', '가이드 제목', <input id={`${uid}-title`} className={`inp${errs.title ? ' err' : ''}`} value={title} autoComplete="off" aria-invalid={!!errs.title} onChange={(e) => { setTitle(e.target.value); clr('title') }} />)}
         </>

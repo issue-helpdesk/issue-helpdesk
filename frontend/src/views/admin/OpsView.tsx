@@ -437,11 +437,11 @@ export function OpsView() {
             <div className="ogrid">
               {sec(
                 <>
-                  긴급 조치 필요 <UrgencyChip u="P1" /> <span className="ocnt">{urgent.length}건</span>
+                  긴급 조치 필요 <span className="ocnt">{urgent.length}건</span>
                 </>,
                 '현재 미처리 · 처리 대기·처리 중 (과거 접수 포함)',
                 <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P1&st=open')}>
-                  P1 보기
+                  모두 보기
                 </button>,
                 wait(list('U', urgent, rowU, '처리 대기·처리 중인 긴급 건이 없어요.')),
               )}
@@ -449,9 +449,7 @@ export function OpsView() {
                 <>
                   당일 미종결 예외 <span className="ocnt">{exc.length}건</span> <span className="tag gray">제안</span>
                 </>,
-                <>
-                  접수 당일 안에 끝나지 않은 <UrgencyChip u="P1" /> <UrgencyChip u="P2" /> 건
-                </>,
+                '접수 당일 안에 끝나지 않은 긴급·높음 건',
                 <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P12&unres=1')}>
                   모두 보기
                 </button>,
@@ -462,19 +460,23 @@ export function OpsView() {
             <div className="ogrid">
               {sec(
                 <>
-                  티켓 연동 확인 <span className="ocnt">Jira {linkL.length}건</span>
+                  티켓 연동 확인 <span className="ocnt">{linkL.length}건</span>
                 </>,
                 'Jira 이슈가 안 만들어졌거나 상태를 가져오지 못한 건',
-                null,
+                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?st=none')}>
+                  모두 보기
+                </button>,
                 wait(list('L', linkL, rowC('link'), '연동 확인이 필요한 건이 없어요.')),
                 linkL.length ? 'need' : '',
               )}
               {sec(
                 <>
-                  담당자 배정 확인 <span className="ocnt">배정 전 {asgL.length}건</span>
+                  담당자 배정 확인 <span className="ocnt">{asgL.length}건</span>
                 </>,
                 'Jira 이슈는 만들어졌지만 담당자가 비어 있는 건',
-                null,
+                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?st=none')}>
+                  모두 보기
+                </button>,
                 wait(list('A', asgL, rowC('asg'), '배정 확인이 필요한 건이 없어요.')),
                 asgL.length ? 'need' : '',
               )}

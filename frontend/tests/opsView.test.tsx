@@ -99,8 +99,8 @@ describe('운영 현황 화면', () => {
     const { unmount } = renderAs('EMP-1178', '/ops')
     expect(await screen.findByRole('heading', { name: '운영 현황', level: 1 }, SLOW)).toBeInTheDocument()
     await waitFor(() => expect(section(/긴급 조치 필요/).querySelectorAll('.orow').length).toBeGreaterThan(0), SLOW)
-    expect(within(section(/티켓 연동 확인/)).getByText(/Jira \d+건/)).toBeInTheDocument()
-    expect(within(section(/담당자 배정 확인/)).getByText(/배정 전 \d+건/)).toBeInTheDocument()
+    expect(within(section(/티켓 연동 확인/)).getByText(/^\d+건$/)).toBeInTheDocument()
+    expect(within(section(/담당자 배정 확인/)).getByText(/^\d+건$/)).toBeInTheDocument()
     expect(section(/티켓 연동 확인/)).toHaveClass('need')
     // 팀별 개인 현황: 첫 그룹의 구성원 표와 근무/전체 칩
     const grp = await screen.findByRole('group', { name: '담당 그룹' }, SLOW)
@@ -126,7 +126,7 @@ describe('운영 현황 화면', () => {
     expect(exc()).toBe(3)
     await userEvent.click(screen.getByRole('button', { name: /^담당 그룹\s*전체/ }))
     await userEvent.click(await screen.findByRole('option', { name: '정보보안팀' }))
-    await waitFor(() => expect(within(section(/티켓 연동 확인/)).getByText('Jira 0건')).toBeInTheDocument(), SLOW)
+    await waitFor(() => expect(within(section(/티켓 연동 확인/)).getByText('0건')).toBeInTheDocument(), SLOW)
     expect(within(section(/티켓 연동 확인/)).getByText('연동 확인이 필요한 건이 없어요.')).toBeInTheDocument()
   })
 
