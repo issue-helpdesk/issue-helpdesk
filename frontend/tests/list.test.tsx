@@ -1,6 +1,6 @@
 /**
  * 문의 내역 화면과 문의 목록 조건 조회 (API 02 IQ-02 조건을 모의로 걸러 주는 부분).
- * 시연 데이터(EMP-1001) 7건: 처리 중(접수) 1, 해결 확인 대기 1, AI 해결 1, 미확인 1, 해결 완료 1, 미해결 종료 1, 접수하지 않고 종료 1.
+ * 시연 데이터(EMP-1001) 7건: 처리 중(접수) 1, 해결 확인 대기 1, AI 해결 1, 미확인 1, 해결 완료 1, 미연결 종료 1, 접수하지 않고 종료 1.
  */
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -35,8 +35,8 @@ describe('문의 목록 조건 조회 (API)', () => {
     if (!r.ok) return
     expect(r.data).toMatchObject({ page: 1, size: 20, totalCount: 7, totalPages: 1 })
     expect(r.data.items.map((i) => i.displayStatus)).toEqual(['progress', 'awaiting_confirm', 'ai_resolved', 'unconfirmed', 'resolved', 'unresolved', 'unresolved'])
-    // 접수 전 배지: AI 답변 뒤 확인 대기는 미확인, 접수하지 않고 끝낸 문의도 미해결 종료로 묶인다
-    expect(r.data.items.map((i) => i.stateLabel)).toEqual(['처리 중', '해결 확인 대기', 'AI 해결', '미확인', '해결 완료', '미해결 종료', '미해결 종료'])
+    // 접수 전 배지: AI 답변 뒤 확인 대기는 미확인, 접수하지 않고 끝낸 문의도 미연결 종료로 묶인다
+    expect(r.data.items.map((i) => i.stateLabel)).toEqual(['처리 중', '해결 확인 대기', 'AI 해결', '미확인', '해결 완료', '미연결 종료', '미연결 종료'])
     expect(r.data.items[0]).toMatchObject({ receiptNo: 'RCPT-1041', jiraKey: 'ITHD-1520', categoryCode: 'NET' })
   })
 

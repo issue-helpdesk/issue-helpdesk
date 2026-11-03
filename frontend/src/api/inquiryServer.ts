@@ -168,7 +168,7 @@ export const NO_CONNECT_LABEL = '미연결 (종료)'
 
 /** 접수 없이 끝났을 때 보여 주는 종료 안내 (모의의 noTicketClosed 와 같은 글) */
 export const NO_TICKET_CLOSED: ChatMessage[] = [
-  { id: -4, role: 'assistant', blocks: [{ type: 'p', text: '**담당자 연결 없이 상담을 종료했어요.**' }, { type: 'p', text: '티켓은 접수되지 않았으며, 문의 내역에서 다시 상담을 이어갈 수 있어요.' }] },
+  { id: -4, role: 'assistant', blocks: [{ type: 'p', text: '**담당자 연결 없이 상담을 종료했어요.**' }, { type: 'p', text: '티켓은 접수되지 않았으며, 같은 문제로 다시 연결을 원하시면 새 문의로 시작해 주세요.' }] },
 ]
 
 function toMessages(list: SMessage[], step: ChatStep, i: SInquiry, answering = false): ChatMessage[] {
@@ -316,7 +316,7 @@ const SUMMARY_STATE: Record<DisplayStatus, { label: string; kind: InquiryStateKi
   in_progress: { label: '진행 중', kind: 'progress' },
   ai_resolved: { label: 'AI 해결', kind: 'ai' },
   unconfirmed: { label: '미확인', kind: 'warn' },
-  unresolved: { label: '미해결 종료', kind: 'received' },
+  unresolved: { label: '미연결 종료', kind: 'received' },
   received: { label: '접수', kind: 'received' },
   assigned: { label: '담당자 배정', kind: 'assigned' },
   progress: { label: '처리 중', kind: 'progress' },

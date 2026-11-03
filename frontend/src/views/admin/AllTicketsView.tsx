@@ -52,7 +52,7 @@ const AI_KINDS: { key: '' | AiKind; label: string }[] = [
   { key: '', label: '전체' },
   { key: 'ok', label: 'AI 해결' },
   { key: 'pend', label: '해결 확인 대기 (AI 안내)' },
-  { key: 'unr', label: '미해결 종료' },
+  { key: 'unr', label: '미연결 종료' },
 ]
 
 /** 정렬 열 → API sort 기준 (urgency·createdAt·workStatus 외에는 프로토타입용 임시 값) */
@@ -305,7 +305,7 @@ export function AllTicketsView() {
             <div className="alert info">
               <Icon name="check" />
               <div>
-                AI 안내까지만 이어지고 티켓이 만들어지지 않은 문의예요. <b>해결 확인 대기</b>는 문의자가 아직 해결 여부를 고르지 않은 건, <b>미해결 종료</b>는 해결되지 않고 끝난 건이에요. 해결 완료(CLS)와는 따로 집계해요.
+                AI 안내까지만 이어지고 티켓이 만들어지지 않은 문의예요. <b>해결 확인 대기</b>는 문의자가 아직 해결 여부를 고르지 않은 건, <b>미연결 종료</b>는 해결되지 않고 끝난 건이에요. 해결 완료(CLS)와는 따로 집계해요.
               </div>
             </div>
             <div className="panel" style={{ padding: '6px 10px' }} aria-live="polite">
@@ -346,7 +346,7 @@ export function AllTicketsView() {
                             <td>{r.categoryCode ? <span className={`tag c-${r.categoryCode}`}>{CATEGORIES[r.categoryCode].name}</span> : <span className="muted small">미분류</span>}</td>
                             <td className="small">{r.guide}</td>
                             <td>
-                              {r.kind === 'pend' ? <StateBadge tone="need" label="해결 확인 대기" sub="AI 안내" block /> : r.kind === 'unr' ? <StateBadge tone="warn" label="미해결 종료" /> : <StateBadge tone="ok" label="AI 해결" />}
+                              {r.kind === 'pend' ? <StateBadge tone="need" label="해결 확인 대기" sub="AI 안내" block /> : r.kind === 'unr' ? <StateBadge tone="warn" label="미연결 종료" /> : <StateBadge tone="ok" label="AI 해결" />}
                             </td>
                             <td className="muted small">{r.when}</td>
                           </tr>

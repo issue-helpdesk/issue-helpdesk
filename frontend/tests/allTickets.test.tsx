@@ -131,10 +131,10 @@ describe('전체 문의 화면', () => {
     const chips = await screen.findByRole('group', { name: 'AI 상담 결과 구분' }, SLOW)
     await waitFor(() => expect(within(chips).getByRole('button', { name: /^전체 \d+/ })).toBeInTheDocument(), SLOW)
     expect(await screen.findByRole('columnheader', { name: /사용한 가이드/ })).toBeInTheDocument()
-    await userEvent.click(within(chips).getByRole('button', { name: /^미해결 종료/ }))
+    await userEvent.click(within(chips).getByRole('button', { name: /^미연결 종료/ }))
     await waitFor(() => {
       expect(rows().length).toBeGreaterThan(0)
-      expect(rows().every((r) => within(r).queryByText('미해결 종료'))).toBe(true)
+      expect(rows().every((r) => within(r).queryByText('미연결 종료'))).toBe(true)
     }, SLOW)
   })
 
