@@ -316,7 +316,8 @@ const refTicket = (i: SInquiry): Ticket => ({
 })
 
 export function toInquiry(i: SInquiry, messages: SMessage[], next?: string[], ticket?: Ticket | null, draft?: Draft | null, draftNote = '', intake = false): Inquiry {
-  const answering = isAnswering(i, messages)
+  // 서버가 AI 불가(503)를 이미 알려 줬으면(next 에 담당자 연결 제안) 답을 기다리는 중이 아니다. 방금 보낸 글이어도 준비 중 표시를 하지 않는다
+  const answering = !next?.includes('DECIDE_HANDOFF') && isAnswering(i, messages)
   const step: ChatStep = answering ? 'answering' : stepOf(i, next, messages[messages.length - 1]?.sender, intake)
   const firstUser = messages.find((m) => m.sender === 'USER')?.content
   return {
@@ -339,6 +340,8 @@ export function toInquiry(i: SInquiry, messages: SMessage[], next?: string[], ti
 /* ------------------------------------------------------------------ 호출 */
 /** 문의 한 건을 읽는다: 문의 + 모든 메시지 (+ 접수 상세) */
 export async function loadInquiry(id: number, next?: string[]): Promise<ApiResult<Inquiry>> {
+  // AI 가 못 답한 문의는 주기 조회(next 없음)에서도 같은 상태를 유지한다. 서버에는 "AI 불가" 표시가 없어서 이 화면이 기억한다
+  if (!next && aiDown.has(id)) next = ['DECIDE_HANDOFF']
   const [inq, msgs] = await Promise.all([request<SInquiry>(`/inquiries/${id}`), request<{ items: SMessage[] }>(`/inquiries/${id}/messages`)])
   if (!inq.ok) return inq
   if (!msgs.ok) return msgs
@@ -368,13 +371,21 @@ export async function loadInquiry(id: number, next?: string[]): Promise<ApiResul
  * AI 가 답하지 못해도(503 AI_UNAVAILABLE) 문의·메시지는 저장돼 있다. 그때는 저장된 문의를 열고 담당자 연결을 안내한다 (IQ-01·08).
  */
 async function afterTurn(r: ApiResult<AiTurn>, savedId?: number): Promise<ApiResult<Inquiry>> {
-  if (r.ok) return loadInquiry(r.data.inquiry.id, r.data.nextActions)
+  if (r.ok) {
+    aiDown.delete(r.data.inquiry.id)
+    return loadInquiry(r.data.inquiry.id, r.data.nextActions)
+  }
   if (r.error.code === 'AI_UNAVAILABLE') {
     const id = savedId ?? Number(r.error.details?.find((d) => d.reason === 'INQUIRY_ID')?.value)
-    if (id) return loadInquiry(id, ['DECIDE_HANDOFF'])
+    if (id) {
+      aiDown.add(id)
+      return loadInquiry(id, ['DECIDE_HANDOFF'])
+    }
   }
   return r
 }
+/** AI 가 답하지 못한(503) 문의. 새 메시지를 보내 답을 받으면 지운다 */
+const aiDown = new Set<number>()
 
 export const serverStart = async (text: string) => afterTurn(await idemPost<AiTurn>('/inquiries', { content: text }))
 export const serverSend = async (id: number, text: string) => afterTurn(await idemPost<AiTurn>(`/inquiries/${id}/messages`, { content: text }), id)

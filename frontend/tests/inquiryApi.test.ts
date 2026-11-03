@@ -102,6 +102,19 @@ describe('서버 모드 문의 시작·읽기', () => {
     expect(again.ok && again.data.title).toBe('비밀번호를 잊었어요')
   })
 
+  it('방금 보낸 글에 AI 가 못 답해도(503) 준비 중 표시로 멈추지 않고 담당자 연결을 안내한다 (주기 조회도 같다)', async () => {
+    const { chat } = await load()
+    const fresh = { ...msg(901, 'USER', '계정이 잠겼어요'), createdAt: new Date().toISOString() } // 2분 안: 답을 만드는 중으로 보이는 시각
+    route((u, i) => (u.endsWith('/inquiries') && i.method === 'POST' ? err(503, 'AI_UNAVAILABLE', [{ reason: 'INQUIRY_ID', message: '저장된 문의', value: 128 }]) : undefined))
+    serve(inquiry({ title: null, action: null }), [fresh])
+
+    const first = await chat.startChat({ employeeNo: 'EMP-1300', name: '최지혜' }, '계정이 잠겼어요')
+    expect(first.ok && first.data.step).toBe('offer')
+    const again = await chat.getChat(128, 'EMP-1300')
+    expect(again.ok && again.data.step).toBe('offer')
+    expect(again.ok && again.data.messages.some((m) => m.typing)).toBe(false)
+  })
+
   it('조회에서는 문의 상태로 단계를 정하고, 접수가 있으면 접수 상세로 카드를 채운다', async () => {
     const { chat } = await load()
     const t = { id: 42, receiptNo: 'RCPT-0042', jiraKey: null, workStatus: null }
