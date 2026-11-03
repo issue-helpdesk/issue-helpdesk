@@ -252,9 +252,9 @@ def test_register_uses_chosen_policy(url, tmp_path):
         assert any('현행(ALL·ALLOWED)과 다르게 AGENT·BLOCKED' in w for w in out['warnings'])
         assert version(url, out['version_id'])[3:5] == ('AGENT', 'BLOCKED')
         d2 = draft(conn, b, files_root=tmp_path)                                 # 같은 초안에 이어 쓰기
-        again = register(conn, d2, d2.md, None, tmp_path, **POLICY)
-    assert again['version_id'] == out['version_id']
-    assert version(url, out['version_id'])[3:5] == ('ALL', 'ALLOWED')
+        again = register(conn, d2, d2.md, None, tmp_path, view_scope='ADMIN', transfer_policy='MASKED')
+    assert again['version_id'] == out['version_id']                              # 초안 값·현행 값 어느 쪽도 아닌 고른 값
+    assert version(url, out['version_id'])[3:5] == ('ADMIN', 'MASKED')
 
 
 @needs_db
