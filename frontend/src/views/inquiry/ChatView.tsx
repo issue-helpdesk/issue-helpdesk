@@ -472,7 +472,7 @@ export function ChatView() {
         </Modal>
       )}
     </main>
-    {detail && t && <TicketDetailPanel id={ticketIdOfInquiry(inquiry.id)} tick={inquiry.messages.length} onClose={() => setDetail(false)} />}
+    {detail && t && <TicketDetailPanel id={USE_MOCK_INQUIRY ? ticketIdOfInquiry(inquiry.id) : t.id ?? 0} tick={inquiry.messages.length} onClose={() => setDetail(false)} />}
     </>
   )
 }

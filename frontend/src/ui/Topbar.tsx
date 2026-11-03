@@ -22,14 +22,28 @@ export function Topbar({ title, sub, right, lead }: { title: string; sub?: strin
     const el = ref.current
     const main = el?.parentElement
     if (!el || !main) return
-    const set = () => main.style.setProperty('--topH', `${el.offsetHeight}px`)
+    // 옆에 붙는 상세 패널(.detail)도 같은 높이를 쓰도록 한 칸 위(.app)에도 알린다
+    const app = main.parentElement
+    const set = () => {
+      const h = `${el.offsetHeight}px`
+      main.style.setProperty('--topH', h)
+      app?.style.setProperty('--topH', h)
+    }
     set()
+    // 본문이 위로 밀려 올라가 상단바 밑으로 들어갈 때만 아래 선을 보인다(맨 위에서는 배경과 이어져 보이게)
+    const onScroll = (e: Event) => {
+      const t = e.target as HTMLElement | null
+      if (t && t !== el && t.parentElement === main) el.classList.toggle('stuck', t.scrollTop > 0)
+    }
+    main.addEventListener('scroll', onScroll, true)
     // 크기 관찰을 못 쓰는 환경(오래된 브라우저·테스트)에서는 처음 높이만 쓴다
     const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(set)
     ro?.observe(el)
     return () => {
       ro?.disconnect()
+      main.removeEventListener('scroll', onScroll, true)
       main.style.removeProperty('--topH')
+      main.parentElement?.style.removeProperty('--topH')
     }
   }, [])
   return (

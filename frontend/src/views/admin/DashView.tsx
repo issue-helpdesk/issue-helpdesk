@@ -260,9 +260,7 @@ export function DashView() {
                   <div className="sech">
                     <div>
                       <h3 className="sht">긴급·높음 미해결</h3>
-                      <p className="shs">
-                        <UrgencyChip u="P1" /> <UrgencyChip u="P2" /> 중 해결 완료(CLS)가 아닌 문의
-                      </p>
+                      <p className="shs">긴급도가 높은 문의 중 해결 완료가 아닌 문의</p>
                     </div>
                     <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P12&unres=1')}>
                       전체 문의에서 보기

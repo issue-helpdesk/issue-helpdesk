@@ -229,7 +229,15 @@ export function QueueView() {
               ) : items.length ? (
                 <>
                   <div className="tw">
-                    <table className="tbl">
+                    <table className="tbl fx fx2">
+                      <colgroup>
+                        <col style={{ width: '9%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '31%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '17%' }} />
+                      </colgroup>
                       <thead>
                         <tr>
                           <SortTh col="pri" label="긴급도" center sort={sort} onSort={onSort} />

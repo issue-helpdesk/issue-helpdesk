@@ -218,7 +218,14 @@ export function InquiryListView() {
             ) : items.length ? (
               <>
                 <div className="tw">
-                  <table className="tbl">
+                  <table className="tbl fx">
+                    <colgroup>
+                      <col style={{ width: '36%' }} />
+                      <col style={{ width: '15%' }} />
+                      <col style={{ width: '14%' }} />
+                      <col style={{ width: '19%' }} />
+                      <col style={{ width: '16%' }} />
+                    </colgroup>
                     <thead>
                       <tr>
                         <SortTh plain={!USE_MOCK_INQUIRY} col="title" label="문의" sort={sort} onSort={onSort} />
