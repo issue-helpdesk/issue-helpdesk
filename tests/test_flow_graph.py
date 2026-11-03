@@ -194,3 +194,24 @@ def test_graph_is_reusable():
     flow = build_flow(MockAdapter([reply(), ANSWERED]), TAXONOMY, [], FakeSearch())
     assert set(flow.get_graph().nodes) >= {'judge_first', 'correct_first', 'search', 'judge_second',
                                            'correct_second', 'decide_urgency', 'package'}
+
+
+def test_second_judge_gets_first_judgment_and_keeps_its_classification():
+    second = json.dumps({'action': 'ANSWER', 'reply': 'VPN 클라이언트를 업데이트해 보세요.',
+                         'evidence': [{'kind': 'DOCUMENT', 'source_id': DOC.unit_key, 'quote': QUOTE}],
+                         'missing_items': [], 'escalation_reason': None, 'confidence': 0.9,
+                         'action_reason': 'Guide 근거 충분'}, ensure_ascii=False)
+    r, mock, _ = run([reply(title='1차 제목'), second])
+    assert (r.next_step, r.output.title, r.output.inquiry_type_code) == ('answered', '1차 제목', 'NET-02')
+    assert mock.thinks == [True, False]
+    assert json.loads(mock.requests[1][1])['first_judgment']['title'] == '1차 제목'
+    assert r.ai_output['rationale']['action'] == 'Guide 근거 충분'
+
+
+def test_second_retry_still_uses_first_judgment():
+    second = {'action': 'ANSWER', 'reply': '비밀번호를 알려 주세요.', 'evidence': [], 'missing_items': [],
+              'escalation_reason': None, 'confidence': 0.9, 'action_reason': ''}
+    unsafe = json.dumps(second, ensure_ascii=False)
+    r, mock, _ = run([reply(title='1차 제목'), unsafe, ANSWERED])
+    assert purposes(r) == ['CLASSIFY', 'ANSWER', 'ANSWER']
+    assert json.loads(mock.requests[2][1])['first_judgment']['title'] == '1차 제목'

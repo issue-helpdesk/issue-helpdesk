@@ -6,7 +6,7 @@
 import json
 from dataclasses import dataclass
 
-from app.agent.llm.schemas import Facts, UserContext
+from app.agent.llm.schemas import SECOND_FIELDS, AIOutput, Facts, UserContext
 from app.agent.sensitive import Filtered
 
 
@@ -148,9 +148,24 @@ def build_system_prompt(taxonomy: Taxonomy) -> str:
     return '\n'.join(lines) + '\n'
 
 
+# 2차 판단 요청에 넣는 안내 (08 2.6). 판단 기준은 시스템 프롬프트 그대로 쓴다
+SECOND_NOTE = """first_judgment 는 같은 메시지를 검색 전에 판단한 1차 결과입니다. 분류·세부 유형·긴급도 제안·facts·제목은 1차 값을 서버가 그대로 씁니다.
+검색 결과를 근거로 action·reply·evidence·missing_items·escalation_reason·confidence 와
+처리 방향 근거(action_reason, 짧게)만 출력하세요. 판단 기준은 시스템 지시와 같습니다."""
+
+
+def first_judgment(first: AIOutput) -> dict:
+    """2차 요청에 넘길 1차 판단. 2차가 새로 쓰는 칸과 처리 방향 근거는 뺀다."""
+    d = first.model_dump(mode='json', exclude={*SECOND_FIELDS, 'schema_version'})
+    d['rationale'].pop('action')
+    return d
+
+
 def build_user_content(*, message: str, history: list[dict], collected_facts: Facts | None, ask_more_count: int,
-                       user_context: UserContext, evidence: Filtered | None) -> str:
-    """값은 이미 치환·근거 거르기를 거친 것만 받는다 (call.py). evidence 가 None 이면 검색 전이다."""
+                       user_context: UserContext, evidence: Filtered | None, first: dict | None = None) -> str:
+    """값은 이미 치환·근거 거르기를 거친 것만 받는다 (call.py). evidence 가 None 이면 검색 전이다.
+    first: 2차 판단이면 first_judgment() 값 (치환한 것).
+    """
     payload = {
         'message': message,
         'history': history,
@@ -171,4 +186,7 @@ def build_user_content(*, message: str, history: list[dict], collected_facts: Fa
                 for c in evidence.legacy],
         },
     }
+    if first is not None:
+        # 받는 쪽(평가 도구 등)이 JSON 으로 읽으므로 안내도 JSON 안에 넣는다
+        payload |= {'second_judgment': SECOND_NOTE, 'first_judgment': first}
     return json.dumps(payload, ensure_ascii=False)
