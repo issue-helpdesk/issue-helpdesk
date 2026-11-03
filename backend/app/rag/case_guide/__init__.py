@@ -6,7 +6,8 @@
 
     d = draft(conn, ticket_id)                      # 초안 md + 경고. DB 에 쓰지 않는다
     problems, warnings = check(d, md, staff_names)  # 관리자가 고친 md 다시 검사
-    vid = register(conn, d, md, admin_id)           # 파일 쓰기 + 버전 행(PENDING·비현행) + 감사 로그, commit
+    vid = register(conn, d, md, admin_id, view_scope='ALL', transfer_policy='ALLOWED')
+                                                    # 파일 쓰기 + 버전 행(PENDING·비현행, 관리자가 고른 정책) + 감사 로그, commit
     ingest_version(conn, vid, embedder)             # M2-3-1 → DONE = 초안 (검색에 안 나온다)
     activate(conn, vid, admin_id); conn.commit()    # 관리자 승인 (DC-09) → 현행 = 검색됨
 
@@ -15,8 +16,10 @@ Draft 는 만들 때의 기준(현행·이어 쓰던 초안·기준 md)을 담�
 개정 이력의 '해결 사례 반영 (<접수 번호>)' 표식으로 반영 여부를 정확히 가린다 (기준에 있던 표식이 빠지면 거부).
 
 같은 가이드에 아직 승인 안 된 사례 초안이 있으면 새 버전을 또 만들지 않고 그 초안에 이어 쓴다 (v2.1 이 둘 생기지 않게).
-민감정보는 지우거나 막지 않고 경고만 한다: 새로 더한 줄만, D 의 탐지 규칙(전화·이메일·사번·직원 이름, 비밀·고유식별)으로.
+민감정보는 지우거나 막지 않고 경고만 한다: 새로 더한 줄만, D 의 탐지 규칙(docs/10 2장 목록 전부: 전화·이메일·사번·
+직원 이름, 비밀·고유식별)으로. 해결 사례 검토에 쓸 목록은 2장 목록이다 (docs/10 1.3).
 초안은 비현행이라 검색·외부 전송에 나가지 않고, 승인 전 검토(정확성·정보 보호·공개 범위)는 관리자 몫이다 (GUIDE-03).
+열람 범위·외부 전송 정책은 관리자가 등록할 때 고른다 (docs/10 1.3).
 """
 from __future__ import annotations
 
@@ -36,6 +39,8 @@ CASE_DIR = Path('storage') / 'case_guides'                 # files_root 아래. 
 EVENT = 'CASE_GUIDE_REGISTER'                              # 감사 로그. result 에 '<접수 번호> → <버전>'
 HANDLING = '🔵 IT 담당자 처리'                              # 담당자가 해결한 사례. 사용자 조치로 바꿀지는 관리자가
 SHORT_NOTE = 20                                            # 해결 내용이 이보다 짧으면 경고
+VIEW_SCOPES = ('ALL', 'AGENT', 'ADMIN')                     # document_versions 제약과 같다
+TRANSFER_POLICIES = ('ALLOWED', 'MASKED', 'BLOCKED')
 MARK = '해결 사례 반영'                                     # 개정 이력 표식: '해결 사례 반영 (<접수 번호>)'
 MARK_RE = re.compile(re.escape(MARK) + r' \(([^()\s|]+)\)')
 
@@ -366,13 +371,20 @@ def _parse_text(md: str):
     return doc.meta, chunk_document(doc)
 
 
-def register(conn, d: Draft, md: str, admin_id: int | None, files_root: Path = ROOT) -> dict:
-    """md 를 파일로 쓰고 버전 행을 PENDING·비현행으로 만든다 (이어 쓰기면 그 초안 행의 파일을 바꾼다). commit 한다.
+def register(conn, d: Draft, md: str, admin_id: int | None, files_root: Path = ROOT, *,
+             view_scope: str, transfer_policy: str) -> dict:
+    """md 를 파일로 쓰고 버전 행을 PENDING·비현행으로 만든다 (이어 쓰기면 그 초안 행의 파일·정책을 바꾼다). commit 한다.
 
     결과 {'version_id', 'file_path', 'warnings'}. 이어서 ingest_version(conn, version_id, embedder) 을 부른다.
-    열람 범위·전송 정책은 현행 버전 값을 그대로 쓴다 (같은 문서). 승인(현행 전환)은 하지 않는다.
+    열람 범위·전송 정책은 관리자가 고른 값을 받는다 (docs/10 1.3: 해결 사례를 Guide 로 쓸 때 반드시 고르게 한다).
+    현행 값과 다르면 경고한다 (승인하면 가이드 전체에 적용되므로). 승인(현행 전환)은 하지 않는다.
     만든 뒤 현행이 바뀌었거나 이어 쓰던 초안이 바뀌었으면 거부한다 (다시 draft): 다른 사람의 변경을 덮지 않게.
     """
+    bad = ([f'열람 범위 {view_scope}'] if view_scope not in VIEW_SCOPES else []) + \
+          ([f'전송 정책 {transfer_policy}'] if transfer_policy not in TRANSFER_POLICIES else [])
+    if bad:
+        conn.rollback()
+        raise CaseGuideError([f"없는 값입니다: {', '.join(bad)}"])
     problems, warnings = check(d, md, _staff_names(conn))
     if problems:
         conn.rollback()
@@ -394,6 +406,9 @@ def register(conn, d: Draft, md: str, admin_id: int | None, files_root: Path = R
     if stale:
         conn.rollback()
         raise CaseGuideError([*stale, '초안을 다시 만드세요'])
+    if (view_scope, transfer_policy) != (cur[1], cur[2]):
+        warnings.append(f'열람 범위·전송 정책을 현행({cur[1]}·{cur[2]})과 다르게 {view_scope}·{transfer_policy}로 '
+                        '등록합니다. 승인하면 가이드 전체에 이 값이 적용됩니다')
 
     rel = (CASE_DIR / d.doc_code / f'{d.version}_{d.receipt_no}.md').as_posix()   # 쓸 때마다 다른 경로
     path = Path(files_root) / rel
@@ -402,13 +417,14 @@ def register(conn, d: Draft, md: str, admin_id: int | None, files_root: Path = R
     try:
         if d.draft_version_id is not None:
             vid = d.draft_version_id
-            conn.execute("update document_versions set file_path = %s, ingest_status = 'PENDING', ingest_error = null, "
-                         'registered_at = now() where id = %s', (rel, vid))
+            conn.execute("update document_versions set file_path = %s, view_scope = %s, transfer_policy = %s, "
+                         "ingest_status = 'PENDING', ingest_error = null, registered_at = now() where id = %s",
+                         (rel, view_scope, transfer_policy, vid))
         else:
             vid = conn.execute(
                 'insert into document_versions (document_id, version, file_path, view_scope, transfer_policy, '
                 "is_current, ingest_status, registered_at) values (%s, %s, %s, %s, %s, false, 'PENDING', now()) "
-                'returning id', (d.document_id, d.version, rel, cur[1], cur[2])).fetchone()[0]
+                'returning id', (d.document_id, d.version, rel, view_scope, transfer_policy)).fetchone()[0]
         _audit(conn, EVENT, d.document_id, admin_id, f'{d.receipt_no} → {d.version}')
         conn.commit()
     except Exception:
