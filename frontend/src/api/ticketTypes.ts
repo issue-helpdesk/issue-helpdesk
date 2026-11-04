@@ -63,7 +63,10 @@ export interface StatusHistory {
   /** JIRA: Jira 에서 바뀜, ITSSUE: 이 화면에서 요청 */
   source: 'JIRA' | 'ITSSUE'
   actor: UserRef | null
+  /** FIN → WIP(미해결)일 때 남은 증상 */
   reason: string | null
+  /** 완료(toStatus=FIN)할 때의 처리 결과. 재완료로 접수의 값을 덮어써도 완료마다의 값이 남는다 */
+  resolutionNote?: string | null
   changedAt: string
 }
 

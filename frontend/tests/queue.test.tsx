@@ -101,6 +101,11 @@ describe('처리할 문의 화면', () => {
     await userEvent.type(within(dlg).getByLabelText('처리 결과'), 'VPN 인증서를 갱신했습니다.')
     await userEvent.click(within(dlg).getByRole('button', { name: /등록하고/ }))
     await waitFor(() => expect(within(panel).getByText(/문의자의 해결 확인을 기다리고/)).toBeInTheDocument(), SLOW)
+    // 처리 이력의 완료 줄에 그때의 처리 결과가 보인다 (완료마다의 값이 남는다)
+    await waitFor(() => {
+      const note = within(panel).getAllByText('VPN 인증서를 갱신했습니다.').find((e) => e.closest('.tln'))
+      expect(note?.closest('.tln')).toHaveTextContent('처리 결과')
+    }, SLOW)
   })
 
   it('다른 담당자의 접수는 열 수 없고, 닫기 버튼으로 패널이 닫힌다', async () => {
