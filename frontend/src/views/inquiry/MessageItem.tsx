@@ -13,6 +13,9 @@ import { RichText } from '../../ui/RichText'
 import { DraftCard } from './DraftCard'
 import { TicketCard } from './TicketCard'
 
+/** 해결·미해결은 한 쌍이라 둘 다 같은 기본 버튼 모양이다 (한쪽만 분홍 상자면 선택된 것처럼 보인다) */
+export const PAIR = new Set(['resolved', 'unresolved'])
+
 /** 대화 화면이 메시지 안의 버튼에 연결해 주는 동작 */
 export interface ChatActions {
   reply: (req: ReplyRequest) => void
@@ -203,7 +206,7 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false,
               <button
                 key={`${r.action}${r.label}`}
                 type="button"
-                className={`chip${r.primary ? ' on' : ''}`}
+                className={`chip${r.primary && !PAIR.has(r.action) ? ' on' : ''}`}
                 disabled={m.locked || busy || replyLock}
                 onClick={() => actions.reply({ messageId: m.id, action: r.action, arg: r.arg } satisfies ReplyRequest)}
               >

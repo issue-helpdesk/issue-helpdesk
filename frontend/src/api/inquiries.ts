@@ -27,13 +27,13 @@ const POLL_MS = 120_000
 const MIN_GAP_MS = 15_000
 
 /** 로그인한 사용자의 문의 목록 (최근 활동 순). 서버는 토큰으로 사용자를 구분한다. */
-export async function listMyInquiries(employeeNo: string): Promise<ApiResult<InquirySummary[]>> {
+export async function listMyInquiries(employeeNo: string, ownerId?: number): Promise<ApiResult<InquirySummary[]>> {
   if (USE_MOCK_INQUIRY) {
     await sleep(150) // 응답 지연 흉내
     return ok(recordsOf(employeeNo).map((r) => toSummary(r.inquiry)))
   }
   // 서버는 Page 로 준다. 사이드바는 최근 활동 순 몇 건만 쓴다
-  const [r, news] = await Promise.all([request<Page<SSummary>>('/inquiries?size=5&sort=updatedAt,desc'), listUnread()])
+  const [r, news] = await Promise.all([request<Page<SSummary>>(`/inquiries?size=5&sort=updatedAt,desc${ownerId === undefined ? '' : `&userId=${ownerId}`}`), listUnread()])
   if (!r.ok) return r
   const items = mapSummaries(r.data).items
   // 처리 완료(FIN) 같은 화면 알림이 안 읽힌 문의는 새 답변 표시(unread)를 켠다
@@ -78,6 +78,11 @@ export interface InquiryListQuery {
   createdTo?: string
   /** 제목·접수번호·가이드 문서 번호 부분 일치 */
   q?: string
+  /**
+   * 이 사용자의 문의만. 서버는 관리자가 사용자를 지정하지 않으면 모든 사용자의 문의를 주므로,
+   * 관리자 본인의 문의 목록(사이드바·문의 내역)은 자기 번호를 보낸다. 관리자가 아니면 보내면 안 된다(403).
+   */
+  userId?: number
 }
 
 export interface Page<T> {
@@ -157,7 +162,7 @@ export async function listInquiries(employeeNo: string, query: InquiryListQuery 
  * 문의 목록이 바뀔 때마다 알려 준다. (새 문의, 담당자 진행 상황, 새 답변 표시)
  * 모의 모드에서는 저장소 변경을, 서버 모드에서는 주기적 조회를 쓴다. 돌려주는 함수를 부르면 구독이 끝난다.
  */
-export function watchMyInquiries(employeeNo: string, onChange: (list: InquirySummary[]) => void): () => void {
+export function watchMyInquiries(employeeNo: string, onChange: (list: InquirySummary[]) => void, ownerId?: number): () => void {
   // 읽기가 겹치지 않게 합치고(읽는 중에 또 요청이 오면 끝난 뒤 한 번만 더 읽는다), 늦게 온 옛 응답이 최신 목록을 덮지 않게 한다
   let running = false
   let again = false
@@ -171,7 +176,7 @@ export function watchMyInquiries(employeeNo: string, onChange: (list: InquirySum
     running = true
     lastLoad = Date.now()
     const mine = ++seq
-    listMyInquiries(employeeNo)
+    listMyInquiries(employeeNo, ownerId)
       .then((r) => {
         if (r.ok && mine === seq) onChange(r.data)
       })

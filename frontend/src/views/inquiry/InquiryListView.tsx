@@ -80,6 +80,8 @@ function SortTh({ col, label, tip, plain, sort, onSort }: { col: SortCol; label:
 export function InquiryListView() {
   const { user } = useAuth()
   const employeeNo = user?.employeeNo
+  // 관리자는 서버가 모든 사용자의 문의를 주므로 본인 번호를 보내 내 문의만 받는다 (관리자가 아니면 보내면 403)
+  const ownerId = user?.serviceRole === 'ADMIN' ? user.id : undefined
   const navigate = useNavigate()
   const focusSearch = (useLocation().state as { focusSearch?: boolean } | null)?.focusSearch
   const searchRef = useRef<HTMLInputElement>(null)
@@ -117,7 +119,7 @@ export function InquiryListView() {
   useEffect(() => {
     if (!employeeNo) return
     let alive = true
-    listInquiries(employeeNo, query).then((r) => {
+    listInquiries(employeeNo, { ...query, userId: ownerId }).then((r) => {
       if (!alive) return
       if (r.ok) {
         setData(r.data)
@@ -127,13 +129,13 @@ export function InquiryListView() {
     return () => {
       alive = false
     }
-  }, [employeeNo, query, reload])
+  }, [employeeNo, ownerId, query, reload])
 
   // 분류별 건수: 조건 없이 전체를 한 번 읽어 센다 (서버가 생기면 분류마다 totalCount 로 읽는다)
   useEffect(() => {
     if (!employeeNo) return
     let alive = true
-    listInquiries(employeeNo, { size: 100 }).then((r) => {
+    listInquiries(employeeNo, { size: 100, userId: ownerId }).then((r) => {
       if (!alive || !r.ok) return
       const c: Record<string, number> = { all: r.data.totalCount }
       for (const it of r.data.items) {
