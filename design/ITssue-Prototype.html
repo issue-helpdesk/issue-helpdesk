@@ -118,19 +118,22 @@ h1,h2,h3,h4,p{margin:0}
 .stip>b{display:block;font-weight:700}.stip>small{display:block;margin:0 0 6px;color:var(--mute);font-size:12px}
 .stip div{display:flex;align-items:center;gap:8px;min-height:22px}.stip div i{width:8px;height:8px;border-radius:50%;flex:none}.stip div span{flex:1;color:var(--ink2)}.stip div b{font-variant-numeric:tabular-nums}
 .mcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-flow:dense;gap:12px;margin:12px 0 4px}
-.mcard{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:16px;background:var(--white);min-width:0;overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.mcard{position:relative;display:flex;border:1px solid var(--line);border-radius:16px;background:var(--white);min-width:0;overflow:hidden;transition:border-color .15s,box-shadow .15s}
 .mcard:hover{border-color:var(--o600);box-shadow:0 4px 16px rgba(143,29,82,.08)}
-.mcard .mcb{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px 12px;border:0;background:transparent;cursor:pointer;color:var(--ink);font:inherit}
-.mcard .mcb b{font-size:14px;font-weight:600}.mcard .mcb small{font-size:12.5px;color:var(--mute)}
-.mcard.open{grid-column:span 2;border-color:var(--o600);background:var(--osoft);animation:mcx .32s cubic-bezier(.3,1.2,.5,1) both;transform-origin:left center}
-.mcard.open .mcb{flex:none;width:150px;border-right:1px solid color-mix(in srgb,var(--o600) 18%,transparent)}
-.mcd{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:10px;padding:14px 18px}
+.mcard .mcb{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 14px 14px;border:0;background:transparent;cursor:pointer;color:var(--ink);font:inherit;text-align:left}
+.mcard .mcn{align-self:flex-start;font-size:14px;line-height:20px;font-weight:600}
+.donut.mcdn{display:block;margin:0;padding:0;gap:0;width:auto;min-width:0}.donut.mcdn svg{display:block}
+/* 열린 카드: 두 칸. 왼쪽 칸은 닫혀 있을 때와 똑같고, 오른쪽 칸이 왼쪽에서 오른쪽으로 펼쳐진다 */
+.mcard.open{grid-column:span 2;display:grid;grid-template-columns:1fr 1fr;border-color:var(--o600);background:var(--osoft);animation:mcr .36s cubic-bezier(.22,1,.36,1) both}
+.mcard.open.last3{grid-column:2 / span 2}
+.mcard.open .mcb{border-right:1px solid color-mix(in srgb,var(--o600) 18%,transparent)}
+.mcd{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:10px;padding:14px 18px}
 .dl3{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}.dl3 li{display:flex;align-items:center;gap:8px;font-size:13px;line-height:22px}.dl3 li i{width:9px;height:9px;border-radius:50%;flex:none}.dl3 li span{flex:1;color:var(--ink2)}.dl3 li b{font-variant-numeric:tabular-nums}.dl3 li em{font-style:normal;width:40px;text-align:right;color:var(--mute);font-size:12px}
 .mcf{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
-@keyframes mcx{from{opacity:.5;transform:scaleX(.55)}to{opacity:1;transform:none}}
+@keyframes mcr{from{clip-path:inset(0 50% 0 0 round 16px)}to{clip-path:inset(0 0 0 0 round 16px)}}
 @media (prefers-reduced-motion:reduce){.mcard.open{animation:none}}
-@media (max-width:900px){.mcards{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:560px){.mcards{grid-template-columns:minmax(0,1fr)}.mcard.open{grid-column:auto;flex-direction:column}.mcard.open .mcb{width:auto;border-right:0}}
+@media (max-width:900px){.mcards{grid-template-columns:repeat(2,minmax(0,1fr))}.mcard.open,.mcard.open.last3{grid-column:1 / -1}}
+@media (max-width:560px){.mcards{grid-template-columns:minmax(0,1fr)}.mcard.open{grid-template-columns:1fr}.mcard.open .mcb{border-right:0}}
 .seg{display:inline-flex;gap:2px;padding:3px;border-radius:12px;background:var(--shell)}
 .seg button{border:0;background:transparent;min-height:36px;padding:0 16px;border-radius:9px;font-size:13.5px;font-weight:500;color:var(--mute)}
 .seg button.on{background:var(--white);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
@@ -2746,20 +2749,20 @@ function priBlock(list,link,teamNote){
   return `<div class="pdist">${ps.map((p,i)=>{const inner=`<span class="pl">${pbadge(p)}</span><span class="bar ${p.toLowerCase()}" aria-hidden="true"><i style="width:${Math.max(ns[i]?3:0,ns[i]/mx*100)}%"></i></span><b>${ns[i]}<small>건</small></b>${link?GO:'<span></span>'}<span class="small muted pr">${PRI_RULE[p]}</span>`;
     return link?`<button class="pd" data-act="spri" data-p="${p}" aria-label="${p} ${ns[i]}건. 이 긴급도의 문의 목록 보기">${inner}</button>`:`<div class="pd st">${inner}</div>`;}).join('')}</div>${teamNote?'<p class="small muted secnote" style="margin-top:8px">건수는 팀 전체예요. 줄을 누르면 내 문의 중 해당 긴급도만 목록으로 보여줘요.</p>':''}`;
 }
-/* 팀원 카드용 작은 도넛: 처리 대기·처리 중·해결 확인 대기·해결 완료 */
+/* 팀원 카드용 도넛: 처리 대기·처리 중·해결 확인 대기·해결 완료. 가운데에 전체 건수, 그 아래에 완료율 */
 function miniDonut(v,size,sw){
   const T=tot(v),t=T||1,R=(size-sw)/2-1,C=2*Math.PI*R,c=size/2;let off=0;
   const arcs=['w','p','n','c'].filter(k=>v[k]).map(k=>{const len=v[k]/t*C;const a=`<circle cx="${c}" cy="${c}" r="${R}" fill="none" stroke="${SC[k]}" stroke-width="${sw}" stroke-dasharray="${Math.max(0,len-1.5)} ${C-Math.max(0,len-1.5)}" stroke-dashoffset="${-off}" transform="rotate(-90 ${c} ${c})"/>`;off+=len;return a;}).join('');
-  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true"><circle cx="${c}" cy="${c}" r="${R}" fill="none" stroke="var(--track)" stroke-width="${sw}"/>${arcs}<text x="${c}" y="${c+size*0.08}" text-anchor="middle" style="font-size:${Math.round(size*0.28)}px;font-weight:700;fill:var(--ink)">${T}</text></svg>`;
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true"><circle cx="${c}" cy="${c}" r="${R}" fill="none" stroke="var(--track)" stroke-width="${sw}"/>${arcs}<text x="${c}" y="${c+size*0.03}" text-anchor="middle" style="font-size:${Math.round(size*0.27)}px;font-weight:700;fill:var(--ink)">${T}</text><text x="${c}" y="${c+size*0.19}" text-anchor="middle" style="font-size:${Math.round(size*0.105)}px;fill:var(--mute)">${T?'완료 '+Math.round(v.c/T*100)+'%':'-'}</text></svg>`;
 }
-/* 팀원별 카드: 처음에는 도넛과 이름·건수만 보이고, 누르면 그 카드가 오른쪽으로 넓어지며 상태별 건수가 보인다 */
+/* 팀원별 카드: 왼쪽 위에 이름, 가운데에 도넛(전체 건수·완료율). 누르면 왼쪽은 그대로 두고 오른쪽으로 길어지며 상태별 건수가 보인다 */
 function memCards(names,win){
   const sel=S.st.member;
-  return `<div class="mcards">${names.map(n=>{
+  return `<div class="mcards">${names.map((n,i)=>{
     const v=cntOf(win.filter(t=>t.assignee===n)),T=tot(v),open=sel===n;
     const rows=['w','p','n','c'].map(k=>`<li><i style="background:${SC[k]}"></i><span>${SLB[k]}</span><b>${v[k]}건</b><em>${T?Math.round(v[k]/T*100):0}%</em></li>`).join('');
     const detail=open?`<div class="mcd"><ul class="dl3">${rows}</ul><div class="mcf"><span class="small muted">전체 ${T}건 · 완료 ${T?Math.round(v.c/T*100):0}%</span><button class="btn sec sm" data-act="tf" data-staff="${ESC(n)}">티켓 목록 ›</button></div></div>`:'';
-    return `<div class="mcard${open?' open':''}"${open?'':` data-tip="${tipOf(v)}" data-tl="${ESC(n)}"`}><button type="button" class="mcb" data-act="smem" data-n="${ESC(n)}" aria-pressed="${open}" aria-label="${ESC(n)} 처리 상태 ${T}건">${miniDonut(v,open?104:76,open?15:11)}<b>${ESC(n)}</b><small>${T}건</small>${tipSr(v)}</button>${detail}</div>`;
+    return `<div class="mcard${open?' open':''}${i%3===2?' last3':''}"${open?'':` data-tip="${tipOf(v)}" data-tl="${ESC(n)}"`}><button type="button" class="mcb" data-act="smem" data-n="${ESC(n)}" aria-pressed="${open}" aria-label="${ESC(n)} 처리 상태 ${T}건"><span class="mcn">${ESC(n)}</span><div class="donut mcdn">${miniDonut(v,124,15)}</div>${tipSr(v)}</button>${detail}</div>`;
   }).join('')}</div>`;
 }
 function memRows2(names,win,meName,flat){ /* flat: 이름을 눌러도 개인 현황을 열지 않는다 */
