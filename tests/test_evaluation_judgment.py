@@ -7,9 +7,10 @@ from dataclasses import replace
 import pytest
 
 from app.agent.llm import CategoryInfo, Taxonomy, TypeInfo
-from app.rag.evaluation.judgment import (CITED, GUIDE_GROUP, GUIDED_COL, TEAM_ASSIGNED, TEAM_GUIDED, TEAM_SKIP,
-                                         EvalItem, Judged, Reference, cause, confusion, judge_item, load_guide_items,
-                                         load_items, main, near_urgency, run, score, summary_md, team_of, write)
+from app.rag.evaluation.judgment import (CITED, EXTRA_GROUP, GUIDE_GROUP, GUIDED_COL, TEAM_ASSIGNED, TEAM_GUIDED,
+                                         TEAM_SKIP, EvalItem, Judged, Reference, cause, confusion, judge_item,
+                                         load_extra_items, load_guide_items, load_items, main, near_urgency, run, score,
+                                         summary_md, team_of, write)
 from app.rag.search import ChunkHit, DocumentResult, SearchResponse
 
 REF = Reference(
@@ -265,3 +266,95 @@ def test_summary_lists_citation_misses_and_evidence_escalations(tmp_path):
 def test_cli_checks_ids_against_chosen_set(capsys):
     assert main(['--database-url', 'postgresql://nowhere/x', '--ids', 'IT-ACC-001#1']) == 2      # 기본은 평가셋만
     assert '시험지(eval)에 없는 문항' in capsys.readouterr().out
+
+
+# ── 보조 시험지 ─────────────────────────────────────────────────
+
+EXTRA_HEAD = ('eval_id,query,expected_category,expected_scenario,expected_urgency,expected_action,additional_action,'
+              'expected_team,team_scoring,label_note,dataset_split,author')
+
+
+def extra_csv(tmp_path, *rows: str):
+    path = tmp_path / '보조.csv'
+    path.write_text('\n'.join((EXTRA_HEAD, *rows)) + '\n', encoding='utf-8-sig')
+    return str(path)
+
+
+def extra_item(**kw) -> EvalItem:
+    return item(**({'eval_id': 'EX-CL01', 'query': '아까부터 안 돼요', 'category': None, 'scenario': None, 'urgency': None,
+                    'action': 'ASK_MORE', 'team': None, 'team_scoring': TEAM_SKIP, 'split': '보조: 정보 부족',
+                    'answer_docs': frozenset(), 'answer_units': frozenset(), 'set': 'extra', 'author': 'Claude'} | kw))
+
+
+def test_load_extra_items_reads_dash_action_and_author(tmp_path):
+    path = extra_csv(tmp_path,
+                     'EX-CL01,아까부터 안 돼요,-,-,-,ASK_MORE,NONE,-,팀 평가 제외,,보조: 정보 부족,Claude',
+                     'EX-CX01,"비번 Abc!1 인데, OTP 틀렸대요",ACC,ACC-03,P3,-,NONE,서비스데스크,안내 지원팀 비교,,'
+                     '보조: 민감정보 포함,Codex')
+    a, b = load_extra_items(path)
+    assert (a.set, a.author, a.action, a.category, a.answer_docs) == ('extra', 'Claude', 'ASK_MORE', None, frozenset())
+    assert (b.action, b.author, b.scenario) == (None, 'Codex', 'ACC-03')          # 처리 방향 '-' 는 채점에서 뺀다
+    assert b.answer_docs == {'IT-ACC-003'} and b.answer_units                     # 세부 유형이 있으면 정답 가이드·항목
+    assert b.query == '비번 Abc!1 인데, OTP 틀렸대요'
+
+
+@pytest.mark.parametrize('row, problem', [
+    ('EV-001,x,-,-,-,ASK_MORE,NONE,-,팀 평가 제외,,보조: 정보 부족,Claude', 'EX-'),                  # 평가셋 번호
+    ('EX-1,x,NET,ACC-03,-,-,NONE,서비스데스크,안내 지원팀 비교,,보조: 민감정보 포함,Codex', '다름'),  # 분류 ≠ 유형
+    ('EX-1,x,ACC,ACC-03,-,-,NONE,정보보안팀,안내 지원팀 비교,,보조: 민감정보 포함,Codex', '의 팀'),  # 서버 팀 규칙과 다름
+    ('EX-1,x,-,-,P9,ASK,NONE,-,팀 평가 제외,,보조: 정보 부족,Codex', '처리 방향'),
+    ('EX-1,x,-,-,-,ESCALATE,NONE,-,배정팀 비교,,보조: 가이드 없음,Codex', '팀 없음'),
+    ('EX-1,x,-,-,-,ESCALATE,NONE,-,팀 평가 제외,,가이드 없음,', '작성자'),
+])
+def test_load_extra_items_rejects_bad_labels(tmp_path, row, problem):
+    with pytest.raises(ValueError, match=problem):
+        load_extra_items(extra_csv(tmp_path, row))
+
+
+def test_load_extra_items_rejects_duplicate_ids(tmp_path):
+    row = 'EX-1,x,-,-,-,ASK_MORE,NONE,-,팀 평가 제외,,보조: 정보 부족,Claude'
+    with pytest.raises(ValueError, match='겹침'):
+        load_extra_items(extra_csv(tmp_path, row, row))
+
+
+def test_extra_items_score_apart_by_kind_and_author(tmp_path):
+    """보조는 '전체'에 섞지 않고 보조 전체·종류별·작성자별로 낸다. 혼동표도 평가셋과 따로."""
+    oos = extra_item(eval_id='EX-CX01', action='OUT_OF_SCOPE', split='보조: 범위 밖', author='Codex')
+    js = [judged(item()), judged(extra_item(), action='ESCALATE'), judged(oos),
+          judged(extra_item(eval_id='EX-CL02', action=None), action='ANSWER')]          # 처리 방향 '-' 는 빼고
+    s = score(js)
+    assert s['전체']['문항']['n'] == 1 and s[EXTRA_GROUP]['action'] == {'n': 2, 'acc': 0.5}
+    assert s['보조: 정보 부족']['action'] == {'n': 1, 'acc': 0.0} and s['보조: 범위 밖']['action']['acc'] == 1.0
+    assert s['보조 작성: Claude']['action'] == {'n': 1, 'acc': 0.0} and s['보조 작성: Codex']['action']['acc'] == 1.0
+    assert confusion(js) == {'ANSWER': {'ANSWER': 1}}                                   # 평가셋만
+    assert confusion(js, 'extra') == {'ASK_MORE': {'ESCALATE': 1}, 'OUT_OF_SCOPE': {'OUT_OF_SCOPE': 1}}
+    summary = write(str(tmp_path), js, {'판단기': 'x'})
+    assert '처리 방향 혼동표 (보조)' in summary and '처리 방향 혼동표' in summary
+    md = summary_md(summary)
+    assert '## 처리 방향 혼동표 (보조)' in md and f'{EXTRA_GROUP}: 보조 시험지 참고 점수' in md
+    assert [x['문항'] for x in summary['틀린 문항']] == ['EX-CL01']                     # '-' 인 EX-CL02 는 틀림 아님
+    assert '처리 방향 혼동표 (보조)' not in write(str(tmp_path), [judged(item())], {'판단기': 'x'})   # 보조가 없으면 표도 없음
+
+
+def test_oracle_runs_extra_item_without_answer_guide():
+    j = judge_item(extra_item(action='OUT_OF_SCOPE'), 'mock:oracle', REF, FakeSearch(DOC))
+    assert j.predicted['action'] == 'OUT_OF_SCOPE' and j.found_doc is None and cause(j) == ''
+
+
+def test_run_stops_before_next_item_at_call_limit():
+    items = [item(), item(eval_id='EV-002'), item(eval_id='EV-003')]
+    js, stopped = run('mock:oracle', items, REF, FakeSearch(DOC), max_calls=1)
+    assert len(js) == 1 and js[0].calls >= 1
+    assert stopped.startswith('1회 EV-002 앞에서 멈춤 (호출 상한 1')
+    assert len(run('mock:oracle', items, REF, FakeSearch(DOC))[0]) == 3               # 상한이 없으면 끝까지
+
+
+def test_cli_rejects_bad_extra_sheet_before_opening_db(tmp_path, capsys):
+    missing = str(tmp_path / '없음.csv')
+    assert main(['--database-url', 'postgresql://nowhere/x', '--set', 'extra', '--extra-csv', missing]) == 2
+    assert '시험지를 읽지 못했습니다' in capsys.readouterr().out
+    bad = extra_csv(tmp_path, 'EX-1,x,-,-,-,ASK,NONE,-,팀 평가 제외,,보조: 정보 부족,Claude')
+    assert main(['--database-url', 'postgresql://nowhere/x', '--set', 'extra', '--extra-csv', bad]) == 2
+    assert '처리 방향 ASK' in capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        main(['--database-url', 'postgresql://nowhere/x', '--max-calls', '0'])
