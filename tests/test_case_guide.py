@@ -280,29 +280,46 @@ def test_draft_refuses_unresolved(url, tmp_path, kw, msg):
 
 
 @needs_db
-def test_reopened_ticket_warns_without_text(url, tmp_path):
-    """다시 처리(FIN→WIP)된 접수는 횟수·이력 위치만 경고하고, 앞선 처리 결과·남은 증상 원문은 경고에 넣지 않는다."""
+def test_reopened_ticket_warns_without_text(url, tmp_path, capsys):
+    """다시 처리(FIN→WIP)된 접수는 횟수·이력 위치만 경고하고, 앞선 처리 결과·남은 증상 원문은 경고·본문·초안 정보에 넣지 않는다.
+
+    ITSSUE·JIRA 어느 쪽에서 온 이력이든 세고, 다른 티켓의 이력은 섞지 않는다. 명령 draft 출력에도 나온다 (PR #269 검수 3).
+    """
+    from app.rag.case_guide.__main__ import main
     _current_guide(url, 'IT-NET-003')                                        # 다른 시험의 사례 초안이 없는 가이드
     note = '1. 스위치 포트를 바꿨습니다\n2. 다시 연결했습니다'
     once, twice = _ticket(url, 'TK-RO-0', code='NET-03', note=note), _ticket(url, 'TK-RO-2', code='NET-03', note=note)
+    old = ['OLD_FIX_A_MARK', 'OLD_FIX_B_MARK', 'LEFT_SYMPTOM_1_MARK', 'LEFT_SYMPTOM_2_MARK']
     with connect(url) as conn:
-        steps = [(None, 'RDY', None), ('RDY', 'WIP', None), ('WIP', 'FIN', None), ('FIN', 'WIP', '재부팅하면 또 물어봐요'),
-                 ('WIP', 'FIN', None), ('FIN', 'WIP', '여전히 같아요'), ('WIP', 'FIN', None), ('FIN', 'CLS', None)]
-        for frm, to, reason in steps:
-            conn.execute("insert into ticket_status_history (ticket_id, from_status, to_status, source, reason) "
-                         "values (%s, %s, %s, 'ITSSUE', %s)", (twice, frm, to, reason))
+        steps = [(None, 'RDY', 'JIRA', None, None), ('RDY', 'WIP', 'ITSSUE', None, None),
+                 ('WIP', 'FIN', 'ITSSUE', None, old[0]), ('FIN', 'WIP', 'ITSSUE', old[2], None),
+                 ('WIP', 'FIN', 'JIRA', None, old[1]), ('FIN', 'WIP', 'JIRA', old[3], None),       # Jira 에서 되돌림
+                 ('WIP', 'FIN', 'ITSSUE', None, note), ('FIN', 'CLS', 'ITSSUE', None, None)]
+        for frm, to, source, reason, result in steps:
+            conn.execute('insert into ticket_status_history (ticket_id, from_status, to_status, source, reason, '
+                         'resolution_note) values (%s, %s, %s, %s, %s, %s)', (twice, frm, to, source, reason, result))
         for frm, to in [(None, 'RDY'), ('RDY', 'WIP'), ('WIP', 'FIN'), ('FIN', 'CLS')]:
             conn.execute("insert into ticket_status_history (ticket_id, from_status, to_status, source) "
                          "values (%s, %s, %s, 'ITSSUE')", (once, frm, to))
         conn.commit()
-        plain = draft(conn, once, files_root=tmp_path)
+        plain = draft(conn, once, files_root=tmp_path)                       # 다른 티켓(twice)의 되돌림은 안 센다
         again = draft(conn, twice, files_root=tmp_path)
     assert not any('다시 처리' in w for w in plain.warnings)
-    hit = [w for w in again.warnings if '다시 처리' in w]
-    assert hit == [f'다시 처리된 접수입니다 (재처리 2회). 앞선 처리 결과·남은 증상은 TK-RO-2의 TK-08 이력(티켓 {twice})에서 '
-                   '확인하세요. 본문에는 마지막 처리 결과만 넣었습니다']
-    assert not any('재부팅' in w or '여전히' in w for w in again.warnings)
+    want = (f'다시 처리된 접수입니다 (재처리 2회). 앞선 처리 결과·남은 증상은 TK-RO-2의 TK-08 이력(티켓 {twice})에서 '
+            '확인하세요. 본문에는 마지막 처리 결과만 넣었습니다')
+    assert [w for w in again.warnings if '다시 처리' in w] == [want]
     assert '스위치 포트를 바꿨습니다' in again.md                                # 본문은 마지막 처리 결과 그대로
+    saved = tmp_path / 'again.json'
+    again.save(saved)
+    assert Draft.load(saved).warnings == again.warnings                       # 저장했다 불러도 경고가 남는다
+    for text in ['\n'.join(again.warnings), again.md, saved.read_text(encoding='utf-8')]:
+        assert not any(m in text for m in old)                                # 앞선 처리 결과·남은 증상 원문 없음
+    out = tmp_path / 'again.md'
+    assert main(['--database-url', url, '--files-root', str(tmp_path), 'draft', '--ticket', str(twice),
+                 '--out', str(out)]) == 0
+    printed = capsys.readouterr().out
+    assert f'[경고] {want}' in printed and not any(m in printed for m in old)
+    assert not any(m in Path(f'{out}.json').read_text(encoding='utf-8') for m in old)
 
 
 @needs_db
