@@ -498,6 +498,19 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                         <small>
                           {formatDateTime(h.changedAt)} · {h.actor?.name ?? 'Jira'}
                         </small>
+                        {/* 완료할 때마다의 처리 결과, 미해결로 되돌릴 때의 남은 증상 */}
+                        {h.toStatus === 'FIN' && h.resolutionNote && (
+                          <p className="tln">
+                            <em>처리 결과</em>
+                            {h.resolutionNote}
+                          </p>
+                        )}
+                        {h.fromStatus === 'FIN' && h.toStatus === 'WIP' && h.reason && (
+                          <p className="tln">
+                            <em>남은 증상</em>
+                            {h.reason}
+                          </p>
+                        )}
                       </div>
                     </li>
                   ))}

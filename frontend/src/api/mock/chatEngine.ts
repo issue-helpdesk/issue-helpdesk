@@ -719,7 +719,7 @@ function logStatus(rec: StoreRecord, to: NonNullable<Ticket['workStatus']>, opt:
 function setStatus(rec: StoreRecord, status: Ticket['workStatus']) {
   const t = rec.inquiry.ticket
   if (!t) return
-  logStatus(rec, status, { source: 'JIRA' })
+  if (status) logStatus(rec, status, { source: 'JIRA' })
   t.workStatus = status
   if (status === 'FIN') t.finishedAt = nowIso()
   rec.inquiry.updatedAt = nowIso()

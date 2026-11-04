@@ -212,7 +212,7 @@ export async function changeTicketStatus(user: User, id: number, body: TicketTra
           s.finishedAt = nowIso()
         }
       })
-    addHistory(id, { fromStatus: from, toStatus: to, source: 'ITSSUE', actor: { id: user.id, employeeNo: user.employeeNo, name: user.name }, reason: to === 'FIN' ? note : null, changedAt: nowIso() })
+    addHistory(id, { fromStatus: from, toStatus: to, source: 'ITSSUE', actor: { id: user.id, employeeNo: user.employeeNo, name: user.name }, reason: null, resolutionNote: to === 'FIN' ? note : null, changedAt: nowIso() })
     notify()
   })
   const cur = findStaffTicket(id)!

@@ -318,7 +318,7 @@ export function historyOf(t: TicketDetail): StatusHistory[] {
   const explicit = explicitHistoryOf(t.id)
   const has = (w: WorkStatus) => explicit.some((h) => h.toStatus === w)
   const base: StatusHistory[] = []
-  const mk = (toStatus: WorkStatus, fromStatus: WorkStatus | null, changedAt: string): StatusHistory => ({ id: 0, ticketId: t.id, fromStatus, toStatus, source: 'JIRA', actor: null, reason: null, changedAt })
+  const mk = (toStatus: WorkStatus, fromStatus: WorkStatus | null, changedAt: string): StatusHistory => ({ id: 0, ticketId: t.id, fromStatus, toStatus, source: 'JIRA', actor: null, reason: null, resolutionNote: toStatus === 'FIN' ? (t.resolutionNote ?? null) : null, changedAt })
   if (t.workStatus) base.push(mk('RDY', null, t.createdAt))
   const order: WorkStatus[] = ['RDY', 'WIP', 'FIN', 'CLS']
   const idx = t.workStatus ? order.indexOf(t.workStatus) : -1
