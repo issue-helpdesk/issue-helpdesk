@@ -626,6 +626,17 @@ def test_periodic_sync_stops_after_consecutive_jira_failures(db, team, ticket):
     assert ticket.work_status_confirmed_at is None                                            # 실패한 접수는 다음 회차에 다시 고른다
 
 
+def test_periodic_sync_does_not_treat_missing_issues_as_jira_outage(db, team, ticket):
+    """Jira 에서 지워진 이슈(404)는 장애가 아니다. 여러 건이어도 회차를 멈추지 않고 모두 확인한다."""
+    for n in range(1, 5):
+        extra_ticket(db, team, n)
+    jira = FakeJira(error=JiraError("not_found", "없음", retryable=False))
+
+    results = run_due_ticket_syncs(db, jira, now=NOW)
+
+    assert [r.outcome for r in results] == ["JIRA_NOT_FOUND"] * 5 and jira.reads == 5      # 5건 모두 확인했다
+
+
 def test_periodic_sync_unexpected_error_skips_only_that_ticket(db, team, ticket):
     fresh(ticket)
     bad = extra_ticket(db, team, 1, confirmed_at=NOW - timedelta(minutes=9))
