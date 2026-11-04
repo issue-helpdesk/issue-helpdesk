@@ -733,7 +733,7 @@ input[type="file"][aria-invalid="true"]{outline:2px solid var(--s-urg-dot);outli
 .tag.stf,.mebadge{background:#7656E8;color:#fff}
 .btn.soft{background:var(--shell);color:var(--ink);box-shadow:none;border-radius:10px}.btn.soft .i{color:var(--link)}.btn.soft:hover{background:var(--track)}
 .card .btn.soft{background:var(--white);box-shadow:inset 0 0 0 1px var(--line),0 1px 2px rgba(40,10,40,.06)}.card .btn.soft:hover{background:var(--white);color:var(--link);box-shadow:inset 0 0 0 1px var(--o600)}
-.detail .dh .btn.ico{width:32px;min-height:32px;height:32px;background:var(--shell);box-shadow:none;color:var(--ink2)}.detail .dh .btn.ico:hover{background:var(--track);color:var(--ink)}.detail .dh .btn.ico .i{width:16px;height:16px}
+.detail .dh .btn.ico{flex:none;padding:0;width:32px;min-width:32px;min-height:32px;height:32px;background:var(--shell);box-shadow:none;color:var(--ink2)}.detail .dh .btn.ico:hover{background:var(--track);color:var(--ink)}.detail .dh .btn.ico .i{width:16px;height:16px}
 .tn-prog{--td:#7656E8}:root[data-theme="dark"] .tn-prog{--td:var(--s-prog-dot)}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tn-prog{--td:var(--s-prog-dot)}}
 
 /* ---- 대시보드·통계 분리 시안 ---- */
@@ -2007,7 +2007,7 @@ function memberPanel(name,win){
 function viewQueue(){
   const acc=me();const mine=S.tickets.filter(t=>t.assignee===acc.name);
   const tabs=[['open','진행 중',t=>t.status==='RDY'||t.status==='WIP'],['fin','해결 확인 대기',t=>t.status==='FIN'],['cls','해결 완료',t=>t.status==='CLS']];
-  if(S.opsPri||S.opsPer||S.opsNew)tabs.unshift(['all','전체 상태',t=>true]);
+  tabs.unshift(['all','전체 상태',t=>true]); /* 전체 상태를 맨 앞에 둔다 */
   const cur=tabs.find(x=>x[0]===S.opsFilter)||tabs[0];
   const rows0=mine.filter(cur[2]).filter(t=>cur[0]!=='open'||!S.opsSub||t.status===S.opsSub).filter(t=>(!S.opsPri||t.p===S.opsPri)&&(!S.opsPer||inW(t,S.opsPer))&&(!S.opsNew||t.newReply)).filter(t=>hitQ(t,S.qsq)).sort(qOrder);const rowsS=sortList(rows0,'q'),pgq=pager(rowsS.length,'q'),rows=pgq.slice(rowsS);
   const nrep=mine.filter(t=>t.newReply);
@@ -2016,7 +2016,7 @@ function viewQueue(){
   const condChips=`<div class="d2f" role="group" aria-label="필터">${tsearch('qsq','접수번호 · Jira 번호 · 제목 · 문의자로 검색','처리할 문의 검색',rowsS.length)}${qsel('qpri','긴급도',['P1','P2','P3','P4'].map(p=>[p,p+' · '+PRI[p]]),S.opsPri,'p')}${qsel('qper','접수 기간',[['d','오늘'],['m','최근 30일'],['y','최근 1년']],S.opsPer,'r')}${S.opsNew?`<span class="d2p act"><span class="ddb"><small>알림</small><span>확인할 Jira 알림</span></span><button class="x" data-act="qclr" data-k="n" aria-label="Jira 알림 필터 해제">✕</button></span>`:''}</div>`;
   const subChips=(cur[0]==='open')?`<div class="subc" role="group" aria-label="진행 중 상태 구분">${[['','전체 진행 중',mine.filter(cur[2]).length],['RDY','처리 대기',mine.filter(t=>t.status==='RDY').length],['WIP','처리 중',mine.filter(t=>t.status==='WIP').length]].map(x=>`<button class="chip${(S.opsSub||'')===x[0]?' on':''}" aria-pressed="${(S.opsSub||'')===x[0]}" data-act="qsub" data-sub="${x[0]}">${x[1]} <em>${x[2]}</em></button>`).join('')}</div>`:'';
   const cnt=x=>{const k=mine.filter(x[2]).length;return k?` <span class="count">${k}</span>`:'';};
-  return `<main class="main">${topbar('처리할 문의',acc.dept+' · '+acc.name+' 담당자')}<div class="scroll"><div class="page">${phead('MY QUEUE','처리할 문의를 확인해요','문의 상태를 변경하고 처리 결과를 등록해요. 처리가 끝나면 문의자가 해결 여부를 확인해요.')}${replyBand(nrep)}<div class="tabs">${tabs.map(x=>`<button class="${cur[0]===x[0]?'on':''}" data-act="of" data-f="${x[0]}">${x[1]}${x[0]!=='cls'?cnt(x):''}</button>`).join('')}</div>${condChips}${subChips}<div class="panel" id="qres" style="padding:6px 10px">${tTable(rows,S.qsq?'조건에 맞는 문의가 없어요.':'이 상태의 문의가 없어요.','q','queue')}${rowsS.length?pgq.html:''}</div></div></div></main>`;
+  return `<main class="main">${topbar('처리할 문의',acc.dept+' · '+acc.name+' 담당자')}<div class="scroll"><div class="page">${phead('MY QUEUE','처리할 문의를 확인해요','문의 상태를 변경하고 처리 결과를 등록해요. 처리가 끝나면 문의자가 해결 여부를 확인해요.')}${replyBand(nrep)}<div class="tabs">${tabs.map(x=>`<button class="${cur[0]===x[0]?'on':''}" data-act="of" data-f="${x[0]}">${x[1]}${mine.length?` <span class="count">${mine.filter(x[2]).length}</span>`:''}</button>`).join('')}</div>${condChips}${subChips}<div class="panel" id="qres" style="padding:6px 10px">${tTable(rows,S.qsq?'조건에 맞는 문의가 없어요.':'이 상태의 문의가 없어요.','q','queue')}${rowsS.length?pgq.html:''}</div></div></div></main>`;
 }
 /* ---- 상세 패널 (문의자·담당자·관리자 공용) ---- */
 function viewDetail(id){
@@ -2876,8 +2876,8 @@ Object.assign(A,{
   sk(e,d){const m={w:['open','RDY'],p:['open','WIP'],n:['fin',''],c:['cls','']}[d.k];S.opsPri='';S.opsNew=false;S.opsPer=S.st.per;S.opsFilter=m[0];S.opsSub=m[1];S.page.q=1;S.view={n:'queue'};S.detail=null;S.navOpen=false;logq('상태 목록',SLB[d.k]+' · '+PERN[S.st.per]+' 접수 조건으로 목록 조회');render();},
   spri(e,d){S.detail=null;S.navOpen=false;if(S.role==='admin'){S.page.tk=1;S.page.ai=1;S.tf={pri:d.p};S.tf.per=S.st.per;S.view={n:'tickets'};}else{S.opsPri=d.p;S.opsNew=false;S.opsPer=S.st.per;S.opsFilter='all';S.opsSub='';S.page.q=1;S.view={n:'queue'};}logq('긴급도 목록',d.p+' · '+PERN[S.st.per]+' 접수 조건으로 목록 조회');render();},
   qnew(e,d){S.opsPri='';S.opsPer='';S.opsNew=true;S.opsFilter='all';S.opsSub='';S.page.q=1;S.view={n:'queue'};S.detail=null;S.navOpen=false;render();},
-  qclr(e,d){if(d.k==='p')S.opsPri='';else if(d.k==='n')S.opsNew=false;else S.opsPer='';if(!S.opsPri&&!S.opsPer&&!S.opsNew&&S.opsFilter==='all')S.opsFilter='open';render();},
-  qpick(e,d){if(d.k==='qpri')S.opsPri=d.v;else S.opsPer=d.v;S.dd=null;S.page.q=1;if(!S.opsPri&&!S.opsPer&&!S.opsNew&&S.opsFilter==='all')S.opsFilter='open';render();},
+  qclr(e,d){if(d.k==='p')S.opsPri='';else if(d.k==='n')S.opsNew=false;else S.opsPer='';render();},
+  qpick(e,d){if(d.k==='qpri')S.opsPri=d.v;else S.opsPer=d.v;S.dd=null;S.page.q=1;render();},
   ginq(e,d){S.gInq=S.gInq===false;S.gAuto=false;render();},
   sreload(e,d){delete S.load[d.k];render();},
 });
