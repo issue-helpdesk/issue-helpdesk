@@ -224,6 +224,45 @@ def test_start_inquiry_keeps_user_message_when_ai_fails(client, db, headers, ai)
     assert [m.sender for m in db.scalars(select(Message))] == ["USER"]
 
 
+def test_ai_failure_keeps_default_title_in_list(client, db, headers, ai):
+    """AI 가 실패해도 목록에 '새 문의' 대신 사용자 글로 만든 제목이 보인다 (R-37)."""
+    ai.broken = True
+    start(client, headers)
+
+    item = client.get(INQUIRIES, headers=headers).json()["items"][0]
+
+    assert item["title"] == "어제 업데이트 이후로 VPN 접속이 안 돼요."
+
+
+def test_default_title_uses_masked_text(client, db, headers, ai):
+    """가리기 전 값이 제목에 남지 않는다."""
+    ai.broken = True
+    res = client.post(INQUIRIES, json={"content": "비밀번호는 Abc123! 인데 로그인이 안 돼요"},
+                      headers={**headers, "Idempotency-Key": "masked-title"})
+
+    assert res.status_code == 503
+    title = db.scalar(select(Inquiry.title))
+    assert "Abc123!" not in title and "●" in title
+
+
+def test_default_title_is_shortened(client, db, headers, ai):
+    ai.broken = True
+    client.post(INQUIRIES, json={"content": "\n\n  " + "가" * 100 + "\n둘째 줄"},
+                headers={**headers, "Idempotency-Key": "long-title"})
+
+    assert db.scalar(select(Inquiry.title)) == "가" * 39 + "…"
+
+
+def test_model_error_replaces_default_title_with_safe_title(client, db, headers, ai, taxonomy):
+    """판단이 남으면 AI 제목 자리의 값으로 바꾼다. 이 값은 Jira 로 나가므로 사용자 글을 남기지 않는다."""
+    ai.replies = [LLMError("TIMEOUT")]
+
+    res = start(client, headers)
+
+    assert res.status_code == 201
+    assert res.json()["inquiry"]["title"] == "IT 문의 (자동 분류 실패)"
+
+
 def test_start_inquiry_requires_login(client):
     assert client.post(INQUIRIES, json={"content": VPN}, headers={"Idempotency-Key": "k"}).status_code == 401
 
