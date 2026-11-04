@@ -146,3 +146,25 @@
 .tl li:nth-child(1) b::after{background:transparent;color:var(--o700);box-shadow:inset 0 0 0 1px var(--o600)}
 :root[data-theme="dark"] .tl li:nth-child(1) b::after{color:#FFB0CF;box-shadow:inset 0 0 0 1px #FF8FB8}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tl li:nth-child(1) b::after{color:#FFB0CF;box-shadow:inset 0 0 0 1px #FF8FB8}}
+
+/* ---- 관리자 통계: 상태별 건수 툴팁 · 팀원 카드 ---- */
+.stip{position:fixed;z-index:1000;min-width:168px;padding:10px 12px;border-radius:12px;background:var(--white);box-shadow:var(--pop,0 8px 28px rgba(17,24,39,.18)),0 0 0 1px var(--line);font-size:13px;line-height:20px;pointer-events:none}
+.stip>b{display:block;font-weight:700}.stip>small{display:block;margin:0 0 6px;color:var(--mute);font-size:12px}
+.stip div{display:flex;align-items:center;gap:8px;min-height:22px}.stip div i{width:8px;height:8px;border-radius:50%;flex:none}.stip div span{flex:1;color:var(--ink2)}.stip div b{font-variant-numeric:tabular-nums}
+.mcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-flow:dense;gap:12px;margin:12px 0 4px}
+.mcard{position:relative;display:flex;border:1px solid var(--line);border-radius:16px;background:var(--white);min-width:0;overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.mcard:hover{border-color:var(--o600);box-shadow:0 4px 16px rgba(143,29,82,.08)}
+.mcard .mcb{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 14px 14px;border:0;background:transparent;cursor:pointer;color:var(--ink);font:inherit;text-align:left}
+.mcard .mcn{align-self:flex-start;font-size:14px;line-height:20px;font-weight:600}
+.donut.mcdn{display:block;margin:0;padding:0;gap:0;width:auto;min-width:0}.donut.mcdn svg{display:block}
+/* 열린 카드: 두 칸. 왼쪽 칸은 닫혀 있을 때와 똑같고, 오른쪽 칸이 왼쪽에서 오른쪽으로 펼쳐진다 */
+.mcard.open{grid-column:span 2;display:grid;grid-template-columns:1fr 1fr;border-color:var(--o600);background:var(--osoft);animation:mcr .36s cubic-bezier(.22,1,.36,1) both}
+.mcard.open.last3{grid-column:2 / span 2}
+.mcard.open .mcb{border-right:1px solid color-mix(in srgb,var(--o600) 18%,transparent)}
+.mcd{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:10px;padding:14px 18px}
+.dl3{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}.dl3 li{display:flex;align-items:center;gap:8px;font-size:13px;line-height:22px}.dl3 li i{width:9px;height:9px;border-radius:50%;flex:none}.dl3 li span{flex:1;color:var(--ink2)}.dl3 li b{font-variant-numeric:tabular-nums}.dl3 li em{font-style:normal;width:40px;text-align:right;color:var(--mute);font-size:12px}
+.mcf{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+@keyframes mcr{from{clip-path:inset(0 50% 0 0 round 16px)}to{clip-path:inset(0 0 0 0 round 16px)}}
+@media (prefers-reduced-motion:reduce){.mcard.open{animation:none}}
+@media (max-width:900px){.mcards{grid-template-columns:repeat(2,minmax(0,1fr))}.mcard.open,.mcard.open.last3{grid-column:1 / -1}}
+@media (max-width:560px){.mcards{grid-template-columns:minmax(0,1fr)}.mcard.open{grid-template-columns:1fr}.mcard.open .mcb{border-right:0}}
