@@ -117,6 +117,20 @@ h1,h2,h3,h4,p{margin:0}
 .stip{position:fixed;z-index:1000;display:none;pointer-events:none;min-width:168px;padding:10px 12px;border-radius:12px;background:var(--white);box-shadow:var(--pop,0 8px 28px rgba(17,24,39,.18)),0 0 0 1px var(--line);font-size:13px;line-height:20px}
 .stip>b{display:block;font-weight:700}.stip>small{display:block;margin:0 0 6px;color:var(--mute);font-size:12px}
 .stip div{display:flex;align-items:center;gap:8px;min-height:22px}.stip div i{width:8px;height:8px;border-radius:50%;flex:none}.stip div span{flex:1;color:var(--ink2)}.stip div b{font-variant-numeric:tabular-nums}
+.mcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-flow:dense;gap:12px;margin:12px 0 4px}
+.mcard{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:16px;background:var(--white);min-width:0;overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.mcard:hover{border-color:var(--o600);box-shadow:0 4px 16px rgba(143,29,82,.08)}
+.mcard .mcb{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px 12px;border:0;background:transparent;cursor:pointer;color:var(--ink);font:inherit}
+.mcard .mcb b{font-size:14px;font-weight:600}.mcard .mcb small{font-size:12.5px;color:var(--mute)}
+.mcard.open{grid-column:span 2;border-color:var(--o600);background:var(--osoft);animation:mcx .32s cubic-bezier(.3,1.2,.5,1) both;transform-origin:left center}
+.mcard.open .mcb{flex:none;width:150px;border-right:1px solid color-mix(in srgb,var(--o600) 18%,transparent)}
+.mcd{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:10px;padding:14px 18px}
+.dl3{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}.dl3 li{display:flex;align-items:center;gap:8px;font-size:13px;line-height:22px}.dl3 li i{width:9px;height:9px;border-radius:50%;flex:none}.dl3 li span{flex:1;color:var(--ink2)}.dl3 li b{font-variant-numeric:tabular-nums}.dl3 li em{font-style:normal;width:40px;text-align:right;color:var(--mute);font-size:12px}
+.mcf{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+@keyframes mcx{from{opacity:.5;transform:scaleX(.55)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.mcard.open{animation:none}}
+@media (max-width:900px){.mcards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.mcards{grid-template-columns:minmax(0,1fr)}.mcard.open{grid-column:auto;flex-direction:column}.mcard.open .mcb{width:auto;border-right:0}}
 .seg{display:inline-flex;gap:2px;padding:3px;border-radius:12px;background:var(--shell)}
 .seg button{border:0;background:transparent;min-height:36px;padding:0 16px;border-radius:9px;font-size:13.5px;font-weight:500;color:var(--mute)}
 .seg button.on{background:var(--white);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
@@ -2732,6 +2746,22 @@ function priBlock(list,link,teamNote){
   return `<div class="pdist">${ps.map((p,i)=>{const inner=`<span class="pl">${pbadge(p)}</span><span class="bar ${p.toLowerCase()}" aria-hidden="true"><i style="width:${Math.max(ns[i]?3:0,ns[i]/mx*100)}%"></i></span><b>${ns[i]}<small>건</small></b>${link?GO:'<span></span>'}<span class="small muted pr">${PRI_RULE[p]}</span>`;
     return link?`<button class="pd" data-act="spri" data-p="${p}" aria-label="${p} ${ns[i]}건. 이 긴급도의 문의 목록 보기">${inner}</button>`:`<div class="pd st">${inner}</div>`;}).join('')}</div>${teamNote?'<p class="small muted secnote" style="margin-top:8px">건수는 팀 전체예요. 줄을 누르면 내 문의 중 해당 긴급도만 목록으로 보여줘요.</p>':''}`;
 }
+/* 팀원 카드용 작은 도넛: 처리 대기·처리 중·해결 확인 대기·해결 완료 */
+function miniDonut(v,size,sw){
+  const T=tot(v),t=T||1,R=(size-sw)/2-1,C=2*Math.PI*R,c=size/2;let off=0;
+  const arcs=['w','p','n','c'].filter(k=>v[k]).map(k=>{const len=v[k]/t*C;const a=`<circle cx="${c}" cy="${c}" r="${R}" fill="none" stroke="${SC[k]}" stroke-width="${sw}" stroke-dasharray="${Math.max(0,len-1.5)} ${C-Math.max(0,len-1.5)}" stroke-dashoffset="${-off}" transform="rotate(-90 ${c} ${c})"/>`;off+=len;return a;}).join('');
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true"><circle cx="${c}" cy="${c}" r="${R}" fill="none" stroke="var(--track)" stroke-width="${sw}"/>${arcs}<text x="${c}" y="${c+size*0.08}" text-anchor="middle" style="font-size:${Math.round(size*0.28)}px;font-weight:700;fill:var(--ink)">${T}</text></svg>`;
+}
+/* 팀원별 카드: 처음에는 도넛과 이름·건수만 보이고, 누르면 그 카드가 오른쪽으로 넓어지며 상태별 건수가 보인다 */
+function memCards(names,win){
+  const sel=S.st.member;
+  return `<div class="mcards">${names.map(n=>{
+    const v=cntOf(win.filter(t=>t.assignee===n)),T=tot(v),open=sel===n;
+    const rows=['w','p','n','c'].map(k=>`<li><i style="background:${SC[k]}"></i><span>${SLB[k]}</span><b>${v[k]}건</b><em>${T?Math.round(v[k]/T*100):0}%</em></li>`).join('');
+    const detail=open?`<div class="mcd"><ul class="dl3">${rows}</ul><div class="mcf"><span class="small muted">전체 ${T}건 · 완료 ${T?Math.round(v.c/T*100):0}%</span><button class="btn sec sm" data-act="tf" data-staff="${ESC(n)}">티켓 목록 ›</button></div></div>`:'';
+    return `<div class="mcard${open?' open':''}"${open?'':` data-tip="${tipOf(v)}" data-tl="${ESC(n)}"`}><button type="button" class="mcb" data-act="smem" data-n="${ESC(n)}" aria-pressed="${open}" aria-label="${ESC(n)} 처리 상태 ${T}건">${miniDonut(v,open?104:76,open?15:11)}<b>${ESC(n)}</b><small>${T}건</small>${tipSr(v)}</button>${detail}</div>`;
+  }).join('')}</div>`;
+}
 function memRows2(names,win,meName,flat){ /* flat: 이름을 눌러도 개인 현황을 열지 않는다 */
   const rows=names.map(n=>({n,v:cntOf(win.filter(t=>t.assignee===n))}));const mx=Math.max(1,...rows.map(r=>tot(r.v)));
   /* flat: 서버 집계(OP-01 byMember)에는 개인별 분류 분포가 없어 이름을 눌러도 도넛을 열지 않는다 */
@@ -2765,13 +2795,14 @@ function viewStatsStaff(){
   ${team?secBox('mem','팀원별 진행도',mem,mem.st==='ok'?legend()+memRows2(names,win,acc.name)+'<div class="hint" style="margin-top:8px">이름을 누르면 아래에 개인 현황(도넛)을 불러와요. 업무량 확인용이며 평가 순위가 아니에요.</div>':'','선택 기간에 접수된 티켓의 현재 상태 기준이에요.'):''}</div></div></main>`;
 }
 function viewStatsAdmin(){
+  if(S.st.mode!=='team'){S.st.mode='team';S.st.member=null;} /* 분류별 진행도는 서버 집계에 분류별 상태 건수가 없어 뺐다 */
   const s=S.st,T=S.tickets,win=T.filter(t=>inW(t,s.per));
   const sel=s.sel[s.mode];
   const sum=secLoad('sum',s.per,'담당자 처리 (티켓)',PERN[s.per]);
   const ai=secLoad('ai',s.per,'AI 상담 결과',PERN[s.per]);
   const tr=secLoad('trend',s.per+'|'+s.unit,'접수 추이',PERN[s.per]+' · '+(s.unit==='w'?'주별':'일별'));
   const pr=secLoad('pri',s.per,'긴급도 분포',PERN[s.per]);
-  const pg=secLoad('prog',s.per+'|'+s.mode,'팀별·분류별 진행도',PERN[s.per]+' · '+(s.mode==='team'?'팀별':'분류별'));
+  const pg=secLoad('prog',s.per+'|'+s.mode,'팀별 진행도',PERN[s.per]);
   const memOn=!!sel,mem=memOn?secLoad('mem',s.per+'|'+s.mode+'|'+sel,'구성원별 진행도',(s.mode==='team'?'팀':'분류')+' 선택: '+(s.mode==='team'?sel:CATS[sel].n)):null;
   const aiDays=Math.min(PERD[s.per],S.aiSeed.length);const aiW=aiRows().filter(r=>r.day>=0&&r.day<aiDays||r.day===-1),aiN=aiW.filter(r=>r.k==='ok').length,unc=aiW.filter(r=>r.k==='pend').length,unr=aiW.filter(r=>r.k==='unr').length;
   const none=win.filter(t=>!t.status).length,v=cntOf(win);
@@ -2785,18 +2816,18 @@ function viewStatsAdmin(){
     if(mem.st==='loading')return `<div class="nest" aria-busy="true"><div class="skel" aria-hidden="true"><i></i><i></i></div><p class="small muted" role="status">구성원별 진행도를 불러오는 중이에요</p></div>`;
     if(mem.st==='err')return `<div class="nest"><div class="alert err" role="alert">${ic('alert')}<div><b>구성원별 진행도를 불러오지 못했어요.</b></div></div><button class="btn ghost sm" data-act="sreload" data-k="mem">다시 시도</button></div>`;
     const names=s.mode==='team'?STAFF.filter(x=>x.group===sel).map(x=>x.name):[...new Set(T.filter(t=>t.cat===sel&&t.assignee).map(t=>t.assignee))];
-    return `<div class="nest" data-sig="mem|${mem.dep}|${mem.id}"><div class="nh"><b>${ESC(lb)} · 구성원별 진행도</b><span class="small muted">집계 기준 ${mem.at} <span class="tag gray">서버 집계</span></span><button class="btn ghost sm" data-act="sreload" data-k="mem">${ic('refresh')} 새로고침</button></div>${memRows2(names,win.filter(f),null)}<div class="hint" style="margin-top:6px">막대에 마우스를 올리면 상태별 건수를 볼 수 있어요. 이름을 누르면 아래에 개인 처리 상태(도넛)를 보여요. 업무량 확인용이며 평가 순위가 아니에요.</div></div>`;
+    return `<div class="nest" data-sig="mem|${mem.dep}|${mem.id}"><div class="nh"><b>${ESC(lb)} · 구성원별 진행도</b><span class="small muted">집계 기준 ${mem.at} <span class="tag gray">서버 집계</span></span><button class="btn ghost sm" data-act="sreload" data-k="mem">${ic('refresh')} 새로고침</button></div>${memCards(names,win.filter(f))}<div class="hint" style="margin-top:6px">카드에 마우스를 올리면 상태별 건수를, 누르면 카드가 넓어지며 자세히 보여요. 업무량 확인용이며 평가 순위가 아니에요.</div></div>`;
   };
   let items,sub;
   if(s.mode==='team')items=GROUPS.map(g=>({k:g,label:g,sub:STAFF.filter(x=>x.group===g).length+'명',v:cntOf(win.filter(t=>t.group===g))}));
   else items=Object.keys(CATS).map(c=>({k:c,label:CATS[c].n,sub:'',v:cntOf(win.filter(t=>t.cat===c))}));
   const rmx=Math.max(1,...items.map(i=>tot(i.v)));
-  const progB=`<div class="row" style="justify-content:space-between;margin:8px 0"><div class="seg" role="group" aria-label="진행도 기준"><button class="${s.mode==='team'?'on':''}" aria-pressed="${s.mode==='team'}" data-act="smode" data-m="team">팀별</button><button class="${s.mode==='cat'?'on':''}" aria-pressed="${s.mode==='cat'}" data-act="smode" data-m="cat">분류별</button></div></div>${legend()}<div class="srows">${items.map(i=>s.mode==='team'?srow(i.label,i.sub,i.v,rmx,{attrs:`data-act="ssel" data-k="${i.k}" aria-pressed="${i.k===sel}"`,sel:i.k===sel})+(i.k===sel?nestMem():''):srow(i.label,i.sub,i.v,rmx)).join('')}</div><div class="hint" style="margin-top:8px">막대에 마우스를 올리면 처리 대기·처리 중·해결 확인 대기·해결 완료 건수를 볼 수 있어요. ${s.mode==='team'?'팀을 누르면 그 아래에 구성원별 진행도를 불러와요.':'분류별 구성원 현황은 팀별에서 확인해요.'}</div>`;
+  const progB=`${legend()}<div class="srows">${items.map(i=>s.mode==='team'?srow(i.label,i.sub,i.v,rmx,{attrs:`data-act="ssel" data-k="${i.k}" aria-pressed="${i.k===sel}"`,sel:i.k===sel})+(i.k===sel?nestMem():''):srow(i.label,i.sub,i.v,rmx)).join('')}</div><div class="hint" style="margin-top:8px">막대에 마우스를 올리면 처리 대기·처리 중·해결 확인 대기·해결 완료 건수를 볼 수 있어요. 팀을 누르면 그 아래에 팀원별 카드를 보여요.</div>`;
   return `<main class="main">${topbar('통계','티켓과 AI 해결을 구분해서 보여줘요')}<div class="scroll"><div class="page">${phead('STATISTICS','통계','기간을 고르고 추이·분포·진행도를 살펴봐요. 지금 확인할 일은 대시보드에서 봐요.')}${perBar()}
   ${secBox('ai','AI 상담 결과',ai,ai.st==='ok'?aiB:'','티켓이 만들어지지 않은 문의 · 문의를 시작한 날 기준이에요.','ai')}
   ${secBox('sum','담당자 처리 (티켓)',sum,sum.st==='ok'?sumB:'','티켓이 만들어진 접수 · 접수한 날 기준이에요.','tk')}
   ${secBox('trend','접수 추이',tr,tr.st==='ok'?trendBlock(win,true):'')}
-  ${secBox('prog','팀별·분류별 진행도',pg,pg.st==='ok'?progB:'','서버 집계(대시보드 집계 API) 기준: 선택 기간에 접수된 티켓의 현재 상태예요. 배정 전 문의는 팀 막대에 넣지 않았어요.')}
+  ${secBox('prog','팀별 진행도',pg,pg.st==='ok'?progB:'','서버 집계(대시보드 집계 API) 기준: 선택 기간에 접수된 티켓의 현재 상태예요. 배정 전 문의는 팀 막대에 넣지 않았어요.')}
   ${secBox('pri','긴급도 분포 (P1~P4)',pr,pr.st==='ok'?priBlock(win,true):'','선택 기간에 접수된 티켓 전체 기준이에요(배정 전 포함). 줄을 누르면 해당 긴급도 문의 목록으로 가요.')}</div></div></main>`;
 }
 const trow=(t,who)=>`<button class="trow" data-act="detail" data-id="${t.receipt}"><span class="mono small">${t.receipt}</span><span class="tt2"><b>${ESC(t.title)}</b>${t.newReply?' <span class="newd" role="img" aria-label="새 답변"></span>':''}<small>${ESC(who)}</small></span><span>${pbadge(t.p)}</span><span>${tbadge(t.status)}</span></button>`;
@@ -2922,7 +2953,7 @@ document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset&&el.dat
   const names=[['w','처리 대기'],['p','처리 중'],['n','해결 확인 대기'],['c','해결 완료']];
   const hide=()=>{if(tip)tip.style.display='none';};
   document.addEventListener('mousemove',ev=>{
-    const row=ev.target.closest&&ev.target.closest('.srow[data-tip]');
+    const row=ev.target.closest&&ev.target.closest('.srow[data-tip],.mcard[data-tip]');
     if(!row){hide();return;}
     if(!tip){tip=document.createElement('div');tip.className='stip';tip.setAttribute('role','presentation');document.body.appendChild(tip);}
     const v=row.dataset.tip.split('|').map(Number),t=v.reduce((a,b)=>a+b,0);
