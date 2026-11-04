@@ -20,7 +20,6 @@ import { HOME_BY_ROLE, ROLE_LABEL } from '../core/roles'
 import { useAuth } from '../core/session'
 import { Icon, type IconName } from './Icon'
 import { Logo } from './Logo'
-import { SideToggle } from './SideToggle'
 import { useShell } from './shellContext'
 import { stateView } from './stateStyle'
 import { ThemeSwitch } from './ThemeSwitch'
@@ -69,14 +68,11 @@ const initials = (name: string) => name.slice(-2)
 
 export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   const { user, logout } = useAuth()
-  const { openProfile } = useShell()
+  const { openProfile, sideOff, toggleSide } = useShell()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [recent, setRecent] = useState<InquirySummary[]>([])
-  // 담당자·관리자의 문의 메뉴 접기. undefined 는 자동: 사이드바가 넘칠 때만 접고, 넓어지면 되돌린다
-  const [inqOpen, setInqOpen] = useState<boolean | undefined>(undefined)
-  const [auto, setAuto] = useState(false)
-  // 메뉴가 길어 최근 문의가 잘리면 5개 대신 2개만 보인다 (그래도 넘치면 문의 그룹을 접는다)
+  // 메뉴가 길어 최근 문의가 잘리면 5개 대신 2개만 보인다. 문의 메뉴는 항상 펼쳐 둔다
   const [shortRecent, setShortRecent] = useState(false)
   const sideRef = useRef<HTMLElement>(null)
   // 담당자: 처리할 문의 건수(처리 대기·처리 중·해결 확인 대기)와 새 알림(담당자 배정) 개수
@@ -132,34 +128,25 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   }, [pathname])
 
   const extra = EXTRA_MENU[user?.serviceRole ?? 'EMPLOYEE']
-  const fold = !!extra
-  const open = !fold || inqOpen !== false
 
   useLayoutEffect(() => {
     const sd = sideRef.current
-    if (!sd || !fold || inqOpen !== undefined || window.innerWidth <= 860) return
+    if (!sd || shortRecent || window.innerWidth <= 860) return
     if (sd.scrollHeight > sd.clientHeight + 1) {
-      if (!shortRecent && recent.length > 2) {
+      if (recent.length > 2) {
         // 화면에 그려 본 뒤에야 넘치는지 알 수 있어서 이 안에서 정한다
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setShortRecent(true)
-        return
       }
-      setInqOpen(false)
-      setAuto(true)
     }
-  }, [fold, inqOpen, shortRecent, recent.length, queue.n])
+  }, [shortRecent, recent.length, queue.n])
   useEffect(() => {
     const back = () => {
-      if ((auto || shortRecent) && window.innerWidth > 860) {
-        setInqOpen(undefined)
-        setAuto(false)
-        setShortRecent(false)
-      }
+      if (shortRecent && window.innerWidth > 860) setShortRecent(false)
     }
     window.addEventListener('resize', back)
     return () => window.removeEventListener('resize', back)
-  }, [auto, shortRecent])
+  }, [shortRecent])
 
   if (!user) return null
   const unread = recent.reduce((sum, i) => sum + i.unread, 0)
@@ -172,7 +159,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   // 상세가 열려 있어도(/queue/123) 그 메뉴를 강조한다
   const on = (to: string) => pathname === to || pathname.startsWith(`${to}/`)
   const renderItem = (it: NavItem) => (
-    <button key={it.to} type="button" className={on(it.to) ? 'on' : ''} aria-current={on(it.to) ? 'page' : undefined} onClick={() => go(it.to)}>
+    <button key={it.to} type="button" className={on(it.to) ? 'on' : ''} data-tip={it.label} aria-current={on(it.to) ? 'page' : undefined} onClick={() => go(it.to)}>
       <Icon name={it.icon} />
       <span>{it.label}</span>
       {/* 확인하지 않은 담당자 답변 수 (0 이면 숨김, 99 초과는 99+) */}
@@ -196,22 +183,23 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
         {/* 로고는 홈으로 가는 버튼: 문의자=새 문의, 담당자=처리할 문의, 관리자=대시보드 */}
         <button type="button" className="brandbtn" aria-label="ITssue 홈으로" onClick={() => go(HOME_BY_ROLE[user.serviceRole])}>
           <Logo width={118} kind="word" />
+          {/* 접힌 레일에서 보이는 작은 IT 로고(디자인 가이드의 단색 IT 심볼) */}
+          <svg className="itmark" viewBox="227 141 551 450" aria-hidden="true">
+            <path d="M237 151H353V581H237Z" />
+            <path d="M391 151H768L741 229C737 240 729 245 714 245H616V581H500V245H391Z" />
+          </svg>
         </button>
-        <SideToggle />
+        {/* 펼친 상태에서는 접기(‹), 접힌 레일에서는 로고에 올리면 펼치기(›) */}
+        <button type="button" className="sbk" aria-expanded={!sideOff} aria-label={`사이드바 ${sideOff ? '펼치기' : '접기'}`} title={`사이드바 ${sideOff ? '펼치기' : '접기'}`} onClick={toggleSide}>
+          <svg className="i" viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M12.5 4.5L7 10l5.5 5.5" />
+          </svg>
+        </button>
       </div>
 
       <nav className="nav" aria-label="주 메뉴">
-        {fold ? (
-          <button type="button" className="grp tg" aria-expanded={open} aria-label={`문의 메뉴 ${open ? '접기' : '펼치기'}`} onClick={() => { setInqOpen(!open); setAuto(false) }}>
-            문의
-            <span className="chv" aria-hidden="true">
-              <Icon name="chevron" />
-            </span>
-          </button>
-        ) : (
-          <div className="grp">문의</div>
-        )}
-        {open && INQUIRY_MENU.map(renderItem)}
+        <div className="grp">문의</div>
+        {INQUIRY_MENU.map(renderItem)}
         {extra && (
           <>
             <div className="grp">{extra.group}</div>

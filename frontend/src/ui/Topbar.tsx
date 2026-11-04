@@ -7,7 +7,6 @@
  */
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { Icon } from './Icon'
-import { SideToggle } from './SideToggle'
 import { useShell } from './shellContext'
 import { UserControls } from './UserControls'
 
@@ -51,7 +50,6 @@ export function Topbar({ title, sub, right, lead, status, quiet = false }: { tit
   return (
     <header className="top" ref={ref}>
       <div className="row" style={{ flexWrap: 'nowrap', gap: 10 }}>
-        <SideToggle open />
         <button className="btn sec sm ico menu" type="button" aria-label="메뉴 열기" onClick={toggleNav}>
           <Icon name="chevron" />
         </button>
