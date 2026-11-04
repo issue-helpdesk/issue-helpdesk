@@ -266,6 +266,8 @@ export async function listAiInquiries(query: AiListQuery = {}): Promise<ApiResul
     })
     const items: AiRow[] = list.data.items.map((s) => ({
       id: `INQ-${s.id}`,
+      inquiryId: s.id,
+      user: s.user ? `${s.user.name} · ${s.user.employeeNo}` : '',
       title: s.title ?? '새 문의',
       categoryCode: s.category?.code ?? null,
       guide: '-',
