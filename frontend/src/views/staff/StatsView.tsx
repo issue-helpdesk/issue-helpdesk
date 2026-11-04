@@ -299,7 +299,7 @@ export function CurveChart({ labels, series, runKey, aria, foot, extra, cols }: 
 
   return (
     <div className="hvw" ref={boxRef}>
-      <div className="lgd" style={{ margin: '0 0 6px' }}>
+      <div className="lgd" style={{ margin: '12px 0 6px' }}>
         {series.map((s) => (
           <span key={s.name}>
             <svg width="24" height="10" aria-hidden="true" style={{ marginRight: 6, verticalAlign: -1 }}>

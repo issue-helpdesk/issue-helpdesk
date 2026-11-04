@@ -39,8 +39,8 @@
 /* ---- 사이드바: 로고에서 열고 닫기 (Soft Dock). 펼침: 로고 + 단순한 < 버튼 / 접힘: IT 로고 + 아이콘 레일(마우스를 올리면 메뉴 이름, 맥 도크처럼 아이콘이 커짐) ---- */
 .brand{position:relative;min-height:36px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .brandbtn{position:relative;display:flex;align-items:center;height:36px;padding:0;border:0;background:none;cursor:pointer;min-width:0}
-.brandbtn .lg{transition:opacity .22s,transform .32s cubic-bezier(.22,1,.36,1);transform-origin:left center}
-.itmark{position:absolute;left:50%;top:50%;width:30px;height:auto;transform:translate(-50%,-50%) scale(.6);opacity:0;fill:var(--lg-it,#E0457F);transition:opacity .22s,transform .32s cubic-bezier(.22,1,.36,1);pointer-events:none}
+.brandbtn .lg{transition:opacity .24s .2s,transform .34s .16s cubic-bezier(.22,1,.36,1);transform-origin:left center}
+.itmark{position:absolute;left:50%;top:50%;width:30px;height:auto;transform:translate(-50%,-50%) scale(.6);opacity:0;fill:var(--lg-it,#E0457F);transition:opacity .12s,transform .2s cubic-bezier(.22,1,.36,1);pointer-events:none}
 .sbk{width:28px;height:28px;border:0;background:transparent;color:var(--mute);display:inline-flex;align-items:center;justify-content:center;flex:none;padding:0;border-radius:8px;cursor:pointer;transition:color .12s,opacity .2s}
 .sbk:hover{color:var(--link)}.sbk:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px}
 .sbk .i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .32s cubic-bezier(.22,1,.36,1)}
@@ -49,13 +49,15 @@
   .app.side-off,.app.side-off.has-detail{grid-template-columns:76px minmax(0,1fr)}
   .app>.side{position:relative;z-index:30}
   .app .side{transition:none}
-  .nav button>span:not(.count){max-width:190px;overflow:hidden;white-space:nowrap;transition:opacity .18s,max-width .34s cubic-bezier(.22,1,.36,1)}
-  .nav .grp{transition:opacity .18s}
+  .nav button>span:not(.count){max-width:190px;overflow:hidden;white-space:nowrap;transition:opacity .22s .2s,max-width .34s cubic-bezier(.22,1,.36,1)}
+  .nav .grp{transition:opacity .22s .2s}
+  .side>.nav:has(.recent){transition:opacity .26s .24s}
   .app.side-off .side{width:76px;padding:14px 0 12px;align-items:center;gap:6px;overflow:visible}
   .app.side-off .brand{width:100%;height:44px;display:flex;align-items:center;justify-content:center}
   .app.side-off .brandbtn{pointer-events:none}
   .app.side-off .brandbtn .lg{opacity:0;transform:scale(.55)}
-  .app.side-off .itmark{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  .app.side-off .itmark{opacity:1;transform:translate(-50%,-50%) scale(1);transition:opacity .24s .18s,transform .34s .18s cubic-bezier(.22,1,.36,1)}
+  .app.side-off .brandbtn .lg{transition:opacity .12s,transform .2s cubic-bezier(.22,1,.36,1)}
   /* 접힌 상태에서 로고에 올리면 IT 대신 펼치기 버튼(>)이 나온다. 로고 영역 안 어디를 눌러도 펼쳐진다 */
   .app.side-off .sbk{position:absolute;inset:0;width:auto;height:auto;border-radius:12px;opacity:0;background:var(--side)}
   .app.side-off .brand:hover .sbk,.app.side-off .sbk:focus-visible{opacity:1}
@@ -64,10 +66,11 @@
   .app.side-off .nav .grp{width:34px;height:1px;margin:6px 0;padding:0;font-size:0;line-height:0;background:var(--divider);border:0;overflow:hidden;opacity:1}
   .app.side-off .nav .grp:first-child,.app.side-off .nav .grp button{display:none}
   .app.side-off .nav button{position:relative;gap:0;width:48px;height:48px;min-height:48px;padding:0;justify-content:center;border-radius:14px}
-  .app.side-off .nav button>span:not(.count){max-width:0;opacity:0}
+  .app.side-off .nav button>span:not(.count){max-width:0;opacity:0;transition:opacity .1s,max-width .34s cubic-bezier(.22,1,.36,1)}
   .app.side-off .nav button .count{position:absolute;top:7px;right:7px;margin:0;min-width:9px;width:9px;height:9px;padding:0;font-size:0;line-height:0;border-radius:50%;background:var(--s-urg-dot);color:transparent;box-shadow:0 0 0 2px var(--side)}
   .app.side-off .nav button .count.has-new:after{display:none}
-  .app.side-off .side>.nav:has(.recent),.app.side-off .modebar,.app.side-off .who .out,.app.side-off .whobtn>div{display:none}
+  .app.side-off .side>.nav:has(.recent){position:absolute;left:0;top:96px;width:248px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s,visibility 0s .12s}
+  .app.side-off .modebar,.app.side-off .who .out,.app.side-off .whobtn>div{display:none}
   .app.side-off .who{margin-top:auto;padding:0;justify-content:center}
   .app.side-off .whobtn{flex:none;margin:0;padding:4px}
   /* 메뉴 이름 툴팁 */
@@ -79,7 +82,7 @@
   .app.side-off .nav button:has(+ button:hover) .i,.app.side-off .nav button:hover + button .i{transform:scale(1.18)}
 }
 @media (max-width:860px){.sbk{display:none}}
-@media (prefers-reduced-motion:reduce){.app,.nav button>span:not(.count),.brandbtn .lg,.itmark,.sbk .i,.app.side-off .nav button .i,.app.side-off .nav button::after{transition:none}}
+@media (prefers-reduced-motion:reduce){.app,.nav button>span:not(.count),.nav .grp,.side>.nav:has(.recent),.brandbtn .lg,.itmark,.sbk .i,.app.side-off .nav button .i,.app.side-off .nav button::after,.app.side-off .itmark,.app.side-off .brandbtn .lg{transition:none}}
 
 /* ---- 팀별 개인 현황 접기 · 최근 처리 결과(같은 건은 한 줄) · 확인 창 ---- */
 .ocurh{display:flex;align-items:center;justify-content:space-between;gap:12px}.ocurh .subc{flex:1;min-width:0}.ocurh .tgc{flex:none}#ocur-b{margin-top:12px}
@@ -206,7 +209,7 @@
 .dsr .dsy{transform:translateY(8px)}
 /* 처리 대기·처리 중·해결 확인 대기·연동·배정 확인: 숫자를 동그라미 가운데에 맞춘다(건은 숫자 오른쪽에 걸쳐 둔다) */
 .hpipe b{display:flex;justify-content:center;align-items:baseline}
-.hpipe b small{width:0;overflow:visible;white-space:nowrap;position:relative;left:4px}
+.hpipe b small{width:0;min-width:0;overflow:visible;white-space:nowrap;position:relative;left:4px}
 /* 긴급·높음 미해결: 열 머리와 내용을 가운데 정렬, 접수 후 경과는 상태와 간격을 둔다 */
 .panel.urg .dth,.panel.urg .dtr{text-align:center}
 .panel.urg .dth>span,.panel.urg .dtr>span{justify-self:center;text-align:center;min-width:0;max-width:100%}
@@ -216,3 +219,5 @@
 .stx .secnote{margin:12px 0 0;line-height:19px}
 .stx .secnote+.secnote{margin-top:2px}
 .stx .row.sh+.secnote{margin:2px 0 8px}
+/* 처리 현황 라벨·숫자를 동그라미 가운데에서 살짝 오른쪽으로 */
+.stx div.hpipe button{padding-left:10px;padding-right:0}
