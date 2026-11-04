@@ -128,3 +128,20 @@ describe('서버 모드 FAQ 등록 창 (게시는 출처 연결 기능이 생길
     expect(JSON.parse(String((post[1] as RequestInit).body))).toMatchObject({ isActive: false, keywords: [] })
   })
 })
+
+describe('서버 모드 FAQ 카드의 다시 게시 (출처 없는 FAQ 는 게시하지 않는다)', () => {
+  it('출처가 없는 게시 중단 FAQ 는 다시 게시를 눌러도 서버에 보내지 않고 안내만 보인다', async () => {
+    const { view } = await load('ADMIN')
+    fetchMock.mockImplementation(async (u: unknown) => (String(u).endsWith('/faqs/1') ? json(200, { ...faq(1, { isActive: false }), sources: [] }) : json(200, page([faq(1, { isActive: false })]))))
+    render(
+      <MemoryRouter>
+        <view.FaqView />
+      </MemoryRouter>,
+    )
+    await userEvent.click(await screen.findByText('질문 1'))
+    await screen.findByText('출처 정보가 없어요.')
+    await userEvent.click(screen.getByRole('button', { name: '다시 게시' }))
+    expect(await screen.findByText(/지금은 게시할 수 없어요/)).toBeInTheDocument()
+    expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === 'PATCH')).toBe(false)
+  })
+})
