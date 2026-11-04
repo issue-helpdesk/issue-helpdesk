@@ -6,7 +6,7 @@ from app.models.taxonomy import Category, InquiryType
 from app.models.inquiry import ChatSession, Inquiry, InquiryAssessment, Message, MessageSource
 from app.models.ticket import (AssignmentLog, IntegrationJob, JiraWebhookEvent, Notification, Ticket, TicketDraft,
                                TicketStatusHistory)
-from app.models.knowledge import DocumentChunk, DocumentVersion, KnowledgeDocument, LegacyInquiry, Faq
+from app.models.knowledge import DocumentChunk, DocumentVersion, Faq, FaqSourceDocument, KnowledgeDocument, LegacyInquiry
 from app.models.embedding import DocumentChunkEmbedding, LegacyInquiryEmbedding
 from app.models.ops import AuditLog, LlmCall
 from app.models.time_off import TimeOff
@@ -39,6 +39,7 @@ __all__ = [
     "KnowledgeDocument",
     "LegacyInquiry",
     "Faq",
+    "FaqSourceDocument",
     "DocumentChunkEmbedding",
     "LegacyInquiryEmbedding",
     "AuditLog",

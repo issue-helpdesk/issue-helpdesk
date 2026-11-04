@@ -1,4 +1,4 @@
-"""FAQ (FQ-01~05). 게시 조건: 활성 문서의 현행 GUIDE 이고 열람 범위 ALL 인 청크가 이 FAQ 를 가리켜야 한다 (API 04 게시·출처 정책)."""
+"""FAQ (FQ-01~05). 게시 조건: 활성 문서의 현행 GUIDE 이고 열람 범위 ALL 인 출처(이 FAQ 를 가리키는 청크나 직접 지정한 문서)가 있어야 한다 (API 04 게시·출처 정책)."""
 import re
 from typing import Annotated
 
@@ -54,7 +54,7 @@ class FaqService:
         """FQ-02. 출처는 보는 사람의 열람 범위로 거른다."""
         is_admin = viewer.service_role == "ADMIN"
         faq = self.faqs.get(faq_id)
-        links = self.faqs.links()
+        links = self.faqs.links(with_excerpt=True)
         if faq is None or not (is_admin or (faq.is_active and faq.faq_code in publishable_codes(links))):
             raise AppError(ErrorCode.FAQ_NOT_FOUND)
         view = to_view(faq, self.faqs.ref(Category, faq.category_code), self.faqs.ref(User, faq.updated_by), is_admin)
@@ -63,13 +63,15 @@ class FaqService:
     def create(self, body: FaqCreateRequest, user: User) -> FaqView:
         """FQ-03. 번호가 없으면 다음 번호를 준다."""
         self.check_category(body.category_code)
+        sources = self.check_sources(body.source_document_ids)
         code = body.faq_code or next_code(self.faqs.codes())
-        if body.is_active:
-            self.check_publishable(code)
         try:
             faq = self.faqs.add(Faq(faq_code=code, category_code=body.category_code, question=body.question,
                                     answer=body.answer, keywords=body.keywords, is_active=body.is_active,
                                     updated_by=user.id))
+            self.faqs.replace_sources(faq.id, sources)
+            if body.is_active:
+                self.check_publishable(code)
             self.db.commit()
         except IntegrityError:
             self.db.rollback()
@@ -78,16 +80,19 @@ class FaqService:
 
     def update(self, faq_id: int, body: FaqUpdateRequest, user: User) -> FaqView:
         """FQ-04. 보낸 필드만 바꾼다. 수정 뒤에도 게시 중이면 게시 조건을 다시 본다."""
+        sent = body.model_fields_set
+        sources = self.check_sources(body.source_document_ids) if "source_document_ids" in sent else None
         faq = self.faqs.get_for_update(faq_id)
         if faq is None:
             raise AppError(ErrorCode.FAQ_NOT_FOUND)
-        sent = body.model_fields_set
         if "category_code" in sent:
             self.check_category(body.category_code)
+        if sources is not None:
+            self.faqs.replace_sources(faq.id, sources)
         active_after = body.is_active if "is_active" in sent else faq.is_active
         if sent and active_after:
             self.check_publishable(faq.faq_code)
-        for name in sent:
+        for name in sent - {"source_document_ids"}:
             setattr(faq, name, getattr(body, name))
         if sent:
             faq.updated_by, faq.updated_at = user.id, datetime_utils.now()
@@ -107,8 +112,22 @@ class FaqService:
         if self.faqs.ref(Category, code) is None:
             raise field_error(ErrorCode.VALIDATION_ERROR, "categoryCode", "NOT_FOUND", "존재하지 않는 분류입니다.")
 
+    def check_sources(self, document_ids: list[int]) -> list[int]:
+        """직접 지정할 문서를 잠그고 공개 출처가 될 수 있는지 본다. 잠근 뒤에 읽어야 정책 변경과 겹쳐도 최신 값을 본다."""
+        ids = list(dict.fromkeys(document_ids))
+        self.faqs.lock_documents(ids)
+        allowed = self.faqs.public_guide_ids(ids)
+        rejected = [i for i in ids if i not in allowed]
+        if rejected:
+            raise AppError(ErrorCode.VALIDATION_ERROR, [{
+                "field": "sourceDocumentIds", "reason": "NOT_PUBLIC_GUIDE", "value": rejected,
+                "message": "활성 문서의 현행 버전이고 열람 범위가 전 직원인 가이드만 연결할 수 있습니다.",
+            }])
+        return ids
+
     def check_publishable(self, code: str) -> None:
         if code not in publishable_codes(self.faqs.links()):
+            self.db.rollback()                  # 이번 요청에서 바꾼 연결을 남기지 않는다
             raise AppError(ErrorCode.FAQ_SOURCE_NOT_PUBLIC)
 
 
@@ -127,15 +146,19 @@ def publishable_codes(links: list[FaqLink]) -> set[str]:
 
 
 def sources_of(code: str, links: list[FaqLink], scopes: tuple[str, ...]) -> list[FaqSource]:
-    """이 FAQ 를 가리키는 현행 청크. 같은 문서·위치는 한 번만."""
-    seen, out = set(), []
-    for link in links:
-        key = (link.document_id, link.version, link.location)
-        if code in link.faq_codes and link.view_scope in scopes and key not in seen:
-            seen.add(key)
-            out.append(FaqSource(document_id=link.document_id, doc_code=link.doc_code, title=link.title,
-                                 version=link.version, location=link.location))
-    return out
+    """이 FAQ 의 출처. 같은 문서·위치는 한 번만 내고 본문은 이어 붙인다. 위치를 아는 출처가 있는 문서는 직접 지정을 따로 내지 않는다."""
+    mine = [link for link in links if code in link.faq_codes and link.view_scope in scopes]
+    located = {link.document_id for link in mine if link.location is not None}
+    found: dict[tuple, tuple[FaqLink, list[str]]] = {}
+    for link in mine:
+        if link.location is None and link.document_id in located:
+            continue
+        _, pieces = found.setdefault((link.document_id, link.version, link.location), (link, []))
+        if link.excerpt:
+            pieces.append(link.excerpt)
+    return [FaqSource(document_id=link.document_id, doc_code=link.doc_code, title=link.title, version=link.version,
+                      location=link.location, excerpt="\n".join(pieces) or None)
+            for link, pieces in found.values()]
 
 
 def next_code(codes: list[str]) -> str:
