@@ -28,6 +28,9 @@ describe('FAQ 분류 칩', () => {
     const chips = within(grp).getAllByRole('button').slice(1)
     const sum = chips.reduce((n, b) => n + Number(b.querySelector('em')!.textContent), 0)
     expect(sum).toBe(total)
+    // 분류 칩마다 그 분류의 포인트 색 막대가 붙고, 전체 칩에는 없다
+    chips.forEach((b) => expect(b.querySelector('.tag.gcbar')?.className).toMatch(/c-[A-Z]+/))
+    expect(all.querySelector('.tag.gcbar')).toBeNull()
     await userEvent.click(chips[0])
     expect(chips[0]).toHaveAttribute('aria-pressed', 'true')
     expect(document.querySelectorAll('details.faq').length).toBe(Number(chips[0].querySelector('em')!.textContent))

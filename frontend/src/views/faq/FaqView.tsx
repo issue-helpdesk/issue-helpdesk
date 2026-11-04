@@ -137,6 +137,8 @@ export function FaqView() {
                     </button>
                     {cats.map((c) => (
                       <button key={c} type="button" className={`chip${cat === c ? ' on' : ''}`} aria-pressed={cat === c} onClick={() => setCat(c)}>
+                        {/* 분류별 포인트 색 막대 (가이드 관리의 분류 막대와 같은 색) */}
+                        <span className={`tag gcbar c-${c} sbxbar`} aria-hidden="true" />
                         {CATEGORY_NAME[c] ?? c} <em>{faqs.filter((f) => f.categoryCode === c).length}</em>
                       </button>
                     ))}
