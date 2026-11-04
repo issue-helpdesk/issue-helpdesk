@@ -14,6 +14,9 @@ class Settings:
             raise RuntimeError("DATABASE_URL 이 없습니다. 루트 .env 를 확인하세요.")
         self.database_url = to_sqlalchemy_url(url)
         self.dsn = url                      # psycopg 로 바로 붙는 곳(문서 적재)이 쓴다
+        # Supabase Session 모드는 쉬는 연결도 한도를 차지한다. 개발 PC 는 .env 에서 더 작게 준다
+        self.db_pool_size = int(os.environ.get("DB_POOL_SIZE", "5"))
+        self.db_max_overflow = int(os.environ.get("DB_MAX_OVERFLOW", "5"))
 
 @lru_cache
 def get_settings() -> Settings:
