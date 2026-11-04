@@ -123,8 +123,18 @@ const idemPost = async <T,>(path: string, body: unknown, method: 'POST' | 'PUT' 
 /* ------------------------------------------------------------------ 서버 → 화면 변환 */
 const GUIDE = (s: SSource) => ({ docCode: s.docCode ?? '', title: '', version: s.version ?? '', section: s.location ?? '', excerpt: s.excerpt ?? '' })
 
+/**
+ * 줄바꿈 없이 한 줄로 온 답변 중 "1) … 2) …" 단계가 들어 있는 것은 문장 단위로 줄을 나눈다.
+ * (서버 문장은 그대로 두고 화면에서만 읽기 쉽게 한다. 줄바꿈이 이미 있거나 번호 단계가 없는 답변은 건드리지 않는다)
+ */
+export function breakInlineSteps(content: string): string {
+  if (content.includes('\n') || !/(^|\s)1\)\s[\s\S]*\s2\)\s/.test(content)) return content
+  return content.replace(/([.!?])\s+(?=\S)/g, '$1\n').trim()
+}
+
 /** 평문 답변을 문단과 번호 목록 블록으로 나눈다 (서버는 HTML·블록이 아닌 글을 준다) */
 export function toBlocks(content: string): ChatBlock[] {
+  content = breakInlineSteps(content)
   const out: ChatBlock[] = []
   let list: string[] = []
   const flush = () => {
