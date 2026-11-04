@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/App'
-import { FIRST_VERSION, MAX_UPLOAD_BYTES, listGuides, nextVersion, readFileVersion, resetGuideMock, retryGuideIngest, setGuideActive, uploadGuide } from '../src/api/guides'
+import { FIRST_VERSION, MAX_UPLOAD_BYTES, formatBytes, listGuides, nextVersion, readFileVersion, resetGuideMock, retryGuideIngest, setGuideActive, uploadGuide } from '../src/api/guides'
 import { MOCK_ACCOUNTS } from '../src/api/mock/accounts'
 import type { User } from '../src/api/types'
 import { AuthProvider } from '../src/core/session'
@@ -16,6 +16,12 @@ import { tokenStore } from '../src/core/tokenStore'
 const SLOW = { timeout: 3000 }
 const admin = (): User => MOCK_ACCOUNTS.find((u) => u.employeeNo === 'EMP-1178')!
 const pdf = () => new File(['x'], 'IT-NET-004.pdf', { type: 'application/pdf' })
+
+/** 선택 상자(SelectBox)에서 항목 고르기: 칸을 눌러 목록을 열고 항목을 누른다 */
+async function choose(scope: HTMLElement, label: string, option: string | RegExp) {
+  await userEvent.click(within(scope).getByLabelText(label))
+  await userEvent.click(await screen.findByRole('option', { name: option }))
+}
 
 function renderAs(employeeNo: string, path: string) {
   tokenStore.set(`mock.${employeeNo}`)
@@ -66,18 +72,40 @@ describe('가이드 업로드 화면 (모의)', () => {
     const big = new File(['x'], 'big.pdf', { type: 'application/pdf' })
     Object.defineProperty(big, 'size', { value: MAX_UPLOAD_BYTES + 1 })
     await userEvent.upload(within(dlg).getByLabelText('파일'), big)
-    expect(await within(dlg).findByText('파일이 너무 커요. 20MB 이하 파일을 올려 주세요.')).toBeInTheDocument()
+    expect(await within(dlg).findByText(/파일이 너무 커요\. 20MB 이하 파일을 올려 주세요\. \(선택한 파일 20\.0MB\)/)).toBeInTheDocument()
     expect(within(dlg).queryByRole('button', { name: '선택 취소' })).toBeNull()
+  })
+
+  it('고른 파일의 이름·크기를 한도(20MB)와 함께 카드로 보여 주고, 선택 취소로 지운다', async () => {
+    renderAs('EMP-1178', '/guides')
+    await userEvent.click(await screen.findByRole('button', { name: /가이드 파일 업로드/ }, SLOW))
+    const dlg = await screen.findByRole('dialog', { name: '가이드 파일 업로드' })
+    expect(within(dlg).getByText(/클릭해서 파일 고르기/)).toBeInTheDocument()
+    expect(within(dlg).getByText(/PDF·DOCX·PPTX·MD·TXT · 파일 1개 · 최대 20MB/)).toBeInTheDocument()
+    const f = new File(['x'], 'DOC-HR-014_규정_v2.0.pdf', { type: 'application/pdf' })
+    Object.defineProperty(f, 'size', { value: 2.5 * 1024 * 1024 })
+    await userEvent.upload(within(dlg).getByLabelText('파일'), f)
+    expect(await within(dlg).findByText('DOC-HR-014_규정_v2.0.pdf')).toBeInTheDocument()
+    expect(within(dlg).getByText('파일을 확인하는 중…')).toBeInTheDocument() // 잠깐 확인 중이 보인다
+    expect(within(dlg).queryByText(/클릭해서 파일 고르기/)).toBeNull() // 끌어다 놓는 칸은 사라진다
+    expect(await within(dlg).findByText('용량 2.5MB')).toBeInTheDocument() // 확인이 끝난 뒤 크기가 보인다(막대는 없다)
+    await userEvent.click(within(dlg).getByRole('button', { name: '선택 취소' }))
+    expect(within(dlg).queryByText('DOC-HR-014_규정_v2.0.pdf')).toBeNull()
+  })
+
+  it('파일 크기 표기', () => {
+    expect([formatBytes(500), formatBytes(2048), formatBytes(34 * 1024), formatBytes(2.5 * 1024 * 1024)]).toEqual(['500B', '2.0KB', '34KB', '2.5MB'])
   })
 
   it('md 파일을 고르면 머리의 버전으로 채우고, 다르게 적으면 막는다', async () => {
     renderAs('EMP-1178', '/guides')
     await userEvent.click(await screen.findByRole('button', { name: /가이드 파일 업로드/ }, SLOW))
     const dlg = await screen.findByRole('dialog', { name: '가이드 파일 업로드' })
+    await waitFor(() => expect(within(dlg).getByRole('button', { name: '기존 가이드에 새 버전 만들기' })).toHaveAttribute('aria-pressed', 'true'), SLOW)
     await userEvent.upload(within(dlg).getByLabelText('파일'), new File(['---\nversion: v7.0\n---\n본문'], 'a.md'))
     await waitFor(() => expect(within(dlg).getByLabelText('버전')).toHaveValue('v7.0'))
-    await userEvent.selectOptions(within(dlg).getByLabelText('분류'), 'NET')
-    await userEvent.selectOptions(within(dlg).getByLabelText('문서'), within(dlg).getByRole('option', { name: /IT-NET-001/ }))
+    await choose(dlg, '분류', /네트워크/)
+    await choose(dlg, '문서', /IT-NET-001/)
     const ver = within(dlg).getByLabelText('버전')
     await userEvent.clear(ver)
     await userEvent.type(ver, 'v8.0')
@@ -94,7 +122,7 @@ describe('가이드 업로드 화면 (모의)', () => {
     await userEvent.click(await screen.findByRole('button', { name: /가이드 파일 업로드/ }, SLOW))
     const up = await screen.findByRole('dialog', { name: '가이드 파일 업로드' })
     await waitFor(() => expect(within(up).getByRole('button', { name: '기존 가이드에 새 버전 만들기' })).toHaveAttribute('aria-pressed', 'true'), SLOW)
-    await userEvent.selectOptions(within(up).getByLabelText('분류'), 'NET')
+    await choose(up, '분류', /네트워크/)
     expect(within(up).getByText(/이 분류의 문서가 모두 비활성이에요/)).toBeInTheDocument()
     await userEvent.click(within(up).getByRole('button', { name: '취소' }))
     // 목록에는 비활성 표시와 함께 남는다 (분류를 펼쳐야 보인다)

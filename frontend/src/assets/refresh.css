@@ -57,7 +57,8 @@
   /* 펼칠 때: 페이지 전환처럼 항목이 아래에서 올라오며 차례로 나타난다(순서는 --i, 폭이 열리기 시작한 뒤부터) */
   @keyframes sbin{from{opacity:0;transform:translateY(12px)}}
   .app.side-in .side .brand>*,.app.side-in .side .nav>.grp,.app.side-in .side .nav button,.app.side-in .side .recent .rt,.app.side-in .side .modebar,.app.side-in .side .who{animation:sbin .72s cubic-bezier(.22,1,.36,1) backwards;animation-delay:calc(.22s + var(--i,0)*.05s)}
-  .app.side-off .side{width:76px;padding:14px 0 12px;align-items:center;gap:6px;overflow:visible}
+  /* 접힌 레일은 스크롤바 자리를 비우지 않는다(전환 표시가 사라질 때 아이콘이 옆으로 밀리지 않게) */
+  .app.side-off .side{width:76px;padding:14px 0 12px;align-items:center;gap:6px;overflow:visible;scrollbar-gutter:auto}
   .app.side-off .brand{width:100%;height:44px;display:flex;align-items:center;justify-content:center}
   .app.side-off .brandbtn{pointer-events:none}
   .app.side-off .brandbtn .lg{opacity:0;transform:scale(.55)}
@@ -153,7 +154,24 @@
 .seg.gu-seg button:hover{box-shadow:inset 0 0 0 1px var(--o600)}
 .seg.gu-seg button.on{background:var(--osoft);box-shadow:inset 0 0 0 1.5px var(--o600);color:var(--link)}
 .gu-f .gfrow{display:flex;gap:8px;align-items:center}.gu-f .gfrow .inp{flex:1;min-width:0;padding:9px 12px}
-.gu2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.gu2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+/* 업로드 창: 끌어다 놓는 영역 + 고른 파일 카드(이름·크기·한도 대비 막대) */
+.gz{display:flex;flex-direction:column;gap:10px}
+.gdrop{display:flex;flex-direction:column;align-items:center;gap:4px;padding:20px 16px;border-radius:16px;border:1.5px dashed var(--line);background:var(--card);cursor:pointer;text-align:center;transition:border-color .15s,background .15s}
+.gdrop:hover,.gdrop.drag,.gdrop:focus-within{border-color:var(--o600);background:var(--osoft)}
+.gdrop.err{border-color:var(--s-urg-dot)}
+.gdi{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--osoft);color:var(--link);margin-bottom:4px}
+.gdi svg,.gfi svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.gdt{font-size:14px;color:var(--ink2)}.gdt b{color:var(--link);font-weight:700}
+.gdh{font-size:12.5px;color:var(--mute)}
+.gfile{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--white)}
+.gfi{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--shell);color:var(--ink2);flex:none}
+.gfm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.gfm b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gfm small{font-size:12.5px;color:var(--mute)}.gfile.wait{box-shadow:inset 0 0 0 1.5px var(--o600);background:var(--osoft)}.gfile.wait .gfi{background:transparent}
+.gspin{width:22px;height:22px;border-radius:50%;border:2.5px solid color-mix(in srgb,var(--o600) 25%,transparent);border-top-color:var(--o600);animation:gsp .8s linear infinite}
+@keyframes gsp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.gspin{animation-duration:2.4s}}
+.gfx{width:32px;height:32px;border:0;border-radius:8px;background:transparent;color:var(--mute);display:grid;place-items:center;cursor:pointer;flex:none;padding:0}.gfx:hover{background:var(--osoft);color:var(--link)}.gfx:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px}
+.gfx svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
 .gu-cur{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;border:1px solid var(--line);cursor:pointer;margin:0}.gu-cur input{margin-top:3px}
 .gu-cur small{display:block;color:var(--mute);font-size:12.5px;line-height:1.45;margin-top:2px}
 .guv{margin:0;border:1px solid var(--line);border-radius:12px;padding:12px 14px 10px;background:var(--card)}
@@ -226,3 +244,19 @@
 .stx .row.sh+.secnote{margin:2px 0 8px}
 /* 처리 현황 라벨·숫자를 동그라미 가운데에서 살짝 오른쪽으로 */
 .stx div.hpipe button{padding-left:10px;padding-right:0}
+
+/* 선택 상자(ui/SelectBox): 둥근 칸 + 오른쪽 화살표, 열면 강조 테두리·위쪽 화살표, 고른 항목은 강조색과 ✓ */
+.sbx{width:100%;min-height:46px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 12px 0 16px;border:0;border-radius:12px;background:var(--white);box-shadow:inset 0 0 0 1px var(--fieldline);font:inherit;font-size:15px;color:var(--ink);text-align:left;cursor:pointer;transition:box-shadow .15s}
+.sbx:hover{box-shadow:inset 0 0 0 1px var(--mute)}
+.sbx.ph .sbxv{color:var(--mute)}
+.sbx.open,.sbx:focus-visible{outline:0;box-shadow:inset 0 0 0 1.5px var(--o600),0 0 0 4px color-mix(in srgb,var(--o600) 16%,transparent)}
+.sbx.err{box-shadow:inset 0 0 0 1.5px var(--s-urg-dot)}
+.sbx:disabled{cursor:not-allowed;background:var(--field);color:var(--mute)}
+.sbxv{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sbxc{width:24px;height:24px;display:grid;place-items:center;color:var(--mute);flex:none;border-radius:8px;transition:transform .2s,color .15s}.sbxc .i{width:18px;height:18px}
+.sbx.open .sbxc{transform:rotate(180deg);color:var(--link)}
+.sbxl{position:fixed;z-index:1000;margin:0;padding:6px;list-style:none;overflow:auto;background:var(--white);border-radius:14px;box-shadow:0 12px 32px rgba(20,10,30,.18),inset 0 0 0 1px var(--line)}
+.sbxo{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:40px;padding:0 12px;border-radius:10px;font-size:14.5px;color:var(--ink);cursor:pointer}
+.sbxo.act{background:var(--shell)}.sbxo.sel{background:var(--osoft);color:var(--link);font-weight:700}.sbxo .i{width:18px;height:18px;flex:none}
+.sbxe{padding:10px 12px;color:var(--mute);font-size:14px}
+@media (prefers-reduced-motion:reduce){.sbx,.sbxc{transition:none}}

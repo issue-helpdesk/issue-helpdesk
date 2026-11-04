@@ -170,6 +170,12 @@ export interface UploadInput {
 /** 서버가 받는 파일 크기 한도. 넘으면 받는 도중 연결을 끊어 브라우저에서는 네트워크 오류로 보인다 */
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 export const MAX_UPLOAD_MESSAGE = '파일이 너무 커요. 20MB 이하 파일을 올려 주세요.'
+/** 파일 크기를 사람이 읽는 말로 (1.2KB·34KB·2.3MB) */
+export function formatBytes(n: number): string {
+  if (n < 1024) return `${n}B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(n < 10 * 1024 ? 1 : 0)}KB`
+  return `${(n / (1024 * 1024)).toFixed(1)}MB`
+}
 /** 가이드 파일 업로드: 문서를 만들고(DC-02) 첫 버전 v1 을 올린다(DC-07). 검색 준비(적재)가 끝나기 전에는 현행으로 바꿀 수 없다 */
 export async function uploadGuide(user: User, input: UploadInput, onCreated?: (docId: number) => void): Promise<ApiResult<Guide>> {
   const no = adminOnly(user)
