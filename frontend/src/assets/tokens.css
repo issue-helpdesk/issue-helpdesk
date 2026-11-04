@@ -2,7 +2,7 @@
 :root{
   --o500:#F0508C;--o600:#B8286A;--o700:#8F1D52;--osurf:#FBE3EE;--osoft:#FEF1F7;
   --ink:#111827;--ink2:#374151;--mute:#4B5563;--sec:#6B7280;
-  --line:#E5E7EB;--line2:#F0F1F3;--shell:#F3F4F6;--card:#F8F9FA;--side:#FAFAFB;--canvas:#FFFBFD;--white:#FFFFFF;
+  --line:#E5E7EB;--line2:#E4E7EC;--shell:#F3F4F6;--card:#F8F9FA;--side:#FAFAFB;--canvas:#FFFBFD;--white:#FFFFFF;
   --inkbtn:#111827;--onink:#FFFFFF;--link:#B8286A;--field:#FFFFFF;--fieldline:#6B7280;
   --bubble:#111827;--onbubble:#FFFFFF;--shadow:0 1px 4px rgba(17,24,39,.10);--pop:0 20px 60px rgba(143,29,82,.20);
   --lg-ink:#111827;--lg-it:#E0457F;
