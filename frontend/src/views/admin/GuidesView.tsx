@@ -25,6 +25,7 @@ import {
   nextVersion,
   normalizeVersion,
   readFileVersion,
+  sameVersion,
   retryGuideIngest,
   setGuideActive,
   setGuideCurrent,
@@ -868,8 +869,11 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
     const version = normalizeVersion(checked ? checked : ver)
     if (!(mode === 'ver' && !doc)) {
       if (!version) e.ver = '버전은 v4.0처럼 숫자로 적어 주세요.'
-      else if (docVers?.some((x) => x.version === version)) e.ver = '이미 있는 버전이에요. 다른 번호를 적어 주세요.'
-      else if (fv && fv !== version) e.ver = `파일 머리의 버전(${fv})과 달라요. 서버가 적재를 실패 처리하니 ${fv}으로 맞추거나 파일을 고쳐 주세요.`
+      else if (docVers?.some((x) => sameVersion(x.version, version))) {
+        const same = docVers.find((x) => sameVersion(x.version, version))!
+        e.ver = same.version === version ? '이미 있는 버전이에요. 다른 번호를 적어 주세요.' : `이미 있는 버전 ${same.version}과 같은 번호예요(${version}도 같은 버전으로 봐요). 다른 번호를 적어 주세요.`
+      }
+      else if (fv && fv !== version) e.ver = `파일 안의 version(${fv})과 달라요. 서버가 적재를 실패 처리하니 ${fv}으로 맞추거나 파일 안의 version 을 고쳐 주세요.`
     }
     setErrs(e)
     setErr('')
@@ -966,7 +970,7 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
               <span className="gfm">
                 <b title={file.name}>{file.name}</b>
                 <small>
-                  {busy ? '업로드 중…' : phase === 'checking' ? '파일을 확인하는 중…' : `용량 ${formatBytes(file.size)}${fileVer ? ` · 파일 머리 버전 ${fileVer}` : ''}`}
+                  {busy ? '업로드 중…' : phase === 'checking' ? '파일을 확인하는 중…' : `용량 ${formatBytes(file.size)}${fileVer ? ` · 파일 안의 version: ${fileVer}` : ''}`}
                 </small>
               </span>
               <button type="button" className="gfx" aria-label="선택 취소" title="선택 취소" disabled={busy} onClick={clearFile}>

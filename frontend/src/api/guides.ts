@@ -226,7 +226,7 @@ export async function uploadGuideVersion(user: User, docId: number, input: { fil
     await sleep(250)
     const g = store.find((x) => x.id === docId)
     if (!g) return fail('DOCUMENT_NOT_FOUND', '문서를 찾을 수 없어요.')
-    if (g.versions.some((x) => x.version === version)) return fail('DOCUMENT_VERSION_DUPLICATE', VERSION_DUP.message, { details: [VERSION_DUP] })
+    if (g.versions.some((x) => sameVersion(x.version, version))) return fail('DOCUMENT_VERSION_DUPLICATE', VERSION_DUP.message, { details: [VERSION_DUP] })
     const x = v(++seq.ver, version, '초안', input.scope, input.tx, '준비 중', `업로드 · ${input.file.name}`)
     g.versions.unshift(x)
     notify()
@@ -256,6 +256,15 @@ export function normalizeVersion(raw: string): string | null {
 export function nextVersion(versions: { version: string }[]): string {
   const top = Math.max(0, ...versions.map((x) => Number(/\d+/.exec(x.version)?.[0] ?? 0)))
   return `v${top + 1}.0`
+}
+/** 버전 이름이 같은 버전인지: v2 와 v2.0 은 같다(뒤의 .0 은 무시). 서버는 글자 그대로 비교해서 둘 다 받아 주므로 화면이 먼저 막는다 */
+export function sameVersion(a: string, b: string): boolean {
+  const parts = (s: string) => {
+    const n = s.trim().replace(/^v/i, '').split('.').map((x) => Number(x))
+    while (n.length > 1 && n[n.length - 1] === 0) n.pop()
+    return n.join('.')
+  }
+  return parts(a) === parts(b)
 }
 /** 새 가이드 첫 버전의 기본 이름. 화면 기본값일 뿐이라 이미 올라간 버전 이름은 바뀌지 않는다 */
 export const FIRST_VERSION = 'v1.0'

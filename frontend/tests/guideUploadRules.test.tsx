@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/App'
-import { FIRST_VERSION, MAX_UPLOAD_BYTES, formatBytes, listGuides, nextVersion, readFileVersion, resetGuideMock, retryGuideIngest, setGuideActive, uploadGuide } from '../src/api/guides'
+import { FIRST_VERSION, MAX_UPLOAD_BYTES, formatBytes, sameVersion, listGuides, nextVersion, readFileVersion, resetGuideMock, retryGuideIngest, setGuideActive, uploadGuide } from '../src/api/guides'
 import { MOCK_ACCOUNTS } from '../src/api/mock/accounts'
 import type { User } from '../src/api/types'
 import { AuthProvider } from '../src/core/session'
@@ -47,6 +47,13 @@ describe('버전 이름·파일 검사', () => {
     expect(await readFileVersion(new File(['version: 3\n본문'], 'a.txt'))).toBe('v3')
     expect(await readFileVersion(new File(['본문만 있어요'], 'a.md'))).toBeNull()
     expect(await readFileVersion(new File(['version: v9.0'], 'a.pdf'))).toBeNull()
+  })
+
+  it('v2 와 v2.0 은 같은 버전으로 본다 (뒤의 .0 은 무시)', () => {
+    expect(sameVersion('v2', 'v2.0')).toBe(true)
+    expect(sameVersion('2.0.0', 'v2')).toBe(true)
+    expect(sameVersion('v2.1', 'v2')).toBe(false)
+    expect(sameVersion('v10', 'v1.0')).toBe(false)
   })
 
   it('서버 한도는 20MB 이다', () => {
@@ -97,6 +104,21 @@ describe('가이드 업로드 화면 (모의)', () => {
     expect([formatBytes(500), formatBytes(2048), formatBytes(34 * 1024), formatBytes(2.5 * 1024 * 1024)]).toEqual(['500B', '2.0KB', '34KB', '2.5MB'])
   })
 
+  it('이미 있는 v2 를 v2.0 으로 올리려 하면 같은 버전이라고 막는다', async () => {
+    renderAs('EMP-1178', '/guides')
+    await userEvent.click(await screen.findByRole('button', { name: /가이드 파일 업로드/ }, SLOW))
+    const dlg = await screen.findByRole('dialog', { name: '가이드 파일 업로드' })
+    await waitFor(() => expect(within(dlg).getByRole('button', { name: '기존 가이드에 새 버전 만들기' })).toHaveAttribute('aria-pressed', 'true'), SLOW)
+    await userEvent.upload(within(dlg).getByLabelText('파일'), pdf())
+    await choose(dlg, '분류', /계정·로그인/)
+    await choose(dlg, '문서', /IT-ACC-001/) // 모의 데이터에서 현행이 v2
+    const ver = within(dlg).getByLabelText('버전')
+    await userEvent.clear(ver)
+    await userEvent.type(ver, 'v2.0')
+    await userEvent.click(within(dlg).getByRole('button', { name: '업로드' }))
+    expect(await within(dlg).findByText(/이미 있는 버전 v2과 같은 번호예요/)).toBeInTheDocument()
+  })
+
   it('md 파일을 고르면 머리의 버전으로 채우고, 다르게 적으면 막는다', async () => {
     renderAs('EMP-1178', '/guides')
     await userEvent.click(await screen.findByRole('button', { name: /가이드 파일 업로드/ }, SLOW))
@@ -110,7 +132,7 @@ describe('가이드 업로드 화면 (모의)', () => {
     await userEvent.clear(ver)
     await userEvent.type(ver, 'v8.0')
     await userEvent.click(within(dlg).getByRole('button', { name: '업로드' }))
-    expect(await within(dlg).findByText(/파일 머리의 버전\(v7\.0\)과 달라요/)).toBeInTheDocument()
+    expect(await within(dlg).findByText(/파일 안의 version\(v7\.0\)과 달라요/)).toBeInTheDocument()
   })
 
   it('비활성 문서는 목록에 표시되고, 활성화는 확인을 한 번 더 받는다. 새 버전 문서 선택에서는 빠진다', async () => {

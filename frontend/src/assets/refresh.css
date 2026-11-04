@@ -157,16 +157,16 @@
 .gu2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
 /* 업로드 창: 끌어다 놓는 영역 + 고른 파일 카드(이름·크기·한도 대비 막대) */
 .gz{display:flex;flex-direction:column;gap:10px}
-.gdrop{display:flex;flex-direction:column;align-items:center;gap:4px;padding:20px 16px;border-radius:16px;border:1.5px dashed var(--line);background:var(--card);cursor:pointer;text-align:center;transition:border-color .15s,background .15s}
+.gdrop{display:flex;flex-direction:column;align-items:center;gap:3px;padding:16px 14px;border-radius:16px;border:1.5px dashed var(--line);background:var(--card);cursor:pointer;text-align:center;transition:border-color .15s,background .15s}
 .gdrop:hover,.gdrop.drag,.gdrop:focus-within{border-color:var(--o600);background:var(--osoft)}
 .gdrop.err{border-color:var(--s-urg-dot)}
-.gdi{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--osoft);color:var(--link);margin-bottom:4px}
-.gdi svg,.gfi svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-.gdt{font-size:14px;color:var(--ink2)}.gdt b{color:var(--link);font-weight:700}
-.gdh{font-size:12.5px;color:var(--mute)}
-.gfile{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--white)}
-.gfi{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--shell);color:var(--ink2);flex:none}
-.gfm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.gfm b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gfm small{font-size:12.5px;color:var(--mute)}.gfile.wait{box-shadow:inset 0 0 0 1.5px var(--o600);background:var(--osoft)}.gfile.wait .gfi{background:transparent}
+.gdi{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--osoft);color:var(--link);margin-bottom:4px}
+.gdi svg,.gfi svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.gdt{font-size:13.5px;color:var(--ink2)}.gdt b{color:var(--link);font-weight:700}
+.gdh{font-size:12px;color:var(--mute)}
+.gfile{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:var(--white)}
+.gfi{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--shell);color:var(--ink2);flex:none}
+.gfm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.gfm b{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gfm small{font-size:12px;color:var(--mute)}.gfile.wait{box-shadow:inset 0 0 0 1.5px var(--o600);background:var(--osoft)}.gfile.wait .gfi{background:transparent}
 .gspin{width:22px;height:22px;border-radius:50%;border:2.5px solid color-mix(in srgb,var(--o600) 25%,transparent);border-top-color:var(--o600);animation:gsp .8s linear infinite}
 @keyframes gsp{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.gspin{animation-duration:2.4s}}
@@ -246,17 +246,23 @@
 .stx div.hpipe button{padding-left:10px;padding-right:0}
 
 /* 선택 상자(ui/SelectBox): 둥근 칸 + 오른쪽 화살표, 열면 강조 테두리·위쪽 화살표, 고른 항목은 강조색과 ✓ */
-.sbx{width:100%;min-height:46px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 12px 0 16px;border:0;border-radius:12px;background:var(--white);box-shadow:inset 0 0 0 1px var(--fieldline);font:inherit;font-size:15px;color:var(--ink);text-align:left;cursor:pointer;transition:box-shadow .15s}
+.sbx{width:100%;min-height:38px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 10px 0 14px;border:0;border-radius:10px;background:var(--white);box-shadow:inset 0 0 0 1px var(--fieldline);font:inherit;font-size:14px;color:var(--ink);text-align:left;cursor:pointer;transition:box-shadow .15s}
 .sbx:hover{box-shadow:inset 0 0 0 1px var(--mute)}
 .sbx.ph .sbxv{color:var(--mute)}
 .sbx.open,.sbx:focus-visible{outline:0;box-shadow:inset 0 0 0 1.5px var(--o600),0 0 0 4px color-mix(in srgb,var(--o600) 16%,transparent)}
 .sbx.err{box-shadow:inset 0 0 0 1.5px var(--s-urg-dot)}
 .sbx:disabled{cursor:not-allowed;background:var(--field);color:var(--mute)}
 .sbxv{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sbxc{width:24px;height:24px;display:grid;place-items:center;color:var(--mute);flex:none;border-radius:8px;transition:transform .2s,color .15s}.sbxc .i{width:18px;height:18px}
+.sbxc{width:22px;height:22px;display:grid;place-items:center;color:var(--mute);flex:none;border-radius:8px;transition:transform .2s,color .15s}.sbxc .i{width:16px;height:16px}
 .sbx.open .sbxc{transform:rotate(180deg);color:var(--link)}
-.sbxl{position:fixed;z-index:1000;margin:0;padding:6px;list-style:none;overflow:auto;background:var(--white);border-radius:14px;box-shadow:0 12px 32px rgba(20,10,30,.18),inset 0 0 0 1px var(--line)}
-.sbxo{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:40px;padding:0 12px;border-radius:10px;font-size:14.5px;color:var(--ink);cursor:pointer}
-.sbxo.act{background:var(--shell)}.sbxo.sel{background:var(--osoft);color:var(--link);font-weight:700}.sbxo .i{width:18px;height:18px;flex:none}
-.sbxe{padding:10px 12px;color:var(--mute);font-size:14px}
+.sbxl{position:fixed;z-index:1000;margin:0;padding:5px;list-style:none;overflow:auto;background:var(--white);border-radius:12px;box-shadow:0 12px 32px rgba(20,10,30,.18),inset 0 0 0 1px var(--line)}
+.sbxo{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:34px;padding:0 10px;border-radius:8px;font-size:13.5px;color:var(--ink);cursor:pointer}
+.sbxo.act{background:var(--shell)}.sbxo.sel{background:var(--osoft);color:var(--link);font-weight:700}.sbxo .i{width:16px;height:16px;flex:none}
+.sbxe{padding:8px 10px;color:var(--mute);font-size:13px}
+/* 업로드 창 안의 입력 칸·단추·글자를 조금 작게 */
+.modal:has(.gu-seg) .inp{min-height:38px;font-size:14px;padding:0 14px;border-radius:10px}
+.modal:has(.gu-seg) .field label{font-size:13px}
+.modal:has(.gu-seg) .seg.gu-seg button{min-height:36px;font-size:13.5px}
+.modal:has(.gu-seg) .acts .btn{min-height:38px;font-size:14px}
+.modal:has(.gu-seg) .hint,.modal:has(.gu-seg) .ferr{font-size:12.5px}
 @media (prefers-reduced-motion:reduce){.sbx,.sbxc{transition:none}}
