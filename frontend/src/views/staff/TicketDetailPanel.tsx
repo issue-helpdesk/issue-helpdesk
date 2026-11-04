@@ -15,6 +15,7 @@ import type { MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMess
 import { USE_MOCK_TICKET } from '../../core/config'
 import { formatDateTime } from '../../core/format'
 import { useAuth } from '../../core/session'
+import { AssessmentHistory } from './AssessmentHistory'
 import { Icon } from '../../ui/Icon'
 import { ReassignDialog } from '../admin/ReassignDialog'
 import { Modal } from '../../ui/Modal'
@@ -483,6 +484,8 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                   </ul>
                 </div>
               )}
+              {/* AI 판단 이력: 관리자만, 서버(IQ-10)에서 읽는다 */}
+              <AssessmentHistory inquiryId={t.inquiryId} />
               <div>
                 <h4>처리 이력</h4>
                 <ul className="tl">

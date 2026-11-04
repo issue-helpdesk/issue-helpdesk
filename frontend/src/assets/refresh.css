@@ -289,3 +289,18 @@
 .faq .fb .row{align-items:center}.faq .fb .faqadm{margin-left:auto;display:inline-flex;gap:8px}
 .faq .fb .btn.sec.dng{color:var(--s-urg-fg)}
 .faq .fb .btn.sec.dng:hover{background:var(--s-urg-bg)}
+/* 접수 상세의 AI 판단 이력(관리자): 문의 요약 → AI 원래 판단(보라 박스) → 규칙이 바꾼 내역 → 최종 적용 */
+.asx{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px;background:var(--white);display:flex;flex-direction:column;gap:8px}
+.asx .ash{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.asx .asl{font-size:12px;font-weight:600;color:var(--mute);margin-bottom:2px}
+.asx .asv{font-size:13.5px;line-height:21px;color:var(--ink);overflow-wrap:anywhere}
+.asx .asai{padding:9px 11px;border-radius:9px;background:color-mix(in srgb,#8A64F2 11%,var(--white));box-shadow:inset 3px 0 0 #8A64F2}
+.asx .asai .asl{color:#6F4BD8}
+:root[data-theme="dark"] .asx .asai .asl{color:#C3A9FF}
+.asx .aso{padding:9px 11px;border-radius:9px;background:var(--shell);font-size:13px;line-height:20px}
+.asx .aso ul{margin:2px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
+.asx .aso.none{color:var(--mute)}
+.asx .asfin{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding-top:8px;border-top:1px dashed var(--line)}
+.asx .asfin .asl{margin:0 4px 0 0}
+.asx s{color:var(--mute)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .asx .asai .asl{color:#C3A9FF}}
