@@ -264,6 +264,29 @@ def test_resume_pending_only_stale(url):
 
 
 @needs_db
+def test_connection_failure_recovers_on_next_resume(url, monkeypatch):
+    """적재 때 DB 연결을 못 얻으면 PENDING 으로 남고, 연결이 돌아온 뒤 이어 하기가 끝낸다."""
+    from types import SimpleNamespace
+
+    from app.services import document_ingest
+
+    vid = register(url, 'IT-SYS-008', age=timedelta(hours=1))
+    monkeypatch.setattr(document_ingest, 'get_settings', lambda: SimpleNamespace(dsn=url))
+    monkeypatch.setattr(document_ingest, 'get_embedder', lambda: EMB)
+
+    def no_connection(*_, **__):
+        raise OSError('db down')
+    monkeypatch.setattr(document_ingest, 'connect', no_connection)
+    document_ingest.run_ingest(vid)
+    document_ingest.run_resume()
+    assert version(url, vid)[0] == 'PENDING'
+
+    monkeypatch.setattr(document_ingest, 'connect', connect)
+    document_ingest.run_resume()
+    assert version(url, vid)[0] == 'DONE'
+
+
+@needs_db
 def test_end_to_end_searchable_after_activate(url):
     """완료 기준: 업로드 → 적재 → 현행 전환 → search() 에 새 버전이 나온다. 전환 전에는 나오지 않는다."""
     from sqlalchemy import create_engine

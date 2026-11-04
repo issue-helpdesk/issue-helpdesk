@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 
@@ -21,7 +22,7 @@ from app.api import (
 from app.core.errors import register_error_handlers
 from app.core.upload_limit import UploadLimitMiddleware
 from app.rag.search import runtime as search_runtime
-from app.services.document_ingest import submit_cleanup, submit_resume
+from app.services.document_ingest import resume_periodically, submit_cleanup, submit_resume
 
 
 @asynccontextmanager
@@ -30,9 +31,15 @@ async def lifespan(_app: FastAPI):
     search_runtime.preload()
     submit_cleanup()
     # 모델이 있는 서버에서만 멈춘 문서 적재를 잇는다. 모델 없는 개발 PC 는 건너뛴다
+    resume_task = None
     if search_runtime.preload_enabled():
         submit_resume()
+        resume_task = asyncio.create_task(resume_periodically())
     yield
+    if resume_task is not None:
+        resume_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await resume_task
 
 
 app = FastAPI(

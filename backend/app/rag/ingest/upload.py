@@ -87,7 +87,7 @@ def ingest_version(conn, version_id: int, embedder, files_root: Path = ROOT, act
 
 
 def resume_pending(conn, embedder, older_than: timedelta = STALE_PENDING, files_root: Path = ROOT) -> list[dict]:
-    """적재 도중 서버가 꺼져 PENDING 으로 남은 버전을 다시 적재한다 (서버 시작 때·명령으로).
+    """DB 연결 실패나 서버 중단으로 PENDING 으로 남은 버전을 다시 적재한다 (서버 시작 때·주기적으로·명령으로).
 
     방금 올라와 적재 중인 버전은 건드리지 않게 older_than 보다 오래된 것만. 겹쳐도 ingest_version 이 잠근 뒤
     상태를 다시 봐서 한 번만 적재된다. FAILED 는 파일을 고쳐야 하므로 여기서 다시 하지 않는다.
