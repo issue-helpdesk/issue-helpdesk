@@ -22,7 +22,7 @@
 .btn.pri.solid:active,:root[data-theme="dark"] .btn.pri.solid:active,:root:not([data-theme="light"]) .btn.pri.solid:active{background:#A82055}
 .btn.pri.solid .dots i{background:#fff}
 /* 표·목록 행 안의 버튼: 높이 32px · 폭 88px 고정(확인 → 처리 중으로 바뀌어도 줄이 흔들리지 않게) */
-.orow.l .btn.sm{height:32px;min-height:32px;width:88px;padding:0 10px}
+.orow.l .btn.sm{height:32px;min-height:32px;width:64px;padding:0 8px}
 /* 채팅 위쪽 "접수 상세" (시안 3) */
 .btn.pri.dtl{min-height:32px;height:32px;padding:0 12px;font-size:13px;gap:6px}
 
@@ -304,3 +304,11 @@
 .asx .asfin .asl{margin:0 4px 0 0}
 .asx s{color:var(--mute)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .asx .asai .asl{color:#C3A9FF}}
+/* 문의자 진행 카드의 처리 결과 상자: 이름표·내용을 위쪽 여백 쪽으로 살짝 올린다 */
+.card.w.tkres{padding-top:11px}
+/* 상세 패널(.detail)을 다크 모드에서도 본문과 구분한다: 라이트는 그림자로 구분하지만 어두운 배경에서는 그림자가 묻히므로, 패널을 본문보다 살짝 어둡게 하고 경계선·그림자를 또렷하게 */
+:root[data-theme="dark"] .detail{background:color-mix(in srgb,#120D20 90%,transparent);border-left-color:var(--line)}
+:root[data-theme="dark"] .app .detail{box-shadow:-18px 0 44px rgba(0,0,0,.5),-1px 0 0 rgba(255,255,255,.04)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .detail{background:color-mix(in srgb,#120D20 90%,transparent);border-left-color:var(--line)}:root:not([data-theme="light"]) .app .detail{box-shadow:-18px 0 44px rgba(0,0,0,.5),-1px 0 0 rgba(255,255,255,.04)}}
+/* 운영 기록: 대상 칩·이벤트 선택·기간(맨 오른쪽) 한 줄 */
+.aufil{display:flex;align-items:center;flex-wrap:wrap;gap:10px}.aufil .aupd{margin-left:auto}.tnum{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:13px}

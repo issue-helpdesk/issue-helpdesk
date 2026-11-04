@@ -8,7 +8,7 @@
 .card h4{font-size:15px;font-weight:600;line-height:22px}
 .dl{display:grid;grid-template-columns:104px minmax(0,1fr);gap:8px 12px;font-size:13.5px;margin-top:12px}
 .dl dt{color:var(--mute);line-height:22px}.dl dd{margin:0;line-height:22px}
-.composer-wrap{flex:none;padding:30px 32px 54px;background:var(--glow)} /* 아래 여백을 넉넉히(54px) 두어 입력창이 화면 맨 아래에 붙어 보이지 않게 한다 */
+.composer-wrap{flex:none;padding:30px 32px 20px;background:var(--glow)} /* 아래 여백을 넉넉히(54px) 두어 입력창이 화면 맨 아래에 붙어 보이지 않게 한다 */
 .stepper{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:0;margin-top:14px}
 .stepper .st{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;font-size:12.5px;min-width:0;padding:0 2px}
 .stepper .st b{font-weight:600;line-height:16px}.stepper .st small{font-size:12px;color:var(--mute);line-height:14px}
@@ -34,7 +34,7 @@
 .msg.staff .sb{line-height:24px}
 @media (max-width:860px){
   .thread{padding:20px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px))}
-  .composer-wrap{padding:20px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
+  .composer-wrap{padding:20px max(16px,env(safe-area-inset-right,0px)) 14px max(16px,env(safe-area-inset-left,0px))}
 }
 /* 접수 초안: 수정 화면도 보기 화면과 같은 줄 구성. 고치는 줄만 입력칸, 나머지는 잠금 표시 */
 .dl.edit{align-items:start;gap:10px 12px}
