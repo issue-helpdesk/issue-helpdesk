@@ -258,32 +258,32 @@ export function FaqView() {
   )
 }
 
-/** FAQ 등록 창. 서버는 게시하려면 전 직원용 가이드 출처가 이미 연결돼 있어야 해서, 서버 모드의 기본은 "게시 안 함"이다 */
+/**
+ * FAQ 등록 창. 서버는 게시하려면 가이드 출처가 연결돼 있어야 하는데, 등록 때 출처를 고르는 기능이 아직 없다(docs/api/06 R-41).
+ * 그래서 서버 모드에서는 "바로 게시"를 눌러도 체크되지 않고 안내만 보이며, 항상 게시 전 상태로 저장한다. 모의 모드는 시연이라 그대로 게시된다.
+ */
 function AddFaqDialog({ onClose, onDone }: { onClose: () => void; onDone: (message: string) => void }) {
   const uid = useId()
   const [cat, setCat] = useState<CategoryCode>('ACC')
   const [q, setQ] = useState('')
   const [a, setA] = useState('')
-  const [kw, setKw] = useState('')
   const [publish, setPublish] = useState(USE_MOCK_FAQ)
+  const [pubNote, setPubNote] = useState(false) // 서버 모드에서 게시를 누르면 안내를 보인다
   const [errs, setErrs] = useState<Record<string, string>>({})
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const clr = (k: string) => setErrs((e) => ({ ...e, [k]: '' }))
 
   const submit = async () => {
-    const keywords = [...new Set(kw.split(',').map((x) => x.trim()).filter(Boolean))]
     const e: Record<string, string> = {}
     if (!q.trim()) e.q = '질문 제목을 입력해 주세요.'
     else if (q.trim().length > 500) e.q = '질문은 500자까지 쓸 수 있어요.'
     if (!a.trim()) e.a = '답변을 입력해 주세요.'
     else if (a.trim().length > 4000) e.a = '답변은 4000자까지 쓸 수 있어요.'
-    if (keywords.length > 20) e.kw = '키워드는 20개까지 쓸 수 있어요.'
-    else if (keywords.some((k) => k.length > 30)) e.kw = '키워드 하나는 30자까지 쓸 수 있어요.'
     setErrs(e)
     if (Object.keys(e).length) return
     setBusy(true)
-    const r = await createFaq({ categoryCode: cat, question: q.trim(), answer: a.trim(), keywords, isActive: publish })
+    const r = await createFaq({ categoryCode: cat, question: q.trim(), answer: a.trim(), keywords: [], isActive: publish })
     setBusy(false)
     if (!r.ok) return setErr(r.error.message)
     onDone(publish ? 'FAQ를 등록했어요. 문의자 FAQ 화면에 바로 보여요.' : 'FAQ를 등록했어요. 게시 전이라 문의자에게는 보이지 않아요.')
@@ -310,13 +310,27 @@ function AddFaqDialog({ onClose, onDone }: { onClose: () => void; onDone: (messa
       )}
       {field('q', '질문 제목', <input id={`${uid}-q`} className={`inp${errs.q ? ' err' : ''}`} value={q} placeholder="예) 공용 프린터가 보이지 않아요" autoComplete="off" aria-invalid={!!errs.q} onChange={(e) => { setQ(e.target.value); clr('q') }} />)}
       {field('a', '답변', <textarea id={`${uid}-a`} className={`ta${errs.a ? ' err' : ''}`} value={a} placeholder="사내 가이드 기준으로 안내해 주세요" aria-invalid={!!errs.a} onChange={(e) => { setA(e.target.value); clr('a') }} />)}
-      {field('kw', '키워드 (쉼표로 구분, 선택)', <input id={`${uid}-kw`} className={`inp${errs.kw ? ' err' : ''}`} value={kw} placeholder="예) 프린터, 복합기" autoComplete="off" aria-invalid={!!errs.kw} onChange={(e) => { setKw(e.target.value); clr('kw') }} />)}
       <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <input type="checkbox" checked={publish} onChange={(e) => setPublish(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={publish}
+          aria-describedby={pubNote ? `${uid}-pub` : undefined}
+          onChange={(e) => {
+            // 서버 모드: 출처를 연결할 수 없어 게시되지 않으므로 체크하지 않고 안내만 보인다
+            if (!USE_MOCK_FAQ) return setPubNote(true)
+            setPublish(e.target.checked)
+          }}
+        />
         바로 게시
       </label>
+      {pubNote && (
+        <div className="alert warn" id={`${uid}-pub`} role="status">
+          <Icon name="alert" />
+          <div>지금은 게시할 수 없어요. 게시하려면 FAQ에 가이드 문서를 출처로 연결해야 하는데, 그 기능이 아직 준비되지 않았어요. 우선 게시 전 상태로 저장돼요.</div>
+        </div>
+      )}
       <div className="hint">
-        {USE_MOCK_FAQ ? '출처 가이드는 가이드 관리에서 연결돼요.' : '게시하려면 전 직원용 가이드 출처가 먼저 연결돼 있어야 해요. 연결 전에는 "게시 안 함"으로 등록하고 나중에 게시해 주세요.'}
+        {USE_MOCK_FAQ ? '출처 가이드는 가이드 관리에서 연결돼요.' : '게시는 FAQ에 가이드 출처를 연결하는 기능이 준비된 뒤에 쓸 수 있어요. 지금은 게시 전 상태로 저장돼요.'}
       </div>
       {err && (
         <div className="ferr" role="alert">

@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CATEGORIES, URGENCY_LABEL } from '../../api/catalog'
 import type { CategoryCode, Urgency, WorkStatus } from '../../api/chatTypes'
-import { listAiInquiries, type AiKind, type AiPage } from '../../api/inquiries'
+import { listAiInquiries, type AiKind, type AiPage, type AiRow } from '../../api/inquiries'
 import type { Page } from '../../api/inquiries'
 import { listStaff, listSupportGroups, type StaffRef, type SupportGroupRef } from '../../api/reference'
 import { listTickets, watchTickets } from '../../api/tickets'
@@ -29,6 +29,7 @@ import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
 import { StaffStatus, UrgencyChip } from '../staff/QueueView'
 import { TicketDetailPanel } from '../staff/TicketDetailPanel'
+import { AiDetailPanel, AiKindBadge } from './AiDetailPanel'
 
 const PAGE_SIZE = 20
 type Mode = 'staff' | 'ai'
@@ -58,7 +59,7 @@ const AI_KINDS: { key: '' | AiKind; label: string }[] = [
 /** 정렬 열 → API sort 기준 (urgency·createdAt·workStatus 외에는 프로토타입용 임시 값) */
 const SORT_KEY = { pri: 'urgency', receipt: 'receiptNo', title: 'summary', status: 'workStatus', when: 'createdAt', cat: 'category', assignee: 'assignee' } as const
 type SortCol = keyof typeof SORT_KEY
-const AI_SORT_KEY = { title: 'title', cat: 'cat', guide: 'guide', when: 'updatedAt' } as const
+const AI_SORT_KEY = { title: 'title', cat: 'cat', when: 'updatedAt' } as const
 type AiSortCol = keyof typeof AI_SORT_KEY
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -110,6 +111,9 @@ export function AllTicketsView() {
   const [aiPage, setAiPage] = useState(1)
   const [data, setData] = useState<Page<TicketSummary> | null>(null)
   const [ai, setAi] = useState<AiPage | null>(null)
+  // AI 처리 상세 패널: 누른 행을 기억한다. 다른 행을 누르면 패널은 그대로 두고 내용만 바꾼다
+  const [aiOpen, setAiOpen] = useState<AiRow | null>(null)
+  const [aiSlide, setAiSlide] = useState(false)
   const [counts, setCounts] = useState<Record<string, number> | null>(null)
   const [groups, setGroups] = useState<SupportGroupRef[]>([])
   const [staffList, setStaffList] = useState<StaffRef[]>([])
@@ -225,6 +229,7 @@ export function AllTicketsView() {
     setPage(1)
     setAiPage(1)
     if (m === 'ai' && openId !== null) navigate('/tickets')
+    if (m !== 'ai') setAiOpen(null)
   }
   const open = (id: number) => navigate(`/tickets/${id}`)
   const items = data?.items ?? []
@@ -263,6 +268,7 @@ export function AllTicketsView() {
   if (mode === 'ai') {
     const rows = ai?.items ?? []
     return (
+      <>
       <main className="main">
         <Topbar title="전체 문의" sub={`AI 상담 ${ai?.totalCount ?? 0}건`} lead={<img className="tti" src={titleDone} alt="" width={56} height={56} />} />
         <div className="scroll">
@@ -323,32 +329,39 @@ export function AllTicketsView() {
                   <div className="tw">
                     <table className="tbl fx fx2">
                       <colgroup>
-                        <col style={{ width: '32%' }} />
-                        <col style={{ width: '14%' }} />
-                        <col style={{ width: '28%' }} />
-                        <col style={{ width: '12%' }} />
-                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '52%' }} />
+                        <col style={{ width: '16%' }} />
+                        <col style={{ width: '16%' }} />
+                        <col style={{ width: '16%' }} />
                       </colgroup>
                       <thead>
                         <tr>
                           <SortTh plain={!USE_MOCK_INQUIRY} col="title" label="문의" sort={aiSort} onSort={onAiSort} />
                           <SortTh plain={!USE_MOCK_INQUIRY} col="cat" label="분류" sort={aiSort} onSort={onAiSort} />
-                          <SortTh plain={!USE_MOCK_INQUIRY} col="guide" label="사용한 가이드" sort={aiSort} onSort={onAiSort} />
                           <th>구분</th>
                           <SortTh col="when" label="시점" sort={aiSort} onSort={onAiSort} />
                         </tr>
                       </thead>
                       <tbody>
                         {rows.map((r) => (
-                          <tr key={r.id}>
+                          <tr
+                            key={r.id}
+                            className={aiOpen?.id === r.id ? 'cur' : ''}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => {
+                              if (!aiOpen) setAiSlide(true)
+                              setAiOpen(r)
+                            }}
+                          >
                             <td>
-                              <b>{r.title}</b>
+                              <button type="button" className="lk">
+                                {r.title}
+                              </button>
                               <small className="mono">{r.id}</small>
                             </td>
                             <td>{r.categoryCode ? <span className={`tag c-${r.categoryCode}`}>{CATEGORIES[r.categoryCode].name}</span> : <span className="muted small">미분류</span>}</td>
-                            <td className="small">{r.guide}</td>
                             <td>
-                              {r.kind === 'pend' ? <StateBadge tone="need" label="해결 확인 대기" sub="AI 안내" block /> : r.kind === 'unr' ? <StateBadge tone="warn" label="미연결 종료" /> : <StateBadge tone="ok" label="AI 해결" />}
+                              <AiKindBadge kind={r.kind} />
                             </td>
                             <td className="muted small">{r.when}</td>
                           </tr>
@@ -365,6 +378,9 @@ export function AllTicketsView() {
           </div>
         </div>
       </main>
+      {/* 행을 누르면 오른쪽에 열린다. 다른 행을 누르면 패널은 그대로 두고 안의 내용만 바뀐다 */}
+      {aiOpen && <AiDetailPanel row={aiOpen} slide={aiSlide} onSlideEnd={() => setAiSlide(false)} onClose={() => setAiOpen(null)} />}
+      </>
     )
   }
 

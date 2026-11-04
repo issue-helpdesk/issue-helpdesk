@@ -2,7 +2,7 @@
  * 실제 서버 모드(VITE_USE_MOCK_FAQ=false) FAQ API 테스트.
  * 서버는 띄우지 않고 가짜 fetch 로 서버 계약(docs/api/04 FQ-01·02)대로 응답을 만들어 준다.
  */
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -29,11 +29,11 @@ const DETAIL = { ...faq(1), sources: [{ documentId: 1, docCode: 'IT-ACC-001', ti
 let fetchMock: ReturnType<typeof vi.fn>
 const urls = () => fetchMock.mock.calls.map((c) => String(c[0]))
 
-async function load() {
+async function load(serviceRole?: string) {
   vi.resetModules()
   vi.stubEnv('VITE_USE_MOCK_FAQ', 'false')
   vi.doMock('../src/core/session', () => {
-    const auth = { user: { role: 'EMPLOYEE' } }
+    const auth = { user: { role: 'EMPLOYEE', serviceRole } }
     return { useAuth: () => auth }
   })
   return { api: await import('../src/api/faq'), view: await import('../src/views/faq/FaqView') }
@@ -101,5 +101,30 @@ describe('서버 모드 FAQ 화면', () => {
 
     await userEvent.click(screen.getByText('질문 2'))
     await waitFor(() => expect(screen.getByText('출처를 불러오지 못했어요.')).toBeInTheDocument())
+  })
+})
+
+describe('서버 모드 FAQ 등록 창 (게시는 출처 연결 기능이 생길 때까지 막는다, docs/api/06 R-41)', () => {
+  it('바로 게시를 눌러도 체크되지 않고 안내만 보이며, 등록하면 게시 전(isActive=false)으로 보낸다', async () => {
+    const { view } = await load('ADMIN')
+    fetchMock.mockImplementation(async (_u: unknown, init?: RequestInit) => (init?.method === 'POST' ? json(201, faq(41, { isActive: false })) : json(200, page([faq(1)]))))
+    render(
+      <MemoryRouter>
+        <view.FaqView />
+      </MemoryRouter>,
+    )
+    await userEvent.click(await screen.findByRole('button', { name: 'FAQ 등록' }))
+    const dlg = await screen.findByRole('dialog', { name: 'FAQ 등록' })
+    const pub = within(dlg).getByRole('checkbox', { name: '바로 게시' })
+    expect(within(dlg).queryByRole('status')).toBeNull()
+    await userEvent.click(pub)
+    expect(pub).not.toBeChecked()
+    expect(within(dlg).getByRole('status')).toHaveTextContent('지금은 게시할 수 없어요')
+    await userEvent.type(within(dlg).getByLabelText('질문 제목'), '공용 프린터가 보이지 않아요')
+    await userEvent.type(within(dlg).getByLabelText('답변'), '프린터 서버를 다시 추가해 주세요.')
+    await userEvent.click(within(dlg).getByRole('button', { name: '등록' }))
+    await waitFor(() => expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === 'POST')).toBe(true))
+    const post = fetchMock.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === 'POST')!
+    expect(JSON.parse(String((post[1] as RequestInit).body))).toMatchObject({ isActive: false, keywords: [] })
   })
 })

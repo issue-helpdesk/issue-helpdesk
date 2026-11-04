@@ -4,12 +4,17 @@
  * 서버에서는 문의 목록(IQ-02)을 displayStatus 로 걸러서 받는다. (사용한 가이드는 목록 응답에 없다)
  */
 import type { CategoryCode } from '../chatTypes'
+import type { Assessment } from '../assessments'
 import { allRecords } from './chatStore'
 
 export type AiKind = 'ok' | 'pend' | 'unr'
 
 export interface AiRow {
   id: string
+  /** 서버 문의 번호 (서버 모드의 상세 패널이 판단 이력·사용한 가이드를 읽을 때 쓴다). 모의 시연 건은 null */
+  inquiryId: number | null
+  /** 문의자 (이름 · 사번). 모르면 빈 글자 */
+  user: string
   title: string
   categoryCode: CategoryCode | null
   /** 사용한 가이드 (문서 코드 제목 버전). 없으면 '-' */
@@ -39,6 +44,7 @@ const GUIDES: Record<string, string> = {
   ACS: 'IT-ACS-001 사내 시스템 접근권한 신청 가이드 v2',
   SYS: 'IT-SYS-001 그룹웨어·ERP 이용 오류 대응 가이드 v2',
 }
+const NAMES = ['박서연 · EMP-1049', '김민수 · EMP-1003', '최하은 · EMP-1156', '이도윤 · EMP-1082', '정다은 · EMP-1300', '한지우 · EMP-1064']
 /** 최근 7일(오늘부터) 하루별 상담 건수 */
 const PER_DAY = [38, 41, 44, 36, 47, 40, 33]
 const DAY = 86_400_000
@@ -50,6 +56,8 @@ export function aiRows(now = Date.now()): AiRow[] {
       const src = [...r.inquiry.messages].reverse().find((m) => m.sources?.length)?.sources?.[0]
       return {
         id: `INQ-${r.inquiry.id}`,
+        inquiryId: r.inquiry.id,
+        user: '',
         title: r.inquiry.title,
         categoryCode: r.inquiry.categoryCode ?? 'ACC',
         guide: src ? [src.docCode, src.title, src.version].filter(Boolean).join(' ') : '-',
@@ -68,6 +76,8 @@ export function aiRows(now = Date.now()): AiRow[] {
       const ts = TITLES[c]
       out.push({
         id: `AI-${2000 + n}`,
+        inquiryId: null,
+        user: NAMES[n % NAMES.length],
         title: ts[n % ts.length],
         categoryCode: c as CategoryCode,
         guide: GUIDES[c] ?? GUIDES.SYS,
@@ -80,4 +90,34 @@ export function aiRows(now = Date.now()): AiRow[] {
     }
   })
   return [...live, ...out]
+}
+
+/**
+ * 시연용 AI 판단 이력: 구분에 맞춰 만든다. 해결 확인 대기는 "추가 질문 → 답변", 미연결 종료는 "추가 질문 → 담당자 연결 제안",
+ * AI 해결은 "답변" 한 번이다. (서버 모드는 GET /inquiries/{id}/assessments 가 준다)
+ */
+export function mockJudgments(r: AiRow): Assessment[] {
+  const n = Number(r.id.replace(/\D/g, '')) || 0
+  const make = (i: number, over: Partial<Assessment> & { conf?: number }, at: number): Assessment => {
+    const action = over.action ?? 'ANSWER'
+    return {
+      id: n * 10 + i,
+      inquiryId: r.inquiryId ?? n,
+      facts: { summary: r.title },
+      missingItems: [],
+      urgentSignal: false,
+      categoryCode: r.categoryCode,
+      inquiryTypeId: null,
+      urgency: 'P3',
+      urgencyReason: null,
+      action,
+      aiOutput: { urgencySuggested: 'P3', categoryCode: r.categoryCode ?? undefined, action, confidence: over.conf ?? 0.88 },
+      overrideReasons: [],
+      createdAt: new Date(at).toISOString(),
+      ...over,
+    }
+  }
+  if (r.kind === 'ok') return [make(1, {}, r.at)]
+  const first = make(1, { action: 'ASK_MORE', missingItems: r.kind === 'pend' ? ['occurred_at', 'tried_actions'] : ['impact'], conf: 0.76 }, r.at - 3 * 60_000)
+  return r.kind === 'pend' ? [first, make(2, {}, r.at)] : [first, make(2, { action: 'ESCALATE', conf: 0.69 }, r.at)]
 }

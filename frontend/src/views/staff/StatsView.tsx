@@ -212,8 +212,9 @@ const shortName = (n: string) => n.split(' ')[0]
 
 const CAP = '그래프에 마우스를 올리거나 표로 바꿔서 값을 읽을 수 있어요'
 
-/** foot: 가로축 라벨 아래에 한 줄 더 (예: 추정 비용). extra: 마우스를 올렸을 때 덧붙이는 설명. cols: 표 보기에 덧붙이는 열 */
-export function CurveChart({ labels, series, runKey, aria, foot, extra, cols }: { labels: string[]; series: Series[]; runKey: string; aria: string; foot?: string[]; extra?: string[]; cols?: { name: string; v: string[] }[] }) {
+/** foot: 가로축 라벨 아래에 한 줄 더 (예: 추정 비용). extra: 마우스를 올렸을 때 덧붙이는 설명. cols: 표 보기에 덧붙이는 열(zero 가 true 인 칸은 흐리게).
+ * dimZero: 표 보기에서 값이 0 인 칸을 흐리게 해서 값이 있는 칸과 구분한다 (AI 운영) */
+export function CurveChart({ labels, series, runKey, aria, foot, extra, cols, dimZero = false }: { labels: string[]; series: Series[]; runKey: string; aria: string; foot?: string[]; extra?: string[]; cols?: { name: string; v: string[]; zero?: boolean[] }[]; dimZero?: boolean }) {
   const [table, setTable] = useState(false)
   const [hv, setHv] = useState<{ i: number; cx: number; cy: number } | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -344,12 +345,12 @@ export function CurveChart({ labels, series, runKey, aria, foot, extra, cols }: 
                 <tr key={l}>
                   <th scope="row">{l}</th>
                   {series.map((s) => (
-                    <td key={s.name} className="num">
+                    <td key={s.name} className={`num${dimZero && s.v[i] === 0 ? ' zero' : ''}`}>
                       {s.v[i].toLocaleString()}
                     </td>
                   ))}
                   {cols?.map((c) => (
-                    <td key={c.name} className="num">
+                    <td key={c.name} className={`num${c.zero?.[i] ? ' zero' : ''}`}>
                       {c.v[i]}
                     </td>
                   ))}

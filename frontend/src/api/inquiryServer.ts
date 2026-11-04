@@ -90,6 +90,8 @@ interface AiTurn {
 }
 interface SSummary {
   id: number
+  /** 문의자 (서버 InquirySummary.user). 관리자 AI 처리 상세에서 문의자를 보여 줄 때 쓴다 */
+  user?: { id: number; employeeNo: string; name: string }
   title: string | null
   displayStatus: DisplayStatus
   category: { code: CategoryCode; name: string } | null
