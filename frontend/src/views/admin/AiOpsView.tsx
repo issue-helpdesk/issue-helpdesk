@@ -181,7 +181,8 @@ export function AiOpsView() {
                   ]}
                   foot={usage.cost.map(money)}
                   extra={usage.cost.map((c, i) => `추정 비용 ${money(c)} · 담당자·기타 ${usage.tot[i] - usage.ai[i]}건`)}
-                  cols={[{ name: '추정 비용', v: usage.cost.map(money) }]}
+                  cols={[{ name: '추정 비용', v: usage.cost.map(money), zero: usage.cost.map((c) => c === 0) }]}
+                  dimZero
                 />
               </>
             ) : (
