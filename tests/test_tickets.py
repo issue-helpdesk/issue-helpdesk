@@ -968,13 +968,15 @@ def test_assignee_must_be_assignable(client, team, assignee):
     assert res.json()["error"]["details"][0]["field"] == "assigneeId"
 
 
-def test_assignee_needs_skill_for_inquiry_type(client, db, team):
+def test_assignee_does_not_need_skill_for_inquiry_type(client, db, team):
+    """처리 분류(member_skills)는 과거 처리 이력 확인용이라 직접 지정의 조건이 아니다 (11.04 팀 결정)."""
     db.query(MemberSkill).filter_by(user_id=team["busy"].id).delete()
     db.commit()
 
     res = assign(client, as_user(client, "E0004"), team["mine"].id, team["net"].id, team["busy"].id)
 
-    assert error_code(res) == "ASSIGNEE_NOT_ASSIGNABLE"
+    assert res.status_code == 200
+    assert res.json()["assigneeId"] == team["busy"].id
 
 
 @pytest.mark.parametrize("reason", [None, "   "])
@@ -1106,10 +1108,19 @@ def test_absent_member_is_skipped_only_for_auto(db, team):
     assert reserve(db, team, assignee_id=team["free"].id, now=on_leave).assignee_id == team["free"].id
 
 
+def test_auto_assignment_ignores_member_skills(db, team):
+    """처리 분류가 한 건도 없어도 같은 그룹의 후보 중 업무량이 적은 사람이 선정된다 (11.04 팀 결정)."""
+    db.query(MemberSkill).delete()
+    db.commit()
+
+    reservation = reserve(db, team)
+
+    assert reservation.event != "FAIL" and reservation.assignee_id == team["free"].id
+
+
 def test_manager_is_not_auto_assigned(db, team):
     member = db.get(SupportGroupMember, (team["net"].id, team["manager"].id))
     member.assignable, member.jira_account_id = True, "acc-E0004"
-    db.add(MemberSkill(user_id=team["manager"].id, inquiry_type_id=team["vpn"].id))
     for user in ("busy", "free"):
         db.get(SupportGroupMember, (team["net"].id, team[user].id)).assignable = False
     db.commit()

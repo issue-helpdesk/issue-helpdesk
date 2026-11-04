@@ -190,7 +190,7 @@ def test_webhook_secret_check():
 
 
 def m(uid, **kw):
-    base = dict(employee_no=f"E{uid:04d}", jira_account_id=f"acc-{uid}", scenario_ids=frozenset({"NET-01"}))
+    base = dict(employee_no=f"E{uid:04d}", jira_account_id=f"acc-{uid}")
     base.update(kw)
     return Member(uid, **base)
 
@@ -214,15 +214,23 @@ def test_tie_goes_to_oldest_last_assignment_then_employee_no():
     assert d3.user_id == 2
 
 
-def test_excludes_manager_inactive_unassignable_no_skill_no_jira_and_listed():
+def test_excludes_manager_inactive_unassignable_no_jira_and_listed():
     members = [
         m(1, is_manager=True), m(2, user_active=False), m(3, member_active=False), m(4, assignable=False),
-        m(5, scenario_ids=frozenset({"SW-01"})), m(6, jira_account_id=None), m(7), m(8),
+        m(6, jira_account_id=None), m(7), m(8),
     ]
     d = pick_assignee(members, "NET-01", exclude_user_ids=[8])
     assert d.user_id == 7
     assert d.excluded == {1: "팀장 제외", 2: "사용자 비활성", 3: "그룹 구성원 아님(비활성)", 4: "자동배정 대상 아님",
-                          5: "해당 세부 분류 처리 불가", 6: "Jira 계정 없음", 8: "배정 제외 대상"}
+                          6: "Jira 계정 없음", 8: "배정 제외 대상"}
+
+
+def test_scenario_does_not_limit_candidates():
+    """담당자가 어떤 세부 분류를 처리해 왔는지는 후보 조건이 아니다 (11.04 팀 결정). 같은 그룹이면 어떤 분류든 업무량·부재만으로 고른다."""
+    members = [m(1, rdy=2), m(2, rdy=1), m(3, rdy=3)]
+    for scenario in ("NET-01", "SW-01", "HW-09"):
+        d = pick_assignee(members, scenario)
+        assert d.selected and d.user_id == 2 and d.excluded == {}
 
 
 def test_jira_account_requirement_can_be_relaxed():
@@ -370,6 +378,6 @@ def test_absent_user_ids_annual_and_half_days():
     with __import__("pytest").raises(ValueError):
         absent_user_ids([TimeOff(5, "SICK", d, d)], morning)
 
-    members = [Member(user_id=i, employee_no=f"EMP-{i}", jira_account_id=f"acc{i}", scenario_ids=frozenset({"NET-01"})) for i in (1, 2, 3)]
+    members = [Member(user_id=i, employee_no=f"EMP-{i}", jira_account_id=f"acc{i}") for i in (1, 2, 3)]
     assert pick_assignee(members, "NET-01", exclude_user_ids=absent_user_ids(entries, morning)).user_id == 3
     assert pick_assignee(members, "NET-01", exclude_user_ids=absent_user_ids(entries, afternoon)).user_id == 2

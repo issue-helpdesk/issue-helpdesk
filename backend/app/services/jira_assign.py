@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from app.integrations.jira.client import JiraClient, JiraError
 from app.integrations.jira.mapper import work_status_from_jira
 from app.integrations.jira.retry import RetryPolicy, next_step
-from app.models import (AssignmentLog, Inquiry, InquiryType, IntegrationJob, MemberSkill, Notification,
+from app.models import (AssignmentLog, Inquiry, InquiryType, IntegrationJob, Notification,
                         SupportGroup, SupportGroupMember, Ticket, User)
 from app.utils import datetime_utils
 
@@ -147,7 +147,6 @@ def _validate(db: Session, jira: JiraClient, job: IntegrationJob, ticket: Ticket
     if (not group or not group.is_active or not user or user.account_status != "ACTIVE"
             or user.service_role not in {"AGENT", "ADMIN"} or not member or not member.is_active
             or not member.assignable or not kind or not kind.is_active
-            or db.get(MemberSkill, (user.id, kind.id), populate_existing=True) is None
             or not inquiry or inquiry.status not in {"RECEIVED", "HANDED_OFF"}
             or (p["requestedBy"] is not None and db.get(User, p["requestedBy"]) is None)):
         raise JiraError("ineligible_assignee", "현재 배정 공통 자격을 충족하지 않습니다.", retryable=False)

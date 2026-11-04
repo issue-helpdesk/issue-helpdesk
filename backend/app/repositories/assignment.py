@@ -5,7 +5,7 @@ from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.integrations.jira import Member
-from app.models import AssignmentLog, InquiryType, MemberSkill, SupportGroup, SupportGroupMember, Ticket, User
+from app.models import AssignmentLog, SupportGroup, SupportGroupMember, Ticket, User
 
 
 class AssignmentRepository:
@@ -33,7 +33,6 @@ class AssignmentRepository:
         user_ids = [user.id for _, user in rows]
         if not user_ids:
             return []
-        skills = self.skills(user_ids)
         workload = self.workload(user_ids, exclude_ticket_id)
         last = self.last_assigned(user_ids)
         return [
@@ -46,7 +45,6 @@ class AssignmentRepository:
                 member_active=member.is_active,
                 assignable=member.assignable,
                 jira_account_id=member.jira_account_id,
-                scenario_ids=frozenset(skills[user.id]),
                 rdy=workload[user.id]["RDY"],
                 wip=workload[user.id]["WIP"],
                 reserved=workload[user.id]["PENDING"],
@@ -54,17 +52,6 @@ class AssignmentRepository:
             )
             for member, user in rows
         ]
-
-    def skills(self, user_ids: list[int]) -> dict[int, set[str]]:
-        out: dict[int, set[str]] = defaultdict(set)
-        rows = self.db.execute(
-            select(MemberSkill.user_id, InquiryType.code)
-            .join(InquiryType, InquiryType.id == MemberSkill.inquiry_type_id)
-            .where(MemberSkill.user_id.in_(user_ids))
-        )
-        for user_id, code in rows:
-            out[user_id].add(code)
-        return out
 
     def workload(self, user_ids: list[int], exclude_ticket_id: int | None) -> dict[int, dict[str, int]]:
         """사람별 업무량. 예약(assign_status = PENDING)과, 배정이 확인된(ASSIGNED) RDY·WIP 접수 (docs/11 3장)."""

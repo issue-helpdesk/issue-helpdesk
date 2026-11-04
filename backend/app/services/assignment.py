@@ -105,7 +105,6 @@ def manual_problem(member: Member | None, scenario: str | None) -> str | None:
         (member.member_active, "그룹 구성원 아님(비활성)"),
         (member.assignable, "배정 대상 아님"),
         (scenario is not None, "미분류 접수는 직접 지정할 수 없음(서비스데스크 확인)"),
-        (scenario in member.scenario_ids, "해당 세부 분류 처리 불가"),
         (bool((member.jira_account_id or "").strip()), "Jira 계정 없음"),
     )
     return next((why for ok, why in checks if not ok), None)
