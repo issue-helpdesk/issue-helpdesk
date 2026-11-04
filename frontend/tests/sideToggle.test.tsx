@@ -40,6 +40,23 @@ describe('사이드바 접기', () => {
     expect(localStorage.getItem('itssue-side')).toBe('on')
   })
 
+  it('접고 펴는 동안에만 전환 표시가 붙고, 펼칠 때는 항목에 순서 번호가 매겨져 차례로 나타난다', async () => {
+    renderAs('EMP-1178', '/ops')
+    await screen.findByRole('heading', { name: '운영 현황', level: 1 }, { timeout: 3000 })
+    expect(app()).not.toHaveClass('side-anim')
+    await userEvent.click(screen.getByRole('button', { name: '사이드바 접기' }))
+    expect(app()).toHaveClass('side-anim')
+    expect(app()).not.toHaveClass('side-in')
+    await userEvent.click(screen.getByRole('button', { name: '사이드바 펼치기' }))
+    expect(app()).toHaveClass('side-anim', 'side-in')
+    const items = [...document.querySelectorAll<HTMLElement>('.side .nav button')]
+    expect(items[0].style.getPropertyValue('--i')).not.toBe('')
+    expect(Number(items[3].style.getPropertyValue('--i'))).toBeGreaterThan(Number(items[0].style.getPropertyValue('--i')))
+    // 전환이 끝나면 표시가 사라져 스크롤바 등이 원래대로 돌아온다
+    await waitFor(() => expect(app()).not.toHaveClass('side-anim'), { timeout: 3000 })
+    expect(app()).not.toHaveClass('side-in')
+  })
+
   it('접어 둔 상태는 다음에 열어도 유지된다', async () => {
     localStorage.setItem('itssue-side', 'off')
     renderAs('EMP-1001', '/chat/new')

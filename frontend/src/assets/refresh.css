@@ -39,24 +39,29 @@
 /* ---- 사이드바: 로고에서 열고 닫기 (Soft Dock). 펼침: 로고 + 단순한 < 버튼 / 접힘: IT 로고 + 아이콘 레일(마우스를 올리면 메뉴 이름, 맥 도크처럼 아이콘이 커짐) ---- */
 .brand{position:relative;min-height:36px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .brandbtn{position:relative;display:flex;align-items:center;height:36px;padding:0;border:0;background:none;cursor:pointer;min-width:0}
-.brandbtn .lg{transition:opacity .24s .2s,transform .34s .16s cubic-bezier(.22,1,.36,1);transform-origin:left center}
+.brandbtn .lg{transition:opacity .3s .22s,transform .5s .18s cubic-bezier(.22,1,.36,1);transform-origin:left center}
 .itmark{position:absolute;left:50%;top:50%;width:30px;height:auto;transform:translate(-50%,-50%) scale(.6);opacity:0;fill:var(--lg-it,#E0457F);transition:opacity .12s,transform .2s cubic-bezier(.22,1,.36,1);pointer-events:none}
 .sbk{width:28px;height:28px;border:0;background:transparent;color:var(--mute);display:inline-flex;align-items:center;justify-content:center;flex:none;padding:0;border-radius:8px;cursor:pointer;transition:color .12s,opacity .2s}
 .sbk:hover{color:var(--link)}.sbk:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px}
 .sbk .i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .32s cubic-bezier(.22,1,.36,1)}
 @media (min-width:861px){
-  .app{transition:grid-template-columns .42s cubic-bezier(.22,1,.36,1)}
+  .app{transition:grid-template-columns .6s cubic-bezier(.22,1,.36,1)}
   .app.side-off,.app.side-off.has-detail{grid-template-columns:76px minmax(0,1fr)}
   .app>.side{position:relative;z-index:30}
   .app .side{transition:none}
-  .nav button>span:not(.count){max-width:190px;overflow:hidden;white-space:nowrap;transition:opacity .22s .2s,max-width .34s cubic-bezier(.22,1,.36,1)}
-  .nav .grp{transition:opacity .22s .2s}
-  .side>.nav:has(.recent){transition:opacity .26s .24s}
+  .nav button>span:not(.count){max-width:190px;overflow:hidden;white-space:nowrap;transition:opacity .2s,max-width .5s cubic-bezier(.22,1,.36,1)}
+  .nav .grp{transition:opacity .2s}
+  .side>.nav:has(.recent){transition:opacity .3s}
+  /* 접고 펴는 동안에는 사이드바 스크롤바가 잠깐 나타나지 않게 한다 */
+  .app.side-anim .side{overflow:hidden!important}
+  /* 펼칠 때: 페이지 전환처럼 항목이 아래에서 올라오며 차례로 나타난다(순서는 --i, 폭이 열리기 시작한 뒤부터) */
+  @keyframes sbin{from{opacity:0;transform:translateY(12px)}}
+  .app.side-in .side .brand>*,.app.side-in .side .nav>.grp,.app.side-in .side .nav button,.app.side-in .side .recent .rt,.app.side-in .side .modebar,.app.side-in .side .who{animation:sbin .72s cubic-bezier(.22,1,.36,1) backwards;animation-delay:calc(.22s + var(--i,0)*.05s)}
   .app.side-off .side{width:76px;padding:14px 0 12px;align-items:center;gap:6px;overflow:visible}
   .app.side-off .brand{width:100%;height:44px;display:flex;align-items:center;justify-content:center}
   .app.side-off .brandbtn{pointer-events:none}
   .app.side-off .brandbtn .lg{opacity:0;transform:scale(.55)}
-  .app.side-off .itmark{opacity:1;transform:translate(-50%,-50%) scale(1);transition:opacity .24s .18s,transform .34s .18s cubic-bezier(.22,1,.36,1)}
+  .app.side-off .itmark{opacity:1;transform:translate(-50%,-50%) scale(1);transition:opacity .3s .22s,transform .5s .2s cubic-bezier(.22,1,.36,1)}
   .app.side-off .brandbtn .lg{transition:opacity .12s,transform .2s cubic-bezier(.22,1,.36,1)}
   /* 접힌 상태에서 로고에 올리면 IT 대신 펼치기 버튼(>)이 나온다. 로고 영역 안 어디를 눌러도 펼쳐진다 */
   .app.side-off .sbk{position:absolute;inset:0;width:auto;height:auto;border-radius:12px;opacity:0;background:var(--side)}
@@ -82,7 +87,7 @@
   .app.side-off .nav button:has(+ button:hover) .i,.app.side-off .nav button:hover + button .i{transform:scale(1.18)}
 }
 @media (max-width:860px){.sbk{display:none}}
-@media (prefers-reduced-motion:reduce){.app,.nav button>span:not(.count),.nav .grp,.side>.nav:has(.recent),.brandbtn .lg,.itmark,.sbk .i,.app.side-off .nav button .i,.app.side-off .nav button::after,.app.side-off .itmark,.app.side-off .brandbtn .lg{transition:none}}
+@media (prefers-reduced-motion:reduce){.app.side-in .side *{animation:none!important}.app,.nav button>span:not(.count),.nav .grp,.side>.nav:has(.recent),.brandbtn .lg,.itmark,.sbk .i,.app.side-off .nav button .i,.app.side-off .nav button::after,.app.side-off .itmark,.app.side-off .brandbtn .lg{transition:none}}
 
 /* ---- 팀별 개인 현황 접기 · 최근 처리 결과(같은 건은 한 줄) · 확인 창 ---- */
 .ocurh{display:flex;align-items:center;justify-content:space-between;gap:12px}.ocurh .subc{flex:1;min-width:0}.ocurh .tgc{flex:none}#ocur-b{margin-top:12px}
