@@ -14,12 +14,6 @@ import { tokenStore } from '../src/core/tokenStore'
 
 const SLOW = { timeout: 3000 }
 
-/** 선택 상자(SelectBox)에서 항목 고르기: 칸을 눌러 목록을 열고 항목을 누른다 */
-async function choose(scope: HTMLElement, label: string, option: string | RegExp) {
-  await userEvent.click(within(scope).getByLabelText(label))
-  await userEvent.click(await screen.findByRole('option', { name: option }))
-}
-
 function renderAs(employeeNo: string, path: string) {
   tokenStore.set(`mock.${employeeNo}`)
   return render(
