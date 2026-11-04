@@ -40,6 +40,9 @@ export function pollInterval(ageMs: number): number {
 }
 const lastPoll = new Map<number, number>()
 
+/** 실패 사유를 문장마다 줄을 바꿔 읽기 쉽게 한다 ("…못했습니다. PDF라면 …" → 두 줄). 화면에서 줄바꿈(pre-line)과 함께 쓴다 */
+export const breakSentences = (s: string) => s.replace(/([.!?])\s+(?=\S)/g, '$1\n')
+
 const KEY = 'itssue-guide-watch'
 
 function load(): { pending: IngestWatch[]; failed: IngestFailure[] } {

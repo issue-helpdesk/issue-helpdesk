@@ -5,7 +5,7 @@
  */
 import { useEffect, useSyncExternalStore } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getIngestFailures, markFailuresSeen, startIngestPolling, watchIngest } from '../api/guideWatch'
+import { breakSentences, getIngestFailures, markFailuresSeen, startIngestPolling, watchIngest } from '../api/guideWatch'
 import { useAuth } from '../core/session'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
@@ -24,7 +24,10 @@ export function GuideIngestAlert() {
   const first = fresh[0]
   return (
     <Modal title="가이드 적재에 실패했어요" variant="choice" role="alertdialog" dismissible={false} closeButton onClose={markFailuresSeen} lead={<Pav size={84} />}>
-      <p>검색 준비(적재)가 끝나지 않은 가이드가 {fresh.length}개 있어요. 이 가이드는 현행으로 바꿀 수 없어요.</p>
+      <p>
+        검색 준비(적재)가 끝나지 않은 가이드가 {fresh.length}개 있어요.
+        <br />이 가이드는 현행으로 바꿀 수 없어요.
+      </p>
       <ul className="gia">
         {fresh.map((f) => (
           <li key={f.versionId}>
@@ -32,7 +35,8 @@ export function GuideIngestAlert() {
               {f.docCode} {f.title} · {f.version}
             </b>
             <span>
-              <Icon name="alert" /> {f.error || '실패 사유를 받지 못했어요'}
+              <Icon name="alert" />
+              <em>{breakSentences(f.error || '실패 사유를 받지 못했어요')}</em>
             </span>
           </li>
         ))}

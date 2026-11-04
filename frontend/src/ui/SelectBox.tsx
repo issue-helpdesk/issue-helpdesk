@@ -155,6 +155,8 @@ export function SelectBox({ id, value, options, onChange, placeholder = '선택�
         disabled={disabled}
         onClick={() => (open ? close() : openMenu())}
         onKeyDown={onKeyDown}
+        // 어떤 길로든 초점이 칸을 떠나면(바깥 누르기·Tab·다른 칸) 닫는다. 목록 항목은 mousedown 을 막아 초점을 칸에 둔다
+        onBlur={() => setOpen(false)}
       >
         <span className="sbxv">
           {current?.accent && <span className={`tag gcbar c-${current.accent} sbxbar`} aria-hidden="true" />}

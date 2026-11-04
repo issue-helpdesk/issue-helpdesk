@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/App'
-import { STALL_MESSAGE, STALL_MS, getIngestFailures, markFailuresSeen, pollIngest, pollInterval, resetIngestWatch, trackIngest } from '../src/api/guideWatch'
+import { STALL_MESSAGE, STALL_MS, breakSentences, getIngestFailures, markFailuresSeen, pollIngest, pollInterval, resetIngestWatch, trackIngest } from '../src/api/guideWatch'
 import { resetGuideMock, uploadGuideVersion } from '../src/api/guides'
 import { MOCK_ACCOUNTS } from '../src/api/mock/accounts'
 import type { User } from '../src/api/types'
@@ -68,6 +68,14 @@ describe('적재 결과 추적 (api)', () => {
   }, 20_000)
 })
 
+describe('실패 사유 줄바꿈', () => {
+  it('문장마다 줄을 바꾼다 (한 문장·끝 공백은 그대로)', () => {
+    expect(breakSentences('문서에서 글자를 찾지 못했습니다. PDF라면 스캔본일 수 있으니 글자가 있는 원본을 올려 주세요.')).toBe('문서에서 글자를 찾지 못했습니다.\nPDF라면 스캔본일 수 있으니 글자가 있는 원본을 올려 주세요.')
+    expect(breakSentences('빈 파일입니다.')).toBe('빈 파일입니다.')
+    expect(breakSentences('v1.0 파일이 달라요')).toBe('v1.0 파일이 달라요')
+  })
+})
+
 describe('조회 간격과 멈춘 적재', () => {
   it('오래 기다릴수록 조회 간격이 길어진다 (3초 → 10초 → 30초)', () => {
     expect([pollInterval(0), pollInterval(29_000), pollInterval(31_000), pollInterval(119_000), pollInterval(121_000)]).toEqual([3000, 3000, 10_000, 10_000, 30_000])
@@ -96,6 +104,9 @@ describe('가이드 적재 실패 알림 (화면)', () => {
     const dlg = await screen.findByRole('alertdialog', { name: '가이드 적재에 실패했어요' }, { timeout: 9000 })
     expect(within(dlg).getByText(/IT-ACC-003 MFA 인증 오류 대응 가이드 · v99\.0/)).toBeInTheDocument()
     expect(within(dlg).getByText(/스캔본일 수 있으니/)).toBeInTheDocument()
+    // 안내문과 실패 사유 모두 문장 단위로 줄이 나뉜다
+    expect(dlg.querySelector('p br')).not.toBeNull()
+    expect(dlg.querySelector('.gia em')!.textContent).toBe('문서에서 글자를 찾지 못했습니다.\nPDF라면 스캔본일 수 있으니 글자가 있는 원본을 올려 주세요.')
     // 사이드바 가이드 관리 옆 점
     const nav = screen.getByRole('navigation', { name: '주 메뉴' })
     expect(within(nav).getByRole('img', { name: '적재 실패 1건' })).toBeInTheDocument()
