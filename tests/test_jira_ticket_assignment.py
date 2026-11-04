@@ -36,7 +36,6 @@ def ticket():
 def target():
     return AssignmentTarget(3, Member(
         user_id=7, employee_no="EMP-TEST", jira_account_id="account-test",
-        scenario_ids=frozenset({"NET-01"}),
     ), "AGENT")
 
 
@@ -134,7 +133,6 @@ def test_inconsistent_saved_context_is_rejected(ticket, target, field, value):
 @pytest.mark.parametrize("change", [
     {"is_manager": True}, {"user_active": False}, {"member_active": False},
     {"assignable": False}, {"jira_account_id": None},
-    {"scenario_ids": frozenset({"SW-01"})},
 ])
 def test_ineligible_target_is_not_sent_to_jira(ticket, target, change):
     target = replace(target, member=replace(target.member, **change))
@@ -288,7 +286,7 @@ def test_reassignment_is_idempotent_when_jira_already_matches(ticket, target):
 
 @pytest.mark.parametrize("member_update", [
     {"user_active": False}, {"member_active": False}, {"assignable": False},
-    {"jira_account_id": None}, {"scenario_ids": frozenset({"SW-01"})},
+    {"jira_account_id": None},
 ])
 def test_reassignment_keeps_common_tk09_eligibility_checks(ticket, target, member_update):
     target = replace(target, member=replace(target.member, **member_update))

@@ -177,7 +177,7 @@ def test_old_revision_does_not_touch_latest_reservation_or_call_jira(assign_db):
     assert len(db.scalars(select(AssignmentLog)).all()) == 1
 
 
-@pytest.mark.parametrize("change", ["user_inactive", "role", "group_inactive", "member_inactive", "unassignable", "skill", "account"])
+@pytest.mark.parametrize("change", ["user_inactive", "role", "group_inactive", "member_inactive", "unassignable", "account"])
 def test_current_eligibility_is_checked_before_external_call(assign_db, change):
     db = assign_db
     ticket, job = make_assignment(db)
@@ -187,7 +187,6 @@ def test_current_eligibility_is_checked_before_external_call(assign_db, change):
     elif change == "group_inactive": db.get(SupportGroup, 3).is_active = False
     elif change == "member_inactive": member.is_active = False
     elif change == "unassignable": member.assignable = False
-    elif change == "skill": db.delete(db.get(MemberSkill, (18, 21)))
     elif change == "account": member.jira_account_id = "changed-account"
     db.commit()
     jira = FakeAssignment()
@@ -195,6 +194,17 @@ def test_current_eligibility_is_checked_before_external_call(assign_db, change):
     assert result.outcome == "NEEDS_ADMIN"
     assert reload(db, Ticket, ticket.id).assignee_id is None
     assert jira.calls == []
+
+
+def test_member_skill_is_not_an_eligibility_condition(assign_db):
+    """처리 분류(member_skills)에 없어도 배정 실행은 막지 않는다 (11.04 팀 결정: 과거 처리 이력 확인용)."""
+    db = assign_db
+    ticket, job = make_assignment(db)
+    db.delete(db.get(MemberSkill, (18, 21)))
+    db.commit()
+    jira = FakeAssignment()
+    assert service.run_jira_assign_job(db, jira.client(), job.id, now=NOW).outcome != "NEEDS_ADMIN"
+    assert reload(db, Ticket, ticket.id).assignee_id == 18
 
 
 @pytest.mark.parametrize("status", ["10007", "unknown"])
