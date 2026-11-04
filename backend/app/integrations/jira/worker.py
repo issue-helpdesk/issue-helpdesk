@@ -4,10 +4,12 @@
     uv run python backend/app/integrations/jira/worker.py --interval 30     # 30초마다 반복 (Ctrl+C 로 종료)
 
 한 번 돌 때 생성 → 배정 → 상태 변경 순으로 각 서비스의 중단 복구·단건 실행 함수를 호출하고,
-마지막에 API 가 저장해 둔 웹훅 이벤트(PENDING)를 run_due_webhook_events 로 DB 에 반영한다.
-웹훅을 마지막에 두는 이유: ITssue 가 보낸 변경이 되돌아온 이벤트는 위 작업이 끝난 뒤라야 값이 같아 그대로 끝난다.
+API 가 저장해 둔 웹훅 이벤트(PENDING)를 run_due_webhook_events 로 DB 에 반영하고,
+마지막으로 웹훅이 빠졌을 때를 대비해 1분 넘게 Jira 와 대조하지 않은 접수를 run_due_ticket_syncs 로 다시 맞춘다.
+웹훅을 그 앞에 두는 이유: ITssue 가 보낸 변경이 되돌아온 이벤트는 위 작업이 끝난 뒤라야 값이 같아 그대로 끝난다.
 --limit 은 종류별 상한이다(웹훅은 Jira 를 부른 건수 기준). --ticket-id 를 주면 조회·복구·실행 모두 해당 접수만 처리하고,
-웹훅 이벤트는 접수별로 고르는 기능이 없어 그때는 처리하지 않는다. 웹훅만 끄려면 --no-webhook.
+웹훅 이벤트·주기 대조는 접수별로 고르는 기능이 없어 그때는 처리하지 않는다. 웹훅만 끄려면 --no-webhook, 주기 대조만 끄려면 --no-sync.
+주기 대조는 --sync-limit(한 회차 최대 접수 수, 기본 20)과 --sync-after-seconds(대조 간격, 기본 60, 최소 30)로 조절한다.
 
 필요한 것: 루트 .env 의 DATABASE_URL · JIRA_BASE_URL · JIRA_EMAIL · JIRA_API_TOKEN
 서버 안에 붙이는 일(앱 시작 시 백그라운드로 띄우기)은 main.py 담당이 정한다. 이 파일은 main.py 를 건드리지 않는다.
@@ -37,12 +39,13 @@ from app.utils import datetime_utils  # noqa: E402
 from app.services.jira_create import JobResult  # noqa: E402
 from app.services.jira_assign import AssignmentResult  # noqa: E402
 from app.services.jira_transition import TransitionResult  # noqa: E402
-from app.services.jira_webhook import WebhookResult  # noqa: E402
+from app.services.jira_webhook import PERIODIC_SYNC_AFTER, SYNC_INTERVAL, TicketSyncResult, WebhookResult  # noqa: E402
 
 logger = logging.getLogger("jira_worker")
 
 JOB_TYPES = ("JIRA_CREATE", "JIRA_ASSIGN", "JIRA_TRANSITION")
 WEBHOOK_KIND = "WEBHOOK"     # 작업표(IntegrationJob)의 종류가 아니라 jira_webhook_events 를 처리하는 단계의 이름
+SYNC_KIND = "SYNC"           # 마찬가지로 작업표 밖의 단계: 오래 대조하지 않은 접수를 Jira 와 다시 맞추는 주기 대조
 
 
 @dataclass
@@ -50,7 +53,7 @@ class RoundReport:
     """한 번 돈 결과."""
 
     requeued: int
-    results: list[JobResult | AssignmentResult | TransitionResult | WebhookResult]
+    results: list[JobResult | AssignmentResult | TransitionResult | WebhookResult | TicketSyncResult]
     result_types: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
@@ -84,10 +87,15 @@ def run_round(
     job_types: tuple[str, ...] = JOB_TYPES,
     ticket_id: int | None = None,
     webhook: bool = True,
+    sync: bool = False,
+    sync_limit: int = 20,
+    sync_after: timedelta = PERIODIC_SYNC_AFTER,
 ) -> RoundReport:
-    """종류별 복구 뒤 단건 실행, 이어서 웹훅 이벤트 반영. 예외는 rollback하고 나머지 작업을 계속한다."""
+    """종류별 복구 뒤 단건 실행, 이어서 웹훅 이벤트 반영과 주기 대조. 예외는 rollback하고 나머지 작업을 계속한다."""
     if limit < 1 or stale_after <= timedelta(0) or (ticket_id is not None and ticket_id < 1):
         raise ValueError("limit·stale_after·ticket_id는 양수여야 합니다.")
+    if sync and ticket_id is None and (sync_limit < 1 or sync_after < SYNC_INTERVAL):
+        raise ValueError("sync_limit은 1 이상, sync_after는 30초 이상이어야 합니다.")
     if not job_types or set(job_types) - set(JOB_TYPES):
         raise ValueError("지원하지 않는 작업 종류입니다.")
     now = now or datetime_utils.now()
@@ -124,7 +132,28 @@ def run_round(
                 logger.error("작업 실행 실패: kind=%s job_id=%s error=%s", kind, job_id, type(error).__name__)
     if webhook and ticket_id is None:
         _run_webhooks(db, jira, report, limit=limit, now=now)
+    if sync and ticket_id is None:
+        _run_syncs(db, jira, report, limit=sync_limit, stale_after=sync_after, now=now)
     return report
+
+
+def _run_syncs(db: Session, jira: JiraClient, report: RoundReport, *, limit: int, stale_after: timedelta,
+               now: datetime) -> None:
+    """오래 대조하지 않은 접수를 Jira 와 다시 맞춘다. 접수 한 건씩 커밋하므로 중간에 예외가 나도 앞의 결과는 남는다."""
+    try:
+        results = jira_webhook.run_due_ticket_syncs(db, jira, limit=limit, stale_after=stale_after, now=now)
+    except Exception as error:
+        db.rollback()
+        report.errors.append(f"{SYNC_KIND}:run:{type(error).__name__}")
+        logger.error("주기 대조 실패: error=%s", type(error).__name__)
+        return
+    for result in results:
+        report.results.append(result)
+        report.result_types.append(SYNC_KIND)
+        if result.outcome == "ERROR":
+            report.errors.append(f"{SYNC_KIND}:{result.ticket_id}:error")
+        if result.outcome != "SYNCED":          # 정상은 요약 줄의 건수로 충분하다
+            logger.info("주기 대조 결과: ticket_id=%s outcome=%s", result.ticket_id, result.outcome)
 
 
 def _run_webhooks(db: Session, jira: JiraClient, report: RoundReport, *, limit: int, now: datetime) -> None:
@@ -154,6 +183,9 @@ def run_loop(
     job_types: tuple[str, ...] = JOB_TYPES,
     ticket_id: int | None = None,
     webhook: bool = True,
+    sync: bool = False,
+    sync_limit: int = 20,
+    sync_after: timedelta = PERIODIC_SYNC_AFTER,
 ) -> int:
     """stop 이 켜질 때까지 반복한다. 한 번 도는 중 예외가 나도 다음 주기에 다시 시도한다.
 
@@ -164,7 +196,8 @@ def run_loop(
         try:
             with session_factory() as db:
                 report = run_round(db, jira, limit=limit, stale_after=stale_after,
-                                   job_types=job_types, ticket_id=ticket_id, webhook=webhook)
+                                   job_types=job_types, ticket_id=ticket_id, webhook=webhook,
+                                   sync=sync, sync_limit=sync_limit, sync_after=sync_after)
             logger.info(report.summary())
             failed = bool(report.errors)
         except Exception:  # 코드·DB 오류. 작업은 RUNNING 으로 남고 다음에 requeue 된다
@@ -184,12 +217,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--stale-minutes", type=float, default=5.0, help="이 시간 넘게 RUNNING 이면 방치로 보고 되돌림, 기본 5분")
     parser.add_argument("--job-types", nargs="+", choices=JOB_TYPES, default=list(JOB_TYPES),
                         help="처리할 작업 종류, 기본값은 생성·배정·상태 변경 모두")
-    parser.add_argument("--ticket-id", type=int, help="지정한 접수만 복구·실행 (단건 시험용, 웹훅 반영은 하지 않음)")
+    parser.add_argument("--ticket-id", type=int, help="지정한 접수만 복구·실행 (단건 시험용, 웹훅 반영·주기 대조는 하지 않음)")
     parser.add_argument("--no-webhook", action="store_true", help="웹훅 이벤트 반영을 건너뜀 (기본은 매 회차 반영)")
+    parser.add_argument("--no-sync", action="store_true", help="오래 대조하지 않은 접수의 주기 대조를 건너뜀 (기본은 매 회차 실행)")
+    parser.add_argument("--sync-limit", type=int, default=20, help="주기 대조 한 회차 최대 접수 수, 기본 20")
+    parser.add_argument("--sync-after-seconds", type=float, default=PERIODIC_SYNC_AFTER.total_seconds(),
+                        help="이 시간 넘게 Jira 와 대조하지 않은 접수를 다시 맞춤(초), 기본 60, 최소 30")
     args = parser.parse_args(argv)
     if (args.interval <= 0 or args.limit < 1 or args.stale_minutes <= 0
             or (args.ticket_id is not None and args.ticket_id < 1)):
         parser.error("interval·limit·stale-minutes·ticket-id는 양수여야 합니다.")
+    if args.sync_limit < 1 or args.sync_after_seconds < SYNC_INTERVAL.total_seconds():
+        parser.error("sync-limit은 1 이상, sync-after-seconds는 30 이상이어야 합니다.")
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -201,8 +240,8 @@ def main(argv: list[str] | None = None) -> int:
         signal.signal(sig, lambda *_: stop.set())
 
     with JiraClient.from_env() as jira:
-        logger.info("시작: interval=%ss limit=%s once=%s webhook=%s", args.interval, args.limit, args.once,
-                    not args.no_webhook and args.ticket_id is None)
+        logger.info("시작: interval=%ss limit=%s once=%s webhook=%s sync=%s", args.interval, args.limit, args.once,
+                    not args.no_webhook and args.ticket_id is None, not args.no_sync and args.ticket_id is None)
         code = run_loop(
             lambda: Session(engine),
             jira,
@@ -214,6 +253,9 @@ def main(argv: list[str] | None = None) -> int:
             job_types=tuple(args.job_types),
             ticket_id=args.ticket_id,
             webhook=not args.no_webhook,
+            sync=not args.no_sync,
+            sync_limit=args.sync_limit,
+            sync_after=timedelta(seconds=args.sync_after_seconds),
         )
     logger.info("종료")
     return code
