@@ -5,10 +5,11 @@
  * 담당자는 "업무", 관리자는 "운영" 메뉴가 더해진다. (PRD 2장: 담당자·관리자도 일반 임직원 기능을 쓴다)
  * 아직 만들지 않은 화면의 메뉴는 넣지 않고, 화면을 만들 때 아래 목록에 추가한다.
  */
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { watchMyInquiries } from '../api/inquiries'
 import { watchUnread } from '../api/notifications'
+import { getIngestFailures, watchIngest } from '../api/guideWatch'
 import { countOpsAttention } from '../api/ops'
 import { countSecurityAlerts, watchSecurity } from '../api/security'
 import { listTickets, watchTickets } from '../api/tickets'
@@ -82,6 +83,8 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   const [attention, setAttention] = useState(0)
   const [secNew, setSecNew] = useState(0)
   const isAdmin = user?.serviceRole === 'ADMIN'
+  // 가이드 적재에 실패한 버전 수 (가이드 관리 메뉴 옆 점)
+  const guideFail = useSyncExternalStore(watchIngest, getIngestFailures).length
   useEffect(() => {
     if (!user || !isAdmin) return
     return watchTickets(() => {
@@ -174,6 +177,8 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       {it.to === '/queue' && queue.nw === 0 && queue.n > 0 && <span className="count">{queue.n}</span>}
       {it.to === '/ops' && attention > 0 && <span className="count">{attention}</span>}
       {it.to === '/security' && secNew > 0 && <span className="count">{secNew}</span>}
+      {/* 가이드 적재 실패: 숫자 대신 점 (어느 가이드인지는 가이드 관리에서 분류·가이드 옆 점으로 보인다) */}
+      {it.to === '/guides' && isAdmin && guideFail > 0 && <span className="count dot" role="img" aria-label={`적재 실패 ${guideFail}건`} title={`적재에 실패한 가이드 ${guideFail}건`} />}
     </button>
   )
 

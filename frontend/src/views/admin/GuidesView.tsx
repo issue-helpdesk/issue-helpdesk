@@ -5,7 +5,7 @@
  * 문서·버전은 문서 API(DC-01·02·06·07·09), 해결 사례 묶음은 접수 목록(TK-05)을 읽어 화면에서 만든다.
  * 서버에 없는 버전 메모·정책 변경 사유·가이드 초안 만들기는 서버 모드에서 안내만 한다. (api/guides.ts, 요청 R-21~23)
  */
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
@@ -39,6 +39,7 @@ import {
   type GuideTx,
   type GuideVersion,
 } from '../../api/guides'
+import { getIngestFailures, recordVersions, trackIngest, watchIngest } from '../../api/guideWatch'
 import { listTickets } from '../../api/tickets'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
@@ -109,9 +110,17 @@ export function GuidesView() {
   const [clOpen, setClOpen] = useState<number | null>(null)
   const [tick, setTick] = useState(0)
   const [hideInactive, setHideInactive] = useState(false)
+  // 적재에 실패한 버전 (가이드·분류 옆 점). 추적 기록은 api/guideWatch.ts 가 관리한다
+  const failures = useSyncExternalStore(watchIngest, getIngestFailures)
+  const failDocs = useMemo(() => new Set(failures.map((f) => f.docId)), [failures])
+  const failCats = useMemo(() => new Set(failures.map((f) => f.cat)), [failures])
+  const guidesRef = useRef<Guide[] | null>(null)
   const [toast, setToast] = useState('')
-  const [dlg, setDlg] = useState<null | { kind: 'upload' } | { kind: 'active'; g: Guide; to: boolean } | { kind: 'tx'; g: Guide; v: GuideVersion; to: GuideTx } | { kind: 'note'; g: Guide; v: GuideVersion } | { kind: 'draft'; c: Cluster; i: number }>(null)
+  const [dlg, setDlg] = useState<null | { kind: 'upload' } | { kind: 'ingest'; g: Guide; v: GuideVersion } | { kind: 'active'; g: Guide; to: boolean } | { kind: 'tx'; g: Guide; v: GuideVersion; to: GuideTx } | { kind: 'note'; g: Guide; v: GuideVersion } | { kind: 'draft'; c: Cluster; i: number }>(null)
   const admin = user?.serviceRole === 'ADMIN'
+  useEffect(() => {
+    guidesRef.current = guides
+  }, [guides])
 
   const say = useCallback((m: string) => {
     setToast(m)
@@ -119,6 +128,8 @@ export function GuidesView() {
   }, [])
 
   useEffect(() => watchGuides(() => setTick((n) => n + 1)), [])
+  // 적재 추적이 결과를 알아내면(성공·실패·멈춤) 바로 다시 읽는다. 그래서 화면 쪽 주기 조회는 느려도 된다
+  useEffect(() => watchIngest(() => setTick((n) => n + 1)), [])
   useEffect(() => {
     if (!user || !admin) return
     let alive = true
@@ -151,7 +162,10 @@ export function GuidesView() {
     if (!user || !admin || openId === null) return
     let alive = true
     listGuideVersions(user, openId).then((r) => {
-      if (alive && r.ok) setVers((m) => ({ ...m, [openId]: r.data }))
+      if (!alive || !r.ok) return
+      setVers((m) => ({ ...m, [openId]: r.data }))
+      const g = guidesRef.current?.find((x) => x.id === openId)
+      if (g) recordVersions({ docId: g.id, docCode: g.docCode, title: g.title, cat: g.cat }, r.data)
     })
     return () => {
       alive = false
@@ -161,7 +175,7 @@ export function GuidesView() {
   // 검색 준비(적재)가 진행 중인 버전이 있으면 끝날 때까지 몇 초마다 다시 읽는다
   useEffect(() => {
     if (!Object.values(vers).some((l) => l.some((x) => x.ready === '준비 중'))) return
-    return visiblePoll(() => setTick((n) => n + 1), 5000)
+    return visiblePoll(() => setTick((n) => n + 1), 10_000)
   }, [vers])
 
   // 해결 사례 묶음: 해결 완료(CLS) 접수를 읽는다 (탭 건수에도 쓴다)
@@ -201,6 +215,7 @@ export function GuidesView() {
     if (file && file.size > MAX_UPLOAD_BYTES) return say(MAX_UPLOAD_MESSAGE)
     const r = await retryGuideIngest(user, g.id, v.id, file)
     if (!r.ok) return say(r.error.message)
+    trackIngest({ docId: g.id, versionId: v.id, docCode: g.docCode, title: g.title, cat: g.cat, version: v.version })
     say(file ? `${v.version} 파일을 바꿔 검색 준비를 다시 시작했어요.` : `${v.version} 검색 준비를 다시 시작했어요.`)
     reload()
   }
@@ -227,6 +242,7 @@ export function GuidesView() {
           <span className="grt">
             <span className="grtl">
               <b>{guideLabel(g)}</b>
+              {failDocs.has(g.id) && <span className="fdot" role="img" aria-label="적재 실패가 있어요" title="적재에 실패한 버전이 있어요" />}
               {!g.isActive && <StateBadge tone="recv" label="비활성" />}
             </span>
             <div className="small muted">
@@ -275,28 +291,13 @@ export function GuidesView() {
                         <StateBadge tone={v.state === '현행' ? 'ok' : v.state === '초안' ? 'warn' : 'recv'} label={v.state} />
                       </td>
                       <td className="c">
-                        <StateBadge tone={v.ready === '준비 완료' ? 'ok' : v.ready === '준비 실패' ? 'urg' : 'warn'} label={v.ready} />
-                        {v.error && <div className="small muted">{v.error}</div>}
-                        {v.ready === '준비 실패' && (
-                          <span className="row" style={{ gap: 4, justifyContent: 'center' }}>
-                            <button type="button" className="btn ghost sm" aria-label={`${v.version} 검색 준비 다시 시도`} onClick={() => void retryIngest(g, v)}>
-                              다시 시도
-                            </button>
-                            <label className="btn ghost sm" style={{ cursor: 'pointer' }}>
-                              파일 바꿔 시도
-                              <input
-                                type="file"
-                                className="sr"
-                                accept=".pdf,.docx,.pptx,.md,.txt"
-                                aria-label={`${v.version} 파일을 바꿔서 검색 준비 다시 시도`}
-                                onChange={(e) => {
-                                  const f = e.target.files?.[0]
-                                  e.target.value = ''
-                                  if (f) void retryIngest(g, v, f)
-                                }}
-                              />
-                            </label>
-                          </span>
+                        {v.ready === '준비 실패' ? (
+                          <button type="button" className="rfail" aria-label={`${v.version} 준비 실패 사유 보기`} title="실패 사유와 다시 시도 보기" onClick={() => setDlg({ kind: 'ingest', g, v })}>
+                            <StateBadge tone="urg" label="준비 실패" />
+                            <span className="rfm">사유 보기</span>
+                          </button>
+                        ) : (
+                          <StateBadge tone={v.ready === '준비 완료' ? 'ok' : 'warn'} label={v.ready} />
                         )}
                       </td>
                       <td>{v.scope}</td>
@@ -364,7 +365,10 @@ export function GuidesView() {
               <button type="button" className="gcb" aria-expanded={open} onClick={() => setCatOpen((m) => ({ ...m, [c]: !m[c] }))}>
                 <span className={`tag c-${c} gcbar`} aria-hidden="true" />
                 <span className="gcm">
-                  <b>{CATEGORIES[c].name}</b>
+                  <b>
+                    {CATEGORIES[c].name}
+                    {failCats.has(c) && <span className="fdot" role="img" aria-label="적재 실패가 있어요" title="적재에 실패한 가이드가 있어요" />}
+                  </b>
                   <small>
                     {guideLabel(gs[0])}
                     {gs.length > 1 ? ` 외 ${gs.length - 1}개` : ''}
@@ -637,8 +641,22 @@ export function GuidesView() {
             setTab('list')
             setCatOpen((m) => ({ ...m, [u.cat]: true }))
             setOpenId(u.docId)
+            // 검색 준비가 끝나는지(실패하는지)를 다른 화면에 있어도 알 수 있게 추적한다
+            if (u.versionId) trackIngest({ docId: u.docId, versionId: u.versionId, docCode: u.docCode, title: u.title, cat: u.cat, version: u.version })
             say(`${u.version}을(를) 초안으로 올렸어요. 검색 준비가 끝나면 내용을 확인한 뒤 '현행 전환'을 눌러 주세요.`)
             reload()
+          }}
+        />
+      )}
+      {dlg?.kind === 'ingest' && (
+        <IngestDialog
+          g={dlg.g}
+          v={dlg.v}
+          onClose={() => setDlg(null)}
+          onRetry={(file) => {
+            const d = dlg
+            setDlg(null)
+            void retryIngest(d.g, d.v, file)
           }}
         />
       )}
@@ -702,6 +720,9 @@ export function GuidesView() {
 /** 업로드가 끝났을 때 알려 주는 값. 업로드한 버전은 항상 초안이고, 현행 전환은 관리자가 직접 한다 */
 interface Uploaded {
   docId: number
+  docCode: string
+  title: string
+  versionId: number
   cat: CategoryCode
   version: string
 }
@@ -714,6 +735,44 @@ const safeJson = (s: string): unknown => {
   } catch {
     return null
   }
+}
+
+/** 적재 실패 사유 창: 사유와 안내를 보여 주고 같은 파일로 / 파일을 바꿔 다시 시도하게 한다 */
+function IngestDialog({ g, v, onClose, onRetry }: { g: Guide; v: GuideVersion; onClose: () => void; onRetry: (file?: File) => void }) {
+  return (
+    <Modal title="검색 준비에 실패했어요" onClose={onClose}>
+      <p className="small muted">
+        {guideLabel(g)} · {v.version}
+      </p>
+      <div className="alert warn">
+        <Icon name="alert" />
+        <div>{v.error || '실패 사유를 받지 못했어요.'}</div>
+      </div>
+      <p className="small muted">실패한 버전은 현행으로 바꿀 수 없어요. 같은 파일은 다시 올릴 수 없어서, 아래에서 다시 시도하거나 글자가 있는 원본 파일로 바꿔 시도해 주세요.</p>
+      <div className="acts">
+        <button type="button" className="btn sec" onClick={onClose}>
+          닫기
+        </button>
+        <button type="button" className="btn sec" onClick={() => onRetry()}>
+          같은 파일로 다시 시도
+        </button>
+        <label className="btn pri" style={{ cursor: 'pointer' }}>
+          파일 바꿔 시도
+          <input
+            type="file"
+            className="sr"
+            accept=".pdf,.docx,.pptx,.md,.txt"
+            aria-label={`${v.version} 파일을 바꿔서 검색 준비 다시 시도`}
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (f) onRetry(f)
+            }}
+          />
+        </label>
+      </div>
+    </Modal>
+  )
 }
 
 /** 문서 활성화·비활성화 확인 창. 활성화하면 비활성화 전의 현행 버전이 바로 검색·답변에 쓰이므로 한 번 더 묻는다 */
@@ -898,7 +957,15 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
       if (f) return setErrs({ [f.field === 'docCode' ? 'title' : f.field === 'file' ? 'file' : 'ver']: r.error.code === 'DOCUMENT_FILE_DUPLICATE' ? r.error.message : (f.message ?? r.error.message) })
       return setErr(r.error.message)
     }
-    onDone({ docId: mode === 'ver' && doc ? doc.id : (r.data as Guide).id, cat, version })
+    const made2 = mode === 'ver' && doc ? null : (r.data as Guide)
+    onDone({
+      docId: doc && mode === 'ver' ? doc.id : made2!.id,
+      docCode: doc && mode === 'ver' ? doc.docCode : newCode,
+      title: doc && mode === 'ver' ? doc.title : title.trim(),
+      versionId: made2 ? (made2.versions?.[0]?.id ?? 0) : (r.data as GuideVersion).id,
+      cat,
+      version,
+    })
   }
 
   const field = (k: string, label: string, body: React.ReactNode, hint?: string) => (

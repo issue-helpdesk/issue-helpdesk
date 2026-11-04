@@ -97,6 +97,29 @@ const toGuide = (g: MockGuide): Guide => {
 }
 const findV = (g: MockGuide, versionId: number) => g.versions.find((x) => x.id === versionId)
 
+/**
+ * 모의 적재 결과: 파일 내용은 보지 않고 파일 이름·크기로만 실패를 시연한다 (실서버는 파일을 읽어 판단한다).
+ * - 이름에 scan 이 들어 있으면 글자를 못 찾은 스캔 PDF (실서버 no_text 문구와 같다)
+ * - 이름이 fail 로 시작하면 파일 머리의 문서 번호가 등록한 문서와 다른 경우
+ * - 크기가 0 이면 빈 파일
+ * 나머지는 모두 준비 완료다.
+ */
+export function mockIngestError(name: string, size: number, docCode: string): string | null {
+  if (size === 0) return '빈 파일입니다.'
+  if (/scan/i.test(name)) return '문서에서 글자를 찾지 못했습니다. PDF라면 스캔본일 수 있으니 글자가 있는 원본을 올려 주세요.'
+  if (/^fail/i.test(name)) return `파일의 문서 번호(IT-XXX-999)가 등록한 문서(${docCode})와 다릅니다`
+  return null
+}
+const mockFiles = new WeakMap<GuideVersion, { name: string; size: number }>()
+/** 2.8초 뒤 모의 적재를 끝낸다: 실패 조건이면 준비 실패와 사유, 아니면 준비 완료 */
+function finishMockIngest(x: GuideVersion, docCode: string) {
+  const f = mockFiles.get(x)
+  const err = f ? mockIngestError(f.name, f.size, docCode) : null
+  x.ready = err ? '준비 실패' : '준비 완료'
+  x.error = err ?? undefined
+  notify()
+}
+
 /* ------------------------------------------------------------------ 서버 */
 interface SDoc {
   id: number
@@ -187,13 +210,13 @@ export async function uploadGuide(user: User, input: UploadInput, onCreated?: (d
     if (store.some((g) => g.docCode === code)) return fail('DOCUMENT_CODE_DUPLICATE', '이미 있는 문서 번호예요.', { details: [{ field: 'docCode', reason: 'DUPLICATE', message: '이미 있는 문서 번호예요.' }] })
     const g: MockGuide = { id: ++seq.doc, docCode: code, title: input.title.trim(), cat: input.cat, versions: [v(++seq.ver, input.version?.trim() || 'v1.0', '초안', input.scope, input.tx, '준비 중', `업로드 · ${input.file.name}`)] }
     store.push(g)
+    if (g.versions[0]) mockFiles.set(g.versions[0], { name: input.file.name, size: input.file.size })
     notify()
-    // 검색 준비(텍스트 추출·색인)는 잠시 뒤에 끝난다
+    // 검색 준비(텍스트 추출·색인)는 잠시 뒤에 끝난다 (파일 이름·크기에 따라 실패도 시연한다)
     timers.push(
       setTimeout(() => {
         const x = g.versions[0]
-        if (x) x.ready = '준비 완료'
-        notify()
+        if (x) finishMockIngest(x, g.docCode)
       }, 2800),
     )
     return ok(toGuide(g))
@@ -229,13 +252,9 @@ export async function uploadGuideVersion(user: User, docId: number, input: { fil
     if (g.versions.some((x) => sameVersion(x.version, version))) return fail('DOCUMENT_VERSION_DUPLICATE', VERSION_DUP.message, { details: [VERSION_DUP] })
     const x = v(++seq.ver, version, '초안', input.scope, input.tx, '준비 중', `업로드 · ${input.file.name}`)
     g.versions.unshift(x)
+    mockFiles.set(x, { name: input.file.name, size: input.file.size })
     notify()
-    timers.push(
-      setTimeout(() => {
-        x.ready = '준비 완료'
-        notify()
-      }, 2800),
-    )
+    timers.push(setTimeout(() => finishMockIngest(x, g.docCode), 2800))
     return ok({ ...x })
   }
   const form = new FormData()
@@ -300,14 +319,12 @@ export async function retryGuideIngest(user: User, docId: number, versionId: num
     if (x.ready !== '준비 실패') return fail('DOCUMENT_VERSION_NOT_RETRYABLE', '검색 준비에 실패한 버전만 다시 시도할 수 있어요.')
     x.ready = '준비 중'
     x.error = undefined
-    if (file) x.note = `파일 교체 · ${file.name}`
+    if (file) {
+      x.note = `파일 교체 · ${file.name}`
+      mockFiles.set(x, { name: file.name, size: file.size })
+    }
     notify()
-    timers.push(
-      setTimeout(() => {
-        x.ready = '준비 완료'
-        notify()
-      }, 2800),
-    )
+    timers.push(setTimeout(() => finishMockIngest(x, g.docCode), 2800))
     return ok({ ...x })
   }
   let init: RequestInit = { method: 'POST' }

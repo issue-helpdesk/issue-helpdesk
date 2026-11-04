@@ -266,3 +266,14 @@
 .modal:has(.gu-seg) .acts .btn{min-height:38px;font-size:14px}
 .modal:has(.gu-seg) .hint,.modal:has(.gu-seg) .ferr{font-size:12.5px}
 @media (prefers-reduced-motion:reduce){.sbx,.sbxc{transition:none}}
+
+/* 가이드 적재 실패 표시: 점(사이드바·분류·가이드), 버전 표의 준비 실패 배지 단추, 알림 창 목록. 버전 칸은 줄바꿈 없이 넓게 */
+.count.dot{min-width:8px;width:8px;height:8px;padding:0;font-size:0;line-height:0;border-radius:50%;background:var(--s-urg-dot);color:transparent}
+.fdot{display:inline-block;width:8px;height:8px;margin-left:8px;border-radius:50%;background:var(--s-urg-dot);vertical-align:middle;box-shadow:0 0 0 3px color-mix(in srgb,var(--s-urg-dot) 22%,transparent)}
+.gvt .tbl th:first-child,.gvt .tbl td:first-child{white-space:nowrap;min-width:92px}
+.gvt .tbl td .rfail{display:inline-flex;flex-direction:column;align-items:center;gap:2px;background:none;border:0;padding:2px 4px;border-radius:10px;cursor:pointer;font:inherit}
+.gvt .tbl td .rfail:hover{background:var(--osoft)}.gvt .tbl td .rfail:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px}
+.rfm{font-size:12px;color:var(--link);text-decoration:underline;text-underline-offset:2px}
+.gia{list-style:none;margin:10px 0 4px;padding:0;display:flex;flex-direction:column;gap:8px;max-height:240px;overflow:auto;text-align:left}
+.gia li{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:12px;background:var(--s-urg-bg);font-size:13px}
+.gia li b{color:var(--ink);font-size:13.5px}.gia li span{display:flex;gap:6px;align-items:flex-start;color:var(--s-urg-fg);line-height:19px}.gia li .i{width:15px;height:15px;flex:none;margin-top:2px}
