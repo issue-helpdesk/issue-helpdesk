@@ -33,6 +33,8 @@ from app.services.document_ingest import IngestSubmitterDep
 from app.services.faq import publishable_codes
 from app.utils import datetime_utils
 
+TRANSFER_RANK = {"BLOCKED": 0, "MASKED": 1, "ALLOWED": 2}     # 클수록 외부 모델에 넓게 전달된다
+
 
 class DocumentService:
     def __init__(
@@ -263,9 +265,12 @@ class DocumentService:
         new_policy = body.transfer_policy if "transfer_policy" in sent and body.transfer_policy is not None else old_policy
         if (new_scope, new_policy) == (old_scope, old_policy):
             return False
+        if TRANSFER_RANK[new_policy] > TRANSFER_RANK[old_policy] and not body.reason:
+            raise field_error(ErrorCode.VALIDATION_ERROR, "reason", "REQUIRED", "외부 전송 정책을 완화하는 사유를 입력해 주세요.")
         row.view_scope, row.transfer_policy = new_scope, new_policy
         self.audit_logs.add("DOCUMENT_POLICY_CHANGE", "document", row.document_id, actor_id=user.id,
-                            result=f"{row.version} {old_scope}/{old_policy} → {new_scope}/{new_policy}")
+                            result=f"{row.version} {old_scope}/{old_policy} → {new_scope}/{new_policy}",
+                            reason=body.reason or None)
         return new_scope != old_scope
 
     def activate(self, row: DocumentVersion, user: User) -> None:

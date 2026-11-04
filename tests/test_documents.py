@@ -772,6 +772,80 @@ def test_policy_change_logged(client, db, users):
     assert len(audit_events(db)) == 1           # 같은 값이면 기록하지 않는다
 
 
+def policy_logs(db):
+    db.expire_all()
+    return [(a.result, a.reason) for a in db.scalars(select(AuditLog).where(AuditLog.event_type == "DOCUMENT_POLICY_CHANGE"))]
+
+
+def blocked_doc(db, policy="BLOCKED"):
+    document, (current,) = add_doc(db)
+    current.transfer_policy = policy
+    db.commit()
+    return document, current
+
+
+@pytest.mark.parametrize("old, new", [("BLOCKED", "MASKED"), ("BLOCKED", "ALLOWED"), ("MASKED", "ALLOWED")])
+def test_relaxing_policy_saves_reason(client, db, users, old, new):
+    document, current = blocked_doc(db, old)
+
+    res = patch_version(client, users["admin"], document, current, {"transferPolicy": new, "reason": "  검토 완료  "})
+
+    assert (res.status_code, res.json()["transferPolicy"]) == (200, new)
+    assert policy_logs(db) == [(f"v1 ALL/{old} → ALL/{new}", "검토 완료")]
+
+
+@pytest.mark.parametrize("extra", [{}, {"reason": None}, {"reason": ""}, {"reason": "   "}])
+def test_relaxing_policy_needs_reason(client, db, users, extra):
+    """거절되면 정책도 기록도 바뀌지 않는다."""
+    document, current = blocked_doc(db)
+
+    res = patch_version(client, users["admin"], document, current, {"transferPolicy": "ALLOWED", **extra})
+
+    assert res.status_code == 422
+    detail = res.json()["error"]["details"][0]
+    assert (detail["field"], detail["reason"]) == ("reason", "REQUIRED")
+    db.expire_all()
+    assert current.transfer_policy == "BLOCKED"
+    assert policy_logs(db) == []
+
+
+def test_relaxing_with_other_field_needs_reason(client, db, users):
+    """열람 범위를 함께 바꿔도 외부 전송이 넓어지면 사유가 필요하고, 현행 전환도 함께 막는다."""
+    document, (old, new) = add_doc(db, versions=(("v1", "ALL", True), ("v2", "ALL", False)))
+    new.transfer_policy = "BLOCKED"
+    db.commit()
+
+    res = patch_version(client, users["admin"], document, new, {"isCurrent": True, "viewScope": "AGENT", "transferPolicy": "ALLOWED"})
+
+    assert res.status_code == 422
+    db.expire_all()
+    assert (new.is_current, new.view_scope, new.transfer_policy) == (False, "ALL", "BLOCKED")
+
+
+@pytest.mark.parametrize("old, body", [
+    ("ALLOWED", {"transferPolicy": "MASKED"}),
+    ("MASKED", {"transferPolicy": "BLOCKED"}),
+    ("BLOCKED", {"transferPolicy": "BLOCKED"}),
+    ("BLOCKED", {"viewScope": "AGENT"}),
+])
+def test_other_policy_changes_do_not_need_reason(client, db, users, old, body):
+    document, current = blocked_doc(db, old)
+    assert patch_version(client, users["admin"], document, current, body).status_code == 200
+
+
+def test_tightening_keeps_reason_if_sent(client, db, users):
+    document, current = blocked_doc(db, "ALLOWED")
+    patch_version(client, users["admin"], document, current, {"transferPolicy": "BLOCKED", "reason": "민감 내용 발견"})
+    assert policy_logs(db) == [("v1 ALL/ALLOWED → ALL/BLOCKED", "민감 내용 발견")]
+
+
+def test_policy_reason_too_long(client, db, users):
+    document, current = blocked_doc(db)
+    res = patch_version(client, users["admin"], document, current, {"transferPolicy": "ALLOWED", "reason": "가" * 501})
+    assert res.status_code == 422
+    assert res.json()["error"]["details"][0]["reason"] == "TOO_LONG"
+
+
 def test_version_of_other_document(client, db, users):
     document, _ = add_doc(db)
     _, (other,) = add_doc(db, "IT-NET-002")
