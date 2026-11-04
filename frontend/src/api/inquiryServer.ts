@@ -324,13 +324,22 @@ const refTicket = (i: SInquiry): Ticket => ({
   needReply: false,
 })
 
+/**
+ * 서버가 제목을 아직 정하지 못한 문의(AI 가 답을 못 만든 경우 등)의 제목. 대화 화면은 첫 메시지 앞부분으로 제목을 만들어 보여 주는데,
+ * 목록(사이드바·문의 내역)은 요약만 받아 첫 메시지를 몰라 "새 문의"로 보였다. 대화 화면이 만든 제목을 기억해 목록도 같은 제목을 쓴다.
+ * 새로고침하면 사라지므로 근본적으로는 서버가 제목을 저장해야 한다 (R-37).
+ */
+const madeTitles = new Map<number, string>()
+
 export function toInquiry(i: SInquiry, messages: SMessage[], next?: string[], ticket?: Ticket | null, draft?: Draft | null, draftNote = '', intake = false): Inquiry {
   const answering = isAnswering(i, messages)
   const step: ChatStep = answering ? 'answering' : stepOf(i, next, messages[messages.length - 1]?.sender, intake)
   const firstUser = messages.find((m) => m.sender === 'USER')?.content
+  const title = i.title ?? (firstUser ? firstUser.slice(0, 30).trim() : '새 문의')
+  if (!i.title && firstUser) madeTitles.set(i.id, title)
   return {
     id: i.id,
-    title: i.title ?? (firstUser ? firstUser.slice(0, 30) : '새 문의'),
+    title,
     status: i.status,
     step,
     categoryCode: i.categoryCode,
@@ -419,7 +428,7 @@ export function toServerSummary(s: SSummary): InquirySummary {
   const st = SUMMARY_STATE[s.displayStatus] ?? SUMMARY_STATE.in_progress
   return {
     id: s.id,
-    title: s.title ?? '새 문의',
+    title: s.title ?? madeTitles.get(s.id) ?? '새 문의',
     displayStatus: s.displayStatus,
     categoryCode: s.category?.code ?? null,
     receiptNo: s.receiptNo,

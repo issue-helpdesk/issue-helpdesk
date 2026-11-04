@@ -160,11 +160,13 @@ export function SecurityView() {
             )}
 
             <div className="row">
-              {(['', '신규', '확인 중', '종결'] as const).map((s) => (
-                <button key={s} type="button" className={`chip${status === s ? ' on' : ''}`} aria-pressed={status === s} onClick={() => setStatus(s)}>
-                  {s || '전체'}
-                </button>
-              ))}
+              <div className="d2seg" role="group" aria-label="처리 상태">
+                {(['', '신규', '확인 중', '종결'] as const).map((s) => (
+                  <button key={s} type="button" className={status === s ? 'on' : ''} aria-pressed={status === s} onClick={() => setStatus(s)}>
+                    {s || '전체'}
+                  </button>
+                ))}
+              </div>
               <select className="sel" style={{ width: 'auto', minWidth: 180 }} aria-label="유형" value={type} onChange={(e) => setType(e.target.value as SecType | '')}>
                 <option value="">유형: 전체</option>
                 {SEC_TYPES.map((t) => (
