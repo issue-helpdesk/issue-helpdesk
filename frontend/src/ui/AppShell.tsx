@@ -6,7 +6,7 @@
  *
  * 키보드: 사이드바를 열면 첫 메뉴로 초점이 가고, Esc 로 닫으면 메뉴 버튼으로 돌아간다.
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../core/session'
 import { PasswordDialog } from './PasswordDialog'
@@ -35,12 +35,24 @@ export function AppShell() {
   const [profileOpen, setProfileOpen] = useState(false)
   const forced = !!user?.passwordChangeRequired
   const [sideOff, setSideOff] = useState(readSideOff)
+  // 접고 펴는 동안만 붙는 표시: anim=스크롤바를 숨김, in=펼칠 때 항목이 차례로 올라옴 (css 의 side-anim·side-in)
+  const [sideAnim, setSideAnim] = useState<null | 'out' | 'in'>(null)
+  const animTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const toggleNav = useCallback(() => setOpenPath((cur) => (cur === pathname ? null : pathname)), [pathname])
   const closeNav = useCallback(() => setOpenPath(null), [])
   const openProfile = useCallback(() => setProfileOpen(true), [])
   const toggleSide = useCallback(() => {
     const next = !sideOff
+    const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!next && !reduce) {
+      // 펼칠 때 항목마다 순서 번호(--i)를 매겨 위에서부터 차례로 나타나게 한다
+      let i = 0
+      document.querySelectorAll<HTMLElement>('.side .brand>*, .side .nav>.grp, .side .nav button, .side .recent .rt, .side .modebar, .side .who').forEach((el) => el.style.setProperty('--i', String(Math.min(i++, 14))))
+    }
+    setSideAnim(!next && !reduce ? 'in' : 'out')
+    clearTimeout(animTimer.current)
+    animTimer.current = setTimeout(() => setSideAnim(null), 1600)
     setSideOff(next)
     try {
       localStorage.setItem(SIDE_KEY, next ? 'off' : 'on')
@@ -87,7 +99,7 @@ export function AppShell() {
 
   return (
     <ShellContext.Provider value={value}>
-      <div className={`app${sideOff ? ' side-off' : ''}${navOpen ? ' nav-open' : ''}`}>
+      <div className={`app${sideOff ? ' side-off' : ''}${sideAnim ? ' side-anim' : ''}${sideAnim === 'in' ? ' side-in' : ''}${navOpen ? ' nav-open' : ''}`}>
         <button type="button" className="skip" onClick={skip}>
           본문으로 건너뛰기
         </button>
