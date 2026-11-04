@@ -157,6 +157,9 @@ def draft(conn, ticket_id: int, doc_code: str | None = None, files_root: Path = 
                     + (f"같은 문의 유형 항목({', '.join(same)})에 합칠지 확인하세요" if same else '처리 구분을 확인하세요'))
     if len(t['resolution_note'].strip()) < SHORT_NOTE:
         warnings.append(f'해결 내용이 짧습니다 ({len(t["resolution_note"].strip())}자). 조치 방법을 채워 주세요')
+    if reopened := _reopened(conn, ticket_id):
+        warnings.append(f"다시 처리된 접수입니다 (재처리 {reopened}회). 앞선 처리 결과·남은 증상은 {t['receipt_no']}의 "
+                        f'TK-08 이력(티켓 {ticket_id})에서 확인하세요. 본문에는 마지막 처리 결과만 넣었습니다')
     conn.commit()                                          # 읽기만 했다 (트랜잭션을 열어 두지 않게)
     return Draft(ticket_id=ticket_id, receipt_no=t['receipt_no'], document_id=doc_id, doc_code=doc_code,
                  version=version, section_no=section_no, base_md=base_md, md=md, current_version_id=cur[0],
@@ -173,6 +176,12 @@ def _read_ticket(conn, ticket_id: int) -> dict:
     keys = ('receipt_no', 'work_status', 'summary', 'symptom', 'target_system', 'resolution_note', 'category_code',
             'code', 'group')
     return dict(zip(keys, row))
+
+
+def _reopened(conn, ticket_id: int) -> int:
+    """미해결로 되돌린(FIN→WIP) 횟수. 앞선 처리 결과·남은 증상은 원문을 경고에 넣지 않는다 (민감정보 경고처럼 위치만)."""
+    return conn.execute("select count(*) from ticket_status_history where ticket_id = %s "
+                        "and from_status = 'FIN' and to_status = 'WIP'", (ticket_id,)).fetchone()[0]
 
 
 def _pick_guide(conn, t: dict, doc_code: str | None, warnings: list[str]) -> tuple[int, str]:
