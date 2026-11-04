@@ -9,11 +9,11 @@ from sqlalchemy import select
 
 from app.integrations.jira import JiraError
 from app.integrations.jira import worker
-from app.models import AssignmentLog, Base, Inquiry, IntegrationJob, JiraWebhookEvent, TicketStatusHistory
-from app.services.jira_webhook import process_webhook_event, run_due_webhook_events
+from app.models import AssignmentLog, Base, Inquiry, IntegrationJob, JiraWebhookEvent, Notification, TicketStatusHistory
+from app.services.jira_webhook import process_webhook_event, run_due_ticket_syncs, run_due_webhook_events
 from test_auth import add_user, client, error_code  # noqa: F401
 from test_inquiries import headers, owner  # noqa: F401
-from test_tickets import db, staff, team  # noqa: F401
+from test_tickets import db, make_ticket, staff, team  # noqa: F401
 
 URL = "/api/v1/webhooks/jira"
 SECRET = "test-webhook-secret"
@@ -526,3 +526,180 @@ def test_refinish_keeps_each_result_in_history(db, ticket):
     assert ticket.resolution_note == "인증서 재발급"
     rows = sorted(histories(db, ticket), key=lambda h: h.id)
     assert [(h.to_status, h.resolution_note) for h in rows] == [("FIN", "재설치"), ("WIP", None), ("FIN", "인증서 재발급")]
+
+
+# ------------------------------------------------------------------ 주기 대조 (웹훅이 빠졌을 때의 보정)
+
+
+def extra_ticket(db, team, n, confirmed_at=None, **fields):
+    """Jira 와 연결이 끝난 접수를 더 만든다 (키 ITHD-16nn, 그룹·담당자 없음)."""
+    values = {"work_status": "WIP", "jira_key": f"ITHD-16{n:02d}", "work_status_confirmed_at": confirmed_at} | fields
+    return make_ticket(db, team["busy"], **values)
+
+
+def fresh(ticket):
+    """fixture 접수가 대상에서 빠지도록 방금 대조한 것으로 둔다."""
+    ticket.work_status_confirmed_at = NOW
+
+
+def test_periodic_sync_reflects_jira_change_without_webhook(db, ticket):
+    """웹훅이 한 번도 오지 않아도, 한 번도 대조하지 않은 접수는 Jira 최신 상태로 맞춰진다."""
+    results = run_due_ticket_syncs(db, FakeJira(work_status="FIN", final_result="재설치로 해결"), now=NOW)
+
+    db.refresh(ticket)
+    assert [(r.ticket_id, r.outcome) for r in results] == [(ticket.id, "SYNCED")]
+    assert (ticket.work_status, ticket.resolution_note) == ("FIN", "재설치로 해결")
+    assert [h.to_status for h in histories(db, ticket)] == ["FIN"]
+    assert datetime_as_utc(ticket.work_status_confirmed_at) == NOW
+
+
+def datetime_as_utc(value):
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
+def test_periodic_sync_skips_recently_confirmed_and_picks_up_old_ones(db, ticket):
+    ticket.work_status_confirmed_at = NOW - timedelta(seconds=59)
+    db.commit()
+    jira = FakeJira()
+
+    assert run_due_ticket_syncs(db, jira, now=NOW) == [] and jira.reads == 0
+
+    ticket.work_status_confirmed_at = NOW - timedelta(seconds=60)
+    db.commit()
+    assert [r.outcome for r in run_due_ticket_syncs(db, jira, now=NOW)] == ["SYNCED"] and jira.reads == 1
+
+
+def test_periodic_sync_is_idempotent(db, ticket):
+    """같은 값을 다시 읽어도 이력·알림을 또 만들지 않는다 (실행기가 둘이어도 안전한 이유)."""
+    run_due_ticket_syncs(db, FakeJira(work_status="FIN", final_result="해결"), now=NOW)
+    later = NOW + timedelta(minutes=2)
+
+    assert [r.outcome for r in run_due_ticket_syncs(db, FakeJira(work_status="FIN", final_result="해결"), now=later)] == ["SYNCED"]
+
+    assert [h.to_status for h in histories(db, ticket)] == ["FIN"]
+    assert len(db.scalars(select(Notification).where(Notification.kind == "FIN")).all()) == 1
+
+
+def test_periodic_sync_takes_never_confirmed_first_then_oldest_within_limit(db, team, ticket):
+    fresh(ticket)
+    old = extra_ticket(db, team, 1, confirmed_at=NOW - timedelta(minutes=10))
+    older = extra_ticket(db, team, 2, confirmed_at=NOW - timedelta(minutes=30))
+    never = extra_ticket(db, team, 3, confirmed_at=None)
+    db.commit()
+
+    results = run_due_ticket_syncs(db, FakeJira(), limit=2, now=NOW)
+
+    assert [r.ticket_id for r in results] == [never.id, older.id]
+    db.refresh(old)
+    assert datetime_as_utc(old.work_status_confirmed_at) == NOW - timedelta(minutes=10)      # 한도 밖이라 건드리지 않았다
+
+
+def test_periodic_sync_leaves_closed_unlinked_and_not_synced_tickets(db, team, ticket):
+    fresh(ticket)
+    extra_ticket(db, team, 1, work_status="CLS")
+    extra_ticket(db, team, 2, jira_sync_status="PENDING")
+    extra_ticket(db, team, 3, jira_key=None)
+    db.commit()
+    jira = FakeJira()
+
+    assert run_due_ticket_syncs(db, jira, now=NOW) == [] and jira.reads == 0
+
+
+def test_periodic_sync_waits_for_active_itssue_job(db, ticket):
+    add_job(db, ticket, status="RUNNING")
+    jira = FakeJira(work_status="FIN", final_result="해결")
+
+    results = run_due_ticket_syncs(db, jira, now=NOW)
+
+    assert [r.outcome for r in results] == ["JOB_IN_PROGRESS"] and jira.reads == 0
+    assert ticket.work_status == "WIP" and ticket.work_status_confirmed_at is None
+
+
+def test_periodic_sync_stops_after_consecutive_jira_failures(db, team, ticket):
+    for n in range(1, 6):
+        extra_ticket(db, team, n)
+    jira = FakeJira(error=JiraError("timeout", "시간 초과", retryable=True))
+
+    results = run_due_ticket_syncs(db, jira, now=NOW)
+
+    assert [r.outcome for r in results] == ["JIRA_UNAVAILABLE"] * 3 and jira.reads == 3      # 6건 중 3건에서 멈춘다
+    assert ticket.work_status_confirmed_at is None                                            # 실패한 접수는 다음 회차에 다시 고른다
+
+
+def test_periodic_sync_unexpected_error_skips_only_that_ticket(db, team, ticket):
+    fresh(ticket)
+    bad = extra_ticket(db, team, 1, confirmed_at=NOW - timedelta(minutes=9))
+    good = extra_ticket(db, team, 2, confirmed_at=NOW - timedelta(minutes=5))
+
+    class Flaky(FakeJira):
+        def get_work_result(self, key):
+            if key == bad.jira_key:
+                raise RuntimeError("DB 끊김")
+            return super().get_work_result(key)
+
+    results = run_due_ticket_syncs(db, Flaky(work_status="FIN", final_result="해결"), now=NOW)
+
+    assert [(r.ticket_id, r.outcome) for r in results] == [(bad.id, "ERROR"), (good.id, "SYNCED")]
+    db.refresh(good)
+    assert good.work_status == "FIN"
+
+
+@pytest.mark.parametrize("kwargs", [{"limit": 0}, {"stale_after": timedelta(seconds=29)}])
+def test_periodic_sync_rejects_bad_arguments(db, kwargs):
+    with pytest.raises(ValueError):
+        run_due_ticket_syncs(db, FakeJira(), now=NOW, **kwargs)
+
+
+# ------------------------------------------------------------------ 주기 대조 · 실행기 연결
+
+
+def test_worker_round_runs_periodic_sync_after_webhook_when_enabled(db, ticket):
+    add_event(db, ticket.id)
+
+    report = worker.run_round(db, FakeJira(work_status="FIN", final_result="해결"), now=NOW, sync=True)
+
+    assert report.errors == [] and report.result_types == ["WEBHOOK"]       # 웹훅이 방금 대조해서 주기 대조 대상이 아니다
+    ticket.work_status_confirmed_at = NOW - timedelta(minutes=5)
+    db.commit()
+
+    second = worker.run_round(db, FakeJira(work_status="FIN", final_result="해결"), now=NOW, sync=True)
+
+    assert second.result_types == ["SYNC"] and "SYNC:SYNCED 1" in second.summary()
+
+
+def test_worker_round_does_not_sync_by_default_or_when_ticket_scoped(db, ticket):
+    jira = FakeJira(work_status="FIN", final_result="해결")
+
+    default = worker.run_round(db, jira, now=NOW)
+    scoped = worker.run_round(db, jira, now=NOW, sync=True, ticket_id=ticket.id)
+
+    assert default.results == [] and scoped.results == [] and jira.reads == 0 and ticket.work_status == "WIP"
+
+
+def test_worker_round_reports_sync_failures_without_losing_other_results(db, ticket, monkeypatch):
+    add_event(db, ticket.id)
+
+    def boom(*a, **kw):
+        raise RuntimeError("DB 끊김")
+
+    monkeypatch.setattr("app.services.jira_webhook.run_due_ticket_syncs", boom)
+
+    report = worker.run_round(db, FakeJira(work_status="FIN", final_result="해결"), now=NOW, sync=True)
+
+    assert report.errors == ["SYNC:run:RuntimeError"] and report.result_types == ["WEBHOOK"]
+
+
+def test_worker_round_counts_ticket_level_sync_error(db, ticket):
+    class Broken(FakeJira):
+        def get_work_result(self, key):
+            raise RuntimeError("DB 끊김")
+
+    report = worker.run_round(db, Broken(), now=NOW, sync=True)
+
+    assert report.errors == [f"SYNC:{ticket.id}:error"] and [r.outcome for r in report.results] == ["ERROR"]
+
+
+@pytest.mark.parametrize("args", [["--sync-after-seconds", "29"], ["--sync-limit", "0"]])
+def test_worker_cli_rejects_bad_sync_options(args):
+    with pytest.raises(SystemExit):
+        worker.main(args)
