@@ -20,6 +20,7 @@ import {
   nextDocCode,
   nextVersion,
   normalizeVersion,
+  retryGuideIngest,
   setGuideCurrent,
   setGuideNote,
   setGuideTransfer,
@@ -211,6 +212,12 @@ export function GuidesView() {
     say(`외부 전송 정책을 ${to}${to === '금지' ? '로' : '으로'} 바꿨어요.`)
     reload()
   }
+  const retryIngest = async (g: Guide, v: GuideVersion) => {
+    const r = await retryGuideIngest(user, g.id, v.id)
+    if (!r.ok) return say(r.error.message)
+    say(`${v.version} 검색 준비를 다시 시작했어요.`)
+    reload()
+  }
   const makeCurrent = async (g: Guide, v: GuideVersion) => {
     const r = await setGuideCurrent(user, g.id, v.id)
     if (!r.ok) return say(r.error.message)
@@ -264,6 +271,11 @@ export function GuidesView() {
                       <td className="c">
                         <StateBadge tone={v.ready === '준비 완료' ? 'ok' : v.ready === '준비 실패' ? 'urg' : 'warn'} label={v.ready} />
                         {v.error && <div className="small muted">{v.error}</div>}
+                        {v.ready === '준비 실패' && (
+                          <button type="button" className="btn ghost sm" aria-label={`${v.version} 검색 준비 다시 시도`} onClick={() => void retryIngest(g, v)}>
+                            다시 시도
+                          </button>
+                        )}
                       </td>
                       <td>{v.scope}</td>
                       <td className="c">
@@ -737,8 +749,8 @@ function UploadDialog({ guides, onClose, onDone }: { guides: Guide[]; onClose: (
     const r = mode === 'ver' && doc ? await uploadGuideVersion(user, doc.id, { file, version, scope, tx }) : await uploadGuide(user, { file, docCode: newCode, title, cat, scope, tx, version })
     setBusy(false)
     if (!r.ok) {
-      const f = r.error.details?.find((d) => d.field === 'docCode' || d.field === 'version')
-      if (f) return setErrs({ [f.field === 'docCode' ? 'title' : 'ver']: f.message ?? r.error.message })
+      const f = r.error.details?.find((d) => d.field === 'docCode' || d.field === 'version' || d.field === 'file')
+      if (f) return setErrs({ [f.field === 'docCode' ? 'title' : f.field === 'file' ? 'file' : 'ver']: r.error.code === 'DOCUMENT_FILE_DUPLICATE' ? r.error.message : (f.message ?? r.error.message) })
       return setErr(r.error.message)
     }
     onDone({ docId: mode === 'ver' && doc ? doc.id : (r.data as Guide).id, cat, version, makeCurrent: cur })

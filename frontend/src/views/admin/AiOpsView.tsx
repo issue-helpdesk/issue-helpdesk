@@ -169,7 +169,7 @@ export function AiOpsView() {
               <>
                 <p className="small muted" style={{ margin: '0 0 6px' }}>
                   축 아래 숫자는 추정 비용(USD)
-                  {usage.calls && ` · 모델 호출 ${usage.calls.callCount.toLocaleString()}건(실패 ${usage.calls.failedCount}건) · 평균 응답 ${(usage.calls.avgLatencyMs / 1000).toFixed(1)}초`}
+                  {usage.calls && ` · 모델 호출 ${usage.calls.callCount.toLocaleString()}건(실패 ${usage.calls.failedCount}건) · 평균 응답 ${usage.calls.avgLatencyMs === null ? '-' : `${(usage.calls.avgLatencyMs / 1000).toFixed(1)}초`}`}
                 </p>
                 <CurveChart
                   aria={`${cur.hint} 상담 건수와 AI 해결 곡선. 마지막 ${usage.labels[usage.labels.length - 1]} 전체 ${usage.tot[usage.tot.length - 1]}건, AI 해결 ${usage.ai[usage.ai.length - 1]}건, 추정 비용 ${money(usage.cost[usage.cost.length - 1])}`}

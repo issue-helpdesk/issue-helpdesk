@@ -5,6 +5,7 @@
  *   GET   /documents/{id}/versions                DC-06 버전 목록 (적재 상태 포함)
  *   POST  /documents/{id}/versions                DC-07 새 버전 업로드 (multipart, 202)
  *   PATCH /documents/{id}/versions/{versionId}    DC-09 현행 전환·열람 범위·외부 전송 정책 변경
+ *   POST  /documents/{id}/versions/{versionId}/retry  DC-10 적재(검색 준비)에 실패한 버전 다시 시도
  * 서버에 없는 것: 버전 메모(관리자가 적는 한 줄), 정책을 느슨하게 바꿀 때의 변경 사유 저장, 해결 사례 → 가이드 초안(GUIDE-03).
  * 이 세 가지는 서버 모드에서 안내만 한다. (요청 R-21·R-22)
  */
@@ -240,6 +241,31 @@ export function nextVersion(versions: { version: string }[]): string {
 export function nextDocCode(guides: { docCode: string }[], cat: CategoryCode): string {
   const top = Math.max(0, ...guides.map((g) => Number(new RegExp(`^IT-${cat}-(\\d{3})`).exec(g.docCode)?.[1] ?? 0)))
   return `IT-${cat}-${String(top + 1).padStart(3, '0')}`
+}
+
+/** 적재(검색 준비)에 실패한 버전을 같은 파일로 다시 적재한다 (DC-10). 실패한 버전만 되고, 끝나면 검색 준비가 완료로 바뀐다 */
+export async function retryGuideIngest(user: User, docId: number, versionId: number): Promise<ApiResult<GuideVersion>> {
+  const no = adminOnly(user)
+  if (no) return no
+  if (USE_MOCK_GUIDE) {
+    await sleep(150)
+    const g = store.find((x) => x.id === docId)
+    const x = g && findV(g, versionId)
+    if (!g || !x) return fail('DOCUMENT_VERSION_NOT_FOUND', '버전을 찾을 수 없어요.')
+    if (x.ready !== '준비 실패') return fail('DOCUMENT_VERSION_NOT_RETRYABLE', '검색 준비에 실패한 버전만 다시 시도할 수 있어요.')
+    x.ready = '준비 중'
+    x.error = undefined
+    notify()
+    timers.push(
+      setTimeout(() => {
+        x.ready = '준비 완료'
+        notify()
+      }, 2800),
+    )
+    return ok({ ...x })
+  }
+  const r = await request<SVer>(`/documents/${docId}/versions/${versionId}/retry`, { method: 'POST' })
+  return r.ok ? ok(toVersion(r.data)) : r
 }
 
 /** 열람 범위·외부 전송 정책 변경. 더 느슨하게 바꿀 때의 사유는 서버에 저장할 곳이 없어 모의에서만 남긴다 (R-22) */
