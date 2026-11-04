@@ -239,7 +239,7 @@ const STATUS_KIND: Partial<Record<DisplayStatus, AiKind>> = { ai_resolved: 'ok',
 
 /**
  * 티켓 없이 AI 안내로 끝난 상담 (관리자). 서버는 문의 목록(IQ-02)을 displayStatus 로 걸러서 받는다.
- * 목록 응답에 사용한 가이드가 없어서 서버 모드에서는 '-' 로 보이고, 제목·분류·가이드 정렬은 서버가 받지 않는다.
+ * 목록 응답에 사용한 가이드가 없어서 목록에는 가이드 칼럼을 두지 않는다(상세에서 보여 줄 수 있다). 제목·분류 정렬은 서버가 받지 않는다.
  */
 export async function listAiInquiries(query: AiListQuery = {}): Promise<ApiResult<AiPage>> {
   const { page = 1, size = 20, sort, per = '', kind = '', categoryCode = '', q = '' } = query
@@ -284,7 +284,7 @@ export async function listAiInquiries(query: AiListQuery = {}): Promise<ApiResul
   if (sort) {
     const [key, dir] = sort.split(',')
     const sign = dir === 'desc' ? -1 : 1
-    const val = (r: AiRow): string | number => (key === 'title' ? r.title : key === 'cat' ? (r.categoryCode ?? '힣') : key === 'guide' ? r.guide : r.at)
+    const val = (r: AiRow): string | number => (key === 'title' ? r.title : key === 'cat' ? (r.categoryCode ?? '힣') : r.at)
     rows = rows.slice().sort((a, b) => {
       const x = val(a)
       const y = val(b)

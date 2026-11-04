@@ -130,7 +130,9 @@ describe('전체 문의 화면', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'AI 처리' }, SLOW))
     const chips = await screen.findByRole('group', { name: 'AI 상담 결과 구분' }, SLOW)
     await waitFor(() => expect(within(chips).getByRole('button', { name: /^전체 \d+/ })).toBeInTheDocument(), SLOW)
-    expect(await screen.findByRole('columnheader', { name: /사용한 가이드/ })).toBeInTheDocument()
+    // 목록 응답에 사용한 가이드가 없어서 "사용한 가이드" 칼럼은 두지 않는다
+    expect(screen.queryByRole('columnheader', { name: /사용한 가이드/ })).toBeNull()
+    expect(await screen.findByRole('columnheader', { name: /^분류/ })).toBeInTheDocument()
     await userEvent.click(within(chips).getByRole('button', { name: /^미연결 종료/ }))
     await waitFor(() => {
       expect(rows().length).toBeGreaterThan(0)

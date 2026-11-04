@@ -58,7 +58,7 @@ const AI_KINDS: { key: '' | AiKind; label: string }[] = [
 /** 정렬 열 → API sort 기준 (urgency·createdAt·workStatus 외에는 프로토타입용 임시 값) */
 const SORT_KEY = { pri: 'urgency', receipt: 'receiptNo', title: 'summary', status: 'workStatus', when: 'createdAt', cat: 'category', assignee: 'assignee' } as const
 type SortCol = keyof typeof SORT_KEY
-const AI_SORT_KEY = { title: 'title', cat: 'cat', guide: 'guide', when: 'updatedAt' } as const
+const AI_SORT_KEY = { title: 'title', cat: 'cat', when: 'updatedAt' } as const
 type AiSortCol = keyof typeof AI_SORT_KEY
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -323,17 +323,15 @@ export function AllTicketsView() {
                   <div className="tw">
                     <table className="tbl fx fx2">
                       <colgroup>
-                        <col style={{ width: '32%' }} />
-                        <col style={{ width: '14%' }} />
-                        <col style={{ width: '28%' }} />
-                        <col style={{ width: '12%' }} />
-                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '52%' }} />
+                        <col style={{ width: '16%' }} />
+                        <col style={{ width: '16%' }} />
+                        <col style={{ width: '16%' }} />
                       </colgroup>
                       <thead>
                         <tr>
                           <SortTh plain={!USE_MOCK_INQUIRY} col="title" label="문의" sort={aiSort} onSort={onAiSort} />
                           <SortTh plain={!USE_MOCK_INQUIRY} col="cat" label="분류" sort={aiSort} onSort={onAiSort} />
-                          <SortTh plain={!USE_MOCK_INQUIRY} col="guide" label="사용한 가이드" sort={aiSort} onSort={onAiSort} />
                           <th>구분</th>
                           <SortTh col="when" label="시점" sort={aiSort} onSort={onAiSort} />
                         </tr>
@@ -346,7 +344,6 @@ export function AllTicketsView() {
                               <small className="mono">{r.id}</small>
                             </td>
                             <td>{r.categoryCode ? <span className={`tag c-${r.categoryCode}`}>{CATEGORIES[r.categoryCode].name}</span> : <span className="muted small">미분류</span>}</td>
-                            <td className="small">{r.guide}</td>
                             <td>
                               {r.kind === 'pend' ? <StateBadge tone="need" label="해결 확인 대기" sub="AI 안내" block /> : r.kind === 'unr' ? <StateBadge tone="warn" label="미연결 종료" /> : <StateBadge tone="ok" label="AI 해결" />}
                             </td>
