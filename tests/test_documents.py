@@ -1,11 +1,14 @@
 """문서 API (DC-01~09). SQLite 메모리 DB 만 쓰고, 적재는 부르는지만 본다."""
+import asyncio
 import importlib.util
 import io
 import os
+import threading
 import time
 import zipfile
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -954,6 +957,94 @@ def test_run_ingest_survives_errors(ingest_env, monkeypatch):
 
     module.run_ingest(7)
     module.run_resume()
+
+
+def test_submit_resume_skips_while_one_is_running(monkeypatch):
+    """복구가 DB 연결을 기다리며 오래 걸려도 줄에 복구가 쌓이지 않고, 끝나면 다시 넣을 수 있다."""
+    from app.services import document_ingest as module
+
+    calls, release = [], threading.Event()
+
+    def slow():
+        calls.append(1)
+        release.wait(5)
+    monkeypatch.setattr(module, "run_resume", slow)
+
+    module.submit_resume()
+    module.submit_resume()
+    release.set()
+    module._executor.submit(lambda: None).result(5)     # 앞선 일이 끝날 때까지 기다린다
+    assert calls == [1]
+
+    module.submit_resume()
+    module._executor.submit(lambda: None).result(5)
+    assert calls == [1, 1]
+
+
+def test_submit_resume_frees_slot_after_failure(monkeypatch):
+    """복구가 예외로 끝나도 다음 주기에 다시 돈다."""
+    from app.services import document_ingest as module
+
+    calls = []
+
+    def boom():
+        calls.append(1)
+        raise RuntimeError("db down")
+    monkeypatch.setattr(module, "run_resume", boom)
+
+    for _ in range(2):
+        module.submit_resume()
+        module._executor.submit(lambda: None).result(5)
+    assert calls == [1, 1]
+
+
+def test_resume_periodically_keeps_submitting(monkeypatch):
+    from app.services import document_ingest as module
+
+    calls = []
+    monkeypatch.setattr(module, "RESUME_INTERVAL_SECONDS", 0)
+    monkeypatch.setattr(module, "submit_resume", lambda: calls.append(1))
+
+    async def run():
+        task = asyncio.create_task(module.resume_periodically())
+        while len(calls) < 2:
+            await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(run())
+    assert len(calls) >= 2
+
+
+@pytest.mark.parametrize("preload, started", [(None, 0), ("true", 1)])
+def test_server_start_runs_periodic_resume_only_with_model(monkeypatch, preload, started):
+    """모델 없는 개발 PC 에서는 돌지 않는다. 서버가 꺼질 때 작업도 멈춘다."""
+    import app.main as main
+    from app.rag.search import runtime
+
+    if preload:
+        monkeypatch.setenv("EMBEDDING_PRELOAD", preload)
+    else:
+        monkeypatch.delenv("EMBEDDING_PRELOAD", raising=False)
+    monkeypatch.setattr(runtime, "preload", lambda: None)
+    monkeypatch.setattr(main, "submit_cleanup", lambda: None)
+    monkeypatch.setattr(main, "submit_resume", lambda: None)
+    runs, stopped = [], []
+
+    async def periodic():
+        runs.append(1)
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            stopped.append(1)
+            raise
+    monkeypatch.setattr(main, "resume_periodically", periodic)
+
+    with TestClient(main.app):
+        pass
+
+    assert len(runs) == len(stopped) == started
 
 
 def test_size_limit_covers_retry_path(client, db, users, submitted, storage, monkeypatch):

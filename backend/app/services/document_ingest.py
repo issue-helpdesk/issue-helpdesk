@@ -1,8 +1,11 @@
 """업로드 문서 적재를 서버 안에서 한 건씩 돌린다 (DC-07). 적재는 CPU 를 많이 쓰므로 검색이 느려지지 않게 줄 세운다.
 
-임베딩 모델은 검색과 같은 것을 쓴다. 적재 도중 서버가 꺼져 PENDING 으로 남은 버전은 다음 시작 때 이어서 한다.
+임베딩 모델은 검색과 같은 것을 쓴다. DB 연결 실패나 서버 중단으로 PENDING 으로 남은 버전은 서버 시작 때와
+그 뒤 주기적으로 이어서 한다.
 """
+import asyncio
 import logging
+import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Annotated
@@ -17,7 +20,10 @@ from app.services.document_file import STORAGE_DIR, cleanup_temp_files
 
 logger = logging.getLogger(__name__)
 
+RESUME_INTERVAL_SECONDS = 300
+
 _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="document-ingest")
+_resume_slot = threading.Lock()         # 잡고 있으면 이어 하기가 이미 줄에 있거나 도는 중이다
 
 
 def submit_ingest(version_id: int) -> None:
@@ -25,8 +31,16 @@ def submit_ingest(version_id: int) -> None:
 
 
 def submit_resume() -> None:
-    """서버 시작 때 부른다. 시작을 막지 않도록 줄에 넣기만 한다."""
-    _executor.submit(run_resume)
+    """시작을 막지 않도록 줄에 넣기만 한다. 앞선 이어 하기가 안 끝났으면 또 넣지 않는다."""
+    if _resume_slot.acquire(blocking=False):
+        _executor.submit(run_resume).add_done_callback(lambda _: _resume_slot.release())
+
+
+async def resume_periodically() -> None:
+    """서버가 도는 동안 멈춘 적재를 주기적으로 잇는다. DB 연결이 돌아오면 재시작 없이 풀린다."""
+    while True:
+        await asyncio.sleep(RESUME_INTERVAL_SECONDS)
+        submit_resume()
 
 
 def submit_cleanup() -> None:
