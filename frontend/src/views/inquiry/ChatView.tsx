@@ -97,6 +97,11 @@ export function ChatView() {
   // 접수가 있는 문의를 열면: 그 접수의 내 알림을 읽음으로 바꾸고(NT-04), 서버 모드에서는 Jira 의 최신 상태를 한 번 읽어 오게 한다(TK-14)
   const ticketId = inquiry?.ticket?.id
   const ticketWork = inquiry?.ticket?.workStatus
+  // 접수 상태가 바뀌거나(예: 해결 확인 대기 → 해결 완료) 반영 중 표시가 끝나면 남은 안내·오류 문구를 지운다
+  const ticketPending = inquiry?.ticket?.transitionPending
+  useEffect(() => {
+    setError('')
+  }, [ticketWork, ticketPending])
   const openedTicket = useRef<number | null>(null)
   useEffect(() => {
     if (ticketId === undefined || openedTicket.current === ticketId || !user) return
@@ -188,9 +193,11 @@ export function ChatView() {
       const r = await job
       setBusy(false)
       if (!r.ok) {
-        setError(r.error.message)
+        // 같은 변경이 Jira 에 반영되는 중이면 잘못이 아니라 기다리라는 안내다. 최신 문의로 다시 그리면 버튼이 잠긴다
+        const inFlight = r.error.code === 'INTEGRATION_JOB_IN_PROGRESS'
+        setError(inFlight ? 'Jira에 반영하는 중이에요. 잠시 뒤 상태가 바뀌어요.' : r.error.message)
         // 지난 버튼·중복 요청 같은 409: 안내만 하고 끝내지 않고 최신 문의로 다시 그린다
-        if (isStaleInquiry(r.error.code) && employeeNo) {
+        if ((inFlight || isStaleInquiry(r.error.code)) && employeeNo) {
           const fresh = await getChat(id, employeeNo)
           if (fresh.ok) setLoaded({ id, data: fresh.data })
         }

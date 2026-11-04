@@ -179,6 +179,8 @@ export interface Ticket {
   resolutionNote: string
   /** 담당자가 추가 정보를 요청해 문의자의 답변을 기다리는 중 */
   needReply: boolean
+  /** 상태 변경(해결 확인 등)을 서버가 받았고 Jira 에 반영하는 중. 이때는 같은 요청을 다시 보내지 않는다 (서버는 409) */
+  transitionPending?: boolean
 }
 
 export interface Inquiry {

@@ -156,10 +156,10 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
         <div className="replies">
           {t.workStatus === 'FIN' && !readOnly && (
             <>
-              <button type="button" className="chip on" disabled={busy} onClick={onResolve}>
+              <button type="button" className="chip on" disabled={busy || t.transitionPending} onClick={onResolve}>
                 해결
               </button>
-              <button type="button" className="chip" disabled={busy} onClick={onReject}>
+              <button type="button" className="chip" disabled={busy || t.transitionPending} onClick={onReject}>
                 미해결
               </button>
             </>
@@ -171,6 +171,12 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
             </button>
           )}
         </div>
+      )}
+
+      {t.transitionPending && !readOnly && (
+        <p className="small muted" role="status" style={{ marginTop: 10 }}>
+          선택하신 내용을 Jira에 반영하는 중이에요. 잠시 뒤 상태가 바뀌어요.
+        </p>
       )}
 
       {readOnly && (

@@ -300,6 +300,7 @@ export function toTicket(d: TicketDetail): Ticket {
     closedAt: d.closedAt,
     resolutionNote: d.resolutionNote ?? '',
     needReply: false,
+    transitionPending: d.transitionStatus !== 'IDLE',
   }
 }
 
