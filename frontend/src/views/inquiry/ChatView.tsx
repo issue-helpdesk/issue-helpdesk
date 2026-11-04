@@ -29,7 +29,7 @@ import { Pav } from '../../ui/Pav'
 import { Topbar } from '../../ui/Topbar'
 import { ticketIdOfInquiry } from '../../api/mock/staffTickets'
 import { TicketDetailPanel } from '../staff/TicketDetailPanel'
-import { MessageItem, type ChatActions } from './MessageItem'
+import { MessageItem, PAIR, type ChatActions } from './MessageItem'
 import { latestPose, poseLabel, poseOf } from './pose'
 import { ENTRY_POPUP, endedMessage, entryKindOf, type EntryKind } from './resume'
 
@@ -348,7 +348,7 @@ export function ChatView() {
               <div className="body">
                 <div className="replies">
                   {tailMsg.replies?.map((r) => (
-                    <button key={r.action} type="button" className={`chip${r.primary ? ' on' : ''}`} disabled={busy || gated} onClick={() => actions.reply({ messageId: tailMsg.id, action: r.action, arg: r.arg })}>
+                    <button key={r.action} type="button" className={`chip${r.primary && !PAIR.has(r.action) ? ' on' : ''}`} disabled={busy || gated} onClick={() => actions.reply({ messageId: tailMsg.id, action: r.action, arg: r.arg })}>
                       {r.label}
                     </button>
                   ))}

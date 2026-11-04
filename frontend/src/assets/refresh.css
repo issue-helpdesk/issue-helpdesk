@@ -168,3 +168,7 @@
 @media (prefers-reduced-motion:reduce){.mcard.open{animation:none}}
 @media (max-width:900px){.mcards{grid-template-columns:repeat(2,minmax(0,1fr))}.mcard.open,.mcard.open.last3{grid-column:1 / -1}}
 @media (max-width:560px){.mcards{grid-template-columns:minmax(0,1fr)}.mcard.open{grid-template-columns:1fr}.mcard.open .mcb{border-right:0}}
+
+/* 다크 모드: 프로필 이미지(이니셜 원)가 어두운 판에 묻히지 않게 분홍·보라 그라데이션과 밝은 글자로 */
+:root[data-theme="dark"] .pf,:root[data-theme="dark"] .who .pf,:root[data-theme="dark"] .pfl .pf,:root[data-theme="dark"] .um .av,:root[data-theme="dark"] .tr .av{background:linear-gradient(135deg,#C23B73,#6D4BE0);color:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pf,:root:not([data-theme="light"]) .who .pf,:root:not([data-theme="light"]) .pfl .pf,:root:not([data-theme="light"]) .um .av,:root:not([data-theme="light"]) .tr .av{background:linear-gradient(135deg,#C23B73,#6D4BE0);color:#fff}}

@@ -115,10 +115,12 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
 
   // 최근 문의 목록을 불러오고, 새 문의나 진행 상황이 바뀔 때마다 다시 받는다
   const employeeNo = user?.employeeNo
+  // 관리자는 서버가 모든 사용자의 문의를 주므로 본인 번호를 보내 내 문의만 받는다
+  const ownerId = user?.serviceRole === 'ADMIN' ? user.id : undefined
   useEffect(() => {
     if (!employeeNo) return
-    return watchMyInquiries(employeeNo, setRecent)
-  }, [employeeNo])
+    return watchMyInquiries(employeeNo, setRecent, ownerId)
+  }, [employeeNo, ownerId])
   // 서버가 변화를 알려 주지 않으므로 화면을 옮길 때 한 번 다시 읽는다 (짧은 시간에 여러 번 옮겨도 15초에 한 번만)
   const lastRefresh = useRef<number | null>(null)
   useEffect(() => {

@@ -163,7 +163,7 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
         <div className="replies">
           {t.workStatus === 'FIN' && !readOnly && (
             <>
-              <button type="button" className="chip on" disabled={busy || t.transitionPending} onClick={onResolve}>
+              <button type="button" className="chip" disabled={busy || t.transitionPending} onClick={onResolve}>
                 해결
               </button>
               <button type="button" className="chip" disabled={busy || t.transitionPending} onClick={onReject}>
