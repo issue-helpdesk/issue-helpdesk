@@ -114,6 +114,26 @@ h1,h2,h3,h4,p{margin:0}
 .fpub{display:flex;align-items:flex-start;gap:10px;margin-top:14px}.fpub input{margin-top:3px}.fpub small{display:block;color:var(--mute);font-size:12.5px;line-height:1.45;margin-top:2px}
 .gucat{border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:var(--card)}.gucat .guvs{margin:0 0 4px}
 .gucat ul{list-style:none;margin:0;padding:0;max-height:104px;overflow:auto}.gucat li{display:flex;gap:10px;align-items:baseline;min-height:26px;font-size:13px;line-height:20px}.gucat li .mono{flex:none;font-size:12px;color:var(--mute)}.gucat li span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stip{position:fixed;z-index:1000;display:none;pointer-events:none;min-width:168px;padding:10px 12px;border-radius:12px;background:var(--white);box-shadow:var(--pop,0 8px 28px rgba(17,24,39,.18)),0 0 0 1px var(--line);font-size:13px;line-height:20px}
+.stip>b{display:block;font-weight:700}.stip>small{display:block;margin:0 0 6px;color:var(--mute);font-size:12px}
+.stip div{display:flex;align-items:center;gap:8px;min-height:22px}.stip div i{width:8px;height:8px;border-radius:50%;flex:none}.stip div span{flex:1;color:var(--ink2)}.stip div b{font-variant-numeric:tabular-nums}
+.mcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-flow:dense;gap:12px;margin:12px 0 4px}
+.mcard{position:relative;display:flex;border:1px solid var(--line);border-radius:16px;background:var(--white);min-width:0;overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.mcard:hover{border-color:var(--o600);box-shadow:0 4px 16px rgba(143,29,82,.08)}
+.mcard .mcb{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 14px 14px;border:0;background:transparent;cursor:pointer;color:var(--ink);font:inherit;text-align:left}
+.mcard .mcn{align-self:flex-start;font-size:14px;line-height:20px;font-weight:600}
+.donut.mcdn{display:block;margin:0;padding:0;gap:0;width:auto;min-width:0}.donut.mcdn svg{display:block}
+/* 열린 카드: 두 칸. 왼쪽 칸은 닫혀 있을 때와 똑같고, 오른쪽 칸이 왼쪽에서 오른쪽으로 펼쳐진다 */
+.mcard.open{grid-column:span 2;display:grid;grid-template-columns:1fr 1fr;border-color:var(--o600);background:var(--osoft);animation:mcr .36s cubic-bezier(.22,1,.36,1) both}
+.mcard.open.last3{grid-column:2 / span 2}
+.mcard.open .mcb{border-right:1px solid color-mix(in srgb,var(--o600) 18%,transparent)}
+.mcd{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:10px;padding:14px 18px}
+.dl3{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}.dl3 li{display:flex;align-items:center;gap:8px;font-size:13px;line-height:22px}.dl3 li i{width:9px;height:9px;border-radius:50%;flex:none}.dl3 li span{flex:1;color:var(--ink2)}.dl3 li b{font-variant-numeric:tabular-nums}.dl3 li em{font-style:normal;width:40px;text-align:right;color:var(--mute);font-size:12px}
+.mcf{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+@keyframes mcr{from{clip-path:inset(0 50% 0 0 round 16px)}to{clip-path:inset(0 0 0 0 round 16px)}}
+@media (prefers-reduced-motion:reduce){.mcard.open{animation:none}}
+@media (max-width:900px){.mcards{grid-template-columns:repeat(2,minmax(0,1fr))}.mcard.open,.mcard.open.last3{grid-column:1 / -1}}
+@media (max-width:560px){.mcards{grid-template-columns:minmax(0,1fr)}.mcard.open{grid-template-columns:1fr}.mcard.open .mcb{border-right:0}}
 .seg{display:inline-flex;gap:2px;padding:3px;border-radius:12px;background:var(--shell)}
 .seg button{border:0;background:transparent;min-height:36px;padding:0 16px;border-radius:9px;font-size:13.5px;font-weight:500;color:var(--mute)}
 .seg button.on{background:var(--white);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
@@ -1945,11 +1965,15 @@ const SLB={w:'처리 대기',p:'처리 중',n:'해결 확인 대기',c:'해결 �
 const cntOf=l=>({w:l.filter(t=>t.status==='RDY').length,p:l.filter(t=>t.status==='WIP').length,n:l.filter(t=>t.status==='FIN').length,c:l.filter(t=>t.status==='CLS').length});
 const tot=v=>v.w+v.p+v.n+v.c;
 const legend=()=>`<div class="lgd" style="margin:0">${Object.keys(SC).map(k=>`<span><i style="background:${SC[k]}"></i>${SLB[k]}</span>`).join('')}</div>`;
+/* 막대 위에 마우스를 올리면 상태별 건수를 보여 주는 값 (처리 대기|처리 중|해결 확인 대기|해결 완료) */
+const tipOf=v=>`${v.w||0}|${v.p||0}|${v.n||0}|${v.c||0}`;
+const tipSr=v=>`<span class="sr">처리 대기 ${v.w||0}건, 처리 중 ${v.p||0}건, 해결 확인 대기 ${v.n||0}건, 해결 완료 ${v.c||0}건</span>`;
 function srow(label,sub,v,mx,o={}){
   const t=tot(v);const seg=['w','p','n','c'].map(k=>v[k]?`<div style="width:${v[k]/mx*100}%;background:${SC[k]}" title="${SLB[k]} ${v[k]}"></div>`:'').join('');
-  const inner=`<div class="sl"><b>${ESC(label)}${o.me?'<span class="mebadge">나</span>':''}</b>${sub?`<small>${sub}</small>`:''}</div><div class="sbar">${seg||'<div style="width:3px;background:var(--line)"></div>'}</div><div class="sn"><b>${t}</b><small>${t?'완료 '+Math.round(v.c/t*100)+'%':'-'}</small></div>`;
+  const inner=`<div class="sl"><b>${ESC(label)}${o.me?'<span class="mebadge">나</span>':''}</b>${sub?`<small>${sub}</small>`:''}</div><div class="sbar">${seg||'<div style="width:3px;background:var(--line)"></div>'}</div><div class="sn"><b>${t}</b><small>${t?'완료 '+Math.round(v.c/t*100)+'%':'-'}</small></div>${tipSr(v)}`;
   const cls='srow'+(o.sel?' sel':'')+(o.me?' me':'');
-  return o.attrs?`<button class="${cls}" ${o.attrs}>${inner}</button>`:`<div class="${cls}">${inner}</div>`;
+  const tip=`data-tip="${tipOf(v)}" data-tl="${ESC(label)}"`;
+  return o.attrs?`<button class="${cls}" ${tip} ${o.attrs}>${inner}</button>`:`<div class="${cls}" ${tip}>${inner}</div>`;
 }
 function series(per,seed,scale){
   const rnd=i=>{const x=Math.sin((i+1)*12.9898+seed*78.233)*43758.5453;return x-Math.floor(x);};
@@ -1996,11 +2020,11 @@ function donut(parts,center,sub,cls){
   return `<div class="donut ${cls||''}"><svg viewBox="0 0 140 140" width="140" height="140" role="img" aria-label="${ESC(center)}"><circle cx="70" cy="70" r="${R}" fill="none" stroke="var(--track)" stroke-width="18"/>${arcs}<text x="70" y="68" text-anchor="middle" style="font-size:26px;font-weight:700;fill:var(--ink)">${center}</text><text x="70" y="88" text-anchor="middle" style="font-size:12px;fill:var(--mute)">${sub}</text></svg><ul class="dl2">${parts.map(p=>`<li><i style="background:${p.c}"></i><span>${ESC(p.l)}</span><b>${p.v}</b></li>`).join('')}</ul></div>`;
 }
 const CATC={ACC:'#0EA5E9',ACS:'#8A64F2',NET:'#5B7CF0',SW:'#14B8A6',HW:'#D9A21B',SYS:'#E0457F',SEC:'#D92D20'};
-function memberPanel(name,win){
+function memberPanel(name,win,noCat){
   const l=win.filter(t=>t.assignee===name);const v=cntOf(l);const st=STAFF.find(s=>s.name===name)||{group:''};
   const pc=Object.keys(CATS).map(c=>({l:CATS[c].n,v:l.filter(t=>t.cat===c).length,c:CATC[c]}));
   const label=({d:'오늘',m:'최근 30일',y:'최근 1년',a:'전체'})[S.dashPer];
-  return `<div class="panel mp"><div class="row" style="justify-content:space-between"><h3>${ESC(name)} · 개인 현황 <span class="tag gray">${ESC(st.group)}</span> <span class="small muted" style="font-weight:400">${label}</span></h3><button class="btn ghost sm" data-act="dmem" data-n="${ESC(name)}">닫기</button></div><div class="g2 mpg" style="grid-template-columns:1fr 1fr;margin-top:14px"><div class="dbox"><div class="small muted" style="margin-bottom:8px">처리 상태</div>${donut(Object.keys(SC).map(k=>({l:SLB[k],v:v[k],c:SC[k]})),tot(v),'건')}</div><div class="dbox"><div class="small muted" style="margin-bottom:8px">분류</div>${donut(pc,tot(v),'건','cat')}</div></div><div style="margin-top:12px"><button class="btn sec sm" data-act="tf" data-staff="${ESC(name)}">${ESC(name)}님의 티켓 목록 ›</button></div></div>`;
+  return `<div class="panel mp"><div class="row" style="justify-content:space-between"><h3>${ESC(name)} · 개인 현황 <span class="tag gray">${ESC(st.group)}</span> <span class="small muted" style="font-weight:400">${label}</span></h3><button class="btn ghost sm" data-act="dmem" data-n="${ESC(name)}">닫기</button></div><div class="g2 mpg" style="grid-template-columns:${noCat?'1fr':'1fr 1fr'};margin-top:14px"><div class="dbox"><div class="small muted" style="margin-bottom:8px">처리 상태</div>${donut(Object.keys(SC).map(k=>({l:SLB[k],v:v[k],c:SC[k]})),tot(v),'건')}</div>${noCat?'':`<div class="dbox"><div class="small muted" style="margin-bottom:8px">분류</div>${donut(pc,tot(v),'건','cat')}</div>`}</div><div style="margin-top:12px"><button class="btn sec sm" data-act="tf" data-staff="${ESC(name)}">${ESC(name)}님의 티켓 목록 ›</button></div></div>`;
 }
 /* ---- 관리자 대시보드 ---- */
 /* ---- 담당자: 처리할 문의 + 내 현황 · 팀 현황 ---- */
@@ -2725,15 +2749,33 @@ function priBlock(list,link,teamNote){
   return `<div class="pdist">${ps.map((p,i)=>{const inner=`<span class="pl">${pbadge(p)}</span><span class="bar ${p.toLowerCase()}" aria-hidden="true"><i style="width:${Math.max(ns[i]?3:0,ns[i]/mx*100)}%"></i></span><b>${ns[i]}<small>건</small></b>${link?GO:'<span></span>'}<span class="small muted pr">${PRI_RULE[p]}</span>`;
     return link?`<button class="pd" data-act="spri" data-p="${p}" aria-label="${p} ${ns[i]}건. 이 긴급도의 문의 목록 보기">${inner}</button>`:`<div class="pd st">${inner}</div>`;}).join('')}</div>${teamNote?'<p class="small muted secnote" style="margin-top:8px">건수는 팀 전체예요. 줄을 누르면 내 문의 중 해당 긴급도만 목록으로 보여줘요.</p>':''}`;
 }
-function memRows2(names,win,meName){
+/* 팀원 카드용 도넛: 처리 대기·처리 중·해결 확인 대기·해결 완료. 가운데에 전체 건수, 그 아래에 완료율 */
+function miniDonut(v,size,sw){
+  const T=tot(v),t=T||1,R=(size-sw)/2-1,C=2*Math.PI*R,c=size/2;let off=0;
+  const arcs=['w','p','n','c'].filter(k=>v[k]).map(k=>{const len=v[k]/t*C;const a=`<circle cx="${c}" cy="${c}" r="${R}" fill="none" stroke="${SC[k]}" stroke-width="${sw}" stroke-dasharray="${Math.max(0,len-1.5)} ${C-Math.max(0,len-1.5)}" stroke-dashoffset="${-off}" transform="rotate(-90 ${c} ${c})"/>`;off+=len;return a;}).join('');
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true"><circle cx="${c}" cy="${c}" r="${R}" fill="none" stroke="var(--track)" stroke-width="${sw}"/>${arcs}<text x="${c}" y="${c+size*0.03}" text-anchor="middle" style="font-size:${Math.round(size*0.27)}px;font-weight:700;fill:var(--ink)">${T}</text><text x="${c}" y="${c+size*0.19}" text-anchor="middle" style="font-size:${Math.round(size*0.105)}px;fill:var(--mute)">${T?'완료 '+Math.round(v.c/T*100)+'%':'-'}</text></svg>`;
+}
+/* 팀원별 카드: 왼쪽 위에 이름, 가운데에 도넛(전체 건수·완료율). 누르면 왼쪽은 그대로 두고 오른쪽으로 길어지며 상태별 건수가 보인다 */
+function memCards(names,win){
+  const sel=S.st.member;
+  return `<div class="mcards">${names.map((n,i)=>{
+    const v=cntOf(win.filter(t=>t.assignee===n)),T=tot(v),open=sel===n;
+    const rows=['w','p','n','c'].map(k=>`<li><i style="background:${SC[k]}"></i><span>${SLB[k]}</span><b>${v[k]}건</b><em>${T?Math.round(v[k]/T*100):0}%</em></li>`).join('');
+    const detail=open?`<div class="mcd"><ul class="dl3">${rows}</ul><div class="mcf"><span class="small muted">전체 ${T}건 · 완료 ${T?Math.round(v.c/T*100):0}%</span><button class="btn sec sm" data-act="tf" data-staff="${ESC(n)}">티켓 목록 ›</button></div></div>`:'';
+    return `<div class="mcard${open?' open':''}${i%3===2?' last3':''}"${open?'':` data-tip="${tipOf(v)}" data-tl="${ESC(n)}"`}><button type="button" class="mcb" data-act="smem" data-n="${ESC(n)}" aria-pressed="${open}" aria-label="${ESC(n)} 처리 상태 ${T}건"><span class="mcn">${ESC(n)}</span><div class="donut mcdn">${miniDonut(v,124,15)}</div>${tipSr(v)}</button>${detail}</div>`;
+  }).join('')}</div>`;
+}
+function memRows2(names,win,meName,flat){ /* flat: 이름을 눌러도 개인 현황을 열지 않는다 */
   const rows=names.map(n=>({n,v:cntOf(win.filter(t=>t.assignee===n))}));const mx=Math.max(1,...rows.map(r=>tot(r.v)));
+  /* flat: 서버 집계(OP-01 byMember)에는 개인별 분류 분포가 없어 이름을 눌러도 도넛을 열지 않는다 */
+  if(flat)return `<div class="srows">${rows.map(r=>srow(r.n,'',r.v,mx,{me:r.n===meName})).join('')}</div>`;
   return `<div class="srows">${rows.map(r=>srow(r.n,'',r.v,mx,{attrs:`data-act="smem" data-n="${ESC(r.n)}" aria-pressed="${S.st.member===r.n}"`,sel:S.st.member===r.n,me:r.n===meName})+(S.st.member===r.n?donIn(r.n,win):'')).join('')}</div>`;
 }
 function donIn(name,win){
   const o=secLoad('don',S.st.per+'|'+name,'개인 현황','이름 선택 시: '+name);
   if(o.st==='loading')return `<div class="nest" aria-busy="true"><div class="skel" aria-hidden="true"><i></i><i></i></div><p class="small muted" role="status">개인 현황을 불러오는 중이에요</p></div>`;
   if(o.st==='err')return `<div class="nest"><div class="alert err" role="alert">${ic('alert')}<div><b>개인 현황을 불러오지 못했어요.</b></div></div><button class="btn ghost sm" data-act="sreload" data-k="don">다시 시도</button></div>`;
-  const sv=S.dashPer;S.dashPer=S.st.per;const h=memberPanel(name,win).replace(/data-act="dmem"/g,'data-act="smem"');S.dashPer=sv;
+  const sv=S.dashPer;S.dashPer=S.st.per;const h=memberPanel(name,win,true).replace(/data-act="dmem"/g,'data-act="smem"');S.dashPer=sv;
   return `<div class="nest don" data-sig="don|${o.dep}|${o.id}">${h.replace(/^<div class="panel mp">/,'<div class="mp2">').replace(/<h3>.*?<\/h3>/,'<h4>'+ESC(name)+' · 개인 현황</h4>')}</div>`;
 }
 function viewStatsStaff(){
@@ -2756,13 +2798,14 @@ function viewStatsStaff(){
   ${team?secBox('mem','팀원별 진행도',mem,mem.st==='ok'?legend()+memRows2(names,win,acc.name)+'<div class="hint" style="margin-top:8px">이름을 누르면 아래에 개인 현황(도넛)을 불러와요. 업무량 확인용이며 평가 순위가 아니에요.</div>':'','선택 기간에 접수된 티켓의 현재 상태 기준이에요.'):''}</div></div></main>`;
 }
 function viewStatsAdmin(){
+  if(S.st.mode!=='team'){S.st.mode='team';S.st.member=null;} /* 분류별 진행도는 서버 집계에 분류별 상태 건수가 없어 뺐다 */
   const s=S.st,T=S.tickets,win=T.filter(t=>inW(t,s.per));
   const sel=s.sel[s.mode];
   const sum=secLoad('sum',s.per,'담당자 처리 (티켓)',PERN[s.per]);
   const ai=secLoad('ai',s.per,'AI 상담 결과',PERN[s.per]);
   const tr=secLoad('trend',s.per+'|'+s.unit,'접수 추이',PERN[s.per]+' · '+(s.unit==='w'?'주별':'일별'));
   const pr=secLoad('pri',s.per,'긴급도 분포',PERN[s.per]);
-  const pg=secLoad('prog',s.per+'|'+s.mode,'팀별·분류별 진행도',PERN[s.per]+' · '+(s.mode==='team'?'팀별':'분류별'));
+  const pg=secLoad('prog',s.per+'|'+s.mode,'팀별 진행도',PERN[s.per]);
   const memOn=!!sel,mem=memOn?secLoad('mem',s.per+'|'+s.mode+'|'+sel,'구성원별 진행도',(s.mode==='team'?'팀':'분류')+' 선택: '+(s.mode==='team'?sel:CATS[sel].n)):null;
   const aiDays=Math.min(PERD[s.per],S.aiSeed.length);const aiW=aiRows().filter(r=>r.day>=0&&r.day<aiDays||r.day===-1),aiN=aiW.filter(r=>r.k==='ok').length,unc=aiW.filter(r=>r.k==='pend').length,unr=aiW.filter(r=>r.k==='unr').length;
   const none=win.filter(t=>!t.status).length,v=cntOf(win);
@@ -2776,18 +2819,18 @@ function viewStatsAdmin(){
     if(mem.st==='loading')return `<div class="nest" aria-busy="true"><div class="skel" aria-hidden="true"><i></i><i></i></div><p class="small muted" role="status">구성원별 진행도를 불러오는 중이에요</p></div>`;
     if(mem.st==='err')return `<div class="nest"><div class="alert err" role="alert">${ic('alert')}<div><b>구성원별 진행도를 불러오지 못했어요.</b></div></div><button class="btn ghost sm" data-act="sreload" data-k="mem">다시 시도</button></div>`;
     const names=s.mode==='team'?STAFF.filter(x=>x.group===sel).map(x=>x.name):[...new Set(T.filter(t=>t.cat===sel&&t.assignee).map(t=>t.assignee))];
-    return `<div class="nest" data-sig="mem|${mem.dep}|${mem.id}"><div class="nh"><b>${ESC(lb)} · 구성원별 진행도</b><span class="small muted">집계 기준 ${mem.at} <span class="tag gray">시연 데이터</span></span><button class="btn ghost sm" data-act="sreload" data-k="mem">${ic('refresh')} 새로고침</button></div>${memRows2(names,win.filter(f),null)}<div class="hint" style="margin-top:6px">이름을 누르면 아래에 개인 현황(도넛)을 불러와요. 업무량 확인용이며 평가 순위가 아니에요.</div></div>`;
+    return `<div class="nest" data-sig="mem|${mem.dep}|${mem.id}"><div class="nh"><b>${ESC(lb)} · 구성원별 진행도</b><span class="small muted">집계 기준 ${mem.at} <span class="tag gray">서버 집계</span></span><button class="btn ghost sm" data-act="sreload" data-k="mem">${ic('refresh')} 새로고침</button></div>${memCards(names,win.filter(f))}<div class="hint" style="margin-top:6px">카드에 마우스를 올리면 상태별 건수를, 누르면 카드가 넓어지며 자세히 보여요. 업무량 확인용이며 평가 순위가 아니에요.</div></div>`;
   };
   let items,sub;
   if(s.mode==='team')items=GROUPS.map(g=>({k:g,label:g,sub:STAFF.filter(x=>x.group===g).length+'명',v:cntOf(win.filter(t=>t.group===g))}));
   else items=Object.keys(CATS).map(c=>({k:c,label:CATS[c].n,sub:'',v:cntOf(win.filter(t=>t.cat===c))}));
   const rmx=Math.max(1,...items.map(i=>tot(i.v)));
-  const progB=`<div class="row" style="justify-content:space-between;margin:8px 0"><div class="seg" role="group" aria-label="진행도 기준"><button class="${s.mode==='team'?'on':''}" aria-pressed="${s.mode==='team'}" data-act="smode" data-m="team">팀별</button><button class="${s.mode==='cat'?'on':''}" aria-pressed="${s.mode==='cat'}" data-act="smode" data-m="cat">분류별</button></div></div>${legend()}<div class="srows">${items.map(i=>srow(i.label,i.sub,i.v,rmx,{attrs:`data-act="ssel" data-k="${i.k}" aria-pressed="${i.k===sel}"`,sel:i.k===sel})+(i.k===sel?nestMem():'')).join('')}</div><div class="hint" style="margin-top:8px">${s.mode==='team'?'팀':'분류'}를 누르면 그 아래에 구성원별 진행도를 불러와요.</div>`;
+  const progB=`${legend()}<div class="srows">${items.map(i=>s.mode==='team'?srow(i.label,i.sub,i.v,rmx,{attrs:`data-act="ssel" data-k="${i.k}" aria-pressed="${i.k===sel}"`,sel:i.k===sel})+(i.k===sel?nestMem():''):srow(i.label,i.sub,i.v,rmx)).join('')}</div><div class="hint" style="margin-top:8px">막대에 마우스를 올리면 처리 대기·처리 중·해결 확인 대기·해결 완료 건수를 볼 수 있어요. 팀을 누르면 그 아래에 팀원별 카드를 보여요.</div>`;
   return `<main class="main">${topbar('통계','티켓과 AI 해결을 구분해서 보여줘요')}<div class="scroll"><div class="page">${phead('STATISTICS','통계','기간을 고르고 추이·분포·진행도를 살펴봐요. 지금 확인할 일은 대시보드에서 봐요.')}${perBar()}
   ${secBox('ai','AI 상담 결과',ai,ai.st==='ok'?aiB:'','티켓이 만들어지지 않은 문의 · 문의를 시작한 날 기준이에요.','ai')}
   ${secBox('sum','담당자 처리 (티켓)',sum,sum.st==='ok'?sumB:'','티켓이 만들어진 접수 · 접수한 날 기준이에요.','tk')}
   ${secBox('trend','접수 추이',tr,tr.st==='ok'?trendBlock(win,true):'')}
-  ${secBox('prog','팀별·분류별 진행도',pg,pg.st==='ok'?progB:'','선택 기간에 접수된 티켓의 현재 상태 기준이에요. 배정 전 문의는 막대에 넣지 않았어요.')}
+  ${secBox('prog','팀별 진행도',pg,pg.st==='ok'?progB:'','서버 집계(대시보드 집계 API) 기준: 선택 기간에 접수된 티켓의 현재 상태예요. 배정 전 문의는 팀 막대에 넣지 않았어요.')}
   ${secBox('pri','긴급도 분포 (P1~P4)',pr,pr.st==='ok'?priBlock(win,true):'','선택 기간에 접수된 티켓 전체 기준이에요(배정 전 포함). 줄을 누르면 해당 긴급도 문의 목록으로 가요.')}</div></div></main>`;
 }
 const trow=(t,who)=>`<button class="trow" data-act="detail" data-id="${t.receipt}"><span class="mono small">${t.receipt}</span><span class="tt2"><b>${ESC(t.title)}</b>${t.newReply?' <span class="newd" role="img" aria-label="새 답변"></span>':''}<small>${ESC(who)}</small></span><span>${pbadge(t.p)}</span><span>${tbadge(t.status)}</span></button>`;
@@ -2907,6 +2950,27 @@ document.addEventListener('input',ev=>{
   if(k==='lq'){S.lq=el.value;S.page.list=1;patch(viewList,['lres','lclr','lxb']);}if(k==='aq'){S.acctQ=el.value;S.page.acct=1;patch(viewAccounts,['ares']);}
 });
 document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset&&el.dataset.in==='fsc'){fsRepaint(el.value);return;}if(el.dataset&&el.dataset.in==='fsck'){fsSync();return;}if(el.dataset&&el.dataset.in==='gu'){const k=el.dataset.k;S.gu[k]=el.type==='checkbox'?el.checked:el.value;if(k==='cat'){S.gu.doc='';if(S.gu.mode==='new'&&!S.gu.ver)S.gu.ver='v1';guPaint();}else if(k==='doc'){const g=S.guides.find(x=>x.id===el.value);if(g){const l=g.vers[0];S.gu.ver='v'+(Math.max(...g.vers.map(x=>x.v))+1);S.gu.scope=l.scope;S.gu.tx=l.tx;}guPaint();}return;}if(el.dataset&&el.dataset.in==='secsel'){S.secF.type=el.value;render();return;}if(el.dataset&&el.dataset.in==='tfsel'){S.tf[el.dataset.k]=el.value||undefined;S.page.tk=1;render();return;}if(el.dataset&&el.dataset.in==='gfile'){const f=el.files[0];const x=document.getElementById('m-fx');if(x)x.hidden=!f;const t=document.getElementById('m-t');if(f&&t&&!t.value){t.value=f.name.replace(/\.[^.]+$/,'');if(S.gu)S.gu.title=t.value;}}if(el.dataset&&el.dataset.in==='flag'){S.flags[el.dataset.k]=el.checked;}});
+/* 상태별 막대: 마우스를 따라다니며 처리 대기·처리 중·해결 확인 대기·해결 완료 건수를 보여 준다 */
+(()=>{
+  let tip=null;
+  const names=[['w','처리 대기'],['p','처리 중'],['n','해결 확인 대기'],['c','해결 완료']];
+  const hide=()=>{if(tip)tip.style.display='none';};
+  document.addEventListener('mousemove',ev=>{
+    const row=ev.target.closest&&ev.target.closest('.srow[data-tip],.mcard[data-tip]');
+    if(!row){hide();return;}
+    if(!tip){tip=document.createElement('div');tip.className='stip';tip.setAttribute('role','presentation');document.body.appendChild(tip);}
+    const v=row.dataset.tip.split('|').map(Number),t=v.reduce((a,b)=>a+b,0);
+    tip.innerHTML=`<b>${ESC(row.dataset.tl||'')}</b><small>전체 ${t}건</small>`+names.map((x,i)=>`<div><i style="background:${SC[x[0]]}"></i><span>${x[1]}</span><b>${v[i]}건</b></div>`).join('');
+    tip.style.display='block';
+    const w=tip.offsetWidth,h=tip.offsetHeight;
+    let x=ev.clientX+16,y=ev.clientY+16;
+    if(x+w>innerWidth-8)x=ev.clientX-w-16;
+    if(y+h>innerHeight-8)y=ev.clientY-h-16;
+    tip.style.left=Math.max(8,x)+'px';tip.style.top=Math.max(8,y)+'px';
+  });
+  document.addEventListener('mouseout',ev=>{if(!ev.relatedTarget)hide();});
+  window.addEventListener('scroll',hide,true);
+})();
 document.addEventListener('keydown',ev=>{
   const el=ev.target;
   if(ev.key==='Enter'&&!ev.shiftKey&&!ev.isComposing){
