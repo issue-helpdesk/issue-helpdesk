@@ -16,7 +16,6 @@ import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
 import { Icon, type IconName } from '../../ui/Icon'
 import { Mascot } from '../../ui/Mascot'
-import { SideToggle } from '../../ui/SideToggle'
 import { useShell } from '../../ui/shellContext'
 import { UserControls } from '../../ui/UserControls'
 
@@ -110,9 +109,6 @@ export function NewInquiryView() {
         <button className="btn sec sm ico xmenu" type="button" aria-label="메뉴 열기" onClick={toggleNav}>
           <Icon name="chevron" />
         </button>
-        <span className="xo">
-          <SideToggle open />
-        </span>
 
         <div className="hero">
           <Mascot />

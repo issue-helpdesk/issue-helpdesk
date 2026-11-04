@@ -47,8 +47,6 @@ export function AppShell() {
     } catch {
       /* 저장소를 못 쓰면 이번 화면에서만 적용된다 */
     }
-    // 눌렀던 버튼이 사라지므로 반대쪽 버튼으로 초점을 옮긴다
-    setTimeout(() => document.querySelector<HTMLElement>(next ? '.top .sbopen, .xo .sbopen' : '.side .sbt')?.focus({ preventScroll: true }), 0)
   }, [sideOff])
   const value = useMemo(() => ({ toggleNav, openProfile, sideOff, toggleSide }), [toggleNav, openProfile, sideOff, toggleSide])
 

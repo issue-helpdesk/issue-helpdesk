@@ -269,14 +269,10 @@ describe('프로토타입과 맞춘 표시', () => {
     expect(within(sec).getByText(/AI 해결은 해결 완료와 합산하지 않아요/)).toBeInTheDocument()
   })
 
-  it('담당자는 사이드바의 문의 메뉴를 접고 펼 수 있고, 문의자에게는 접기 버튼이 없다', async () => {
+  it('담당자·관리자 사이드바의 문의 메뉴에는 접기 버튼이 없고 항상 펼쳐져 있다', async () => {
     const { unmount } = renderAs('EMP-1004', '/my')
     const nav = await screen.findByRole('navigation', { name: '주 메뉴' }, SLOW)
-    const tg = within(nav).getByRole('button', { name: '문의 메뉴 접기' })
-    expect(tg).toHaveAttribute('aria-expanded', 'true')
-    await userEvent.click(tg)
-    expect(within(nav).queryByRole('button', { name: '새 문의' })).toBeNull()
-    await userEvent.click(within(nav).getByRole('button', { name: '문의 메뉴 펼치기' }))
+    expect(within(nav).queryByRole('button', { name: /문의 메뉴/ })).toBeNull()
     expect(within(nav).getByRole('button', { name: '새 문의' })).toBeInTheDocument()
     unmount()
     renderAs('EMP-1001', '/list')

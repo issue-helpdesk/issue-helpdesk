@@ -67,6 +67,8 @@ export function ChatView() {
   const [reason, setReason] = useState('')
   // 이어갈 수 있는 문의를 열면 이어가기 창이 뜬다. 처음 불러온 순간에 정하므로 방금 만든 대화에서는 뜨지 않는다.
   // done=이어가기를 골랐음, popup=창이 열려 있음 (✕로 닫으면 잠긴 입력창을 눌러 다시 연다)
+  // "이어서 대화하기" 뒤에 해결 여부를 아직 안 골랐으면 선택 창을 한 번 더 보여 준다 (닫으면 대화 화면의 버튼으로 고른다)
+  const [ask, setAsk] = useState(false)
   const [entry, setEntry] = useState<{ id: number; kind: EntryKind | null; popup: boolean; done: boolean } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -300,6 +302,8 @@ export function ChatView() {
   const wait = t ? (t.workStatus === 'FIN' ? 'fin' : null) : inquiry.step === 'draft' ? 'draft' : inquiry.step === 'answered' ? 'answered' : inquiry.step === 'offer' ? 'offer' : null
   // 삭제 전에 돌아온 상태: 이어서 할지 새로 시작할지 고를 때까지 입력창을 끈다
   const paused = !!inquiry.paused
+  const askAnswer = ask && !paused && !gated && (wait === 'answered' || wait === 'fin') ? wait : null
+  const askTarget = askAnswer === 'answered' ? [...inquiry.messages].reverse().find((m) => !m.locked && m.replies?.some((r) => r.action === 'resolved')) : undefined
   const lock = paused ? { ph: '아래에서 이어갈 방법을 골라 주세요', why: '' } : wait ? LOCK[wait] : null
   const placeholder = endMsg ?? (lock ? lock.ph : t ? '담당자에게 추가로 전달할 내용을 입력해 주세요.' : '메시지를 입력해 주세요.')
   // 시연: 응답 없음 삭제 안내 · 삭제 · 돌아옴. 질문·연결 제안·초안 단계에서만 쓴다 (접수된 건·끝난 문의·미확인은 대상이 아니다).
@@ -426,7 +430,7 @@ export function ChatView() {
         <Modal key="back" title="잠시 자리를 비우셨네요" variant="choice" dismissible={false} lead={<Pav size={84} />}>
           <p>이전 대화를 이어가거나 새 문의를 시작할 수 있어요.</p>
           <div className="acts">
-            <button type="button" className="btn pri" disabled={busy} onClick={() => void apply(resumeChat(id, employeeNo!))}>
+            <button type="button" className="btn pri" disabled={busy} onClick={() => void apply(resumeChat(id, employeeNo!)).then((ok) => ok && setAsk(true))}>
               이어서 대화하기
             </button>
             <button type="button" className="btn sec" disabled={busy} onClick={() => void apply(leaveChat(id, employeeNo!)).then(() => navigate('/new'))}>
@@ -447,6 +451,7 @@ export function ChatView() {
               onClick={async () => {
                 // 미확인은 기존 해결·미해결 버튼을 풀기만 한다
                 setEntry((e) => (e ? { ...e, popup: false, done: true } : e))
+                setAsk(true)
               }}
             >
               이어서 대화하기
@@ -460,6 +465,42 @@ export function ChatView() {
               {error}
             </div>
           )}
+        </Modal>
+      )}
+
+      {/* 이어서 대화하기 뒤: 해결 여부를 고르게 한다. 두 버튼은 같은 기본 모양이고 "나중에"로 닫을 수 있다 */}
+      {askAnswer && (askAnswer === 'fin' || askTarget) && (
+        <Modal key="ask" title="해결 여부를 선택해 주세요!" variant="choice" dismissible={false} closeButton onClose={() => setAsk(false)} lead={<Pav size={84} />}>
+          <p>{askAnswer === 'fin' ? '담당자가 처리 결과를 등록했어요. 해결되었는지 알려 주세요.' : 'AI 안내로 해결되었는지 알려 주세요.'}</p>
+          <div className="acts">
+            <button
+              type="button"
+              className="btn sec"
+              disabled={busy}
+              onClick={() => {
+                setAsk(false)
+                if (askAnswer === 'fin') actions.resolve()
+                else if (askTarget) actions.reply({ messageId: askTarget.id, action: 'resolved' })
+              }}
+            >
+              해결
+            </button>
+            <button
+              type="button"
+              className="btn sec"
+              disabled={busy}
+              onClick={() => {
+                setAsk(false)
+                if (askAnswer === 'fin') actions.reject()
+                else if (askTarget) actions.reply({ messageId: askTarget.id, action: 'unresolved' })
+              }}
+            >
+              미해결
+            </button>
+          </div>
+          <button type="button" className="btn ghost sm" style={{ marginTop: 6 }} onClick={() => setAsk(false)}>
+            나중에 선택할게요
+          </button>
         </Modal>
       )}
 

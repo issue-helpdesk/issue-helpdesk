@@ -565,10 +565,24 @@ describe('대화 화면', () => {
     expect(chips().every((b) => (b as HTMLButtonElement).disabled)).toBe(true)
     await user.click(screen.getByRole('button', { name: '이어가기 선택 열기' }))
     await user.click(await screen.findByRole('button', { name: '이어서 대화하기' }, SLOW))
-    // 새 버튼을 만들지 않고 기존 해결·미해결 버튼이 풀린다
+    // 이어서 대화하기 뒤에는 해결 여부 선택 창이 뜬다. "나중에"로 닫으면 기존 해결·미해결 버튼이 풀려 있다
+    const ask = await screen.findByRole('dialog', { name: '해결 여부를 선택해 주세요!' }, SLOW)
+    await user.click(within(ask).getByRole('button', { name: '나중에 선택할게요' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     await waitFor(() => expect(chips().every((b) => !(b as HTMLButtonElement).disabled)).toBe(true), SLOW)
     expect(chips()).toHaveLength(2)
     await user.click(screen.getByRole('button', { name: '해결' }))
+    expect(await screen.findByText(/AI 안내로 문제가 해결되었군요/, {}, SLOW)).toBeInTheDocument()
+  })
+
+  it('이어서 대화하기 뒤 해결 여부 창에서 해결을 고르면 바로 해결로 처리된다(두 버튼은 같은 모양)', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1001', '/chat/103')
+    await user.click(await screen.findByRole('button', { name: '이어서 대화하기' }, SLOW))
+    const ask = await screen.findByRole('dialog', { name: '해결 여부를 선택해 주세요!' }, SLOW)
+    const ok = within(ask).getByRole('button', { name: '해결' })
+    expect(ok.className).toBe(within(ask).getByRole('button', { name: '미해결' }).className)
+    await user.click(ok)
     expect(await screen.findByText(/AI 안내로 문제가 해결되었군요/, {}, SLOW)).toBeInTheDocument()
   })
 
