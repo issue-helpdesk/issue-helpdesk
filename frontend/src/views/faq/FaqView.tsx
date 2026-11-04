@@ -197,7 +197,16 @@ export function FaqView() {
                       {/* 관리자 단추(게시 중단·삭제)는 오른쪽 끝으로 밀고, 상담하기와 같은 테두리 단추로 맞춘다 */}
                       {admin && (
                         <span className="faqadm">
-                          <button type="button" className="btn sec sm" onClick={() => void run(setFaqActive(f, off), off ? '다시 게시했어요. 문의자 FAQ 화면에 보여요.' : '게시를 멈췄어요. 문의자에게는 보이지 않아요.')}>
+                          <button
+                            type="button"
+                            className="btn sec sm"
+                            onClick={() => {
+                              // 서버 모드에서 가이드 출처가 없는 FAQ 는 게시할 수 없다 (R-41 전까지 막고 안내만)
+                              const src = srcs[f.id]
+                              if (off && !USE_MOCK_FAQ && !f.sources.length && Array.isArray(src) && !src.length) return say('지금은 게시할 수 없어요. 게시하려면 FAQ에 가이드 문서를 출처로 연결해야 하는데, 그 기능이 아직 준비되지 않았어요.')
+                              void run(setFaqActive(f, off), off ? '다시 게시했어요. 문의자 FAQ 화면에 보여요.' : '게시를 멈췄어요. 문의자에게는 보이지 않아요.')
+                            }}
+                          >
                             {off ? '다시 게시' : '게시 중단'}
                           </button>
                           <button type="button" className="btn sec sm dng" onClick={() => setDeleting(f)}>
