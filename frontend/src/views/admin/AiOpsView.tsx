@@ -122,28 +122,29 @@ export function AiOpsView() {
             </div>
           )}
 
+          {/* 값이 0 이면(.zero) 숫자를 흐리게 보여 "없음"이 한눈에 구분되게 한다 */}
           <div className="kpis">
-            <div className="kpi">
+            <div className={`kpi${sum?.tot === 0 ? ' zero' : ''}`}>
               <div className="l">기간 내 AI 상담</div>
               <div className="v">
                 <b>{sum ? <CountUp value={sum.tot} /> : '-'}</b>
                 <span>건</span>
               </div>
             </div>
-            <div className="kpi">
+            <div className={`kpi${sum?.tot === 0 ? ' zero' : ''}`}>
               <div className="l">AI 해결률</div>
               <div className="v">
                 <b>{sum && sum.tot ? <CountUp value={Math.round((sum.ai / sum.tot) * 100)} delay={60} /> : '-'}</b>
                 <span>%</span>
               </div>
             </div>
-            <div className="kpi">
+            <div className={`kpi${sum?.cost === 0 ? ' zero' : ''}`}>
               <div className="l">추정 비용 (기간 합계)</div>
               <div className="v">
                 <b>{sum ? <CountUp value={sum.cost} prefix="$" decimals={1} delay={120} /> : '-'}</b>
               </div>
             </div>
-            <div className="kpi">
+            <div className={`kpi${b && pct === 0 ? ' zero' : ''}`}>
               <div className="l">{b?.scope === 'period' ? '기간 예산 사용' : `${cur.last} 예산 사용`}</div>
               <div className="v">
                 <b>{b ? <CountUp value={pct} delay={180} /> : '-'}</b>
