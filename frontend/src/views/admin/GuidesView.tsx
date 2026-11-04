@@ -39,7 +39,7 @@ import {
   type GuideTx,
   type GuideVersion,
 } from '../../api/guides'
-import { getIngestFailures, recordVersions, trackIngest, watchIngest } from '../../api/guideWatch'
+import { breakSentences, getIngestFailures, recordVersions, trackIngest, watchIngest } from '../../api/guideWatch'
 import { listTickets } from '../../api/tickets'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
@@ -746,7 +746,7 @@ function IngestDialog({ g, v, onClose, onRetry }: { g: Guide; v: GuideVersion; o
       </p>
       <div className="alert warn">
         <Icon name="alert" />
-        <div>{v.error || '실패 사유를 받지 못했어요.'}</div>
+        <div style={{ whiteSpace: 'pre-line' }}>{breakSentences(v.error || '실패 사유를 받지 못했어요.')}</div>
       </div>
       <p className="small muted">실패한 버전은 현행으로 바꿀 수 없어요. 같은 파일은 다시 올릴 수 없어서, 아래에서 다시 시도하거나 글자가 있는 원본 파일로 바꿔 시도해 주세요.</p>
       <div className="acts">

@@ -187,22 +187,23 @@ export function FaqView() {
                   <div className="fb">
                     {f.answer}
                     {/* 근거로 쓴 Guide 출처 (SRS ANSWER-01) */}
-                    <div className="small muted" style={{ marginTop: 6 }}>
+                    <div className="small muted" style={{ marginTop: 14 }}>
                       <Sources f={f} loaded={srcs[f.id]} onOpen={setPreview} />
                     </div>
                     <div className="row" style={{ marginTop: 12 }}>
                       <button type="button" className="btn sec sm" onClick={() => navigate('/new', { state: { prefill: f.question } })}>
                         해결되지 않았어요 · 상담하기
                       </button>
+                      {/* 관리자 단추(게시 중단·삭제)는 오른쪽 끝으로 밀고, 상담하기와 같은 테두리 단추로 맞춘다 */}
                       {admin && (
-                        <>
-                          <button type="button" className="btn ghost sm" onClick={() => void run(setFaqActive(f, off), off ? '다시 게시했어요. 문의자 FAQ 화면에 보여요.' : '게시를 멈췄어요. 문의자에게는 보이지 않아요.')}>
+                        <span className="faqadm">
+                          <button type="button" className="btn sec sm" onClick={() => void run(setFaqActive(f, off), off ? '다시 게시했어요. 문의자 FAQ 화면에 보여요.' : '게시를 멈췄어요. 문의자에게는 보이지 않아요.')}>
                             {off ? '다시 게시' : '게시 중단'}
                           </button>
-                          <button type="button" className="btn ghost sm dng" onClick={() => setDeleting(f)}>
+                          <button type="button" className="btn sec sm dng" onClick={() => setDeleting(f)}>
                             삭제
                           </button>
-                        </>
+                        </span>
                       )}
                     </div>
                   </div>
