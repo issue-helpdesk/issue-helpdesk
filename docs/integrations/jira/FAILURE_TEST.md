@@ -3,7 +3,7 @@
 완료 기준: **Jira가 꺼지거나 배정할 사람이 없어도 접수가 남고, 관리자가 다시 처리할 수 있다.**
 
 `tests/test_jira_failure_scenarios.py`가 접수 → 실행기 → 장애 → 관리자 API(목록·재처리·수동 배정) → 복구 → 실행기 재처리를 한 흐름으로 잇는다.
-실제 `JiraClient`를 쓰고 HTTP 응답만 흉내 낸다(연결 거부·시간 초과·401·503이 클라이언트의 오류 분류를 거쳐 나온다). SQLite 메모리 DB만 쓰고 **실제 Jira는 부르지 않았다.**
+실제 `JiraClient`를 쓰고 HTTP 응답만 흉내 낸다(연결 거부·시간 초과·401·503이 클라이언트의 오류 분류를 거쳐 나온다). 이 자동 시험은 SQLite 메모리 DB만 쓰고 **실제 Jira는 부르지 않았다.** 아래 실제 환경 시험 결과와 구분한다.
 
 ## 결과 (자동 시험 7건 통과)
 
@@ -16,6 +16,23 @@
 | 5 | 티켓 생성 뒤 담당자 지정이 계속 실패(503) | 지정 요청이 실패하면 적용 여부를 알 수 없어 다시 지정하지 않고 조회로 3번(1분 간격) 확인 → 관리자 확인. 예약된 담당자는 보존된다. 재처리하면 배정된다 |
 | 6 | 주기 대조 중 Jira 꺼짐 | 오류 없이 넘어가고 상태는 그대로. 돌아오면 그동안 Jira에서 바뀐 상태를 맞춘다 |
 | 7 | Jira에서 삭제된 이슈가 쌓여 있음 | 정상 접수가 계속 주기 대조를 받는다 (아래 수정 참고) |
+
+## 실제 환경 시험 (2026-11-04, KST)
+
+**RCPT-0008 / [ITHD-373](https://itssuehelpdesk.atlassian.net/browse/ITHD-373)의 Jira 연결 장애·복구 흐름은 통과했다.** 로컬 Vite(5173) → Docker backend(8000), 상시 워커 2개, 실제 DB와 Jira를 사용했다. Jira 서비스 자체를 중단한 것이 아니라, 저장소 밖 임시 Compose 설정으로 두 워커의 `JIRA_BASE_URL`을 `http://127.0.0.1:9`로 바꿔 연결을 차단했다. EC2 배포 및 모든 장애 유형의 검증 완료를 뜻하지 않는다.
+
+| 확인 항목 | 실제 결과 |
+| --- | --- |
+| 장애 중 접수 보존 | 15:24 접수된 RCPT-0008이 DB와 문의자 화면·관리자 전체 문의 목록에 남았다. Jira 키는 비어 있었고 실제 Jira 접수번호 검색은 0건이었다. |
+| 재시도·관리자 확인 | 생성 작업 16이 15:24:36, 15:25:37, 15:30:43에 `network` 오류로 총 3회 실패한 뒤 `NEEDS_ADMIN`. `attempts=3`, `next_retry_at=null`. DB 시각을 당기지 않고 실제 60초·300초 대기와 워커 주기를 관찰했다. |
+| 워커 2개 동시 실행 | 마지막 회차에서 한 워커는 `NEEDS_ADMIN`, 다른 워커는 `SKIPPED`. 이 접수에서 중복 선점되지 않음을 확인했으며, 모든 동시성 조건을 검증한 것은 아니다. |
+| 연결 복구 | 15:31 두 워커의 정상 주소 적용 및 Jira 인증 성공을 확인했다. 복구 후 여러 회차에도 실패 작업이 자동 재개되지 않았다. |
+| 관리자 화면 재처리 | 사용자가 운영 현황에서 ‘Jira 생성 확인·재시도’를 실행. 새 작업 17은 `retry_of_job_id=16`, `DONE`, `attempts=1`. 원래 실패 이력은 유지됐다. |
+| 중복 없는 생성 | 15:33:57 생성 반영. DB는 `jira_key=ITHD-373`, `jira_sync_status=SYNCED`. Jira 검색의 전체 결과에서 접수번호 필드가 RCPT-0008과 정확히 일치하는 이슈는 1건이었다. |
+| 자동배정 | 작업 18이 `DONE`, `attempts=1`, DB `assign_status=ASSIGNED`. 실제 Jira 담당자 이민식(시험 직원 강지호 연결 계정), 상태 `RDY` 확인. |
+| 종료 확인 | 두 워커 정상 주소, backend healthy, Vite 경유 health `UP`. 임시 장애 설정 파일 제거. 애플리케이션 코드·루트 `.env`·ngrok·웹훅 URL은 변경하지 않았다. 시험 접수와 작업 이력은 증거로 보존했다. |
+
+RCPT-0007 / ITHD-372는 장애 설정 전 정상 생성·자동배정된 비교 건으로, 장애 시험 결과에서는 제외했다. 모의 자동시험 7건도 별도로 재실행해 통과했다. 중간 읽기 전용 DB 조회에서 Supabase session 연결 한도(15) 오류가 발생했으나 이후 조회는 성공했다. 연결 용량 문제 자체는 미해결이다.
 
 ## 시험으로 찾은 문제 (수정함)
 
@@ -30,19 +47,44 @@
 
 ## 하지 못한 것
 
-- **실제 Jira를 상대로 한 장애 시험.** 위 결과는 모두 모의 응답이다.
-- 관리자 화면에서 재처리·수동 배정 버튼이 이 API에 연결돼 있는지는 확인하지 못했다(API와 서비스까지만 시험).
-- 실행기 2개가 동시에 같은 장애를 만나는 경우.
+- **배정 후보 없음 → 관리자 수동배정 → 실제 Jira 담당자 반영.** 모의 시험은 통과했으나 실제 복구 흐름은 아직 확인 전이다.
+- 토큰 만료·생성 응답 유실·배정 요청 실패·주기 대조·삭제된 Jira 이슈 상황의 실제 환경 시험.
+- 이번 장애 시험에서 웹훅 수신 여부는 확인하지 않았다. EC2 배포 후 서버 URL·설정으로 확인해야 한다.
+- 워커 동시 실행은 RCPT-0008 단건만 확인했다. 실제 PostgreSQL의 모든 동시성 조건을 검증한 것은 아니다.
 
-## 실제 환경에서 해 보는 절차 (로컬 서버 + ngrok)
+## 실제 환경에서 해 보는 절차 (로컬 Vite + Docker worker)
 
-재시도 대기(1분·5분)를 기다리지 않으려면 회차 사이에 대기 시각을 당긴다.
+1. `http://localhost:5173`의 실제 API 연결과 backend·워커 2개, Jira 인증, 기존 대기 작업을 확인한다. ngrok은 웹훅 수신용이며 이번 생성·재처리 시험의 필수 조건은 아니다.
+2. 저장소 밖 임시 Compose override에서 **워커에만** `JIRA_BASE_URL=http://127.0.0.1:9`를 지정한다. 루트 `.env`와 backend의 Jira 주소는 유지한다. 예:
 
-```sql
-UPDATE integration_jobs SET next_retry_at = now() WHERE status = 'PENDING';
-```
+   ```yaml
+   services:
+     jira-worker:
+       environment:
+         JIRA_BASE_URL: http://127.0.0.1:9
+   ```
 
-1. **Jira 꺼짐**: 서버 `.env`의 `JIRA_BASE_URL`을 접속되지 않는 주소로 바꾸고 실행기를 다시 띄운다 → 문의자 화면에서 접수 → `worker.py --once`를 위 SQL과 번갈아 3번 → 접수 상태가 확인 필요(`NEEDS_ADMIN`)인지, 문의자 화면에 접수번호가 남는지 본다. 주소를 원래대로 돌린 뒤 `POST /api/v1/tickets/{접수 ID}/integration-jobs`(`{"retryOfJobId": 실패한 작업 ID, "reason": "..."}`)로 재처리하고 `--once`로 Jira 티켓이 한 건만 생겼는지 본다.
-2. **토큰 만료**: `JIRA_API_TOKEN`을 틀린 값으로 바꾸고 접수 → 첫 회차에 바로 확인 필요가 되어야 한다.
-3. **배정할 사람 없음**: 대상 팀 담당자 전원에게 오늘 날짜 연차를 등록하고 접수 → 티켓은 생기고 배정만 확인 필요여야 한다. `PUT /api/v1/tickets/{접수 ID}/assignment`로 수동 배정한다.
-4. 시험 뒤 `.env`와 연차 데이터를 원래대로 돌려 놓는다.
+   ```sh
+   docker compose -f docker-compose.yml -f docker-compose.jira-worker.yml -f /절대경로/jira-outage.yml up -d --no-deps --force-recreate jira-worker
+   ```
+
+   두 워커 모두 장애 주소를 읽었는지 확인한 **뒤에** 시험 문의를 최종 접수한다. 이미 생성된 Jira 티켓은 장애 중 접수 증거로 쓰지 않는다. 공유 DB를 처리하는 다른 환경의 워커가 있으면 먼저 조율한다.
+3. 시험 접수번호·접수 ID·생성 작업 ID를 기록한다. 기본 60초·300초 대기 후 총 3회 실패와 `NEEDS_ADMIN`, 접수번호 보존, Jira 검색 0건을 확인한다. 상시 워커가 처리하므로 별도 `worker.py --once`는 실행하지 않는다.
+4. 시간이 부족해 대기를 줄이는 경우에만 **시험 작업 한 건**을 지정한다. 실제 대기 시간 검증을 생략했다고 결과에 남긴다. 전체 PENDING 작업을 갱신하지 않는다.
+
+   ```sql
+   UPDATE integration_jobs SET next_retry_at = now()
+   WHERE id = :test_job_id AND ticket_id = :test_ticket_id
+     AND job_type = 'JIRA_CREATE' AND status = 'PENDING';
+   ```
+
+5. 임시 장애 override를 제외하고 두 워커를 재생성해 정상 주소로 복구한다. 중간에 시험이 막혀도 먼저 복구한다.
+
+   ```sh
+   docker compose -f docker-compose.yml -f docker-compose.jira-worker.yml up -d --no-deps --force-recreate jira-worker
+   ```
+
+6. 복구만으로 실패 작업이 자동 재개되지 않는지 확인한 뒤, 관리자가 해당 접수만 재처리한다. 운영 현황의 ‘Jira 생성 확인·재시도’는 `POST /api/v1/tickets/{test_ticket_id}/integration-jobs`에 `retryOfJobId`와 사유를 보낸다. 응답이 불명확하면 작업 목록부터 확인해 중복 등록을 피한다.
+7. 재처리 작업 완료, DB의 `jira_key`·`jira_sync_status`, 실제 Jira 접수번호 필드가 정확히 일치하는 이슈 **1건**을 확인한다. 검색의 첫 결과만 반환하는 `find_by_receipt` 성공만으로 중복이 없다고 판단하지 않는다. 배정 결과는 별도로 기록한다.
+8. 추가 시험인 담당자 부재는 기존 일정부터 확인하고 필요한 시험 기록만 임시 등록한다. 후보 없음으로 배정만 `NEEDS_ADMIN`이 되는지 확인한 뒤, 부재 해제·관리자 수동배정과 Jira 반영을 확인한다. 기존 계정 연결·처리 역량·다른 일정은 임의 변경하지 않는다.
+9. 시험 뒤 임시 장애 설정과 부재 기록을 정리하고 정상 주소·워커 2개 실행을 확인한다. 증거용 접수·Jira 이슈의 보존·삭제 여부는 따로 정한다. 실제 토큰 만료 등 다른 장애 시험은 수행 여부를 구분해 기록한다.
