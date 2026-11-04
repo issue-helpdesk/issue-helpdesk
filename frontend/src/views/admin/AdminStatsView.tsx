@@ -1,30 +1,31 @@
 /**
  * 관리자 통계 (/stats). (design/ITssue-Prototype.html viewStatsAdmin)
- * 티켓(담당자 처리)과 AI 상담 결과를 구분해서 보여 준다: AI 상담 결과, 담당자 처리 현황, 접수 추이, 팀별·분류별 진행도(구성원·개인 현황), 긴급도 분포.
+ * 티켓(담당자 처리)과 AI 상담 결과를 구분해서 보여 준다: AI 상담 결과, 담당자 처리 현황, 접수 추이, 팀별 진행도(팀원별 카드), 긴급도 분포.
  * 구역마다 따로 불러오고(불러오는 중 · 실패 · 다시 시도) 한 구역이 실패해도 다른 구역은 그대로 보인다. 담당자 통계(StatsView)의 부품을 함께 쓴다.
- * 값은 접수 목록(TK-05 view=ALL)과 문의 목록(IQ-02)을 읽어 화면에서 센다. 통계 전용 API 는 아직 없어 집계 기준은 제안이다. (요청 R-01)
+ * 값은 서버 운영 집계(OP-01)와 문의 목록(IQ-02)이다. 서버 집계는 선택 기간(접수한 날 기준)의 티켓을 센다. 모의 모드는 접수 목록으로 같은 모양의 값을 만든다.
+ * 분류별 진행도와 개인별 분류 분포는 서버 집계에 분류별 상태 건수가 없어 두지 않는다. (요청 R-01)
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { CATEGORIES } from '../../api/catalog'
-import type { CategoryCode } from '../../api/chatTypes'
-import { getAdminStatsSource, type AdminStatKey } from '../../api/adminStats'
+import { getAdminStatsSource, type AdminStatKey, type StatCounts, type StatsOverview } from '../../api/adminStats'
 import type { AiPage } from '../../api/inquiries'
 import { watchTickets } from '../../api/tickets'
-import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
 import { Collapse } from '../../ui/Collapse'
 import { CountUp } from '../../ui/CountUp'
 import { Icon } from '../../ui/Icon'
+import { StatSr, useStatTip } from '../../ui/StatTip'
 import { Topbar } from '../../ui/Topbar'
 import { UrgencyChip } from '../staff/QueueView'
-import { CurveChart, MemberDonuts, PERN, PRI_RULE, STATES, Section, TREND_NOTE, UDEF, UL, UNITS, URGS, bucket, countBy, sumOf, useSection, windowOf, type Per, type Unit } from '../staff/StatsView'
+import { CurveChart, PERN, PRI_RULE, STATES, Section, TREND_NOTE, UDEF, UL, UNITS, URGS, sumOf, useSection, type Per, type Unit } from '../staff/StatsView'
+import { MemberCards } from './MemberCards'
+import { loadOverview } from './statsOverview'
 
-type Mode = 'team' | 'cat'
 type Counts = AiPage['counts']
-type Groups = { name: string; members: string[] }[]
+
+const ZERO: StatCounts = { RDY: 0, WIP: 0, FIN: 0, CLS: 0 }
 
 function Kpi({ label, n, to, dot, cls, hint, sug, aria }: { label: string; n: number; to?: string; dot?: string; cls?: string; hint?: string; sug?: boolean; aria?: string }) {
   const navigate = useNavigate()
@@ -63,22 +64,23 @@ function Kpi({ label, n, to, dot, cls, hint, sug, aria }: { label: string; n: nu
   )
 }
 
-/** 상태별 쌓인 막대 한 줄 (팀·분류·구성원) */
-function StackRow({ label, sub, v, mx, sel, onClick }: { label: string; sub?: string; v: Record<'RDY' | 'WIP' | 'FIN' | 'CLS', number>; mx: number; sel?: boolean; onClick: () => void }) {
+/** 상태별 쌓인 막대 한 줄 (팀). 마우스를 올리면 상태별 건수가 보인다 */
+function StackRow({ label, sub, v, mx, sel, onClick, tip }: { label: string; sub?: string; v: StatCounts; mx: number; sel?: boolean; onClick: () => void; tip: ReturnType<typeof useStatTip> }) {
   const t = sumOf(v)
   return (
-    <button type="button" className={`srow${sel ? ' sel' : ''}`} aria-pressed={!!sel} onClick={onClick}>
+    <button type="button" className={`srow${sel ? ' sel' : ''}`} aria-pressed={!!sel} onClick={onClick} {...tip.bind(label, v)}>
       <div className="sl">
         <b>{label}</b>
         {sub && <small>{sub}</small>}
       </div>
       <div className="sbar" role="img" aria-label={STATES.map((s) => `${s.short} ${v[s.k]}`).join(', ')}>
-        {t ? STATES.map((s) => (v[s.k] ? <div key={s.k} style={{ width: `${(v[s.k] / mx) * 100}%`, background: s.color }} title={`${s.short} ${v[s.k]}`} /> : null)) : <div style={{ width: 3, background: 'var(--line)' }} />}
+        {t ? STATES.map((s) => (v[s.k] ? <div key={s.k} style={{ width: `${(v[s.k] / mx) * 100}%`, background: s.color }} /> : null)) : <div style={{ width: 3, background: 'var(--line)' }} />}
       </div>
       <div className="sn">
         <b>{t}</b>
         <small>{t ? `완료 ${Math.round((v.CLS / t) * 100)}%` : '-'}</small>
       </div>
+      <StatSr v={v} />
     </button>
   )
 }
@@ -99,7 +101,6 @@ export function AdminStatsView() {
   const navigate = useNavigate()
   const [per, setPer] = useState<Per>('m')
   const [unit, setUnit] = useState<Unit>(UDEF.m)
-  const [mode, setMode] = useState<Mode>('team')
   const [sel, setSel] = useState<string | null>(null)
   const [member, setMember] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
@@ -114,111 +115,54 @@ export function AdminStatsView() {
 
   const admin = user?.serviceRole === 'ADMIN'
   const unitNow = UNITS[per].includes(unit) ? unit : UDEF[per]
-  const loader = useCallback((key: AdminStatKey) => (u: NonNullable<typeof user>) => getAdminStatsSource(u, key, per), [per])
-  const loadAi = useMemo(() => loader('ai'), [loader])
-  const loadSum = useMemo(() => loader('sum'), [loader])
-  const loadTrend = useMemo(() => loader('trend'), [loader])
-  const loadPri = useMemo(() => loader('pri'), [loader])
-  const loadProg = useMemo(() => loader('prog'), [loader])
-  const loadMem = useMemo(() => loader('mem'), [loader])
+  const loadAi = useCallback((u: NonNullable<typeof user>) => getAdminStatsSource(u, 'ai' as AdminStatKey, per), [per])
+  // 요약·진행도·긴급도는 기간만 바뀌면 다시 읽고, 추이는 집계 단위까지 바뀌면 다시 읽는다 (단위를 바꿔도 다른 구역은 그대로)
+  const loadMain = useCallback((u: NonNullable<typeof user>) => loadOverview(u, per, 'd'), [per])
+  const loadTrend = useCallback((u: NonNullable<typeof user>) => loadOverview(u, per, unitNow), [per, unitNow])
 
   const ai = useSection('ai', per, tick, loadAi)
-  const sum = useSection('sum', per, tick, loadSum)
-  const trend = useSection('trend', `${per}|${unitNow}`, tick, loadTrend)
-  const prog = useSection('prog', per, tick, loadProg) // 팀별·분류별은 같은 자료를 다르게 묶을 뿐이라 모드를 바꿔도 카드를 다시 읽지 않는다
-  const pri = useSection('pri', per, tick, loadPri)
-  const mem = useSection('mem', `${per}|${mode}|${sel ?? ''}`, tick, loadMem)
-  const uid = user?.id ?? 0
-
-  const sumWin = useMemo(() => windowOf(sum, per, true, uid), [sum, per, uid])
-  const trendWin = useMemo(() => windowOf(trend, per, true, uid), [trend, per, uid])
-  const progWin = useMemo(() => windowOf(prog, per, true, uid), [prog, per, uid])
-  const priWin = useMemo(() => windowOf(pri, per, true, uid), [pri, per, uid])
-  const memWin = useMemo(() => windowOf(mem, per, true, uid), [mem, per, uid])
+  const main = useSection('ov', per, tick, loadMain)
+  const trend = useSection('ovt', `${per}|${unitNow}`, tick, loadTrend)
+  const tip = useStatTip()
 
   if (user && !admin) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
   if (!user) return null
 
   const counts = ai.extra as Counts | undefined
-  const v = countBy(sumWin)
-  const none = sumWin.filter((t) => !t.workStatus).length
+  const ov = main.extra as StatsOverview | undefined
+  const tr = trend.extra as StatsOverview | undefined
+  const v = ov?.states ?? ZERO
+  const none = ov?.none ?? 0
   const total = sumOf(v)
-  const b = per === 'd' ? null : bucket(trendWin, per, unitNow, trend.ts)
-  const urgN = URGS.map((p) => priWin.filter((t) => t.urgency === p).length)
+  const b = per === 'd' ? null : (tr?.trend ?? null)
+  const urgN = URGS.map((p) => ov?.urgency[p] ?? 0)
   const urgMx = Math.max(1, ...urgN)
   const q = `per=${per}`
   const pickPer = (p: Per) => {
     setPer(p)
     setUnit(UDEF[p])
-    setMember(null)
-  }
-  const pickMode = (m: Mode) => {
-    setMode(m)
     setSel(null)
     setMember(null)
   }
 
-  const groups: Groups = (prog.extra as { groups: Groups } | undefined)?.groups ?? []
-  const items =
-    mode === 'team'
-      ? groups.map((g) => ({ k: g.name, label: g.name, sub: `${g.members.length}명`, v: countBy(progWin.filter((t) => t.group?.name === g.name)) }))
-      : (Object.keys(CATEGORIES) as CategoryCode[]).map((c) => ({ k: c, label: CATEGORIES[c].name, sub: '', v: countBy(progWin.filter((t) => t.category?.code === c)) }))
-  const rowMx = Math.max(1, ...items.map((i) => sumOf(i.v)))
+  const groups = ov?.groups ?? []
+  const rowMx = Math.max(1, ...groups.map((g) => sumOf(g.v)))
 
   const nested = () => {
-    if (!sel) return null
-    const label = mode === 'team' ? sel : CATEGORIES[sel as CategoryCode].name
-    const inSel = (t: TicketSummary) => (mode === 'team' ? t.group?.name === sel : t.category?.code === sel)
-    if (mem.st === 'loading')
-      return (
-        <div className="nest" aria-busy="true">
-          <div className="skel" aria-hidden="true">
-            <i />
-            <i />
-          </div>
-          <p className="small muted" role="status">
-            구성원별 진행도를 불러오는 중이에요
-          </p>
-        </div>
-      )
-    if (mem.st === 'err')
-      return (
-        <div className="nest">
-          <div className="alert err" role="alert">
-            <Icon name="alert" />
-            <div>
-              <b>구성원별 진행도를 불러오지 못했어요.</b>
-            </div>
-          </div>
-          <button type="button" className="btn ghost sm" onClick={mem.reload}>
-            다시 시도
-          </button>
-        </div>
-      )
-    const memGroups = (mem.extra as { groups: Groups } | undefined)?.groups ?? []
-    const names = mode === 'team' ? (memGroups.find((g) => g.name === sel)?.members ?? []) : [...new Set(mem.items.filter((t) => t.category?.code === sel && t.assignee).map((t) => t.assignee!.name))]
-    const win = memWin.filter(inSel)
-    const rows = names.map((n) => ({ n, v: countBy(win.filter((t) => t.assignee?.name === n)) }))
-    const mx = Math.max(1, ...rows.map((r) => sumOf(r.v)))
+    const g = groups.find((x) => x.name === sel)
+    if (!g) return null
     return (
       <div className="nest">
         <div className="nh">
-          <b>{label} · 구성원별 진행도</b>
-          <span className="small muted">집계 기준 {mem.at}</span>
-          <button type="button" className="btn ghost sm" onClick={mem.reload}>
+          <b>{g.name} · 구성원별 진행도</b>
+          <span className="small muted">집계 기준 {main.at}</span>
+          <button type="button" className="btn ghost sm" onClick={main.reload}>
             <Icon name="refresh" /> 새로고침
           </button>
         </div>
-        <div className="srows">
-          {rows.map((r) => (
-            <div key={r.n}>
-              <StackRow label={r.n} v={r.v} mx={mx} sel={member === r.n} onClick={() => setMember(member === r.n ? null : r.n)} />
-              <Collapse open={member === r.n}>{member === r.n && <MemberDonuts name={r.n} list={win} />}</Collapse>
-            </div>
-          ))}
-        </div>
+        <MemberCards members={g.members} open={member} onOpen={setMember} onList={(name) => navigate(`/tickets?staff=${encodeURIComponent(name)}&${q}`)} />
         <div className="hint" style={{ marginTop: 6 }}>
-          이름을 누르면 아래에 개인 현황(도넛)을 불러와요. 업무량 확인용이며 평가 순위가 아니에요.
+          카드에 마우스를 올리면 상태별 건수를, 누르면 카드가 넓어지며 자세히 보여요. 업무량 확인용이며 평가 순위가 아니에요.
         </div>
       </div>
     )
@@ -277,9 +221,9 @@ export function AdminStatsView() {
               <p className="small muted secnote">담당자 처리(티켓)와는 따로 세요. AI 해결과 해결 완료(CLS)는 합치지 않아요.</p>
             </Section>
 
-            <Section title="담당자 처리 (티켓)" kind="tk" sec={sum} note="티켓이 만들어진 접수 · 접수한 날 기준이에요.">
+            <Section title="담당자 처리 (티켓)" kind="tk" sec={main} note="티켓이 만들어진 접수 · 접수한 날 기준이에요.">
               <div className="sk" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
-                <Kpi label="담당자 처리 접수" n={sumWin.length} to={`/tickets?${q}`} aria={`담당자 처리 접수 ${sumWin.length}건. 전체 문의 목록 보기`} hint="선택 기간에 접수된 티켓" />
+                <Kpi label="담당자 처리 접수" n={ov?.total ?? 0} to={`/tickets?${q}`} aria={`담당자 처리 접수 ${ov?.total ?? 0}건. 전체 문의 목록 보기`} hint="선택 기간에 접수된 티켓" />
               </div>
               <div className="small" style={{ fontWeight: 700, margin: '14px 0 2px' }}>
                 접수 후 현재 상태
@@ -318,7 +262,7 @@ export function AdminStatsView() {
                       <div className="l">오늘 접수 (담당자 처리)</div>
                       <div className="v">
                         <b>
-                          <CountUp value={trendWin.length} />
+                          <CountUp value={tr?.total ?? 0} />
                         </b>
                         <span>건</span>
                       </div>
@@ -338,42 +282,33 @@ export function AdminStatsView() {
               )}
             </Section>
 
-            <Section title="팀별·분류별 진행도" sec={prog} note="선택 기간에 접수된 티켓의 현재 상태 기준이에요. 배정 전 문의는 막대에 넣지 않았어요.">
-              <div className="row" style={{ justifyContent: 'space-between', margin: '8px 0' }}>
-                <div className="seg" role="group" aria-label="진행도 기준">
-                  <button type="button" className={mode === 'team' ? 'on' : ''} aria-pressed={mode === 'team'} onClick={() => pickMode('team')}>
-                    팀별
-                  </button>
-                  <button type="button" className={mode === 'cat' ? 'on' : ''} aria-pressed={mode === 'cat'} onClick={() => pickMode('cat')}>
-                    분류별
-                  </button>
-                </div>
-              </div>
+            <Section title="팀별 진행도" sec={main} note="서버 집계 기준: 선택 기간에 접수된 티켓의 현재 상태예요. 배정 전 문의는 팀 막대에 넣지 않았어요.">
               <Legend />
-              <div className="srows swap" key={mode}>
-                {items.map((i) => (
-                  <div key={i.k}>
+              <div className="srows">
+                {groups.map((g) => (
+                  <div key={g.id}>
                     <StackRow
-                      label={i.label}
-                      sub={i.sub}
-                      v={i.v}
+                      label={g.name}
+                      sub={`${g.members.length}명`}
+                      v={g.v}
                       mx={rowMx}
-                      sel={i.k === sel}
+                      sel={g.name === sel}
+                      tip={tip}
                       onClick={() => {
-                        setSel(i.k === sel ? null : i.k)
+                        setSel(g.name === sel ? null : g.name)
                         setMember(null)
                       }}
                     />
-                    <Collapse open={i.k === sel}>{i.k === sel && nested()}</Collapse>
+                    <Collapse open={g.name === sel}>{g.name === sel && nested()}</Collapse>
                   </div>
                 ))}
               </div>
               <div className="hint" style={{ marginTop: 8 }}>
-                {mode === 'team' ? '팀' : '분류'}를 누르면 그 아래에 구성원별 진행도를 불러와요.
+                막대에 마우스를 올리면 처리 대기·처리 중·해결 확인 대기·해결 완료 건수를 볼 수 있어요. 팀을 누르면 그 아래에 팀원별 카드를 보여요.
               </div>
             </Section>
 
-            <Section title="긴급도 분포 (P1~P4)" sec={pri} note="선택 기간에 접수된 티켓 전체 기준이에요(배정 전 포함). 줄을 누르면 해당 긴급도 문의 목록으로 가요.">
+            <Section title="긴급도 분포 (P1~P4)" sec={main} note="선택 기간에 접수된 티켓 전체 기준이에요(배정 전 포함). 줄을 누르면 해당 긴급도 문의 목록으로 가요.">
               <div className="pdist">
                 {URGS.map((p, i) => (
                   <button key={p} type="button" className="pd" onClick={() => navigate(`/tickets?pri=${p}&${q}`)} aria-label={`${p} ${urgN[i]}건. 이 긴급도의 문의 목록 보기`}>
@@ -396,6 +331,7 @@ export function AdminStatsView() {
           </div>
         </div>
       </main>
+      {tip.node}
     </div>
   )
 }
