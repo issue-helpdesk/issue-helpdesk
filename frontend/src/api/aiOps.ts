@@ -1,7 +1,7 @@
 /**
  * AI 운영 (관리자). (design/ITssue-Prototype.html viewAI, docs/api/05 OP-03)
  *   GET /dashboard/ai-usage?from&to&interval   OP-03 기간별 AI 상담 건수·AI 해결·모델 호출·토큰·추정 비용·예산
- * OP-03 은 명세에 있고 서버는 아직 구현하지 않았다. 구현되면 VITE_USE_MOCK_OPS=false 로 켠다. 서버는 기간이 최대 1년이라 "연도별"은 서버 모드에서 쓸 수 없다.
+ * OP-03 은 서버에 있다. VITE_USE_MOCK_OPS=false 로 켜면 서버 값을 쓴다. 서버는 기간이 최대 1년이라 "연도별"은 서버 모드에서 쓸 수 없다.
  * 답변 품질 평가(Golden Set)는 서버에 API 가 없어 항상 시연 데이터이다. (요청 R-25)
  */
 import { request } from '../core/apiClient'
@@ -23,7 +23,7 @@ export interface AiUsage {
   /** 예산 사용: 시안은 가장 최근 구간(오늘·이번 달·올해)의 비용과 예산, 서버는 기간 전체의 비용과 예산이다. 예산이 없으면 null */
   budget: { cost: number; budget: number; scope: 'last' | 'period' } | null
   /** 서버 모드에서만: 모델 호출 수·실패·평균 응답 시간 */
-  calls?: { callCount: number; failedCount: number; avgLatencyMs: number }
+  calls?: { callCount: number; failedCount: number; avgLatencyMs: number | null }
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -72,7 +72,7 @@ function mockUsage(range: AiRange): AiUsage {
 
 /* ------------------------------------------------------------------ 서버 */
 interface SUsage {
-  totals: { aiConsultationCount: number; aiResolvedCount: number; callCount: number; failedCount: number; avgLatencyMs: number; estimatedCost: number; budget: number | null }
+  totals: { aiConsultationCount: number; aiResolvedCount: number; callCount: number; failedCount: number; avgLatencyMs: number | null; estimatedCost: number; budget: number | null }
   trend: { date: string; aiConsultationCount: number; aiResolvedCount: number; estimatedCost: number }[]
 }
 
