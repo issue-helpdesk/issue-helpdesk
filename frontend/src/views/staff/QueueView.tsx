@@ -175,11 +175,11 @@ export function QueueView() {
             </div>
 
 
-            <div className="tabs" role="tablist" aria-label="처리 상태">
+            <div className="d2seg" role="tablist" aria-label="처리 상태">
               {tabs.map((t) => (
                 <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className={tab === t.key ? 'on' : ''} onClick={() => { reset(setTab)(t.key); setSub('') }}>
                   {t.label}
-                  {mine.length > 0 && <span className="count">{count(t.statuses)}</span>}
+                  {mine.length > 0 && <em>{count(t.statuses)}</em>}
                 </button>
               ))}
             </div>
