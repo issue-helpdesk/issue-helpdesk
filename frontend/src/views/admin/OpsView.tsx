@@ -502,9 +502,7 @@ export function OpsView() {
             </div>
 
             {sec(
-              <>
-                팀별 개인 현황 <span className="tag gray">제안</span>
-              </>,
+              '팀별 개인 현황',
               '팀별로 근무 여부와 진행 중 티켓의 긴급도를 확인해요. 이름을 누르면 그 담당자의 처리 대기·처리 중 티켓을 볼 수 있어요. 칩 숫자는 근무/전체 인원이에요.',
               null,
               peopleErr ? (
