@@ -83,3 +83,4 @@ class DocumentVersionUpdateRequest(CamelModel):
     is_current: Literal[True] = None
     view_scope: ViewScope = None
     transfer_policy: TransferPolicy = None
+    reason: trimmed_str(max_length=500) | None = None      # 외부 전송을 넓힐 때 필수
