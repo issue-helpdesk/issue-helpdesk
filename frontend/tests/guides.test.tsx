@@ -59,7 +59,7 @@ describe('가이드 API (모의)', () => {
     expect(await uploadGuide(admin(), { file: file(), docCode: 'net-4', title: '새', cat: 'NET', scope: '관리자 전용', tx: '금지' })).toMatchObject({ ok: false, error: { code: 'VALIDATION_ERROR' } })
     expect(await uploadGuide(admin(), { file: file(), docCode: 'IT-NET-001', title: '새', cat: 'NET', scope: '관리자 전용', tx: '금지' })).toMatchObject({ ok: false, error: { code: 'DOCUMENT_CODE_DUPLICATE' } })
     const r = await uploadGuide(admin(), { file: file(), docCode: 'IT-NET-004', title: '사내 Wi-Fi 가이드', cat: 'NET', scope: '사내 제한', tx: '마스킹 후 허용' })
-    expect(r.ok && r.data.versions?.[0]).toMatchObject({ version: 'v1', state: '초안', ready: '준비 중', scope: '사내 제한', tx: '마스킹 후 허용' })
+    expect(r.ok && r.data.versions?.[0]).toMatchObject({ version: 'v1.0', state: '초안', ready: '준비 중', scope: '사내 제한', tx: '마스킹 후 허용' })
     await waitFor(async () => {
       const v = await listGuideVersions(admin(), r.ok ? r.data.id : 0)
       expect(v.ok && v.data[0].ready).toBe('준비 완료')
@@ -77,7 +77,7 @@ describe('가이드 API (모의)', () => {
     expect(nextDocCode(l.data, 'NET')).toBe('IT-NET-002')
     expect(nextDocCode(l.data, 'ACC')).toBe('IT-ACC-004')
     expect(nextDocCode([], 'SW')).toBe('IT-SW-001')
-    expect(nextVersion(v.ok ? v.data : [])).toBe('v5')
+    expect(nextVersion(v.ok ? v.data : [])).toBe('v5.0')
     expect([normalizeVersion('4'), normalizeVersion(' V4 '), normalizeVersion('v1.3'), normalizeVersion('a')]).toEqual(['v4', 'v4', 'v1.3', null])
   })
 
@@ -136,10 +136,10 @@ describe('가이드 관리 화면', () => {
     const code = within(dlg).getByLabelText('문서 번호')
     expect(code).toHaveValue('IT-NET-002')
     expect(code).toHaveAttribute('readonly')
-    expect(within(dlg).getByLabelText('버전')).toHaveValue('v1')
+    expect(within(dlg).getByLabelText('버전')).toHaveValue('v1.0')
     await userEvent.type(within(dlg).getByLabelText('가이드 제목'), '사내 Wi-Fi 접속 가이드')
     await userEvent.click(within(dlg).getByRole('button', { name: '업로드' }))
-    expect(await screen.findByText('업로드했어요. 검색 준비 중이에요.', {}, SLOW)).toBeInTheDocument()
+    expect(await screen.findByText(/초안으로 올렸어요/, {}, SLOW)).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /IT-NET-002 사내 Wi-Fi 접속 가이드/ }, SLOW)).toHaveAttribute('aria-expanded', 'true')
   })
 
@@ -154,7 +154,7 @@ describe('가이드 관리 화면', () => {
     await userEvent.selectOptions(within(dlg).getByLabelText('문서'), within(dlg).getByRole('option', { name: /IT-NET-001/ }))
     expect(await within(dlg).findByText('이 가이드의 버전 3개')).toBeInTheDocument()
     expect(within(dlg).getAllByRole('listitem').map((li) => li.textContent)).toEqual([expect.stringContaining('v3'), expect.stringContaining('v2'), expect.stringContaining('v1')])
-    expect(within(dlg).getByLabelText('버전')).toHaveValue('v4')
+    expect(within(dlg).getByLabelText('버전')).toHaveValue('v4.0')
     const ver = within(dlg).getByLabelText('버전')
     await userEvent.clear(ver)
     await userEvent.type(ver, '2')
@@ -163,7 +163,7 @@ describe('가이드 관리 화면', () => {
     await userEvent.clear(ver)
     await userEvent.type(ver, 'v4')
     await userEvent.click(within(dlg).getByRole('button', { name: '업로드' }))
-    expect(await screen.findByText('업로드했어요. 검색 준비 중이에요.', {}, SLOW)).toBeInTheDocument()
+    expect(await screen.findByText(/초안으로 올렸어요/, {}, SLOW)).toBeInTheDocument()
   })
 
   it('해결 사례 탭에서 묶음을 보고 초안 미리보기를 열 수 있다', async () => {
@@ -207,7 +207,7 @@ describe('서버 모드 가이드 (VITE_USE_MOCK_GUIDE=false)', () => {
       ['IT-NET-001', 'NET', { version: 'v1.2', tx: '마스킹 후 허용' }],
       ['IT-ACC-001', 'ACC', null],
     ])
-    expect(urls()[0]).toBe('GET /api/v1/documents?size=100&page=1&docType=GUIDE&docType=MANUAL&sort=docCode,asc')
+    expect(urls()[0]).toBe('GET /api/v1/documents?size=100&page=1&docType=GUIDE&docType=MANUAL&includeInactive=true&sort=docCode,asc')
   })
 
   it('버전 목록의 상태·적재 상태·정책을 화면 말로 바꾼다', async () => {
@@ -241,7 +241,7 @@ describe('서버 모드 가이드 (VITE_USE_MOCK_GUIDE=false)', () => {
     expect(JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))).toEqual({ docCode: 'IT-NET-004', docType: 'GUIDE', title: '사내 Wi-Fi', categoryCode: 'NET' })
     const form = (fetchMock.mock.calls[1][1] as RequestInit).body as FormData
     expect(form).toBeInstanceOf(FormData)
-    expect([form.get('version'), form.get('viewScope'), form.get('transferPolicy')]).toEqual(['v1', 'AGENT', 'MASKED'])
+    expect([form.get('version'), form.get('viewScope'), form.get('transferPolicy')]).toEqual(['v1.0', 'AGENT', 'MASKED'])
     // multipart 경계값은 브라우저가 정해야 하므로 Content-Type 을 직접 붙이지 않는다
     expect(new Headers((fetchMock.mock.calls[1][1] as RequestInit).headers).has('Content-Type')).toBe(false)
   })
