@@ -47,4 +47,4 @@ Compose 파일은 워커를 2개(`deploy.replicas: 2`) 띄운다. 둘 다 세 �
 
 이미 다른 Jira 담당자가 있는 승인 재배정, 댓글 알림, FIN→WIP 때 이전 결과를 따로 보존하는 방식은 별도다. 웹훅 이벤트 반영은 실행기에 연결됐지만 실제 Jira 웹훅→서버 DB 반영 시험과 서버 상시 실행은 아직 하지 않았다. 최초 자동배정(PR #181)과 재완료 입력 강제(PR #179)는 반영됐고, 생성 성공 뒤 등록된 배정 작업은 같은 회차에 이어서 실행된다.
 
-검증 결과와 실제 단건 시험 범위는 [WORKER_VALIDATION.md](WORKER_VALIDATION.md)에 기록한다.
+검증 결과와 실제 단건 시험 범위는 [WORKER_VALIDATION.md](WORKER_VALIDATION.md)에, 장애·배정 불가 같은 실패 상황 시험 결과는 [FAILURE_TEST.md](FAILURE_TEST.md)에 기록한다.

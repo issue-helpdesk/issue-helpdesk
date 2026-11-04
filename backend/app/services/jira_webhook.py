@@ -56,7 +56,7 @@ class WebhookResult:
 @dataclass(frozen=True)
 class TicketSyncResult:
     ticket_id: int
-    outcome: str                    # SYNCED · JOB_IN_PROGRESS · JIRA_UNAVAILABLE · UNMAPPED · SKIPPED · RECENT · ERROR
+    outcome: str                    # SYNCED · JOB_IN_PROGRESS · JIRA_UNAVAILABLE · JIRA_NOT_FOUND · UNMAPPED · SKIPPED · RECENT · ERROR
 
 
 def record_webhook_event(db: Session, event: WebhookEvent) -> bool:
@@ -149,7 +149,7 @@ def sync_ticket(db: Session, open_jira: Callable[[], JiraClient], ticket: Ticket
             account_id = jira.get_assignee(ticket.jira_key)["account_id"]
     except JiraError as error:
         logger.warning("jira sync ticket %s failed (%s)", ticket.id, error.reason)
-        return "JIRA_UNAVAILABLE"
+        return "JIRA_NOT_FOUND" if error.reason == "not_found" else "JIRA_UNAVAILABLE"     # 없는 이슈는 Jira 장애가 아니다
 
     ticket = db.get(Ticket, ticket.id, with_for_update=True, populate_existing=True)
     if has_active_job(db, ticket.id):           # 읽는 사이에 작업이 등록됐다
@@ -172,7 +172,8 @@ def run_due_ticket_syncs(db: Session, jira: JiraClient, *, limit: int = 20, stal
     대상은 새로고침(sync_ticket)과 같다: Jira 와 연결이 끝났고(SYNCED) 종결(CLS)되지 않은 접수.
     한 번도 대조하지 않았거나(work_status_confirmed_at 없음) 마지막 대조가 stale_after 보다 오래된 것만 고른다.
     ITssue 작업이 진행 중인 접수는 sync_ticket 이 건너뛰고, 다음 회차에 다시 고른다.
-    Jira 오류는 sync_ticket 이 삼킨다. 연달아 JIRA_DOWN_AFTER 건이 실패하면 Jira 장애로 보고 이번 회차를 멈춘다.
+    Jira 오류는 sync_ticket 이 삼킨다. 연달아 JIRA_DOWN_AFTER 건이 JIRA_UNAVAILABLE 이면 Jira 장애로 보고 이번 회차를 멈춘다.
+    Jira 에서 지워진 이슈(JIRA_NOT_FOUND)는 장애가 아니므로 세지 않는다. 안 그러면 지워진 접수 몇 건이 정상 접수의 대조를 막는다.
     """
     if limit < 1 or stale_after < SYNC_INTERVAL:       # 이보다 짧으면 sync_ticket 이 RECENT 로 돌려보내 같은 접수만 계속 고른다
         raise ValueError("limit는 1 이상, stale_after는 새로고침 간격(30초) 이상이어야 합니다.")
@@ -195,7 +196,10 @@ def run_due_ticket_syncs(db: Session, jira: JiraClient, *, limit: int = 20, stal
             logger.error("jira periodic sync ticket %s failed (%s)", ticket_id, type(error).__name__)
             outcome = "ERROR"
         results.append(TicketSyncResult(ticket_id, outcome))
-        unavailable = unavailable + 1 if outcome == "JIRA_UNAVAILABLE" else 0
+        if outcome == "JIRA_UNAVAILABLE":
+            unavailable += 1
+        elif outcome != "JIRA_NOT_FOUND":
+            unavailable = 0
         if unavailable >= JIRA_DOWN_AFTER:
             logger.warning("jira periodic sync stopped: Jira 오류 %s건 연속", unavailable)
             break
