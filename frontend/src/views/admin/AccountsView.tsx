@@ -18,6 +18,7 @@ import { useAuth } from '../../core/session'
 import { FilterPill } from '../../ui/FilterPill'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
+import { SelectBox } from '../../ui/SelectBox'
 import { Pager } from '../../ui/Pager'
 import { SortTh } from '../../ui/SortTh'
 import { StateBadge } from '../../ui/StateBadge'
@@ -514,14 +515,7 @@ function AddDialog({ depts, onClose, onCreated }: { depts: { id: number; name: s
       </Field>
       <Field id={`${uid}-d`} label="부서" error={errs.departmentId}>
         {(a) => (
-          <select {...a} className="sel" value={f.departmentId} onChange={(e) => set('departmentId')(e.target.value)}>
-            <option value="">선택 안 함</option>
-            {depts.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
+          <SelectBox id={a.id} invalid={a['aria-invalid']} ariaDescribedBy={a['aria-describedby']} value={f.departmentId} placeholder="선택 안 함" options={[{ value: '', label: '선택 안 함' }, ...depts.map((d) => ({ value: String(d.id), label: d.name }))]} onChange={set('departmentId')} />
         )}
       </Field>
       <Field id={`${uid}-p`} label="직급 (선택)" error={errs.position}>
@@ -529,13 +523,7 @@ function AddDialog({ depts, onClose, onCreated }: { depts: { id: number; name: s
       </Field>
       <Field id={`${uid}-r`} label="역할">
         {(a) => (
-          <select {...a} className="sel" value={f.serviceRole} onChange={(e) => set('serviceRole')(e.target.value)}>
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {ROLE_LABEL[r]}
-              </option>
-            ))}
-          </select>
+          <SelectBox id={a.id} invalid={a['aria-invalid']} ariaDescribedBy={a['aria-describedby']} value={f.serviceRole} options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} onChange={set('serviceRole')} />
         )}
       </Field>
       {general && (
@@ -625,25 +613,12 @@ function EditDialog({ u, depts, onClose, onDone }: { u: UserSummary; depts: { id
         </Field>
         <Field id={`${uid}-d`} label="부서" error={errs.departmentId}>
           {(a) => (
-            <select {...a} className="sel" value={f.departmentId} onChange={(e) => set('departmentId')(e.target.value)}>
-              <option value="">선택 안 함</option>
-              {depts.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+            <SelectBox id={a.id} invalid={a['aria-invalid']} ariaDescribedBy={a['aria-describedby']} value={f.departmentId} placeholder="선택 안 함" options={[{ value: '', label: '선택 안 함' }, ...depts.map((d) => ({ value: String(d.id), label: d.name }))]} onChange={set('departmentId')} />
           )}
         </Field>
         <Field id={`${uid}-r`} label="역할">
           {(a) => (
-            <select {...a} className="sel" value={f.serviceRole} disabled={u.id === user?.id} onChange={(e) => set('serviceRole')(e.target.value)}>
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABEL[r]}
-                </option>
-              ))}
-            </select>
+            <SelectBox id={a.id} invalid={a['aria-invalid']} ariaDescribedBy={a['aria-describedby']} value={f.serviceRole} disabled={u.id === user?.id} options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} onChange={set('serviceRole')} />
           )}
         </Field>
         <Field id={`${uid}-w`} label="변경 사유 (역할을 바꿀 때만 필수)" error={errs.reason}>

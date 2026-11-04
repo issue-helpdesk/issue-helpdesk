@@ -15,6 +15,12 @@ import type { User } from '../src/api/types'
 
 const SLOW = { timeout: 3000 }
 
+/** 선택 상자(SelectBox)에서 항목 고르기: 칸을 눌러 목록을 열고 항목을 누른다 */
+async function choose(scope: HTMLElement, label: string, option: string | RegExp) {
+  await userEvent.click(within(scope).getByLabelText(label))
+  await userEvent.click(await screen.findByRole('option', { name: option }))
+}
+
 function renderAs(employeeNo: string, path: string) {
   tokenStore.set(`mock.${employeeNo}`)
   return render(
@@ -120,7 +126,7 @@ describe('계정 관리 화면', () => {
     expect(await within(dlg).findByText('이미 등록된 이메일이에요.', undefined, SLOW)).toBeInTheDocument()
     await userEvent.clear(within(dlg).getByLabelText('이메일'))
     await userEvent.type(within(dlg).getByLabelText('이메일'), 'newbie@itssue.example')
-    await userEvent.selectOptions(within(dlg).getByLabelText('부서'), '개발1팀')
+    await choose(dlg, '부서', '개발1팀')
     await userEvent.click(within(dlg).getByRole('button', { name: '추가' }))
     const tmp = await screen.findByRole('dialog', { name: '임시 비밀번호를 발급했어요' }, SLOW)
     expect(within(tmp).getByLabelText('임시 비밀번호').textContent).toMatch(/^Tmp#/)
@@ -132,7 +138,7 @@ describe('계정 관리 화면', () => {
     renderAs('EMP-1178', '/accounts')
     await userEvent.click(within(await rowOf('EMP-1003')).getByRole('button', { name: '수정' }))
     const dlg = await screen.findByRole('dialog', { name: '계정 정보 수정' })
-    await userEvent.selectOptions(within(dlg).getByLabelText('역할'), 'AGENT')
+    await choose(dlg, '역할', '담당자')
     await userEvent.click(within(dlg).getByRole('button', { name: '저장' }))
     expect(await within(dlg).findByText('역할을 바꿀 때는 사유를 입력해 주세요.')).toBeInTheDocument()
     await userEvent.type(within(dlg).getByLabelText(/변경 사유/), '운영 지원')

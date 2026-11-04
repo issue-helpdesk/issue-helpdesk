@@ -16,6 +16,7 @@ import { useAuth } from '../../core/session'
 import titleFaq from '../../assets/mascot/title-faq.webp'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
+import { SelectBox } from '../../ui/SelectBox'
 import { Toast } from '../../ui/Toast'
 import { SourceList } from '../../ui/SourceList'
 import { SourcePreview } from '../../ui/SourcePreview'
@@ -302,13 +303,7 @@ function AddFaqDialog({ onClose, onDone }: { onClose: () => void; onDone: (messa
       {field(
         'c',
         '분류',
-        <select id={`${uid}-c`} className="sel" value={cat} onChange={(e) => setCat(e.target.value as CategoryCode)}>
-          {Object.keys(CATEGORY_NAME).map((c) => (
-            <option key={c} value={c}>
-              {CATEGORY_NAME[c]}
-            </option>
-          ))}
-        </select>,
+        <SelectBox id={`${uid}-c`} value={cat} options={Object.keys(CATEGORY_NAME).map((c) => ({ value: c, label: CATEGORY_NAME[c], accent: c }))} onChange={(v) => setCat(v as CategoryCode)} />,
       )}
       {field('q', '질문 제목', <input id={`${uid}-q`} className={`inp${errs.q ? ' err' : ''}`} value={q} placeholder="예) 공용 프린터가 보이지 않아요" autoComplete="off" aria-invalid={!!errs.q} onChange={(e) => { setQ(e.target.value); clr('q') }} />)}
       {field('a', '답변', <textarea id={`${uid}-a`} className={`ta${errs.a ? ' err' : ''}`} value={a} placeholder="사내 가이드 기준으로 안내해 주세요" aria-invalid={!!errs.a} onChange={(e) => { setA(e.target.value); clr('a') }} />)}

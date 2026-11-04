@@ -12,6 +12,8 @@ import { Icon } from './Icon'
 export interface SelectOption {
   value: string
   label: string
+  /** 분류 코드(ACC·NET …). 있으면 항목 앞에 그 분류의 포인트 색 막대를 그린다 (가이드 관리의 분류 막대와 같은 색) */
+  accent?: string
 }
 
 interface Props {
@@ -25,6 +27,11 @@ interface Props {
   invalid?: boolean
   /** 칸 아래 목록에 보여 줄 빈 목록 안내 */
   empty?: string
+  /** 칸 옆에 글자 이름표(label)가 없을 때 스크린리더에 읽어 줄 이름 */
+  ariaLabel?: string
+  ariaDescribedBy?: string
+  /** 폭을 글 길이에 맞출 때 (필터 줄 등). 기본은 칸 전체 폭 */
+  auto?: boolean
 }
 
 interface Place {
@@ -35,7 +42,7 @@ interface Place {
   max: number
 }
 
-export function SelectBox({ id, value, options, onChange, placeholder = '선택해 주세요', disabled, invalid, empty = '고를 수 있는 항목이 없어요' }: Props) {
+export function SelectBox({ id, value, options, onChange, placeholder = '선택해 주세요', disabled, invalid, empty = '고를 수 있는 항목이 없어요', ariaLabel, ariaDescribedBy, auto }: Props) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(-1)
   const [place, setPlace] = useState<Place | null>(null)
@@ -137,7 +144,9 @@ export function SelectBox({ id, value, options, onChange, placeholder = '선택�
         id={id}
         type="button"
         role="combobox"
-        className={`sbx${open ? ' open' : ''}${invalid ? ' err' : ''}${current ? '' : ' ph'}`}
+        className={`sbx${open ? ' open' : ''}${invalid ? ' err' : ''}${current ? '' : ' ph'}${auto ? ' auto' : ''}`}
+        aria-label={ariaLabel}
+        aria-describedby={ariaDescribedBy}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
@@ -147,7 +156,10 @@ export function SelectBox({ id, value, options, onChange, placeholder = '선택�
         onClick={() => (open ? close() : openMenu())}
         onKeyDown={onKeyDown}
       >
-        <span className="sbxv">{current ? current.label : placeholder}</span>
+        <span className="sbxv">
+          {current?.accent && <span className={`tag gcbar c-${current.accent} sbxbar`} aria-hidden="true" />}
+          {current ? current.label : placeholder}
+        </span>
         <span className="sbxc" aria-hidden="true">
           <Icon name="chevronDown" />
         </span>
@@ -176,7 +188,10 @@ export function SelectBox({ id, value, options, onChange, placeholder = '선택�
                 onMouseEnter={() => setActive(i)}
                 onClick={() => pick(i)}
               >
-                <span>{o.label}</span>
+                <span className="sbxl2">
+                  {o.accent && <span className={`tag gcbar c-${o.accent} sbxbar`} aria-hidden="true" />}
+                  {o.label}
+                </span>
                 {i === selected && <Icon name="check" />}
               </li>
             ))}

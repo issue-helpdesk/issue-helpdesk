@@ -27,6 +27,7 @@ import { useAuth } from '../../core/session'
 import { CountUp } from '../../ui/CountUp'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
+import { SelectBox } from '../../ui/SelectBox'
 import { Toast } from '../../ui/Toast'
 import { SortTh } from '../../ui/SortTh'
 import { StateBadge } from '../../ui/StateBadge'
@@ -167,14 +168,14 @@ export function SecurityView() {
                   </button>
                 ))}
               </div>
-              <select className="sel" style={{ width: 'auto', minWidth: 180 }} aria-label="유형" value={type} onChange={(e) => setType(e.target.value as SecType | '')}>
-                <option value="">유형: 전체</option>
-                {SEC_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              <SelectBox
+                id="sec-type"
+                auto
+                ariaLabel="유형"
+                value={type}
+                options={[{ value: '', label: '유형: 전체' }, ...SEC_TYPES.map((t) => ({ value: t, label: t }))]}
+                onChange={(v) => setType(v as SecType | '')}
+              />
             </div>
 
             <div className="panel" style={{ padding: '6px 10px' }} aria-live="polite">
