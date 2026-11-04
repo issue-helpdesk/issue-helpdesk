@@ -134,6 +134,24 @@ h1,h2,h3,h4,p{margin:0}
 @media (prefers-reduced-motion:reduce){.mcard.open{animation:none}}
 @media (max-width:900px){.mcards{grid-template-columns:repeat(2,minmax(0,1fr))}.mcard.open,.mcard.open.last3{grid-column:1 / -1}}
 @media (max-width:560px){.mcards{grid-template-columns:minmax(0,1fr)}.mcard.open{grid-template-columns:1fr}.mcard.open .mcb{border-right:0}}
+/* 다크 모드: 프로필 이미지(이니셜 원)는 분홍·보라 그라데이션과 밝은 글자 */
+:root[data-theme="dark"] .who .pf,:root[data-theme="dark"] .pfl .pf{background:linear-gradient(135deg,#C23B73,#6D4BE0);color:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .who .pf,:root:not([data-theme="light"]) .pfl .pf{background:linear-gradient(135deg,#C23B73,#6D4BE0);color:#fff}}
+/* ---- 관리자 대시보드·통계 세부 조정 ---- */
+/* 마지막 조회·새로고침: 검색창 아래쪽 줄에 맞게 조금 내린다 */
+.dsy{transform:translateY(8px)}
+/* 처리 대기·처리 중·해결 확인 대기·연동·배정 확인: 숫자를 동그라미 가운데에 맞춘다(건은 숫자 오른쪽에 걸쳐 둔다) */
+.hpipe b{display:flex;justify-content:center;align-items:baseline}
+.hpipe b small{width:0;overflow:visible;white-space:nowrap;position:relative;left:4px}
+/* 긴급·높음 미해결: 열 머리와 내용을 가운데 정렬, 접수 후 경과는 상태와 간격을 둔다 */
+.panel.urg .dth,.panel.urg .dtr{text-align:center}
+.panel.urg .dth>span,.panel.urg .dtr>span{justify-self:center;text-align:center;min-width:0;max-width:100%}
+.panel.urg .dth>span:nth-child(4),.panel.urg .dtr>.c-e{padding-left:28px}
+/* 통계 카드: 새로고침 줄은 위로, 아래 문구는 아래로 내리고 두 줄 사이는 좁힌다 */
+.stx .row.sh>.asof,.stx .row.sh>.btn{position:relative;top:-6px}
+.stx .secnote{margin:12px 0 0;line-height:19px}
+.stx .secnote+.secnote{margin-top:2px}
+.stx .row.sh+.secnote{margin:2px 0 8px}
 .seg{display:inline-flex;gap:2px;padding:3px;border-radius:12px;background:var(--shell)}
 .seg button{border:0;background:transparent;min-height:36px;padding:0 16px;border-radius:9px;font-size:13.5px;font-weight:500;color:var(--mute)}
 .seg button.on{background:var(--white);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
@@ -999,14 +1017,51 @@ small{font-size:12px}
 .sbt .i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .sbt[aria-expanded="true"],.sbt:hover{background:var(--osurf);color:var(--link)}.sbt:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px}
 .sbopen{display:none}
+/* ---- 사이드바: 로고에서 열고 닫기 (Soft Dock). 펼침: 로고 + 단순한 < 버튼 / 접힘: IT 로고 + 아이콘 레일(마우스를 올리면 메뉴 이름, 맥 도크처럼 아이콘이 커짐) ---- */
+.brand{position:relative;min-height:36px}
+.brandbtn{position:relative;display:flex;align-items:center;height:36px;padding:0;border:0;background:none;cursor:pointer;min-width:0}
+.brandbtn .lg{transition:opacity .22s,transform .32s cubic-bezier(.22,1,.36,1);transform-origin:left center}
+.itmark{position:absolute;left:50%;top:50%;width:30px;height:auto;transform:translate(-50%,-50%) scale(.6);opacity:0;fill:var(--lg-it,#E0457F);transition:opacity .22s,transform .32s cubic-bezier(.22,1,.36,1);pointer-events:none}
+.sbk{width:28px;height:28px;border:0;background:transparent;color:var(--mute);display:inline-flex;align-items:center;justify-content:center;flex:none;padding:0;border-radius:8px;cursor:pointer;transition:color .12s,opacity .2s}
+.sbk:hover{color:var(--link)}.sbk:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px}
+.sbk .i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .32s cubic-bezier(.22,1,.36,1)}
+.sbt,.sbopen{display:none!important}
 @media (min-width:861px){
-  .app.side-off,.app.side-off.has-detail{grid-template-columns:0 minmax(0,1fr)}
-  .app.side-off .side{visibility:hidden;width:0;min-width:0;padding-left:0;padding-right:0;border-right:0!important;overflow:hidden}
-  .app.side-off .sbopen{display:inline-flex}
-  .app.side-off .top .tti{margin-left:0}
+  .app{transition:grid-template-columns .42s cubic-bezier(.22,1,.36,1)}
+  .app.side-off,.app.side-off.has-detail{grid-template-columns:76px minmax(0,1fr)}
+  .app>.side{position:relative;z-index:30}
+  .nav button>span:not(.count){max-width:190px;overflow:hidden;white-space:nowrap;transition:opacity .18s,max-width .34s cubic-bezier(.22,1,.36,1)}
+  .nav .grp{transition:opacity .18s}
+  .app.side-off .side{padding:14px 0 12px;align-items:center;gap:6px;overflow:visible}
+  .app.side-off .brand{width:100%;height:44px;display:flex;align-items:center;justify-content:center}
+  .app.side-off .brandbtn{pointer-events:none}
+  .app.side-off .brandbtn .lg{opacity:0;transform:scale(.55)}
+  .app.side-off .itmark{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  /* 접힌 상태에서 로고에 올리면 IT 대신 펼치기 버튼(>)이 나온다. 로고 영역 안 어디를 눌러도 펼쳐진다 */
+  .app.side-off .sbk{position:absolute;inset:0;width:auto;height:auto;border-radius:12px;opacity:0;background:var(--side)}
+  .app.side-off .brand:hover .sbk,.app.side-off .sbk:focus-visible{opacity:1}
+  .app.side-off .sbk .i{transform:rotate(180deg)}
+  .app.side-off .nav{width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;padding:0}
+  .app.side-off .nav .grp{width:34px;height:1px;margin:6px 0;padding:0;font-size:0;line-height:0;background:var(--divider);border:0;overflow:hidden;opacity:1}
+  .app.side-off .nav .grp:first-child,.app.side-off .nav .grp button{display:none}
+  .app.side-off .nav button{position:relative;gap:0;width:48px;height:48px;min-height:48px;padding:0;justify-content:center;border-radius:14px}
+  .app.side-off .nav button>span:not(.count){max-width:0;opacity:0}
+  .app.side-off .nav button .count{position:absolute;top:7px;right:7px;margin:0;min-width:9px;width:9px;height:9px;padding:0;font-size:0;line-height:0;border-radius:50%;background:var(--s-urg-dot);color:transparent;box-shadow:0 0 0 2px var(--side)}
+  .app.side-off .nav button .count.has-new:after{display:none}
+  .app.side-off .side>.nav:has(.recent),.app.side-off .modebar,.app.side-off .who .out,.app.side-off .whobtn>div{display:none}
+  .app.side-off .who{margin-top:auto;padding:0;justify-content:center}
+  .app.side-off .whobtn{flex:none;margin:0;padding:4px}
+  /* 메뉴 이름 툴팁 */
+  .app.side-off .nav button::after{content:attr(data-tip);position:absolute;left:calc(100% + 14px);top:50%;transform:translate(-4px,-50%);padding:6px 11px;border-radius:9px;background:var(--inkbtn,#111827);color:var(--onink,#fff);font-size:12.5px;font-weight:600;line-height:18px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .14s,transform .14s;z-index:60}
+  .app.side-off .nav button:hover::after,.app.side-off .nav button:focus-visible::after{opacity:1;transform:translate(0,-50%)}
+  /* 맥 도크처럼: 올린 아이콘이 커지고 이웃은 조금 커진다 */
+  .app.side-off .nav button .i{transition:transform .26s cubic-bezier(.3,1.6,.5,1)}
+  .app.side-off .nav button:hover .i{transform:scale(1.42) translateX(2px)}
+  .app.side-off .nav button:has(+ button:hover) .i,.app.side-off .nav button:hover + button .i{transform:scale(1.18)}
   .xo{position:absolute;top:16px;left:16px;z-index:7}
 }
-@media (max-width:860px){.sbt{display:none}}
+@media (max-width:860px){.sbk{display:none}}
+@media (prefers-reduced-motion:reduce){.app,.nav button>span:not(.count),.brandbtn .lg,.itmark,.sbk .i,.app.side-off .nav button .i,.app.side-off .nav button::after{transition:none}}
 
 /* ---- 출처 미리보기 창: 제목·X는 고정, 본문만 스크롤, 기본 폭을 넓히고 넓게/좁게 전환 ---- */
 .modal.msrc{width:min(780px,94vw);max-height:min(88vh,calc(100dvh - 32px));padding:0;gap:0;overflow:hidden}
@@ -1201,7 +1256,7 @@ const toast=(msg,ms)=>{const err=/실패|이미 있는|배정 전|없어요/.tes
 const later=(fn,ms)=>{const t=setTimeout(()=>{S.timers=S.timers.filter(x=>x!==t);fn();},ms);S.timers.push(t);return t;};
 const SBI='<svg class="i" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2.5"/><path d="M8 4v12"/></svg>';
 try{S.sideOff=localStorage.getItem('itssue-side')==='off';}catch(e){S.sideOff=false;}
-const sbBtn=(open)=>`<button type="button" class="sbt${open?' sbopen':''}" data-act="side" aria-label="사이드바 ${open?'펼치기':'접기'}" title="사이드바 ${open?'펼치기':'접기'}" aria-expanded="${open?'false':'true'}">${SBI}</button>`;
+const sbBtn=()=>'';
 const tById=id=>S.tickets.find(t=>t.receipt===id||t.id===id);
 const initials=n=>(n||'').slice(-2);
 
@@ -1352,9 +1407,9 @@ function shell(){
   const v=S.view.n,acc=me();
   const opsPage=['dash','exc','sec','tickets','guides','accounts','ai'].includes(v)||(v==='stats'&&S.role==='admin');
   let nav='';
-  const item=(n,i,l,extra='')=>`<button data-act="go" data-v="${n}"${v===n||(n==='list'&&v==='chat'&&S.role==='user')?' aria-current="page"':''} class="${v===n||(n==='list'&&v==='chat'&&S.role==='user')?'on':''}">${ic(i)}<span>${l}</span>${extra}</button>`;
-  nav+=S.role==='user'?`<div class="grp">문의</div>`:`<button type="button" class="grp tg" data-act="ginq" aria-expanded="${S.gInq!==false}" aria-label="문의 메뉴 ${S.gInq!==false?'접기':'펼치기'}">문의<span class="chv" aria-hidden="true">${ic('chevron')}</span></button>`;
-  if(S.role==='user'||S.gInq!==false)nav+=item('new','plus','새 문의')+item('list','chat','문의 내역',navCounts().list?`<span class="count">${navCounts().list>99?'99+':navCounts().list}</span>`:'')+item('faq','help','FAQ');
+  const item=(n,i,l,extra='')=>`<button data-act="go" data-v="${n}"${v===n||(n==='list'&&v==='chat'&&S.role==='user')?' aria-current="page"':''} class="${v===n||(n==='list'&&v==='chat'&&S.role==='user')?'on':''}" data-tip="${l}">${ic(i)}<span>${l}</span>${extra}</button>`;
+  nav+=`<div class="grp">문의</div>`;
+  nav+=item('new','plus','새 문의')+item('list','chat','문의 내역',navCounts().list?`<span class="count">${navCounts().list>99?'99+':navCounts().list}</span>`:'')+item('faq','help','FAQ');
   if(S.role==='staff'||S.role==='admin'){
     const q=S.tickets.filter(t=>t.assignee===acc.name&&t.status&&t.status!=='CLS').length;
     nav+=`<div class="grp">${S.role==='admin'?'운영':'업무'}</div>`;
@@ -1366,7 +1421,7 @@ function shell(){
   }
   const recent=S.inqs.filter(i=>i.owner===S.user).slice().reverse().slice(0,S.shortRecent?2:5).map(i=>`<button class="rt ${v==='chat'&&S.view.id===i.id?'on':''}" data-act="open" data-id="${i.id}"><b><span>${ESC(i.title)}</span>${i.unread?'<span class="count">'+i.unread+'</span>':''}</b><small><span class="rs" style="color:var(--s-${inqKind(i)}-fg)"><i style="background:var(--s-${inqKind(i)}-dot)"></i>${ESC(inqLabel(i))}</span> · ${ESC(i.when)}</small></button>`).join('');
   const roleLb={user:'문의자',staff:'담당자',admin:'관리자'}[S.role];
-  const side=`<aside class="side"><div class="brand"><button type="button" class="brandbtn" data-act="home" aria-label="ITssue 홈으로">${logo(118,'word')}</button>${sbBtn(false)}</div><nav class="nav" aria-label="주 메뉴">${nav}</nav>${recent?`<div class="nav"><div class="grp gsr">최근 문의<button class="gic" data-act="l-search" aria-label="내 문의 검색" title="내 문의 검색"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2L17 17"/></svg></button></div><div class="recent">${recent}</div></div>`:''}<div class="modebar"><small>화면 모드</small>${themeSwitch()}</div><div class="who"><button class="whobtn" data-act="profile" aria-label="내 프로필 열기"><span class="pf">${ESC(initials(acc.name))}</span><div><div class="nm">${ESC(acc.name)}</div><small>${ESC(acc.dept)} · ${roleLb}</small></div></button><button class="out" data-act="logout" aria-label="로그아웃" title="로그아웃">${ic('logout')}</button></div></aside>`;
+  const side=`<aside class="side"><div class="brand"><button type="button" class="brandbtn" data-act="home" aria-label="ITssue 홈으로">${logo(118,'word')}<svg class="itmark" viewBox="227 141 551 450" aria-hidden="true"><path d="M237 151H353V581H237Z"/><path d="M391 151H768L741 229C737 240 729 245 714 245H616V581H500V245H391Z"/></svg></button><button type="button" class="sbk" data-act="side" aria-expanded="${!S.sideOff}" aria-label="사이드바 ${S.sideOff?'펼치기':'접기'}" title="사이드바 ${S.sideOff?'펼치기':'접기'}"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5L7 10l5.5 5.5"/></svg></button></div><nav class="nav" aria-label="주 메뉴">${nav}</nav>${recent?`<div class="nav"><div class="grp gsr">최근 문의<button class="gic" data-act="l-search" aria-label="내 문의 검색" title="내 문의 검색"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2L17 17"/></svg></button></div><div class="recent">${recent}</div></div>`:''}<div class="modebar"><small>화면 모드</small>${themeSwitch()}</div><div class="who"><button class="whobtn" data-act="profile" aria-label="내 프로필 열기"><span class="pf">${ESC(initials(acc.name))}</span><div><div class="nm">${ESC(acc.name)}</div><small>${ESC(acc.dept)} · ${roleLb}</small></div></button><button class="out" data-act="logout" aria-label="로그아웃" title="로그아웃">${ic('logout')}</button></div></aside>`;
   let body='',detail='';
   if(v==='new')body=viewNew();else if(v==='chat')body=viewChat();else if(v==='list')body=viewList();else if(v==='faq')body=viewFaq();
   else if(v==='queue')body=viewQueue();else if(v==='sdash')body=viewStaffDash();else if(v==='dash')body=viewDash();else if(v==='exc')body=viewExc();else if(v==='sec')body=viewSec();else if(v==='tickets')body=viewTickets();else if(v==='guides')body=viewGuides();else if(v==='accounts')body=viewAccounts();else if(v==='ai')body=viewAI();else if(v==='stats')body=S.role==='admin'?viewStatsAdmin():viewStatsStaff();
@@ -1393,6 +1448,9 @@ function renderOverlay(){
   const pk=pi?(pi.paused?'back':reKind(pi)):'';
   const rk=pi?pi.id+':'+pk:'',pop=rk!==S.resumeKey;S.resumeKey=rk;
   if(pi){const P=POPUPS[pk];h+=`<div class="ov rs${pop?' pop':''}"><div class="rdlg" role="dialog" aria-modal="true" aria-labelledby="rs-t" aria-describedby="rs-d">${pk==='back'?'':`<button class="xbtn" data-act="resume-x" data-id="${pi.id}" aria-label="닫기">✕</button>`}<img src="${PAVIMG.base}" alt="" width="84" height="84"><h3 id="rs-t">${P[0]}</h3><p id="rs-d">${P[1]}</p><div class="acts"><button class="btn pri" data-act="${pk==='back'?'resume-go':pk==='ua'?'resume-ua':'reopen'}" data-id="${pi.id}">이어서 대화하기</button><button class="btn sec" data-act="resume-new" data-id="${pi.id}">새 문의 시작하기</button></div></div></div>`;}
+  /* 이어서 대화하기를 누른 뒤, 해결 여부를 아직 고르지 않은 문의면 해결 / 미해결을 고르는 창을 이어서 보여 준다 */
+  {const ak=S.view.n==='chat'&&S.inqs.find(x=>x.id===S.view.id&&x.ask&&!x.paused&&!(x.reentry&&reKind(x)));
+   if(ak){const tk=askKind(ak)==='tk';h+=`<div class="ov rs pop"><div class="rdlg" role="dialog" aria-modal="true" aria-labelledby="ak-t" aria-describedby="ak-d"><button class="xbtn" data-act="ask-x" data-id="${ak.id}" aria-label="닫기">✕</button><img src="${PAVIMG.base}" alt="" width="84" height="84"><h3 id="ak-t">해결 여부를 선택해 주세요!</h3><p id="ak-d">${tk?'담당자가 처리 결과를 등록했어요. 해결되었는지 알려 주세요.':'AI 안내로 해결되었는지 알려 주세요.'}</p><div class="acts"><button class="btn sec" data-act="ask-ok" data-id="${ak.id}">해결</button><button class="btn sec" data-act="ask-no" data-id="${ak.id}">미해결</button></div><button class="btn ghost sm" data-act="ask-x" data-id="${ak.id}" style="margin-top:6px">나중에 선택할게요</button></div></div>`;}}
   const pwOn=!!(S.user&&me()&&(me().tempPw||S.profile||S.pwOk));
   if(pwOn)h+=pwPopup();
   {const popOn=!!(pi||pwOn);if(popOn&&!S.__pop)S.popOpener=selOf(document.activeElement)||'';else if(!popOn&&S.__pop&&S.popOpener)restoreFocus('popOpener');S.__pop=popOn;}
@@ -1725,6 +1783,8 @@ function idleBack(i){
 const POPUPS={ua:['이전 문의를 이어서 진행할까요?','아직 해결 여부를 확인하지 않은 문의가 있어요. 이전 대화를 이어가거나 새 문의를 시작할 수 있어요.'],back:['잠시 자리를 비우셨네요','이전 대화를 이어가거나 새 문의를 시작할 수 있어요.']};
 const reKind=i=>i.ticketId?null:uState(i)==='미확인'?'ua':null; /* 미연결·미접수 종료는 서버(IQ-06)도 이어가기를 받지 않아 이어가기 창이 없다(요청 R-28) */
 const idleResume=i=>{i.idleWarned=null;i.paused=false;i.tail=null;};
+/* 해결 여부를 아직 고르지 않은 문의: 담당자가 처리 결과를 등록한 접수(tk) 또는 AI 답변 뒤 선택 전(ai) */
+const askKind=i=>{const t=i.ticketId&&tById(i.ticketId);if(t)return t.status==='FIN'&&t.req===S.user?'tk':'';return i.step==='answered'?'ai':'';};
 function typing(i,label,ms,then){const m=mk(i,{r:'a',typing:true,label});render({bottom:true});later(()=>{i.msgs=i.msgs.filter(x=>x!==m);then();render({bottom:true});},ms);}
 function sendText(text){
   text=text.trim();if(!text)return;
@@ -2534,9 +2594,12 @@ const A={
   'demo-urgent'(e,d){demoUrgent(d.m);},
   'idle-del'(){const i=curChat();if(!i)return;idleDelete(i);},
   'idle-back'(){const i=curChat();if(!i)return;idleBack(i);},
-  'resume-go'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;idleResume(i);render({bottom:true});},
+  'resume-go'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;idleResume(i);i.ask=!!askKind(i);render({bottom:true});},
   'resume-new'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.paused=false;i.reentry=false;S.view={n:'new'};S.detail=null;render();toast('새 문의를 시작했어요. 이전 문의는 문의 내역에서 확인할 수 있어요.');},
-  'resume-ua'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.reentry=false;i.gate=false;render({bottom:true});},
+  'resume-ua'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.reentry=false;i.gate=false;i.ask=!!askKind(i);render({bottom:true});},
+  'ask-x'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.ask=false;renderOverlay();},
+  'ask-ok'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;const k=askKind(i);i.ask=false;if(k==='tk')A['tk-ok'](null,{id:i.ticketId});else{const idx=i.msgs.map((m,j)=>m.replies?j:-1).filter(j=>j>=0).pop();reply(i,'resolved',undefined,idx);}renderOverlay();},
+  'ask-no'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;const k=askKind(i);i.ask=false;if(k==='tk')A['tk-no'](null,{id:i.ticketId});else{const idx=i.msgs.map((m,j)=>m.replies?j:-1).filter(j=>j>=0).pop();reply(i,'unresolved',undefined,idx);}renderOverlay();},
   'resume-x'(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i)return;i.reentry=false;renderOverlay();},
   reentry(e,d){const i=S.inqs.find(x=>x.id===d.id);if(!i||!reKind(i))return;i.reentry=true;renderOverlay();},
   /* 대화 이어가기: 새 문의·안내 메시지를 만들지 않고 같은 대화의 마지막 선택 버튼을 다시 연다 (API 02 IQ-06) */
@@ -2570,7 +2633,7 @@ const A={
   oteam(e,d){S.opsTeam=d.v;S.dd=null;S.opsSel=null;S.opsGrp=null;render();},
   ogrp(e,d){S.opsGrp=d.g;render();},
   ocur(){S.opsCurOpen=!S.opsCurOpen;render();},
-  side(e){S.sideOff=!S.sideOff;try{localStorage.setItem('itssue-side',S.sideOff?'off':'on');}catch(x){}const app=document.querySelector('.app');if(app)app.classList.toggle('side-off',S.sideOff);document.querySelectorAll('[data-act="side"]').forEach(b=>{const open=b.classList.contains('sbopen');b.setAttribute('aria-expanded',String(open?S.sideOff===false:!S.sideOff));});setTimeout(()=>{const t=S.sideOff?document.querySelector('.sbopen'):document.querySelector('.side .sbt');if(t)t.focus({preventScroll:true});},0);},
+  side(e,d,ev){S.sideOff=!S.sideOff;try{localStorage.setItem('itssue-side',S.sideOff?'off':'on');}catch(x){}const app=document.querySelector('.app');if(app)app.classList.toggle('side-off',S.sideOff);const k=document.querySelector('.side .sbk');if(k){k.setAttribute('aria-expanded',String(!S.sideOff));k.setAttribute('aria-label','사이드바 '+(S.sideOff?'펼치기':'접기'));k.title='사이드바 '+(S.sideOff?'펼치기':'접기');if(ev&&ev.detail===0)setTimeout(()=>k.focus({preventScroll:true}),30);}},
   resmore(){S.opsResMore=!S.opsResMore;render();},
   faqcat(e,d){S.faqCat=d.c;render();},
   omore(e,d){S['opsMore'+d.k]=!S['opsMore'+d.k];render();},
