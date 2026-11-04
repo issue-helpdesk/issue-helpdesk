@@ -137,7 +137,3 @@ button.grb{width:100%;display:flex;align-items:center;justify-content:space-betw
 .hband{animation:mrise .45s cubic-bezier(.16,1,.3,1) backwards}
 .donut circle[stroke-dasharray]{animation:mdonut 1.1s cubic-bezier(.16,1,.3,1) backwards}
 }
-
-/* 값이 0 인 숫자 카드(AI 운영): 숫자만 흐리게 해서 값이 있는 카드와 구분한다 */
-.kpi .v{transition:opacity .3s}
-.kpi.zero .v{opacity:.38}
