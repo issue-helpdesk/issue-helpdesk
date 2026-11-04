@@ -86,7 +86,7 @@ function StackRow({ label, sub, v, mx, sel, onClick, tip }: { label: string; sub
 }
 
 const Legend = () => (
-  <div className="lgd" style={{ margin: 0 }}>
+  <div className="lgd" style={{ margin: '12px 0 0' }}>
     {STATES.map((s) => (
       <span key={s.k}>
         <i style={{ background: s.color }} />
