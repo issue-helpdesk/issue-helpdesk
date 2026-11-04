@@ -3,7 +3,8 @@
  * 현재 미처리 문의 중 지금 확인하고 처리할 일만 모았다: 긴급 조치(P1), 당일 미종결 예외, 티켓 연동 확인, 담당자 배정 확인, 팀별 개인 현황.
  *
  * 목록은 접수 목록(TK-05 view=ALL)을 조건별로 받아 나눈다 (api/ops.ts). 팀별 개인 현황의 구성원·부재·업무량은 RF-04·TO-01·TK-05 로 읽는다 (api/reference.ts).
- * 확인·재시도·담당자 지정은 서버 모드에서 요청하지 않고 안내만 한다. (Jira 쪽 작업이 끝까지 진행되지 않음)
+ * 확인·재시도는 접수를 서버로 보내는 환경(VITE_SERVER_INTAKE)에서 연동 작업 재처리(TK-12)를 등록한다. 서버는 등록만 하고 실행기가 나중에 처리한다.
+ * 담당자 지정은 서버 모드에서 아직 안내만 한다.
  */
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
@@ -188,9 +189,25 @@ export function OpsView() {
       // 요청을 받은 뒤 실제로 반영될 때까지는 행 버튼이 "처리 중"으로 바뀐다 (최소 1.2초는 보여서 눌렀다는 걸 알 수 있게)
       setPending((l) => [...l, t.id])
       note(t, kind === 'trn' ? '상태 다시 반영 요청' : '티켓 생성 재요청', 'req')
-      say('재처리를 등록했어요. 잠시 뒤 반영돼요.')
+      say(r.data.outcome === 'REGISTERED' ? '재처리를 등록했어요. 실행기가 처리하면 상태가 바뀌어요.' : '재처리를 등록했어요. 잠시 뒤 반영돼요.')
       await new Promise((res) => setTimeout(res, Math.max(0, 1200 - (Date.now() - started))))
       setPending((l) => l.filter((x) => x !== t.id))
+      // 서버는 등록만 하고 실행기가 나중에 처리한다. 아직 끝난 게 아니라고 남기고 목록은 다시 읽는다
+      if (r.data.outcome === 'REGISTERED') {
+        note({ ...t, jiraKey: r.data.jiraKey }, '등록함 · 실행기가 처리하면 반영돼요')
+        setReload((n) => n + 1)
+        return
+      }
+      if (r.data.outcome === 'LINKED_EXISTING') {
+        note({ ...t, jiraKey: r.data.jiraKey }, `이미 만들어진 Jira 이슈를 연결 · ${r.data.jiraKey}`)
+        setReload((n) => n + 1)
+        return
+      }
+      if (r.data.outcome === 'ALREADY_APPLIED') {
+        note({ ...t, jiraKey: r.data.jiraKey }, 'Jira에 이미 반영돼 있어 상태를 맞춤')
+        setReload((n) => n + 1)
+        return
+      }
       if (kind === 'trn') {
         const to = r.data.workStatus === 'FIN' ? '해결 확인 대기' : r.data.workStatus === 'CLS' ? '해결 완료' : r.data.workStatus === 'WIP' ? '처리 중' : '처리 대기'
         note({ ...t, jiraKey: r.data.jiraKey }, `${to}(으)로 반영`)

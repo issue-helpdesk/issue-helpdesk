@@ -94,6 +94,27 @@ export interface TicketTransitionRequest {
   resolutionNote?: string
 }
 
+/** 연동 작업 (TK-11). 재처리(TK-12)는 이 중 실패한 작업 하나를 지정해서 보낸다 */
+export type IntegrationJobType = 'JIRA_CREATE' | 'JIRA_ASSIGN' | 'JIRA_TRANSITION'
+export interface IntegrationJob {
+  id: number
+  ticketId: number
+  jobType: IntegrationJobType
+  retryOfJobId: number | null
+  status: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED' | 'NEEDS_ADMIN' | string
+  attempts: number
+  nextRetryAt: string | null
+  lastError: string | null
+  createdAt: string
+  updatedAt: string | null
+}
+/**
+ * 재처리 결과: 등록만 했으면 실행기가 나중에 처리한다(REGISTERED, 서버 201).
+ * Jira 에 이미 있어서 연결만 했거나(LINKED_EXISTING) 이미 반영돼 있었으면(ALREADY_APPLIED) 바로 끝난 것이다(서버 200).
+ * 모의는 눌러서 바로 처리되므로 DONE.
+ */
+export type RetryOutcome = 'REGISTERED' | 'LINKED_EXISTING' | 'ALREADY_APPLIED' | 'DONE'
+
 /** 담당자가 문의자에게 보낸 메시지 (제안: 문서상 AI 중개 양방향 소통은 Could 범위) */
 export type MessageKind = '추가 정보 요청' | '일반 메시지'
 export interface TicketMessage {
