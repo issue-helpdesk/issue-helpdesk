@@ -2,10 +2,10 @@
 /**
  * 담당자 통계 (/stats). 기간과 조회 대상(내 통계 / 팀 통계)을 골라 상태별 현황, 접수 추이, 긴급도 분포, 팀원별 진행도를 본다.
  * 구역마다 따로 불러오고(불러오는 중 · 실패 · 다시 시도), 한 구역이 실패해도 다른 구역은 그대로 보인다.
- * 값은 접수 목록(TK-05)을 읽어 화면에서 센다. 통계 전용 API 는 아직 없어 집계 기준은 제안이다.
+ * 상태별 현황과 팀원별 진행도는 서버 운영 집계(OP-02 GET /dashboard/me)이고, 접수 추이·긴급도 분포는 이 집계에 없어 접수 목록(TK-05)을 읽어 화면에서 센다. (요청 R-01)
  * 상태별 현황은 선택 기간에 접수된 티켓의 현재 상태이고, 처리 성과나 평가 순위가 아니다. (design/ITssue-Prototype.html 의 담당자 통계)
  */
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode, Urgency, WorkStatus } from '../../api/chatTypes'
@@ -14,11 +14,13 @@ import type { ApiResult, User } from '../../api/types'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
 import { useAuth } from '../../core/session'
-import { Collapse } from '../../ui/Collapse'
 import { CountUp } from '../../ui/CountUp'
 import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
+import { MemberCards } from '../admin/MemberCards'
+import { loadMine } from './myOverview'
 import { UrgencyChip } from './QueueView'
+import type { MyOverview } from '../../api/myStats'
 
 export type Per = 'd' | 'm' | 'y'
 export type Unit = 'd' | 'w' | 'mo'
@@ -586,27 +588,25 @@ export function StatsView() {
 
   const scope = team ? 'team' : 'me'
   const unitNow = UNITS[per].includes(unit) ? unit : UDEF[per]
-  const sum = useSection('sum', `${per}|${scope}`, tick)
+  // 상태별 현황·팀원별 진행도는 서버 집계(내 접수와 내 팀), 추이·긴급도는 접수 목록으로 센다
+  const loadMineCb = useCallback((u: User) => loadMine(u, per), [per])
+  const mine = useSection('ovme', per, tick, loadMineCb)
   const trend = useSection('trend', `${per}|${scope}|${unitNow}`, tick)
   const pri = useSection('pri', `${per}|${scope}`, tick)
-  const mem = useSection('mem', `${per}|team`, tick)
   const uid = user?.id ?? 0
 
-  const sumWin = useMemo(() => windowOf(sum, per, team, uid), [sum, per, team, uid])
   const trendWin = useMemo(() => windowOf(trend, per, team, uid), [trend, per, team, uid])
   const priWin = useMemo(() => windowOf(pri, per, team, uid), [pri, per, team, uid])
-  const memWin = useMemo(() => windowOf(mem, per, true, uid), [mem, per, uid])
 
   if (!user) return null
   const groupName = user.departmentName ?? ''
-  const v = countBy(sumWin)
+  const ovm = mine.extra as MyOverview | undefined
+  const v = (team ? ovm?.group?.v : ovm?.me) ?? { RDY: 0, WIP: 0, FIN: 0, CLS: 0 }
   const total = sumOf(v)
-  const none = sumWin.filter((t) => !t.workStatus).length
+  const none = ovm?.none
   const b = per === 'd' ? null : bucket(trendWin, per, unitNow, trend.ts)
   const urgN = URGS.map((p) => priWin.filter((t) => t.urgency === p).length)
   const urgMx = Math.max(1, ...urgN)
-  const byMember = mem.names.map((n) => ({ n, v: countBy(memWin.filter((t) => t.assignee?.name === n)) }))
-  const mx = Math.max(1, ...byMember.map((m) => sumOf(m.v)))
   const pickPer = (p: Per) => {
     setPer(p)
     setUnit(UDEF[p])
@@ -672,7 +672,7 @@ export function StatsView() {
             </div>
           </div>
 
-          <Section title="상태별 현황" sec={sum} note="선택 기간에 접수된 티켓의 현재 상태예요. 선택 기간에 처리가 끝난 건수가 아니에요.">
+          <Section title="상태별 현황" sec={mine} note="선택 기간에 접수된 티켓의 현재 상태예요. 선택 기간에 처리가 끝난 건수가 아니에요.">
             <div className="sk">
               {STATES.map((s) => (
                 <button key={s.k} type="button" className="kpi kl" onClick={() => navigate(`/queue${QS[s.k]}`)} aria-label={`${s.label} ${v[s.k]}건. 해당 문의 목록 보기`}>
@@ -690,7 +690,7 @@ export function StatsView() {
                 </button>
               ))}
             </div>
-            {team && <p className="small muted secnote">배정 전 {none}건은 위 네 상태에 넣지 않고 따로 세요.</p>}
+            {team && none !== undefined && <p className="small muted secnote">배정 전 {none}건은 위 네 상태에 넣지 않고 따로 세요.</p>}
             <p className="small muted secnote">
               해결 완료 비율은 {total ? `${Math.round((v.CLS / total) * 100)}% (${v.CLS} / ${total}건)` : '계산할 건수가 없어요'}이에요. 선택 기간에 접수된 티켓 중 배정 전을 뺀 건수 대비 현재 해결 완료(CLS) 건수이고, 처리 성과를 뜻하지 않아요.
             </p>
@@ -755,44 +755,17 @@ export function StatsView() {
           </Section>
 
           {team && (
-            <Section title="팀원별 진행도" sec={mem} note="선택 기간에 접수된 티켓의 현재 상태 기준이에요.">
-              <div className="lgd" style={{ margin: 0 }}>
-                {STATES.map((s) => (
-                  <span key={s.k}>
-                    <i style={{ background: s.color }} />
-                    {s.short}
-                  </span>
-                ))}
-              </div>
-              <div className="srows">
-                {byMember.map(({ n, v: mv }) => {
-                  const t = sumOf(mv)
-                  const me = n === user.name
-                  const sel = member === n
-                  return (
-                    <div key={n}>
-                      <button type="button" className={`srow${sel ? ' sel' : ''}${me ? ' me' : ''}`} aria-pressed={sel} onClick={() => setMember(sel ? null : n)}>
-                        <div className="sl">
-                          <b>
-                            {n}
-                            {me && <span className="mebadge">나</span>}
-                          </b>
-                        </div>
-                        <div className="sbar" role="img" aria-label={STATES.map((s) => `${s.short} ${mv[s.k]}`).join(', ')}>
-                          {t ? STATES.map((s) => (mv[s.k] ? <div key={s.k} style={{ width: `${(mv[s.k] / mx) * 100}%`, background: s.color }} title={`${s.short} ${mv[s.k]}`} /> : null)) : <div style={{ width: 3, background: 'var(--line)' }} />}
-                        </div>
-                        <div className="sn">
-                          <b>{t}</b>
-                          <small>{t ? `완료 ${Math.round((mv.CLS / t) * 100)}%` : '-'}</small>
-                        </div>
-                      </button>
-                      <Collapse open={sel}>{sel && <MemberDonuts name={n} list={memWin} />}</Collapse>
-                    </div>
-                  )
-                })}
-              </div>
+            <Section title="팀원별 진행도" sec={mine} note="서버 집계 기준: 선택 기간에 접수된 티켓의 현재 상태예요.">
+              <MemberCards
+                members={ovm?.group?.members ?? []}
+                open={member}
+                onOpen={setMember}
+                meName={user.name}
+                canList={(n) => n === user.name}
+                onList={() => navigate(`/queue?per=${per}`)}
+              />
               <div className="hint" style={{ marginTop: 8 }}>
-                이름을 누르면 아래에 개인 현황(도넛)을 불러와요. 업무량 확인용이며 평가 순위가 아니에요.
+                카드에 마우스를 올리면 상태별 건수를, 누르면 카드가 넓어지며 자세히 보여요. 업무량 확인용이며 평가 순위가 아니에요.
               </div>
             </Section>
           )}

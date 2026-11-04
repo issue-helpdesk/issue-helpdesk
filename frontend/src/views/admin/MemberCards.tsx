@@ -44,7 +44,8 @@ export interface MemberCardData {
   v: StatCounts
 }
 
-export function MemberCards({ members, open, onOpen, onList }: { members: MemberCardData[]; open: string | null; onOpen: (name: string | null) => void; onList: (name: string) => void }) {
+/** meName 이 있으면 그 카드에 "나" 표시, canList 로 티켓 목록 버튼을 보일 카드를 정한다 (담당자는 자기 카드만) */
+export function MemberCards({ members, open, onOpen, onList, meName, canList }: { members: MemberCardData[]; open: string | null; onOpen: (name: string | null) => void; onList: (name: string) => void; meName?: string; canList?: (name: string) => boolean }) {
   const tip = useStatTip()
   return (
     <>
@@ -55,7 +56,10 @@ export function MemberCards({ members, open, onOpen, onList }: { members: Member
           return (
             <div key={m.id} className={`mcard${isOpen ? ' open' : ''}${i % 3 === 2 ? ' last3' : ''}`} {...(isOpen ? {} : tip.bind(m.name, m.v))}>
               <button type="button" className="mcb" aria-pressed={isOpen} aria-label={`${m.name} 처리 상태 ${total}건`} onClick={() => onOpen(isOpen ? null : m.name)}>
-                <span className="mcn">{m.name}</span>
+                <span className="mcn">
+                  {m.name}
+                  {meName === m.name && <span className="mebadge">나</span>}
+                </span>
                 <MiniDonut v={m.v} />
                 <StatSr v={m.v} />
               </button>
@@ -75,9 +79,11 @@ export function MemberCards({ members, open, onOpen, onList }: { members: Member
                     <span className="small muted">
                       전체 {total}건 · 완료 {total ? Math.round((m.v.CLS / total) * 100) : 0}%
                     </span>
-                    <button type="button" className="btn sec sm" onClick={() => onList(m.name)}>
-                      티켓 목록 ›
-                    </button>
+                    {(canList?.(m.name) ?? true) && (
+                      <button type="button" className="btn sec sm" onClick={() => onList(m.name)}>
+                        티켓 목록 ›
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
