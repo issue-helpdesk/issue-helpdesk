@@ -280,6 +280,32 @@ def test_draft_refuses_unresolved(url, tmp_path, kw, msg):
 
 
 @needs_db
+def test_reopened_ticket_warns_without_text(url, tmp_path):
+    """다시 처리(FIN→WIP)된 접수는 횟수·이력 위치만 경고하고, 앞선 처리 결과·남은 증상 원문은 경고에 넣지 않는다."""
+    _current_guide(url, 'IT-NET-003')                                        # 다른 시험의 사례 초안이 없는 가이드
+    note = '1. 스위치 포트를 바꿨습니다\n2. 다시 연결했습니다'
+    once, twice = _ticket(url, 'TK-RO-0', code='NET-03', note=note), _ticket(url, 'TK-RO-2', code='NET-03', note=note)
+    with connect(url) as conn:
+        steps = [(None, 'RDY', None), ('RDY', 'WIP', None), ('WIP', 'FIN', None), ('FIN', 'WIP', '재부팅하면 또 물어봐요'),
+                 ('WIP', 'FIN', None), ('FIN', 'WIP', '여전히 같아요'), ('WIP', 'FIN', None), ('FIN', 'CLS', None)]
+        for frm, to, reason in steps:
+            conn.execute("insert into ticket_status_history (ticket_id, from_status, to_status, source, reason) "
+                         "values (%s, %s, %s, 'ITSSUE', %s)", (twice, frm, to, reason))
+        for frm, to in [(None, 'RDY'), ('RDY', 'WIP'), ('WIP', 'FIN'), ('FIN', 'CLS')]:
+            conn.execute("insert into ticket_status_history (ticket_id, from_status, to_status, source) "
+                         "values (%s, %s, %s, 'ITSSUE')", (once, frm, to))
+        conn.commit()
+        plain = draft(conn, once, files_root=tmp_path)
+        again = draft(conn, twice, files_root=tmp_path)
+    assert not any('다시 처리' in w for w in plain.warnings)
+    hit = [w for w in again.warnings if '다시 처리' in w]
+    assert hit == [f'다시 처리된 접수입니다 (재처리 2회). 앞선 처리 결과·남은 증상은 TK-RO-2의 TK-08 이력(티켓 {twice})에서 '
+                   '확인하세요. 본문에는 마지막 처리 결과만 넣었습니다']
+    assert not any('재부팅' in w or '여전히' in w for w in again.warnings)
+    assert '스위치 포트를 바꿨습니다' in again.md                                # 본문은 마지막 처리 결과 그대로
+
+
+@needs_db
 def test_cli(url, tmp_path, capsys):
     from app.rag.case_guide.__main__ import main
     _current_guide(url, 'IT-HW-001')
