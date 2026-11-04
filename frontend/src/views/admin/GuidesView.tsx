@@ -5,7 +5,7 @@
  * 문서·버전은 문서 API(DC-01·02·06·07·09), 해결 사례 묶음은 접수 목록(TK-05)을 읽어 화면에서 만든다.
  * 서버에 없는 버전 메모·정책 변경 사유·가이드 초안 만들기는 서버 모드에서 안내만 한다. (api/guides.ts, 요청 R-21~23)
  */
-import { useCallback, useEffect, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
@@ -17,6 +17,7 @@ import {
   MAX_UPLOAD_MESSAGE,
   TX_RANK,
   createGuideDraft,
+  formatBytes,
   guideLabel,
   listGuideVersions,
   listGuides,
@@ -24,6 +25,7 @@ import {
   nextVersion,
   normalizeVersion,
   readFileVersion,
+  sameVersion,
   retryGuideIngest,
   setGuideActive,
   setGuideCurrent,
@@ -47,6 +49,7 @@ import { useAuth } from '../../core/session'
 import { Collapse } from '../../ui/Collapse'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
+import { SelectBox } from '../../ui/SelectBox'
 import { Toast } from '../../ui/Toast'
 import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
@@ -219,22 +222,30 @@ export function GuidesView() {
     const list = vers[g.id] ?? g.versions
     return (
       <div className={`gprow${g.isActive ? '' : ' off'}`} key={g.id}>
+        <div className="gprh">
         <button type="button" className="grb" aria-expanded={open} onClick={() => setOpenId(open ? null : g.id)}>
           <span className="grt">
-            <b>{guideLabel(g)}</b>
-            <div className="small muted">{g.current ? `현행 ${g.current.version}` : '현행 없음'}</div>
+            <span className="grtl">
+              <b>{guideLabel(g)}</b>
+              {!g.isActive && <StateBadge tone="recv" label="비활성" />}
+            </span>
+            <div className="small muted">
+              {g.current ? `현행 ${g.current.version}` : '현행 없음'}
+              {!g.isActive && ' · 검색·답변에 쓰이지 않아요'}
+            </div>
           </span>
-          <span className="gbs">{!g.isActive && <StateBadge tone="recv" label="비활성" />}{g.current?.tx === '금지' ? <StateBadge tone="urg" label="외부 전송 금지" /> : g.current?.tx === '마스킹 후 허용' ? <StateBadge tone="warn" label="마스킹 후 전송" /> : null}</span>
+          <span className="gbs">{g.current?.tx === '금지' ? <StateBadge tone="urg" label="외부 전송 금지" /> : g.current?.tx === '마스킹 후 허용' ? <StateBadge tone="warn" label="마스킹 후 전송" /> : null}</span>
         </button>
+        {/* 문서 전체를 켜고 끄는 버튼: 제목과 같은 줄, 펼쳤을 때만 보인다 */}
+        {open && (
+          <button type="button" className={`btn ${g.isActive ? 'sec' : 'pri'} sm gact`} aria-label={`${g.docCode} ${g.isActive ? '비활성화' : '활성화'}`} onClick={() => setDlg({ kind: 'active', g, to: !g.isActive })}>
+            {g.isActive ? '비활성화' : '활성화'}
+          </button>
+        )}
+        </div>
         <Collapse open={open}>
         {open && (
           <div className="tw gvt" style={{ marginTop: 12 }}>
-            <div className="row" style={{ justifyContent: 'space-between', gap: 8, margin: '0 0 8px' }}>
-              <span className="small muted">{g.isActive ? '' : '비활성 문서예요. 검색·답변에 쓰이지 않고, 번호는 그대로 남아 있어요.'}</span>
-              <button type="button" className="btn ghost sm" aria-label={`${g.docCode} ${g.isActive ? '비활성화' : '활성화'}`} onClick={() => setDlg({ kind: 'active', g, to: !g.isActive })}>
-                {g.isActive ? '비활성화' : '활성화'}
-              </button>
-            </div>
             {!list ? (
               <div className="empty" role="status">
                 불러오는 중이에요…
@@ -749,6 +760,11 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
   const mode = picked ?? (guides.length ? 'ver' : 'new')
   const [file, setFile] = useState<File | null>(null)
   const [fileKey, setFileKey] = useState(0)
+  const [drag, setDrag] = useState(false)
+  // 고른 파일의 단계: 확인 중(잠깐) → 준비됨. 제출은 확인이 끝나기를 기다린다
+  const [phase, setPhase] = useState<'idle' | 'checking' | 'ready'>('idle')
+  const fileRef = useRef<File | null>(null)
+  const checkRef = useRef<Promise<string | null>>(Promise.resolve(null))
   const [cat, setCat] = useState<CategoryCode | ''>('')
   const [docId, setDocId] = useState<number | null>(null)
   const [docVers, setDocVers] = useState<GuideVersion[] | null>(null)
@@ -766,6 +782,41 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const clr = (k: string) => setErrs((e) => ({ ...e, [k]: '' }))
+  // 파일 고르기(클릭·끌어다 놓기 공통, 한 번에 파일 1개): 20MB 를 넘으면 막고, 잠깐 "확인 중"을 보인 뒤 md·txt 는 머리의 버전을 읽어 채운다
+  const pickFile = (f: File | null) => {
+    setDupDoc(null)
+    if (f && f.size > MAX_UPLOAD_BYTES) {
+      // 서버는 20MB 를 넘으면 받는 도중 연결을 끊어 네트워크 오류로 보이므로 먼저 막는다
+      clearFile()
+      setErrs((x) => ({ ...x, file: `${MAX_UPLOAD_MESSAGE} (선택한 파일 ${formatBytes(f.size)})` }))
+      return
+    }
+    fileRef.current = f
+    setFile(f)
+    clr('file')
+    setFileVer(null)
+    if (!f) return setPhase('idle')
+    setPhase('checking')
+    checkRef.current = Promise.all([readFileVersion(f), new Promise((r) => setTimeout(r, 500))]).then(([fv]) => {
+      if (fileRef.current !== f) return null // 그 사이 다른 파일을 골랐거나 취소했다
+      setFileVer(fv)
+      if (fv) {
+        setVer(fv)
+        clr('ver')
+      }
+      setPhase('ready')
+      return fv
+    })
+  }
+  const clearFile = () => {
+    fileRef.current = null
+    checkRef.current = Promise.resolve(null)
+    setFile(null)
+    setFileVer(null)
+    setDupDoc(null)
+    setPhase('idle')
+    setFileKey((n) => n + 1)
+  }
 
   const inCat = cat ? guides.filter((g) => g.cat === cat) : []
   // 새 버전을 올릴 문서 선택에서는 비활성 문서를 뺀다 (서버는 허용하지만 화면에서는 먼저 활성화하게 한다)
@@ -807,16 +858,22 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
 
   const submit = async () => {
     if (!user) return
+    // 파일을 확인하는 중이면 끝나기를 기다린다(머리의 버전을 읽은 뒤 그 값으로 검사한다)
+    const checked = file && phase === 'checking' ? await checkRef.current : undefined
+    const fv = checked !== undefined ? checked : fileVer
     const e: Record<string, string> = {}
     if (!file) e.file = '파일을 선택해 주세요.'
     if (!cat) e.cat = '분류를 선택해 주세요.'
     if (mode === 'ver' && cat && !doc) e.doc = '문서를 선택해 주세요.'
     if (mode === 'new' && !title.trim()) e.title = '가이드 제목을 입력해 주세요.'
-    const version = normalizeVersion(ver)
+    const version = normalizeVersion(checked ? checked : ver)
     if (!(mode === 'ver' && !doc)) {
       if (!version) e.ver = '버전은 v4.0처럼 숫자로 적어 주세요.'
-      else if (docVers?.some((x) => x.version === version)) e.ver = '이미 있는 버전이에요. 다른 번호를 적어 주세요.'
-      else if (fileVer && fileVer !== version) e.ver = `파일 머리의 버전(${fileVer})과 달라요. 서버가 적재를 실패 처리하니 ${fileVer}으로 맞추거나 파일을 고쳐 주세요.`
+      else if (docVers?.some((x) => sameVersion(x.version, version))) {
+        const same = docVers.find((x) => sameVersion(x.version, version))!
+        e.ver = same.version === version ? '이미 있는 버전이에요. 다른 번호를 적어 주세요.' : `이미 있는 버전 ${same.version}과 같은 번호예요(${version}도 같은 버전으로 봐요). 다른 번호를 적어 주세요.`
+      }
+      else if (fv && fv !== version) e.ver = `파일 안의 version(${fv})과 달라요. 서버가 적재를 실패 처리하니 ${fv}으로 맞추거나 파일 안의 version 을 고쳐 주세요.`
     }
     setErrs(e)
     setErr('')
@@ -870,65 +927,72 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
       {field(
         'file',
         '파일',
-        <div className="gfrow">
-          <input
-            key={fileKey}
-            id={`${uid}-file`}
-            className={`inp${errs.file ? ' err' : ''}`}
-            type="file"
-            accept=".pdf,.docx,.pptx,.md,.txt"
-            aria-invalid={!!errs.file}
-            onChange={(e) => {
-              const f = e.target.files?.[0] ?? null
-              setDupDoc(null)
-              if (f && f.size > MAX_UPLOAD_BYTES) {
-                // 서버는 20MB 를 넘으면 받는 도중 연결을 끊어 네트워크 오류로 보이므로 먼저 막는다
-                setFile(null)
-                setFileVer(null)
-                setFileKey((n) => n + 1)
-                setErrs((x) => ({ ...x, file: MAX_UPLOAD_MESSAGE }))
-                return
-              }
-              setFile(f)
-              clr('file')
-              setFileVer(null)
-              if (f)
-                void readFileVersion(f).then((fv) => {
-                  setFileVer(fv)
-                  if (fv) {
-                    setVer(fv)
-                    clr('ver')
-                  }
-                })
-            }}
-          />
-          {file && (
-            <button
-              type="button"
-              className="btn sec sm"
-              onClick={() => {
-                setFile(null)
-                setFileVer(null)
-                setDupDoc(null)
-                setFileKey((n) => n + 1)
+        <div className="gz">
+          {!file ? (
+            <label
+              className={`gdrop${drag ? ' drag' : ''}${errs.file ? ' err' : ''}`}
+              htmlFor={`${uid}-file`}
+              onDragOver={(e) => {
+                e.preventDefault()
+                setDrag(true)
+              }}
+              onDragLeave={() => setDrag(false)}
+              onDrop={(e) => {
+                e.preventDefault()
+                setDrag(false)
+                pickFile(e.dataTransfer.files?.[0] ?? null)
               }}
             >
-              선택 취소
-            </button>
+              <input key={fileKey} id={`${uid}-file`} className="sr" type="file" accept=".pdf,.docx,.pptx,.md,.txt" aria-invalid={!!errs.file} onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
+              <span className="gdi" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+                  <path d="M14 3v5h5M12 17v-6m0 0-2.5 2.5M12 11l2.5 2.5" />
+                </svg>
+              </span>
+              <span className="gdt">
+                <b>클릭해서 파일 고르기</b> 또는 끌어다 놓기
+              </span>
+              <span className="gdh">PDF·DOCX·PPTX·MD·TXT · 파일 1개 · 최대 {MAX_UPLOAD_BYTES / 1024 / 1024}MB</span>
+            </label>
+          ) : (
+            <div className={`gfile${phase === 'checking' ? ' wait' : ''}`} role="status" aria-live="polite">
+              <span className="gfi" aria-hidden="true">
+                {phase === 'checking' || busy ? (
+                  <span className="gspin" />
+                ) : (
+                  <svg viewBox="0 0 24 24">
+                    <path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+                    <path d="M14 3v5h5M9 13h6M9 17h4" />
+                  </svg>
+                )}
+              </span>
+              <span className="gfm">
+                <b title={file.name}>{file.name}</b>
+                <small>
+                  {busy ? '업로드 중…' : phase === 'checking' ? '파일을 확인하는 중…' : `용량 ${formatBytes(file.size)}${fileVer ? ` · 파일 안의 version: ${fileVer}` : ''}`}
+                </small>
+              </span>
+              <button type="button" className="gfx" aria-label="선택 취소" title="선택 취소" disabled={busy} onClick={clearFile}>
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M5 5l10 10M15 5 5 15" />
+                </svg>
+              </button>
+            </div>
           )}
         </div>,
       )}
       {field(
         'cat',
         '분류',
-        <select id={`${uid}-cat`} className={`sel${errs.cat ? ' err' : ''}`} value={cat} onChange={(e) => pickCat(e.target.value as CategoryCode | '')}>
-          <option value="">분류를 선택해 주세요</option>
-          {(Object.keys(CATEGORIES) as CategoryCode[]).map((c) => (
-            <option key={c} value={c}>
-              {CATEGORIES[c].name}
-            </option>
-          ))}
-        </select>,
+        <SelectBox
+          id={`${uid}-cat`}
+          value={cat}
+          invalid={!!errs.cat}
+          placeholder="분류를 선택해 주세요"
+          options={(Object.keys(CATEGORIES) as CategoryCode[]).map((c) => ({ value: c, label: CATEGORIES[c].name }))}
+          onChange={(v) => pickCat(v as CategoryCode | '')}
+        />,
       )}
       {mode === 'ver' ? (
         <>
@@ -936,18 +1000,16 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
             'doc',
             '문서',
             !cat ? (
-              <select id={`${uid}-doc`} className="sel" disabled>
-                <option>분류를 먼저 선택해 주세요</option>
-              </select>
+              <SelectBox id={`${uid}-doc`} value="" options={[]} disabled placeholder="분류를 먼저 선택해 주세요" onChange={() => {}} />
             ) : selectable.length ? (
-              <select id={`${uid}-doc`} className={`sel${errs.doc ? ' err' : ''}`} value={docId ?? ''} onChange={(e) => void pickDoc(e.target.value ? Number(e.target.value) : null)}>
-                <option value="">새 버전을 올릴 문서를 선택해 주세요</option>
-                {selectable.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {guideLabel(g)}
-                  </option>
-                ))}
-              </select>
+              <SelectBox
+                id={`${uid}-doc`}
+                value={docId === null ? '' : String(docId)}
+                invalid={!!errs.doc}
+                placeholder="새 버전을 올릴 문서를 선택해 주세요"
+                options={selectable.map((g) => ({ value: String(g.id), label: guideLabel(g) }))}
+                onChange={(v) => void pickDoc(v ? Number(v) : null)}
+              />
             ) : (
               <div className="hint">{inCat.length ? '이 분류의 문서가 모두 비활성이에요. 목록에서 활성화한 뒤 올려 주세요.' : '이 분류에는 아직 문서가 없어요. "새 가이드 만들기"로 올려 주세요.'}</div>
             ),
@@ -1001,20 +1063,12 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
         {field(
           'scope',
           '열람 범위',
-          <select id={`${uid}-scope`} className="sel" value={scope} onChange={(e) => setScope(e.target.value as GuideScope)}>
-            {GUIDE_SCOPES.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>,
+          <SelectBox id={`${uid}-scope`} value={scope} options={GUIDE_SCOPES.map((s) => ({ value: s, label: s }))} onChange={(v) => setScope(v as GuideScope)} />,
         )}
         {field(
           'tx',
           '외부 모델 전송',
-          <select id={`${uid}-tx`} className="sel" value={tx} onChange={(e) => setTx(e.target.value as GuideTx)}>
-            {GUIDE_TXS.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>,
+          <SelectBox id={`${uid}-tx`} value={tx} options={GUIDE_TXS.map((s) => ({ value: s, label: s }))} onChange={(v) => setTx(v as GuideTx)} />,
         )}
       </div>
       <div className="hint">업로드한 버전은 초안으로 올라가요. 검색 준비가 끝나면 내용을 확인한 뒤 목록에서 "현행 전환"을 눌러 주세요. 현행으로 바꾸기 전에는 검색·답변에 쓰이지 않아요.</div>

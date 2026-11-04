@@ -14,6 +14,12 @@ import { tokenStore } from '../src/core/tokenStore'
 
 const SLOW = { timeout: 3000 }
 
+/** 선택 상자(SelectBox)에서 항목 고르기: 칸을 눌러 목록을 열고 항목을 누른다 */
+async function choose(scope: HTMLElement, label: string, option: string | RegExp) {
+  await userEvent.click(within(scope).getByLabelText(label))
+  await userEvent.click(await screen.findByRole('option', { name: option }))
+}
+
 function renderAs(employeeNo: string, path: string) {
   tokenStore.set(`mock.${employeeNo}`)
   return render(
@@ -132,7 +138,7 @@ describe('가이드 관리 화면', () => {
     expect(within(dlg).getByText('가이드 제목을 입력해 주세요.')).toBeInTheDocument()
     await userEvent.upload(within(dlg).getByLabelText('파일'), file())
     expect(within(dlg).getByRole('button', { name: '선택 취소' })).toBeInTheDocument()
-    await userEvent.selectOptions(within(dlg).getByLabelText('분류'), 'NET')
+    await choose(dlg, '분류', /네트워크/)
     const code = within(dlg).getByLabelText('문서 번호')
     expect(code).toHaveValue('IT-NET-002')
     expect(code).toHaveAttribute('readonly')
@@ -150,8 +156,8 @@ describe('가이드 관리 화면', () => {
     // 가이드 목록이 오면 기본이 "기존 가이드에 새 버전 만들기"가 된다
     await waitFor(() => expect(within(dlg).getByRole('button', { name: '기존 가이드에 새 버전 만들기' })).toHaveAttribute('aria-pressed', 'true'), SLOW)
     await userEvent.upload(within(dlg).getByLabelText('파일'), file())
-    await userEvent.selectOptions(within(dlg).getByLabelText('분류'), 'NET')
-    await userEvent.selectOptions(within(dlg).getByLabelText('문서'), within(dlg).getByRole('option', { name: /IT-NET-001/ }))
+    await choose(dlg, '분류', /네트워크/)
+    await choose(dlg, '문서', /IT-NET-001/)
     expect(await within(dlg).findByText('이 가이드의 버전 3개')).toBeInTheDocument()
     expect(within(dlg).getAllByRole('listitem').map((li) => li.textContent)).toEqual([expect.stringContaining('v3'), expect.stringContaining('v2'), expect.stringContaining('v1')])
     expect(within(dlg).getByLabelText('버전')).toHaveValue('v4.0')
