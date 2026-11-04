@@ -62,7 +62,7 @@ export function AuditLogView() {
   }
   const label = (x: AuditLog) => {
     const k = x.targetType ? (TARGET_LABEL[x.targetType] ?? x.targetType) : '-'
-    return { kind: k, id: x.targetId !== null ? `${k === '접수' ? '접수 #' : '#'}${x.targetId}` : '' }
+    return { kind: k, id: x.targetId !== null ? `#${x.targetId}` : '' }
   }
 
   return (
@@ -79,9 +79,9 @@ export function AuditLogView() {
           </div>
 
           <div className="aufil">
-            <div className="subc" role="group" aria-label="대상">
+            <div className="d2seg" role="group" aria-label="대상">
               {['', ...TARGET_KINDS].map((k) => (
-                <button key={k} type="button" className={`chip${target === k ? ' on' : ''}`} aria-pressed={target === k} onClick={() => pick(setTarget)(k)}>
+                <button key={k} type="button" className={target === k ? 'on' : ''} aria-pressed={target === k} onClick={() => pick(setTarget)(k)}>
                   {k ? TARGET_LABEL[k] : '전체'}
                 </button>
               ))}
@@ -142,7 +142,7 @@ export function AuditLogView() {
                             <span className="small muted">{t.kind}</span>
                             <div>
                               {x.targetType === 'ticket' && x.targetId !== null ? (
-                                <button type="button" className="lk mono small" aria-label={`${t.id} 상세 보기`} onClick={() => navigate(`/tickets/${x.targetId}`)}>
+                                <button type="button" className="aulink mono small" aria-label={`접수 ${t.id} 상세 보기`} onClick={() => navigate(`/tickets/${x.targetId}`)}>
                                   {t.id}
                                 </button>
                               ) : (

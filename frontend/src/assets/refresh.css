@@ -314,3 +314,4 @@
 .aufil{display:flex;align-items:center;flex-wrap:wrap;gap:10px}.aufil .aupd{margin-left:auto}.tnum{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:13px}
 /* 처리 이력: 완료 줄의 처리 결과·미해결 줄의 남은 증상 */
 .tl .tln{margin:6px 0 0;padding:8px 10px;border-radius:8px;background:var(--shell);font-size:13px;line-height:20px;color:var(--ink2);white-space:pre-wrap;overflow-wrap:anywhere}.tl .tln em{display:block;font-style:normal;font-size:12px;font-weight:600;color:var(--mute);margin-bottom:2px}
+.aulink{background:none;border:0;padding:0;cursor:pointer;font-weight:400;color:var(--link);text-decoration:underline;text-underline-offset:2px}.aulink:hover{color:var(--o700)}
