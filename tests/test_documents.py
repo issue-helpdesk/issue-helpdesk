@@ -21,6 +21,7 @@ from app.models import (
     DocumentChunk,
     DocumentVersion,
     Faq,
+    FaqSourceDocument,
     KnowledgeDocument,
     SupportGroup,
 )
@@ -36,7 +37,7 @@ DOCS = "/api/v1/documents"
 def db():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     create_sqlite_tables(engine, TABLES + ["categories", "faqs", "knowledge_documents", "document_versions",
-                                           "document_chunks"])
+                                           "document_chunks", "faq_source_documents"])
     with Session(engine) as session:
         yield session
     engine.dispose()
@@ -836,6 +837,34 @@ def test_transfer_policy_does_not_touch_faq(client, db, users):
 def test_deleting_document_unpublishes_linked_faq(client, db, users):
     document, _ = add_doc(db, faqs=("FAQ-001",))
     faq = add_faq(db, "FAQ-001")
+
+    set_active(client, users["admin"], document.id, False)
+
+    db.expire_all()
+    assert faq.is_active is False
+
+
+def test_narrowing_scope_unpublishes_faq_with_direct_source(client, db, users):
+    """직접 지정한 출처도 청크 연결과 같은 기준으로 재검사한다 (R-41)."""
+    document, (current,) = add_doc(db)
+    faq = add_faq(db, "FAQ-001")
+    db.flush()
+    db.add(FaqSourceDocument(faq_id=faq.id, document_id=document.id))
+    db.commit()
+
+    patch_version(client, users["admin"], document, current, {"viewScope": "AGENT"})
+
+    db.expire_all()
+    assert faq.is_active is False
+    assert unpublished(db) == ["FAQ-001"]
+
+
+def test_deactivating_direct_source_unpublishes_faq(client, db, users):
+    document, _ = add_doc(db)
+    faq = add_faq(db, "FAQ-001")
+    db.flush()
+    db.add(FaqSourceDocument(faq_id=faq.id, document_id=document.id))
+    db.commit()
 
     set_active(client, users["admin"], document.id, False)
 

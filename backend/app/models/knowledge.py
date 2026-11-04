@@ -125,3 +125,15 @@ class Faq(Base):
     updated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime | None]
+
+
+class FaqSourceDocument(Base):
+    """관리자가 FAQ 에 직접 지정한 출처 문서. 버전이 아니라 문서에 잇고, 게시 조건은 그때의 현행 버전으로 본다."""
+    __tablename__ = "faq_source_documents"
+    __table_args__ = (
+        Index("ix_faq_source_documents_document_id", "document_id"),   # 문서가 바뀔 때 연결된 FAQ 를 찾는다
+    )
+
+    faq_id: Mapped[int] = mapped_column(ForeignKey("faqs.id", ondelete="CASCADE"), primary_key=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("knowledge_documents.id"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

@@ -4,7 +4,7 @@ from fastapi import Depends
 from sqlalchemy import and_, func, or_, select
 
 from app.db.session import DbSession
-from app.models import Category, DocumentChunk, DocumentVersion, Faq, KnowledgeDocument, SupportGroup, User
+from app.models import Category, DocumentChunk, DocumentVersion, Faq, FaqSourceDocument, KnowledgeDocument, SupportGroup, User
 
 SORT_COLUMNS = {
     "docCode": KnowledgeDocument.doc_code,
@@ -109,12 +109,16 @@ class DocumentRepository:
         return [tuple(row) for row in rows], total
 
     def faq_codes(self, document_id: int) -> set[str]:
-        """이 문서의 모든 버전 청크가 가리키는 FAQ 번호."""
+        """이 문서의 모든 버전 청크가 가리키는 FAQ 번호와, 이 문서를 출처로 직접 지정한 FAQ 번호."""
         metas = self.db.scalars(
             select(DocumentChunk.meta).join(DocumentVersion, DocumentVersion.id == DocumentChunk.version_id)
             .where(DocumentVersion.document_id == document_id)
         )
-        return {code for meta in metas for code in (meta or {}).get("faq_ids", [])}
+        direct = self.db.scalars(
+            select(Faq.faq_code).join(FaqSourceDocument, FaqSourceDocument.faq_id == Faq.id)
+            .where(FaqSourceDocument.document_id == document_id)
+        )
+        return {code for meta in metas for code in (meta or {}).get("faq_ids", [])} | set(direct)
 
     def active_faqs_for_update(self, codes: set[str]) -> list[Faq]:
         return list(self.db.scalars(select(Faq).where(Faq.faq_code.in_(codes), Faq.is_active.is_(True))
