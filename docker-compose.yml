@@ -1,7 +1,8 @@
-# EC2 배포용. 저장소 루트에서 실행.
+# 저장소 루트에서 실행. 로컬과 EC2 가 같은 명령을 쓴다.
 #   docker compose up -d --build
 # 준비물: 루트 .env (값은 .env.example 참고), 임베딩 모델 폴더 (기본 /home/ubuntu/models, MODELS_DIR 로 바꿀 수 있다)
-# DB 는 외부 Supabase 를 쓰므로 여기에 없다.
+# 어느 DB 에 붙을지는 .env 의 DATABASE_URL 이 정한다. 로컬은 Supabase, EC2 는 도커 DB (docker-compose.db.yml).
+# EC2 는 .env 의 COMPOSE_FILE 로 docker-compose.server.yml 을 함께 읽어 도커 DB 에 붙고 마이그레이션을 돌린다.
 
 services:
   backend:
@@ -23,7 +24,7 @@ services:
       # EMBEDDING_PRELOAD=true 면 모델을 여는 데 약 28초 걸린다
       start_period: 60s
 
-  # DB 마이그레이션·Jira 설정 적용 뒤 시작한다. 기본값은 세 종류 모두 처리한다.
+  # Jira 설정 적용 뒤 시작한다. 기본값은 세 종류 모두 처리한다.
   # 워커는 2개를 띄운다. 한쪽이 멈춰도 다른 쪽이 이어받는다. 같은 작업을 둘이 잡지 않도록 DB 에서 선점한다.
   jira-worker:
     build:

@@ -1,0 +1,35 @@
+# EC2 전용. 앱을 도커 DB(docker-compose.db.yml) 네트워크에 붙이고, 올릴 때 마이그레이션을 돌린다.
+# 서버 .env 의 COMPOSE_FILE 로 읽는다. DB 를 먼저 올려야 한다 (네트워크가 없으면 시작되지 않는다).
+
+services:
+  # 올릴 때마다 한 번 돌고 끝난다. 이미 최신이면 아무 일도 하지 않는다. 실패하면 backend·jira-worker 가 시작되지 않는다.
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    working_dir: /app/backend
+    command: ["alembic", "upgrade", "head"]
+    networks:
+      - db-net
+
+  backend:
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - default
+      - db-net
+
+  jira-worker:
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - default
+      - db-net
+
+networks:
+  db-net:
+    external: true
+    name: itssue-db-net

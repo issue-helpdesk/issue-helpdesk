@@ -23,7 +23,7 @@ uv run python backend/app/integrations/jira/worker.py --job-types JIRA_CREATE
 uv run python backend/app/integrations/jira/worker.py --once --job-types JIRA_ASSIGN JIRA_TRANSITION --ticket-id <접수 ID>
 
 # 서버 배포 때 API·웹과 함께 실행
-# 먼저 DB 마이그레이션과 서버 .env의 DB/Jira 인증값·매핑을 확인한다.
+# 먼저 서버 .env의 DB/Jira 인증값·매핑을 확인한다. 서버에서는 DB 마이그레이션도 이 명령이 함께 실행한다.
 docker compose up -d --build
 ```
 
