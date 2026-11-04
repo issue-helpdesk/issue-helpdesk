@@ -12,6 +12,7 @@ import { nowIso } from '../../core/format'
 import { BLOCKED_NOTICE, hasMask, MASK_NOTICE, MASK_NOTICE_DRAFT, maskNotices, maskSensitive } from '../../core/mask'
 import { CATEGORIES, FALLBACK_GROUP } from '../catalog'
 import { detectInquiryType } from './inquiryTypes'
+import { CHAT_ID_BASE, addHistory } from './historyLog'
 import {
   IDLE_TEXT,
   type CategoryCode,
@@ -697,10 +698,28 @@ function assign(rec: StoreRecord) {
   inquiry.updatedAt = nowIso()
 }
 
+/** 접수의 상태 이력에 한 줄을 남긴다 (서버의 ticket_status_history 와 같다). 담당자·Jira 쪽 변화는 actor 없이, 문의자가 누른 해결·미해결은 문의자 이름으로 */
+function logStatus(rec: StoreRecord, to: NonNullable<Ticket['workStatus']>, opt: { source: 'JIRA' | 'ITSSUE'; reason?: string }) {
+  const t = rec.inquiry.ticket
+  if (!t) return
+  const requester = opt.source === 'ITSSUE' ? { id: 0, employeeNo: rec.internal.owner, name: rec.internal.ownerName } : null
+  addHistory(CHAT_ID_BASE + rec.inquiry.id, {
+    fromStatus: t.workStatus,
+    toStatus: to,
+    source: opt.source,
+    actor: requester,
+    reason: opt.reason ?? null,
+    // 완료할 때의 처리 결과는 그 완료의 이력에 남아, 미해결 뒤 다시 완료해도 지난 결과가 보존된다
+    resolutionNote: to === 'FIN' ? t.resolutionNote || null : null,
+    changedAt: nowIso(),
+  })
+}
+
 /** 상태를 바꾸고, 문의자가 이 문의를 보고 있지 않다면 새 답변 표시를 올린다 */
 function setStatus(rec: StoreRecord, status: Ticket['workStatus']) {
   const t = rec.inquiry.ticket
   if (!t) return
+  if (status) logStatus(rec, status, { source: 'JIRA' })
   t.workStatus = status
   if (status === 'FIN') t.finishedAt = nowIso()
   rec.inquiry.updatedAt = nowIso()
@@ -737,6 +756,7 @@ export function staffTransition(rec: StoreRecord, to: 'WIP' | 'FIN', note?: stri
 export function confirmResolved(rec: StoreRecord) {
   const t = rec.inquiry.ticket
   if (!t || t.workStatus !== 'FIN') return
+  logStatus(rec, 'CLS', { source: 'ITSSUE' })
   t.workStatus = 'CLS'
   t.closedAt = nowIso()
   rec.inquiry.status = 'HANDED_OFF'
@@ -752,6 +772,7 @@ export function denyResolved(rec: StoreRecord, reason: string) {
   const old = [...inquiry.messages].reverse().find((m) => m.card === 'ticket' && !m.ticketSnapshot)
   if (old) old.ticketSnapshot = { ...t }
   push(inquiry, { role: 'user', text: reason.trim(), kind: '미해결 사유' })
+  logStatus(rec, 'WIP', { source: 'ITSSUE', reason: reason.trim() })
   t.workStatus = 'WIP'
   t.finishedAt = null
   t.resolutionNote = ''

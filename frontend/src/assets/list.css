@@ -27,9 +27,13 @@
 .d2th.up,.d2th.dn{color:var(--link);background:var(--osoft)}.d2th:hover{color:var(--link)}
 .d2pg{display:flex;justify-content:space-between;align-items:center;padding:14px 8px 6px;flex-wrap:wrap;gap:10px}
 .d2pg .n{display:flex;gap:6px;align-items:center}
-.d2pg button{min-width:36px;height:36px;border-radius:10px;border:0;background:transparent;font-weight:600;font-size:13.5px;color:var(--ink2);cursor:pointer}
-.d2pg button:hover:not([disabled]){background:var(--track)}.d2pg button.on{background:var(--o600);color:#fff;box-shadow:0 2px 6px rgba(184,40,106,.3)}
-.d2pg .pn{padding:0 12px;box-shadow:inset 0 0 0 1px var(--line);background:var(--white)}.d2pg .pn[disabled]{opacity:.4;cursor:default}
+.d2pg button{min-width:34px;height:34px;border-radius:10px;border:0;background:transparent;box-shadow:none;font-weight:500;font-size:14px;color:var(--ink2);cursor:pointer;transition:transform .26s cubic-bezier(.3,1.6,.5,1),color .15s}
+/* 페이지 이동: 박스 없이 글자만. 올리면 사이드바 도크처럼 살짝 커지고(이웃은 조금), 현재 쪽은 굵은 포인트 색 글자 */
+.d2pg button:hover:not([disabled]){background:transparent;color:var(--link);transform:scale(1.22)}
+.d2pg button:has(+ button:hover:not([disabled])),.d2pg button:hover:not([disabled])+button{transform:scale(1.08)}
+.d2pg button.on{background:transparent;box-shadow:none;color:var(--link);font-weight:800}
+.d2pg .pn{padding:0 10px;box-shadow:none;background:transparent}.d2pg .pn[disabled]{opacity:.35;cursor:default}
+@media (prefers-reduced-motion:reduce){.d2pg button,.d2pg button:hover:not([disabled]){transition:none;transform:none}}
 .ddw{position:relative}.ddb{display:inline-flex;align-items:center;gap:8px;border:0;background:none;font:inherit;color:inherit;cursor:pointer;padding:0;height:36px}
 .ddb small{color:var(--mute);font-size:12px}.ddw.act .ddb small{color:var(--link)}
 .ddm{position:absolute;top:calc(100% + 6px);left:0;min-width:100%;width:max-content;max-width:300px;max-height:320px;overflow:auto;background:var(--white);border-radius:14px;box-shadow:0 10px 30px rgba(40,20,0,.18),inset 0 0 0 1px var(--line);padding:6px;z-index:30;display:flex;flex-direction:column;gap:1px}
@@ -42,6 +46,5 @@
 mark.hl{background:#FFE3C7;color:#5A2500;border-radius:3px;padding:0 1px}
 :root[data-theme="dark"] mark.hl{background:#5B3A12;color:#FFF2D7}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) mark.hl{background:#5B3A12;color:#FFF2D7}}
 .ddm button{min-height:0!important;height:auto!important;padding:8px 12px!important;line-height:20px;font-size:13.5px}
-.d2pg button.on{background:#B8286A}
 .nr{display:inline-flex;align-items:center;gap:6px;height:22px;padding:1px 9px 0;margin-left:8px;border-radius:999px;background:var(--s-need-bg);color:var(--s-need-fg);font-size:12px;font-weight:700;vertical-align:middle}.nr i{width:6px;height:6px;border-radius:50%;background:var(--s-need-dot)}
 .sd{font-size:11.5px;color:var(--sec)}

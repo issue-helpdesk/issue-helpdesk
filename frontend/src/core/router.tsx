@@ -14,6 +14,7 @@ import { AdminStatsView } from '../views/admin/AdminStatsView'
 import { DashView } from '../views/admin/DashView'
 import { GuidesView } from '../views/admin/GuidesView'
 import { OpsView } from '../views/admin/OpsView'
+import { AuditLogView } from '../views/admin/AuditLogView'
 import { SecurityView } from '../views/admin/SecurityView'
 import { FaqView } from '../views/faq/FaqView'
 import { ChatView } from '../views/inquiry/ChatView'
@@ -75,6 +76,7 @@ export function AppRoutes() {
           <Route path="/accounts" element={<AccountsView />} />
           <Route path="/ops" element={<OpsView />} />
           <Route path="/security" element={<SecurityView />} />
+          <Route path="/audit" element={<AuditLogView />} />
           <Route path="/guides" element={<GuidesView />} />
           <Route path="/ai" element={<AiOpsView />} />
           <Route path="/tickets" element={<AllTicketsView />} />

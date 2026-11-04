@@ -10,7 +10,10 @@ import App from '../src/App'
 import { listMyInquiries } from '../src/api/inquiries'
 import { advanceChat, isStaleInquiry, cancelChatDraft, confirmChatDraft, editDraft, getChat, reopenChat, rejectChat, replyChat, resolveChat, sendChat, startChat, idleBackChat, idleDeleteChat, idleWarnChat, resumeChat } from '../src/api/chat'
 import type { Inquiry } from '../src/api/chatTypes'
+import { MOCK_ACCOUNTS } from '../src/api/mock/accounts'
 import { calcUrgency, detectCategory } from '../src/api/mock/chatEngine'
+import { ticketIdOfInquiry } from '../src/api/mock/staffTickets'
+import { getTicketHistory } from '../src/api/tickets'
 import { mockConfig } from '../src/api/mock/chatStore'
 import type { ApiResult } from '../src/api/types'
 import { AuthProvider } from '../src/core/session'
@@ -550,6 +553,16 @@ describe('대화 화면', () => {
     await user.type(screen.getByLabelText('남은 증상'), '같은 오류가 나요')
     await user.click(send)
     expect(await screen.findByText(/다시 확인을 요청했어요/, {}, SLOW)).toBeInTheDocument()
+    // 접수 상세의 처리 이력에 완료(처리 결과)와 미해결(남은 증상)이 모두 남는다 — 서버의 상태 이력과 같다
+    const admin = MOCK_ACCOUNTS.find((u) => u.employeeNo === 'EMP-1178')!
+    const h = await getTicketHistory(admin, ticketIdOfInquiry(101))
+    const items = h.ok ? h.data.items : []
+    const fin = items.find((x) => x.toStatus === 'FIN')
+    expect(fin?.resolutionNote).toBeTruthy()
+    const back = items.find((x) => x.fromStatus === 'FIN' && x.toStatus === 'WIP')
+    expect(back).toMatchObject({ reason: '같은 오류가 나요', source: 'ITSSUE' })
+    expect(back?.actor?.name).toBeTruthy() // 문의자 이름으로 남는다
+    expect(items.indexOf(fin!)).toBeLessThan(items.indexOf(back!))
   })
 
   it('미확인 문의를 열면 이어가기 창이 뜨고, 고르기 전에는 지난 버튼이 잠겨 있다', async () => {

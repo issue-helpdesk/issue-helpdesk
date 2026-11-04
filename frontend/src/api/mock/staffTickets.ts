@@ -13,6 +13,7 @@ import type { SlackPreview, StatusHistory, TicketDetail, TicketMessage, UserRef 
 import type { DisplayStatus } from '../types'
 import { nowIso } from '../../core/format'
 import { MOCK_ACCOUNTS } from './accounts'
+import { CHAT_ID_BASE, addHistory, explicitHistoryOf, resetHistoryLog } from './historyLog'
 import { notify, allRecords, type StoreRecord } from './chatStore'
 
 /** 담당 그룹 이름 → 그룹 ID (시연용) */
@@ -195,13 +196,10 @@ const SEED_ARGS: SeedArgs[] = [
 ]
 
 let seeds: TicketDetail[] = []
-/** 담당자 화면에서 직접 요청한 상태 변경 이력 (시연 접수·문의자 접수 공통) */
-const explicitHistory = new Map<number, StatusHistory[]>()
 /** 담당자가 문의자에게 보낸 메시지와 Slack 알림 미리보기 (제안, 모의) */
 const messages = new Map<number, TicketMessage[]>()
 const slackLog: (SlackPreview & { ticketId: number })[] = []
 let msgSeq = 1
-let histSeq = 1
 
 /**
  * 로그인(서버)과 접수(모의)를 섞어 쓸 때: 서버가 정한 사용자 번호(id)가 모의 담당자의 번호와 달라서, 로그인한 담당자의 접수가 비어 보인다.
@@ -235,15 +233,13 @@ const ORIGINAL_IDS: Record<string, number[]> = Object.fromEntries(Object.entries
 export function resetStaffMock() {
   seeds = SEED_ARGS.map(seedTicket)
   applyBound()
-  explicitHistory.clear()
+  resetHistoryLog()
   messages.clear()
   slackLog.length = 0
-  histSeq = 1
 }
 resetStaffMock()
 
 /* ------------------------------------------------------------------ 문의자가 접수한 Ticket */
-const CHAT_ID_BASE = 100_000
 /** 문의자가 접수한 건의 접수 ID (모의). 서버에서는 문의 응답이 접수 ID 를 함께 준다 */
 export const ticketIdOfInquiry = (inquiryId: number) => CHAT_ID_BASE + inquiryId
 
@@ -315,15 +311,11 @@ export function mutateSeed(id: number, fn: (t: TicketDetail) => void): boolean {
 }
 
 /* ------------------------------------------------------------------ 이력 */
-export function addHistory(ticketId: number, h: Omit<StatusHistory, 'id' | 'ticketId'>) {
-  const list = explicitHistory.get(ticketId) ?? []
-  list.push({ ...h, id: 9000 + histSeq++, ticketId })
-  explicitHistory.set(ticketId, list)
-}
+export { addHistory }
 
 /** 접수·처리 시작·처리 결과 이력 (changedAt 오름차순). 이 화면에서 요청한 변경은 그대로, 나머지는 시각에서 만든다. */
 export function historyOf(t: TicketDetail): StatusHistory[] {
-  const explicit = explicitHistory.get(t.id) ?? []
+  const explicit = explicitHistoryOf(t.id)
   const has = (w: WorkStatus) => explicit.some((h) => h.toStatus === w)
   const base: StatusHistory[] = []
   const mk = (toStatus: WorkStatus, fromStatus: WorkStatus | null, changedAt: string): StatusHistory => ({ id: 0, ticketId: t.id, fromStatus, toStatus, source: 'JIRA', actor: null, reason: null, resolutionNote: toStatus === 'FIN' ? (t.resolutionNote ?? null) : null, changedAt })

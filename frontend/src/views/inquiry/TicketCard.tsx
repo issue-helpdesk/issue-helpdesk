@@ -153,9 +153,9 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
       <p style={{ marginTop: 14, fontSize: 14, lineHeight: '22px' }}>{guide(t)}</p>
 
       {t.workStatus === 'FIN' && (
-        <div className="card w" style={{ marginTop: 10 }}>
+        <div className="card w tkres" style={{ marginTop: 10 }}>
           <div className="small muted">처리 결과 · {t.assigneeName}</div>
-          <div style={{ marginTop: 4 }}>{t.resolutionNote || '조치를 완료했습니다.'}</div>
+          <div style={{ marginTop: 2 }}>{t.resolutionNote || '조치를 완료했습니다.'}</div>
         </div>
       )}
 

@@ -85,6 +85,8 @@ export function AppShell() {
     const a = document.activeElement
     if (!a || a === document.body || a.closest('.side')) main.focus({ preventScroll: true })
   }, [pathname])
+  // 목록 화면 안에서 상세 패널만 바뀌는 이동(/tickets/5001 → /tickets/5002, /queue/…)은 같은 화면이다. 화면 등장 모션은 화면이 바뀔 때만 건다
+  const screenKey = pathname.replace(/^\/(tickets|queue)\/[^/]+$/, '/$1')
   // 화면이 바뀌면 새 화면의 덩어리들이 위로 올라오며 차례로 나타난다 (layout.css 의 main.enter). 그리기 전에 붙여서 한 프레임도 깜빡이지 않게 한다
   useLayoutEffect(() => {
     const main = document.querySelector<HTMLElement>('main.main')
@@ -95,7 +97,7 @@ export function AppShell() {
       clearTimeout(t)
       main.classList.remove('enter')
     }
-  }, [pathname])
+  }, [screenKey])
   const skip = () => document.getElementById('main')?.focus()
 
   return (

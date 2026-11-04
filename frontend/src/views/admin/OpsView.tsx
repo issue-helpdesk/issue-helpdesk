@@ -19,6 +19,7 @@ import { formatElapsed } from '../../core/format'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
 import { FilterPill } from '../../ui/FilterPill'
+import { Collapse } from '../../ui/Collapse'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { Toast } from '../../ui/Toast'
@@ -528,7 +529,7 @@ export function OpsView() {
                       <Icon name="chevron" />
                     </button>
                   </div>
-                  {curOpen && (
+                  <Collapse open={curOpen}>
                   <div className="tw" id="ocur-b">
                     <table className="tbl ptbl">
                       <colgroup>
@@ -588,7 +589,7 @@ export function OpsView() {
                       </tbody>
                     </table>
                   </div>
-                  )}
+                  </Collapse>
                 </>
               ),
             )}

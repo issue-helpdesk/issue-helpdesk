@@ -312,6 +312,8 @@ export function ChatView() {
   const lastMsg = inquiry.messages[inquiry.messages.length - 1]
   const tailMsg = !t && inquiry.step === 'offer' ? [...inquiry.messages].reverse().find((m) => !m.locked && m.replies?.some((r) => r.action === 'connect-yes') && !m.replies.some((r) => r.action === 'resolved')) : undefined
   const showTail = !!tailMsg && tailMsg.id !== lastMsg?.id
+  // 접수 상세 패널을 다시 읽게 하는 값: 새 메시지뿐 아니라 접수 상태가 바뀌거나(미해결로 처리 중으로 되돌아감 등) Jira 반영 중 표시가 바뀔 때도 바뀐다
+  const detailTick = inquiry.messages.length * 10 + ({ RDY: 1, WIP: 2, FIN: 3, CLS: 4 }[t?.workStatus ?? 'RDY'] ?? 0) + (t?.transitionPending ? 5 : 0)
 
   async function send() {
     const v = text.trim()
@@ -506,7 +508,9 @@ export function ChatView() {
 
       {modal?.kind === 'reject' && (
         <Modal title="미해결" onClose={() => setModal(null)}>
-          <p className="small muted">남은 증상을 알려 주시면 담당자가 다시 확인해요.</p>
+          <p className="small muted" style={{ marginTop: -6 }}>
+            남은 증상을 알려 주시면 담당자가 다시 확인해요.
+          </p>
           <div className="field">
             <label htmlFor="m-reason">남은 증상</label>
             <textarea className="ta" id="m-reason" value={reason} placeholder="예) 안내대로 했지만 같은 오류가 나요" onChange={(e) => setReason(e.target.value)} />
@@ -522,7 +526,7 @@ export function ChatView() {
         </Modal>
       )}
     </main>
-    {detail && t && <TicketDetailPanel id={USE_MOCK_INQUIRY ? ticketIdOfInquiry(inquiry.id) : t.id ?? 0} tick={inquiry.messages.length} onClose={() => setDetail(false)} />}
+    {detail && t && <TicketDetailPanel id={USE_MOCK_INQUIRY ? ticketIdOfInquiry(inquiry.id) : t.id ?? 0} tick={detailTick} onClose={() => setDetail(false)} />}
     </>
   )
 }
