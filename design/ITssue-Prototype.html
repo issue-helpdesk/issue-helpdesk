@@ -2725,10 +2725,18 @@ function priBlock(list,link,teamNote){
   return `<div class="pdist">${ps.map((p,i)=>{const inner=`<span class="pl">${pbadge(p)}</span><span class="bar ${p.toLowerCase()}" aria-hidden="true"><i style="width:${Math.max(ns[i]?3:0,ns[i]/mx*100)}%"></i></span><b>${ns[i]}<small>건</small></b>${link?GO:'<span></span>'}<span class="small muted pr">${PRI_RULE[p]}</span>`;
     return link?`<button class="pd" data-act="spri" data-p="${p}" aria-label="${p} ${ns[i]}건. 이 긴급도의 문의 목록 보기">${inner}</button>`:`<div class="pd st">${inner}</div>`;}).join('')}</div>${teamNote?'<p class="small muted secnote" style="margin-top:8px">건수는 팀 전체예요. 줄을 누르면 내 문의 중 해당 긴급도만 목록으로 보여줘요.</p>':''}`;
 }
-function memRows2(names,win,meName){
+function memRows2(names,win,meName,flat){
   const rows=names.map(n=>({n,v:cntOf(win.filter(t=>t.assignee===n))}));const mx=Math.max(1,...rows.map(r=>tot(r.v)));
+  /* flat: 서버 집계(OP-01 byMember)에는 개인별 분류 분포가 없어 이름을 눌러도 도넛을 열지 않는다 */
+  if(flat)return `<div class="srows">${rows.map(r=>srow(r.n,'',r.v,mx,{me:r.n===meName})).join('')}</div>`;
   return `<div class="srows">${rows.map(r=>srow(r.n,'',r.v,mx,{attrs:`data-act="smem" data-n="${ESC(r.n)}" aria-pressed="${S.st.member===r.n}"`,sel:S.st.member===r.n,me:r.n===meName})+(S.st.member===r.n?donIn(r.n,win):'')).join('')}</div>`;
 }
+/* 분류별 한 줄: 접수 건수 중 해결 완료. 상태별 구성은 서버 집계에 없다 */
+function srow2(label,total,closed,mx){
+  const open=total-closed;const seg=(closed?`<div style="width:${closed/mx*100}%;background:${SC.c}" title="해결 완료 ${closed}"></div>`:'')+(open?`<div style="width:${open/mx*100}%;background:var(--track)" title="진행 중 ${open}"></div>`:'');
+  return `<div class="srow"><div class="sl"><b>${ESC(label)}</b></div><div class="sbar">${seg||'<div style="width:3px;background:var(--line)"></div>'}</div><div class="sn"><b>${total}</b><small>${total?'완료 '+Math.round(closed/total*100)+'%':'-'}</small></div></div>`;
+}
+const legend2=()=>`<div class="lgd" style="margin:0"><span><i style="background:${SC.c}"></i>해결 완료</span><span><i style="background:var(--track)"></i>아직 진행 중</span></div>`;
 function donIn(name,win){
   const o=secLoad('don',S.st.per+'|'+name,'개인 현황','이름 선택 시: '+name);
   if(o.st==='loading')return `<div class="nest" aria-busy="true"><div class="skel" aria-hidden="true"><i></i><i></i></div><p class="small muted" role="status">개인 현황을 불러오는 중이에요</p></div>`;
@@ -2776,18 +2784,18 @@ function viewStatsAdmin(){
     if(mem.st==='loading')return `<div class="nest" aria-busy="true"><div class="skel" aria-hidden="true"><i></i><i></i></div><p class="small muted" role="status">구성원별 진행도를 불러오는 중이에요</p></div>`;
     if(mem.st==='err')return `<div class="nest"><div class="alert err" role="alert">${ic('alert')}<div><b>구성원별 진행도를 불러오지 못했어요.</b></div></div><button class="btn ghost sm" data-act="sreload" data-k="mem">다시 시도</button></div>`;
     const names=s.mode==='team'?STAFF.filter(x=>x.group===sel).map(x=>x.name):[...new Set(T.filter(t=>t.cat===sel&&t.assignee).map(t=>t.assignee))];
-    return `<div class="nest" data-sig="mem|${mem.dep}|${mem.id}"><div class="nh"><b>${ESC(lb)} · 구성원별 진행도</b><span class="small muted">집계 기준 ${mem.at} <span class="tag gray">시연 데이터</span></span><button class="btn ghost sm" data-act="sreload" data-k="mem">${ic('refresh')} 새로고침</button></div>${memRows2(names,win.filter(f),null)}<div class="hint" style="margin-top:6px">이름을 누르면 아래에 개인 현황(도넛)을 불러와요. 업무량 확인용이며 평가 순위가 아니에요.</div></div>`;
+    return `<div class="nest" data-sig="mem|${mem.dep}|${mem.id}"><div class="nh"><b>${ESC(lb)} · 구성원별 진행도</b><span class="small muted">집계 기준 ${mem.at} <span class="tag gray">서버 집계</span></span><button class="btn ghost sm" data-act="sreload" data-k="mem">${ic('refresh')} 새로고침</button></div>${memRows2(names,win.filter(f),null,true)}<div class="hint" style="margin-top:6px">업무량 확인용이며 평가 순위가 아니에요. 개인별 분류 분포(도넛)는 서버 집계에 없어서 보여주지 않아요.</div></div>`;
   };
   let items,sub;
   if(s.mode==='team')items=GROUPS.map(g=>({k:g,label:g,sub:STAFF.filter(x=>x.group===g).length+'명',v:cntOf(win.filter(t=>t.group===g))}));
-  else items=Object.keys(CATS).map(c=>({k:c,label:CATS[c].n,sub:'',v:cntOf(win.filter(t=>t.cat===c))}));
-  const rmx=Math.max(1,...items.map(i=>tot(i.v)));
-  const progB=`<div class="row" style="justify-content:space-between;margin:8px 0"><div class="seg" role="group" aria-label="진행도 기준"><button class="${s.mode==='team'?'on':''}" aria-pressed="${s.mode==='team'}" data-act="smode" data-m="team">팀별</button><button class="${s.mode==='cat'?'on':''}" aria-pressed="${s.mode==='cat'}" data-act="smode" data-m="cat">분류별</button></div></div>${legend()}<div class="srows">${items.map(i=>srow(i.label,i.sub,i.v,rmx,{attrs:`data-act="ssel" data-k="${i.k}" aria-pressed="${i.k===sel}"`,sel:i.k===sel})+(i.k===sel?nestMem():'')).join('')}</div><div class="hint" style="margin-top:8px">${s.mode==='team'?'팀':'분류'}를 누르면 그 아래에 구성원별 진행도를 불러와요.</div>`;
+  else items=Object.keys(CATS).map(c=>({k:c,label:CATS[c].n,sub:'',v:cntOf(win.filter(t=>t.cat===c)),all:win.filter(t=>t.cat===c).length,done:win.filter(t=>t.cat===c&&t.status==='CLS').length}));
+  const rmx=Math.max(1,...items.map(i=>s.mode==='team'?tot(i.v):i.all));
+  const progB=`<div class="row" style="justify-content:space-between;margin:8px 0"><div class="seg" role="group" aria-label="진행도 기준"><button class="${s.mode==='team'?'on':''}" aria-pressed="${s.mode==='team'}" data-act="smode" data-m="team">팀별</button><button class="${s.mode==='cat'?'on':''}" aria-pressed="${s.mode==='cat'}" data-act="smode" data-m="cat">분류별</button></div></div>${s.mode==='team'?legend():legend2()}<div class="srows">${items.map(i=>s.mode==='team'?srow(i.label,i.sub,i.v,rmx,{attrs:`data-act="ssel" data-k="${i.k}" aria-pressed="${i.k===sel}"`,sel:i.k===sel})+(i.k===sel?nestMem():''):srow2(i.label,i.all,i.done,rmx)).join('')}</div><div class="hint" style="margin-top:8px">${s.mode==='team'?'팀을 누르면 그 아래에 구성원별 진행도를 불러와요.':'분류별은 접수 건수 중 해결 완료까지만 보여요. 상태별 구성과 구성원별 현황은 서버 집계에 없어서 팀별에서 확인해요.'}</div>`;
   return `<main class="main">${topbar('통계','티켓과 AI 해결을 구분해서 보여줘요')}<div class="scroll"><div class="page">${phead('STATISTICS','통계','기간을 고르고 추이·분포·진행도를 살펴봐요. 지금 확인할 일은 대시보드에서 봐요.')}${perBar()}
   ${secBox('ai','AI 상담 결과',ai,ai.st==='ok'?aiB:'','티켓이 만들어지지 않은 문의 · 문의를 시작한 날 기준이에요.','ai')}
   ${secBox('sum','담당자 처리 (티켓)',sum,sum.st==='ok'?sumB:'','티켓이 만들어진 접수 · 접수한 날 기준이에요.','tk')}
   ${secBox('trend','접수 추이',tr,tr.st==='ok'?trendBlock(win,true):'')}
-  ${secBox('prog','팀별·분류별 진행도',pg,pg.st==='ok'?progB:'','선택 기간에 접수된 티켓의 현재 상태 기준이에요. 배정 전 문의는 막대에 넣지 않았어요.')}
+  ${secBox('prog','팀별·분류별 진행도',pg,pg.st==='ok'?progB:'','서버 집계(대시보드 집계 API) 기준: 선택 기간에 접수된 티켓의 현재 상태예요. 배정 전 문의는 팀 막대에 넣지 않았어요.')}
   ${secBox('pri','긴급도 분포 (P1~P4)',pr,pr.st==='ok'?priBlock(win,true):'','선택 기간에 접수된 티켓 전체 기준이에요(배정 전 포함). 줄을 누르면 해당 긴급도 문의 목록으로 가요.')}</div></div></main>`;
 }
 const trow=(t,who)=>`<button class="trow" data-act="detail" data-id="${t.receipt}"><span class="mono small">${t.receipt}</span><span class="tt2"><b>${ESC(t.title)}</b>${t.newReply?' <span class="newd" role="img" aria-label="새 답변"></span>':''}<small>${ESC(who)}</small></span><span>${pbadge(t.p)}</span><span>${tbadge(t.status)}</span></button>`;
