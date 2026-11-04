@@ -200,12 +200,15 @@ describe('담당자 통계', () => {
     expect(within(screen.getByRole('region', { name: '접수 추이' })).getByRole('table')).toBeInTheDocument()
   })
 
-  it('팀 통계는 팀원별 진행도가 나오고, 이름을 누르면 도넛 개인 현황이 펼쳐진다', async () => {
+  it('팀 통계는 팀원 카드가 나오고, 카드를 누르면 상태별 건수가 펼쳐지며 티켓 목록은 내 카드에만 있다', async () => {
     renderAs('EMP-1004', '/stats?scope=team')
     const mem = await screen.findByRole('region', { name: '팀원별 진행도' }, SLOW)
-    await userEvent.click(await within(mem).findByRole('button', { name: /성민경/ }, SLOW))
-    expect(await within(mem).findByText('성민경 · 개인 현황')).toBeInTheDocument()
-    expect(within(mem).getAllByRole('img', { name: /건\./ }).length).toBeGreaterThanOrEqual(2) // 처리 상태·분류 도넛
+    await userEvent.click(await within(mem).findByRole('button', { name: /^성민경 처리 상태/ }, SLOW))
+    expect(await within(mem).findByText(/전체 \d+건 · 완료 \d+%/)).toBeInTheDocument()
+    expect(within(mem).getByRole('button', { name: /티켓 목록/ })).toBeInTheDocument() // 성민경은 로그인한 담당자(나)
+    const others = within(mem).getAllByRole('button', { name: / 처리 상태 \d+건/ }).filter((b) => !/^성민경/.test(b.getAttribute('aria-label') ?? ''))
+    await userEvent.click(others[0])
+    expect(within(mem).queryByRole('button', { name: /티켓 목록/ })).toBeNull() // 다른 팀원 카드에는 목록 버튼이 없다
   })
 
   it('기간을 오늘로 바꾸면 추이 대신 건수만 보인다', async () => {

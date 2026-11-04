@@ -2756,13 +2756,13 @@ function miniDonut(v,size,sw){
   return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true"><circle cx="${c}" cy="${c}" r="${R}" fill="none" stroke="var(--track)" stroke-width="${sw}"/>${arcs}<text x="${c}" y="${c+size*0.03}" text-anchor="middle" style="font-size:${Math.round(size*0.27)}px;font-weight:700;fill:var(--ink)">${T}</text><text x="${c}" y="${c+size*0.19}" text-anchor="middle" style="font-size:${Math.round(size*0.105)}px;fill:var(--mute)">${T?'완료 '+Math.round(v.c/T*100)+'%':'-'}</text></svg>`;
 }
 /* 팀원별 카드: 왼쪽 위에 이름, 가운데에 도넛(전체 건수·완료율). 누르면 왼쪽은 그대로 두고 오른쪽으로 길어지며 상태별 건수가 보인다 */
-function memCards(names,win){
+function memCards(names,win,meName){ /* meName: 담당자 통계 — 내 카드에 "나" 표시, 티켓 목록은 내 카드만 */
   const sel=S.st.member;
   return `<div class="mcards">${names.map((n,i)=>{
     const v=cntOf(win.filter(t=>t.assignee===n)),T=tot(v),open=sel===n;
     const rows=['w','p','n','c'].map(k=>`<li><i style="background:${SC[k]}"></i><span>${SLB[k]}</span><b>${v[k]}건</b><em>${T?Math.round(v[k]/T*100):0}%</em></li>`).join('');
-    const detail=open?`<div class="mcd"><ul class="dl3">${rows}</ul><div class="mcf"><span class="small muted">전체 ${T}건 · 완료 ${T?Math.round(v.c/T*100):0}%</span><button class="btn sec sm" data-act="tf" data-staff="${ESC(n)}">티켓 목록 ›</button></div></div>`:'';
-    return `<div class="mcard${open?' open':''}${i%3===2?' last3':''}"${open?'':` data-tip="${tipOf(v)}" data-tl="${ESC(n)}"`}><button type="button" class="mcb" data-act="smem" data-n="${ESC(n)}" aria-pressed="${open}" aria-label="${ESC(n)} 처리 상태 ${T}건"><span class="mcn">${ESC(n)}</span><div class="donut mcdn">${miniDonut(v,124,15)}</div>${tipSr(v)}</button>${detail}</div>`;
+    const detail=open?`<div class="mcd"><ul class="dl3">${rows}</ul><div class="mcf"><span class="small muted">전체 ${T}건 · 완료 ${T?Math.round(v.c/T*100):0}%</span>${!meName||n===meName?`<button class="btn sec sm" ${meName?'data-act="go" data-v="queue"':`data-act="tf" data-staff="${ESC(n)}"`}>티켓 목록 ›</button>`:''}</div></div>`:'';
+    return `<div class="mcard${open?' open':''}${i%3===2?' last3':''}"${open?'':` data-tip="${tipOf(v)}" data-tl="${ESC(n)}"`}><button type="button" class="mcb" data-act="smem" data-n="${ESC(n)}" aria-pressed="${open}" aria-label="${ESC(n)} 처리 상태 ${T}건"><span class="mcn">${ESC(n)}${meName&&n===meName?'<span class="mebadge">나</span>':''}</span><div class="donut mcdn">${miniDonut(v,124,15)}</div>${tipSr(v)}</button>${detail}</div>`;
   }).join('')}</div>`;
 }
 function memRows2(names,win,meName,flat){ /* flat: 이름을 눌러도 개인 현황을 열지 않는다 */
@@ -2795,7 +2795,7 @@ function viewStatsStaff(){
   ${secBox('sum','상태별 현황',sum,body1,'선택 기간에 접수된 티켓의 현재 상태예요. 선택 기간에 처리가 끝난 건수가 아니에요.')}
   ${secBox('trend','접수 추이',tr,tr.st==='ok'?trendBlock(win,false):'')}
   ${secBox('pri','긴급도 분포',pr,pr.st==='ok'?priBlock(win,true,team):'','선택 기간에 접수된 티켓 기준이에요.')}
-  ${team?secBox('mem','팀원별 진행도',mem,mem.st==='ok'?legend()+memRows2(names,win,acc.name)+'<div class="hint" style="margin-top:8px">이름을 누르면 아래에 개인 현황(도넛)을 불러와요. 업무량 확인용이며 평가 순위가 아니에요.</div>':'','선택 기간에 접수된 티켓의 현재 상태 기준이에요.'):''}</div></div></main>`;
+  ${team?secBox('mem','팀원별 진행도',mem,mem.st==='ok'?memCards(names,win,acc.name)+'<div class="hint" style="margin-top:8px">카드에 마우스를 올리면 상태별 건수를, 누르면 카드가 넓어지며 자세히 보여요. 업무량 확인용이며 평가 순위가 아니에요.</div>':'','서버 집계 기준: 선택 기간에 접수된 티켓의 현재 상태예요.'):''}</div></div></main>`;
 }
 function viewStatsAdmin(){
   if(S.st.mode!=='team'){S.st.mode='team';S.st.member=null;} /* 분류별 진행도는 서버 집계에 분류별 상태 건수가 없어 뺐다 */
