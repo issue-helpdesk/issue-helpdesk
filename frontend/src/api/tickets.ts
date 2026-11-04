@@ -8,7 +8,7 @@
  * 실제 서버에서는 상태 변경 뒤 Jira 반영이 서버에서 일어나므로, 화면은 목록·상세를 주기적으로 다시 읽는다.
  */
 import { request, sleep } from '../core/apiClient'
-import { MOCK_ONLY, USE_MOCK_AUTH, USE_MOCK_TICKET } from '../core/config'
+import { MOCK_ONLY, SERVER_INTAKE, USE_MOCK_AUTH, USE_MOCK_TICKET } from '../core/config'
 import { notReady } from './inquiryServer'
 import { staffTransition } from './mock/chatEngine'
 import { later, mockConfig, notify, subscribe } from './mock/chatStore'
@@ -115,10 +115,19 @@ const notFound = () => fail('TICKET_NOT_FOUND', '접수를 찾을 수 없어요.
 
 /**
  * 담당자 재배정 (TK-09 PUT /tickets/{id}/assignment). 관리자만, 처리 대기·처리 중인 접수만, 사유 필수.
- * 서버 모드에서는 Jira 배정 작업이 끝까지 진행되지 않아(실행기 미배포) 요청하지 않고 안내만 한다.
+ * 서버는 요청을 받으면 배정을 예약(배정 상태 PENDING)하고 Jira 실행기가 나중에 반영한다. 그래서 응답이 와도 담당자는 바로 안 바뀔 수 있다.
+ * 접수를 서버로 보내는 환경(VITE_SERVER_INTAKE)에서만 요청하고, 아니면 안내만 한다. 담당자를 처음 지정할 때도 같은 API 다.
  */
 export async function reassignTicket(user: User, id: number, body: { assigneeId: number; reason: string }): Promise<ApiResult<TicketDetail>> {
-  if (!USE_MOCK_TICKET) return notReady('담당자 재배정')
+  if (!USE_MOCK_TICKET) {
+    if (!SERVER_INTAKE) return notReady('담당자 재배정')
+    if (user.serviceRole !== 'ADMIN') return fail('FORBIDDEN', '관리자만 담당자를 다시 정할 수 있어요.')
+    // 서버는 담당 그룹도 함께 받는다. 그룹은 바꾸지 않으므로 접수의 현재 그룹을 쓴다
+    const cur = await getTicket(user, id)
+    if (!cur.ok) return cur
+    if (!cur.data.group) return fail('VALIDATION_ERROR', '담당 그룹이 아직 정해지지 않은 접수예요.')
+    return request<TicketDetail>(`/tickets/${id}/assignment`, { method: 'PUT', body: JSON.stringify({ groupId: cur.data.group.id, assigneeId: body.assigneeId, reason: body.reason.trim().slice(0, 500) }) })
+  }
   await sleep(200)
   if (user.serviceRole !== 'ADMIN') return fail('FORBIDDEN', '관리자만 담당자를 다시 정할 수 있어요.')
   const t = findStaffTicket(id)

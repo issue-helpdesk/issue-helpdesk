@@ -549,9 +549,9 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
           <ReassignDialog
             t={t}
             onClose={() => setReassign(false)}
-            onDone={() => {
+            onDone={(registered) => {
               setReassign(false)
-              setToast('재배정했어요. 진행 상태는 그대로 유지돼요.')
+              setToast(registered ? '재배정을 등록했어요. 실행기가 Jira에 반영하면 담당자가 바뀌어요.' : '재배정했어요. 진행 상태는 그대로 유지돼요.')
               setTimeout(() => setToast(''), 2500)
             }}
           />

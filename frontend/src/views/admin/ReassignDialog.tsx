@@ -2,7 +2,7 @@
  * 담당자 재배정 창 (관리자). (design/ITssue-Prototype.html 'rs-open')
  * 같은 담당 그룹의 구성원을 오늘 상태·업무량·긴급도·Jira 계정과 함께 보여 주고, 하나를 골라 사유와 함께 재배정한다.
  * 추천은 근무 중이고 Jira 계정이 연결된 사람 중 업무량(처리 대기+처리 중)이 가장 적은 사람이다 (자동배정과 같은 기준).
- * 재배정해도 진행 상태는 그대로이다. 서버(TK-09)는 Jira 실행기가 배포되기 전에는 요청하지 않고 안내만 한다.
+ * 재배정해도 진행 상태는 그대로이다. 서버(TK-09)는 배정을 예약하고 Jira 실행기가 반영한다. 접수를 서버로 보내지 않는 환경에서는 안내만 한다.
  */
 import { useEffect, useId, useState } from 'react'
 import { URGENCY_LABEL } from '../../api/catalog'
@@ -20,7 +20,7 @@ const URGS: Urgency[] = ['P1', 'P2', 'P3', 'P4']
 const WHY_ASSIGN = ['자동배정 실패', '업무량 분배', '휴가·부재 대체', '전문 분야 담당', '긴급 건 우선 배정']
 const WHY_REASSIGN = ['휴가·부재', '업무량 분배', '전문 분야 변경', '팀 내 재조정', '긴급 건 우선 배정']
 
-export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: TicketDetail; mode?: 'reassign' | 'assign'; onClose: () => void; onDone: () => void }) {
+export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: TicketDetail; mode?: 'reassign' | 'assign'; onClose: () => void; /** registered: 서버가 배정을 예약만 했고 Jira 실행기가 나중에 반영한다 */ onDone: (registered: boolean) => void }) {
   const { user } = useAuth()
   const uid = useId()
   const [list, setList] = useState<Candidate[] | null>(null)
@@ -63,7 +63,7 @@ export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: T
     const r = await reassignTicket(user, t.id, { assigneeId: pick, reason: why.trim() })
     setBusy(false)
     if (!r.ok) return setErr(r.error.message)
-    onDone()
+    onDone(r.data.assignStatus === 'PENDING')
   }
 
   return (
