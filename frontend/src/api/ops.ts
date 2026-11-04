@@ -50,15 +50,17 @@ export async function getOpsSnapshot(user: User, groupId?: number): Promise<ApiR
     .filter((t) => Date.parse(t.createdAt) < today && !(t.urgency === 'P1' && isOpen(t)))
     // P1 먼저, 같은 긴급도에서는 오래된 건 먼저
     .sort((a, b) => (a.urgency ?? '').localeCompare(b.urgency ?? '') || Date.parse(a.createdAt) - Date.parse(b.createdAt))
-  const link = n.data.items.filter((t) => t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.transitionStatus === 'NEEDS_ADMIN')
-  const assign = n.data.items.filter((t) => t.jiraSyncStatus === 'SYNCED' && t.assignStatus === 'NEEDS_ADMIN')
+  // 해결 완료(CLS)된 접수는 더 확인할 일이 없다
+  const open = n.data.items.filter((t) => t.workStatus !== 'CLS')
+  const link = open.filter((t) => t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.transitionStatus === 'NEEDS_ADMIN')
+  const assign = open.filter((t) => t.jiraSyncStatus === 'SYNCED' && t.assignStatus === 'NEEDS_ADMIN')
   return ok({ urgent: u.data.items, exception, link, assign, asOf: nowIso() })
 }
 
 /** 사이드바 배지용: 연동·배정 확인이 필요한 접수 수 */
 export async function countOpsAttention(user: User): Promise<number> {
-  const r = await listTickets(user, { view: 'ALL', needsAdmin: true, size: 1 })
-  return r.ok ? r.data.totalCount : 0
+  const r = await listTickets(user, { view: 'ALL', needsAdmin: true, size: 100 })
+  return r.ok ? r.data.items.filter((t) => t.workStatus !== 'CLS').length : 0
 }
 
 /** 재처리 결과를 담은 접수 상세 */

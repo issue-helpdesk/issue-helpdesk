@@ -39,7 +39,7 @@ export async function getDashSnapshot(user: User): Promise<ApiResult<DashSnapsho
   if (!need.ok) return need
   if (!open.ok) return open
   if (!pre.ok) return pre
-  const items = need.data.items
+  const items = need.data.items.filter((t) => t.workStatus !== 'CLS') // 해결 완료된 접수는 확인할 일이 없다
   const seen = new Set<number>()
   const un = [...open.data.items, ...pre.data.items.filter((t) => !t.workStatus)]
     .filter((t) => (seen.has(t.id) ? false : (seen.add(t.id), true)))
@@ -50,7 +50,7 @@ export async function getDashSnapshot(user: User): Promise<ApiResult<DashSnapsho
     wip: wip.data.totalCount,
     fin: fin.data.totalCount,
     attention: {
-      total: need.data.totalCount,
+      total: items.length,
       sync: items.filter((t) => t.transitionStatus === 'NEEDS_ADMIN').length,
       jira: items.filter((t) => t.transitionStatus !== 'NEEDS_ADMIN' && (t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING')).length,
       assign: items.filter((t) => t.jiraSyncStatus === 'SYNCED' && t.assignStatus === 'NEEDS_ADMIN').length,

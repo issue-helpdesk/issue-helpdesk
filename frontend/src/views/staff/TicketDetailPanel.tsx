@@ -432,7 +432,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                       문의자에게 메시지 <span className="tag gray">제안</span>
                     </button>
                   )}
-                  {admin && t.needsAdmin && (
+                  {admin && t.needsAdmin && t.workStatus !== 'CLS' && (
                     <button type="button" className="btn pri block" onClick={() => navigate('/ops')}>
                       연동·배정 확인 화면으로
                     </button>
