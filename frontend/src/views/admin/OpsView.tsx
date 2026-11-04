@@ -4,7 +4,7 @@
  *
  * 목록은 접수 목록(TK-05 view=ALL)을 조건별로 받아 나눈다 (api/ops.ts). 팀별 개인 현황의 구성원·부재·업무량은 RF-04·TO-01·TK-05 로 읽는다 (api/reference.ts).
  * 확인·재시도는 접수를 서버로 보내는 환경(VITE_SERVER_INTAKE)에서 연동 작업 재처리(TK-12)를 등록한다. 서버는 등록만 하고 실행기가 나중에 처리한다.
- * 담당자 지정은 서버 모드에서 아직 안내만 한다.
+ * 담당자 지정은 서버의 배정 API(TK-09)로 예약하고, 마찬가지로 실행기가 반영한다.
  */
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
@@ -614,9 +614,9 @@ export function OpsView() {
           t={assign}
           mode="assign"
           onClose={() => setAssign(null)}
-          onDone={() => {
-            note(assign, '담당자를 지정했어요')
-            say('담당자를 지정했어요.')
+          onDone={(registered) => {
+            note(assign, registered ? '담당자 지정 등록함 · 실행기가 처리하면 반영돼요' : '담당자를 지정했어요')
+            say(registered ? '담당자 지정을 등록했어요. 실행기가 Jira에 반영하면 담당자가 바뀌어요.' : '담당자를 지정했어요.')
             setAssign(null)
             setReload((n) => n + 1)
           }}
