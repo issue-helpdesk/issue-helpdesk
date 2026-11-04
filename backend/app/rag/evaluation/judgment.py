@@ -89,17 +89,21 @@ def load_items(path: str = EVAL_CSV, units=None, set_: str = 'eval') -> list[Eva
     """평가셋 모양의 CSV → 문항. units: 청커 단위 (없으면 정리본을 청커로 나눈다).
     정답 가이드·단위는 검색 평가 load_eval_set 과 같다. 보조 시험지(set_='extra')는 같은 칸에 author 가 더 있고,
     처리 방향도 '-' 면 채점에서 뺀다 (평가셋은 처리 방향이 모두 있다)."""
+    with open(path, encoding='utf-8-sig', newline='') as f:
+        rows = list(csv.DictReader(f))
+    for r in rows:                                   # 칸이 헤더보다 많거나 적은 줄 (따옴표 없는 쉼표 등). 정답 가이드를 읽기 전에
+        if None in r or None in r.values():
+            raise ValueError(f'{r.get("eval_id") or "?"} 줄의 칸 수가 헤더와 다름')
     qs = {q.qid: q for q in load_eval_set(path, units=units if units is not None else corpus_units())[0]}
     out = []
-    with open(path, encoding='utf-8-sig', newline='') as f:
-        for r in csv.DictReader(f):
-            v = {k: (r[k].strip() if (r[k] or '').strip() not in ('', '-') else None) for k in r}
-            out.append(EvalItem(r['eval_id'], r['query'].strip(), v['expected_category'], v['expected_scenario'],
-                                v['expected_urgency'], v['expected_action'], r['additional_action'].strip() or 'NONE',
-                                v['expected_team'], r['team_scoring'].strip(), r['dataset_split'].strip(),
-                                *((frozenset(q.answer_docs), frozenset(q.answers)) if (q := qs.get(r['eval_id']))
-                                  else (frozenset(), frozenset())),
-                                set_, (r.get('author') or '').strip()))
+    for r in rows:
+        v = {k: (r[k].strip() if r[k].strip() not in ('', '-') else None) for k in r}
+        out.append(EvalItem(r['eval_id'], r['query'].strip(), v['expected_category'], v['expected_scenario'],
+                            v['expected_urgency'], v['expected_action'], r['additional_action'].strip() or 'NONE',
+                            v['expected_team'], r['team_scoring'].strip(), r['dataset_split'].strip(),
+                            *((frozenset(q.answer_docs), frozenset(q.answers)) if (q := qs.get(r['eval_id']))
+                              else (frozenset(), frozenset())),
+                            set_, (r.get('author') or '').strip()))
     return out
 
 
@@ -123,6 +127,7 @@ def check_extra(items: list[EvalItem], taxonomy: str = TAXONOMY) -> list[str]:
     with open(taxonomy, encoding='utf-8') as f:
         t = json.load(f)
     cats = set(t['categories'])
+    teams = set(t['teams'])
     team = {s['id']: s['team'] for s in t['scenarios']}
     out = []
     for k, n in Counter(i.eval_id for i in items).items():
@@ -132,6 +137,8 @@ def check_extra(items: list[EvalItem], taxonomy: str = TAXONOMY) -> list[str]:
         bad = []
         if not i.eval_id.startswith('EX-'):
             bad.append('번호는 EX- 로 시작')
+        if not i.query:
+            bad.append('문의 글 없음')
         if i.category and i.category not in cats:
             bad.append(f'없는 분류 {i.category}')
         if i.scenario and i.scenario not in team:
@@ -144,6 +151,10 @@ def check_extra(items: list[EvalItem], taxonomy: str = TAXONOMY) -> list[str]:
             bad.append(f'처리 방향 {i.action}')
         if i.additional not in ADDITIONAL:
             bad.append(f'추가 처리 {i.additional}')
+        elif i.additional == 'URGENT_HANDOFF' and i.action and i.action != 'ESCALATE':
+            bad.append(f'긴급 인계인데 처리 방향 {i.action} (긴급 징후는 ESCALATE)')
+        if i.team and i.team not in teams:
+            bad.append(f'없는 팀 {i.team}')
         if i.team_scoring not in (TEAM_ASSIGNED, TEAM_GUIDED, TEAM_SKIP):
             bad.append(f'팀 채점 {i.team_scoring}')
         elif i.team_scoring != TEAM_SKIP and not i.team:
@@ -338,7 +349,11 @@ class Judged:
 def judge_item(item: EvalItem, judge: str, ref: Reference, search: DbSearch, round_: int = 1) -> Judged:
     from app.agent.flow import run_flow
     from app.agent.llm import AIInput, UserContext
-    inp = AIInput(session_id=f'eval-{item.eval_id}-{round_}', inquiry_id=item.eval_id, message=item.query, history=[],
+    from app.agent.sensitive import mask_secrets
+    # 서버는 사용자 글을 비밀번호·인증번호를 가려 저장한 뒤 그 글을 판단 흐름에 넘긴다 (InquiryService.add_user_message
+    # → AiResponder). 평가도 같은 글을 넣는다. 연락처·사번·이름 치환은 판단 흐름 안(호출부)에서 서버와 같이 일어난다
+    message = mask_secrets(item.query).text
+    inp = AIInput(session_id=f'eval-{item.eval_id}-{round_}', inquiry_id=item.eval_id, message=message, history=[],
                   ask_more_count=0, user_context=UserContext(employee_no='EVAL', service_role='EMPLOYEE'), search=None)
     search.last = None
     r = run_flow(inp, make_port(judge, item, ref, search), ref.taxonomy, ref.staff, search)
@@ -641,7 +656,7 @@ def main(argv=None) -> int:
         items = (load_items(units=units) if 'eval' in SETS[a.set] else []) + \
             (load_guide_items(units=units) if 'guide' in SETS[a.set] else []) + \
             (load_extra_items(a.extra_csv, units=units) if 'extra' in SETS[a.set] else [])
-    except (OSError, ValueError, KeyError) as ex:      # 보조 시험지가 없거나 칸·번호가 잘못됨. DB·모델을 열기 전에 멈춘다
+    except (OSError, ValueError, KeyError) as ex:      # 보조 시험지가 없거나 칸 수·번호·정답이 잘못됨. DB·모델을 열기 전에 멈춘다
         print(f'시험지를 읽지 못했습니다: {type(ex).__name__} {ex}')
         return 2
     if a.ids:                                          # DB·모델을 열기 전에 고른 문항을 확인한다

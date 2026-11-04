@@ -305,6 +305,11 @@ def test_load_extra_items_reads_dash_action_and_author(tmp_path):
     ('EX-1,x,-,-,P9,ASK,NONE,-,팀 평가 제외,,보조: 정보 부족,Codex', '처리 방향'),
     ('EX-1,x,-,-,-,ESCALATE,NONE,-,배정팀 비교,,보조: 가이드 없음,Codex', '팀 없음'),
     ('EX-1,x,-,-,-,ESCALATE,NONE,-,팀 평가 제외,,가이드 없음,', '작성자'),
+    ('EX-1, ,-,-,-,ASK_MORE,NONE,-,팀 평가 제외,,보조: 정보 부족,Claude', '문의 글 없음'),
+    ('EX-1,x,-,-,-,ESCALATE,NONE,보안팀,배정팀 비교,,보조: 가이드 없음,Claude', '없는 팀'),      # 세부 유형 없이 팀만
+    ('EX-1,x,SEC,SEC-01,-,ANSWER,URGENT_HANDOFF,정보보안팀,안내 지원팀 비교,,보조: 긴급도 함정,Claude', '긴급 인계'),
+    ('EX-1,x,-,-,-,ASK_MORE', '칸 수'),                                                             # 짧은 줄
+    ('EX-1,"x, y",-,-,-,ASK_MORE,NONE,-,팀 평가 제외,,보조: 정보 부족,Claude,남는 칸', '칸 수'),       # 긴 줄
 ])
 def test_load_extra_items_rejects_bad_labels(tmp_path, row, problem):
     with pytest.raises(ValueError, match=problem):
@@ -341,6 +346,20 @@ def test_oracle_runs_extra_item_without_answer_guide():
     assert j.predicted['action'] == 'OUT_OF_SCOPE' and j.found_doc is None and cause(j) == ''
 
 
+def test_flow_gets_message_masked_like_server(monkeypatch):
+    """서버처럼 비밀번호·인증번호를 가린 글이 판단 흐름에 들어간다 (시험지 원문 그대로가 아니라)."""
+    import app.agent.flow as flow
+    seen = []
+
+    def capture(inp, *a, **kw):
+        seen.append(inp.message)
+        raise RuntimeError('여기서 멈춤')
+    monkeypatch.setattr(flow, 'run_flow', capture)
+    with pytest.raises(RuntimeError):
+        judge_item(extra_item(query='계정 잠김. 비번은 Fake42! 이고 인증번호 123456'), 'mock:oracle', REF, FakeSearch(DOC))
+    assert 'Fake42!' not in seen[0] and '123456' not in seen[0] and '●' in seen[0]
+
+
 def test_run_stops_before_next_item_at_call_limit():
     items = [item(), item(eval_id='EV-002'), item(eval_id='EV-003')]
     js, stopped = run('mock:oracle', items, REF, FakeSearch(DOC), max_calls=1)
@@ -356,5 +375,8 @@ def test_cli_rejects_bad_extra_sheet_before_opening_db(tmp_path, capsys):
     bad = extra_csv(tmp_path, 'EX-1,x,-,-,-,ASK,NONE,-,팀 평가 제외,,보조: 정보 부족,Claude')
     assert main(['--database-url', 'postgresql://nowhere/x', '--set', 'extra', '--extra-csv', bad]) == 2
     assert '처리 방향 ASK' in capsys.readouterr().out
+    short = extra_csv(tmp_path, 'EX-1,x')
+    assert main(['--database-url', 'postgresql://nowhere/x', '--set', 'extra', '--extra-csv', short]) == 2
+    assert '칸 수' in capsys.readouterr().out
     with pytest.raises(SystemExit):
         main(['--database-url', 'postgresql://nowhere/x', '--max-calls', '0'])
