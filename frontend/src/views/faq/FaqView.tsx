@@ -264,7 +264,6 @@ function AddFaqDialog({ onClose, onDone }: { onClose: () => void; onDone: (messa
   const [cat, setCat] = useState<CategoryCode>('ACC')
   const [q, setQ] = useState('')
   const [a, setA] = useState('')
-  const [kw, setKw] = useState('')
   const [publish, setPublish] = useState(USE_MOCK_FAQ)
   const [errs, setErrs] = useState<Record<string, string>>({})
   const [err, setErr] = useState('')
@@ -272,18 +271,15 @@ function AddFaqDialog({ onClose, onDone }: { onClose: () => void; onDone: (messa
   const clr = (k: string) => setErrs((e) => ({ ...e, [k]: '' }))
 
   const submit = async () => {
-    const keywords = [...new Set(kw.split(',').map((x) => x.trim()).filter(Boolean))]
     const e: Record<string, string> = {}
     if (!q.trim()) e.q = '질문 제목을 입력해 주세요.'
     else if (q.trim().length > 500) e.q = '질문은 500자까지 쓸 수 있어요.'
     if (!a.trim()) e.a = '답변을 입력해 주세요.'
     else if (a.trim().length > 4000) e.a = '답변은 4000자까지 쓸 수 있어요.'
-    if (keywords.length > 20) e.kw = '키워드는 20개까지 쓸 수 있어요.'
-    else if (keywords.some((k) => k.length > 30)) e.kw = '키워드 하나는 30자까지 쓸 수 있어요.'
     setErrs(e)
     if (Object.keys(e).length) return
     setBusy(true)
-    const r = await createFaq({ categoryCode: cat, question: q.trim(), answer: a.trim(), keywords, isActive: publish })
+    const r = await createFaq({ categoryCode: cat, question: q.trim(), answer: a.trim(), keywords: [], isActive: publish })
     setBusy(false)
     if (!r.ok) return setErr(r.error.message)
     onDone(publish ? 'FAQ를 등록했어요. 문의자 FAQ 화면에 바로 보여요.' : 'FAQ를 등록했어요. 게시 전이라 문의자에게는 보이지 않아요.')
@@ -310,7 +306,6 @@ function AddFaqDialog({ onClose, onDone }: { onClose: () => void; onDone: (messa
       )}
       {field('q', '질문 제목', <input id={`${uid}-q`} className={`inp${errs.q ? ' err' : ''}`} value={q} placeholder="예) 공용 프린터가 보이지 않아요" autoComplete="off" aria-invalid={!!errs.q} onChange={(e) => { setQ(e.target.value); clr('q') }} />)}
       {field('a', '답변', <textarea id={`${uid}-a`} className={`ta${errs.a ? ' err' : ''}`} value={a} placeholder="사내 가이드 기준으로 안내해 주세요" aria-invalid={!!errs.a} onChange={(e) => { setA(e.target.value); clr('a') }} />)}
-      {field('kw', '키워드 (쉼표로 구분, 선택)', <input id={`${uid}-kw`} className={`inp${errs.kw ? ' err' : ''}`} value={kw} placeholder="예) 프린터, 복합기" autoComplete="off" aria-invalid={!!errs.kw} onChange={(e) => { setKw(e.target.value); clr('kw') }} />)}
       <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <input type="checkbox" checked={publish} onChange={(e) => setPublish(e.target.checked)} />
         바로 게시

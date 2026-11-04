@@ -55,7 +55,7 @@ describe('FAQ 관리 화면 (모의)', () => {
     expect(within(dlg).getByLabelText('분류').querySelector('.tag.gcbar.c-HW')).not.toBeNull()
     await userEvent.type(within(dlg).getByLabelText('질문 제목'), '공용 프린터가 보이지 않아요')
     await userEvent.type(within(dlg).getByLabelText('답변'), '프린터 서버를 다시 추가해 주세요.')
-    await userEvent.type(within(dlg).getByLabelText(/키워드/), '프린터, 복합기')
+    expect(within(dlg).queryByLabelText(/키워드/)).toBeNull() // 키워드 칸은 두지 않는다 (서버는 비워도 등록되고 화면에서 쓰이는 곳이 없다)
     await userEvent.click(within(dlg).getByRole('button', { name: '등록' }))
     expect(await screen.findByText(/FAQ를 등록했어요/, {}, SLOW)).toBeInTheDocument()
     await waitFor(() => expect(count()).toBe(before + 1), SLOW)
