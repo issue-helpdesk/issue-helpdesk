@@ -12,6 +12,12 @@ import { tokenStore } from '../src/core/tokenStore'
 
 const SLOW = { timeout: 3000 }
 
+/** 선택 상자(SelectBox)에서 항목 고르기: 칸을 눌러 목록을 열고 항목을 누른다 */
+async function choose(scope: HTMLElement, label: string, option: string | RegExp) {
+  await userEvent.click(within(scope).getByLabelText(label))
+  await userEvent.click(await screen.findByRole('option', { name: option }))
+}
+
 function renderAs(employeeNo: string) {
   tokenStore.set(`mock.${employeeNo}`)
   return render(
@@ -44,7 +50,9 @@ describe('FAQ 관리 화면 (모의)', () => {
     await userEvent.click(within(dlg).getByRole('button', { name: '등록' }))
     expect(await within(dlg).findByText('질문 제목을 입력해 주세요.')).toBeInTheDocument()
     expect(within(dlg).getByText('답변을 입력해 주세요.')).toBeInTheDocument()
-    await userEvent.selectOptions(within(dlg).getByLabelText('분류'), 'HW')
+    await choose(dlg, '분류', /HW/)
+    // 분류별 포인트 색 막대가 목록 항목 앞에 붙는다 (가이드 관리와 같은 색)
+    expect(within(dlg).getByLabelText('분류').querySelector('.tag.gcbar.c-HW')).not.toBeNull()
     await userEvent.type(within(dlg).getByLabelText('질문 제목'), '공용 프린터가 보이지 않아요')
     await userEvent.type(within(dlg).getByLabelText('답변'), '프린터 서버를 다시 추가해 주세요.')
     await userEvent.type(within(dlg).getByLabelText(/키워드/), '프린터, 복합기')

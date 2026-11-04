@@ -14,6 +14,12 @@ import { tokenStore } from '../src/core/tokenStore'
 
 const SLOW = { timeout: 3000 }
 
+/** 선택 상자(SelectBox)에서 항목 고르기: 칸을 눌러 목록을 열고 항목을 누른다 */
+async function choose(scope: HTMLElement, label: string, option: string | RegExp) {
+  await userEvent.click(within(scope).getByLabelText(label))
+  await userEvent.click(await screen.findByRole('option', { name: option }))
+}
+
 function renderAs(employeeNo: string, path: string) {
   tokenStore.set(`mock.${employeeNo}`)
   return render(
@@ -71,7 +77,8 @@ describe('보안·감사 알림 화면', () => {
     await userEvent.click(screen.getByRole('button', { name: '종결' }))
     await waitFor(() => expect(rows()).toHaveLength(2), SLOW)
     await userEvent.click(screen.getByRole('button', { name: '전체' }))
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: '유형' }), '민감정보 입력')
+    await userEvent.click(screen.getByRole('combobox', { name: '유형' }))
+    await userEvent.click(await screen.findByRole('option', { name: '민감정보 입력' }))
     await waitFor(() => expect(rows()).toHaveLength(1), SLOW)
     unmount()
     renderAs('EMP-1004', '/security')
