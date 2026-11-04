@@ -40,6 +40,8 @@ export interface Guide {
   docCode: string
   title: string
   cat: CategoryCode
+  /** 비활성 문서는 검색·답변에 쓰이지 않고, 번호는 그대로 남는다 (DC-04) */
+  isActive: boolean
   /** 현행 버전 (없으면 null) */
   current: { version: string; tx: GuideTx } | null
   /** 서버 모드에서는 가이드를 펼칠 때 읽는다 */
@@ -56,8 +58,9 @@ const adminOnly = (u: User) => (u.serviceRole === 'ADMIN' ? null : fail('FORBIDD
 const notReady = (what: string) => fail('NOT_READY', `${what}은(는) 서버에 아직 없어서 서버 모드에서는 사용할 수 없어요.`)
 
 /* ------------------------------------------------------------------ 모의 */
-interface MockGuide extends Omit<Guide, 'current' | 'versions'> {
+interface MockGuide extends Omit<Guide, 'current' | 'versions' | 'isActive'> {
   versions: GuideVersion[]
+  isActive?: boolean
 }
 const v = (id: number, version: string, state: GuideState, scope: GuideScope, tx: GuideTx, ready: GuideReady, note: string): GuideVersion => ({ id, version, state, scope, tx, ready, note })
 const seed = (): MockGuide[] => [
@@ -90,7 +93,7 @@ export function watchGuides(onChange: () => void): () => void {
 const curOf = (g: MockGuide) => g.versions.find((x) => x.state === '현행')
 const toGuide = (g: MockGuide): Guide => {
   const c = curOf(g)
-  return { id: g.id, docCode: g.docCode, title: g.title, cat: g.cat, current: c ? { version: c.version, tx: c.tx } : null, versions: g.versions.map((x) => ({ ...x })) }
+  return { id: g.id, docCode: g.docCode, title: g.title, cat: g.cat, isActive: g.isActive !== false, current: c ? { version: c.version, tx: c.tx } : null, versions: g.versions.map((x) => ({ ...x })) }
 }
 const findV = (g: MockGuide, versionId: number) => g.versions.find((x) => x.id === versionId)
 
@@ -101,6 +104,7 @@ interface SDoc {
   docType: string
   title: string
   categoryCode: CategoryCode | null
+  isActive?: boolean
   currentVersion: { version: string; viewScope: keyof typeof SCOPE_FROM | null; transferPolicy: keyof typeof TX_FROM | null } | null
 }
 interface SVer {
@@ -127,12 +131,12 @@ export async function listGuides(user: User): Promise<ApiResult<Guide[]>> {
   }
   const out: Guide[] = []
   for (let page = 1; page <= 10; page++) {
-    const r = await request<{ items: SDoc[]; totalPages: number }>(`/documents?size=100&page=${page}&docType=GUIDE&docType=MANUAL&sort=docCode,asc`)
+    const r = await request<{ items: SDoc[]; totalPages: number }>(`/documents?size=100&page=${page}&docType=GUIDE&docType=MANUAL&includeInactive=true&sort=docCode,asc`)
     if (!r.ok) return r
     r.data.items.forEach((d) => {
       if (!d.categoryCode) return
       const c = d.currentVersion
-      out.push({ id: d.id, docCode: d.docCode, title: d.title, cat: d.categoryCode, current: c ? { version: c.version, tx: c.transferPolicy ? TX_FROM[c.transferPolicy] : '금지' } : null, versions: null })
+      out.push({ id: d.id, docCode: d.docCode, title: d.title, cat: d.categoryCode, isActive: d.isActive !== false, current: c ? { version: c.version, tx: c.transferPolicy ? TX_FROM[c.transferPolicy] : '금지' } : null, versions: null })
     })
     if (page >= r.data.totalPages) break
   }
@@ -158,11 +162,16 @@ export interface UploadInput {
   cat: CategoryCode
   scope: GuideScope
   tx: GuideTx
-  /** 첫 버전 이름. 비우면 v1 */
+  /** 첫 버전 이름. 비우면 v1.0 */
   version?: string
+  /** 문서 등록(DC-02)은 됐는데 파일 업로드(DC-07)가 실패한 뒤 다시 시도할 때: 이미 만든 문서 id (DC-02 를 다시 부르면 DOCUMENT_CODE_DUPLICATE) */
+  docId?: number
 }
+/** 서버가 받는 파일 크기 한도. 넘으면 받는 도중 연결을 끊어 브라우저에서는 네트워크 오류로 보인다 */
+export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+export const MAX_UPLOAD_MESSAGE = '파일이 너무 커요. 20MB 이하 파일을 올려 주세요.'
 /** 가이드 파일 업로드: 문서를 만들고(DC-02) 첫 버전 v1 을 올린다(DC-07). 검색 준비(적재)가 끝나기 전에는 현행으로 바꿀 수 없다 */
-export async function uploadGuide(user: User, input: UploadInput): Promise<ApiResult<Guide>> {
+export async function uploadGuide(user: User, input: UploadInput, onCreated?: (docId: number) => void): Promise<ApiResult<Guide>> {
   const no = adminOnly(user)
   if (no) return no
   const code = input.docCode.trim().toUpperCase()
@@ -170,7 +179,7 @@ export async function uploadGuide(user: User, input: UploadInput): Promise<ApiRe
   if (USE_MOCK_GUIDE) {
     await sleep(250)
     if (store.some((g) => g.docCode === code)) return fail('DOCUMENT_CODE_DUPLICATE', '이미 있는 문서 번호예요.', { details: [{ field: 'docCode', reason: 'DUPLICATE', message: '이미 있는 문서 번호예요.' }] })
-    const g: MockGuide = { id: ++seq.doc, docCode: code, title: input.title.trim(), cat: input.cat, versions: [v(++seq.ver, input.version?.trim() || 'v1', '초안', input.scope, input.tx, '준비 중', `업로드 · ${input.file.name}`)] }
+    const g: MockGuide = { id: ++seq.doc, docCode: code, title: input.title.trim(), cat: input.cat, versions: [v(++seq.ver, input.version?.trim() || 'v1.0', '초안', input.scope, input.tx, '준비 중', `업로드 · ${input.file.name}`)] }
     store.push(g)
     notify()
     // 검색 준비(텍스트 추출·색인)는 잠시 뒤에 끝난다
@@ -183,16 +192,21 @@ export async function uploadGuide(user: User, input: UploadInput): Promise<ApiRe
     )
     return ok(toGuide(g))
   }
-  const doc = await request<SDoc>('/documents', { method: 'POST', body: JSON.stringify({ docCode: code, docType: 'GUIDE', title: input.title.trim(), categoryCode: input.cat }) })
-  if (!doc.ok) return doc
+  let docId = input.docId
+  if (docId === undefined) {
+    const doc = await request<SDoc>('/documents', { method: 'POST', body: JSON.stringify({ docCode: code, docType: 'GUIDE', title: input.title.trim(), categoryCode: input.cat }) })
+    if (!doc.ok) return doc
+    docId = doc.data.id
+    onCreated?.(docId)
+  }
   const form = new FormData()
   form.append('file', input.file)
-  form.append('version', input.version?.trim() || 'v1')
+  form.append('version', input.version?.trim() || 'v1.0')
   form.append('viewScope', SCOPE_TO[input.scope])
   form.append('transferPolicy', TX_TO[input.tx])
-  const ver = await request<SVer>(`/documents/${doc.data.id}/versions`, { method: 'POST', body: form })
+  const ver = await request<SVer>(`/documents/${docId}/versions`, { method: 'POST', body: form })
   if (!ver.ok) return ver
-  return ok({ id: doc.data.id, docCode: code, title: input.title.trim(), cat: input.cat, current: null, versions: [toVersion(ver.data)] })
+  return ok({ id: docId, docCode: code, title: input.title.trim(), cat: input.cat, isActive: true, current: null, versions: [toVersion(ver.data)] })
 }
 
 const VERSION_DUP = { field: 'version', reason: 'DUPLICATE', message: '이미 있는 버전이에요. 다른 번호를 적어 주세요.' }
@@ -232,10 +246,26 @@ export function normalizeVersion(raw: string): string | null {
   const m = /^v?(\d+(?:\.\d+)*)$/i.exec(raw.trim())
   return m ? `v${m[1]}` : null
 }
-/** 다음 버전 이름 (가장 큰 앞자리 숫자 + 1) */
+/** 다음 버전 이름: 가장 큰 앞자리 숫자 + 1 에 .0 (v2.0 → v3.0). 서버는 파일 머리의 version: 값과 같은 꼴을 기대한다 */
 export function nextVersion(versions: { version: string }[]): string {
   const top = Math.max(0, ...versions.map((x) => Number(/\d+/.exec(x.version)?.[0] ?? 0)))
-  return `v${top + 1}`
+  return `v${top + 1}.0`
+}
+/** 새 가이드 첫 버전의 기본 이름. 화면 기본값일 뿐이라 이미 올라간 버전 이름은 바뀌지 않는다 */
+export const FIRST_VERSION = 'v1.0'
+/**
+ * md·txt 파일 머리의 `version: v2.0` 줄을 읽어 버전 이름으로 돌려준다(없으면 null). 서버는 이 값과 입력한 버전이 다르면 적재를 실패 처리한다.
+ * 앞쪽 2KB 안의 처음 version: 줄만 본다. 다른 형식(PDF·DOCX·PPTX)은 읽지 않는다.
+ */
+export async function readFileVersion(file: File): Promise<string | null> {
+  if (!/\.(md|txt)$/i.test(file.name)) return null
+  try {
+    const head = await file.slice(0, 2048).text()
+    const m = /^\s*(?:[-#>*\s]*)version\s*[:：]\s*["']?([vV]?\d+(?:\.\d+)*)/im.exec(head)
+    return m ? normalizeVersion(m[1]) : null
+  } catch {
+    return null
+  }
 }
 /** 새 가이드의 문서 번호: 같은 분류의 다음 번호. 직접 적게 하면 겹치므로 화면이 정해 준다 (서버에 채번 API가 없다, R-22) */
 export function nextDocCode(guides: { docCode: string }[], cat: CategoryCode): string {
@@ -243,8 +273,8 @@ export function nextDocCode(guides: { docCode: string }[], cat: CategoryCode): s
   return `IT-${cat}-${String(top + 1).padStart(3, '0')}`
 }
 
-/** 적재(검색 준비)에 실패한 버전을 같은 파일로 다시 적재한다 (DC-10). 실패한 버전만 되고, 끝나면 검색 준비가 완료로 바뀐다 */
-export async function retryGuideIngest(user: User, docId: number, versionId: number): Promise<ApiResult<GuideVersion>> {
+/** 적재(검색 준비)에 실패한 버전을 다시 적재한다 (DC-10). 파일 없이 부르면 같은 파일로, file 을 함께 보내면 파일을 바꿔서 다시 한다. 실패한 버전만 되고, 끝나면 검색 준비가 완료로 바뀐다 */
+export async function retryGuideIngest(user: User, docId: number, versionId: number, file?: File): Promise<ApiResult<GuideVersion>> {
   const no = adminOnly(user)
   if (no) return no
   if (USE_MOCK_GUIDE) {
@@ -255,6 +285,7 @@ export async function retryGuideIngest(user: User, docId: number, versionId: num
     if (x.ready !== '준비 실패') return fail('DOCUMENT_VERSION_NOT_RETRYABLE', '검색 준비에 실패한 버전만 다시 시도할 수 있어요.')
     x.ready = '준비 중'
     x.error = undefined
+    if (file) x.note = `파일 교체 · ${file.name}`
     notify()
     timers.push(
       setTimeout(() => {
@@ -264,8 +295,30 @@ export async function retryGuideIngest(user: User, docId: number, versionId: num
     )
     return ok({ ...x })
   }
-  const r = await request<SVer>(`/documents/${docId}/versions/${versionId}/retry`, { method: 'POST' })
+  let init: RequestInit = { method: 'POST' }
+  if (file) {
+    const form = new FormData()
+    form.append('file', file)
+    init = { method: 'POST', body: form }
+  }
+  const r = await request<SVer>(`/documents/${docId}/versions/${versionId}/retry`, init)
   return r.ok ? ok(toVersion(r.data)) : r
+}
+
+/** 문서 활성화·비활성화 (DC-04). 비활성 문서는 목록에 남고 번호도 그대로이며, 검색·답변에는 쓰이지 않는다. 활성화하면 비활성화 전의 현행 버전이 바로 다시 쓰인다 */
+export async function setGuideActive(user: User, docId: number, active: boolean): Promise<ApiResult<{ isActive: boolean }>> {
+  const no = adminOnly(user)
+  if (no) return no
+  if (USE_MOCK_GUIDE) {
+    await sleep(150)
+    const g = store.find((x) => x.id === docId)
+    if (!g) return fail('DOCUMENT_NOT_FOUND', '문서를 찾을 수 없어요.')
+    g.isActive = active
+    notify()
+    return ok({ isActive: active })
+  }
+  const r = await request<{ isActive?: boolean }>(`/documents/${docId}`, { method: 'PATCH', body: JSON.stringify({ isActive: active }) })
+  return r.ok ? ok({ isActive: r.data.isActive ?? active }) : r
 }
 
 /** 열람 범위·외부 전송 정책 변경. 더 느슨하게 바꿀 때의 사유는 서버에 저장할 곳이 없어 모의에서만 남긴다 (R-22) */

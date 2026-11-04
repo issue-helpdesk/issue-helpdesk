@@ -5,13 +5,16 @@
  * 문서·버전은 문서 API(DC-01·02·06·07·09), 해결 사례 묶음은 접수 목록(TK-05)을 읽어 화면에서 만든다.
  * 서버에 없는 버전 메모·정책 변경 사유·가이드 초안 만들기는 서버 모드에서 안내만 한다. (api/guides.ts, 요청 R-21~23)
  */
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import {
+  FIRST_VERSION,
   GUIDE_SCOPES,
   GUIDE_TXS,
+  MAX_UPLOAD_BYTES,
+  MAX_UPLOAD_MESSAGE,
   TX_RANK,
   createGuideDraft,
   guideLabel,
@@ -20,7 +23,9 @@ import {
   nextDocCode,
   nextVersion,
   normalizeVersion,
+  readFileVersion,
   retryGuideIngest,
+  setGuideActive,
   setGuideCurrent,
   setGuideNote,
   setGuideTransfer,
@@ -100,11 +105,9 @@ export function GuidesView() {
   const [per, setPer] = useState<Per>('d')
   const [clOpen, setClOpen] = useState<number | null>(null)
   const [tick, setTick] = useState(0)
-  // 업로드할 때 "준비가 끝나면 현행으로"를 고른 버전 (문서 id → 버전 이름)
-  const waitCurrent = useRef(new Map<number, string>())
-  const [waiting, setWaiting] = useState(0)
+  const [hideInactive, setHideInactive] = useState(false)
   const [toast, setToast] = useState('')
-  const [dlg, setDlg] = useState<null | { kind: 'upload' } | { kind: 'tx'; g: Guide; v: GuideVersion; to: GuideTx } | { kind: 'note'; g: Guide; v: GuideVersion } | { kind: 'draft'; c: Cluster; i: number }>(null)
+  const [dlg, setDlg] = useState<null | { kind: 'upload' } | { kind: 'active'; g: Guide; to: boolean } | { kind: 'tx'; g: Guide; v: GuideVersion; to: GuideTx } | { kind: 'note'; g: Guide; v: GuideVersion } | { kind: 'draft'; c: Cluster; i: number }>(null)
   const admin = user?.serviceRole === 'ADMIN'
 
   const say = useCallback((m: string) => {
@@ -158,29 +161,6 @@ export function GuidesView() {
     return visiblePoll(() => setTick((n) => n + 1), 5000)
   }, [vers])
 
-  // 업로드 때 현행 전환을 골랐다면 검색 준비가 끝나는 순간 현행으로 바꾼다 (준비에 실패하면 포기하고 알린다)
-  useEffect(() => {
-    if (!user || !admin || !waitCurrent.current.size) return
-    const check = async () => {
-      for (const [docId, version] of [...waitCurrent.current]) {
-        const r = await listGuideVersions(user, docId)
-        const x = r.ok ? r.data.find((y) => y.version === version) : undefined
-        if (!x) continue
-        if (x.ready === '준비 실패') {
-          waitCurrent.current.delete(docId)
-          say(`${version} 검색 준비에 실패해 현행으로 바꾸지 못했어요.`)
-        } else if (x.ready === '준비 완료') {
-          waitCurrent.current.delete(docId)
-          const c = await setGuideCurrent(user, docId, x.id)
-          say(c.ok ? `${version}을(를) 현행으로 바꿨어요.` : c.error.message)
-          setTick((n) => n + 1)
-        }
-      }
-      setWaiting(waitCurrent.current.size)
-    }
-    return visiblePoll(() => void check(), 4000)
-  }, [user, admin, waiting, say])
-
   // 해결 사례 묶음: 해결 완료(CLS) 접수를 읽는다 (탭 건수에도 쓴다)
   useEffect(() => {
     if (!user || !admin) return
@@ -198,7 +178,9 @@ export function GuidesView() {
   if (user && !admin) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
   if (!user) return null
 
-  const cats = (Object.keys(CATEGORIES) as CategoryCode[]).filter((c) => guides?.some((g) => g.cat === c))
+  const shown = guides?.filter((g) => !hideInactive || g.isActive)
+  const inactiveN = guides?.filter((g) => !g.isActive).length ?? 0
+  const cats = (Object.keys(CATEGORIES) as CategoryCode[]).filter((c) => shown?.some((g) => g.cat === c))
   const allOpen = cats.length > 0 && cats.every((c) => catOpen[c])
   const reload = () => setTick((n) => n + 1)
 
@@ -212,10 +194,17 @@ export function GuidesView() {
     say(`외부 전송 정책을 ${to}${to === '금지' ? '로' : '으로'} 바꿨어요.`)
     reload()
   }
-  const retryIngest = async (g: Guide, v: GuideVersion) => {
-    const r = await retryGuideIngest(user, g.id, v.id)
+  const retryIngest = async (g: Guide, v: GuideVersion, file?: File) => {
+    if (file && file.size > MAX_UPLOAD_BYTES) return say(MAX_UPLOAD_MESSAGE)
+    const r = await retryGuideIngest(user, g.id, v.id, file)
     if (!r.ok) return say(r.error.message)
-    say(`${v.version} 검색 준비를 다시 시작했어요.`)
+    say(file ? `${v.version} 파일을 바꿔 검색 준비를 다시 시작했어요.` : `${v.version} 검색 준비를 다시 시작했어요.`)
+    reload()
+  }
+  const applyActive = async (g: Guide, to: boolean) => {
+    const r = await setGuideActive(user, g.id, to)
+    if (!r.ok) return say(r.error.message)
+    say(to ? `${g.docCode}을(를) 활성화했어요.` : `${g.docCode}을(를) 비활성화했어요. 번호는 그대로 남아요.`)
     reload()
   }
   const makeCurrent = async (g: Guide, v: GuideVersion) => {
@@ -229,17 +218,23 @@ export function GuidesView() {
     const open = openId === g.id
     const list = vers[g.id] ?? g.versions
     return (
-      <div className="gprow" key={g.id}>
+      <div className={`gprow${g.isActive ? '' : ' off'}`} key={g.id}>
         <button type="button" className="grb" aria-expanded={open} onClick={() => setOpenId(open ? null : g.id)}>
           <span className="grt">
             <b>{guideLabel(g)}</b>
             <div className="small muted">{g.current ? `현행 ${g.current.version}` : '현행 없음'}</div>
           </span>
-          <span className="gbs">{g.current?.tx === '금지' ? <StateBadge tone="urg" label="외부 전송 금지" /> : g.current?.tx === '마스킹 후 허용' ? <StateBadge tone="warn" label="마스킹 후 전송" /> : null}</span>
+          <span className="gbs">{!g.isActive && <StateBadge tone="recv" label="비활성" />}{g.current?.tx === '금지' ? <StateBadge tone="urg" label="외부 전송 금지" /> : g.current?.tx === '마스킹 후 허용' ? <StateBadge tone="warn" label="마스킹 후 전송" /> : null}</span>
         </button>
         <Collapse open={open}>
         {open && (
           <div className="tw gvt" style={{ marginTop: 12 }}>
+            <div className="row" style={{ justifyContent: 'space-between', gap: 8, margin: '0 0 8px' }}>
+              <span className="small muted">{g.isActive ? '' : '비활성 문서예요. 검색·답변에 쓰이지 않고, 번호는 그대로 남아 있어요.'}</span>
+              <button type="button" className="btn ghost sm" aria-label={`${g.docCode} ${g.isActive ? '비활성화' : '활성화'}`} onClick={() => setDlg({ kind: 'active', g, to: !g.isActive })}>
+                {g.isActive ? '비활성화' : '활성화'}
+              </button>
+            </div>
             {!list ? (
               <div className="empty" role="status">
                 불러오는 중이에요…
@@ -272,9 +267,25 @@ export function GuidesView() {
                         <StateBadge tone={v.ready === '준비 완료' ? 'ok' : v.ready === '준비 실패' ? 'urg' : 'warn'} label={v.ready} />
                         {v.error && <div className="small muted">{v.error}</div>}
                         {v.ready === '준비 실패' && (
-                          <button type="button" className="btn ghost sm" aria-label={`${v.version} 검색 준비 다시 시도`} onClick={() => void retryIngest(g, v)}>
-                            다시 시도
-                          </button>
+                          <span className="row" style={{ gap: 4, justifyContent: 'center' }}>
+                            <button type="button" className="btn ghost sm" aria-label={`${v.version} 검색 준비 다시 시도`} onClick={() => void retryIngest(g, v)}>
+                              다시 시도
+                            </button>
+                            <label className="btn ghost sm" style={{ cursor: 'pointer' }}>
+                              파일 바꿔 시도
+                              <input
+                                type="file"
+                                className="sr"
+                                accept=".pdf,.docx,.pptx,.md,.txt"
+                                aria-label={`${v.version} 파일을 바꿔서 검색 준비 다시 시도`}
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0]
+                                  e.target.value = ''
+                                  if (f) void retryIngest(g, v, f)
+                                }}
+                              />
+                            </label>
+                          </span>
                         )}
                       </td>
                       <td>{v.scope}</td>
@@ -320,15 +331,22 @@ export function GuidesView() {
     <>
       <div className="row" style={{ justifyContent: 'space-between', margin: 0 }}>
         <span className="small muted">
-          분류 {cats.length}개 · 가이드 {guides.length}개
+          분류 {cats.length}개 · 가이드 {shown?.length ?? 0}개{inactiveN > 0 && !hideInactive ? ` (비활성 ${inactiveN}개 포함)` : ''}
         </span>
-        <button type="button" className="btn ghost sm" onClick={() => setCatOpen(allOpen ? {} : Object.fromEntries(cats.map((c) => [c, true])))}>
-          {allOpen ? '모두 접기' : '모두 펼치기'}
-        </button>
+        <span className="row" style={{ gap: 4 }}>
+          {inactiveN > 0 && (
+            <button type="button" className="btn ghost sm" aria-pressed={hideInactive} onClick={() => setHideInactive((x) => !x)}>
+              {hideInactive ? '비활성 문서도 보기' : '비활성 문서 숨기기'}
+            </button>
+          )}
+          <button type="button" className="btn ghost sm" onClick={() => setCatOpen(allOpen ? {} : Object.fromEntries(cats.map((c) => [c, true])))}>
+            {allOpen ? '모두 접기' : '모두 펼치기'}
+          </button>
+        </span>
       </div>
       <div className="gseclist">
         {cats.map((c) => {
-          const gs = guides.filter((g) => g.cat === c)
+          const gs = (shown ?? []).filter((g) => g.cat === c)
           const open = !!catOpen[c]
           return (
             <section key={c} className={`gsec${open ? ' open' : ''}`}>
@@ -602,17 +620,26 @@ export function GuidesView() {
         <UploadDialog
           guides={guides ?? []}
           onClose={() => setDlg(null)}
+          onActivate={(g) => setDlg({ kind: 'active', g, to: true })}
           onDone={(u) => {
             setDlg(null)
             setTab('list')
             setCatOpen((m) => ({ ...m, [u.cat]: true }))
             setOpenId(u.docId)
-            if (u.makeCurrent) {
-              waitCurrent.current.set(u.docId, u.version)
-              setWaiting((n) => n + 1)
-            }
-            say(u.makeCurrent ? '업로드했어요. 검색 준비가 끝나면 현행으로 바꿀게요.' : '업로드했어요. 검색 준비 중이에요.')
+            say(`${u.version}을(를) 초안으로 올렸어요. 검색 준비가 끝나면 내용을 확인한 뒤 '현행 전환'을 눌러 주세요.`)
             reload()
+          }}
+        />
+      )}
+      {dlg?.kind === 'active' && (
+        <ActiveDialog
+          g={dlg.g}
+          to={dlg.to}
+          onClose={() => setDlg(null)}
+          onApply={() => {
+            const d = dlg
+            setDlg(null)
+            void applyActive(d.g, d.to)
           }}
         />
       )}
@@ -661,18 +688,60 @@ export function GuidesView() {
   )
 }
 
-/** 업로드가 끝났을 때 알려 주는 값. makeCurrent 면 검색 준비가 끝나는 대로 현행으로 바꾼다 */
+/** 업로드가 끝났을 때 알려 주는 값. 업로드한 버전은 항상 초안이고, 현행 전환은 관리자가 직접 한다 */
 interface Uploaded {
   docId: number
   cat: CategoryCode
   version: string
-  makeCurrent: boolean
 }
 
 const VERSION_TONE = { 현행: 'ok', 초안: 'prog', 만료: 'recv' } as const
 
+const safeJson = (s: string): unknown => {
+  try {
+    return JSON.parse(s)
+  } catch {
+    return null
+  }
+}
+
+/** 문서 활성화·비활성화 확인 창. 활성화하면 비활성화 전의 현행 버전이 바로 검색·답변에 쓰이므로 한 번 더 묻는다 */
+function ActiveDialog({ g, to, onClose, onApply }: { g: Guide; to: boolean; onClose: () => void; onApply: () => void }) {
+  return (
+    <Modal title={to ? '가이드를 활성화할까요?' : '가이드를 비활성화할까요?'} onClose={onClose}>
+      <p className="small muted">{guideLabel(g)}</p>
+      <div className="alert warn">
+        <Icon name="alert" />
+        <div>
+          {to ? (
+            <>
+              활성화하면 비활성화 전의 현행 버전이 <b>바로 검색·답변에 쓰여요.</b> 현행 버전의 내용과 외부 AI 전송 정책을 한 번 더 확인해 주세요.
+              <br />
+              비활성화할 때 자동으로 내려간 FAQ는 활성화해도 <b>다시 게시되지 않아요.</b> 필요하면 FAQ를 직접 다시 게시해 주세요.
+            </>
+          ) : (
+            <>
+              비활성화하면 이 가이드의 현행 버전이 검색·답변에서 빠지고, 이 가이드를 근거로 게시된 FAQ도 자동으로 내려가요. 목록에는 그대로 남고 문서 번호도 바뀌지 않아요.
+              <br />
+              다시 활성화해도 내려간 FAQ는 자동으로 다시 게시되지 않아요.
+            </>
+          )}
+        </div>
+      </div>
+      <div className="acts">
+        <button type="button" className="btn sec" onClick={onClose}>
+          취소
+        </button>
+        <button type="button" className="btn pri" onClick={onApply}>
+          {to ? '활성화' : '비활성화'}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 /** 가이드 파일 업로드: 기존 가이드에 새 버전을 만들거나(DC-07), 새 가이드를 만든다(DC-02 → DC-07) */
-function UploadDialog({ guides, onClose, onDone }: { guides: Guide[]; onClose: () => void; onDone: (u: Uploaded) => void }) {
+function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]; onClose: () => void; onDone: (u: Uploaded) => void; onActivate: (g: Guide) => void }) {
   const { user } = useAuth()
   const uid = useId()
   // 고르기 전에는 가이드가 있으면 기존 가이드에 새 버전, 없으면 새 가이드 (가이드 목록이 늦게 와도 따라간다)
@@ -687,22 +756,28 @@ function UploadDialog({ guides, onClose, onDone }: { guides: Guide[]; onClose: (
   const [ver, setVer] = useState('')
   const [scope, setScope] = useState<GuideScope>('관리자 전용')
   const [tx, setTx] = useState<GuideTx>('금지')
-  const [cur, setCur] = useState(false)
+  // 파일 머리의 version: 값 (md·txt 만 읽는다). 서버는 이 값과 입력한 버전이 다르면 적재를 실패 처리한다
+  const [fileVer, setFileVer] = useState<string | null>(null)
+  // 문서 등록(DC-02)은 됐는데 파일 업로드(DC-07)가 실패하면 만든 문서 id 를 기억해 두었다가 다음에는 DC-07 만 다시 부른다
+  const [madeDoc, setMadeDoc] = useState<number | null>(null)
+  // 같은 파일이 이미 올라간 문서가 비활성일 때: 업로드 대신 활성화를 안내한다
+  const [dupDoc, setDupDoc] = useState<Guide | null>(null)
   const [errs, setErrs] = useState<Record<string, string>>({})
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const clr = (k: string) => setErrs((e) => ({ ...e, [k]: '' }))
 
   const inCat = cat ? guides.filter((g) => g.cat === cat) : []
+  // 새 버전을 올릴 문서 선택에서는 비활성 문서를 뺀다 (서버는 허용하지만 화면에서는 먼저 활성화하게 한다)
+  const selectable = inCat.filter((g) => g.isActive)
   const doc = docId === null ? null : (guides.find((g) => g.id === docId) ?? null)
-  const curVer = docVers?.find((x) => x.state === '현행')
   const newCode = cat ? nextDocCode(guides, cat) : ''
 
   const pickMode = (m: 'ver' | 'new') => {
     setPicked(m)
     setDocId(null)
     setDocVers(null)
-    setVer(m === 'new' ? 'v1' : '')
+    setVer(m === 'new' ? (fileVer ?? FIRST_VERSION) : (fileVer ?? ''))
     setErrs({})
   }
   const pickCat = (c: CategoryCode | '') => {
@@ -710,7 +785,7 @@ function UploadDialog({ guides, onClose, onDone }: { guides: Guide[]; onClose: (
     setDocId(null)
     setDocVers(null)
     clr('cat')
-    if (mode === 'new' && !ver) setVer('v1')
+    if (mode === 'new' && !ver) setVer(fileVer ?? FIRST_VERSION)
   }
   // 문서를 고르면 모든 버전을 읽어 보여 주고, 다음 버전 이름·앞 버전의 열람 범위·외부 전송 값을 채운다
   const pickDoc = async (id: number | null) => {
@@ -722,7 +797,7 @@ function UploadDialog({ guides, onClose, onDone }: { guides: Guide[]; onClose: (
     const r = g.versions ? { ok: true as const, data: g.versions } : await listGuideVersions(user, g.id)
     if (!r.ok) return setErr(r.error.message)
     setDocVers(r.data)
-    setVer(nextVersion(r.data))
+    setVer(fileVer ?? nextVersion(r.data))
     const last = r.data.find((x) => x.state === '현행') ?? r.data[0]
     if (last) {
       setScope(last.scope)
@@ -739,21 +814,34 @@ function UploadDialog({ guides, onClose, onDone }: { guides: Guide[]; onClose: (
     if (mode === 'new' && !title.trim()) e.title = '가이드 제목을 입력해 주세요.'
     const version = normalizeVersion(ver)
     if (!(mode === 'ver' && !doc)) {
-      if (!version) e.ver = '버전은 v4처럼 숫자로 적어 주세요.'
+      if (!version) e.ver = '버전은 v4.0처럼 숫자로 적어 주세요.'
       else if (docVers?.some((x) => x.version === version)) e.ver = '이미 있는 버전이에요. 다른 번호를 적어 주세요.'
+      else if (fileVer && fileVer !== version) e.ver = `파일 머리의 버전(${fileVer})과 달라요. 서버가 적재를 실패 처리하니 ${fileVer}으로 맞추거나 파일을 고쳐 주세요.`
     }
     setErrs(e)
     setErr('')
     if (Object.keys(e).length || !file || !cat || !version) return
     setBusy(true)
-    const r = mode === 'ver' && doc ? await uploadGuideVersion(user, doc.id, { file, version, scope, tx }) : await uploadGuide(user, { file, docCode: newCode, title, cat, scope, tx, version })
+    let made = madeDoc
+    const r = mode === 'ver' && doc ? await uploadGuideVersion(user, doc.id, { file, version, scope, tx }) : await uploadGuide(user, { file, docCode: newCode, title, cat, scope, tx, version, docId: madeDoc ?? undefined }, (id) => { made = id; setMadeDoc(id) })
     setBusy(false)
     if (!r.ok) {
+      if (r.error.code === 'DOCUMENT_FILE_DUPLICATE') {
+        // 같은 파일이 이미 올라간 문서가 비활성이면 활성화를 안내한다 (details[0].value 에 documentId·docCode)
+        const raw = r.error.details?.[0]?.value as unknown
+        const val = (typeof raw === 'string' ? safeJson(raw) : raw) as { documentId?: number; docCode?: string } | null
+        const hit = val ? guides.find((x) => x.id === val.documentId || x.docCode === val.docCode) : undefined
+        if (hit && !hit.isActive) {
+          setDupDoc(hit)
+          return setErrs({ file: '이미 올라간 파일이에요.' })
+        }
+      }
+      if (made !== null && mode === 'new') return setErr(`${r.error.message} 문서는 이미 만들어져 있어요. 업로드를 다시 누르면 파일만 다시 올려요.`)
       const f = r.error.details?.find((d) => d.field === 'docCode' || d.field === 'version' || d.field === 'file')
       if (f) return setErrs({ [f.field === 'docCode' ? 'title' : f.field === 'file' ? 'file' : 'ver']: r.error.code === 'DOCUMENT_FILE_DUPLICATE' ? r.error.message : (f.message ?? r.error.message) })
       return setErr(r.error.message)
     }
-    onDone({ docId: mode === 'ver' && doc ? doc.id : (r.data as Guide).id, cat, version, makeCurrent: cur })
+    onDone({ docId: mode === 'ver' && doc ? doc.id : (r.data as Guide).id, cat, version })
   }
 
   const field = (k: string, label: string, body: React.ReactNode, hint?: string) => (
@@ -791,8 +879,27 @@ function UploadDialog({ guides, onClose, onDone }: { guides: Guide[]; onClose: (
             accept=".pdf,.docx,.pptx,.md,.txt"
             aria-invalid={!!errs.file}
             onChange={(e) => {
-              setFile(e.target.files?.[0] ?? null)
+              const f = e.target.files?.[0] ?? null
+              setDupDoc(null)
+              if (f && f.size > MAX_UPLOAD_BYTES) {
+                // 서버는 20MB 를 넘으면 받는 도중 연결을 끊어 네트워크 오류로 보이므로 먼저 막는다
+                setFile(null)
+                setFileVer(null)
+                setFileKey((n) => n + 1)
+                setErrs((x) => ({ ...x, file: MAX_UPLOAD_MESSAGE }))
+                return
+              }
+              setFile(f)
               clr('file')
+              setFileVer(null)
+              if (f)
+                void readFileVersion(f).then((fv) => {
+                  setFileVer(fv)
+                  if (fv) {
+                    setVer(fv)
+                    clr('ver')
+                  }
+                })
             }}
           />
           {file && (
@@ -801,6 +908,8 @@ function UploadDialog({ guides, onClose, onDone }: { guides: Guide[]; onClose: (
               className="btn sec sm"
               onClick={() => {
                 setFile(null)
+                setFileVer(null)
+                setDupDoc(null)
                 setFileKey((n) => n + 1)
               }}
             >
@@ -830,17 +939,17 @@ function UploadDialog({ guides, onClose, onDone }: { guides: Guide[]; onClose: (
               <select id={`${uid}-doc`} className="sel" disabled>
                 <option>분류를 먼저 선택해 주세요</option>
               </select>
-            ) : inCat.length ? (
+            ) : selectable.length ? (
               <select id={`${uid}-doc`} className={`sel${errs.doc ? ' err' : ''}`} value={docId ?? ''} onChange={(e) => void pickDoc(e.target.value ? Number(e.target.value) : null)}>
                 <option value="">새 버전을 올릴 문서를 선택해 주세요</option>
-                {inCat.map((g) => (
+                {selectable.map((g) => (
                   <option key={g.id} value={g.id}>
                     {guideLabel(g)}
                   </option>
                 ))}
               </select>
             ) : (
-              <div className="hint">이 분류에는 아직 문서가 없어요. "새 가이드 만들기"로 올려 주세요.</div>
+              <div className="hint">{inCat.length ? '이 분류의 문서가 모두 비활성이에요. 목록에서 활성화한 뒤 올려 주세요.' : '이 분류에는 아직 문서가 없어요. "새 가이드 만들기"로 올려 주세요.'}</div>
             ),
           )}
           {doc && (
@@ -887,7 +996,7 @@ function UploadDialog({ guides, onClose, onDone }: { guides: Guide[]; onClose: (
           {field('title', '가이드 제목', <input id={`${uid}-title`} className={`inp${errs.title ? ' err' : ''}`} value={title} autoComplete="off" aria-invalid={!!errs.title} onChange={(e) => { setTitle(e.target.value); clr('title') }} />)}
         </>
       )}
-      {field('ver', '버전', <input id={`${uid}-ver`} className={`inp${errs.ver ? ' err' : ''}`} value={ver} placeholder="예) v4" autoComplete="off" style={{ maxWidth: 160 }} aria-invalid={!!errs.ver} onChange={(e) => { setVer(e.target.value); clr('ver') }} />)}
+      {field('ver', '버전', <input id={`${uid}-ver`} className={`inp${errs.ver ? ' err' : ''}`} value={ver} placeholder="예) v4.0" autoComplete="off" style={{ maxWidth: 160 }} aria-invalid={!!errs.ver} onChange={(e) => { setVer(e.target.value); clr('ver') }} />)}
       <div className="gu2">
         {field(
           'scope',
@@ -908,15 +1017,20 @@ function UploadDialog({ guides, onClose, onDone }: { guides: Guide[]; onClose: (
           </select>,
         )}
       </div>
-      <label className="gu-cur">
-        <input type="checkbox" checked={cur} onChange={(e) => setCur(e.target.checked)} />
-        <span>
-          <b>검색 준비가 끝나면 현행으로 전환</b>
-          <small>
-            {curVer ? `지금 현행인 ${curVer.version}은 만료돼요. ` : ''}켜지 않으면 초안으로 두고, 나중에 직접 현행으로 바꿀 수 있어요.
-          </small>
-        </span>
-      </label>
+      <div className="hint">업로드한 버전은 초안으로 올라가요. 검색 준비가 끝나면 내용을 확인한 뒤 목록에서 "현행 전환"을 눌러 주세요. 현행으로 바꾸기 전에는 검색·답변에 쓰이지 않아요.</div>
+      {dupDoc && (
+        <div className="alert warn" role="alert">
+          <Icon name="alert" />
+          <div>
+            이미 올라간 파일이에요. 그 문서({guideLabel(dupDoc)})가 비활성 상태라서, 새로 올리지 말고 활성화해 주세요.
+            <div style={{ marginTop: 8 }}>
+              <button type="button" className="btn sec sm" onClick={() => onActivate(dupDoc)}>
+                그 문서 활성화하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="hint">
         {mode === 'ver' && doc ? '앞 버전의 열람 범위·외부 전송 값을 채워 두었어요. 필요하면 바꿔 주세요. ' : ''}정하지 않으면 가장 제한적인 값(관리자 전용·금지)이 적용돼요.
       </div>
