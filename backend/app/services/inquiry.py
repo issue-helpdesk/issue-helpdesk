@@ -48,10 +48,12 @@ from app.schemas.inquiry import (
 from app.services.ai_responder import AiResponderDep
 from app.services.inquiry_status import CLOSED_STATUSES, display_status, next_actions, resume_actions
 from app.utils import datetime_utils
+from app.utils.text_utils import first_line_summary
 from app.utils.dict_utils import camel_keys
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_TITLE_MAX = 40                 # AI 제목이 생기기 전까지 목록에 보이는 제목
 RESOLVED_NOTICE = "해결로 종료되었습니다."
 
 
@@ -74,6 +76,7 @@ class InquiryService:
         inquiry = self.inquiries.add(Inquiry(user_id=user.id, status="IN_PROGRESS", updated_at=datetime_utils.now()))
         session = self.inquiries.add(ChatSession(inquiry_id=inquiry.id))
         user_messages = self.add_user_message(inquiry, session, user, content)
+        inquiry.title = first_line_summary(user_messages[0].content, DEFAULT_TITLE_MAX) or None
         self.db.commit()
 
         ai_message, assessment = self.reply(inquiry, session, user,
@@ -112,6 +115,7 @@ class InquiryService:
 
         self.inquiries.get_for_update(inquiry.id)
         out = result.output
+        first_judgement = inquiry.action is None
         inquiry_type = self.references.get_inquiry_type_by_code(out.inquiry_type_code) if out.inquiry_type_code else None
         assessment = self.inquiries.add(InquiryAssessment(
             inquiry_id=inquiry.id,
@@ -137,7 +141,7 @@ class InquiryService:
             inquiry.recommended_group_id = self.references.triage_group_id()
         else:
             inquiry.recommended_group_id = inquiry_type.default_group_id
-        if inquiry.title is None:
+        if first_judgement or inquiry.title is None:     # 기본 제목은 첫 판단 때 바꾼다. 그 뒤로는 제목을 유지한다
             inquiry.title = out.title
         inquiry.updated_at = datetime_utils.now()
         self.db.commit()

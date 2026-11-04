@@ -242,7 +242,8 @@ def _ticket_payload(db: Session, ticket: Ticket) -> dict[str, Any]:
         "id": ticket.id,
         "draftId": ticket.draft_id,
         "receiptNo": ticket.receipt_no,
-        "title": inquiry.title if inquiry is not None else None,     # Jira 제목. 없으면 summary 를 쓴다
+        # Jira 제목. 없으면 summary 를 쓴다. 첫 판단 전의 제목은 사용자 글을 자른 것이라 보내지 않는다 (docs/10: 대화 원문 복사 금지)
+        "title": inquiry.title if inquiry is not None and inquiry.action is not None else None,
         "summary": ticket.summary,
         "categoryCode": ticket.category_code,
         "urgency": ticket.urgency,

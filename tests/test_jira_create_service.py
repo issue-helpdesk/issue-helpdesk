@@ -138,7 +138,7 @@ def test_payload_carries_inquiry_title_requester_department_and_request_kind(db)
     db.add(Department(id=9, name="연구소"))
     db.flush()
     db.get(User, 17).department_id = 9
-    db.add(Inquiry(id=7, user_id=17, status="RECEIVED", title="VPN이 자꾸 끊겨요"))
+    db.add(Inquiry(id=7, user_id=17, status="RECEIVED", title="VPN이 자꾸 끊겨요", action="ESCALATE"))
     db.commit()
     ticket = make_ticket(db, inquiry_id=7)
 
@@ -147,6 +147,15 @@ def test_payload_carries_inquiry_title_requester_department_and_request_kind(db)
     assert payload["title"] == "VPN이 자꾸 끊겨요"
     assert payload["requester"]["departmentName"] == "연구소"
     assert payload["inquiryType"]["requestKind"] == "INCIDENT"
+
+
+def test_payload_leaves_out_default_title_before_first_judgement(db):
+    """AI 가 판단하지 못한 문의의 제목은 사용자 글을 자른 것이다. Jira 제목은 문의 요약으로 대신한다 (R-37)."""
+    db.add(Inquiry(id=7, user_id=17, status="RECEIVED", title="김민지 계정 비밀번호를 재설정해 주세요"))
+    db.commit()
+    ticket = make_ticket(db, inquiry_id=7)
+
+    assert jira_create.enqueue_jira_create(db, ticket).payload["title"] is None
 
 
 def test_payload_without_inquiry_title_or_department_keeps_working(db):
