@@ -289,3 +289,5 @@
 .faq .fb .row{align-items:center}.faq .fb .faqadm{margin-left:auto;display:inline-flex;gap:8px}
 .faq .fb .btn.sec.dng{color:var(--s-urg-fg)}
 .faq .fb .btn.sec.dng:hover{background:var(--s-urg-bg)}
+/* 처리 이력: 완료 줄의 처리 결과·미해결 줄의 남은 증상 */
+.tl .tln{margin:6px 0 0;padding:8px 10px;border-radius:8px;background:var(--shell);font-size:13px;line-height:20px;color:var(--ink2);white-space:pre-wrap;overflow-wrap:anywhere}.tl .tln em{display:block;font-style:normal;font-size:12px;font-weight:600;color:var(--mute);margin-bottom:2px}
