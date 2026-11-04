@@ -61,7 +61,8 @@ export function StaffStatus({ t }: { t: Pick<TicketSummary, 'workStatus' | 'tran
   if (!t.workStatus) return <StateBadge tone="recv" label="접수 완료" />
   const s = STAFF_STATUS[t.workStatus]
   if (t.transitionStatus === 'PENDING') return <StateBadge tone={s.tone} label={s.label} sub="Jira 반영 확인 중" block />
-  if (t.needsAdmin || t.transitionStatus === 'NEEDS_ADMIN') return <StateBadge tone="urg" label="확인 필요" />
+  // 해결이 끝난 접수는 연동·배정 확인 대상이 아니다
+  if ((t.needsAdmin || t.transitionStatus === 'NEEDS_ADMIN') && t.workStatus !== 'CLS') return <StateBadge tone="urg" label="확인 필요" />
   return <StateBadge tone={s.tone} label={s.label} />
 }
 
@@ -81,7 +82,7 @@ export function QueueView() {
   // 대시보드에서 오면 주소의 값으로 시작한다 (?tab=open&sub=RDY, ?pri=P1, ?per=m,)
   const [params] = useSearchParams()
   const fromUrl = <T extends string>(k: string, ok: readonly T[], d: T): T => (ok.includes(params.get(k) as T) ? (params.get(k) as T) : d)
-  const [tab, setTab] = useState<Tab>(() => fromUrl('tab', ['all', 'open', 'fin', 'cls'] as const, params.get('pri') || params.get('per') ? 'all' : 'open'))
+  const [tab, setTab] = useState<Tab>(() => fromUrl('tab', ['all', 'open', 'fin', 'cls'] as const, 'all'))
   const [sub, setSub] = useState<'' | 'RDY' | 'WIP'>(() => fromUrl('sub', ['', 'RDY', 'WIP'] as const, ''))
   const [q, setQ] = useState('')
   const [pri, setPri] = useState<string>(() => fromUrl('pri', ['', 'P1', 'P2', 'P3', 'P4'] as const, ''))
@@ -150,9 +151,8 @@ export function QueueView() {
   const count = (statuses: WorkStatus[]) => mine.filter((t) => t.workStatus && statuses.includes(t.workStatus)).length
   const subCount = (s: 'RDY' | 'WIP') => mine.filter((t) => t.workStatus === s).length
   const cond = !!(q.trim() || pri || per)
-  // 조건을 모두 풀면 '전체 상태' 탭은 사라지고 진행 중으로 돌아간다
-  const tabs = pri || per ? [ALL_TAB, ...TABS] : TABS
-  if (tab === 'all' && !(pri || per)) setTab('open')
+  // 전체 상태 탭을 맨 앞에 두고, 각 탭에 내가 맡은 건수를 보인다
+  const tabs = [ALL_TAB, ...TABS]
   const onSort = (col: SortCol) => {
     setSort((s) => (s && s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: col === 'when' ? 'desc' : 'asc' }))
     setPage(1)
@@ -179,7 +179,7 @@ export function QueueView() {
               {tabs.map((t) => (
                 <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className={tab === t.key ? 'on' : ''} onClick={() => { reset(setTab)(t.key); setSub('') }}>
                   {t.label}
-                  {t.key !== 'cls' && count(t.statuses) > 0 && <span className="count">{count(t.statuses)}</span>}
+                  {mine.length > 0 && <span className="count">{count(t.statuses)}</span>}
                 </button>
               ))}
             </div>

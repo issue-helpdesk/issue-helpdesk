@@ -45,7 +45,7 @@
 @media (prefers-reduced-motion:reduce){.app:has(.detail.slide) .main>*,.app:has(.detail.leave) .main>*{animation:none}}
 .detail .dh{flex:none;box-sizing:border-box;min-height:var(--topH,0px);padding:14px 24px;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--divider)}
 .detail .dh h3{font-size:18px;line-height:26px;margin-top:2px}
-.detail .dh .btn.ico{width:32px;min-height:32px;height:32px;background:var(--shell);box-shadow:none;color:var(--ink2)}
+.detail .dh .btn.ico{flex:none;padding:0;width:32px;min-width:32px;min-height:32px;height:32px;background:var(--shell);box-shadow:none;color:var(--ink2)}
 .detail .dh .btn.ico .i{width:16px;height:16px}
 .detail .db{padding:0 24px 24px;overflow:auto;display:flex;flex-direction:column;min-height:0}
 .detail .db>*{padding-top:19px;padding-bottom:19px}

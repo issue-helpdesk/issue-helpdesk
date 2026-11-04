@@ -141,3 +141,8 @@
 
 /* 줄바꿈은 입력한 대로 보인다(내 말풍선·담당자 메시지) */
 .msg.u,.msg.staff .sb{white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* 처리 이력의 "최근" 표시: 시안처럼 테두리만 두어 다크 모드에서도 글자가 보인다 */
+.tl li:nth-child(1) b::after{background:transparent;color:var(--o700);box-shadow:inset 0 0 0 1px var(--o600)}
+:root[data-theme="dark"] .tl li:nth-child(1) b::after{color:#FFB0CF;box-shadow:inset 0 0 0 1px #FF8FB8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tl li:nth-child(1) b::after{color:#FFB0CF;box-shadow:inset 0 0 0 1px #FF8FB8}}

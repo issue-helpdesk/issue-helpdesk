@@ -173,7 +173,8 @@ export function watchChat(id: number, employeeNo: string, onChange: (r: ApiResul
       const before = lastSeen.get(id)
       onChange(remember(r))
       clearTimeout(quick)
-      if (r.ok && r.data.step === 'answering') quick = setTimeout(load, QUICK_MS)
+      // 해결·미해결을 Jira 에 반영하는 중에도 끝나는 순간을 바로 보이게 짧은 간격으로 읽는다
+      if (r.ok && (r.data.step === 'answering' || r.data.ticket?.transitionPending)) quick = setTimeout(load, QUICK_MS)
       // 이 화면이 먼저 안 상태 변화는 사이드바 목록에도 바로 알려, 사이드바가 따로 읽을 때까지 기다리지 않게 한다
       if (r.ok && before && (before.status !== r.data.status || before.step !== r.data.step || before.unread !== r.data.unread || before.ticket?.workStatus !== r.data.ticket?.workStatus)) refreshInquiryList()
     })
