@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/App'
-import { FIRST_VERSION, MAX_UPLOAD_BYTES, formatBytes, sameVersion, listGuides, nextVersion, readFileVersion, resetGuideMock, retryGuideIngest, setGuideActive, uploadGuide } from '../src/api/guides'
+import { FIRST_VERSION, MAX_UPLOAD_BYTES, formatBytes, listGuideVersions, mockIngestError, sameVersion, listGuides, nextVersion, readFileVersion, resetGuideMock, retryGuideIngest, setGuideActive, uploadGuide, uploadGuideVersion } from '../src/api/guides'
 import { MOCK_ACCOUNTS } from '../src/api/mock/accounts'
 import type { User } from '../src/api/types'
 import { AuthProvider } from '../src/core/session'
@@ -159,6 +159,36 @@ describe('가이드 업로드 화면 (모의)', () => {
     await userEvent.click(within(dlg).getByRole('button', { name: '활성화' }))
     await waitFor(() => expect(screen.queryByText('비활성')).toBeNull(), SLOW)
   })
+})
+
+describe('모의 적재 실패 시연', () => {
+  beforeEach(() => resetGuideMock())
+
+  it('이름·크기로 실패 사유를 정한다 (스캔 PDF·문서 번호 불일치·빈 파일, 나머지는 성공)', () => {
+    expect(mockIngestError('sample_scanned.pdf', 100, 'IT-ACC-003')).toMatch(/글자를 찾지 못했습니다.*스캔본/)
+    expect(mockIngestError('fail_doc.md', 100, 'IT-ACC-003')).toMatch(/문서 번호.*IT-ACC-003/)
+    expect(mockIngestError('a.pdf', 0, 'IT-ACC-003')).toBe('빈 파일입니다.')
+    expect(mockIngestError('가이드.pdf', 100, 'IT-ACC-003')).toBeNull()
+  })
+
+  it('스캔 PDF 를 올리면 준비 실패와 사유가 남고, 파일을 바꿔 다시 시도하면 준비 완료가 된다', async () => {
+    const up = await uploadGuideVersion(admin(), 4, { file: new File(['x'], 'sample_scanned.pdf', { type: 'application/pdf' }), version: 'v3.0', scope: '사내 일반', tx: '허용' })
+    expect(up.ok).toBe(true)
+    const id = up.ok ? up.data.id : 0
+    const find = async () => {
+      const v = await listGuideVersions(admin(), 4)
+      return v.ok ? v.data.find((x) => x.id === id) : undefined
+    }
+    await waitFor(async () => expect((await find())?.ready).toBe('준비 실패'), { timeout: 4500 })
+    expect((await find())?.error).toMatch(/스캔본/)
+    // 같은 파일로 다시 시도해도 같은 이유로 실패한다
+    await retryGuideIngest(admin(), 4, id)
+    await waitFor(async () => expect((await find())?.ready).toBe('준비 실패'), { timeout: 4500 })
+    // 글자가 있는 파일로 바꿔 다시 시도하면 성공한다
+    await retryGuideIngest(admin(), 4, id, new File(['x'], 'IT-ACC-003_원본.pdf', { type: 'application/pdf' }))
+    await waitFor(async () => expect((await find())?.ready).toBe('준비 완료'), { timeout: 4500 })
+    expect((await find())?.error).toBeUndefined()
+  }, 20_000)
 })
 
 describe('서버 모드 가이드 업로드 규칙 (VITE_USE_MOCK_GUIDE=false)', () => {

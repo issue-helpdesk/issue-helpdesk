@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../core/session'
+import { GuideIngestAlert } from './GuideIngestAlert'
 import { PasswordDialog } from './PasswordDialog'
 import { ScrollTop } from './ScrollTop'
 import { Sidebar } from './Sidebar'
@@ -109,6 +110,8 @@ export function AppShell() {
         <Outlet />
         {/* 본문이 길게 스크롤될 때만 나타나는 "맨 위로" 버튼 */}
         <ScrollTop />
+        {/* 가이드 적재 실패 알림 창 (관리자, 어느 화면에서나) */}
+        <GuideIngestAlert />
         {(forced || profileOpen) && <PasswordDialog forced={forced} onClose={() => setProfileOpen(false)} />}
       </div>
     </ShellContext.Provider>
