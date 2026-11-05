@@ -3,7 +3,7 @@
  * 닫힐 때도 모션이 끝날 때까지는 마지막 내용을 그대로 보여 준다. 부모는 `{open && ...}` 처럼 내용을 지워도 된다.
  * 모션을 쓸 수 없는 환경(테스트, 모션 줄이기)에서는 예전처럼 바로 열고 닫는다.
  */
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 /** 닫히는 모션(.clp.out)이 끝나는 시간(ms) */
 const OUT_MS = 320
@@ -21,8 +21,8 @@ export function Collapse({ open, className, children }: Props) {
   const [mounted, setMounted] = useState(open)
   // 처음부터 열려 있던 영역은 모션 없이 그대로 보이고, 나중에 열릴 때만 열리는 모션을 쓴다
   const [appear, setAppear] = useState(false)
-  const last = useRef(children) // 닫히는 동안 보여 줄 마지막 내용
-  if (open) last.current = children
+  const [last, setLast] = useState(children) // 닫히는 동안 보여 줄 마지막 내용
+  if (open && last !== children) setLast(children)
   if (open && !mounted) {
     setMounted(true)
     setAppear(true)
@@ -39,7 +39,7 @@ export function Collapse({ open, className, children }: Props) {
   return (
     <div className={`clp${appear ? ' in' : ''}${open ? '' : ' out'}`}>
       <div className="clp-in">
-        <div className={className}>{open ? children : last.current}</div>
+        <div className={className}>{open ? children : last}</div>
       </div>
     </div>
   )
