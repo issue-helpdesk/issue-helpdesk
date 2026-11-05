@@ -22,6 +22,8 @@ class AuditLog(CamelModel):
     event_type: str
     target_type: str | None
     target_id: int | None
+    ticket_id: int | None
+    receipt_no: str | None
     actor_id: int | None
     actor: UserRef | None
     result: str | None

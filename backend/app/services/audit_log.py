@@ -39,13 +39,15 @@ class AuditLogService:
                 event_type=log.event_type,
                 target_type=log.target_type,
                 target_id=log.target_id,
+                ticket_id=ticket_id,
+                receipt_no=receipt_no,
                 actor_id=log.actor_id,
                 actor=UserRef.model_validate(actor) if actor else None,
                 result=log.result,
                 reason=log.reason,
                 created_at=log.created_at,
             )
-            for log, actor in rows
+            for log, actor, ticket_id, receipt_no in rows
         ]
         return Page.of(items, query.page, query.size, total)
 

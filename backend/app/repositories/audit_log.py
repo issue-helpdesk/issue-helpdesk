@@ -2,10 +2,10 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 
 from app.db.session import DbSession
-from app.models import AuditLog, User
+from app.models import AuditLog, Ticket, User
 
 
 class AuditLogRepository:
@@ -27,7 +27,7 @@ class AuditLogRepository:
         newest_first: bool,
         offset: int,
         limit: int,
-    ) -> tuple[list[tuple[AuditLog, User | None]], int]:
+    ) -> tuple[list[tuple[AuditLog, User | None, int | None, str | None]], int]:
         conditions = []
         if event_types:
             conditions.append(AuditLog.event_type.in_(event_types))
@@ -43,8 +43,15 @@ class AuditLogRepository:
             conditions.append(AuditLog.created_at < created_before)
         total = self.db.scalar(select(func.count()).select_from(AuditLog).where(*conditions))
         order = (AuditLog.created_at.desc(), AuditLog.id.desc()) if newest_first else (AuditLog.created_at.asc(), AuditLog.id.asc())
+        ticket_link = or_(
+            and_(AuditLog.target_type == "ticket", Ticket.id == AuditLog.target_id),
+            and_(AuditLog.target_type == "inquiry", Ticket.inquiry_id == AuditLog.target_id),
+        )
         rows = self.db.execute(
-            select(AuditLog, User).outerjoin(User, User.id == AuditLog.actor_id).where(*conditions)
+            select(AuditLog, User, Ticket.id, Ticket.receipt_no)
+            .outerjoin(User, User.id == AuditLog.actor_id)
+            .outerjoin(Ticket, ticket_link)
+            .where(*conditions)
             .order_by(*order).offset(offset).limit(limit)
         )
         return [tuple(r) for r in rows], total
