@@ -86,9 +86,20 @@ class Evidence(_Strict):
 
 
 class Question(_Strict):
-    """추가 질문 하나. 화면이 options 는 버튼으로, options 가 [] 면 입력창으로 보여 준다 (M4-3-1)."""
+    """추가 질문 하나 (M4-3-1). 화면이 options 는 버튼으로, allow_text 면 직접 입력칸을 함께 보여 준다.
+    답을 보낼 때 label 을 앞에 붙인다 ("상황: 집에서 자주 끊겨요"). allow_text 는 서버가 정한다 (correct.py)."""
+    label: str | None
     text: str
     options: list[str]
+    allow_text: bool
+
+    @model_validator(mode='before')
+    @classmethod
+    def _old_question(cls, v):
+        """label·allow_text 가 생기기 전 모양도 읽는다 (#302 시점 저장값·Mock). 출력 형식에서는 필수 칸이다."""
+        if isinstance(v, dict):
+            return {'label': None, 'allow_text': False, **v}
+        return v
 
 
 class AIOutput(_Strict):

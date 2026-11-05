@@ -450,7 +450,7 @@ def test_questions_empty_when_ask_more_became_escalate(client, db, headers, ai, 
     body = start(client, headers).json()
 
     assert body["inquiry"]["action"] == "ESCALATE"
-    assert assessments(db)[0].ai_output["questions"] == [SITUATION]
+    assert assessments(db)[0].ai_output["questions"][0]["text"] == SITUATION["text"]
     assert body["assessment"]["questions"] == []
     assert message_list(client, headers, body["inquiry"]["id"])[-1]["questions"] == []
 

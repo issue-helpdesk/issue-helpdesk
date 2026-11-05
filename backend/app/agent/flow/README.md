@@ -92,7 +92,8 @@ r = run_flow(
 | 검색 자체가 오류 (DB 연결 끊김 등) | 잡지 않고 그대로 던짐 | 서버 전체 문제라 M1이 한곳에서 처리. 지금 M1 `InquiryService.reply()`가 AI 오류를 모두 잡아 안내함 |
 | 상황을 이미 앎 (`facts.situation`) | `situation`을 다시 묻지 않음. 1차면 묻지 않고 검색으로 | 08 3.2 6단계 |
 | `ASK_MORE`가 다른 처리 방향으로 바뀜 | `questions`를 비우고 `reply`를 연결 안내로 바꿈 | 인사말만 남지 않게 |
-| 질문 3개·선택지 5개 초과 | 자르고 `INVALID_VALUE`. 마지막 선택지(그 밖의 상황)는 남김 | 08 2.2.1 |
+| 질문 3개·선택지 5개 초과, `options`에 "그 밖의 상황" | 맞추고 `INVALID_VALUE` | 08 2.2.1 |
+| `allow_text` | 서버가 고정 (`영향 범위`만 `false`). 기록하지 않음 | 서버가 정하는 값 |
 | `facts.work_stopped`가 허용값 밖 | `unknown` | null 을 받지 않는 칸 |
 | `ESCALATE`가 아닌데 사유가 있음 | 사유를 `null`로 (`INVALID_VALUE`) | 08 2.5 |
 
