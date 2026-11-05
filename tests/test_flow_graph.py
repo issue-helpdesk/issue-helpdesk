@@ -63,6 +63,24 @@ def test_answer_goes_through_search_and_second_judge():
     assert r.override_reasons == ()
 
 
+def test_search_query_ends_with_first_situation():
+    """M4-3-1. "1번 ②" 같은 답만으로는 검색이 안 되므로 1차가 정한 가이드 상황을 검색어 끝에 붙인다."""
+    situation = 'VPN 연결 후 사내 시스템 접속 불가·화상회의 느림'
+    _, _, search = run([reply(facts=FACTS | {'situation': situation}), ANSWERED], message='1번 ②, 2번 저만요',
+                       history=[{'role': 'user', 'content': 'VPN이 안 돼요'},
+                                {'role': 'assistant', 'content': '1. 어떤 상황인가요? ① … ② …'}])
+    assert search.requests[0].query == f'VPN이 안 돼요\n1번 ②, 2번 저만요\n{situation}'
+
+
+def test_secret_in_question_is_blocked_like_reply():
+    """M4-3-1. 9단계 검사는 reply 뿐 아니라 questions 도 본다."""
+    bad = reply('ASK_MORE', missing_items=['situation'], reply='몇 가지 여쭤볼게요.',
+                questions=[{'text': '비밀번호를 알려 주세요', 'options': []}], facts=FACTS | {'symptom': None})
+    r, mock, search = run([bad, bad])
+    assert len(mock.requests) == 2 and (r.failure, r.error_code) == ('AI_FAILED', 'UNSAFE_REPLY')
+    assert r.output.questions == [] and search.requests == []
+
+
 def test_urgent_signal_skips_search():
     urgent = reply('ESCALATE', urgent_signal=True, escalation_reason='긴급대응', category_code='SEC',
                    inquiry_type_code='SEC-06', facts=FACTS | {'security_suspected': True})
@@ -199,7 +217,7 @@ def test_graph_is_reusable():
 def test_second_judge_gets_first_judgment_and_keeps_its_classification():
     second = json.dumps({'action': 'ANSWER', 'reply': 'VPN 클라이언트를 업데이트해 보세요.',
                          'evidence': [{'kind': 'DOCUMENT', 'source_id': DOC.unit_key, 'quote': QUOTE}],
-                         'missing_items': [], 'escalation_reason': None, 'confidence': 0.9,
+                         'questions': [], 'missing_items': [], 'escalation_reason': None, 'confidence': 0.9,
                          'action_reason': 'Guide 근거 충분'}, ensure_ascii=False)
     r, mock, _ = run([reply(title='1차 제목'), second])
     assert (r.next_step, r.output.title, r.output.inquiry_type_code) == ('answered', '1차 제목', 'NET-02')
@@ -210,7 +228,7 @@ def test_second_judge_gets_first_judgment_and_keeps_its_classification():
 
 def test_second_retry_still_uses_first_judgment():
     second = {'action': 'ANSWER', 'reply': '비밀번호를 알려 주세요.', 'evidence': [], 'missing_items': [],
-              'escalation_reason': None, 'confidence': 0.9, 'action_reason': ''}
+              'questions': [], 'escalation_reason': None, 'confidence': 0.9, 'action_reason': ''}
     unsafe = json.dumps(second, ensure_ascii=False)
     r, mock, _ = run([reply(title='1차 제목'), unsafe, ANSWERED])
     assert purposes(r) == ['CLASSIFY', 'ANSWER', 'ANSWER']
