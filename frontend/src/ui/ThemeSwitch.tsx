@@ -1,10 +1,11 @@
 /**
- * 화면 모드 선택: 라이트 · 다크 · 고대비(준비 중, 사용할 수 없음).
+ * 화면 모드 선택: 라이트 · 다크 중 하나 + 그 위에 켜고 끄는 고대비.
+ * 라이트·다크 칸은 둘 중 하나만 눌리고, 고대비 칸은 켜짐·꺼짐 토글이라 둘 중 하나와 함께 눌린다.
  * 로그인 화면 오른쪽 위와 사이드바 아래에 둔다.
  */
 import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { currentTheme, setThemeAnimated, type ThemeMode } from '../core/theme'
+import { currentContrast, currentTheme, setContrastAnimated, setThemeAnimated, type ContrastMode, type ThemeMode } from '../core/theme'
 import { Icon } from './Icon'
 
 const MODES: { mode: ThemeMode; label: string; icon: 'sun' | 'moon' }[] = [
@@ -18,6 +19,7 @@ const MODES: { mode: ThemeMode; label: string; icon: 'sun' | 'moon' }[] = [
  */
 export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
   const [cur, setCur] = useState<ThemeMode>(currentTheme)
+  const [hc, setHc] = useState<ContrastMode>(currentContrast)
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
   // 터치로 펼친 3칸은 바깥을 누르거나 Esc 를 누르면 접는다
@@ -58,7 +60,20 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
           <Icon name={m.icon} />
         </button>
       ))}
-      <button type="button" disabled aria-label="고대비 모드 (준비 중)" title="고대비 (준비 중)">
+      <button
+        type="button"
+        aria-pressed={hc === 'high'}
+        aria-label="고대비 모드"
+        title="고대비 모드"
+        onClick={(e) => {
+          if (compact) {
+            setOpen(false)
+            if (e.detail > 0) e.currentTarget.blur()
+          }
+          const next: ContrastMode = hc === 'high' ? 'off' : 'high'
+          setContrastAnimated(next, e.currentTarget, () => flushSync(() => setHc(next)))
+        }}
+      >
         <Icon name="contrast" />
       </button>
     </div>
@@ -66,7 +81,7 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
   if (!compact) return group
   return (
     <div className={`t1${open ? ' open' : ''}`} ref={box}>
-      <button type="button" className="one" aria-label={`화면 모드: ${cur === 'dark' ? '다크' : '라이트'} (눌러서 바꾸기)`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+      <button type="button" className="one" aria-label={`화면 모드: ${cur === 'dark' ? '다크' : '라이트'}${hc === 'high' ? ' · 고대비' : ''} (눌러서 바꾸기)`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <Icon name={cur === 'dark' ? 'moon' : 'sun'} />
       </button>
       {group}

@@ -1,0 +1,104 @@
+/*
+ * 고대비 모드 (디자인 가이드 03장 "고대비 모드" · 07장 CSS 토큰)
+ * 라이트·다크 위에 겹쳐 켜는 별도 설정이다. 문서에 data-contrast="high" 가 붙으면 적용된다. (core/theme.ts)
+ * 이 파일은 맨 마지막에 불러와서, 같은 우선순위일 때 항상 이긴다.
+ * 구성: 1) 토큰 덮어쓰기  2) 다크가 따로 처리하던 곳의 고대비 처리 (가이드 ⑨ 대응표)  3) 컴포넌트 규칙
+ */
+
+:root[data-contrast="high"]{--o600:#000000;--o700:#000000;--osurf:#FFF0C0;--osoft:#FFF0C0;--ink:#000000;--ink2:#1A1A1A;--mute:#333333;--sec:#333333;--line:#6E6E78;--line2:#4B4B54;--divider:#4B4B54;--hvg:#FFF0C0;--prg:#FFE040;--shell:#F4F4F6;--card:#F4F4F6;--side:#FFFFFF;--canvas:#FFFFFF;--white:#FFFFFF;--inkbtn:#000000;--onink:#FFFFFF;--link:#005060;--field:#FFFFFF;--fieldline:#000000;--bubble:#000000;--onbubble:#FFFFFF;--shadow:none;--pop:none;--wash:none;--glow:none;--glow-op:0;--lg-ink:#000000;--track:#F4F4F6;--chart1:#000000;--chart2:#005060;--aop:.1;--g-w:#4B4B54;--g-p:#005060;--g-n:#503010;--g-c:#004D1A;--ai:#005060;--ca:#000000;--ca1:#000000;--ca2:#000000;--cb:#004D1A;--cb1:#004D1A;--cb2:#004D1A;--cc:#005060;--cc1:#005060;--cc2:#005060;--s-recv-bg:#FFFFFF;--s-recv-fg:#333333;--s-recv-dot:#333333;--s-asg-bg:#E0FFFF;--s-asg-fg:#005060;--s-asg-dot:#005060;--s-info-bg:#E0FFFF;--s-info-fg:#005060;--s-info-dot:#005060;--s-prog-bg:#E0FFFF;--s-prog-fg:#005060;--s-prog-dot:#005060;--s-re-bg:#E0FFFF;--s-re-fg:#005060;--s-re-dot:#005060;--s-need-bg:#FFF0C0;--s-need-fg:#503010;--s-need-dot:#503010;--s-ok-bg:#E0FFE0;--s-ok-fg:#004D1A;--s-ok-dot:#004D1A;--s-urg-bg:#FFE0E0;--s-urg-fg:#800000;--s-urg-dot:#800000;--s-warn-bg:#FFF0C0;--s-warn-fg:#402000;--s-warn-dot:#402000;--btn-t:#000000;--btn-l:#000000;--chk-on:#FFE040;--chk-mark:#000000;--chk-ring:#000000;--ag1:transparent;--ag2:transparent;--ag3:transparent;--hc-accent:#FFE040;--hc-accent-h:#FFD000;--hc-accent-a:#E6B800;--hc-ring:#000000;--hc-strong:#000000;--hc-dis-bg:#E6E6E6;--hc-dis-fg:#595959;--hc-scrim:rgba(0,0,0,.72);--hc-role-bg:#000000;--hc-role-fg:#FFFFFF;--hc-nav:#FFF0C0;--hc-al-bg:#FFE040;--hc-p1:#800000;--hc-p1bg:#FFE0E0;--hc-p2:#402000;--hc-p2bg:#FFF0C0;color-scheme:light}
+:root[data-contrast="high"][data-theme="dark"]{--o600:#FFE050;--o700:#FFE050;--osurf:#2B2700;--osoft:#2B2700;--ink:#FFFFFF;--ink2:#F0F0F0;--mute:#D0D0D8;--sec:#D0D0D8;--line:#7C7C88;--line2:#A0A0AA;--divider:#A0A0AA;--hvg:#23232C;--prg:#33333F;--shell:#05050A;--card:#101016;--side:#101016;--canvas:#05050A;--white:#101016;--inkbtn:#FFFFFF;--onink:#05050A;--link:#90FFFF;--field:#05050A;--fieldline:#D0D0D8;--bubble:#FFFFFF;--onbubble:#000000;--shadow:none;--pop:none;--wash:none;--glow:none;--glow-op:0;--lg-ink:#FFFFFF;--track:#23232C;--chart1:#FFE050;--chart2:#90FFFF;--aop:.1;--g-w:#A0A0AA;--g-p:#90FFFF;--g-n:#FFFF40;--g-c:#90FF90;--ai:#90FFFF;--ca:#FFE050;--ca1:#FFE050;--ca2:#FFE050;--cb:#90FF90;--cb1:#90FF90;--cb2:#90FF90;--cc:#90FFFF;--cc1:#90FFFF;--cc2:#90FFFF;--s-recv-bg:#101016;--s-recv-fg:#D0D0D8;--s-recv-dot:#D0D0D8;--s-asg-bg:#101016;--s-asg-fg:#90FFFF;--s-asg-dot:#90FFFF;--s-info-bg:#101016;--s-info-fg:#90FFFF;--s-info-dot:#90FFFF;--s-prog-bg:#101016;--s-prog-fg:#90FFFF;--s-prog-dot:#90FFFF;--s-re-bg:#101016;--s-re-fg:#90FFFF;--s-re-dot:#90FFFF;--s-need-bg:#101016;--s-need-fg:#FFFF40;--s-need-dot:#FFFF40;--s-ok-bg:#101016;--s-ok-fg:#90FF90;--s-ok-dot:#90FF90;--s-urg-bg:#101016;--s-urg-fg:#FF9F90;--s-urg-dot:#FF9F90;--s-warn-bg:#101016;--s-warn-fg:#FFF040;--s-warn-dot:#FFF040;--btn-t:#FFFFFF;--btn-l:#FFFFFF;--chk-on:#FFE050;--chk-mark:#000000;--chk-ring:#D0D0D8;--ag1:transparent;--ag2:transparent;--ag3:transparent;--hc-accent:#FFE050;--hc-accent-h:#FFF070;--hc-accent-a:#FFD400;--hc-ring:#FFE050;--hc-strong:#FFE050;--hc-dis-bg:#101016;--hc-dis-fg:#9C9CA6;--hc-scrim:rgba(0,0,0,.82);--hc-role-bg:#FFFFFF;--hc-role-fg:#000000;--hc-nav:#101016;--hc-al-bg:#05050A;--hc-p1:#FF9F90;--hc-p1bg:#101016;--hc-p2:#FFF040;--hc-p2bg:#101016;color-scheme:dark}
+@media (prefers-color-scheme:dark){:root[data-contrast="high"]:not([data-theme="light"]){--o600:#FFE050;--o700:#FFE050;--osurf:#2B2700;--osoft:#2B2700;--ink:#FFFFFF;--ink2:#F0F0F0;--mute:#D0D0D8;--sec:#D0D0D8;--line:#7C7C88;--line2:#A0A0AA;--divider:#A0A0AA;--hvg:#23232C;--prg:#33333F;--shell:#05050A;--card:#101016;--side:#101016;--canvas:#05050A;--white:#101016;--inkbtn:#FFFFFF;--onink:#05050A;--link:#90FFFF;--field:#05050A;--fieldline:#D0D0D8;--bubble:#FFFFFF;--onbubble:#000000;--shadow:none;--pop:none;--wash:none;--glow:none;--glow-op:0;--lg-ink:#FFFFFF;--track:#23232C;--chart1:#FFE050;--chart2:#90FFFF;--aop:.1;--g-w:#A0A0AA;--g-p:#90FFFF;--g-n:#FFFF40;--g-c:#90FF90;--ai:#90FFFF;--ca:#FFE050;--ca1:#FFE050;--ca2:#FFE050;--cb:#90FF90;--cb1:#90FF90;--cb2:#90FF90;--cc:#90FFFF;--cc1:#90FFFF;--cc2:#90FFFF;--s-recv-bg:#101016;--s-recv-fg:#D0D0D8;--s-recv-dot:#D0D0D8;--s-asg-bg:#101016;--s-asg-fg:#90FFFF;--s-asg-dot:#90FFFF;--s-info-bg:#101016;--s-info-fg:#90FFFF;--s-info-dot:#90FFFF;--s-prog-bg:#101016;--s-prog-fg:#90FFFF;--s-prog-dot:#90FFFF;--s-re-bg:#101016;--s-re-fg:#90FFFF;--s-re-dot:#90FFFF;--s-need-bg:#101016;--s-need-fg:#FFFF40;--s-need-dot:#FFFF40;--s-ok-bg:#101016;--s-ok-fg:#90FF90;--s-ok-dot:#90FF90;--s-urg-bg:#101016;--s-urg-fg:#FF9F90;--s-urg-dot:#FF9F90;--s-warn-bg:#101016;--s-warn-fg:#FFF040;--s-warn-dot:#FFF040;--btn-t:#FFFFFF;--btn-l:#FFFFFF;--chk-on:#FFE050;--chk-mark:#000000;--chk-ring:#D0D0D8;--ag1:transparent;--ag2:transparent;--ag3:transparent;--hc-accent:#FFE050;--hc-accent-h:#FFF070;--hc-accent-a:#FFD400;--hc-ring:#FFE050;--hc-strong:#FFE050;--hc-dis-bg:#101016;--hc-dis-fg:#9C9CA6;--hc-scrim:rgba(0,0,0,.82);--hc-role-bg:#FFFFFF;--hc-role-fg:#000000;--hc-nav:#101016;--hc-al-bg:#05050A;--hc-p1:#FF9F90;--hc-p1bg:#101016;--hc-p2:#FFF040;--hc-p2bg:#101016;color-scheme:dark}}
+
+/* ---- 선: 조작 경계는 2px, 포커스 링은 3px ---- */
+:root[data-contrast="high"] :focus-visible{outline:3px solid var(--link);outline-offset:2px}
+:root[data-contrast="high"] a{text-decoration:underline}
+:root[data-contrast="high"] ::selection{background:var(--hc-accent);color:#000}
+:root[data-contrast="high"] .d2p:focus-within{outline:3px solid var(--link)}
+:root[data-contrast="high"] .srch:focus-within,:root[data-contrast="high"] .srch.f{box-shadow:inset 0 0 0 3px var(--link)}
+:root[data-contrast="high"] .inp:focus,:root[data-contrast="high"] .ta:focus{outline:0;box-shadow:inset 0 0 0 3px var(--link)}
+:root[data-contrast="high"] select.sel,:root[data-contrast="high"] .btn.sec,:root[data-contrast="high"] .inp,:root[data-contrast="high"] .ta,:root[data-contrast="high"] .srch,:root[data-contrast="high"] .sbx{box-shadow:inset 0 0 0 2px var(--fieldline)}
+
+/* ---- 버튼 ---- */
+:root[data-contrast="high"] .btn.pri,:root[data-contrast="high"] .composer .btn.ico.pri,:root[data-contrast="high"] .btn.pri.solid{background:var(--hc-accent);color:#000;box-shadow:inset 0 0 0 2px var(--hc-ring);font-weight:700}
+:root[data-contrast="high"] .btn.pri:hover,:root[data-contrast="high"] .composer .btn.ico.pri:hover,:root[data-contrast="high"] .btn.pri.solid:hover{background:var(--hc-accent-h)}
+:root[data-contrast="high"] .btn.pri:active,:root[data-contrast="high"] .composer .btn.ico.pri:active,:root[data-contrast="high"] .btn.pri.solid:active{background:var(--hc-accent-a)}
+:root[data-contrast="high"] .btn.pri .dots i,:root[data-contrast="high"] .btn.pri.solid .dots i{background:#000}
+:root[data-contrast="high"] .btn.sec{box-shadow:inset 0 0 0 2px var(--fieldline);font-weight:700}
+:root[data-contrast="high"] .btn.sec:hover{background:var(--hvg)}
+:root[data-contrast="high"] .btn.ghost{text-decoration:underline}
+:root[data-contrast="high"] .btn[disabled],:root[data-contrast="high"] .btn.pri[disabled]{opacity:1;background:var(--hc-dis-bg);color:var(--hc-dis-fg);box-shadow:none;outline:2px dashed var(--hc-dis-fg);outline-offset:-2px}
+
+/* ---- 화면 모드 버튼: 눌린 칸은 노랑 (라이트·다크 칸과 고대비 칸이 함께 눌릴 수 있음) ---- */
+:root[data-contrast="high"] .tgm button[aria-pressed=true]{background:var(--hc-accent);color:#000;box-shadow:inset 0 0 0 2px var(--hc-ring)}
+:root[data-contrast="high"] .tgm,:root[data-contrast="high"] .t1 .tgm{box-shadow:inset 0 0 0 2px var(--fieldline)}
+
+/* ---- 면: 반투명·블러·그림자를 끄고 윤곽선으로 ---- */
+:root[data-contrast="high"] .side{background:var(--side)!important;-webkit-backdrop-filter:none;backdrop-filter:none;border-right:2px solid var(--divider)!important;box-shadow:none}
+:root[data-contrast="high"] .app .detail,:root[data-contrast="high"] .detail{background:var(--white)!important;-webkit-backdrop-filter:none;backdrop-filter:none;border-left:3px solid var(--hc-strong);box-shadow:none}
+:root[data-contrast="high"] .composer{box-shadow:inset 0 0 0 2px var(--fieldline)}
+:root[data-contrast="high"] .modal,:root[data-contrast="high"] .lpop,:root[data-contrast="high"] .pop{box-shadow:inset 0 0 0 3px var(--hc-strong)}
+:root[data-contrast="high"] .totop,:root[data-contrast="high"] .t1 .one{box-shadow:inset 0 0 0 2px var(--fieldline)}
+
+/* ---- 사이드바 활성 메뉴 · 선택된 칩/세그먼트 (그림자 대신 윤곽선 + 노랑) ---- */
+:root[data-contrast="high"] .nav button.on,:root[data-contrast="high"] .recent .rt.on{background:var(--hc-nav);box-shadow:inset 0 0 0 3px var(--hc-strong)}
+:root[data-contrast="high"] .seg button.on,:root[data-contrast="high"] .d2seg button.on,:root[data-contrast="high"] .chip.on,:root[data-contrast="high"] .rwhy .chip[aria-pressed="true"],:root[data-contrast="high"] .seg.gu-seg button.on,:root[data-contrast="high"] .admin .scroll .page>.seg button.on{background:var(--hc-accent);color:#000;box-shadow:inset 0 0 0 2px var(--hc-ring);font-weight:700}
+:root[data-contrast="high"] .d2seg button.on em,:root[data-contrast="high"] .chip.on em,:root[data-contrast="high"] .rwhy .chip[aria-pressed="true"] em{background:#000;color:var(--hc-accent)}
+:root[data-contrast="high"] .ddm,:root[data-contrast="high"] .sbxl,:root[data-contrast="high"] .stip,:root[data-contrast="high"] .hvtip,:root[data-contrast="high"] .toast{box-shadow:inset 0 0 0 3px var(--hc-strong)}
+:root[data-contrast="high"] .mcard:hover{box-shadow:none}
+:root[data-contrast="high"] .login>.bgsvg{display:none}
+:root[data-contrast="high"] .ov,:root[data-contrast="high"] .scrim,:root[data-contrast="high"] .dscrim,:root[data-contrast="high"] .app.nav-open .scrim{background:var(--hc-scrim)}
+:root[data-contrast="high"] .ov.rs{background:var(--hc-scrim);-webkit-backdrop-filter:none;backdrop-filter:none}
+
+/* ---- 안내 밴드 (플럼 그라데이션 대신 윤곽선 + 노랑) ---- */
+:root[data-contrast="high"] .hband,:root[data-contrast="high"] .hband.sec{background:var(--white);color:var(--ink);box-shadow:inset 0 0 0 3px var(--hc-strong)}
+:root[data-contrast="high"] .hband h2,:root[data-contrast="high"] .hband h2 em,:root[data-contrast="high"] .hband.sec h2 em{color:var(--ink)}
+:root[data-contrast="high"] .hband p,:root[data-contrast="high"] .dattn .hband p{color:var(--ink2)}
+:root[data-contrast="high"] .hband .btn{background:var(--hc-accent)!important;color:#000;border:2px solid var(--hc-ring)}
+:root[data-contrast="high"] .hband .btn:hover{background:var(--hc-accent-h)!important}
+:root[data-contrast="high"] .hband h2 .pulse,:root[data-contrast="high"] .hband.sec h2 .pulse{background:var(--hc-accent);box-shadow:inset 0 0 0 2px var(--hc-ring);animation:none}
+:root[data-contrast="high"] .hpipe button:before{border-color:var(--ink)}
+:root[data-contrast="high"] .hpipe button.al:before{background:var(--hc-al-bg);border-color:var(--hc-strong)}
+:root[data-contrast="high"] .hpipe button:hover:before,:root[data-contrast="high"] .hpipe button:focus-visible:before{background:var(--hc-accent);box-shadow:inset 0 0 0 2px var(--hc-ring)}
+:root[data-contrast="high"] .hpipe button:hover .n,:root[data-contrast="high"] .hpipe button:focus-visible .n{color:var(--link);text-decoration:underline}
+
+/* ---- 상태 배지: 글자색 2px 윤곽선 + 점도 글자색 (색만으로 구분하지 않음) ---- */
+:root[data-contrast="high"] .badge{box-shadow:inset 0 0 0 2px currentColor;font-weight:700}
+:root[data-contrast="high"] .badge i{background:currentColor}
+
+/* ---- 긴급도 칩 · 숫자 배지 · 태그 · 프로필 ---- */
+:root[data-contrast="high"] .pri-p1,:root[data-contrast="high"] .pri-p2,:root[data-contrast="high"] .pri-p3,:root[data-contrast="high"] .pri-p4,:root[data-contrast="high"] [class*="pri-p"]{font-weight:700}
+:root[data-contrast="high"] .pri-p1{box-shadow:inset 0 0 0 2px var(--s-urg-fg)}
+:root[data-contrast="high"] .pri-p2{box-shadow:inset 0 0 0 2px var(--s-warn-fg)}
+:root[data-contrast="high"] .pri-p3{background:var(--white);color:var(--ink2);box-shadow:inset 0 0 0 2px var(--divider)}
+:root[data-contrast="high"] .pri-p4{background:transparent;color:var(--mute);box-shadow:inset 0 0 0 2px var(--divider)}
+:root[data-contrast="high"] .count{background:var(--hc-accent);color:#000;box-shadow:inset 0 0 0 2px var(--hc-ring)}
+:root[data-contrast="high"] .count.nw{background:var(--s-urg-fg);color:var(--canvas);box-shadow:none}
+:root[data-contrast="high"] .mebadge{background:var(--s-prog-fg);color:var(--canvas)}
+:root[data-contrast="high"] .tn-ok,:root[data-contrast="high"] .tn-prog,:root[data-contrast="high"] .tn-need,:root[data-contrast="high"] .tn-asg,:root[data-contrast="high"] .tn-urg,:root[data-contrast="high"] .tn-recv{--tt:var(--canvas)}
+:root[data-contrast="high"] .tn-warn{--tt:var(--canvas)}
+:root[data-contrast="high"] .tag.stf{background:var(--hc-role-bg);color:var(--hc-role-fg)}
+:root[data-contrast="high"] .tag,:root[data-contrast="high"] .tag.c-SYS{background:var(--card);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+:root[data-contrast="high"] .pf,:root[data-contrast="high"] .wh,:root[data-contrast="high"] .who .pf,:root[data-contrast="high"] .tr .av,:root[data-contrast="high"] .um .av,:root[data-contrast="high"] .pfl .pf,:root[data-contrast="high"] .pwm .pfl .pf{background:var(--ink);color:var(--canvas)}
+:root[data-contrast="high"] .skip{background:var(--hc-accent);color:#000;box-shadow:inset 0 0 0 2px var(--hc-ring)}
+:root[data-contrast="high"] .gchv.on{background:var(--hc-accent);color:#000}
+:root[data-contrast="high"] *::-webkit-scrollbar-thumb:active{background:var(--ink)}
+
+/* ---- 안내·오류 박스: 아이콘 + 글자 + 2px 윤곽선 (색만으로 구분하지 않음) ---- */
+:root[data-contrast="high"] .alert{box-shadow:inset 0 0 0 2px currentColor}
+
+/* ---- 검색어 강조 · AI 평가 · 타임라인 현재 라벨 ---- */
+:root[data-contrast="high"] mark.hl{background:var(--hc-accent);color:#000;box-shadow:inset 0 -2px 0 #000;font-weight:700}
+:root[data-contrast="high"] .asx .asai{background:var(--card);box-shadow:inset 4px 0 0 var(--link)}
+:root[data-contrast="high"] .asx .asai .asl{color:var(--link);font-weight:700}
+:root[data-contrast="high"] .tl li:nth-child(1) b::after{background:var(--hc-accent);color:#000;box-shadow:inset 0 0 0 2px var(--hc-ring)}
+
+/* ---- 우선순위 막대 (통계) ---- */
+:root[data-contrast="high"] .bar>i.pb-p1{background:var(--s-urg-fg)}
+:root[data-contrast="high"] .bar>i.pb-p2{background:var(--s-warn-fg)}
+:root[data-contrast="high"] .bar>i.pb-p3{background:var(--mute)}
+:root[data-contrast="high"] .bar>i.pb-p4{background:var(--divider)}
+:root[data-contrast="high"] .stx{--g-w:var(--divider);--g-p:var(--s-prog-fg);--g-n:var(--s-need-fg);--g-c:var(--s-ok-fg);--s-warn-dot:var(--s-warn-fg);--s-recv-dot:var(--s-recv-fg);--s-prog-dot:var(--s-prog-fg)}
+
+/* ---- 움직임: 고대비에서는 번쩍이는 장식 끔 ---- */
+:root[data-contrast="high"] .hband h2 .pulse{animation:none}
+
