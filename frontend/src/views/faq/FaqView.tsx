@@ -317,10 +317,11 @@ function FaqFormDialog({ faq, loaded, onClose, onDone }: { faq: Faq | null; load
     }
   }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 전 직원용 현행 가이드(GUIDE)만. 같은 분류를 위로 올린다
+  // 전 직원용 현행 가이드(GUIDE) 가운데 고른 분류의 것만 보이고, 다른 분류에서 이미 고른 가이드는 사라지지 않게 함께 보인다 (위에)
   const eligible = (guides ?? [])
     .filter((g) => g.isActive && g.current?.scope === '사내 일반' && (!g.docType || g.docType === 'GUIDE'))
-    .sort((x, y) => Number(y.cat === cat) - Number(x.cat === cat))
+    .filter((g) => g.cat === cat || picked.has(g.id))
+    .sort((x, y) => Number(picked.has(y.id) && y.cat !== cat) - Number(picked.has(x.id) && x.cat !== cat))
   const pubOk = picked.size > 0
   const willPublish = publish && pubOk
 
@@ -368,7 +369,7 @@ function FaqFormDialog({ faq, loaded, onClose, onDone }: { faq: Faq | null; load
       {field('a', '답변', <textarea id={`${uid}-a`} className={`ta${errs.a ? ' err' : ''}`} value={a} placeholder="사내 가이드 기준으로 안내해 주세요" aria-invalid={!!errs.a} onChange={(e) => { setA(e.target.value); clr('a') }} />)}
       <div className="field">
         <label id={`${uid}-s`}>
-          출처 가이드 <span className="muted small">(전 직원용 현행 가이드만 고를 수 있어요 · 여러 개 선택 가능)</span>
+          출처 가이드 <span className="muted small">(고른 분류의 전 직원용 현행 가이드만 보여요 · 여러 개 선택 가능)</span>
         </label>
         <div className="fsl" role="group" aria-labelledby={`${uid}-s`}>
           {guides === null && !err && (
@@ -378,11 +379,11 @@ function FaqFormDialog({ faq, loaded, onClose, onDone }: { faq: Faq | null; load
           )}
           {guides !== null && eligible.length === 0 && (
             <div className="hint" style={{ padding: 10 }}>
-              고를 수 있는 가이드가 아직 없어요.
+              이 분류에는 고를 수 있는 가이드가 아직 없어요.
             </div>
           )}
           {eligible.map((g) => (
-            <div key={g.id} className={`fsrc${g.cat === cat ? ' same' : ''}`}>
+            <div key={g.id} className="fsrc">
               <label>
                 <input
                   type="checkbox"
@@ -403,6 +404,7 @@ function FaqFormDialog({ faq, loaded, onClose, onDone }: { faq: Faq | null; load
                   </b>
                   <small>
                     {CATEGORY_NAME[g.cat] ?? g.cat} · {g.current?.version}
+                    {g.cat !== cat && ' · 다른 분류에서 고른 가이드'}
                   </small>
                 </span>
               </label>

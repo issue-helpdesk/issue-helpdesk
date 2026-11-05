@@ -74,6 +74,25 @@ describe('FAQ 관리 화면 (모의)', () => {
     expect(within(mine).getByText(/IT-HW-003/)).toBeInTheDocument()
   })
 
+  it('분류를 고르면 출처 가이드 목록이 그 분류의 가이드로 바뀌고, 다른 분류에서 이미 고른 가이드는 사라지지 않는다', async () => {
+    renderAs('EMP-1178')
+    await screen.findByRole('group', { name: '분류' }, SLOW)
+    await userEvent.click(screen.getByRole('button', { name: /FAQ 등록/ }))
+    const dlg = await screen.findByRole('dialog', { name: 'FAQ 등록' })
+    const group = await within(dlg).findByRole('group', { name: /출처 가이드/ }, SLOW)
+    await within(group).findByText(/IT-ACC-001/, undefined, SLOW) // 기본 분류(계정·로그인)의 가이드
+    expect(within(group).queryByText(/IT-HW-003/)).toBeNull()
+    await choose(dlg, '분류', /HW/)
+    await waitFor(() => expect(within(group).queryByText(/IT-ACC-001/)).toBeNull())
+    expect(within(group).getByText(/IT-HW-003/)).toBeInTheDocument()
+    await userEvent.click(within(group).getByRole('checkbox', { name: /IT-HW-003/ }))
+    await choose(dlg, '분류', /계정/)
+    await within(group).findByText(/IT-ACC-001/, undefined, SLOW)
+    // 다른 분류에서 고른 가이드는 체크된 채로 남아 있고 안내가 붙는다
+    expect(within(group).getByRole('checkbox', { name: /IT-HW-003/ })).toBeChecked()
+    expect(within(group).getByText(/다른 분류에서 고른 가이드/)).toBeInTheDocument()
+  })
+
   it('수정 창은 기존 내용과 출처를 채워 열고, 저장하면 게시가 중단되며 "바로 게시"를 켜면 다시 게시된다', async () => {
     renderAs('EMP-1178')
     await screen.findByRole('group', { name: '분류' }, SLOW)
