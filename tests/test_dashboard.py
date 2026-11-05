@@ -376,3 +376,34 @@ def test_audit_logs_size_limit(client, users, logs):
 @pytest.mark.parametrize("who", ["employee", "agent"])
 def test_audit_logs_admin_only(client, users, logs, who):
     assert audit(client, users, who).status_code == 403
+
+
+def test_audit_logs_ticket_link(client, db, users):
+    no_ticket = add_inquiry(db, users["employee"]["id"])
+    ticket = add_ticket(db, users["employee"]["id"])
+    assert no_ticket.id == ticket.id != ticket.inquiry_id   # 번호가 겹쳐도 대상 종류가 다르면 연결하지 않는지 보려는 조건
+    expected = {
+        "CONFIRM": (ticket.id, ticket.receipt_no),
+        "SENSITIVE_INPUT": (ticket.id, ticket.receipt_no),
+        "URGENT_CLOSED": (None, None),
+        "DOCUMENT_ACTIVATE": (None, None),
+        "USER_CREATE": (None, None),
+        "FAQ_DELETE": (None, None),
+    }
+    db.add_all([
+        AuditLog(event_type="CONFIRM", target_type="ticket", target_id=ticket.id, created_at=at(1)),
+        AuditLog(event_type="SENSITIVE_INPUT", target_type="inquiry", target_id=ticket.inquiry_id, created_at=at(2)),
+        AuditLog(event_type="URGENT_CLOSED", target_type="inquiry", target_id=no_ticket.id, created_at=at(3)),
+        AuditLog(event_type="DOCUMENT_ACTIVATE", target_type="document", target_id=ticket.id, created_at=at(4)),
+        AuditLog(event_type="USER_CREATE", target_type="user", target_id=ticket.id, created_at=at(5)),
+        AuditLog(event_type="FAQ_DELETE", target_type="faq", target_id=ticket.id, created_at=at(6)),
+    ])
+    db.commit()
+    body = audit(client, users).json()
+    assert {i["eventType"]: (i["ticketId"], i["receiptNo"]) for i in body["items"]} == expected
+    assert body["totalCount"] == len(body["items"]) == len(expected)
+
+
+def test_audit_logs_ticket_not_found_is_null(client, users, logs):
+    items = audit(client, users, targetType="ticket", targetId=42).json()["items"]
+    assert [(i["ticketId"], i["receiptNo"]) for i in items] == [(None, None)]
