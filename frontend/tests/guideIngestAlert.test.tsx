@@ -7,8 +7,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/App'
-import { STALL_MESSAGE, STALL_MS, breakSentences, getIngestFailures, markFailuresSeen, pollIngest, pollInterval, resetIngestWatch, trackIngest } from '../src/api/guideWatch'
-import { resetGuideMock, uploadGuideVersion } from '../src/api/guides'
+import { STALL_MESSAGE, STALL_MS, breakSentences, getIngestFailures, markFailuresSeen, pollIngest, recordVersions, pollInterval, resetIngestWatch, trackIngest } from '../src/api/guideWatch'
+import { listGuideVersions, resetGuideMock, uploadGuideVersion } from '../src/api/guides'
 import { MOCK_ACCOUNTS } from '../src/api/mock/accounts'
 import type { User } from '../src/api/types'
 import { AuthProvider } from '../src/core/session'
@@ -139,4 +139,54 @@ describe('가이드 적재 실패 알림 (화면)', () => {
     await new Promise((r) => setTimeout(r, 3500))
     expect(screen.queryByRole('alertdialog')).toBeNull()
   }, 15_000)
+})
+
+describe('실패 기록 정리와 목록 창', () => {
+  it('서버 목록에 더는 없는 버전의 실패 기록은 지운다', async () => {
+    const id = await uploadAndTrack(scanned())
+    await waitFor(async () => {
+      await pollIngest(admin())
+      expect(getIngestFailures()).toHaveLength(1)
+    }, { timeout: 8000 })
+    // 그 버전이 사라진 목록을 읽으면 기록도 사라진다
+    recordVersions({ docId: 4, docCode: 'IT-ACC-003', title: 'MFA 인증 오류 대응 가이드', cat: 'ACC' }, [])
+    expect(getIngestFailures().filter((f) => f.versionId === id)).toHaveLength(0)
+  })
+
+  it('다른 가이드의 목록을 읽어도 이 가이드의 기록은 그대로다', async () => {
+    await uploadAndTrack(scanned())
+    await waitFor(async () => {
+      await pollIngest(admin())
+      expect(getIngestFailures()).toHaveLength(1)
+    }, { timeout: 8000 })
+    recordVersions({ docId: 5, docCode: 'IT-ACC-004', title: '다른 가이드', cat: 'ACC' }, [])
+    expect(getIngestFailures()).toHaveLength(1)
+  })
+
+  it('실패 목록 보기를 열면 이미 확인한 실패도 창에 보인다', async () => {
+    await uploadAndTrack(scanned())
+    await waitFor(async () => {
+      await pollIngest(admin())
+      expect(getIngestFailures()).toHaveLength(1)
+    }, { timeout: 8000 })
+    markFailuresSeen()
+    renderAs('EMP-1178', '/guides')
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    await userEvent.click(await screen.findByRole('button', { name: '실패 목록 보기' }, { timeout: 8000 }))
+    const dlg = await screen.findByRole('alertdialog')
+    expect(within(dlg).getByText(/IT-ACC-003/)).toBeInTheDocument()
+    await userEvent.click(within(dlg).getAllByRole('button', { name: '닫기' })[0])
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  })
+})
+
+describe('올린 시각과 NEW', () => {
+  it('새로 올린 버전은 올린 시각이 있고, 하루 안이라 가이드 관리에서 NEW 로 보인다', async () => {
+    const id = await uploadAndTrack(good())
+    const list = await listGuideVersions(admin(), 4)
+    expect(list.ok && list.data.find((v) => v.id === id)?.registeredAt).toBeTruthy()
+    renderAs('EMP-1178', '/guides?doc=IT-ACC-003')
+    expect(await screen.findByRole('columnheader', { name: '올린 시각' }, { timeout: 8000 })).toBeInTheDocument()
+    expect((await screen.findAllByText('NEW')).length).toBeGreaterThan(0)
+  })
 })

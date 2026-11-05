@@ -401,6 +401,14 @@ export function ChatView() {
             <div>{error}</div>
           </div>
         )}
+        {endMsg && !paused && (
+          <div className="endbar" role="status">
+            <span>이 문의는 끝났어요. 새로 궁금한 게 있으면 새 문의로 시작해 주세요.</span>
+            <button type="button" className="btn sec sm" onClick={() => navigate('/new')}>
+              새 문의 시작하기
+            </button>
+          </div>
+        )}
         <div className="cmpw">
           <Composer value={text} onChange={setText} onSend={send} placeholder={placeholder} disabled={busy || typing} locked={!!lock || !!endMsg} />
           {gated && <button type="button" className="cmp-hit" aria-label="이어가기 선택 열기" onClick={() => setEntry((e) => (e ? { ...e, popup: true } : e))} />}

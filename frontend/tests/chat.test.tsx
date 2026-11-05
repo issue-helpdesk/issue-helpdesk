@@ -662,6 +662,15 @@ describe('대화 화면', () => {
     expect(box).toBeDisabled()
     expect(box).toHaveAttribute('placeholder', '처리가 완료되어 종료된 문의예요.')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    // 끝난 문의 아래에는 새 문의로 시작하라는 안내와 버튼이 있다
+    expect(screen.getByText(/이 문의는 끝났어요/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '새 문의 시작하기' })).toBeInTheDocument()
+  })
+
+  it('끝나지 않은 문의에는 새 문의 안내가 없다', async () => {
+    renderAs('EMP-1001', '/chat/101')
+    await screen.findByLabelText('메시지 입력', {}, SLOW)
+    expect(screen.queryByText(/이 문의는 끝났어요/)).toBeNull()
   })
 
   it('없는 문의 주소는 찾을 수 없다는 안내와 이동 버튼을 보여 준다', async () => {
