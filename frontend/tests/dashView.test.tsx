@@ -61,8 +61,8 @@ describe('대시보드 화면', () => {
     await waitFor(() => expect(within(pipe).getByRole('button', { name: /^처리 대기 \(RDY\) [1-9]/ })).toBeInTheDocument(), SLOW)
     expect(within(pipe).getByRole('button', { name: /^연동·배정 확인 [1-9]/ })).toHaveClass('al')
     expect(await screen.findByRole('region', { name: '연동·배정 확인 필요' }, SLOW)).toBeInTheDocument()
-    // Jira 댓글·멘션 알림은 이번 기능에서 제외했다
-    expect(screen.queryByRole('region', { name: '확인할 Jira 알림' })).toBeNull()
+    // ITSM 댓글·멘션 알림은 이번 기능에서 제외했다
+    expect(screen.queryByRole('region', { name: '확인할 ITSM 알림' })).toBeNull()
     const urg = screen.getByRole('region', { name: '긴급·높음 미해결' })
     await waitFor(() => expect(urg.querySelectorAll('.dtr')).toHaveLength(3), SLOW)
     unmount()

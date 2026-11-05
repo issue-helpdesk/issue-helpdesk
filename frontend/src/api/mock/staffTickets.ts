@@ -9,7 +9,7 @@
  */
 import { CATEGORIES, FALLBACK_GROUP } from '../catalog'
 import type { CategoryCode, Urgency, WorkStatus } from '../chatTypes'
-import type { SlackPreview, StatusHistory, TicketDetail, TicketMessage, UserRef } from '../ticketTypes'
+import type { StatusHistory, TicketDetail, UserRef } from '../ticketTypes'
 import type { DisplayStatus } from '../types'
 import { nowIso } from '../../core/format'
 import { MOCK_ACCOUNTS } from './accounts'
@@ -28,7 +28,7 @@ export interface StaffMember {
   avail: boolean
   /** 부재 사유 (연차·반차) */
   leave?: string
-  /** Jira 계정이 연결돼 배정이 Jira 에 반영되는지 */
+  /** ITSM 계정이 연결돼 배정이 ITSM 에 반영되는지 */
   jira: boolean
 }
 const sm = (id: number, employeeNo: string, name: string, over: Partial<StaffMember> = {}): StaffMember => ({ id, employeeNo, name, avail: true, jira: true, ...over })
@@ -63,15 +63,15 @@ interface SeedArgs {
   cat: CategoryCode
   p: Urgency
   who: string
-  /** null 이면 아직 Jira 생성·배정 전이다 */
+  /** null 이면 아직 ITSM 생성·배정 전이다 */
   workStatus: WorkStatus | null
   /** 담당 그룹 (기본: 네트워크팀) */
   group?: string
-  /** workStatus 가 null 일 때 Jira 연동 상태 */
+  /** workStatus 가 null 일 때 ITSM 연동 상태 */
   jira?: 'PENDING' | 'VERIFYING' | 'NEEDS_ADMIN'
   /** 배정 상태 (기본: 배정됨) */
   asg?: 'PENDING' | 'ASSIGNED' | 'NEEDS_ADMIN'
-  /** 처리 중 접수에 해결 요청(FIN)을 보냈는데 Jira 반영을 확인하지 못한 상태 */
+  /** 처리 중 접수에 해결 요청(FIN)을 보냈는데 ITSM 반영을 확인하지 못한 상태 */
   trn?: boolean
   /** 접수한 지 며칠·몇 시간 전인지 */
   ago: { d?: number; h?: number }
@@ -178,7 +178,7 @@ const SEED_ARGS: SeedArgs[] = [
   { n: 34, title: '의심스러운 로그인 알림', cat: 'SEC', p: 'P2', who: '지윤', workStatus: 'RDY', group: '정보보안팀', ago: { h: 8 }, system: '계정', assignee: member('정보보안팀', 1) },
   { n: 35, title: '보안 점검 결과 문의', cat: 'SEC', p: 'P4', who: '서연', workStatus: 'CLS', group: '정보보안팀', ago: { d: 18 }, system: '보안 점검', assignee: member('정보보안팀', 2), note: '점검 결과를 안내했습니다.' },
   { n: 36, title: '외부 USB 사용 승인 요청', cat: 'SEC', p: 'P3', who: '지은', workStatus: 'FIN', group: '정보보안팀', ago: { d: 6 }, system: '보안 정책', assignee: member('정보보안팀', 3), note: '예외 승인을 등록했습니다.' },
-  // 아직 Jira 생성·배정이 끝나지 않은 접수
+  // 아직 ITSM 생성·배정이 끝나지 않은 접수
   { n: 37, title: '신규 입사자 계정 요청', cat: 'ACC', p: 'P4', who: '하준', workStatus: null, group: '서비스데스크', ago: { h: 1 }, system: '사내 SSO' },
   { n: 38, title: '파일 서버 용량 증설 요청', cat: 'SYS', p: 'P3', who: '지윤', workStatus: null, group: '시스템인프라팀', ago: { d: 1 }, system: '파일 서버', jira: 'VERIFYING' },
   { n: 39, title: '메일 전송 오류', cat: 'SYS', p: 'P3', who: '서연', workStatus: 'RDY', group: '업무시스템팀', ago: { d: 1, h: 3 }, system: '메일', assignee: null, asg: 'NEEDS_ADMIN' },
@@ -196,10 +196,6 @@ const SEED_ARGS: SeedArgs[] = [
 ]
 
 let seeds: TicketDetail[] = []
-/** 담당자가 문의자에게 보낸 메시지와 Slack 알림 미리보기 (제안, 모의) */
-const messages = new Map<number, TicketMessage[]>()
-const slackLog: (SlackPreview & { ticketId: number })[] = []
-let msgSeq = 1
 
 /**
  * 로그인(서버)과 접수(모의)를 섞어 쓸 때: 서버가 정한 사용자 번호(id)가 모의 담당자의 번호와 달라서, 로그인한 담당자의 접수가 비어 보인다.
@@ -234,8 +230,6 @@ export function resetStaffMock() {
   seeds = SEED_ARGS.map(seedTicket)
   applyBound()
   resetHistoryLog()
-  messages.clear()
-  slackLog.length = 0
 }
 resetStaffMock()
 
@@ -284,7 +278,7 @@ function fromRecord(rec: StoreRecord): TicketDetail | null {
   }
 }
 
-/** 상태 변경을 요청했지만 Jira 반영을 아직 확인하지 못한 접수 (ID → 목표 상태) */
+/** 상태 변경을 요청했지만 ITSM 반영을 아직 확인하지 못한 접수 (ID → 목표 상태) */
 export const pending = new Map<number, WorkStatus>()
 
 /** 문의자 접수 Ticket 의 문의 저장소 기록 */
@@ -346,13 +340,4 @@ export function reassignSeed(id: number, to: UserRef): boolean {
     t.assignStatus = 'ASSIGNED'
     t.needsAdmin = t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.transitionStatus === 'NEEDS_ADMIN'
   })
-}
-
-export const messagesOf = (ticketId: number) => messages.get(ticketId) ?? []
-export const slackOf = (ticketId: number) => slackLog.filter((s) => s.ticketId === ticketId).map(({ ticketId: _t, ...s }) => s)
-export function addMessage(ticketId: number, m: Omit<TicketMessage, 'id'>) {
-  const list = messages.get(ticketId) ?? []
-  list.push({ ...m, id: msgSeq++ })
-  messages.set(ticketId, list)
-  slackLog.unshift({ ticketId, to: '문의자', text: '담당자 메시지가 도착했습니다.', at: m.at })
 }

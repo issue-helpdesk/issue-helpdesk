@@ -1,12 +1,12 @@
 /**
  * 시연용 대화 엔진 (design/ITssue-Prototype.html 의 "대화 엔진"을 옮긴 것).
- * 실제 AI·Jira·Slack 호출 없이 정해진 규칙으로만 답하므로 같은 입력에는 항상 같은 답이 나온다.
+ * 실제 AI·ITSM·Slack 호출 없이 정해진 규칙으로만 답하므로 같은 입력에는 항상 같은 답이 나온다.
  * 실제 API(VITE_USE_MOCK=false)에서는 쓰이지 않으며, 같은 일을 백엔드가 한다.
  *
  * 흐름 (PRD 4.2~4.9)
  *   첫 메시지 → 부족한 정보(시스템·증상·시점·영향·시도)를 하나씩 확인 → 긴급 징후가 있으면 바로 담당자 연결 제안
  *   → Guide 우선 검색 → 부족하면 도입 이전 처리 이력 → 둘 다 없으면 지원 범위 밖
- *   → 해결 확인(해결 / 미해결) → 접수 초안 확인·수정 → 접수(RCPT 번호) → Jira·담당자 배정 진행
+ *   → 해결 확인(해결 / 미해결) → 접수 초안 확인·수정 → 접수(RCPT 번호) → ITSM·담당자 배정 진행
  */
 import { nowIso } from '../../core/format'
 import { BLOCKED_NOTICE, hasMask, MASK_NOTICE, MASK_NOTICE_DRAFT, maskNotices, maskSensitive } from '../../core/mask'
@@ -655,8 +655,8 @@ export function confirmDraft(rec: StoreRecord) {
 const wait = (ms: number) => ms * mockConfig.pipelineScale
 
 /**
- * Jira Ticket 생성(업무 상태 RDY) → 담당자 배정(배정 상태 ASSIGNED) → (자동 진행이 켜져 있으면) 처리 시작 → 처리 결과 등록.
- * 업무 상태는 Jira 생성 직후 RDY 가 되고, 배정 여부는 배정 상태가 따로 나타낸다. (docs/07.API_계약서.md 상태 전환)
+ * ITSM Ticket 생성(업무 상태 RDY) → 담당자 배정(배정 상태 ASSIGNED) → (자동 진행이 켜져 있으면) 처리 시작 → 처리 결과 등록.
+ * 업무 상태는 ITSM 생성 직후 RDY 가 되고, 배정 여부는 배정 상태가 따로 나타낸다. (docs/07.API_계약서.md 상태 전환)
  */
 function runPipeline(rec: StoreRecord) {
   const t = rec.inquiry.ticket
@@ -698,7 +698,7 @@ function assign(rec: StoreRecord) {
   inquiry.updatedAt = nowIso()
 }
 
-/** 접수의 상태 이력에 한 줄을 남긴다 (서버의 ticket_status_history 와 같다). 담당자·Jira 쪽 변화는 actor 없이, 문의자가 누른 해결·미해결은 문의자 이름으로 */
+/** 접수의 상태 이력에 한 줄을 남긴다 (서버의 ticket_status_history 와 같다). 담당자·ITSM 쪽 변화는 actor 없이, 문의자가 누른 해결·미해결은 문의자 이름으로 */
 function logStatus(rec: StoreRecord, to: NonNullable<Ticket['workStatus']>, opt: { source: 'JIRA' | 'ITSSUE'; reason?: string }) {
   const t = rec.inquiry.ticket
   if (!t) return

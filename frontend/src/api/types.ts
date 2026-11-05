@@ -126,7 +126,7 @@ export interface InquirySummary {
   displayStatus: DisplayStatus
   /** 분류. 아직 판단하지 못했으면 null */
   categoryCode: CategoryCode | null
-  /** 접수번호·Jira 번호. 접수 전에는 null */
+  /** 접수번호·ITSM 번호. 접수 전에는 null */
   receiptNo: string | null
   jiraKey: string | null
   /** 문의를 시작한 시각 (ISO 8601) */

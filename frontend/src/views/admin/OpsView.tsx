@@ -37,7 +37,7 @@ const monthDay = (iso: string) => {
   return `${d.getMonth() + 1}월 ${d.getDate()}일`
 }
 
-/** 접수 → Jira 생성 → 담당자 배정 3단계: 막힌 단계는 빨강, 확인 중은 노랑, 아직 안 온 단계는 회색 */
+/** 접수 → ITSM 생성 → 담당자 배정 3단계: 막힌 단계는 빨강, 확인 중은 노랑, 아직 안 온 단계는 회색 */
 function Dots({ t, mode }: { t: TicketSummary; mode: 'link' | 'asg' }) {
   const g = 'var(--s-ok-dot)'
   const r = 'var(--s-urg-dot)'
@@ -47,16 +47,16 @@ function Dots({ t, mode }: { t: TicketSummary; mode: 'link' | 'asg' }) {
   let label: string
   if (mode === 'asg') {
     c = [g, g, r]
-    label = '접수 완료, Jira 생성 완료, 담당자 배정 확인 필요'
+    label = '접수 완료, ITSM 생성 완료, 담당자 배정 확인 필요'
   } else if (t.transitionStatus === 'NEEDS_ADMIN') {
     c = [g, g, g]
-    label = '접수 완료, Jira 생성 완료, 담당자 배정 완료. 상태 동기화 확인 필요'
+    label = '접수 완료, ITSM 생성 완료, 담당자 배정 완료. 상태 동기화 확인 필요'
   } else if (t.jiraSyncStatus === 'NEEDS_ADMIN') {
     c = [g, r, n]
-    label = '접수 완료, Jira 생성 막힘, 담당자 배정 대기'
+    label = '접수 완료, ITSM 생성 막힘, 담당자 배정 대기'
   } else {
     c = [g, w, n]
-    label = '접수 완료, Jira 생성 여부 확인 중, 담당자 배정 대기'
+    label = '접수 완료, ITSM 생성 여부 확인 중, 담당자 배정 대기'
   }
   return (
     <span className="odots" role="img" aria-label={label}>
@@ -70,7 +70,7 @@ function Dots({ t, mode }: { t: TicketSummary; mode: 'link' | 'asg' }) {
   )
 }
 
-const linkWhy = (t: TicketSummary) => (t.transitionStatus === 'NEEDS_ADMIN' ? 'Jira 동기화 확인 필요' : t.jiraSyncStatus === 'NEEDS_ADMIN' ? 'Jira 생성 요청 응답 시간 초과 · 생성 여부 확인 필요' : 'Jira 생성 결과 확인 중')
+const linkWhy = (t: TicketSummary) => (t.transitionStatus === 'NEEDS_ADMIN' ? 'ITSM 동기화 확인 필요' : t.jiraSyncStatus === 'NEEDS_ADMIN' ? 'ITSM 생성 요청 응답 시간 초과 · 생성 여부 확인 필요' : 'ITSM 생성 결과 확인 중')
 const sub = (t: TicketSummary) => `${t.receiptNo} · ${t.group?.name ?? '-'} · ${t.assignee?.name ?? '배정 전'}`
 
 type Key = 'U' | 'X' | 'L' | 'A'
@@ -200,12 +200,12 @@ export function OpsView() {
         return
       }
       if (r.data.outcome === 'LINKED_EXISTING') {
-        note({ ...t, jiraKey: r.data.jiraKey }, `이미 만들어진 Jira 이슈를 연결 · ${r.data.jiraKey}`)
+        note({ ...t, jiraKey: r.data.jiraKey }, `이미 만들어진 ITSM 이슈를 연결 · ${r.data.jiraKey}`)
         setReload((n) => n + 1)
         return
       }
       if (r.data.outcome === 'ALREADY_APPLIED') {
-        note({ ...t, jiraKey: r.data.jiraKey }, 'Jira에 이미 반영돼 있어 상태를 맞춤')
+        note({ ...t, jiraKey: r.data.jiraKey }, 'ITSM에 이미 반영돼 있어 상태를 맞춤')
         setReload((n) => n + 1)
         return
       }
@@ -481,7 +481,7 @@ export function OpsView() {
                 <>
                   티켓 연동 확인 <span className="ocnt">{linkL.length}건</span>
                 </>,
-                'Jira 이슈가 안 만들어졌거나 상태를 가져오지 못한 건',
+                'ITSM 이슈가 안 만들어졌거나 상태를 가져오지 못한 건',
                 <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?st=none')}>
                   모두 보기
                 </button>,
@@ -492,7 +492,7 @@ export function OpsView() {
                 <>
                   담당자 배정 확인 <span className="ocnt">{asgL.length}건</span>
                 </>,
-                'Jira 이슈는 만들어졌지만 담당자가 비어 있는 건',
+                'ITSM 이슈는 만들어졌지만 담당자가 비어 있는 건',
                 <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?st=none')}>
                   모두 보기
                 </button>,
@@ -548,13 +548,13 @@ export function OpsView() {
                           <th>
                             긴급도 <span className="small muted">(처리 대기 + 처리 중)</span>
                           </th>
-                          <th>Jira 계정</th>
+                          <th>ITSM 계정</th>
                           <th>비고</th>
                         </tr>
                       </thead>
                       <tbody>
                         {members.map((c) => {
-                          const notes = [!c.avail && '부재 중 · 자동배정 제외', !c.jira && 'Jira 배정 반영 불가'].filter(Boolean).join(' · ')
+                          const notes = [!c.avail && '부재 중 · 자동배정 제외', !c.jira && 'ITSM 배정 반영 불가'].filter(Boolean).join(' · ')
                           return (
                             <tr key={c.id}>
                               <td>
@@ -615,7 +615,7 @@ export function OpsView() {
           onClose={() => setAssign(null)}
           onDone={(registered) => {
             note(assign, registered ? '담당자 지정 등록함 · 실행기가 처리하면 반영돼요' : '담당자를 지정했어요')
-            say(registered ? '담당자 지정을 등록했어요. 실행기가 Jira에 반영하면 담당자가 바뀌어요.' : '담당자를 지정했어요.')
+            say(registered ? '담당자 지정을 등록했어요. 실행기가 ITSM에 반영하면 담당자가 바뀌어요.' : '담당자를 지정했어요.')
             setAssign(null)
             setReload((n) => n + 1)
           }}
@@ -641,9 +641,9 @@ function CheckDialog({ t, busy, err, onClose, onDetail, onGo }: { t: TicketSumma
     onGo(trn ? 'trn' : 'link', w)
   }
   return (
-    <Modal title={trn ? 'Jira 상태 확인' : 'Jira 생성 확인'} onClose={onClose}>
+    <Modal title={trn ? 'ITSM 상태 확인' : 'ITSM 생성 확인'} onClose={onClose}>
       <p className="small muted" style={{ margin: 0 }}>
-        접수 <span className="mono">{t.receiptNo}</span> · {t.jiraKey ? <>Jira <b className="mono">{t.jiraKey}</b></> : 'Jira 티켓 없음'} · {t.group?.name ?? '-'} · <UrgencyChip u={t.urgency} />
+        접수 <span className="mono">{t.receiptNo}</span> · {t.jiraKey ? <>ITSM <b className="mono">{t.jiraKey}</b></> : 'ITSM 티켓 없음'} · {t.group?.name ?? '-'} · <UrgencyChip u={t.urgency} />
       </p>
       <div className="mdl-issue">
         <div className="stlist" aria-label="확인이 필요한 내용">
@@ -651,25 +651,25 @@ function CheckDialog({ t, busy, err, onClose, onDetail, onGo }: { t: TicketSumma
             <span className="mk">
               <Icon name="alert" />
             </span>
-            <span className="l">{trn ? '상태 변경' : 'Jira 연동'}</span>
+            <span className="l">{trn ? '상태 변경' : 'ITSM 연동'}</span>
             <span className="vb">
               <span className={`sbd ${trn || !verifying ? 'tn-urg' : 'tn-warn'}`}>
                 <i />
-                {trn ? 'Jira 동기화 필요' : verifying ? '생성 여부 확인 중' : 'Jira 생성 확인 필요'}
+                {trn ? 'ITSM 동기화 필요' : verifying ? '생성 여부 확인 중' : 'ITSM 생성 확인 필요'}
               </span>
             </span>
-            <span className="sxs">{trn ? `${now} → ${to} 변경이 Jira에 반영됐는지 확인하지 못함` : linkWhy(t)}</span>
+            <span className="sxs">{trn ? `${now} → ${to} 변경이 ITSM에 반영됐는지 확인하지 못함` : linkWhy(t)}</span>
           </div>
         </div>
       </div>
       <p className="mdl-how">
         {trn ? (
           <>
-            Jira에서 현재 상태를 먼저 읽어 와요. 이미 <b>{to}</b>이면 다시 요청하지 않고 완료로 처리하고, 아직 <b>{now}</b>이면 <b>{to}</b>로 바꾸는 요청을 다시 보내요.
+            ITSM에서 현재 상태를 먼저 읽어 와요. 이미 <b>{to}</b>이면 다시 요청하지 않고 완료로 처리하고, 아직 <b>{now}</b>이면 <b>{to}</b>로 바꾸는 요청을 다시 보내요.
           </>
         ) : (
           <>
-            Jira에서 접수번호 <b className="mono">{t.receiptNo}</b>로 만든 티켓이 있는지 먼저 찾아요. 있으면 그 티켓을 연결하고, 없을 때만 새로 만들어요. (중복 생성 방지)
+            ITSM에서 접수번호 <b className="mono">{t.receiptNo}</b>로 만든 티켓이 있는지 먼저 찾아요. 있으면 그 티켓을 연결하고, 없을 때만 새로 만들어요. (중복 생성 방지)
           </>
         )}
       </p>
@@ -677,7 +677,7 @@ function CheckDialog({ t, busy, err, onClose, onDetail, onGo }: { t: TicketSumma
         <label htmlFor="ops-why">
           재처리 사유 <span className="muted">(필수)</span>
         </label>
-        <textarea id="ops-why" className={`ta${whyErr ? ' err' : ''}`} maxLength={500} value={why} placeholder="예) Jira 장애 복구 후 재처리" aria-invalid={!!whyErr} aria-describedby={whyErr ? 'ops-why-e' : undefined} onChange={(e) => { setWhy(e.target.value); setWhyErr('') }} />
+        <textarea id="ops-why" className={`ta${whyErr ? ' err' : ''}`} maxLength={500} value={why} placeholder="예) ITSM 장애 복구 후 재처리" aria-invalid={!!whyErr} aria-describedby={whyErr ? 'ops-why-e' : undefined} onChange={(e) => { setWhy(e.target.value); setWhyErr('') }} />
         {whyErr && (
           <div className="ferr" id="ops-why-e" role="alert">
             {whyErr}
@@ -703,7 +703,7 @@ function CheckDialog({ t, busy, err, onClose, onDetail, onGo }: { t: TicketSumma
           상세
         </button>
         <button type="button" className="btn pri" disabled={busy} onClick={submit}>
-          {trn ? 'Jira 상태 확인·다시 반영' : 'Jira 생성 확인·재시도'}
+          {trn ? 'ITSM 상태 확인·다시 반영' : 'ITSM 생성 확인·재시도'}
         </button>
       </div>
     </Modal>

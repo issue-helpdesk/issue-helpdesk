@@ -77,7 +77,7 @@ afterEach(() => {
 })
 
 describe('서버 모드 담당 그룹 구성원', () => {
-  it('RF-04·TO-01·TK-05 를 합쳐 부재 사유·Jira 연결·업무량·긴급도 분포를 만든다', async () => {
+  it('RF-04·TO-01·TK-05 를 합쳐 부재 사유·ITSM 연결·업무량·긴급도 분포를 만든다', async () => {
     const api = await load()
     server()
     const r = await api.listBoard(admin)

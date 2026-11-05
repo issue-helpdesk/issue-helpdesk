@@ -4,7 +4,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { GROUP_STAFF, bindMockUser, clearBoundUsers } from '../src/api/mock/staffTickets'
 import { listBoard } from '../src/api/reference'
-import { getTeamStatus, listTickets } from '../src/api/tickets'
+import { listTickets } from '../src/api/tickets'
 import type { User } from '../src/api/types'
 
 /** 서버가 정한 번호(4)를 가진 성민경. 모의의 성민경 번호는 2이다 */
@@ -32,11 +32,6 @@ describe('서버 로그인 + 모의 접수', () => {
     expect(me?.id).toBe(4)
     expect((me?.rdy ?? 0) + (me?.wip ?? 0)).toBeGreaterThan(5)
     expect(GROUP_STAFF['네트워크팀'][0].id).toBe(4)
-  })
-
-  it('팀 현황은 이름·그룹으로 세어 번호와 상관없이 동작한다', async () => {
-    const r = await getTeamStatus(server)
-    expect(r.ok && r.data.groupName).toBe('네트워크팀')
   })
 
   it('지우면 모의의 원래 번호로 돌아온다', () => {

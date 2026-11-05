@@ -1,7 +1,7 @@
 /**
  * 담당 그룹·구성원·부재·업무량 (관리자의 전체 문의 필터, 재배정·지정 후보, 운영 현황의 팀별 개인 현황). (docs/api/05 RF-03·04, TO-01, docs/api/03 TK-05)
  *   GET /support-groups                    RF-03 담당 그룹 목록
- *   GET /support-groups/{id}/members       RF-04 그룹 구성원 (배정 가능 여부, Jira 계정, 지금 부재 여부, 진행 접수 수)
+ *   GET /support-groups/{id}/members       RF-04 그룹 구성원 (배정 가능 여부, ITSM 계정, 지금 부재 여부, 진행 접수 수)
  *   GET /time-off                          TO-01 오늘의 연차·반차 (부재 사유)
  *   GET /tickets?view=ALL                  TK-05 처리 대기·처리 중 접수 (구성원별 처리 대기/처리 중 건수, 긴급도 분포)
  * 접수 영역(VITE_USE_MOCK_TICKET)을 따른다. 모의 모드에서는 mock/staffTickets.ts 의 그룹·구성원을 쓴다.
@@ -25,14 +25,14 @@ export interface StaffRef {
   group: string
 }
 
-/** 재배정 후보 한 명: 오늘 상태, 업무량(처리 대기·처리 중), 긴급도 분포, Jira 계정 연결 */
+/** 재배정 후보 한 명: 오늘 상태, 업무량(처리 대기·처리 중), 긴급도 분포, ITSM 계정 연결 */
 export interface Candidate {
   id: number
   name: string
   avail: boolean
   /** 부재 사유 (연차·반차) */
   leave?: string
-  /** Jira 에 배정을 반영할 수 있는지 (서버: 활성 + 배정 가능 + Jira 계정 연결) */
+  /** ITSM 에 배정을 반영할 수 있는지 (서버: 활성 + 배정 가능 + ITSM 계정 연결) */
   jira: boolean
   rdy: number
   wip: number
