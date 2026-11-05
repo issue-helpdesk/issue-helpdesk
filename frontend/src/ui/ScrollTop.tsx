@@ -23,6 +23,12 @@ export function ScrollTop() {
   const [on, setOn] = useState(false)
   const [mounted, setMounted] = useState(false)
   if (on && !mounted) setMounted(true)
+  // 화면을 옮기면 버튼을 숨긴다 (이전 본문 상자의 스크롤 위치를 따라 남지 않게)
+  const [shownAt, setShownAt] = useState(pathname)
+  if (shownAt !== pathname) {
+    setShownAt(pathname)
+    setOn(false)
+  }
 
   useEffect(() => {
     if (on || !mounted) return
@@ -30,11 +36,6 @@ export function ScrollTop() {
     return () => clearTimeout(t)
   }, [on, mounted])
 
-  // 화면을 옮기면 이전 본문 상자는 잊는다
-  useEffect(() => {
-    target.current = null
-    setOn(false)
-  }, [pathname])
 
   useEffect(() => {
     const onScroll = (e: Event) => {

@@ -5,7 +5,8 @@
  * 도넛은 화면에 들어올 때 호가 차오른다(.donut 의 공통 모션). 개인별 분류 분포는 서버 집계에 없어 보여 주지 않는다.
  */
 import type { StatCounts } from '../../api/adminStats'
-import { StatSr, useStatTip } from '../../ui/StatTip'
+import { StatSr } from '../../ui/StatSr'
+import { useStatTip } from '../../ui/StatTip'
 import { STATES, sumOf } from '../staff/StatsView'
 
 const SIZE = 124
