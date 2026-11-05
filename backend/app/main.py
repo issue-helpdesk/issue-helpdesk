@@ -20,6 +20,7 @@ from app.api import (
     time_off,
     users,
 )
+from app.core.config import check_startup_settings
 from app.core.errors import register_error_handlers
 from app.core.upload_limit import UploadLimitMiddleware
 from app.rag.search import runtime as search_runtime
@@ -28,6 +29,7 @@ from app.services.document_ingest import resume_periodically, submit_cleanup, su
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    check_startup_settings()
     # EMBEDDING_PRELOAD=true 면 임베딩 모델을 미리 연다 (EC2 약 28초). 꺼져 있으면 첫 검색 때 연다
     search_runtime.preload()
     submit_cleanup()
