@@ -118,6 +118,8 @@ let pending: PendingStart | null = null
 /** 새 문의를 보내기 시작한다. run 은 테스트에서 느린 서버를 흉내 낼 때 바꾼다 */
 export function beginChat(user: { employeeNo: string; name: string }, text: string, run: typeof startChat = startChat): PendingStart {
   pending = { text, promise: run(user, text) }
+  // 대기 화면이 뜨기 전에 예외로 끝나도 "처리되지 않은 거절" 경고가 나지 않게 한다 (화면은 같은 약속에서 예외를 직접 받아 오류를 보여 준다)
+  pending.promise.catch(() => {})
   return pending
 }
 export const getPending = () => pending

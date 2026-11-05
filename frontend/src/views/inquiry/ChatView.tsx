@@ -192,7 +192,15 @@ export function ChatView() {
     async (job: Promise<ApiResult<Inquiry>>): Promise<boolean> => {
       setBusy(true)
       setError('')
-      const r = await job
+      let r: ApiResult<Inquiry>
+      try {
+        r = await job
+      } catch {
+        // 예외로 끝나도 버튼이 영영 잠겨 있지 않게 풀고 오류를 알린다
+        setBusy(false)
+        setError('요청을 보내지 못했어요. 잠시 뒤 다시 시도해 주세요.')
+        return false
+      }
       setBusy(false)
       if (!r.ok) {
         // 같은 변경이 Jira 에 반영되는 중이면 잘못이 아니라 기다리라는 안내다. 최신 문의로 다시 그리면 버튼이 잠긴다
