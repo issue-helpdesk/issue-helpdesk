@@ -55,6 +55,20 @@ export interface TicketDetail extends TicketSummary {
 }
 
 /** 업무 상태 이력 (StatusHistory) */
+/** 담당자 배정 이력 (TK-10 assignment-logs). 서버는 담당 그룹 추천·배정·재배정·배정 실패를 모두 남긴다 */
+export interface AssignmentLog {
+  id: number
+  ticketId: number
+  event: 'RECOMMEND' | 'ASSIGN' | 'REASSIGN' | 'FAIL'
+  group: { id: number; name: string } | null
+  assignee: UserRef | null
+  /** 적용 근거·실패 사유. 재배정은 관리자가 적은 사유 */
+  reason: string | null
+  /** null 이면 시스템이 한 일 */
+  actor: UserRef | null
+  createdAt: string
+}
+
 export interface StatusHistory {
   id: number
   ticketId: number

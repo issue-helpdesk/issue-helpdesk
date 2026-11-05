@@ -1,7 +1,8 @@
 /**
  * 운영 기록 (관리자, /audit). (design/ITssue-Prototype.html viewAudit, docs/api/05 OP-04 GET /audit-logs)
  * AI 판단·접수 확정·담당자 배정·실패 같은 주요 처리 기록을 구분·이벤트·기간으로 조회한다. 대화 원문은 없고 결과와 사유만 보인다.
- * 보안·감사 알림(감지된 의심 신호)과는 다른 기록이다. 기록을 읽는 용도라 링크·상세 패널은 없다.
+ * 보안·감사 알림(감지된 의심 신호)과는 다른 기록이다. 접수·문의 대상 기록은 서버가 준 접수번호(R-40)를 구분 칸 둘째 줄에 보이고,
+ * 누르면 화면은 그대로 두고 오른쪽에 그 접수의 상세 패널만 연다(다른 접수번호를 누르면 패널만 바뀐다).
  * 서버는 접수번호·이름이 아니라 내부 숫자 id(targetId)만 주므로 id 는 내지 않고(마우스를 올리면 나온다), 서버가 결과에 담아 준
  * 접수번호·문서 코드·FAQ 번호만 구분 칸 둘째 줄에 보여 준다 (docs/api/06 R-42 가 반영되면 모든 줄에 이름을 보일 수 있다).
  * 이벤트·결과의 화면 말은 api/auditLogs.ts 의 사전과 describeAudit() 이다.
@@ -14,10 +15,12 @@ import titleOps from '../../assets/mascot/title-ops.webp'
 import { formatDateTime } from '../../core/format'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
+import { watchTickets } from '../../api/tickets'
 import { Pager } from '../../ui/Pager'
 import { SelectBox } from '../../ui/SelectBox'
 import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
+import { TicketDetailPanel } from '../staff/TicketDetailPanel'
 
 type Period = '' | 'today' | 'w'
 const PERIOD: { v: Period; label: string; days?: number }[] = [
@@ -36,6 +39,15 @@ export function AuditLogView() {
   const [data, setData] = useState<Page<AuditLog> | null>(null)
   const [error, setError] = useState('')
   const admin = user?.serviceRole === 'ADMIN'
+  // 접수번호를 눌러 연 상세 패널 (처음 열 때만 밀려 들어오고, 다른 접수로 바꿀 때는 안의 내용만 바뀐다)
+  const [openId, setOpenId] = useState<number | null>(null)
+  const [slide, setSlide] = useState(false)
+  const [tick, setTick] = useState(0)
+  useEffect(() => watchTickets(() => setTick((n) => n + 1)), [])
+  const openTicket = (id: number) => {
+    if (openId === null) setSlide(true)
+    setOpenId(id)
+  }
 
   useEffect(() => {
     if (!user || !admin) return
@@ -63,6 +75,7 @@ export function AuditLogView() {
   }
 
   return (
+    <>
     <main className="main">
       <Topbar title="운영 기록" sub="ITssue에서 일어난 주요 처리 기록" lead={<img className="tti" src={titleOps} alt="" width={56} height={56} />} />
       <div className="scroll">
@@ -138,12 +151,18 @@ export function AuditLogView() {
                       const ev = EVENT_LABEL[x.eventType]
                       const text = describeAudit(x)
                       return (
-                        <tr key={x.id} title={x.targetId !== null ? `내부 번호 ${x.targetId}` : undefined}>
+                        <tr key={x.id} className={x.ticketId != null && openId === x.ticketId ? 'cur' : ''} title={x.targetId !== null ? `내부 번호 ${x.targetId}` : undefined}>
                           <td className="tnum">{formatDateTime(x.createdAt)}</td>
                           <td>
                             {/* 종류는 첫 줄, 접수번호·문서 코드 같은 식별 이름은 줄을 바꿔 둘째 줄에 */}
                             <div className="aukd">{x.targetType ? (TARGET_LABEL[x.targetType] ?? x.targetType) : '-'}</div>
-                            {text.name && <div className="aunm mono">{text.name}</div>}
+                            {x.receiptNo && x.ticketId != null ? (
+                              <button type="button" className="aulink mono" aria-label={`접수 ${x.receiptNo} 상세 보기`} onClick={() => openTicket(x.ticketId as number)}>
+                                {x.receiptNo}
+                              </button>
+                            ) : (
+                              text.name && <div className="aunm mono">{text.name}</div>
+                            )}
                           </td>
                           <td>
                             <StateBadge tone={ev?.tone ?? 'recv'} label={ev?.label ?? x.eventType} />
@@ -166,5 +185,7 @@ export function AuditLogView() {
         </div>
       </div>
     </main>
+    {openId !== null && <TicketDetailPanel key={openId} id={openId} tick={tick} slide={slide} onSlideEnd={() => setSlide(false)} onClose={() => setOpenId(null)} />}
+    </>
   )
 }

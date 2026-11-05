@@ -13,8 +13,9 @@ import { notReady } from './inquiryServer'
 import { staffTransition } from './mock/chatEngine'
 import { later, mockConfig, notify, subscribe } from './mock/chatStore'
 import { GROUP_STAFF, TEAM_MEMBERS, addMessage, bindMockUser, reassignSeed, addHistory, messagesOf, slackOf, allStaffTickets, findStaffTicket, historyOf, mutateSeed, pending, recordOfTicket } from './mock/staffTickets'
+import { addAssignmentLog, assignmentLogsOf } from './mock/historyLog'
 import type { Page } from './inquiries'
-import type { MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMessage, TicketListQuery, TicketSummary, TicketTransitionRequest } from './ticketTypes'
+import type { AssignmentLog, MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMessage, TicketListQuery, TicketSummary, TicketTransitionRequest } from './ticketTypes'
 import { fail, ok, type ApiResult, type User } from './types'
 import { nowIso } from '../core/format'
 import { maskSensitive } from '../core/mask'
@@ -139,6 +140,7 @@ export async function reassignTicket(user: User, id: number, body: { assigneeId:
   if (!m.jira) return fail('ASSIGNEE_NOT_ASSIGNABLE', 'Jira 계정이 연결되지 않아 배정할 수 없어요.')
   if (t.assignee?.id === m.id) return fail('ASSIGNEE_NOT_ASSIGNABLE', '이미 이 담당자가 맡고 있어요.')
   const to = { id: m.id, employeeNo: m.employeeNo, name: m.name }
+  addAssignmentLog(id, { event: 'REASSIGN', group: t.group ? { id: t.group.id, name: t.group.name } : null, assignee: to, reason: body.reason.trim(), actor: { id: user.id, employeeNo: user.employeeNo, name: user.name }, createdAt: nowIso() })
   const rec = recordOfTicket(id)
   if (rec?.inquiry.ticket) {
     rec.inquiry.ticket.assigneeId = to.id
@@ -165,6 +167,18 @@ export async function getTicket(user: User, id: number): Promise<ApiResult<Ticke
 export async function syncTicket(user: User, id: number): Promise<ApiResult<TicketDetail>> {
   if (USE_MOCK_TICKET) return getTicket(user, id)
   return request<TicketDetail>(`/tickets/${id}/sync`, { method: 'POST' })
+}
+
+/**
+ * 담당자 배정 이력 (TK-10). 서버는 담당 그룹 추천·배정·재배정·배정 실패를 시간순으로 준다. 담당 그룹과 관리자만 읽을 수 있고,
+ * 못 읽으면(권한·없음) 호출한 쪽이 조용히 비워 둔다. 처리 이력 칸이 상태 이력과 합쳐 보여 준다.
+ */
+export async function getAssignmentLogs(user: User, id: number): Promise<ApiResult<{ items: AssignmentLog[] }>> {
+  if (!USE_MOCK_TICKET) return request<{ items: AssignmentLog[] }>(`/tickets/${id}/assignment-logs`)
+  await sleep(80)
+  const t = findStaffTicket(id)
+  if (!t || !canSee(user, t)) return notFound()
+  return ok({ items: assignmentLogsOf(id) })
 }
 
 /** 업무 상태 이력 (TK-08) */

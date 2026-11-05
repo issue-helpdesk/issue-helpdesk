@@ -545,3 +545,7 @@
 /* 입력 칸(textarea)의 스크롤바: 둥근 테두리 안에서 깨지지 않게 가늘게, 위아래 여백을 두고, 모서리 크기 조절 표시는 투명하게 */
 .ta{scrollbar-width:thin;scrollbar-color:var(--mute) transparent}
 @supports selector(::-webkit-scrollbar){.ta{scrollbar-width:auto;scrollbar-color:auto}.ta::-webkit-scrollbar{width:10px}.ta::-webkit-scrollbar-track{background:transparent;margin:8px 0}.ta::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--mute) 55%,transparent);border:3px solid transparent;border-radius:999px;background-clip:content-box}.ta::-webkit-scrollbar-corner,.ta::-webkit-resizer{background:transparent}}
+
+/* 운영 기록: 접수번호를 누르면 오른쪽에 접수 상세 패널 (링크처럼 보이는 글자 단추) */
+.aulink{display:block;margin:2px 0 0;padding:0;border:0;background:none;font-size:12.5px;color:var(--link);text-decoration:underline;text-underline-offset:2px;cursor:pointer;text-align:left}.aulink:hover{color:var(--btn-t)}.aulink:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px;border-radius:4px}
+.auditt tr.cur td{background:var(--osoft)}

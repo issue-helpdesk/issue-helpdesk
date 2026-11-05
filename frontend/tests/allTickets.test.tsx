@@ -172,5 +172,12 @@ describe('전체 문의 화면', () => {
     await userEvent.type(within(dlg).getByLabelText('재배정 사유 (필수)'), '업무량 조정')
     await userEvent.click(within(dlg).getByRole('button', { name: '재배정' }))
     expect(await screen.findByText('재배정했어요. 진행 상태는 그대로 유지돼요.', undefined, SLOW)).toBeInTheDocument()
+    // 처리 이력에 재배정이 남는다: 누가, 누구에게, 사유까지 (상태 이력과 시간순으로 합쳐 맨 위에)
+    const hist = (await within(panel).findByRole('heading', { name: '처리 이력' })).parentElement as HTMLElement
+    const line = await within(hist).findByText(/담당자 재배정 · /, undefined, SLOW)
+    const li = line.closest('li') as HTMLElement
+    expect(li).toHaveTextContent('업무량 조정')
+    expect(within(li).getByText('재배정 사유')).toBeInTheDocument()
+    expect(hist.querySelector('li')).toBe(li) // 방금 한 일이라 가장 위
   })
 })
