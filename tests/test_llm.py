@@ -25,7 +25,7 @@ ANSWER = {
     'title': "재택 중 VPN '서버에 연결할 수 없습니다' 오류", 'category_code': 'NET', 'inquiry_type_code': 'NET-02',
     'request_kind': 'INCIDENT', 'urgency_suggested': 'P3',
     'facts': {'summary': '재택 근무 중 VPN 연결 시 오류가 나며 연결되지 않음', 'target_system': '사내 VPN',
-              'symptom': "VPN 연결 시 '서버에 연결할 수 없습니다' 오류", 'occurred_at': '오늘 아침부터',
+              'symptom': "VPN 연결 시 '서버에 연결할 수 없습니다' 오류", 'situation': None, 'occurred_at': '오늘 아침부터',
               'impact_scope': 'PERSONAL', 'work_stopped': 'partial', 'has_workaround': None, 'time_constraint': None,
               'business_impact': '재택 근무 중 VPN이 필요한 사내 시스템을 쓰지 못함', 'security_suspected': False,
               'tried_actions': ['재부팅']},
@@ -33,7 +33,7 @@ ANSWER = {
                   'action': 'Guide 근거 충분'},
     'reply': 'VPN 클라이언트를 최신 버전으로 업데이트한 뒤 다시 연결해 보세요.',
     'evidence': [{'kind': 'DOCUMENT', 'source_id': 'IT-NET-001@v2.0/item:3.1', 'quote': 'VPN 클라이언트가 구버전입니다'}],
-    'missing_items': [], 'escalation_reason': None, 'confidence': 0.82,
+    'questions': [], 'missing_items': [], 'escalation_reason': None, 'confidence': 0.82,
 }
 ANSWER_JSON = json.dumps(ANSWER, ensure_ascii=False)
 
@@ -206,7 +206,8 @@ def test_system_prompt_has_taxonomy_and_is_stable():
 # ── 2차 판단 (08 2.6) ──────────────────────────────
 
 SECOND = {'action': 'ESCALATE', 'reply': '권한 변경이 필요해요. 담당자에게 연결해 드릴까요?', 'evidence': [],
-          'missing_items': [], 'escalation_reason': '권한변경', 'confidence': 0.7, 'action_reason': '권한 변경 필요'}
+          'questions': [], 'missing_items': [], 'escalation_reason': '권한변경', 'confidence': 0.7,
+          'action_reason': '권한 변경 필요'}
 
 
 def first_output(**kw) -> AIOutput:

@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 2                                    # 처음 + 다시 한 번 (08 3.2 2·3단계)
 RETRY_CODES = ('INVALID_JSON', 'SCHEMA_INVALID', 'MAX_TOKENS')
-FACT_TEXTS = ('summary', 'target_system', 'symptom', 'occurred_at', 'time_constraint', 'business_impact')
+FACT_TEXTS = ('summary', 'target_system', 'symptom', 'situation', 'occurred_at', 'time_constraint', 'business_impact')
 
 
 @dataclass(frozen=True)

@@ -14,7 +14,8 @@ from collections.abc import Callable, Iterable
 
 from langgraph.graph import END, START, StateGraph
 
-from app.agent.flow.correct import LIMIT_RULES, Limits, asks_back, correct, drop_asks_back, override, unsafe_reply
+from app.agent.flow.correct import (LIMIT_RULES, Limits, asks_back, correct, drop_asks_back, override, shown_text,
+                                    unsafe_reply)
 from app.agent.flow.result import FlowResult, source_rows
 from app.agent.flow.state import FlowState
 from app.agent.flow.urgency import decide_urgency
@@ -54,7 +55,7 @@ def build_flow(port: LLMPort, taxonomy: Taxonomy, staff_names: Iterable[str], se
         out, o, step = settle(r.output, failure, code)
         # 08 3.2 9단계. 1차 뒤 검색으로 가면 이 reply 는 보여 주지 않으므로 보지 않는다
         shown = failure is None and (second or step)
-        if shown and unsafe_reply(r.output.reply):
+        if shown and unsafe_reply(shown_text(r.output)):
             if not state.get('retried'):
                 return {'retry': True, 'retried': True}
             ai_output, failure, code = None, 'AI_FAILED', 'UNSAFE_REPLY'
@@ -80,7 +81,9 @@ def build_flow(port: LLMPort, taxonomy: Taxonomy, staff_names: Iterable[str], se
 
     def search(state: FlowState) -> dict:
         inp = state['inp']
-        query = build_query([m.content for m in inp.history if m.role == 'user'] + [inp.message])
+        # 1차가 정한 가이드 상황을 맨 뒤에 붙인다. "1번 ②" 같은 답은 그것만으로 검색되지 않는다 (M4-3-1)
+        situation = state['output'].facts.situation
+        query = build_query([m.content for m in inp.history if m.role == 'user'] + [inp.message, situation or ''])
         return {'search': search_fn(SearchRequest(query=query, service_role=inp.user_context.service_role)),
                 'retried': False}
 

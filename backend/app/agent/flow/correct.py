@@ -2,6 +2,7 @@
 
 - unsafe_reply : 9단계. reply 가 비밀번호·인증번호·API 키를 달라고 하거나, 접수·배정됐다고 말하는가
 - asks_back    : 9단계. ANSWER reply 가 연결을 제안하거나 정보를 달라고 하는가. drop_asks_back 이 그 문장을 뺀다
+- shown_text   : 9단계 검사 대상. reply 와 추가 질문(questions)
 - correct      : 4~8단계와 처리 방향 보정. 바꾼 것은 override_reasons 항목(08 5.4)으로 함께 돌려준다
 
 1~3단계(버전·JSON·필수 키)는 call_judge 가 한다. 9단계에서 다시 부르는 일은 graph.py 가 한다.
@@ -19,6 +20,9 @@ from app.rag.search import SearchResponse
 TITLE_MAX = 255                                     # inquiries.title
 ASKED_LATER = ('occurred_at', 'tried_actions')      # 판단 단계에서 묻지 않고 초안 단계에서 묻는다 (08 3.1)
 LIMIT_RULES = ('ASK_MORE_UNANSWERED', 'ASK_MORE_LIMIT')
+MAX_QUESTIONS, MAX_OPTIONS = 3, 5                   # 질문 3개, 선택지는 상황 4개 + "그 밖의 상황" (M4-3-1)
+# 질문을 빼면 reply 에 인사만 남으므로, 되묻기가 담당자 연결로 바뀌면 이 글로 바꾼다
+ASK_TO_HANDOFF = '지금까지 내용만으로는 정확히 안내해 드리기 어려워요. 담당자에게 연결해 드릴까요?'
 
 # 9단계 검사. 문장 하나에 "하지 마세요"가 있으면 안내로 보고 넘긴다 ("비밀번호는 알려 주지 마세요")
 SENTENCE = re.compile(r'[^.!?\n]+')
@@ -73,6 +77,11 @@ def unsafe_reply(reply: str) -> bool:
     return False
 
 
+def shown_text(out: AIOutput) -> str:
+    """사용자에게 보이는 글 전체. 줄바꿈으로 이어 문장 검사가 칸마다 끊기게 한다."""
+    return '\n'.join([out.reply, *(s for q in out.questions for s in (q.text, *q.options))])
+
+
 def _asks_back(piece: str) -> bool:
     return bool(OFFER_HANDOFF.search(piece) or (ASK_INPUT.search(piece) and not TO_OTHER.search(piece)))
 
@@ -117,6 +126,8 @@ def correct(out: AIOutput, inp: AIInput, *, second: bool, sent: Filtered | None,
             o.append(override(key, d[key], kept, 'INVALID_VALUE', '허용값 밖의 항목을 뺌'))
             d[key] = kept
 
+    asked = d['action'] == 'ASK_MORE'
+
     # 5. 세부 유형이 분류 체계에 있고 Category 와 맞는가. Category 는 그대로 둔다
     code = d['inquiry_type_code']
     if code is not None:
@@ -127,7 +138,10 @@ def correct(out: AIOutput, inp: AIInput, *, second: bool, sent: Filtered | None,
             d['inquiry_type_code'] = None
 
     # 6. 이미 답한 항목과 초안 단계 항목은 묻지 않는다
-    known = known_items(inp.collected_facts)
+    # 1차가 상황을 정했으면 이번 판단에서도 상황은 묻지 않고, 검색 전에는 아무것도 묻지 않고 검색으로 간다 (M4-3-1)
+    known = known_items(inp.collected_facts) | ({'situation'} if f['situation'] else set())
+    if f['situation'] and not second:
+        known |= set(MISSING_ITEMS)
     d['missing_items'] = list(dict.fromkeys(m for m in d['missing_items'] if m not in ASKED_LATER and m not in known))
 
     # 7. 처리 방향별 필수 값 (08 2.5). ESCALATE 사유는 아래 처리 방향 보정에서 채운다
@@ -169,6 +183,18 @@ def correct(out: AIOutput, inp: AIInput, *, second: bool, sent: Filtered | None,
         o.append(override('escalation_reason', d['escalation_reason'], None, 'INVALID_VALUE', '담당자 연결이 아님'))
         d['escalation_reason'] = None
 
+    # 추가 질문은 ASK_MORE 에만 있다. 상한(질문 3개·선택지 5개)을 넘으면 자르되 마지막 "그 밖의 상황"은 남긴다
+    if d['action'] != 'ASK_MORE':
+        if asked and d['questions']:
+            d['reply'] = ASK_TO_HANDOFF
+        d['questions'] = []
+    else:
+        cut = [q | {'options': q['options'] if len(q['options']) <= MAX_OPTIONS
+                    else q['options'][:MAX_OPTIONS - 1] + q['options'][-1:]} for q in d['questions'][:MAX_QUESTIONS]]
+        if cut != d['questions']:
+            o.append(override('questions', d['questions'], cut, 'INVALID_VALUE', '질문·선택지 수 상한을 넘음'))
+            d['questions'] = cut
+
     return Corrected(AIOutput.model_validate(d), tuple(o))
 
 
@@ -177,7 +203,7 @@ def known_items(facts: Facts | None) -> set[str]:
     서버가 답을 못 얻은 추가 질문 수(09 4.2)를 셀 때도 쓴다."""
     if facts is None:
         return set()
-    known = {k for k in ('target_system', 'symptom') if getattr(facts, k)}
+    known = {k for k in ('target_system', 'symptom', 'situation') if getattr(facts, k)}
     if facts.impact_scope is not None and facts.work_stopped != 'unknown':
         known.add('impact')
     return known

@@ -2,6 +2,7 @@
 import pytest
 
 from app.agent.flow import Limits, asks_back, correct, drop_asks_back, unsafe_reply
+from app.agent.flow.correct import ASK_TO_HANDOFF
 from app.agent.llm import AIInput, AIOutput, CategoryInfo, Taxonomy, TypeInfo
 from app.agent.sensitive import Filtered
 from app.rag.search import ChunkHit, DocumentResult, LegacyResult, SearchResponse
@@ -100,6 +101,38 @@ def test_missing_items_drop_known_and_later_items():
     c = first(out(action='ASK_MORE', evidence=[],
                   missing_items=['target_system', 'symptom', 'occurred_at', 'tried_actions', 'impact', 'symptom']), i)
     assert c.output.missing_items == ['symptom']                      # 대상 시스템·영향은 이미 앎
+
+
+def test_situation_is_asked_once():
+    """M4-3-1. 가이드 상황을 모르면 묻고, collected_facts 에 상황이 있으면 다시 묻지 않는다."""
+    ask = out(action='ASK_MORE', evidence=[], missing_items=['situation'])
+    c = first(ask)
+    assert (c.output.action, c.output.missing_items) == ('ASK_MORE', ['situation'])
+    c = first(ask, inp(collected_facts={**FACTS, 'situation': 'VPN 연결 후 사내 시스템 접속 불가·화상회의 느림'}))
+    assert (c.output.action, rules(c)) == ('ESCALATE', ['ASK_MORE_EMPTY'])
+
+
+def test_known_situation_is_not_asked_again_in_same_turn():
+    """M4-3-1. 상황이 정해지면 1차는 묻지 않고 검색으로 가고(ASK_MORE_EMPTY), 2차도 상황은 다시 묻지 않는다."""
+    facts = {**FACTS, 'situation': '집에서 VPN이 자주 끊김'}
+    c = first(out(action='ASK_MORE', evidence=[], missing_items=['impact'], facts=facts))
+    assert (c.output.missing_items, rules(c)) == ([], ['ASK_MORE_EMPTY'])
+    c = second(out(action='ASK_MORE', evidence=[], missing_items=['situation', 'impact'], facts=facts))
+    assert (c.output.action, c.output.missing_items) == ('ASK_MORE', ['impact'])
+
+
+def test_questions_only_on_ask_more_and_capped():
+    """M4-3-1. 질문 3개·선택지 5개까지. 되묻기가 담당자 연결로 바뀌면 질문을 빼고 reply 를 바꾼다."""
+    q = {'text': '어떤 상황인가요?', 'options': ['가', '나', '다', '라', '마', '바', '그 밖의 상황']}
+    ask = out(action='ASK_MORE', evidence=[], missing_items=['situation'], reply='몇 가지 여쭤볼게요.', questions=[q] * 4)
+    c = first(ask)
+    assert len(c.output.questions) == 3 and rules(c) == ['INVALID_VALUE']
+    assert c.output.questions[0].options == ['가', '나', '다', '라', '그 밖의 상황']
+    c = first(ask, inp(ask_more_count=5))
+    assert (c.output.action, c.output.questions, rules(c)[-1]) == ('ESCALATE', [], 'ASK_MORE_LIMIT')
+    assert c.output.reply == ASK_TO_HANDOFF
+    c = second(out(questions=[q]))                                    # ANSWER 는 reply 를 그대로 두고 질문만 뺀다
+    assert c.output.questions == [] and c.output.reply == out().reply
 
 
 def test_empty_title_is_filled_from_summary_and_cut():

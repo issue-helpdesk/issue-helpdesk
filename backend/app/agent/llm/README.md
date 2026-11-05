@@ -19,6 +19,7 @@ AIInput ─▶ ① 치환 ─▶ ② 근거 거르기 ─▶ ③ Claude 호출 �
 | [`port.py`](port.py) | 모델 호출 공통 규칙 (LLMPort) | 시스템 설계서 6.3 |
 | [`claude.py`](claude.py) | Claude Adapter | 시스템 설계서 6.3 |
 | [`mock.py`](mock.py) | Mock Adapter (API 키 없이 시험) | 시스템 설계서 6.3 |
+| [`situations.py`](situations.py) · `situations.txt` | 가이드 상황 목록 (현행 가이드 3.x 제목). 가이드를 바꾸면 `backend`에서 `uv run python -m app.agent.llm.situations`로 다시 만듦 | 08 3.1 |
 | [`config.py`](config.py) | `.env`의 `LLM_API_KEY`·`LLM_MODEL` | 시스템 설계서 16.2 |
 
 시험: `tests/test_llm.py` (DB·API 키 없이 돌아갑니다)

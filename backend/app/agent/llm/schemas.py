@@ -7,7 +7,7 @@
 """
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.rag.search.result import SearchResponse
 
@@ -21,7 +21,7 @@ REQUEST_KINDS = ('INCIDENT', 'REQUEST', 'QUESTION')
 URGENCIES = ('P1', 'P2', 'P3', 'P4')
 IMPACT_SCOPES = ('PERSONAL', 'DEPARTMENT', 'COMPANY')
 WORK_STOPPED = ('full', 'partial', 'none', 'unknown')
-MISSING_ITEMS = ('target_system', 'symptom', 'occurred_at', 'impact', 'tried_actions')
+MISSING_ITEMS = ('target_system', 'symptom', 'situation', 'occurred_at', 'impact', 'tried_actions')
 EVIDENCE_KINDS = ('DOCUMENT', 'LEGACY')
 ESCALATION_REASONS = ('실제조치', '승인', '권한변경', '전문판단', '근거부족', '전송제한', '긴급대응')
 
@@ -54,6 +54,7 @@ class Facts(_Strict):
     summary: str
     target_system: str | None
     symptom: str | None
+    situation: str | None                   # 가이드 상황 목록(situations.txt)에서 고른 상황 제목. 목록에 없으면 사용자 설명
     occurred_at: str | None                 # 사용자 표현 그대로 ("오늘 아침부터")
     impact_scope: ImpactScope
     work_stopped: WorkStopped
@@ -62,6 +63,14 @@ class Facts(_Strict):
     business_impact: str | None
     security_suspected: bool
     tried_actions: list[str]
+
+    @model_validator(mode='before')
+    @classmethod
+    def _old_facts(cls, v):
+        """situation 이 생기기 전(M4-3-1) 저장된 facts 도 읽는다. 출력 형식에서는 필수 칸이다."""
+        if isinstance(v, dict) and 'situation' not in v:
+            return {**v, 'situation': None}
+        return v
 
 
 class Rationale(_Strict):
@@ -76,6 +85,12 @@ class Evidence(_Strict):
     quote: str
 
 
+class Question(_Strict):
+    """추가 질문 하나. 화면이 options 는 버튼으로, options 가 [] 면 입력창으로 보여 준다 (M4-3-1)."""
+    text: str
+    options: list[str]
+
+
 class AIOutput(_Strict):
     schema_version: Annotated[str, _enum(SUPPORTED_SCHEMA_VERSIONS)]
     action: Action
@@ -88,21 +103,31 @@ class AIOutput(_Strict):
     facts: Facts
     rationale: Rationale
     reply: str
+    questions: list[Question]
     evidence: list[Evidence]
     missing_items: list[MissingItem]
     escalation_reason: EscalationReason
     confidence: float | None = Field(ge=0, le=1)
 
+    @model_validator(mode='before')
+    @classmethod
+    def _old_output(cls, v):
+        """questions 가 생기기 전 모양도 읽는다 (평가 도구·Mock). 출력 형식에서는 필수 칸이다."""
+        if isinstance(v, dict) and 'questions' not in v:
+            return {**v, 'questions': []}
+        return v
+
 
 # ── 2차 판단 출력 (08 2.6) ─────────────────────────────────
 # 2차(검색 뒤)는 검색 결과로 정해지는 칸만 받고, 나머지 칸은 같은 메시지의 1차 판단 값을 쓴다.
 # 1차와 같은 칸을 다시 쓰지 않아 출력이 줄고 빨라진다 (2026-11-03 시험: 2차 출력 약 1,300 → 640토큰)
-SECOND_FIELDS = ('action', 'reply', 'evidence', 'missing_items', 'escalation_reason', 'confidence')
+SECOND_FIELDS = ('action', 'reply', 'questions', 'evidence', 'missing_items', 'escalation_reason', 'confidence')
 
 
 class SecondOutput(_Strict):
     action: Action
     reply: str
+    questions: list[Question]
     evidence: list[Evidence]
     missing_items: list[MissingItem]
     escalation_reason: EscalationReason
@@ -147,12 +172,12 @@ def safe_default(escalation_reason: str = '전문판단', reason: str = 'AI 판�
         schema_version=SCHEMA_VERSION, action='ESCALATE', urgent_signal=False,
         title='IT 문의 (자동 분류 실패)', category_code=None, inquiry_type_code=None, request_kind=None,
         urgency_suggested=None,
-        facts=Facts(summary='', target_system=None, symptom=None, occurred_at=None, impact_scope=None,
+        facts=Facts(summary='', target_system=None, symptom=None, situation=None, occurred_at=None, impact_scope=None,
                     work_stopped='unknown', has_workaround=None, time_constraint=None, business_impact=None,
                     security_suspected=False, tried_actions=[]),
         rationale=Rationale(category='', urgency_reasons=[], action=reason),
         reply='지금은 자동으로 확인하기 어려워요. 담당자에게 연결해 드릴까요?',
-        evidence=[], missing_items=[], escalation_reason=escalation_reason, confidence=None,
+        questions=[], evidence=[], missing_items=[], escalation_reason=escalation_reason, confidence=None,
     )
 
 
