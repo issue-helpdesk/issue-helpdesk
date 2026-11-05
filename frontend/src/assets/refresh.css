@@ -16,7 +16,7 @@
 
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--btn-t:#F0A8C6;--btn-l:#E58BB0}}
 
-.btn:not(.ico){border-radius:8px}
+.btn:not(.ico){border-radius:6px}
 
 .btn.pri,.composer .btn.ico.pri{background:color-mix(in srgb,var(--btn-l) 9%,var(--white));color:var(--btn-t);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--btn-l) 55%,transparent)}
 
@@ -549,3 +549,24 @@
 /* 운영 기록: 접수번호를 누르면 오른쪽에 접수 상세 패널 (링크처럼 보이는 글자 단추) */
 .aulink{display:block;margin:2px 0 0;padding:0;border:0;background:none;font-size:12.5px;color:var(--link);text-decoration:underline;text-underline-offset:2px;cursor:pointer;text-align:left}.aulink:hover{color:var(--btn-t)}.aulink:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px;border-radius:4px}
 .auditt tr.cur td{background:var(--osoft)}
+
+/* ---- 2026.11.05 버튼·체크박스 기준 (디자인 가이드 03장 · 업데이트 로그) ---- */
+/* 버튼 높이: 일반 36(좌우 12·모서리 6) · 작은 버튼/필터 32 · 모달 주요 작업 40 · 터치 44 이상. 채팅 전송은 입력창 높이에 맞춰 44를 유지한다 */
+.composer .btn.ico{width:44px;min-height:44px}
+.modal .acts .btn,.modal .btn.pri.block{min-height:40px}
+@media (pointer:coarse){.btn,.btn.sm,.chip,.d2pg button{min-height:44px}.btn.ico,.btn.ico.sm{width:44px;min-height:44px}.d2pg button{min-width:36px}input[type=checkbox]{--chk:24px}}
+/* 좁은 화면: 쪽 단추를 한 줄에 넣으려고 폭과 간격을 줄인다 (높이는 그대로) */
+@media (max-width:480px){.d2pg .n{gap:2px}.d2pg button{min-width:28px;padding:0 4px}.d2pg .pn{padding:0 6px}.d2pg .el{min-width:18px}}
+/* 체크박스: 여러 개를 고르는 동작은 그대로 두고 모양만 원형으로. 기본=원형 테두리, 호버=뒤에 은은한 배경+그림자, 선택=브랜드색 면+체크 */
+:root{--chk-on:#D6336F;--chk-mark:#fff;--chk-ring:#6B7280}
+:root[data-theme="dark"]{--chk-on:#E58BB0;--chk-mark:#2A1022;--chk-ring:#A89FB8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--chk-on:#E58BB0;--chk-mark:#2A1022;--chk-ring:#A89FB8}}
+input[type=checkbox]{--chk:20px;appearance:none;-webkit-appearance:none;flex:none;box-sizing:border-box;display:inline-grid;place-content:center;width:var(--chk);height:var(--chk);margin:0;border-radius:50%;border:1.5px solid var(--chk-ring);background:transparent;cursor:pointer;transition:background-color .12s,border-color .12s,box-shadow .12s}
+input[type=checkbox]::after{content:"";width:9px;height:5px;margin-top:-2px;border-left:2px solid var(--chk-mark);border-bottom:2px solid var(--chk-mark);transform:rotate(-45deg) scale(0);transition:transform .12s}
+input[type=checkbox]:hover:not(:disabled),label:hover>input[type=checkbox]:not(:disabled){border-color:var(--chk-on);box-shadow:0 0 0 7px color-mix(in srgb,var(--chk-on) 12%,transparent),0 2px 8px color-mix(in srgb,var(--chk-on) 28%,transparent)}
+input[type=checkbox]:checked,input[type=checkbox]:indeterminate{background:var(--chk-on);border-color:var(--chk-on)}
+input[type=checkbox]:checked::after{transform:rotate(-45deg) scale(1)}
+input[type=checkbox]:indeterminate::after{width:9px;height:0;margin-top:0;border-left:0;transform:scale(1)}
+input[type=checkbox]:focus-visible{outline:2px solid var(--chk-on);outline-offset:3px}
+input[type=checkbox]:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+@media (prefers-reduced-motion:reduce){input[type=checkbox],input[type=checkbox]::after{transition:none}}
