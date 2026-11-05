@@ -311,7 +311,7 @@ def test_answer_after_search(client, db, headers, ai, taxonomy):
     assert saved.ai_output["action"] == "ANSWER"
     assert body["assessment"] == {"missingItems": [], "urgentSignal": False, "categoryCode": "NET",
                                   "inquiryTypeId": vpn.id, "urgency": saved.urgency,
-                                  "urgencyReason": saved.urgency_reason, "action": "ANSWER"}
+                                  "urgencyReason": saved.urgency_reason, "action": "ANSWER", "questions": []}
 
 
 def test_urgency_rule_reason_is_saved(client, db, headers, ai, taxonomy):
@@ -383,6 +383,101 @@ def test_unanswered_questions_reach_limit(client, db, headers, ai, taxonomy):
 
     assert body["inquiry"]["action"] == "ESCALATE"
     assert "ASK_MORE_UNANSWERED" in [o["rule"] for o in assessments(db)[-1].override_reasons]
+
+
+# ---------------------------------------------------------------- 추가 질문 (questions)
+
+SITUATION = {"text": "어떤 상황인가요?", "options": ["접속 오류", "그 밖의 상황"]}
+SCREEN = {"text": "화면에 뜨는 메시지가 있나요?", "options": []}
+
+
+def asking(*questions, **fields):
+    return ai_reply(reply="몇 가지 여쭤볼게요.", questions=list(questions), **fields)
+
+
+def message_list(client, headers, inquiry_id, **params):
+    return client.get(f"{INQUIRIES}/{inquiry_id}/messages", params=params, headers=headers).json()["items"]
+
+
+def test_questions_in_turn_and_message_list(client, headers, ai, taxonomy):
+    ai.replies = [asking(SITUATION, SCREEN)]
+
+    body = start(client, headers).json()
+
+    assert body["assessment"]["questions"] == [SITUATION, SCREEN]
+    assert [m["questions"] for m in body["messages"]] == [[], [SITUATION, SCREEN]]
+    assert message_list(client, headers, body["inquiry"]["id"]) == body["messages"]
+
+
+def test_each_message_keeps_its_own_questions(client, headers, ai, taxonomy):
+    ai.replies = [asking(SITUATION)]
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    ai.replies = [asking(SCREEN)]
+
+    body = send(client, headers, inquiry_id, content="접속 오류", key="k-2").json()
+
+    assert body["assessment"]["questions"] == [SCREEN]
+    assert [(m["sender"], m["questions"]) for m in message_list(client, headers, inquiry_id)] == [
+        ("USER", []), ("AI", [SITUATION]), ("USER", []), ("AI", [SCREEN])]
+
+
+def test_session_filter_keeps_question_pairs(client, db, headers, ai, taxonomy):
+    """세션으로 거른 목록에서도 짝은 문의 전체 순서로 찾는다."""
+    ai.replies = [asking(SITUATION)]
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    first = db.scalar(select(ChatSession).where(ChatSession.inquiry_id == inquiry_id))
+    first.ended_at = datetime_utils.now()
+    second = ChatSession(inquiry_id=inquiry_id)
+    db.add(second)
+    db.commit()
+    ai.replies = [asking(SCREEN)]
+    send(client, headers, inquiry_id, content="접속 오류", key="k-2")
+
+    filtered = message_list(client, headers, inquiry_id, sessionId=second.id)
+
+    assert [(m["sender"], m["questions"]) for m in filtered] == [("USER", []), ("AI", [SCREEN])]
+
+
+def test_questions_empty_when_ask_more_became_escalate(client, db, headers, ai, taxonomy):
+    """ai_output 에 질문이 남아 있어도 최종 판단이 담당자 연결이면 주지 않는다."""
+    ai.replies = [asking(SITUATION, urgent_signal=True)]
+
+    body = start(client, headers).json()
+
+    assert body["inquiry"]["action"] == "ESCALATE"
+    assert assessments(db)[0].ai_output["questions"] == [SITUATION]
+    assert body["assessment"]["questions"] == []
+    assert message_list(client, headers, body["inquiry"]["id"])[-1]["questions"] == []
+
+
+def test_stored_questions_are_capped_like_the_turn(client, headers, ai, taxonomy):
+    long = {"text": "어떤 상황인가요?", "options": ["가", "나", "다", "라", "마", "그 밖의 상황"]}
+    ai.replies = [asking(long, long, long, long)]
+
+    body = start(client, headers).json()
+
+    assert len(body["assessment"]["questions"]) == 3
+    assert body["assessment"]["questions"][0]["options"] == ["가", "나", "다", "라", "그 밖의 상황"]
+    assert message_list(client, headers, body["inquiry"]["id"])[-1]["questions"] == body["assessment"]["questions"]
+
+
+def test_questions_empty_for_saved_output_without_questions(client, db, headers, ai, taxonomy):
+    """questions 가 생기기 전에 저장된 판단."""
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    saved = assessments(db)[0]
+    saved.ai_output = {k: v for k, v in saved.ai_output.items() if k != "questions"}
+    db.commit()
+
+    assert message_list(client, headers, inquiry_id)[-1]["questions"] == []
+
+
+def test_questions_empty_when_messages_and_assessments_do_not_pair(client, db, headers, ai, taxonomy):
+    ai.replies = [asking(SITUATION)]
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    db.delete(assessments(db)[0])
+    db.commit()
+
+    assert [m["questions"] for m in message_list(client, headers, inquiry_id)] == [[], []]
 
 
 def test_history_and_collected_facts_are_sent(client, db, headers, ai, taxonomy):

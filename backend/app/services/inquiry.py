@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import Depends
 
 from app.agent.flow import FlowResult
+from app.agent.flow.correct import cap_questions
 from app.agent.sensitive import BLOCKED_NOTICE, mask_notices, mask_secrets
 from app.core.error_codes import ErrorCode
 from app.core.errors import AppError, field_error
@@ -40,6 +41,7 @@ from app.schemas.inquiry import (
     InquiryTypeRef,
     Message as MessageView,
     MessageSource as MessageSourceView,
+    Question as QuestionView,
     Session as SessionView,
     SessionResume,
     TicketRef,
@@ -80,9 +82,9 @@ class InquiryService:
         inquiry.title = first_line_summary(user_messages[0].content, DEFAULT_TITLE_MAX) or None
         self.db.commit()
 
-        ai_message, assessment = self.reply(inquiry, session, user,
-                                            unavailable_error("INQUIRY_ID", "저장된 문의", inquiry.id))
-        return self.ai_turn(inquiry, [*user_messages, ai_message], assessment, user)
+        ai_message, assessment, questions = self.reply(inquiry, session, user,
+                                                       unavailable_error("INQUIRY_ID", "저장된 문의", inquiry.id))
+        return self.ai_turn(inquiry, [*user_messages, ai_message], assessment, questions, user)
 
     def send_message(self, inquiry_id: int, content: str, user: User) -> AiTurn:
         inquiry = self.find_own(inquiry_id, user, for_update=True)
@@ -96,13 +98,13 @@ class InquiryService:
         inquiry.updated_at = datetime_utils.now()
         self.db.commit()
 
-        ai_message, assessment = self.reply(inquiry, session, user,
-                                            unavailable_error("MESSAGE_ID", "저장된 메시지", user_messages[0].id))
-        return self.ai_turn(inquiry, [*user_messages, ai_message], assessment, user)
+        ai_message, assessment, questions = self.reply(inquiry, session, user,
+                                                       unavailable_error("MESSAGE_ID", "저장된 메시지", user_messages[0].id))
+        return self.ai_turn(inquiry, [*user_messages, ai_message], assessment, questions, user)
 
     def reply(
         self, inquiry: Inquiry, session: ChatSession, user: User, unavailable: AppError,
-    ) -> tuple[Message, InquiryAssessment]:
+    ) -> tuple[Message, InquiryAssessment, list[QuestionView]]:
         """판단 흐름을 돌려 판단 이력·AI 메시지·문의의 현재 판단값을 저장한다 (IQ-01 처리 2·3).
 
         모델 오류·외부 전송 제한·근거 부족은 흐름이 담당자 연결 제안(ESCALATE)으로 돌려준다.
@@ -146,7 +148,7 @@ class InquiryService:
             inquiry.title = out.title
         inquiry.updated_at = datetime_utils.now()
         self.db.commit()
-        return message, assessment
+        return message, assessment, [QuestionView.model_validate(q.model_dump()) for q in out.questions]
 
     def close(self, inquiry_id: int, user: User) -> InquiryDetail:
         """IQ-04. 담당자 연결 거절·상담 끝내기. 해결과 구분해 CLOSED_UNRESOLVED 로 남긴다."""
@@ -268,8 +270,11 @@ class InquiryService:
             raise field_error(ErrorCode.VALIDATION_ERROR, "sessionId", "NOT_FOUND", "이 문의의 상담 세션이 아닙니다.")
 
         messages = self.inquiries.inquiry_messages(inquiry.id, session_id)
+        # 짝은 문의 전체 순서로 찾으므로 세션으로 거른 목록으로 세면 안 된다
+        everything = messages if session_id is None else self.inquiries.inquiry_messages(inquiry.id, None)
+        questions = questions_by_message(everything, self.inquiries.assessments(inquiry.id))
         sources = self.visible_sources(messages, viewer)
-        return ItemList(items=[to_message_view(m, sources.get(m.id, [])) for m in messages])
+        return ItemList(items=[to_message_view(m, sources.get(m.id, []), questions.get(m.id, [])) for m in messages])
 
     def visible_sources(self, messages: list[Message], viewer: User) -> dict[int, list[MessageSourceView]]:
         """메시지별 출처. 보는 사람의 역할로 열람 범위 밖 출처는 뺀다 (청크_메타데이터.md 4장).
@@ -332,12 +337,16 @@ class InquiryService:
     def can_view(self, inquiry: Inquiry, viewer: User) -> bool:
         return can_view_inquiry(self.inquiries, inquiry, self.inquiries.ticket(inquiry.id), viewer)
 
-    def ai_turn(self, inquiry: Inquiry, messages: list[Message], assessment: InquiryAssessment, viewer: User) -> AiTurn:
+    def ai_turn(
+        self, inquiry: Inquiry, messages: list[Message], assessment: InquiryAssessment,
+        questions: list[QuestionView], viewer: User,
+    ) -> AiTurn:
         sources = self.visible_sources(messages, viewer)
         return AiTurn(
             inquiry=self.to_detail(inquiry),
-            messages=[to_message_view(m, sources.get(m.id, [])) for m in messages],
-            assessment=AssessmentView.model_validate(assessment),
+            messages=[to_message_view(m, sources.get(m.id, []), questions if m.sender == "AI" else [])
+                      for m in messages],
+            assessment=AssessmentView.model_validate(assessment).model_copy(update={"questions": questions}),
             next_actions=next_actions(inquiry),
         )
 
@@ -376,7 +385,9 @@ class InquiryService:
 InquiryServiceDep = Annotated[InquiryService, Depends(InquiryService)]
 
 
-def to_message_view(message: Message, sources: list[MessageSourceView] | None = None) -> MessageView:
+def to_message_view(
+    message: Message, sources: list[MessageSourceView] | None = None, questions: list[QuestionView] | None = None,
+) -> MessageView:
     return MessageView(
         id=message.id,
         session_id=message.session_id,
@@ -384,8 +395,30 @@ def to_message_view(message: Message, sources: list[MessageSourceView] | None = 
         sender=message.sender,
         content=message.content,
         sources=sources or [],
+        questions=questions or [],
         created_at=message.created_at,
     )
+
+
+def questions_by_message(
+    messages: list[Message], assessments: list[InquiryAssessment],
+) -> dict[int, list[QuestionView]]:
+    """AI 메시지별 추가 질문. messages 는 문의의 전체 메시지다.
+
+    AI 메시지는 reply() 에서만 판단 이력과 함께 저장되므로 문의 안에서 n번째끼리 짝이다.
+    개수가 다르면 짝을 알 수 없으니 주지 않는다.
+    """
+    ai_messages = [m for m in messages if m.sender == "AI"]
+    if len(ai_messages) != len(assessments):
+        return {}
+    return {m.id: stored_questions(a) for m, a in zip(ai_messages, assessments)}
+
+
+def stored_questions(assessment: InquiryAssessment) -> list[QuestionView]:
+    """판단 이력의 추가 질문. ai_output 은 보정 전 값이라 최종 action 을 보고 상한도 다시 적용한다."""
+    if assessment.action != "ASK_MORE" or not assessment.ai_output:
+        return []
+    return [QuestionView.model_validate(q) for q in cap_questions(assessment.ai_output.get("questions", []))]
 
 
 def urgency_reason(result: FlowResult) -> str | None:
