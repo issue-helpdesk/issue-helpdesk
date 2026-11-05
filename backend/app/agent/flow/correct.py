@@ -4,6 +4,7 @@
 - asks_back    : 9단계. ANSWER reply 가 연결을 제안하거나 정보를 달라고 하는가. drop_asks_back 이 그 문장을 뺀다
 - shown_text   : 9단계 검사 대상. reply 와 추가 질문(questions)
 - correct      : 4~8단계와 처리 방향 보정. 바꾼 것은 override_reasons 항목(08 5.4)으로 함께 돌려준다
+- cap_questions: 질문·선택지 수 상한과 직접 입력 여부. 저장된 ai_output(보정 전 값)을 화면에 줄 때도 쓴다
 
 1~3단계(버전·JSON·필수 키)는 call_judge 가 한다. 9단계에서 다시 부르는 일은 graph.py 가 한다.
 """
@@ -20,7 +21,7 @@ from app.rag.search import SearchResponse
 TITLE_MAX = 255                                     # inquiries.title
 ASKED_LATER = ('occurred_at', 'tried_actions')      # 판단 단계에서 묻지 않고 초안 단계에서 묻는다 (08 3.1)
 LIMIT_RULES = ('ASK_MORE_UNANSWERED', 'ASK_MORE_LIMIT')
-MAX_QUESTIONS, MAX_OPTIONS = 3, 4                   # 질문 3개, 버튼 4개. "그 밖의 상황" 버튼은 화면이 붙인다 (M4-3-1)
+MAX_QUESTIONS, MAX_OPTIONS = 3, 5                   # 안전 상한. AI 에게는 상황 4개까지로 지시한다 (M4-3-1)
 OTHER = '그 밖'                                     # AI 가 options 에 넣어도 화면 버튼과 겹치지 않게 뺀다
 # 직접 입력을 받는 질문인가. 없는 이름(2차 질문)은 받는다
 ALLOW_TEXT = {'대상': True, '상황': True, '영향 범위': False, '화면 메시지': True}
@@ -192,14 +193,23 @@ def correct(out: AIOutput, inp: AIInput, *, second: bool, sent: Filtered | None,
             d['reply'] = ASK_TO_HANDOFF
         d['questions'] = []
     else:
-        cut = [q | {'options': [x for x in q['options'] if not x.startswith(OTHER)][:MAX_OPTIONS],
-                    'allow_text': ALLOW_TEXT.get(q['label'], True)} for q in d['questions'][:MAX_QUESTIONS]]
+        cut = cap_questions([q | {'options': [x for x in q['options'] if not (q['label'] and x.startswith(OTHER))]}
+                             for q in d['questions']])
         # allow_text 는 서버가 정하는 값이라 맞춰도 기록하지 않는다
-        if [{**q, 'allow_text': None} for q in cut] != [{**q, 'allow_text': None} for q in d['questions']]:
-            o.append(override('questions', d['questions'], cut, 'INVALID_VALUE', '질문 수·선택지를 맞춤'))
+        if [q | {'allow_text': None} for q in cut] != [q | {'allow_text': None} for q in d['questions']]:
+            o.append(override('questions', d['questions'], cut, 'INVALID_VALUE', '질문·선택지를 맞춤'))
         d['questions'] = cut
 
     return Corrected(AIOutput.model_validate(d), tuple(o))
+
+
+def cap_questions(questions: list[dict]) -> list[dict]:
+    """상한(질문 3개·선택지 5개)을 넘으면 자르되 마지막 선택지는 남기고, 직접 입력 여부를 정한다.
+    label 이 없는 옛 질문은 저장된 값을 그대로 둔다."""
+    return [q | {'options': q['options'] if len(q['options']) <= MAX_OPTIONS
+                 else q['options'][:MAX_OPTIONS - 1] + q['options'][-1:],
+                 'allow_text': ALLOW_TEXT.get(q['label'], True) if q.get('label') else q.get('allow_text', False)}
+            for q in questions[:MAX_QUESTIONS]]
 
 
 def known_items(facts: Facts | None) -> set[str]:

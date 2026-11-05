@@ -521,7 +521,7 @@ export async function serverConfirm(id: number): Promise<ApiResult<Inquiry>> {
 /** 초안이 서버에서 바뀌었거나 이미 접수·취소돼서 화면의 초안이 낡았음을 뜻하는 오류 */
 export const isStaleDraft = (code: string) => ['DRAFT_RECONFIRM_REQUIRED', 'DRAFT_NOT_EDITABLE', 'DRAFT_NOT_FOUND'].includes(code)
 
-/** 접수 이후 문의자의 해결(CLS)·미해결(WIP+남은 증상) 선택 (TK-07). Jira 상태 변경은 실행기가 이어서 처리하므로 화면 반영은 조금 늦을 수 있다 */
+/** 접수 이후 문의자의 해결(CLS)·미해결(WIP+남은 증상) 선택 (TK-07). ITSM 상태 변경은 실행기가 이어서 처리하므로 화면 반영은 조금 늦을 수 있다 */
 export async function serverTicketStatus(id: number, ticketId: number | undefined, body: { workStatus: 'CLS' } | { workStatus: 'WIP'; reason: string }): Promise<ApiResult<Inquiry>> {
   if (!ticketId) return fail('TICKET_NOT_FOUND', '접수 정보를 찾지 못했어요. 화면을 새로 열어 주세요.')
   const r = await request<unknown>(`/tickets/${ticketId}`, { method: 'PATCH', body: JSON.stringify(body) })
@@ -530,6 +530,6 @@ export async function serverTicketStatus(id: number, ticketId: number | undefine
 
 /**
  * 접수를 서버로 보내지 않는 환경(SERVER_INTAKE 꺼짐)에서 접수 관련 동작이 눌렸을 때의 안내.
- * 접수를 만들면 공유 DB 에 접수와 Jira 작업이 남고, 작업 실행기가 없으면 끝나지 않고 쌓이기 때문이다. 서버는 부르지 않는다.
+ * 접수를 만들면 공유 DB 에 접수와 ITSM 작업이 남고, 작업 실행기가 없으면 끝나지 않고 쌓이기 때문이다. 서버는 부르지 않는다.
  */
-export const notReady = (what: string) => fail('NOT_READY', `${what}은(는) Jira 연동이 준비된 뒤에 열려요. 지금은 사용할 수 없어요.`)
+export const notReady = (what: string) => fail('NOT_READY', `${what}은(는) ITSM 연동이 준비된 뒤에 열려요. 지금은 사용할 수 없어요.`)

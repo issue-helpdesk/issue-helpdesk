@@ -122,13 +122,13 @@ def test_known_situation_is_not_asked_again_in_same_turn():
 
 
 def test_questions_only_on_ask_more_and_capped():
-    """M4-3-1. 질문 3개·선택지 4개까지. 되묻기가 담당자 연결로 바뀌면 질문을 빼고 reply 를 바꾼다."""
+    """M4-3-1. 질문 3개까지, "그 밖의 상황"은 뺀다. 되묻기가 담당자 연결로 바뀌면 질문을 빼고 reply 를 바꾼다."""
     q = {'label': '상황', 'text': '어떤 상황인가요?', 'options': ['가', '나', '다', '라', '마', '그 밖의 상황'],
          'allow_text': False}
     ask = out(action='ASK_MORE', evidence=[], missing_items=['situation'], reply='몇 가지 여쭤볼게요.', questions=[q] * 4)
     c = first(ask)
     assert len(c.output.questions) == 3 and rules(c) == ['INVALID_VALUE']
-    assert c.output.questions[0].options == ['가', '나', '다', '라']
+    assert c.output.questions[0].options == ['가', '나', '다', '라', '마']
     assert c.output.questions[0].allow_text is True
     c = first(ask, inp(ask_more_count=5))
     assert (c.output.action, c.output.questions, rules(c)[-1]) == ('ESCALATE', [], 'ASK_MORE_LIMIT')

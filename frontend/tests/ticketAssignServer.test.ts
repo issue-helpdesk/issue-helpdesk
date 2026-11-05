@@ -55,7 +55,7 @@ describe('담당자 지정·재배정 (서버 모드)', () => {
   it('서버가 거절하면(배정 불가·진행 중) 그 오류를 돌려준다', async () => {
     const t = await load()
     fetchMock.mockResolvedValueOnce(json(200, ticket()))
-    fetchMock.mockResolvedValueOnce(json(422, { error: { code: 'ASSIGNEE_NOT_ASSIGNABLE', message: 'Jira 계정이 연결되지 않은 담당자입니다.', details: [], traceId: 't' } }))
+    fetchMock.mockResolvedValueOnce(json(422, { error: { code: 'ASSIGNEE_NOT_ASSIGNABLE', message: 'ITSM 계정이 연결되지 않은 담당자입니다.', details: [], traceId: 't' } }))
     expect(await t.reassignTicket(admin(), 4, { assigneeId: 9, reason: '사유' })).toMatchObject({ ok: false, error: { code: 'ASSIGNEE_NOT_ASSIGNABLE' } })
     fetchMock.mockResolvedValueOnce(json(200, ticket()))
     fetchMock.mockResolvedValueOnce(json(409, { error: { code: 'INTEGRATION_JOB_IN_PROGRESS', message: '이미 연동 작업이 진행 중입니다.', details: [], traceId: 't' } }))

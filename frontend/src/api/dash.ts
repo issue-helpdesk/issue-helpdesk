@@ -3,7 +3,7 @@
  * 접수 목록(TK-05 view=ALL)을 조건별로 받아 건수와 먼저 볼 문의를 만든다. 서버에는 집계 API 가 없어 건수는 size=1 로 받은 총건수를 쓴다.
  *   처리 현황       workStatus=RDY / WIP / FIN 각각의 totalCount
  *   연동·배정 확인  needsAdmin=true (원인별 건수는 목록의 jiraSyncStatus·assignStatus·transitionStatus 로 나눈다)
- *   긴급·높음 미해결 urgency=P1,P2 · workStatus=RDY,WIP,FIN + Jira 생성 전(jiraSyncStatus) 접수
+ *   긴급·높음 미해결 urgency=P1,P2 · workStatus=RDY,WIP,FIN + ITSM 생성 전(jiraSyncStatus) 접수
  */
 import { listTickets } from './tickets'
 import type { TicketSummary } from './ticketTypes'
@@ -60,7 +60,7 @@ export async function getDashSnapshot(user: User): Promise<ApiResult<DashSnapsho
   })
 }
 
-/** 대시보드 검색: 접수번호·Jira 번호·제목 (서버 검색 범위). 최근 접수 10건 */
+/** 대시보드 검색: 접수번호·ITSM 번호·제목 (서버 검색 범위). 최근 접수 10건 */
 export async function searchTickets(user: User, q: string): Promise<ApiResult<{ items: TicketSummary[]; total: number }>> {
   const r = await listTickets(user, { view: 'ALL', q, size: 10, sort: 'createdAt,desc' })
   return r.ok ? ok({ items: r.data.items, total: r.data.totalCount }) : r

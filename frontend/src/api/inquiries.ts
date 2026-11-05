@@ -119,7 +119,7 @@ export async function listInquiries(employeeNo: string, query: InquiryListQuery 
   const needle = (q ?? '').trim().toLowerCase()
   let rows = recordsOf(employeeNo).map((r) => {
     const summary = toSummary(r.inquiry)
-    // 검색 대상: 제목, 접수번호, Jira 번호, 분류 이름, 근거로 쓴 가이드 문서 번호
+    // 검색 대상: 제목, 접수번호, ITSM 번호, 분류 이름, 근거로 쓴 가이드 문서 번호
     const docs = r.inquiry.messages.flatMap((m) => m.sources?.map((s) => s.docCode) ?? [])
     const hay = [summary.title, summary.receiptNo, summary.jiraKey, summary.categoryCode && CATEGORIES[summary.categoryCode].name, ...docs]
     return { summary, hay }

@@ -44,7 +44,7 @@ function Row({ t, onOpen }: { t: TicketSummary; onOpen: () => void }) {
       type="button"
       className="dtr"
       onClick={onOpen}
-      aria-label={`${t.summary}. 긴급도 ${t.urgency ?? '-'}. 접수 후 경과 ${formatElapsed(t.createdAt)}. 담당 ${who}, ${t.group?.name ?? '-'}. 접수번호 ${t.receiptNo}${t.jiraKey ? `, Jira ${t.jiraKey}` : ''}. 문의자 ${t.requester.name}`}
+      aria-label={`${t.summary}. 긴급도 ${t.urgency ?? '-'}. 접수 후 경과 ${formatElapsed(t.createdAt)}. 담당 ${who}, ${t.group?.name ?? '-'}. 접수번호 ${t.receiptNo}${t.jiraKey ? `, ITSM ${t.jiraKey}` : ''}. 문의자 ${t.requester.name}`}
     >
       <span className="c-p">
         <UrgencyChip u={t.urgency} />
@@ -138,7 +138,7 @@ export function DashView() {
   const kinds = ex
     ? (
         [
-          ['Jira 생성', ex.jira],
+          ['ITSM 생성', ex.jira],
           ['상태 동기화', ex.sync],
           ['담당자 배정', ex.assign],
         ] as const
@@ -170,7 +170,7 @@ export function DashView() {
           <div className="dsr">
             <label className="dsb">
               <Icon name="search" />
-              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="접수번호 · Jira 번호 · 문의자·담당자 이름 · 제목 검색" aria-label="전체 문의 검색" autoComplete="off" />
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="접수번호 · ITSM 번호 · 문의자·담당자 이름 · 제목 검색" aria-label="전체 문의 검색" autoComplete="off" />
             </label>
             <span className="small muted dsy">
               <span>마지막 조회 {hm(at)}</span>

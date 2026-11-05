@@ -102,7 +102,7 @@ export function describeAudit(x: Pick<AuditLog, 'eventType' | 'result' | 'reason
     case 'REASSIGN':
       return t('', { ASSIGN: '배정', REASSIGN: '재배정', FAIL: '배정 실패' }[res] ?? res)
     case 'INTEGRATION_RETRY':
-      return t('', { QUEUED: '재처리 예약', ALREADY_APPLIED: '이미 반영돼 있음', LINKED_EXISTING: '기존 Jira 이슈에 연결' }[res] ?? res)
+      return t('', { QUEUED: '재처리 예약', ALREADY_APPLIED: '이미 반영돼 있음', LINKED_EXISTING: '기존 ITSM 이슈에 연결' }[res] ?? res)
     case 'BLOCK':
       if (res === 'DOC_BLOCKED') return t('', '근거 문서 차단', reason ? `문서 ${reason}` : '')
       return t('', res === 'ALL_BLOCKED' ? '근거 전체 차단, 담당자 연결 제안' : res)
@@ -165,10 +165,10 @@ const row = (id: number, createdAt: string, eventType: string, targetType: strin
 /** 시연 기록 24건 (최근 것부터). 서버가 주는 모양 그대로다: 결과는 코드, 대상은 내부 번호, 처리자가 없으면 시스템 */
 const MOCK: AuditLog[] = [
   row(24, ago(0, 0, 12), 'CONFIRM', 'ticket', 5001, user(7, 'EMP-1003', '김민지'), 'RCPT-0881'),
-  row(23, ago(0, 0, 16), 'INTEGRATION_RETRY', 'ticket', 5001, ADMIN, 'QUEUED', 'Jira 응답 시간 초과 후 재시도'),
+  row(23, ago(0, 0, 16), 'INTEGRATION_RETRY', 'ticket', 5001, ADMIN, 'QUEUED', 'ITSM 응답 시간 초과 후 재시도'),
   row(22, ago(0, 0, 31), 'REASSIGN', 'ticket', 5002, ADMIN, 'REASSIGN', '기존 담당자 휴가'),
   row(21, ago(0, 0, 45), 'REASSIGN', 'ticket', 5003, ADMIN, 'FAIL', '해당 분류 담당 가능자 없음'),
-  row(20, ago(0, 0, 56), 'INTEGRATION_RETRY', 'ticket', 5004, ADMIN, 'LINKED_EXISTING', 'Jira 이슈를 수동으로 만든 것 확인'),
+  row(20, ago(0, 0, 56), 'INTEGRATION_RETRY', 'ticket', 5004, ADMIN, 'LINKED_EXISTING', 'ITSM 이슈를 수동으로 만든 것 확인'),
   row(19, ago(0, 1, 12), 'BLOCK', 'inquiry', 214, null, 'DOC_BLOCKED', 'IT-SEC-003'),
   row(18, ago(0, 1, 12), 'BLOCK', 'inquiry', 215, null, 'ALL_BLOCKED'),
   row(17, ago(0, 1, 28), 'FAIL', 'inquiry', 216, null, 'FILTER_FAILED', '검색 근거 IT-SEC-003'),

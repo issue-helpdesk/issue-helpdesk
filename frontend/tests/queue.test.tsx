@@ -47,7 +47,7 @@ describe('접수 목록·상세 API (모의)', () => {
   })
 
   it('상태 변경은 202 처럼 PENDING 으로 답하고, 규칙에 어긋나면 막는다', async () => {
-    mockConfig.pipelineScale = 1 // Jira 반영 확인 구간(1.2초)을 실제로 거친다
+    mockConfig.pipelineScale = 1 // ITSM 반영 확인 구간(1.2초)을 실제로 거친다
     const u = staff()
     const bad = await changeTicketStatus(u, 5004, { workStatus: 'FIN', resolutionNote: 'x' }) // RDY → FIN
     expect(!bad.ok && bad.error.code).toBe('TICKET_INVALID_TRANSITION')
@@ -101,7 +101,7 @@ describe('처리할 문의 화면', () => {
     const panel = await screen.findByRole('complementary', { name: '티켓 상세' }, SLOW)
     expect(await within(panel).findByRole('heading', { name: '재택 VPN 인증 오류' }, SLOW)).toBeInTheDocument()
     await userEvent.click(within(panel).getByRole('button', { name: /처리 시작/ }))
-    await waitFor(() => expect(within(panel).getAllByText(/Jira 반영 확인 중/).length).toBeGreaterThan(0), SLOW)
+    await waitFor(() => expect(within(panel).getAllByText(/ITSM 반영 확인 중/).length).toBeGreaterThan(0), SLOW)
     await waitFor(() => expect(within(panel).getByRole('button', { name: /처리 결과 등록/ })).toBeInTheDocument(), SLOW)
   })
 
@@ -152,20 +152,21 @@ describe('문의자 접수 상세 (문의 대화)', () => {
 })
 
 describe('담당자 내 대시보드', () => {
-  it('상태별 건수와 먼저 볼 문의, 우리 팀 현황이 보인다', async () => {
+  it('상태별 건수와 먼저 볼 문의가 보이고, 서버 API 가 없는 "우리 팀 현황"은 없다', async () => {
     renderAs('EMP-1004', '/my')
     expect(await screen.findByRole('button', { name: /^처리 중 \(WIP\) 7건/ }, SLOW)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^해결 확인 대기 \(FIN\) 3건/ })).toBeInTheDocument()
     const first = await screen.findByRole('region', { name: '먼저 볼 문의' })
     expect(await within(first).findByText('악성 첨부파일 의심 메일 수신', undefined, SLOW)).toBeInTheDocument() // P1 이 맨 위
-    const team = screen.getByRole('region', { name: '우리 팀 현황' })
-    expect(await within(team).findByText('부재 1명', { exact: false }, SLOW)).toBeInTheDocument()
+    // 팀 현황 카드는 서버에 API 가 없어 모의 숫자만 나왔기 때문에 뺐다 (팀 업무량은 통계 화면의 팀 보기)
+    expect(screen.queryByRole('region', { name: '우리 팀 현황' })).toBeNull()
+    expect(screen.queryByText('우리 팀 현황')).toBeNull()
   })
 
-  it('Jira 댓글·멘션 알림 띠는 없다 (이번 기능에서 제외)', async () => {
+  it('ITSM 댓글·멘션 알림 띠는 없다 (이번 기능에서 제외)', async () => {
     renderAs('EMP-1004', '/my')
     await screen.findByRole('button', { name: /^처리 대기 \(RDY\)/ }, SLOW)
-    expect(screen.queryByRole('button', { name: /확인할 Jira 알림/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /확인할 ITSM 알림/ })).toBeNull()
   })
 
   it('건수 칸을 누르면 그 상태의 목록으로 이어지고, 검색하면 검색 결과만 나온다', async () => {
@@ -243,28 +244,16 @@ describe('담당자 통계', () => {
   })
 })
 
-describe('문의자에게 메시지(제안)·Slack 미리보기·사이드바 표시', () => {
-  it('담당자가 메시지를 보내면 목록과 Slack 미리보기에 남고, 비어 있으면 막는다', async () => {
+describe('문의자 메시지 없음·사이드바 표시', () => {
+  it('접수 상세에 문의자에게 메시지 보내기 버튼이 없다', async () => {
     renderAs('EMP-1004', '/queue/5002')
     const panel = await screen.findByRole('complementary', { name: '티켓 상세' }, SLOW)
-    await userEvent.click(await within(panel).findByRole('button', { name: /문의자에게 메시지/ }, SLOW))
-    const dlg = await screen.findByRole('dialog')
-    await userEvent.click(within(dlg).getByRole('button', { name: '보내기' }))
-    expect(await within(dlg).findByText('내용을 입력해 주세요.')).toBeInTheDocument()
-    await userEvent.type(within(dlg).getByLabelText('내용'), '단말 인증서 만료일을 알려 주세요. 비밀번호는 abc123')
-    await userEvent.click(within(dlg).getByRole('button', { name: '보내기' }))
-    expect(await within(panel).findByText(/성민경 담당자 · 추가 정보 요청/, undefined, SLOW)).toBeInTheDocument()
-    expect(within(panel).getByText(/●●●●●●/)).toBeInTheDocument() // 민감정보는 가려서 저장
-    expect(await within(panel).findByText('Slack 알림 미리보기')).toBeInTheDocument()
+    await within(panel).findByRole('heading', { name: '처리 이력' }, SLOW)
+    expect(within(panel).queryByRole('button', { name: /문의자에게 메시지/ })).toBeNull()
+    expect(within(panel).queryByText('Slack 알림 미리보기')).toBeNull()
   })
 
-  it('다른 담당자의 접수에는 메시지 버튼이 없다', async () => {
-    renderAs('EMP-1004', '/queue/5015')
-    await screen.findByRole('complementary', { name: '티켓 상세' }, SLOW)
-    expect(screen.queryByRole('button', { name: /문의자에게 메시지/ })).toBeNull()
-  })
-
-  it('사이드바 처리할 문의에 건수가 붙고, Jira 댓글·멘션 알림 표시(NEW)는 없다', async () => {
+  it('사이드바 처리할 문의에 건수가 붙고, ITSM 댓글·멘션 알림 표시(NEW)는 없다', async () => {
     renderAs('EMP-1004', '/my')
     const nav = await within(await screen.findByRole('navigation', { name: '주 메뉴' }, SLOW)).findByRole('button', { name: /처리할 문의/ }, SLOW)
     await waitFor(() => expect(nav).toHaveTextContent('11'), SLOW) // 처리 대기+처리 중+해결 확인 대기

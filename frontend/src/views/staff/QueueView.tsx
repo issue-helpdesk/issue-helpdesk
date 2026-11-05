@@ -3,7 +3,7 @@
  * (design/ITssue-Prototype.html 의 처리할 문의와 같은 구성)
  *
  * 목록은 TK-05(view=ASSIGNED, assigneeId=나), 상세는 TK-06 이다. 서버가 걸러 주므로 화면은 조건만 보낸다.
- * 정렬은 긴급도 → Jira 알림이 온 건 → 오래된 건 순이 기본이다. 상태 변경(처리 시작·처리 결과)은 제안이며 상세에서 한다.
+ * 정렬은 긴급도 → ITSM 알림이 온 건 → 오래된 건 순이 기본이다. 상태 변경(처리 시작·처리 결과)은 제안이며 상세에서 한다.
  */
 import titleInq from '../../assets/mascot/title-inq.webp'
 import { useEffect, useMemo, useState } from 'react'
@@ -56,11 +56,11 @@ const daysAgo = (n: number) => {
 /** 긴급도 칩 (P2 높음) */
 export const UrgencyChip = ({ u }: { u: Urgency | null }) => (u ? <span className={`pri-${u.toLowerCase()}`}>{`${u} ${URGENCY_LABEL[u]}`}</span> : <span className="muted small">-</span>)
 
-/** 담당자 화면의 상태 배지 (상태 변경을 Jira에 요청한 중에는 안내를 함께 보인다) */
+/** 담당자 화면의 상태 배지 (상태 변경을 ITSM에 요청한 중에는 안내를 함께 보인다) */
 export function StaffStatus({ t }: { t: Pick<TicketSummary, 'workStatus' | 'transitionStatus' | 'requestedWorkStatus' | 'needsAdmin'> }) {
   if (!t.workStatus) return <StateBadge tone="recv" label="접수 완료" />
   const s = STAFF_STATUS[t.workStatus]
-  if (t.transitionStatus === 'PENDING') return <StateBadge tone={s.tone} label={s.label} sub="Jira 반영 확인 중" block />
+  if (t.transitionStatus === 'PENDING') return <StateBadge tone={s.tone} label={s.label} sub="ITSM 반영 확인 중" block />
   // 해결이 끝난 접수는 연동·배정 확인 대상이 아니다
   if ((t.needsAdmin || t.transitionStatus === 'NEEDS_ADMIN') && t.workStatus !== 'CLS') return <StateBadge tone="urg" label="확인 필요" />
   return <StateBadge tone={s.tone} label={s.label} />
@@ -196,7 +196,7 @@ export function QueueView() {
             <div className="d2f" role="group" aria-label="필터">
               <label className={`srch${q.trim() ? ' f' : ''}`}>
                 <Icon name="search" size={18} />
-                <input value={q} placeholder="접수번호 · Jira 번호 · 제목 · 문의자로 검색" aria-label="처리할 문의 검색" autoComplete="off" onChange={(e) => reset(setQ)(e.target.value)} />
+                <input value={q} placeholder="접수번호 · ITSM 번호 · 제목 · 문의자로 검색" aria-label="처리할 문의 검색" autoComplete="off" onChange={(e) => reset(setQ)(e.target.value)} />
                 {q && (
                   <button type="button" className="x" aria-label="검색어 지우기" onClick={() => reset(setQ)('')}>
                     ✕

@@ -24,7 +24,7 @@ import '@fontsource/noto-sans-kr/latin-700.css'
 import '@fontsource/ibm-plex-mono/latin-400.css'
 import '@fontsource/ibm-plex-mono/latin-500.css'
 
-// 스타일: 디자인 토큰 → 기본 규칙 → 컴포넌트 규칙 순서로 불러온다
+// 스타일: 디자인 토큰 → 기본 규칙 → 컴포넌트 규칙 → 고대비 순서로 불러온다
 import './assets/tokens.css'
 import './assets/base.css'
 import './assets/components.css'
@@ -34,6 +34,8 @@ import './assets/list.css'
 import './assets/staff.css'
 import './assets/admin.css'
 import './assets/refresh.css'
+// 고대비는 라이트·다크 위에 겹쳐 덮으므로 맨 마지막에 불러온다
+import './assets/contrast.css'
 
 // 우리 프로젝트에서 작성한 코드. 전체 앱, 로그인 상태 관리, 테마 적용 기능을 가져온다.
 import App from './App.tsx'

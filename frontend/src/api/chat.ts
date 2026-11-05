@@ -13,7 +13,7 @@
  *   PATCH /ticket-drafts/{id}             TK-03 초안 수정·취소               │ SERVER_INTAKE=true 일 때만 서버로 보낸다
  *   POST /tickets                         TK-04 최종 접수                    │ (꺼져 있으면 NOT_READY 안내)
  *   PATCH /tickets/{id}                   TK-07 접수 이후 해결·미해결        ┘
- * 실제 서버에서는 접수 이후 진행(Jira 생성·배정·처리)이 서버에서 일어나므로, 화면은 GET 을 주기적으로 다시 읽는다.
+ * 실제 서버에서는 접수 이후 진행(ITSM 생성·배정·처리)이 서버에서 일어나므로, 화면은 GET 을 주기적으로 다시 읽는다.
  */
 import { sleep } from '../core/apiClient'
 import { SERVER_INTAKE, USE_MOCK_INQUIRY } from '../core/config'
@@ -175,7 +175,7 @@ export function watchChat(id: number, employeeNo: string, onChange: (r: ApiResul
       const before = lastSeen.get(id)
       onChange(remember(r))
       clearTimeout(quick)
-      // 해결·미해결을 Jira 에 반영하는 중에도 끝나는 순간을 바로 보이게 짧은 간격으로 읽는다
+      // 해결·미해결을 ITSM 에 반영하는 중에도 끝나는 순간을 바로 보이게 짧은 간격으로 읽는다
       if (r.ok && (r.data.step === 'answering' || r.data.ticket?.transitionPending)) quick = setTimeout(load, QUICK_MS)
       // 이 화면이 먼저 안 상태 변화는 사이드바 목록에도 바로 알려, 사이드바가 따로 읽을 때까지 기다리지 않게 한다
       if (r.ok && before && (before.status !== r.data.status || before.step !== r.data.step || before.unread !== r.data.unread || before.ticket?.workStatus !== r.data.ticket?.workStatus)) refreshInquiryList()

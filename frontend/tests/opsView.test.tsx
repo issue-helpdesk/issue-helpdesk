@@ -1,6 +1,6 @@
 /**
  * 관리자 운영 현황 (EMP-1178 이건우). 가짜 서버(mock)로만 실행한다.
- * 모의 접수에는 긴급 P1(처리 중), 당일 미종결 P2, Jira 생성 확인 2건, 상태 동기화 확인 1건, 담당자 배정 확인 2건이 들어 있다.
+ * 모의 접수에는 긴급 P1(처리 중), 당일 미종결 P2, ITSM 생성 확인 2건, 상태 동기화 확인 1건, 담당자 배정 확인 2건이 들어 있다.
  */
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -13,7 +13,7 @@ import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
 import type { User } from '../src/api/types'
 
-const WHY = 'Jira 장애 복구 후 재처리'
+const WHY = 'ITSM 장애 복구 후 재처리'
 const SLOW = { timeout: 3000 }
 
 function renderAs(employeeNo: string, path: string) {
@@ -58,7 +58,7 @@ describe('운영 현황 API (모의)', () => {
     expect(infra.data.link.length).toBeLessThan(all.data.link.length)
   })
 
-  it('Jira 생성 확인·재시도는 이슈를 만들고 가장 한가한 근무자에게 자동 배정한다', async () => {
+  it('ITSM 생성 확인·재시도는 이슈를 만들고 가장 한가한 근무자에게 자동 배정한다', async () => {
     const before = await getOpsSnapshot(admin())
     if (!before.ok) throw new Error('목록 실패')
     const target = before.data.link.find((t) => t.jiraSyncStatus === 'NEEDS_ADMIN')!
@@ -68,7 +68,7 @@ describe('운영 현황 API (모의)', () => {
     expect(r.data.jiraKey).toMatch(/^ITHD-\d+$/)
     expect(r.data.workStatus).toBe('RDY')
     expect(r.data.jiraSyncStatus).toBe('SYNCED')
-    // 같은 그룹에서 근무 중이고 Jira 계정이 있는 사람(김수아는 Jira 미연결)
+    // 같은 그룹에서 근무 중이고 ITSM 계정이 있는 사람(김수아는 ITSM 미연결)
     expect(r.data.assignee?.name).toBeTruthy()
     expect(r.data.assignee?.name).not.toBe('김수아')
     const again = await retryJiraCreate(admin(), target.id, WHY)
@@ -130,7 +130,7 @@ describe('운영 현황 화면', () => {
     expect(within(section(/티켓 연동 확인/)).getByText('연동 확인이 필요한 건이 없어요.')).toBeInTheDocument()
   })
 
-  it('Jira 생성 확인·재시도를 누르면 최근 처리 결과에 남는다', async () => {
+  it('ITSM 생성 확인·재시도를 누르면 최근 처리 결과에 남는다', async () => {
     renderAs('EMP-1178', '/ops')
     await waitFor(() => expect(section(/티켓 연동 확인/).querySelectorAll('.orow').length).toBeGreaterThan(0), SLOW)
     const row = section(/티켓 연동 확인/).querySelector('.orow.l') as HTMLElement
@@ -138,7 +138,7 @@ describe('운영 현황 화면', () => {
     const dlg = await screen.findByRole('dialog')
     // 어떤 문제인지 카드로 보이고, 사유가 없으면 막는다
     expect(within(dlg).getByLabelText('확인이 필요한 내용')).toBeInTheDocument()
-    const go = within(dlg).getByRole('button', { name: /^Jira (생성 확인·재시도|상태 확인·다시 반영)$/ })
+    const go = within(dlg).getByRole('button', { name: /^ITSM (생성 확인·재시도|상태 확인·다시 반영)$/ })
     await userEvent.click(go)
     expect(await within(dlg).findByText('재처리 사유를 입력해 주세요.')).toBeInTheDocument()
     await userEvent.type(within(dlg).getByLabelText(/재처리 사유/), WHY)

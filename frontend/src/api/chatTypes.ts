@@ -35,7 +35,7 @@ export type WorkStatus = 'RDY' | 'WIP' | 'FIN' | 'CLS'
 /** 배정 상태 (tickets.assign_status) */
 export type AssignStatus = 'PENDING' | 'ASSIGNED' | 'NEEDS_ADMIN'
 
-/** Jira 연동 상태 (tickets.jira_sync_status) */
+/** ITSM 연동 상태 (tickets.jira_sync_status) */
 export type JiraSyncStatus = 'PENDING' | 'VERIFYING' | 'SYNCED' | 'NEEDS_ADMIN'
 
 /** 답변에 붙는 근거 Guide 출처. 문의 화면·로그인 전 상담·FAQ 가 같은 형태를 쓴다. */
@@ -130,7 +130,7 @@ export interface Draft {
   /** 업무 영향 (business_impact) */
   businessImpact: string
   triedActions: string
-  /** AI 안내 요약. DB 컬럼 없이 Jira 접수 내용에만 넣는다. */
+  /** AI 안내 요약. DB 컬럼 없이 ITSM 접수 내용에만 넣는다. */
   aiSummary: string
   urgency: Urgency
   /** 긴급도 근거. DB urgency_reason 에는 줄바꿈으로 합쳐 저장한다. */
@@ -165,7 +165,7 @@ export interface Ticket {
   id?: number
   /** 접수번호 RCPT-#### */
   receiptNo: string
-  /** Jira 이슈 키 ITHD-####. 생성 전에는 null */
+  /** ITSM 이슈 키 ITHD-####. 생성 전에는 null */
   jiraKey: string | null
   title: string
   categoryCode: CategoryCode | null
@@ -174,7 +174,7 @@ export interface Ticket {
   groupName: string
   assigneeId: number | null
   assigneeName: string | null
-  /** 업무 상태. Jira 생성 직후 RDY, Jira 생성 전에는 null */
+  /** 업무 상태. ITSM 생성 직후 RDY, ITSM 생성 전에는 null */
   workStatus: WorkStatus | null
   /** 배정 여부는 업무 상태와 따로 나타낸다 */
   assignStatus: AssignStatus
@@ -189,7 +189,7 @@ export interface Ticket {
   resolutionNote: string
   /** 담당자가 추가 정보를 요청해 문의자의 답변을 기다리는 중 */
   needReply: boolean
-  /** 상태 변경(해결 확인 등)을 서버가 받았고 Jira 에 반영하는 중. 이때는 같은 요청을 다시 보내지 않는다 (서버는 409) */
+  /** 상태 변경(해결 확인 등)을 서버가 받았고 ITSM 에 반영하는 중. 이때는 같은 요청을 다시 보내지 않는다 (서버는 409) */
   transitionPending?: boolean
 }
 

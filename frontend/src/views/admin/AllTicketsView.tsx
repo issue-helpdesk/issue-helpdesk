@@ -4,7 +4,7 @@
  * "AI 처리"는 티켓 없이 AI 안내로 끝난 상담을 구분별로 본다.
  *
  * 목록은 TK-05(view=ALL), AI 상담은 문의 목록 IQ-02(displayStatus), 팀·담당자 필터는 RF-03·US-01 이다.
- * 서버와 다른 점은 PR 본문과 각 API 함수의 주석에 적었다. (정렬은 접수일·긴급도·업무 상태만, 검색은 접수번호·Jira 키·요약만 서버가 받는다)
+ * 서버와 다른 점은 PR 본문과 각 API 함수의 주석에 적었다. (정렬은 접수일·긴급도·업무 상태만, 검색은 접수번호·ITSM 키·요약만 서버가 받는다)
  */
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -33,7 +33,7 @@ import { AiDetailPanel, AiKindBadge } from './AiDetailPanel'
 
 const PAGE_SIZE = 20
 type Mode = 'staff' | 'ai'
-/** 상태 탭: '' 전체 · none 배정 전(아직 Jira 생성 전) · open 진행 중(처리 대기+처리 중) */
+/** 상태 탭: '' 전체 · none 배정 전(아직 ITSM 생성 전) · open 진행 중(처리 대기+처리 중) */
 type St = '' | 'none' | 'open' | 'RDY' | 'WIP' | 'FIN' | 'CLS'
 const ST_TABS: { key: St; label: string }[] = [
   { key: '', label: '전체' },
@@ -69,9 +69,9 @@ const daysAgo = (n: number) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-/** 아직 Jira 생성·배정이 끝나지 않은 접수의 상태 표시 */
+/** 아직 ITSM 생성·배정이 끝나지 않은 접수의 상태 표시 */
 function PreStatus({ t }: { t: TicketSummary }) {
-  if (t.jiraSyncStatus === 'NEEDS_ADMIN') return <StateBadge tone="urg" label="Jira 생성 확인 필요" />
+  if (t.jiraSyncStatus === 'NEEDS_ADMIN') return <StateBadge tone="urg" label="ITSM 생성 확인 필요" />
   if (t.jiraSyncStatus === 'VERIFYING') return <StateBadge tone="warn" label="생성 여부 확인 중" />
   if (t.assignStatus === 'NEEDS_ADMIN') return <StateBadge tone="urg" label="담당자 배정 확인 필요" />
   return <StateBadge tone="recv" label="접수 완료" />
@@ -422,7 +422,7 @@ export function AllTicketsView() {
             <div className="d2f" role="group" aria-label="필터">
               <label className={`srch${q.trim() ? ' f' : ''}`}>
                 <Icon name="search" size={18} />
-                <input value={q} placeholder="접수번호 · Jira 번호 · 제목 · 문의자 · 담당자로 검색" aria-label="전체 문의 검색" autoComplete="off" onChange={(e) => reset(setQ)(e.target.value)} />
+                <input value={q} placeholder="접수번호 · ITSM 번호 · 제목 · 문의자 · 담당자로 검색" aria-label="전체 문의 검색" autoComplete="off" onChange={(e) => reset(setQ)(e.target.value)} />
                 {q && (
                   <button type="button" className="x" aria-label="검색어 지우기" onClick={() => reset(setQ)('')}>
                     ✕

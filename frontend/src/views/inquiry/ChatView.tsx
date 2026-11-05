@@ -97,7 +97,7 @@ export function ChatView() {
 
   const inquiry = loaded?.id === id ? loaded.data : undefined // undefined=불러오는 중, null=없음
 
-  // 접수가 있는 문의를 열면: 그 접수의 내 알림을 읽음으로 바꾸고(NT-04), 서버 모드에서는 Jira 의 최신 상태를 한 번 읽어 오게 한다(TK-14)
+  // 접수가 있는 문의를 열면: 그 접수의 내 알림을 읽음으로 바꾸고(NT-04), 서버 모드에서는 ITSM 의 최신 상태를 한 번 읽어 오게 한다(TK-14)
   const ticketId = inquiry?.ticket?.id
   const ticketWork = inquiry?.ticket?.workStatus
   // 접수 상태가 바뀌거나(예: 해결 확인 대기 → 해결 완료) 반영 중 표시가 끝나면 남은 안내·오류 문구를 지운다
@@ -213,9 +213,9 @@ export function ChatView() {
       }
       setBusy(false)
       if (!r.ok) {
-        // 같은 변경이 Jira 에 반영되는 중이면 잘못이 아니라 기다리라는 안내다. 최신 문의로 다시 그리면 버튼이 잠긴다
+        // 같은 변경이 ITSM 에 반영되는 중이면 잘못이 아니라 기다리라는 안내다. 최신 문의로 다시 그리면 버튼이 잠긴다
         const inFlight = r.error.code === 'INTEGRATION_JOB_IN_PROGRESS'
-        setError(inFlight ? 'Jira에 반영하는 중이에요. 잠시 뒤 상태가 바뀌어요.' : r.error.message)
+        setError(inFlight ? 'ITSM에 반영하는 중이에요. 잠시 뒤 상태가 바뀌어요.' : r.error.message)
         // 지난 버튼·중복 요청 같은 409: 안내만 하고 끝내지 않고 최신 문의로 다시 그린다
         if ((inFlight || isStaleInquiry(r.error.code)) && employeeNo) {
           const fresh = await getChat(id, employeeNo)
@@ -334,7 +334,7 @@ export function ChatView() {
   const lastMsg = inquiry.messages[inquiry.messages.length - 1]
   const tailMsg = !t && inquiry.step === 'offer' ? [...inquiry.messages].reverse().find((m) => !m.locked && m.replies?.some((r) => r.action === 'connect-yes') && !m.replies.some((r) => r.action === 'resolved')) : undefined
   const showTail = !!tailMsg && tailMsg.id !== lastMsg?.id
-  // 접수 상세 패널을 다시 읽게 하는 값: 새 메시지뿐 아니라 접수 상태가 바뀌거나(미해결로 처리 중으로 되돌아감 등) Jira 반영 중 표시가 바뀔 때도 바뀐다
+  // 접수 상세 패널을 다시 읽게 하는 값: 새 메시지뿐 아니라 접수 상태가 바뀌거나(미해결로 처리 중으로 되돌아감 등) ITSM 반영 중 표시가 바뀔 때도 바뀐다
   const detailTick = inquiry.messages.length * 10 + ({ RDY: 1, WIP: 2, FIN: 3, CLS: 4 }[t?.workStatus ?? 'RDY'] ?? 0) + (t?.transitionPending ? 5 : 0)
 
   async function send() {
