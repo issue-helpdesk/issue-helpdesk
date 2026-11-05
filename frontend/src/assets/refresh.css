@@ -230,6 +230,7 @@
 .md p{margin:0}.md ul,.md ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
 
 .md .fig{margin:4px 0;padding:8px 12px;border-radius:8px;background:var(--shell);color:var(--ink2);font-size:13px;line-height:20px}.md .fig b{margin-right:6px;color:var(--ink)}
+.md .figimg{margin:6px 0}.md .figimg img{display:block;max-width:100%;height:auto;border-radius:8px;border:1px solid var(--line)}.md .figimg figcaption{margin-top:4px;font-size:12.5px;line-height:18px;color:var(--ink2)}
 
 .md .tbl2{overflow-x:auto}.md table{border-collapse:collapse;font-size:13px;line-height:20px;min-width:100%}.md th,.md td{padding:6px 10px;border:1px solid var(--line);text-align:left;vertical-align:top}.md th{background:var(--shell);font-weight:600}
 

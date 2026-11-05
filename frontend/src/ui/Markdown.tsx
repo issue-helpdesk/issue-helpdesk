@@ -8,6 +8,8 @@
  * 줄바꿈이 없으면 제목 표시·글머리표·번호 앞에서 줄을 나눠 읽을 수 있게 만든다.
  */
 import { Fragment, type ReactNode } from 'react'
+import type { GuideImageRef } from '../api/chatTypes'
+import { GuideFigure } from './GuideFigure'
 import { restoreBreaks } from './markdownText'
 
 /** **굵게** 와 `코드` 를 인라인으로 처리한다 */
@@ -66,19 +68,23 @@ function parse(text: string): Block[] {
   return blocks
 }
 
-export function Markdown({ text }: { text: string }) {
+/** images 를 주면 `[그림] 설명` 줄 가운데 설명이 같은 것을 실제 그림으로 보여 준다 (짝이 없으면 설명 상자) */
+export function Markdown({ text, images }: { text: string; images?: GuideImageRef[] }) {
   return (
     <div className="md">
       {parse(text).map((b, i) => {
         if (b.kind === 'h') return <h4 key={i}>{inline(b.text)}</h4>
         if (b.kind === 'p') return <p key={i}>{inline(b.text)}</p>
-        if (b.kind === 'fig')
+        if (b.kind === 'fig') {
+          const img = b.label === '그림' ? images?.find((x) => x.caption === b.text) : undefined
+          if (img) return <GuideFigure key={i} image={img} label={b.label} />
           return (
             <div key={i} className="fig" role="img" aria-label={`${b.label}: ${b.text || '설명 없음'}`}>
               <b>{b.label}</b>
               {b.text}
             </div>
           )
+        }
         if (b.kind === 'table')
           return (
             <div key={i} className="tbl2">

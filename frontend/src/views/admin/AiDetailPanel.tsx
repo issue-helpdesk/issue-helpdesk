@@ -8,9 +8,11 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { CATEGORIES } from '../../api/catalog'
 import { USE_MOCK_INQUIRY } from '../../core/config'
 import { listUsedGuides, type UsedGuide } from '../../api/inquirySources'
+import type { GuideSource } from '../../api/chatTypes'
 import type { AiRow } from '../../api/inquiries'
 import { mockJudgments } from '../../api/mock/aiRows'
 import { Icon } from '../../ui/Icon'
+import { SourcePreview } from '../../ui/SourcePreview'
 import { StateBadge } from '../../ui/StateBadge'
 import { AssessmentHistory } from '../staff/AssessmentHistory'
 
@@ -61,7 +63,7 @@ export function AiDetailPanel({ row, slide, onSlideEnd, onClose }: { row: AiRow;
     let alive = true
     setGuides(null)
     setGuideErr(false)
-    listUsedGuides(row.inquiryId, row.guide).then((r) => {
+    listUsedGuides(row.inquiryId, row.guide, row.cases).then((r) => {
       if (!alive) return
       if (r.ok) setGuides(r.data)
       else setGuideErr(true)
@@ -69,7 +71,7 @@ export function AiDetailPanel({ row, slide, onSlideEnd, onClose }: { row: AiRow;
     return () => {
       alive = false
     }
-  }, [row.id, row.inquiryId, row.guide])
+  }, [row.id, row.inquiryId, row.guide, row.cases])
 
   return (
     <aside
@@ -131,6 +133,8 @@ export function AiDetailPanel({ row, slide, onSlideEnd, onClose }: { row: AiRow;
 function UsedSources({ guides, failed }: { guides: UsedGuide[] | null; failed: boolean }) {
   const uid = useId()
   const [open, setOpen] = useState<number | null>(null)
+  // 가이드를 누르면 AI 가 근거로 쓴 본문(그림 포함)을 미리 본다
+  const [preview, setPreview] = useState<GuideSource | null>(null)
   const docs = guides?.filter((g) => g.kind !== 'LEGACY') ?? []
   const cases = guides?.filter((g) => g.kind === 'LEGACY') ?? []
   return (
@@ -151,11 +155,11 @@ function UsedSources({ guides, failed }: { guides: UsedGuide[] | null; failed: b
           </div>
         ) : (
           docs.map((g, i) => (
-            <span className="src" key={i} style={{ cursor: 'default' }}>
+            <button key={i} type="button" className="src" title="AI가 근거로 쓴 본문 보기" onClick={() => setPreview({ docCode: g.docCode ?? '', title: '', version: g.version ?? '', section: g.location ?? '', excerpt: g.excerpt ?? '', images: g.images })}>
               <Icon name="file" size={16} />
               {[g.docCode, g.version].filter(Boolean).join(' ')}
               {g.location ? ` · ${g.location}` : ''}
-            </span>
+            </button>
           ))
         )}
       </div>
@@ -176,6 +180,7 @@ function UsedSources({ guides, failed }: { guides: UsedGuide[] | null; failed: b
           )}
         </div>
       )}
+      {preview && <SourcePreview source={preview} demo={USE_MOCK_INQUIRY} onClose={() => setPreview(null)} />}
     </>
   )
 }

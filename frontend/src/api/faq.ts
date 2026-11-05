@@ -25,7 +25,7 @@ interface ServerFaq {
   isActive: boolean
 }
 interface ServerFaqDetail extends ServerFaq {
-  sources: { documentId: number; docCode: string; title: string; version: string; location: string | null }[]
+  sources: { documentId: number; docCode: string; title: string; version: string; location: string | null; excerpt?: string | null; images?: { key: string; caption: string }[] }[]
 }
 
 /** 한 번에 읽는 개수 (서버 최대) */
@@ -69,7 +69,7 @@ export async function listFaqs(admin = false): Promise<ApiResult<Faq[]>> {
 export async function getFaqSources(serverId: number): Promise<ApiResult<GuideSource[]>> {
   const r = await request<ServerFaqDetail>(`/faqs/${serverId}`)
   if (!r.ok) return r
-  return ok(r.data.sources.map((s) => ({ docCode: s.docCode, title: s.title, version: s.version, section: s.location ?? '', excerpt: '', documentId: s.documentId })))
+  return ok(r.data.sources.map((s) => ({ docCode: s.docCode, title: s.title, version: s.version, section: s.location ?? '', excerpt: s.excerpt ?? '', documentId: s.documentId, images: s.images?.length ? s.images : undefined })))
 }
 
 export interface FaqInput {

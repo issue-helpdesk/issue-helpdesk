@@ -65,6 +65,31 @@ describe('사용한 가이드와 과거 처리 사례', () => {
   })
 })
 
+describe('가이드를 누르면 근거 본문을 미리 본다', () => {
+  it('가이드 칩을 누르면 AI 가 근거로 쓴 본문이 출처 미리보기로 열린다 (본문이 없으면 그렇게 안내)', async () => {
+    used.list = [{ ...doc('IT-NET-001', '3.1'), excerpt: '3.1 업데이트 후 접속 불가 시 클라이언트를 다시 설치합니다.' }, { ...doc('IT-ACC-001', '4.2'), excerpt: null }]
+    await open()
+    await userEvent.click(await screen.findByRole('button', { name: /IT-NET-001 v2 · 3.1/ }))
+    const dlg = await screen.findByRole('dialog')
+    expect(within(dlg).getByText(/클라이언트를 다시 설치합니다/)).toBeInTheDocument()
+    await userEvent.click(within(dlg).getByRole('button', { name: /닫기|✕/ }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await userEvent.click(screen.getByRole('button', { name: /IT-ACC-001 v2 · 4.2/ }))
+    expect(await screen.findByText(/본문을 아직 받아 오지 못해요/)).toBeInTheDocument()
+  })
+
+  it('모의 모드는 시연 행의 가이드 글과 과거 사례 본문을 그대로 풀어 준다', async () => {
+    const api = await vi.importActual<typeof import('../src/api/inquirySources')>('../src/api/inquirySources')
+    const r = await api.listUsedGuides(null, 'IT-NET-001 VPN 접속 장애 대응 가이드 v2', ['재설치 후 정상 접속 확인'])
+    expect(r.ok && r.data.map((g) => [g.kind, g.docCode, g.excerpt])).toEqual([
+      ['DOCUMENT', 'IT-NET-001', null],
+      ['LEGACY', null, '재설치 후 정상 접속 확인'],
+    ])
+    const { aiRows } = await import('../src/api/mock/aiRows')
+    expect(aiRows().some((x) => (x.cases?.length ?? 0) > 0)).toBe(true) // 시연 데이터에도 사례가 있는 행이 있다
+  })
+})
+
 describe('서버 응답에서 과거 사례 읽기', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
