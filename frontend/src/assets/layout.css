@@ -159,6 +159,13 @@
 .tgm button[disabled]{opacity:.45;cursor:not-allowed}
 .tgm button:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .tgm .i{width:18px;height:18px}
+/* 고대비는 라이트·다크 중 하나를 고른 뒤 더해서 켜는 옵션이라, 같은 알약 안이 아니라 왼쪽에 따로 떼어 둔 동그란 토글로 둔다 */
+.tgw{display:inline-flex;align-items:center;gap:8px}
+.tgh{all:unset;box-sizing:border-box;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:var(--mute);background:var(--shell)}
+.tgh:hover{color:var(--ink)}
+.tgh[aria-pressed=true]{background:var(--white);color:var(--link);box-shadow:inset 0 0 0 1.5px var(--link)}
+.tgh:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+.tgh .i{width:18px;height:18px}
 .modebar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 6px;margin-top:auto}.modebar small{font-size:12px;color:var(--mute)}.modebar+.who{margin-top:0}
 .login>div.lmode:not(.bgsvg){position:absolute;top:24px;right:max(16px,env(safe-area-inset-right,0px));z-index:3}
 .login>.bgsvg{}
@@ -237,8 +244,10 @@ main.enter>.top>.row>:nth-child(2){--i:1}main.enter>.top>.row>:nth-child(3){--i:
 /* 1칸: 지금 모드 아이콘 하나 → 마우스를 올리거나 키보드로 오면 3칸으로 펼쳐진다 (터치는 누르면 펼침) */
 .t1{position:relative;width:44px;height:44px}
 .t1 .one{position:absolute;right:0;top:0;width:44px;height:44px;padding:0;border-radius:50%;border:0;background:var(--white);color:var(--ink2);box-shadow:inset 0 0 0 1px var(--line),var(--shadow);display:grid;place-items:center;cursor:pointer;transition:opacity .15s}
-.t1 .tgm{position:absolute;right:0;top:0;height:44px;align-items:center;padding:3px 4px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line),var(--shadow);opacity:0;pointer-events:none;transform-origin:100% 50%;transform:scaleX(.5);transition:opacity .18s,transform .22s cubic-bezier(.22,1,.36,1)}
-.t1:hover .tgm,.t1:has(:focus-visible) .tgm,.t1.open .tgm{opacity:1;pointer-events:auto;transform:none}
+.t1 .tgw{position:absolute;right:0;top:0;height:44px;gap:6px;opacity:0;pointer-events:none;transform-origin:100% 50%;transform:scaleX(.5);transition:opacity .18s,transform .22s cubic-bezier(.22,1,.36,1)}
+.t1 .tgm{height:44px;align-items:center;padding:3px 4px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line),var(--shadow)}
+.t1 .tgh{width:44px;height:44px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line),var(--shadow)}
+.t1:hover .tgw,.t1:has(:focus-visible) .tgw,.t1.open .tgw{opacity:1;pointer-events:auto;transform:none}
 .t1:hover .one,.t1:has(:focus-visible) .one,.t1.open .one{opacity:0}
 /* 사용자 메뉴 */
 .um{position:relative}
@@ -248,7 +257,7 @@ main.enter>.top>.row>:nth-child(2){--i:1}main.enter>.top>.row>:nth-child(3){--i:
 .pop .nm{padding:4px 6px 8px;border-bottom:1px solid var(--line2);margin-bottom:6px}.pop .nm b{display:block;font-size:13.5px}.pop .nm small{display:block;color:var(--mute);font-size:12px}
 .pop .lk{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;text-align:left;padding:9px 8px;border-radius:8px;color:var(--ink2);font:inherit;font-size:13.5px;cursor:pointer}
 .pop .lk:hover,.pop .lk:focus-visible{background:var(--shell);color:var(--ink)}
-@media (prefers-reduced-motion:reduce){.t1 .one,.t1 .tgm{transition:none}}
+@media (prefers-reduced-motion:reduce){.t1 .one,.t1 .tgw{transition:none}}
 /* 상단바 제목 아래 상태 배지 (미연결 종료 등) */
 .tst{display:flex;align-items:center;gap:8px;margin-top:2px;min-width:0}
 .tst .badge{height:20px;padding:0 8px;font-size:11.5px}
@@ -259,7 +268,7 @@ main.enter>.top>.row>:nth-child(2){--i:1}main.enter>.top>.row>:nth-child(3){--i:
 /* 오른쪽 위 컨트롤은 상단바(캐릭터 44~56px)와 균형이 맞도록 44px(앱의 버튼 기본 높이)로 키우고, 아이콘·글자도 한 단계 키운다 */
 .t1 .one .i{width:22px;height:22px}
 .t1 .tgm button{width:40px;height:36px}
-.t1 .tgm button .i{width:20px;height:20px}
+.t1 .tgm button .i,.t1 .tgh .i{width:20px;height:20px}
 /* 사용자 메뉴 팝업: 아바타 쪽에서 살짝 커지며 나타나고, 닫을 때는 작아지며 사라진다 */
 .pop{transform-origin:100% 0;animation:popin .2s cubic-bezier(.22,1,.36,1) backwards}
 .pop.out{opacity:0;transform:translateY(-6px) scale(.95);transition:opacity .14s,transform .16s cubic-bezier(.4,0,1,1);pointer-events:none;animation:none}
