@@ -40,7 +40,7 @@ describe('가이드 API (모의)', () => {
     const r = await listGuides(admin())
     expect(r.ok && r.data).toHaveLength(10)
     const g = r.ok ? r.data.find((x) => x.docCode === 'IT-NET-001')! : null
-    expect(g?.current).toEqual({ version: 'v2', tx: '허용' })
+    expect(g?.current).toEqual({ version: 'v2', tx: '허용', scope: '사내 일반' })
     const v = await listGuideVersions(admin(), g!.id)
     expect(v.ok && v.data.map((x) => [x.version, x.state])).toEqual([['v3', '초안'], ['v2', '현행'], ['v1', '만료']])
   })
@@ -219,7 +219,7 @@ describe('서버 모드 가이드 (VITE_USE_MOCK_GUIDE=false)', () => {
     fetchMock.mockResolvedValueOnce(json(200, { items: [doc(3, 'IT-NET-001'), doc(4, 'IT-STD-001', { docType: 'STANDARD', categoryCode: null }), doc(5, 'IT-ACC-001', { categoryCode: 'ACC', currentVersion: null })], page: 1, size: 100, totalCount: 3, totalPages: 1 }))
     const r = await api.listGuides(admin())
     expect(r.ok && r.data.map((g) => [g.docCode, g.cat, g.current])).toEqual([
-      ['IT-NET-001', 'NET', { version: 'v1.2', tx: '마스킹 후 허용' }],
+      ['IT-NET-001', 'NET', { version: 'v1.2', tx: '마스킹 후 허용', scope: '사내 일반' }],
       ['IT-ACC-001', 'ACC', null],
     ])
     expect(urls()[0]).toBe('GET /api/v1/documents?size=100&page=1&docType=GUIDE&docType=MANUAL&includeInactive=true&sort=docCode,asc')

@@ -532,3 +532,13 @@
 .auditt .aukd{font-size:13px;color:var(--ink2)}
 .auditt .aunm{margin-top:2px;font-weight:600;font-size:12.5px}
 .auditt .aucode{display:block;margin-top:3px;font-family:var(--mono);font-size:10.5px;color:var(--mute);letter-spacing:.01em}
+
+/* FAQ 등록·수정: 출처 가이드 고르기 (가이드 사이에 구분선) */
+.fsl{max-height:210px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:4px}
+.fsrc{padding:8px}.fsrc+.fsrc{border-top:1px solid var(--line)}.fsrc:hover{background:var(--card)}
+.fsrc label{display:flex;align-items:center;gap:10px;cursor:pointer}.fsrc .fst{flex:1;min-width:0}
+.fsrc .fst b{display:block;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fsrc .fst small{display:block;color:var(--mute);font-size:12px}
+.fpub{display:flex;align-items:flex-start;gap:10px;margin-top:14px}.fpub input{margin-top:3px}.fpub small{display:block;color:var(--mute);font-size:12.5px;line-height:1.45;margin-top:2px}
+/* 입력 칸(textarea)의 스크롤바: 둥근 테두리 안에서 깨지지 않게 가늘게, 위아래 여백을 두고, 모서리 크기 조절 표시는 투명하게 */
+.ta{scrollbar-width:thin;scrollbar-color:var(--mute) transparent}
+@supports selector(::-webkit-scrollbar){.ta{scrollbar-width:auto;scrollbar-color:auto}.ta::-webkit-scrollbar{width:10px}.ta::-webkit-scrollbar-track{background:transparent;margin:8px 0}.ta::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--mute) 55%,transparent);border:3px solid transparent;border-radius:999px;background-clip:content-box}.ta::-webkit-scrollbar-corner,.ta::-webkit-resizer{background:transparent}}

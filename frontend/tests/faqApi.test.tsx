@@ -76,7 +76,7 @@ describe('서버 모드 FAQ 목록', () => {
     const { api } = await load()
     fetchMock.mockResolvedValueOnce(json(200, DETAIL))
     const r = await api.getFaqSources(1)
-    expect(r.ok && r.data).toEqual([{ docCode: 'IT-ACC-001', title: '계정·로그인 가이드', version: 'v1.0', section: 'FAQ Q1', excerpt: '' }])
+    expect(r.ok && r.data).toEqual([{ docCode: 'IT-ACC-001', title: '계정·로그인 가이드', version: 'v1.0', section: 'FAQ Q1', excerpt: '', documentId: 1 }])
     expect(urls()).toEqual(['/api/v1/faqs/1'])
   })
 })
@@ -104,10 +104,17 @@ describe('서버 모드 FAQ 화면', () => {
   })
 })
 
-describe('서버 모드 FAQ 등록 창 (게시는 출처 연결 기능이 생길 때까지 막는다, docs/api/06 R-41)', () => {
-  it('바로 게시를 눌러도 체크되지 않고 안내만 보이며, 등록하면 게시 전(isActive=false)으로 보낸다', async () => {
+const docs = (items: unknown[]) => ({ items, page: 1, size: 100, totalCount: items.length, totalPages: 1 })
+const sdoc = (id: number, docCode: string, over: Record<string, unknown> = {}) => ({ id, docCode, docType: 'GUIDE', title: `${docCode} 가이드`, categoryCode: 'ACC', isActive: true, currentVersion: { version: 'v1.0', viewScope: 'ALL', transferPolicy: 'ALLOWED' }, ...over })
+
+describe('서버 모드 FAQ 등록 창 (출처 가이드를 고르면 문서 ID 로 보낸다)', () => {
+  it('전 직원용 현행 GUIDE 만 고를 수 있고, 고르면 게시할 수 있으며 sourceDocumentIds 로 보낸다', async () => {
+    vi.stubEnv('VITE_USE_MOCK_GUIDE', 'false') // 가이드 목록도 서버(가짜 fetch)에서 읽는다
     const { view } = await load('ADMIN')
-    fetchMock.mockImplementation(async (_u: unknown, init?: RequestInit) => (init?.method === 'POST' ? json(201, faq(41, { isActive: false })) : json(200, page([faq(1)]))))
+    fetchMock.mockImplementation(async (u: unknown, init?: RequestInit) => {
+      if (String(u).startsWith('/api/v1/documents')) return json(200, docs([sdoc(12, 'IT-ACC-001'), sdoc(13, 'IT-SEC-004', { currentVersion: { version: 'v2', viewScope: 'AGENT', transferPolicy: 'BLOCKED' } }), sdoc(14, 'IT-MAN-001', { docType: 'MANUAL' }), sdoc(15, 'IT-ACC-009', { isActive: false })]))
+      return init?.method === 'POST' ? json(201, faq(41)) : json(200, page([faq(1)]))
+    })
     render(
       <MemoryRouter>
         <view.FaqView />
@@ -115,17 +122,22 @@ describe('서버 모드 FAQ 등록 창 (게시는 출처 연결 기능이 생길
     )
     await userEvent.click(await screen.findByRole('button', { name: 'FAQ 등록' }))
     const dlg = await screen.findByRole('dialog', { name: 'FAQ 등록' })
-    const pub = within(dlg).getByRole('checkbox', { name: '바로 게시' })
-    expect(within(dlg).queryByRole('status')).toBeNull()
-    await userEvent.click(pub)
-    expect(pub).not.toBeChecked()
-    expect(within(dlg).getByRole('status')).toHaveTextContent('지금은 게시할 수 없어요')
+    const group = await within(dlg).findByRole('group', { name: /출처 가이드/ })
+    const boxes = await within(group).findAllByRole('checkbox')
+    expect(boxes).toHaveLength(1) // 제한 범위·MANUAL·비활성 문서는 목록에 없다
+    expect(within(group).getByText(/IT-ACC-001/)).toBeInTheDocument()
+    const pub = within(dlg).getByRole('checkbox', { name: /등록하면서 문의자에게 공개/ })
+    expect(pub).toBeDisabled()
     await userEvent.type(within(dlg).getByLabelText('질문 제목'), '공용 프린터가 보이지 않아요')
     await userEvent.type(within(dlg).getByLabelText('답변'), '프린터 서버를 다시 추가해 주세요.')
     await userEvent.click(within(dlg).getByRole('button', { name: '등록' }))
+    expect(await within(dlg).findByText('출처 가이드를 하나 이상 선택해 주세요.')).toBeInTheDocument()
+    await userEvent.click(boxes[0])
+    expect(pub).toBeEnabled()
+    await userEvent.click(within(dlg).getByRole('button', { name: '등록' }))
     await waitFor(() => expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === 'POST')).toBe(true))
     const post = fetchMock.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === 'POST')!
-    expect(JSON.parse(String((post[1] as RequestInit).body))).toMatchObject({ isActive: false, keywords: [] })
+    expect(JSON.parse(String((post[1] as RequestInit).body))).toMatchObject({ isActive: true, keywords: [], sourceDocumentIds: [12] })
   })
 })
 
@@ -141,7 +153,7 @@ describe('서버 모드 FAQ 카드의 다시 게시 (출처 없는 FAQ 는 게�
     await userEvent.click(await screen.findByText('질문 1'))
     await screen.findByText('출처 정보가 없어요.')
     await userEvent.click(screen.getByRole('button', { name: '다시 게시' }))
-    expect(await screen.findByText(/지금은 게시할 수 없어요/)).toBeInTheDocument()
+    expect(await screen.findByText(/출처 가이드가 없어서 게시할 수 없어요/)).toBeInTheDocument()
     expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === 'PATCH')).toBe(false)
   })
 })

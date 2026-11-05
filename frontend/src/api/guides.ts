@@ -43,7 +43,9 @@ export interface Guide {
   /** 비활성 문서는 검색·답변에 쓰이지 않고, 번호는 그대로 남는다 (DC-04) */
   isActive: boolean
   /** 현행 버전 (없으면 null) */
-  current: { version: string; tx: GuideTx } | null
+  current: { version: string; tx: GuideTx; scope?: GuideScope } | null
+  /** 문서 종류(GUIDE·MANUAL). 모의 가이드는 모두 GUIDE 라서 없다. FAQ 출처는 GUIDE 만 고를 수 있다 */
+  docType?: string
   /** 서버 모드에서는 가이드를 펼칠 때 읽는다 */
   versions: GuideVersion[] | null
 }
@@ -93,7 +95,7 @@ export function watchGuides(onChange: () => void): () => void {
 const curOf = (g: MockGuide) => g.versions.find((x) => x.state === '현행')
 const toGuide = (g: MockGuide): Guide => {
   const c = curOf(g)
-  return { id: g.id, docCode: g.docCode, title: g.title, cat: g.cat, isActive: g.isActive !== false, current: c ? { version: c.version, tx: c.tx } : null, versions: g.versions.map((x) => ({ ...x })) }
+  return { id: g.id, docCode: g.docCode, title: g.title, cat: g.cat, isActive: g.isActive !== false, current: c ? { version: c.version, tx: c.tx, scope: c.scope } : null, versions: g.versions.map((x) => ({ ...x })) }
 }
 const findV = (g: MockGuide, versionId: number) => g.versions.find((x) => x.id === versionId)
 
@@ -159,7 +161,7 @@ export async function listGuides(user: User): Promise<ApiResult<Guide[]>> {
     r.data.items.forEach((d) => {
       if (!d.categoryCode) return
       const c = d.currentVersion
-      out.push({ id: d.id, docCode: d.docCode, title: d.title, cat: d.categoryCode, isActive: d.isActive !== false, current: c ? { version: c.version, tx: c.transferPolicy ? TX_FROM[c.transferPolicy] : '금지' } : null, versions: null })
+      out.push({ id: d.id, docCode: d.docCode, title: d.title, cat: d.categoryCode, isActive: d.isActive !== false, docType: d.docType, current: c ? { version: c.version, tx: c.transferPolicy ? TX_FROM[c.transferPolicy] : '금지', scope: c.viewScope ? SCOPE_FROM[c.viewScope] : undefined } : null, versions: null })
     })
     if (page >= r.data.totalPages) break
   }
