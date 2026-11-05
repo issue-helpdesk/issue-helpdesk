@@ -4,10 +4,11 @@
 - '문서 정보'·'Contents' 쪽 제목(굵은 일반 문단)은 제목으로 넘겨 공통 후처리에서 정리한다
 - 목록: List 스타일·번호 매기기, 또는 '•'·'①'로 시작하는 문단
 - 표: 2줄 카드 표 → 카드 제목(level 3) + 목록, 1칸 표(안내·인용·코드 상자) → 안의 문단, 그 밖 → 표
-- 그림: 문단 안 그림 → image (meta name = 문서 안 그림 파일 이름, ext = 그 형식), 바로 뒤 '그림 …' 문단을 설명으로 붙인다
+- 그림: 문단 안 그림 → image (meta name = 문서 안 그림 파일 이름, ext = 그 형식, sha256 = 그림 내용), 바로 뒤 '그림 …' 문단을 설명으로 붙인다
 """
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 
@@ -28,13 +29,16 @@ def _style(p: Paragraph) -> str:
         return ''
 
 
-def _images(el, part) -> list[str]:
-    names = []
+def _images(el, part) -> list[dict]:
+    """el 안 그림마다 image 요소의 meta: name(문서 안 그림 파일 이름)·ext(형식)·sha256(그림 내용)."""
+    out = []
     for blip in el.xpath('.//*[local-name()="blip"]'):
         rid = blip.get(R_EMBED)
         if rid and rid in part.related_parts:
-            names.append(os.path.basename(str(part.related_parts[rid].partname)))
-    return names
+            img = part.related_parts[rid]
+            name = os.path.basename(str(img.partname))
+            out.append({'name': name, 'ext': image_ext(name), 'sha256': hashlib.sha256(img.blob).hexdigest()})
+    return out
 
 
 def _cell_text(cell) -> str:
@@ -86,8 +90,8 @@ class _Builder:
 
     # ---- 문단
     def paragraph(self, p: Paragraph, in_cell: bool = False):
-        for name in _images(p._p, self.d.part):
-            self.pending_image = self.add('image', meta={'name': name, 'ext': image_ext(name)})
+        for meta in _images(p._p, self.d.part):
+            self.pending_image = self.add('image', meta=meta)
         text = clean((p.text or '').replace('\t', ' '))
         if not text:
             return
@@ -136,8 +140,8 @@ class _Builder:
         rows = _rows(t)
         images = _images(t._tbl, self.d.part)
         if not rows:
-            for name in images:
-                self.pending_image = self.add('image', meta={'name': name, 'ext': image_ext(name)})
+            for meta in images:
+                self.pending_image = self.add('image', meta=meta)
             return
         if _is_cards(rows):
             for title, body in zip(rows[0], rows[1]):
@@ -156,8 +160,8 @@ class _Builder:
                 elif tag == 'tbl':
                     self.table(Table(child, cell))
             return
-        for name in images:
-            self.add('image', meta={'name': name, 'ext': image_ext(name)})
+        for meta in images:
+            self.add('image', meta=meta)
         self.add('table', rows=rows)
 
 

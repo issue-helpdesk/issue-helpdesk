@@ -44,6 +44,7 @@ class Item:
     rows: list = field(default_factory=list)
     name: str = ''
     ext: str = ''                  # 그림 형식 (pptx 만, pdf 는 모름)
+    sha256: str = ''               # 그림 내용 해시 (pptx 만)
     box: 'Item | None' = None      # 이 글자를 감싼 배경 상자
 
 
@@ -167,7 +168,7 @@ def _body(page_no: int, items: list[Item], title: Item | None, H: float, safe: b
             pending = None
             continue
         if it.kind == 'image':
-            out.append(Element('image', page=page_no, meta={'name': it.name, 'ext': it.ext}))
+            out.append(Element('image', page=page_no, meta={'name': it.name, 'ext': it.ext, 'sha256': it.sha256}))
             pending = None
             continue
         t = it.text

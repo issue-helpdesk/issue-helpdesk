@@ -61,6 +61,25 @@ def test_chunk_keys_exist_in_copy(uses):
         assert key.split('/')[0] == manifest()[doc_no]['category']
 
 
+def test_docx_pptx_images_match_deployed_copies():
+    """정리본 전체: docx·pptx 이름표가 md 와 같고, 문서 안 그림이 배포 사본과 바이트까지 같다 (업로드 적재 check_images 가
+    정리본을 그대로 올렸을 때 그림을 빼지 않는다는 뜻). pdf 는 이름표가 없다 (PR #297 검수 보완)."""
+    import hashlib
+    copy_sha = {k: hashlib.sha256(open(p, 'rb').read()).hexdigest() for k, p in _images(COPY, '').items()}
+    images = lambda f: [i for c in chunk_document(parse(os.path.join(GUIDES, f))) for i in c.images]
+    for doc_no, m in manifest().items():
+        if m.get('rag_target') is not True:
+            continue
+        md = [i['key'] for i in images(m['files']['md'])]
+        if not md:
+            continue
+        for fmt in ('docx', 'pptx'):
+            got = images(m['files'][fmt])
+            assert [i['key'] for i in got] == md, (doc_no, fmt)
+            assert [i['key'] for i in got if copy_sha[i['key']] != i['sha256']] == [], (doc_no, fmt)
+        assert images(m['files']['pdf']) == [], doc_no
+
+
 def test_md_link_is_doc_and_figure_number():
     """md 링크의 그림 파일 이름 = {문서 번호}_{그림 번호}.확장자 (dataset/guides/README.md).
     청커는 링크 이름이 아니라 문서 번호·그림 번호로 이름표를 만드므로, 링크가 규칙과 다르면 이름표가 엉뚱한 파일을 가리킨다."""

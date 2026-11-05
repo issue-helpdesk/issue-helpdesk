@@ -14,7 +14,9 @@
 """
 from __future__ import annotations
 
+import hashlib
 import logging
+import re
 from collections import defaultdict
 from datetime import timedelta
 from pathlib import Path
@@ -26,6 +28,8 @@ from . import (ERROR_MAX, ROOT, SCOPE_RANK, IngestError, Prepared, Report, _drop
                _lock_document, _put_embeddings, _relabel, activate, check_vectors, read_vectors)
 
 log = logging.getLogger('app.rag.ingest')
+GUIDE_IMAGES = ROOT / 'dataset' / 'guide_images'          # 그림 API(DC-11)가 내려 주는 배포 그림 (청크_메타데이터.md 5장 그림)
+IMAGE_KEY_RE = re.compile(r'^[A-Z]+/[A-Za-z0-9][A-Za-z0-9._-]*\.(?:png|jpe?g)$')   # 그림 API 와 같은 이름표 형식
 STALE_PENDING = timedelta(minutes=10)                     # 이보다 오래 PENDING 이면 적재가 멈춘 것으로 본다
 
 
@@ -38,6 +42,7 @@ def ingest_version(conn, version_id: int, embedder, files_root: Path = ROOT, act
        현행은 본문이 같을 때만 (이름표만 고쳐 쓰고 바뀐 칸을 경고). 본문이 다르면 거부: 새 버전으로 올린다.
     2. 파일 → parse → chunk_document → validate. 파일의 문서 번호·버전이 등록값과 다르면 실패, 없으면 등록값을 쓴다.
     3. 표(inquiry_types)에 없는 문의 유형 코드는 청크에서 빼고 경고한다 (검색은 되게, 판단 흐름에 없는 코드가 가지 않게).
+       그림 이름표는 배포 그림이 없거나 문서 안 그림과 다르면 빼고 경고한다 (check_images. 옛 그림이 보이지 않게).
     4. 임베딩 (DB 트랜잭션 밖) → 한 트랜잭션에서 잠금(문서 → 버전) 뒤 상태를 다시 보고 청크·임베딩 교체 → DONE.
     5. 실패: 롤백 → FAILED + ingest_error (관리자 화면 DC-08 에 그대로 보여 줄 문구). 다른 버전·현행은 그대로.
        그새 다른 작업이 DONE 으로 끝냈으면 FAILED 를 남기지 않고 SKIPPED (reload 는 FAILED, DB 는 DONE 그대로).
@@ -121,6 +126,7 @@ def prepare_version(v: dict, files_root: Path, codes: set[str], warnings: list[s
                         f"문의 유형을 등록한 뒤 다시 적재(reload, --version-id {v['id']} --reload)하면 코드가 들어갑니다")
     for c in chunks:
         c.inquiry_type_codes = [x for x in c.inquiry_type_codes if x in codes]
+    warnings += check_images(chunks)
     if meta.get('access_level'):
         file_scope = view_scope(meta['access_level'])
         if SCOPE_RANK[file_scope] > SCOPE_RANK[v['view_scope']]:
@@ -136,6 +142,43 @@ def prepare_version(v: dict, files_root: Path, codes: set[str], warnings: list[s
     return Prepared(entry={}, chunks=chunks, document={'doc_code': v['doc_code']},
                     version={'version': v['version'], 'file_format': version_row(doc, v['file_path'])['file_format']},
                     rows=[chunk_row(c) for c in chunks], parse_warnings=list(doc.warnings))
+
+
+def check_images(chunks: list[Chunk], image_dir: Path = GUIDE_IMAGES) -> list[str]:
+    """청크 그림 이름표가 가리키는 배포 그림을 확인하고, 보여 주면 안 되는 이름표는 뺀다. 경고 목록을 돌려준다.
+
+    그림 API(DC-11)는 업로드 파일 안 그림이 아니라 image_dir/{key} 를 내려 준다. 그래서
+    - 배포 그림이 없으면 뺀다 (새 문서·새 그림 번호. 그대로 두면 404)
+    - docx·pptx 는 문서 안 그림(sha256)이 배포 그림과 다르면 뺀다 (그림을 바꾼 새 버전에 옛 그림이 뜨지 않게)
+    - md·txt 는 그림이 파일 밖에 있어 내용을 볼 수 없으므로 배포 그림이 있는지만 본다
+    뺀 그림은 본문 '[그림] 설명' 줄로만 남는다. 업로드 그림을 꺼내 저장하는 일은 아직 없다 (나중 일).
+    """
+    root = image_dir.resolve()
+    sha: dict[Path, str] = {}
+    missing, changed = [], []
+    for c in chunks:
+        kept = []
+        for im in c.images:
+            path = (image_dir / im['key']).resolve()
+            if not (IMAGE_KEY_RE.fullmatch(im['key']) and path.is_relative_to(root) and path.is_file()):
+                missing.append(im['key'])
+                continue
+            if im.get('sha256'):
+                if path not in sha:
+                    sha[path] = hashlib.sha256(path.read_bytes()).hexdigest()
+                if sha[path] != im['sha256']:
+                    changed.append(im['key'])
+                    continue
+            kept.append(im)
+        c.images = kept
+    out = []
+    if missing:
+        out.append(f'배포 그림이 없어 그림 {len(missing)}개는 본문 설명으로만 넣었습니다: {", ".join(missing[:5])}'
+                   + (' …' if len(missing) > 5 else ''))
+    if changed:
+        out.append(f'파일 안 그림이 배포 그림과 달라 그림 {len(changed)}개는 본문 설명으로만 넣었습니다 '
+                   f'(옛 그림이 보이지 않게): {", ".join(changed[:5])}' + (' …' if len(changed) > 5 else ''))
+    return out
 
 
 def unknown_inquiry_types(chunks: list[Chunk], codes: set[str]) -> dict[str, list[str]]:

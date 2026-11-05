@@ -83,7 +83,7 @@ class Chunk:
     urgency: str = ''             # 매뉴얼 '기본 긴급도' (P1~P4)
     page_start: int | None = None  # 쪽 범위 (pdf·pptx). docx·md 는 None
     page_end: int | None = None
-    images: list[dict] = field(default_factory=list)        # [{'key': '분류/파일 이름', 'caption': 그림 설명}] (_images)
+    images: list[dict] = field(default_factory=list)        # [{'key': '분류/파일 이름', 'caption': 그림 설명, docx·pptx 는 'sha256'}] (_images)
     category: str = ''            # 문서 값 (표에는 넣지 않는다. 검색은 document_versions·knowledge_documents 와 조인)
     doc_type: str = ''
     access_level: str = ''
@@ -103,6 +103,7 @@ class _Atom:
     image: str = ''               # 그림 이름 (형식마다 다름: md 링크 파일 이름, docx 안 파일 이름, pptx 도형 이름)
     caption: str = ''             # 그림 설명
     ext: str = ''                 # 그림 형식 (png·jpg, 모르면 '')
+    sha256: str = ''              # 문서 안 그림 내용 해시 (docx·pptx 만)
 
 
 def document_row(doc: ParsedDocument) -> dict:
@@ -163,7 +164,8 @@ def chunk_row(c: Chunk) -> dict:
         'part': c.part,
         'meta': {'section_no': c.section_no, 'inquiry_type_codes': c.inquiry_type_codes,
                  'page_start': c.page_start, 'page_end': c.page_end,
-                 'props': c.props, 'subheadings': c.subheadings, 'faq_ids': c.faq_ids, 'images': c.images,
+                 'props': c.props, 'subheadings': c.subheadings, 'faq_ids': c.faq_ids,
+                 'images': [{'key': i['key'], 'caption': i['caption']} for i in c.images],   # sha256 은 적재 검사용
                  'handling': c.handling, 'team': c.team, 'escalation_teams': c.escalation_teams, 'urgency': c.urgency},
     }
 
@@ -330,7 +332,8 @@ def _atoms(pieces: list[Element]) -> list[_Atom]:
             for part in _table_parts(rows, width):
                 out.append(_Atom(part, e.page, sub))
         elif e.kind == 'image':
-            out.append(_Atom(f'[그림] {e.text}'.rstrip(), e.page, sub, e.meta.get('name', ''), e.text, e.meta.get('ext', '')))
+            out.append(_Atom(f'[그림] {e.text}'.rstrip(), e.page, sub, e.meta.get('name', ''), e.text, e.meta.get('ext', ''),
+                             e.meta.get('sha256', '')))
         elif e.kind == 'list_item':
             bare = NUM_RE.match(e.text) or e.text[:1] in CIRCLED
             out.append(_Atom(e.text if bare else f'- {e.text}', e.page, sub))
@@ -460,7 +463,9 @@ def _images(doc, atoms) -> list[dict]:
     key 는 저장 위치와 무관한 이름표로, 그림 파일은 dataset/guide_images/{key} 에 있다 (청크_메타데이터.md 5장 그림).
     이름은 형식과 상관없이 문서 번호와 설명의 그림 번호로 만든다 (dataset/guides/README.md 그림 이름 규칙).
     형식은 파서가 알려 준 값: md·txt 는 링크 파일의 확장자, docx·pptx 는 문서 안 그림의 형식. pdf 는 몰라서 넣지 않는다.
-    분류(머리말 category)·문서 번호·그림 번호가 없어도 넣지 않는다 (파일 위치로 추측하지 않는다. 설명은 본문 '[그림] …')."""
+    분류(머리말 category)·문서 번호·그림 번호가 없어도 넣지 않는다 (파일 위치로 추측하지 않는다. 설명은 본문 '[그림] …').
+    docx·pptx 는 'sha256'(문서 안 그림 내용)도 붙인다. 청커는 파일을 읽지 않으므로, 이름표가 가리키는 배포 그림이
+    있는지·내용이 같은지는 업로드 적재가 본다 (ingest/upload.py check_images). sha256 은 DB 에 넣지 않는다 (chunk_row)."""
     cat, doc_no = doc.meta.get('category', ''), doc.meta.get('doc_no', '')
     if not cat or not doc_no:
         return []
@@ -468,7 +473,8 @@ def _images(doc, atoms) -> list[dict]:
     for a in atoms:
         no = FIGURE_NO_RE.match(a.caption)
         if a.ext and no:
-            out.append({'key': f'{cat}/{doc_no}_{no.group(1)}.{a.ext}', 'caption': a.caption})
+            out.append({'key': f'{cat}/{doc_no}_{no.group(1)}.{a.ext}', 'caption': a.caption}
+                       | ({'sha256': a.sha256} if a.sha256 else {}))
     return out
 
 
