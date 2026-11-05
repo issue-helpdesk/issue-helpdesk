@@ -73,7 +73,6 @@ function seed() {
     push(inquiry, { role: 'assistant', blocks: [p('지금까지 확인한 내용을 정리했어요. 맞는지 확인하고, 필요하면 수정해 주세요.')], card: 'draft' })
     push(inquiry, { role: 'user', text: '접수' })
     push(inquiry, { role: 'assistant', blocks: [p('접수되었어요. 접수번호는 **RCPT-1041** 입니다. 담당자 연결을 진행하고 있어요. 진행 상황은 아래 카드에서 바로 볼 수 있어요.')], card: 'ticket' })
-    push(inquiry, { role: 'staff', from: '성민경 담당자', groupName: '네트워크팀', kind: '처리 안내', createdAt: daysAgoIso(1), text: 'VPN 서버 쪽 인증 정보를 확인하고 있어요. 곧 결과를 알려 드릴게요.' })
     inquiry.status = 'HANDED_OFF'
     inquiry.step = 'submitted'
     inquiry.categoryCode = 'NET'

@@ -95,31 +95,19 @@ describe('처리할 문의 화면', () => {
     await waitFor(() => expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(2), SLOW)
   })
 
-  it('접수를 열면 상세 패널이 붙고, 처리 시작을 누르면 확인 중을 거쳐 처리 중이 된다', async () => {
-    mockConfig.pipelineScale = 1
+  it('접수를 열면 상세 패널이 붙고, 상태를 바꾸는 버튼 없이 ITSM 에서 받아 온다는 안내만 있다', async () => {
     renderAs('EMP-1004', '/queue/5004')
     const panel = await screen.findByRole('complementary', { name: '티켓 상세' }, SLOW)
     expect(await within(panel).findByRole('heading', { name: '재택 VPN 인증 오류' }, SLOW)).toBeInTheDocument()
-    await userEvent.click(within(panel).getByRole('button', { name: /처리 시작/ }))
-    await waitFor(() => expect(within(panel).getAllByText(/ITSM 반영 확인 중/).length).toBeGreaterThan(0), SLOW)
-    await waitFor(() => expect(within(panel).getByRole('button', { name: /처리 결과 등록/ })).toBeInTheDocument(), SLOW)
+    expect(await within(panel).findByText(/처리 상태와 처리 결과는 ITSM에서 입력해요/, undefined, SLOW)).toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: /처리 시작|처리 결과 등록/ })).toBeNull()
   })
 
-  it('처리 결과는 비워 둘 수 없고, 입력하면 해결 확인 대기가 된다', async () => {
+  it('처리 중인 내 접수에도 처리 결과 등록 버튼은 없다 (처리 결과는 ITSM 에서 받아온다)', async () => {
     renderAs('EMP-1004', '/queue/5002')
     const panel = await screen.findByRole('complementary', { name: '티켓 상세' }, SLOW)
-    await userEvent.click(await within(panel).findByRole('button', { name: /처리 결과 등록/ }, SLOW))
-    const dlg = await screen.findByRole('dialog')
-    await userEvent.click(within(dlg).getByRole('button', { name: /등록하고/ }))
-    expect(await within(dlg).findByText('처리 결과를 입력해 주세요.')).toBeInTheDocument()
-    await userEvent.type(within(dlg).getByLabelText('처리 결과'), 'VPN 인증서를 갱신했습니다.')
-    await userEvent.click(within(dlg).getByRole('button', { name: /등록하고/ }))
-    await waitFor(() => expect(within(panel).getByText(/문의자의 해결 확인을 기다리고/)).toBeInTheDocument(), SLOW)
-    // 처리 이력의 완료 줄에 그때의 처리 결과가 보인다 (완료마다의 값이 남는다)
-    await waitFor(() => {
-      const note = within(panel).getAllByText('VPN 인증서를 갱신했습니다.').find((e) => e.closest('.tln'))
-      expect(note?.closest('.tln')).toHaveTextContent('처리 결과')
-    }, SLOW)
+    expect(await within(panel).findByText(/처리 상태와 처리 결과는 ITSM에서 입력해요/, undefined, SLOW)).toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: /처리 결과 등록/ })).toBeNull()
   })
 
   it('다른 담당자의 접수는 열 수 없고, 닫기 버튼으로 패널이 닫힌다', async () => {
