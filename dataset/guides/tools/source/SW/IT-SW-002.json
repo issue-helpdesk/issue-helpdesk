@@ -376,7 +376,7 @@
       },
       {
        "t": "fig",
-       "src": "sw002_license_form.png",
+       "src": "IT-SW-002_3.1-1.png",
        "caption": "라이선스 요청서",
        "points": [
         "① 프로그램 (판 구분 포함)",
@@ -522,7 +522,7 @@
       },
       {
        "t": "fig",
-       "src": "sw002_activate.png",
+       "src": "IT-SW-002_3.2-1.png",
        "caption": "라이선스 활성화 화면",
        "points": [
         "① [회사 계정으로 로그인] 선택",
@@ -614,7 +614,7 @@
       },
       {
        "t": "fig",
-       "src": "sw002_office_activation.png",
+       "src": "IT-SW-002_3.3-1.png",
        "caption": "Office '제품 인증 필요' 표시"
       },
       {
@@ -701,7 +701,7 @@
       },
       {
        "t": "fig",
-       "src": "sw002_expired.png",
+       "src": "IT-SW-002_3.4-1.png",
        "caption": "라이선스 만료 안내"
       },
       {
@@ -827,7 +827,7 @@
       },
       {
        "t": "fig",
-       "src": "sw002_device_limit.png",
+       "src": "IT-SW-002_3.5-1.png",
        "caption": "사용 가능한 기기 수 초과 안내"
       },
       {
@@ -979,7 +979,7 @@
       },
       {
        "t": "fig",
-       "src": "sw002_my_requests.png",
+       "src": "IT-SW-002_3.7-1.png",
        "caption": "내 요청 현황의 [연장]·[반납]"
       },
       {

@@ -61,6 +61,17 @@ def test_chunk_keys_exist_in_copy(uses):
         assert key.split('/')[0] == manifest()[doc_no]['category']
 
 
+def test_file_name_is_doc_and_figure_number(uses):
+    """그림 이름 = {문서 번호}_{그림 번호}.확장자 (dataset/guides/README.md). 설명의 그림 번호만으로 파일을 찾을 수 있게."""
+    wrong = []
+    for key, doc_no, *_, caption in uses:
+        no = re.match(r'그림\s*(\d+(?:\.\d+)?-\d+)\.', caption)
+        name = key.split('/')[1]
+        if not no or os.path.splitext(name)[0] != f'{doc_no}_{no.group(1)}':
+            wrong.append((key, caption[:20]))
+    assert wrong == []
+
+
 def test_index_matches_chunks(uses):
     with open(os.path.join(COPY, 'index.csv'), encoding='utf-8-sig', newline='') as f:
         rows = list(csv.DictReader(f))

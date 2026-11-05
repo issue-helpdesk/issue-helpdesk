@@ -386,7 +386,7 @@
       },
       {
        "t": "fig",
-       "src": "acc001_31_error.png",
+       "src": "IT-ACC-001_3.1-1.png",
        "caption": "① ID는 사번 ② 오류 메시지와 남은 시도 횟수"
       },
       {
@@ -476,7 +476,7 @@
       },
       {
        "t": "fig",
-       "src": "acc001_32_lock.png",
+       "src": "IT-ACC-001_3.2-1.png",
        "caption": "① 셀프 잠금 해제 ② 예전 비밀번호로 저장된 자격 증명 제거"
       },
       {
@@ -568,7 +568,7 @@
       },
       {
        "t": "fig",
-       "src": "acc001_33_sso.png",
+       "src": "IT-ACC-001_3.3-1.png",
        "caption": "① 로딩만 도는 로그인 화면 ② 쿠키·캐시만 선택 ③ [삭제]"
       },
       {
@@ -668,7 +668,7 @@
       },
       {
        "t": "fig",
-       "src": "acc001_34_dormant.png",
+       "src": "IT-ACC-001_3.4-1.png",
        "caption": "① [휴면 해제하기]에서 본인 인증"
       },
       {
@@ -753,7 +753,7 @@
       },
       {
        "t": "fig",
-       "src": "acc001_35_suspended.png",
+       "src": "IT-ACC-001_3.5-1.png",
        "caption": "① 사용 중지 안내 — 셀프 해제할 수 없음"
       },
       {
@@ -839,7 +839,7 @@
       },
       {
        "t": "fig",
-       "src": "acc001_36_session.png",
+       "src": "IT-ACC-001_3.6-1.png",
        "caption": "① 이름 메뉴 ② [로그아웃]"
       },
       {
