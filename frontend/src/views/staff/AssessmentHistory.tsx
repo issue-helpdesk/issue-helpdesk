@@ -108,7 +108,7 @@ export function AssessmentHistory({ inquiryId, preset }: { inquiryId: number; pr
               <span>
                 <b>AI가 더 물어봤어요</b>
                 {a.missingItems.length > 0 && ` · ${a.missingItems.map((m) => MISSING_LABEL[m] ?? m).join(', ')}`}
-                {!next && ' · 이어진 판단이 아직 없어요'}
+                {!next && ' · 이어진 판단이 없어요 (AI 응답이 실패했거나 아직 처리 중일 수 있어요)'}
               </span>
             </div>
           )}
