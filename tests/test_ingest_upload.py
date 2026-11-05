@@ -157,6 +157,21 @@ def test_check_images_drops_missing_and_bad_keys(tmp_path):
     assert check_images([c], tmp_path) and c.images == []
 
 
+def test_check_images_compares_each_use_of_same_key():
+    """같은 이름표를 여러 곳에서 쓰면 쓰는 곳마다 따로 비교한다 (첫 비교 결과를 같은 이름표에 재사용하지 않게, PR #297 재검수)."""
+    import dataclasses
+    import hashlib
+    from app.rag.ingest.upload import GUIDE_IMAGES
+    key = 'SW/IT-SW-002_3.1-1.png'
+    good = hashlib.sha256((GUIDE_IMAGES / key).read_bytes()).hexdigest()
+    base = chunk_document(parse(str(REPO / guide_file('IT-SW-002'))))[0]
+    uses = [('같음', good), ('다름', '0' * 64), ('같음', good), ('다름', 'f' * 64)]
+    chunks = [dataclasses.replace(base, images=[{'key': key, 'caption': name, 'sha256': sha}]) for name, sha in uses]
+    warnings = check_images(chunks)
+    assert [[i['caption'] for i in c.images] for c in chunks] == [['같음'], [], ['같음'], []]
+    assert len(warnings) == 1 and '그림 2개' in warnings[0]
+
+
 def test_resolve_file_stays_inside_root(tmp_path):
     assert resolve_file('a/b.md', tmp_path) == (tmp_path / 'a' / 'b.md').resolve()
     with pytest.raises(IngestError):
