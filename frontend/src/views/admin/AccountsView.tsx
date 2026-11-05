@@ -138,21 +138,25 @@ export function AccountsView() {
     }
   }, [user, reload])
 
-  // 상태 칸의 건수: 서버 목록 응답에 상태별 건수가 없어서 상태마다 1건씩 요청해 총건수만 읽는다
+  // 상태 칸의 건수: 검색어와 부서·역할 필터를 따라간다 (상태 칸 자체만 빼고 센다).
+  // 서버 목록 응답에 상태별 건수가 없어서 상태마다 1건씩 요청해 총건수만 읽고, 검색어를 칠 때마다 보내지 않도록 잠깐 기다린다
   useEffect(() => {
     if (!user || user.serviceRole !== 'ADMIN') return
     let alive = true
     const states: AccountStatus[] = ['ACTIVE', 'LOCKED', 'INACTIVE']
-    Promise.all(states.map((s) => listUsers(user, { size: 1, accountStatus: [s] }))).then((rs) => {
-      if (!alive || rs.some((r) => !r.ok)) return
-      const c = { ACTIVE: 0, LOCKED: 0, INACTIVE: 0 }
-      rs.forEach((r, i) => r.ok && (c[states[i]] = r.data.totalCount))
-      setCounts(c)
-    })
+    const timer = setTimeout(() => {
+      Promise.all(states.map((s) => listUsers(user, { size: 1, accountStatus: [s], q: q.trim() || undefined, departmentId: dept ? Number(dept) : undefined, serviceRole: role ? [role] : undefined }))).then((rs) => {
+        if (!alive || rs.some((r) => !r.ok)) return
+        const c = { ACTIVE: 0, LOCKED: 0, INACTIVE: 0 }
+        rs.forEach((r, i) => r.ok && (c[states[i]] = r.data.totalCount))
+        setCounts(c)
+      })
+    }, 250)
     return () => {
       alive = false
+      clearTimeout(timer)
     }
-  }, [user, reload])
+  }, [user, reload, q, dept, role])
 
   useEffect(() => {
     let alive = true

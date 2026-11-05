@@ -131,11 +131,11 @@ export function InquiryListView() {
     }
   }, [employeeNo, ownerId, query, reload])
 
-  // 분류별 건수: 조건 없이 전체를 한 번 읽어 센다 (서버가 생기면 분류마다 totalCount 로 읽는다)
+  // 상태별 건수: 검색어·분류·기간을 따라간다 (상태 칸 자체만 빼고 센다). 최근 100건까지 읽어 센다 (서버가 생기면 상태마다 totalCount 로 읽는다)
   useEffect(() => {
     if (!employeeNo) return
     let alive = true
-    listInquiries(employeeNo, { size: 100, userId: ownerId }).then((r) => {
+    listInquiries(employeeNo, { size: 100, userId: ownerId, categoryCode: query.categoryCode, createdFrom: query.createdFrom, q: query.q }).then((r) => {
       if (!alive || !r.ok) return
       const c: Record<string, number> = { all: r.data.totalCount }
       for (const it of r.data.items) {
@@ -147,7 +147,7 @@ export function InquiryListView() {
     return () => {
       alive = false
     }
-  }, [employeeNo, reload])
+  }, [employeeNo, ownerId, reload, query.categoryCode, query.createdFrom, query.q])
 
   const cond = !!(q.trim() || cat || period || group)
   /** 조건을 바꾸면 첫 쪽으로 돌아간다 */

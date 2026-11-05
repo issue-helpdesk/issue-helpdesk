@@ -52,7 +52,7 @@ describe('전체 문의 API (모의)', () => {
     expect(unr.ok && unr.data.items.every((x) => x.kind === 'unr')).toBe(true)
   })
 
-  it('AI 처리 상담은 제목·번호·가이드 검색과 분류로 거르고, 건수는 기간만 따른다', async () => {
+  it('AI 처리 상담은 제목·번호·가이드 검색과 분류로 거르고, 구분 건수도 검색·분류를 따라간다', async () => {
     const all = await listAiInquiries({ size: 100 })
     const base = all.ok ? all.data.counts.all : 0
     const byTitle = await listAiInquiries({ q: '계정 잠금', size: 100 })
@@ -62,7 +62,14 @@ describe('전체 문의 API (모의)', () => {
     expect(byGuide.ok && byGuide.data.items.every((r) => r.categoryCode === 'NET')).toBe(true)
     const cat = await listAiInquiries({ categoryCode: 'HW', size: 100 })
     expect(cat.ok && cat.data.items.every((r) => r.categoryCode === 'HW')).toBe(true)
-    expect(cat.ok && cat.data.counts.all).toBe(base) // 구분 건수는 분류·검색에 영향받지 않는다
+    // 구분 탭의 건수는 구분 탭 자체만 빼고 검색어·분류를 따라간다 (구분을 골라도 합계는 그대로)
+    const hw = cat.ok ? cat.data.counts : null
+    expect(hw && hw.all).toBeLessThan(base)
+    expect(hw && hw.all).toBe(hw && hw.ok + hw.pend + hw.unr)
+    expect(cat.ok && cat.data.totalCount).toBe(hw?.all)
+    const hwPend = await listAiInquiries({ categoryCode: 'HW', kind: 'pend', size: 100 })
+    expect(hwPend.ok && hwPend.data.counts).toEqual(hw)
+    expect(byTitle.ok && byTitle.data.counts.all).toBe(byTitle.ok ? byTitle.data.totalCount : -1)
   })
 
   it('재배정은 관리자만, 처리 대기·처리 중인 접수만, 사유와 Jira 연결된 같은 그룹 담당자만', async () => {
@@ -111,6 +118,21 @@ describe('전체 문의 화면', () => {
     expect(within(document.body).getByText('Jira 생성 확인 필요')).toBeInTheDocument()
     expect(within(document.body).getByText('생성 여부 확인 중')).toBeInTheDocument()
     expect(rows().every((r) => within(r).getByText('배정 전'))).toBe(true)
+  })
+
+  it('검색하면 상태 탭의 건수도 검색 결과에 맞게 바뀌고, 지우면 돌아온다', async () => {
+    renderAs('EMP-1178', '/tickets')
+    const seg = await screen.findByRole('group', { name: '처리 상태' }, SLOW)
+    const num = (name: RegExp) => within(seg).getByRole('button', { name }).textContent?.replace(/\D+/g, ' ').trim()
+    await waitFor(() => expect(num(/^전체/)).toBe('52'), SLOW)
+    await userEvent.type(screen.getByRole('textbox', { name: '전체 문의 검색' }), '곽지민')
+    await waitFor(() => expect(Number(num(/^전체/))).toBeLessThan(52), SLOW)
+    // 탭 건수의 합이 검색 결과 수와 맞고, 목록의 "총 N건"과도 같다
+    const total = Number(num(/^전체/))
+    await waitFor(() => expect(rows()).toHaveLength(Math.min(total, 20)), SLOW)
+    expect(screen.getByText(`총 ${total}건`)).toBeInTheDocument()
+    await userEvent.clear(screen.getByRole('textbox', { name: '전체 문의 검색' }))
+    await waitFor(() => expect(num(/^전체/)).toBe('52'), SLOW)
   })
 
   it('검색은 담당자 이름으로도 찾고, 조건을 걸면 필터 해제 버튼이 생긴다', async () => {

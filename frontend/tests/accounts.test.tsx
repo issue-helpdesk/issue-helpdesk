@@ -112,6 +112,18 @@ describe('계정 관리 화면', () => {
     expect(await screen.findByText(/퇴사 예정 · 수행 이건우/)).toBeInTheDocument()
   })
 
+  it('검색하면 상태 탭의 건수도 검색 결과에 맞게 바뀌고, 지우면 돌아온다', async () => {
+    renderAs('EMP-1178', '/accounts')
+    const seg = await screen.findByRole('group', { name: '상태' }, SLOW)
+    const all = async () => Number(within(seg).getByRole('button', { name: /^전체/ }).textContent?.replace(/\D+/g, ''))
+    await waitFor(async () => expect(await all()).toBeGreaterThan(1), SLOW)
+    const before = await all()
+    await userEvent.type(await screen.findByRole('textbox', { name: '계정 검색' }), 'EMP-1178')
+    await waitFor(async () => expect(await all()).toBe(1), SLOW)
+    await userEvent.clear(screen.getByRole('textbox', { name: '계정 검색' }))
+    await waitFor(async () => expect(await all()).toBe(before), SLOW)
+  })
+
   it('계정을 추가할 때 칸마다 오류를 알리고, 만들면 임시 비밀번호를 한 번 보여 준다', async () => {
     renderAs('EMP-1178', '/accounts')
     await userEvent.click(await screen.findByRole('button', { name: /계정 추가/ }, SLOW))

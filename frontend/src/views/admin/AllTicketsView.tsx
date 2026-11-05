@@ -169,18 +169,23 @@ export function AllTicketsView() {
     }
   }, [user, mode, query, tick, reload])
 
-  // 상태 탭의 건수: 조건과 상관없이 전체에서 센다 (서버는 목록 응답에 상태별 건수가 없어 상태마다 1건씩 요청해 총건수만 읽는다)
+  // 상태 탭의 건수: 검색어와 분류·긴급도·팀·담당자·기간 필터를 따라간다. 상태 탭 자체와 "미해결"만 빼고 센다
+  // (서버는 목록 응답에 상태별 건수가 없어 상태마다 1건씩 요청해 총건수만 읽는다. 검색어를 칠 때마다 보내지 않도록 잠깐 기다린다)
+  const countCond = useMemo((): TicketListQuery => ({ categoryCode: query.categoryCode, urgency: query.urgency, groupId: query.groupId, assigneeId: query.assigneeId, createdFrom: query.createdFrom, q: query.q }), [query.categoryCode, query.urgency, query.groupId, query.assigneeId, query.createdFrom, query.q])
   useEffect(() => {
     if (!user || mode !== 'staff') return
     let alive = true
-    const one = (extra: TicketListQuery) => listTickets(user, { view: 'ALL', size: 1, ...extra }).then((r) => (r.ok ? r.data.totalCount : 0))
-    Promise.all([one({}), one({ jiraSyncStatus: ['PENDING', 'VERIFYING', 'NEEDS_ADMIN'] }), one({ workStatus: ['RDY'] }), one({ workStatus: ['WIP'] }), one({ workStatus: ['FIN'] }), one({ workStatus: ['CLS'] })]).then(([all, none, RDY, WIP, FIN, CLS]) => {
-      if (alive) setCounts({ '': all, none, open: RDY + WIP, RDY, WIP, FIN, CLS })
-    })
+    const one = (extra: TicketListQuery) => listTickets(user, { view: 'ALL', size: 1, ...countCond, ...extra }).then((r) => (r.ok ? r.data.totalCount : 0))
+    const timer = setTimeout(() => {
+      Promise.all([one({}), one({ jiraSyncStatus: ['PENDING', 'VERIFYING', 'NEEDS_ADMIN'] }), one({ workStatus: ['RDY'] }), one({ workStatus: ['WIP'] }), one({ workStatus: ['FIN'] }), one({ workStatus: ['CLS'] })]).then(([all, none, RDY, WIP, FIN, CLS]) => {
+        if (alive) setCounts({ '': all, none, open: RDY + WIP, RDY, WIP, FIN, CLS })
+      })
+    }, 250)
     return () => {
       alive = false
+      clearTimeout(timer)
     }
-  }, [user, mode, tick])
+  }, [user, mode, tick, countCond])
 
   useEffect(() => {
     if (!user || mode !== 'ai') return

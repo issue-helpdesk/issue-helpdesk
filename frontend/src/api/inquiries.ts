@@ -257,7 +257,8 @@ export async function listAiInquiries(query: AiListQuery = {}): Promise<ApiResul
       return request<Page<SSummary>>(`/inquiries?${qs.toString()}`)
     }
     const all: AiKind[] = ['ok', 'pend', 'unr']
-    const [list, ...cnt] = await Promise.all([one(kind ? [kind] : all, size, page, true), ...all.map((k) => one([k], 1, 1))])
+    // 구분 탭의 건수도 검색어·분류를 따라간다 (구분 탭 자체만 빼고 센다)
+    const [list, ...cnt] = await Promise.all([one(kind ? [kind] : all, size, page, true), ...all.map((k) => one([k], 1, 1, true))])
     if (!list.ok) return list
     const counts = { all: 0, ok: 0, pend: 0, unr: 0 }
     cnt.forEach((r, i) => {
@@ -282,9 +283,11 @@ export async function listAiInquiries(query: AiListQuery = {}): Promise<ApiResul
   }
   await sleep(150)
   const base = aiRows().filter((r) => !per || r.day === -1 || r.day < PER_DAYS[per])
-  const counts = { all: base.length, ok: base.filter((r) => r.kind === 'ok').length, pend: base.filter((r) => r.kind === 'pend').length, unr: base.filter((r) => r.kind === 'unr').length }
   const needle = q.trim().toLowerCase()
-  let rows = base.filter((r) => (!kind || r.kind === kind) && (!categoryCode || r.categoryCode === categoryCode) && (!needle || [r.title, r.id, r.guide, r.categoryCode && CATEGORIES[r.categoryCode].name].some((v) => v && v.toLowerCase().includes(needle))))
+  // 구분 탭의 건수는 검색어·분류를 따라가고, 구분 탭 자체만 빼고 센다
+  const matched = base.filter((r) => (!categoryCode || r.categoryCode === categoryCode) && (!needle || [r.title, r.id, r.guide, r.categoryCode && CATEGORIES[r.categoryCode].name].some((v) => v && v.toLowerCase().includes(needle))))
+  const counts = { all: matched.length, ok: matched.filter((r) => r.kind === 'ok').length, pend: matched.filter((r) => r.kind === 'pend').length, unr: matched.filter((r) => r.kind === 'unr').length }
+  let rows = matched.filter((r) => !kind || r.kind === kind)
   if (sort) {
     const [key, dir] = sort.split(',')
     const sign = dir === 'desc' ? -1 : 1

@@ -90,7 +90,8 @@ export function QueueView() {
   const [sort, setSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' } | null>(null)
   const [page, setPage] = useState(1)
   const [data, setData] = useState<Page<TicketSummary> | null>(null)
-  const [mine, setMine] = useState<TicketSummary[]>([])
+  // 처리 상태별 건수 (검색어·긴급도·기간을 따라간다). null = 아직 못 읽음
+  const [statusCounts, setStatusCounts] = useState<Partial<Record<WorkStatus, number>> | null>(null)
   const [error, setError] = useState('')
   const [tick, setTick] = useState(0)
   const [reload, setReload] = useState(0)
@@ -130,17 +131,25 @@ export function QueueView() {
     }
   }, [user, query, tick, reload])
 
-  // 탭별 건수와 Jira 알림이 온 건: 조건과 상관없이 내가 맡은 전체를 한 번 읽어 센다
+  // 탭별 건수: 검색어·긴급도·기간을 따라간다 (상태 탭 자체만 빼고 센다). 처리 상태마다 1건씩 요청해 총건수만 읽고, 검색어를 칠 때마다 보내지 않도록 잠깐 기다린다
   useEffect(() => {
     if (!user) return
     let alive = true
-    listTickets(user, { view: 'ASSIGNED', assigneeId: user.id, size: 100 }).then((r) => {
-      if (alive && r.ok) setMine(r.data.items)
-    })
+    const days = PERIODS.find((p) => p.value === per)?.days
+    const timer = setTimeout(() => {
+      const states: WorkStatus[] = ['RDY', 'WIP', 'FIN', 'CLS']
+      Promise.all(states.map((s) => listTickets(user, { view: 'ASSIGNED', assigneeId: user.id, size: 1, workStatus: [s], urgency: pri ? [pri as Urgency] : undefined, createdFrom: days === undefined ? undefined : daysAgo(days), q: q.trim() || undefined }))).then((rs) => {
+        if (!alive) return
+        const c: Partial<Record<WorkStatus, number>> = {}
+        rs.forEach((r, i) => (c[states[i]] = r.ok ? r.data.totalCount : 0))
+        setStatusCounts(c)
+      })
+    }, 250)
     return () => {
       alive = false
+      clearTimeout(timer)
     }
-  }, [user, tick])
+  }, [user, tick, q, pri, per])
 
   if (!user) return null
 
@@ -148,8 +157,8 @@ export function QueueView() {
     set(v)
     setPage(1)
   }
-  const count = (statuses: WorkStatus[]) => mine.filter((t) => t.workStatus && statuses.includes(t.workStatus)).length
-  const subCount = (s: 'RDY' | 'WIP') => mine.filter((t) => t.workStatus === s).length
+  const count = (statuses: WorkStatus[]) => statuses.reduce((n, s) => n + (statusCounts?.[s] ?? 0), 0)
+  const subCount = (s: 'RDY' | 'WIP') => statusCounts?.[s] ?? 0
   const cond = !!(q.trim() || pri || per)
   // 전체 상태 탭을 맨 앞에 두고, 각 탭에 내가 맡은 건수를 보인다
   const tabs = [ALL_TAB, ...TABS]
@@ -179,7 +188,7 @@ export function QueueView() {
               {tabs.map((t) => (
                 <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className={tab === t.key ? 'on' : ''} onClick={() => { reset(setTab)(t.key); setSub('') }}>
                   {t.label}
-                  {mine.length > 0 && <em>{count(t.statuses)}</em>}
+                  {statusCounts && <em>{count(t.statuses)}</em>}
                 </button>
               ))}
             </div>

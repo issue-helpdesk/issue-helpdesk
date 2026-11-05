@@ -74,6 +74,20 @@ describe('처리할 문의 화면', () => {
     expect(rows[1]).toHaveTextContent('악성 첨부파일 의심 메일 수신') // P1 먼저
   })
 
+  it('검색하면 탭의 건수도 검색 결과에 맞게 바뀌고, 지우면 돌아온다', async () => {
+    renderAs('EMP-1004', '/queue')
+    const open = await screen.findByRole('tab', { name: /진행 중/ }, SLOW)
+    await waitFor(() => expect(open).toHaveTextContent('8'), SLOW)
+    const box = await screen.findByLabelText('처리할 문의 검색', undefined, SLOW)
+    await userEvent.type(box, '프린터')
+    await waitFor(() => expect(screen.getByRole('tab', { name: /진행 중/ })).toHaveTextContent('1'), SLOW)
+    expect(screen.getByRole('tab', { name: /진행 중/ })).not.toHaveTextContent('8')
+    expect(screen.getByRole('tab', { name: /해결 확인 대기/ })).toHaveTextContent('0') // 프린터 건은 진행 중에만 있다
+    await userEvent.clear(box)
+    await waitFor(() => expect(screen.getByRole('tab', { name: /진행 중/ })).toHaveTextContent('8'), SLOW)
+    expect(screen.getByRole('tab', { name: /해결 확인 대기/ })).toHaveTextContent('3')
+  })
+
   it('검색어로 목록을 줄인다', async () => {
     renderAs('EMP-1004', '/queue')
     const box = await screen.findByLabelText('처리할 문의 검색', undefined, SLOW)
