@@ -1,6 +1,6 @@
 /**
  * "맨 위로" 버튼 (공통 UI). 본문(.main > .scroll)이 길어서 아래로 한참 내려갔을 때만 오른쪽 아래에 나타난다.
- * 짧은 화면이나 맨 위 근처에서는 보이지 않으므로 화면마다 따로 넣지 않고, 앱 틀(AppShell)에서 한 번만 둔다.
+ * 위치는 모든 화면이 같다(오른쪽 아래 24px, 전체 문의 화면 기준). 짧은 화면이나 맨 위 근처에서는 보이지 않으므로 화면마다 따로 넣지 않고, 앱 틀(AppShell)에서 한 번만 둔다.
  *
  * 화면마다 본문 상자가 따로 생기고(불러오는 중 → 내용) 사라지므로, 스크롤 이벤트를 문서에서 한꺼번에 듣고
  * 지금 스크롤 중인 본문 상자를 기억한다. 상세 패널·창 안의 스크롤은 대상이 아니다.
@@ -22,7 +22,6 @@ export function ScrollTop() {
   const target = useRef<HTMLElement | null>(null)
   const [on, setOn] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const [bottom, setBottom] = useState(24)
   if (on && !mounted) setMounted(true)
 
   useEffect(() => {
@@ -43,9 +42,6 @@ export function ScrollTop() {
       if (!(el instanceof HTMLElement) || !el.matches('main.main > .scroll')) return
       target.current = el
       setOn(el.scrollTop > SHOW_AFTER && el.scrollHeight - el.clientHeight > MIN_EXTRA)
-      // 대화 화면은 입력창이 아래에 붙어 있으므로 그 위로 띄운다
-      const wrap = el.parentElement?.querySelector<HTMLElement>('.composer-wrap')
-      setBottom(wrap ? wrap.offsetHeight + 12 : 24)
     }
     document.addEventListener('scroll', onScroll, { capture: true, passive: true })
     return () => document.removeEventListener('scroll', onScroll, true)
@@ -56,7 +52,6 @@ export function ScrollTop() {
     <button
       type="button"
       className={`totop${on ? '' : ' out'}`}
-      style={{ bottom }}
       aria-label="맨 위로"
       title="맨 위로"
       tabIndex={on ? 0 : -1}
