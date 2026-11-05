@@ -44,6 +44,8 @@ export interface GuideSource {
   docCode: string
   /** 문서 제목 */
   title: string
+  /** 서버 문서 ID (FAQ 수정 때 연결된 출처를 미리 고르는 데 쓴다) */
+  documentId?: number
   /** 문서 버전 (document_versions.version, 예: v2) */
   version: string
   section: string

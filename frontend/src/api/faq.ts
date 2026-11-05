@@ -69,7 +69,7 @@ export async function listFaqs(admin = false): Promise<ApiResult<Faq[]>> {
 export async function getFaqSources(serverId: number): Promise<ApiResult<GuideSource[]>> {
   const r = await request<ServerFaqDetail>(`/faqs/${serverId}`)
   if (!r.ok) return r
-  return ok(r.data.sources.map((s) => ({ docCode: s.docCode, title: s.title, version: s.version, section: s.location ?? '', excerpt: '' })))
+  return ok(r.data.sources.map((s) => ({ docCode: s.docCode, title: s.title, version: s.version, section: s.location ?? '', excerpt: '', documentId: s.documentId })))
 }
 
 export interface FaqInput {
@@ -79,18 +79,45 @@ export interface FaqInput {
   keywords: string[]
   /** 게시 여부. 서버는 게시하려면 전 직원용 가이드 출처가 이미 연결돼 있어야 한다 */
   isActive: boolean
+  /** 출처로 연결할 가이드. 서버는 문서 ID 만 받고(최대 20개), 모의는 출처 줄을 만들 정보를 쓴다 */
+  sources?: { documentId: number; docCode: string; title: string; version: string }[]
 }
+
+/** 서버로 보내는 본문. 화면용 출처 정보(sources)는 빼고 문서 ID 목록(sourceDocumentIds)으로 바꾼다 */
+const bodyOf = (input: Partial<FaqInput>) => {
+  const { sources, ...rest } = input
+  return JSON.stringify(sources ? { ...rest, sourceDocumentIds: sources.map((s) => s.documentId) } : rest)
+}
+const toSources = (input: Partial<FaqInput>): GuideSource[] => (input.sources ?? []).map((s) => ({ docCode: s.docCode, title: s.title, version: s.version, section: '', excerpt: '', documentId: s.documentId }))
 
 /** FAQ 등록 (FQ-03, 관리자). FAQ 번호는 서버가 다음 번호로 발급한다 */
 export async function createFaq(input: FaqInput): Promise<ApiResult<Faq>> {
   if (USE_MOCK_FAQ) {
     await sleep(150)
     const n = Math.max(0, ...mockStore.map((f) => Number(f.id.replace(/\D/g, '')) || 0)) + 1
-    const faq: Faq = { id: `FAQ-${String(n).padStart(3, '0')}`, categoryCode: input.categoryCode, question: input.question, answer: input.answer, sources: [], active: input.isActive }
+    const faq: Faq = { id: `FAQ-${String(n).padStart(3, '0')}`, categoryCode: input.categoryCode, question: input.question, answer: input.answer, sources: toSources(input), active: input.isActive }
     mockStore = [...mockStore, faq]
     return ok({ ...faq })
   }
-  const r = await request<ServerFaq>('/faqs', { method: 'POST', body: JSON.stringify(input) })
+  const r = await request<ServerFaq>('/faqs', { method: 'POST', body: bodyOf(input) })
+  return explain(r.ok ? ok(toFaq(r.data)) : r)
+}
+
+/** FAQ 수정 (FQ-04). 보낸 항목만 바뀌고, 출처(sources)를 보내면 그 목록으로 통째로 바뀐다. 게시 여부(isActive)도 함께 보낼 수 있다 */
+export async function updateFaq(f: Faq, input: Partial<FaqInput>): Promise<ApiResult<Faq>> {
+  if (USE_MOCK_FAQ) {
+    await sleep(150)
+    const hit = mockStore.find((x) => x.id === f.id)
+    if (!hit) return fail('FAQ_NOT_FOUND', 'FAQ를 찾을 수 없어요.')
+    if (input.categoryCode) hit.categoryCode = input.categoryCode
+    if (input.question !== undefined) hit.question = input.question
+    if (input.answer !== undefined) hit.answer = input.answer
+    if (input.sources) hit.sources = toSources(input)
+    if (input.isActive !== undefined) hit.active = input.isActive
+    return ok({ ...hit })
+  }
+  if (f.serverId === undefined) return fail('FAQ_NOT_FOUND', 'FAQ를 찾을 수 없어요.')
+  const r = await request<ServerFaq>(`/faqs/${f.serverId}`, { method: 'PATCH', body: bodyOf(input) })
   return explain(r.ok ? ok(toFaq(r.data)) : r)
 }
 
