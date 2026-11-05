@@ -111,8 +111,10 @@ class MessageSource(CamelModel):
 
 
 class Question(CamelModel):
+    label: str | None = None                # 답을 글로 묶을 때 붙이는 이름. 이 칸이 생기기 전 저장된 질문은 null
     text: str
     options: list[str]                      # 비어 있으면 입력창으로 보여 주는 질문
+    allow_text: bool = False                # 선택지와 함께 직접 입력도 받는가
 
 
 class Message(CamelModel):

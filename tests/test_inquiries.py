@@ -391,6 +391,11 @@ SITUATION = {"text": "어떤 상황인가요?", "options": ["접속 오류", "�
 SCREEN = {"text": "화면에 뜨는 메시지가 있나요?", "options": []}
 
 
+def shown(question):
+    """label·allow_text 가 없는 질문의 응답 모양."""
+    return {"label": None, "allowText": False, **question}
+
+
 def asking(*questions, **fields):
     return ai_reply(reply="몇 가지 여쭤볼게요.", questions=list(questions), **fields)
 
@@ -404,8 +409,8 @@ def test_questions_in_turn_and_message_list(client, headers, ai, taxonomy):
 
     body = start(client, headers).json()
 
-    assert body["assessment"]["questions"] == [SITUATION, SCREEN]
-    assert [m["questions"] for m in body["messages"]] == [[], [SITUATION, SCREEN]]
+    assert body["assessment"]["questions"] == [shown(SITUATION), shown(SCREEN)]
+    assert [m["questions"] for m in body["messages"]] == [[], [shown(SITUATION), shown(SCREEN)]]
     assert message_list(client, headers, body["inquiry"]["id"]) == body["messages"]
 
 
@@ -416,9 +421,9 @@ def test_each_message_keeps_its_own_questions(client, headers, ai, taxonomy):
 
     body = send(client, headers, inquiry_id, content="접속 오류", key="k-2").json()
 
-    assert body["assessment"]["questions"] == [SCREEN]
+    assert body["assessment"]["questions"] == [shown(SCREEN)]
     assert [(m["sender"], m["questions"]) for m in message_list(client, headers, inquiry_id)] == [
-        ("USER", []), ("AI", [SITUATION]), ("USER", []), ("AI", [SCREEN])]
+        ("USER", []), ("AI", [shown(SITUATION)]), ("USER", []), ("AI", [shown(SCREEN)])]
 
 
 def test_session_filter_keeps_question_pairs(client, db, headers, ai, taxonomy):
@@ -435,7 +440,7 @@ def test_session_filter_keeps_question_pairs(client, db, headers, ai, taxonomy):
 
     filtered = message_list(client, headers, inquiry_id, sessionId=second.id)
 
-    assert [(m["sender"], m["questions"]) for m in filtered] == [("USER", []), ("AI", [SCREEN])]
+    assert [(m["sender"], m["questions"]) for m in filtered] == [("USER", []), ("AI", [shown(SCREEN)])]
 
 
 def test_questions_empty_when_ask_more_became_escalate(client, db, headers, ai, taxonomy):
@@ -459,6 +464,19 @@ def test_stored_questions_are_capped_like_the_turn(client, headers, ai, taxonomy
     assert len(body["assessment"]["questions"]) == 3
     assert body["assessment"]["questions"][0]["options"] == ["가", "나", "다", "라", "그 밖의 상황"]
     assert message_list(client, headers, body["inquiry"]["id"])[-1]["questions"] == body["assessment"]["questions"]
+
+
+def test_stored_question_label_and_allow_text_reach_the_screen(client, db, headers, ai, taxonomy):
+    """합의된 새 모양(label·allow_text). 저장값은 snake_case, 응답은 camelCase 다."""
+    ai.replies = [asking(SITUATION)]
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    saved = assessments(db)[0]
+    saved.ai_output = saved.ai_output | {"questions": [
+        {"label": "상황", "text": "어떤 상황인가요?", "options": ["집에서 자주 끊겨요"], "allow_text": True}]}
+    db.commit()
+
+    assert message_list(client, headers, inquiry_id)[-1]["questions"] == [
+        {"label": "상황", "text": "어떤 상황인가요?", "options": ["집에서 자주 끊겨요"], "allowText": True}]
 
 
 def test_questions_empty_for_saved_output_without_questions(client, db, headers, ai, taxonomy):
