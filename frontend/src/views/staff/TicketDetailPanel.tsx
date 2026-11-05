@@ -411,7 +411,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                             {x.reason && (
                               <p className="tln">
                                 <em>{x.event === 'REASSIGN' ? '재배정 사유' : x.event === 'FAIL' ? '실패 사유' : '근거'}</em>
-                                {friendlyAssignReason(x.reason)}
+                                {friendlyAssignReason(x.reason, t?.workStatus)}
                               </p>
                             )}
                           </div>
