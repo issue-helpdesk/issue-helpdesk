@@ -102,9 +102,11 @@ export function ChatView() {
   const ticketWork = inquiry?.ticket?.workStatus
   // 접수 상태가 바뀌거나(예: 해결 확인 대기 → 해결 완료) 반영 중 표시가 끝나면 남은 안내·오류 문구를 지운다
   const ticketPending = inquiry?.ticket?.transitionPending
-  useEffect(() => {
+  const [errFor, setErrFor] = useState({ ticketWork, ticketPending })
+  if (errFor.ticketWork !== ticketWork || errFor.ticketPending !== ticketPending) {
+    setErrFor({ ticketWork, ticketPending })
     setError('')
-  }, [ticketWork, ticketPending])
+  }
   // 서버 알림이 없는 AI 새 답변 표시용: 이 문의를 여기까지 봤다고 기록하고, 사이드바의 점을 다시 읽는다 (서버 모드)
   const seenAt = inquiry?.updatedAt
   useEffect(() => {

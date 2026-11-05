@@ -56,22 +56,20 @@ export function AiDetailPanel({ row, slide, onSlideEnd, onClose }: { row: AiRow;
     return () => document.removeEventListener('keydown', onKey)
   })
 
-  // 사용한 가이드: 행이 바뀌면 다시 읽는다 (그동안 이전 내용을 두지 않는다)
-  const [guides, setGuides] = useState<UsedGuide[] | null>(null)
-  const [guideErr, setGuideErr] = useState(false)
+  // 사용한 가이드: 행이 바뀌면 다시 읽는다 (그동안 이전 내용을 두지 않는다). 읽은 결과에 어느 행의 것인지를 함께 두고, 지금 행의 것만 쓴다
+  const [loaded, setLoaded] = useState<{ id: number | string; inquiryId: typeof row.inquiryId; guide: typeof row.guide; cases: typeof row.cases; data: UsedGuide[] | null } | null>(null)
   useEffect(() => {
     let alive = true
-    setGuides(null)
-    setGuideErr(false)
     listUsedGuides(row.inquiryId, row.guide, row.cases).then((r) => {
-      if (!alive) return
-      if (r.ok) setGuides(r.data)
-      else setGuideErr(true)
+      if (alive) setLoaded({ id: row.id, inquiryId: row.inquiryId, guide: row.guide, cases: row.cases, data: r.ok ? r.data : null })
     })
     return () => {
       alive = false
     }
   }, [row.id, row.inquiryId, row.guide, row.cases])
+  const cur = loaded && loaded.id === row.id && loaded.inquiryId === row.inquiryId && loaded.guide === row.guide && loaded.cases === row.cases ? loaded : null
+  const guides = cur ? cur.data : null
+  const guideErr = !!cur && cur.data === null
 
   return (
     <aside
