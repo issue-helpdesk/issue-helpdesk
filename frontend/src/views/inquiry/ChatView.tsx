@@ -192,7 +192,15 @@ export function ChatView() {
     async (job: Promise<ApiResult<Inquiry>>): Promise<boolean> => {
       setBusy(true)
       setError('')
-      const r = await job
+      let r: ApiResult<Inquiry>
+      try {
+        r = await job
+      } catch {
+        // 예외로 끝나도 버튼이 영영 잠겨 있지 않게 풀고 오류를 알린다
+        setBusy(false)
+        setError('요청을 보내지 못했어요. 잠시 뒤 다시 시도해 주세요.')
+        return false
+      }
       setBusy(false)
       if (!r.ok) {
         // 같은 변경이 Jira 에 반영되는 중이면 잘못이 아니라 기다리라는 안내다. 최신 문의로 다시 그리면 버튼이 잠긴다
@@ -372,7 +380,7 @@ export function ChatView() {
             <span>{IDLE_TEXT[inquiry.idleWarned]}</span>
           </div>
         )}
-        {error && (
+        {error && modal?.kind !== 'reject' && (
           <div className="alert err" role="alert" style={{ maxWidth: 760, margin: '0 auto 10px' }}>
             <div>{error}</div>
           </div>
@@ -515,6 +523,11 @@ export function ChatView() {
             <label htmlFor="m-reason">남은 증상</label>
             <textarea className="ta" id="m-reason" value={reason} placeholder="예) 안내대로 했지만 같은 오류가 나요" onChange={(e) => setReason(e.target.value)} />
           </div>
+          {error && (
+            <div className="ferr" role="alert">
+              {error}
+            </div>
+          )}
           <div className="acts">
             <button type="button" className="btn sec" onClick={() => setModal(null)}>
               취소

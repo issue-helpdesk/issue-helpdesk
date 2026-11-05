@@ -10,6 +10,7 @@
  */
 import { request } from '../core/apiClient'
 import { SERVER_INTAKE } from '../core/config'
+import { uuid } from '../core/uuid'
 import type { ChatBlock, ChatMessage, ChatReply, ChatStep, CategoryCode, Draft, DraftEdit, Inquiry, InquiryStatus, LegacyCase, RejudgedField, Ticket, Urgency, WorkStatus } from './chatTypes'
 import type { Page } from './inquiries'
 import type { TicketDetail } from './ticketTypes'
@@ -109,14 +110,20 @@ const keys = new Map<string, string>()
 const keyFor = (scope: string) => {
   let k = keys.get(scope)
   if (!k) {
-    k = crypto.randomUUID()
+    k = uuid() // crypto.randomUUID 는 http 서버에 없다
     keys.set(scope, k)
   }
   return k
 }
 const idemPost = async <T,>(path: string, body: unknown, method: 'POST' | 'PUT' = 'POST'): Promise<ApiResult<T>> => {
   const scope = `${method} ${path} ${JSON.stringify(body)}`
-  const r = await request<T>(path, { method, body: JSON.stringify(body), headers: { 'Idempotency-Key': keyFor(scope) } })
+  let r: ApiResult<T>
+  try {
+    r = await request<T>(path, { method, body: JSON.stringify(body), headers: { 'Idempotency-Key': keyFor(scope) } })
+  } catch {
+    // 요청을 만들다가 난 예상 밖 오류도 화면이 오류 문구로 보이게 결과로 돌려준다 (던지면 대기 화면이 끝나지 않는다)
+    return fail('CLIENT_ERROR', '요청을 보내지 못했어요. 잠시 뒤 다시 시도해 주세요.')
+  }
   // 서버가 처리한 결과(성공 또는 확정된 오류)를 받으면 키를 버린다. 네트워크 오류·처리 중(409)이면 같은 키로 다시 보낸다.
   if (r.ok || !['NETWORK_ERROR', 'REQUEST_IN_PROGRESS'].includes(r.error.code)) keys.delete(scope)
   return r

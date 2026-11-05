@@ -29,13 +29,18 @@ export function PendingChatView() {
     live.current = true
     const p = getPending()
     if (!p) return
-    p.promise.then((r) => {
-      if (!live.current) return
-      if (r.ok) {
-        clearPending()
-        navigate(`/chat/${r.data.id}`, { replace: true, state: { fresh: true } })
-      } else setError(r.error.message)
-    })
+    p.promise
+      .then((r) => {
+        if (!live.current) return
+        if (r.ok) {
+          clearPending()
+          navigate(`/chat/${r.data.id}`, { replace: true, state: { fresh: true } })
+        } else setError(r.error.message)
+      })
+      // 예외로 끝나도 무한 대기로 보이지 않게 오류 문구와 "다시 시도" 를 보여 준다
+      .catch(() => {
+        if (live.current) setError('문의를 보내지 못했어요. 잠시 뒤 다시 시도해 주세요.')
+      })
     return () => {
       live.current = false
     }
