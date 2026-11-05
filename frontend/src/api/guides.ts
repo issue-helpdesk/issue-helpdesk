@@ -34,6 +34,8 @@ export interface GuideVersion {
   note: string
   /** 적재 실패 사유 */
   error?: string
+  /** 올린 시각 (서버 registeredAt). 맨 끝 열에 보이고 하루 안이면 NEW */
+  registeredAt?: string
 }
 export interface Guide {
   id: number
@@ -65,6 +67,8 @@ interface MockGuide extends Omit<Guide, 'current' | 'versions' | 'isActive'> {
   isActive?: boolean
 }
 const v = (id: number, version: string, state: GuideState, scope: GuideScope, tx: GuideTx, ready: GuideReady, note: string): GuideVersion => ({ id, version, state, scope, tx, ready, note })
+/** 이 화면에서 새로 올리거나 만든 버전: 올린 시각이 붙는다 */
+const vNew = (...a: Parameters<typeof v>): GuideVersion => ({ ...v(...a), registeredAt: new Date().toISOString() })
 const seed = (): MockGuide[] => [
   { id: 1, docCode: 'IT-NET-001', title: 'VPN 접속 장애 대응 가이드', cat: 'NET', versions: [v(13, 'v3', '초안', '사내 제한', '허용', '준비 중', '주간 분석: 해결 사례 8건 반영'), v(12, 'v2', '현행', '사내 일반', '허용', '준비 완료', 'guides 정리본 (2026-10-16)'), v(11, 'v1', '만료', '사내 일반', '허용', '준비 완료', '정리 전 팀원 원본')] },
   { id: 2, docCode: 'IT-ACC-001', title: '사내 SSO 로그인 오류 대응 가이드', cat: 'ACC', versions: [v(21, 'v2', '현행', '사내 일반', '허용', '준비 완료', '5회 실패 시 잠금, 10분 후 해제')] },
@@ -141,10 +145,11 @@ interface SVer {
   versionState: 'CURRENT' | 'DRAFT' | 'EXPIRED'
   ingestStatus: 'PENDING' | 'DONE' | 'FAILED'
   ingestError: string | null
+  registeredAt?: string | null
 }
 const STATE_FROM = { CURRENT: '현행', DRAFT: '초안', EXPIRED: '만료' } as const
 const READY_FROM = { DONE: '준비 완료', PENDING: '준비 중', FAILED: '준비 실패' } as const
-const toVersion = (s: SVer): GuideVersion => ({ id: s.id, version: s.version, state: STATE_FROM[s.versionState], ready: READY_FROM[s.ingestStatus], scope: SCOPE_FROM[s.viewScope], tx: TX_FROM[s.transferPolicy], note: '', error: s.ingestError ?? undefined })
+const toVersion = (s: SVer): GuideVersion => ({ id: s.id, version: s.version, state: STATE_FROM[s.versionState], ready: READY_FROM[s.ingestStatus], scope: SCOPE_FROM[s.viewScope], tx: TX_FROM[s.transferPolicy], note: '', error: s.ingestError ?? undefined, registeredAt: s.registeredAt ?? undefined })
 
 /** 가이드 목록. 서버는 문서 목록(분류가 있는 가이드·매뉴얼)을 모두 읽는다 */
 export async function listGuides(user: User): Promise<ApiResult<Guide[]>> {
@@ -210,7 +215,7 @@ export async function uploadGuide(user: User, input: UploadInput, onCreated?: (d
   if (USE_MOCK_GUIDE) {
     await sleep(250)
     if (store.some((g) => g.docCode === code)) return fail('DOCUMENT_CODE_DUPLICATE', '이미 있는 문서 번호예요.', { details: [{ field: 'docCode', reason: 'DUPLICATE', message: '이미 있는 문서 번호예요.' }] })
-    const g: MockGuide = { id: ++seq.doc, docCode: code, title: input.title.trim(), cat: input.cat, versions: [v(++seq.ver, input.version?.trim() || 'v1.0', '초안', input.scope, input.tx, '준비 중', `업로드 · ${input.file.name}`)] }
+    const g: MockGuide = { id: ++seq.doc, docCode: code, title: input.title.trim(), cat: input.cat, versions: [vNew(++seq.ver, input.version?.trim() || 'v1.0', '초안', input.scope, input.tx, '준비 중', `업로드 · ${input.file.name}`)] }
     store.push(g)
     if (g.versions[0]) mockFiles.set(g.versions[0], { name: input.file.name, size: input.file.size })
     notify()
@@ -252,7 +257,7 @@ export async function uploadGuideVersion(user: User, docId: number, input: { fil
     const g = store.find((x) => x.id === docId)
     if (!g) return fail('DOCUMENT_NOT_FOUND', '문서를 찾을 수 없어요.')
     if (g.versions.some((x) => sameVersion(x.version, version))) return fail('DOCUMENT_VERSION_DUPLICATE', VERSION_DUP.message, { details: [VERSION_DUP] })
-    const x = v(++seq.ver, version, '초안', input.scope, input.tx, '준비 중', `업로드 · ${input.file.name}`)
+    const x = vNew(++seq.ver, version, '초안', input.scope, input.tx, '준비 중', `업로드 · ${input.file.name}`)
     g.versions.unshift(x)
     mockFiles.set(x, { name: input.file.name, size: input.file.size })
     notify()
@@ -417,10 +422,10 @@ export async function createGuideDraft(user: User, draft: { cat: CategoryCode; t
   if (g) {
     const n = Math.max(0, ...g.versions.map((x) => Number(x.version.replace(/\D/g, '')) || 0)) + 1
     version = `v${n}`
-    g.versions.unshift(v(++seq.ver, version, '초안', '사내 제한', '허용', '준비 중', draft.note))
+    g.versions.unshift(vNew(++seq.ver, version, '초안', '사내 제한', '허용', '준비 중', draft.note))
   } else {
     const code = `IT-${draft.cat}-${String(900 + ++seq.doc).slice(-3)}`
-    g = { id: seq.doc, docCode: code, title: draft.title, cat: draft.cat, versions: [v(++seq.ver, 'v1', '초안', '사내 제한', '허용', '준비 중', draft.note)] }
+    g = { id: seq.doc, docCode: code, title: draft.title, cat: draft.cat, versions: [vNew(++seq.ver, 'v1', '초안', '사내 제한', '허용', '준비 중', draft.note)] }
     store.push(g)
   }
   const made = g

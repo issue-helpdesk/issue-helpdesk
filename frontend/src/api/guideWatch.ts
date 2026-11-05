@@ -118,6 +118,10 @@ function apply(meta: Omit<IngestWatch, 'versionId' | 'version'>, v: GuideVersion
 /** 화면에서 한 가이드의 버전 목록을 읽었을 때 그 결과를 반영한다 (열어 본 가이드의 실패도 표시 대상이 된다) */
 export function recordVersions(meta: Omit<IngestWatch, 'versionId' | 'version'>, versions: GuideVersion[]) {
   const before = JSON.stringify([pending, failed])
+  // 서버 목록에 더는 없는 버전(지워지거나 바뀐 버전)의 기록은 지운다. 안 지우면 빨간 점이 계속 남는다
+  const exists = (x: { docId: number; versionId: number }) => x.docId !== meta.docId || versions.some((v) => v.id === x.versionId)
+  pending = pending.filter(exists)
+  failed = failed.filter(exists)
   // 이미 추적 중이던 버전의 결과면 (화면이 먼저 읽었더라도) 새 실패로 알린다
   versions.forEach((v) => apply(meta, v, pending.some((p) => p.versionId === v.id)))
   if (JSON.stringify([pending, failed]) !== before) commit()
@@ -154,10 +158,27 @@ export function startIngestPolling(user: User): () => void {
   return visiblePoll(() => void pollIngest(user), 3000)
 }
 
+/** 실패 목록 창(관리자가 점을 보고 직접 여는 창)이 열려 있는지 */
+let listOpen = false
+const listListeners = new Set<() => void>()
+export const isFailureListOpen = () => listOpen
+export function setFailureListOpen(open: boolean) {
+  if (listOpen === open) return
+  listOpen = open
+  listListeners.forEach((f) => f())
+}
+export function watchFailureList(onChange: () => void): () => void {
+  listListeners.add(onChange)
+  return () => {
+    listListeners.delete(onChange)
+  }
+}
+
 /** 테스트에서 추적 기록을 비운다 */
 export function resetIngestWatch() {
   pending = []
   failed = []
   lastPoll.clear()
+  listOpen = false
   commit()
 }

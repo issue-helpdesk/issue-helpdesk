@@ -262,7 +262,10 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
       <dt>담당 그룹</dt>
       <dd>{t.group?.name ?? '-'}</dd>
       <dt>담당자</dt>
-      <dd>{t.assignee?.name ?? '배정 전'}</dd>
+      <dd>
+        {t.assignee?.name ?? '배정 전'}
+        {t.assignee && t.assignStatus === 'PENDING' && <small className="muted" style={{ display: 'block' }}>ITSM 반영 대기 중</small>}
+      </dd>
       {t.summary && (
         <>
           <dt>문의 내용</dt>

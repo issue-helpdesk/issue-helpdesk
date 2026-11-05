@@ -39,11 +39,12 @@ import {
   type GuideTx,
   type GuideVersion,
 } from '../../api/guides'
-import { breakSentences, getIngestFailures, recordVersions, trackIngest, watchIngest } from '../../api/guideWatch'
+import { breakSentences, getIngestFailures, recordVersions, setFailureListOpen, trackIngest, watchIngest } from '../../api/guideWatch'
 import { listTickets } from '../../api/tickets'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
-import { formatElapsed } from '../../core/format'
+import { USE_MOCK_GUIDE } from '../../core/config'
+import { formatDateTime, formatElapsed } from '../../core/format'
 import { visiblePoll } from '../../core/poll'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
@@ -277,8 +278,9 @@ export function GuidesView() {
                     <th className="c" title="이 가이드의 내용을 외부 AI 모델에 보내 답변 생성에 써도 되는지">
                       외부 AI 전송
                     </th>
-                    <th>메모</th>
+                    {USE_MOCK_GUIDE && <th>메모</th>}
                     <th>현행 관리</th>
+                    <th>올린 시각</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -312,20 +314,26 @@ export function GuidesView() {
                             ))}
                         </div>
                       </td>
-                      <td>
-                        <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
-                          <span>{v.note || '-'}</span>
-                          <button type="button" className="btn ghost sm" aria-label={`${v.version} 메모 수정`} onClick={() => setDlg({ kind: 'note', g, v })}>
-                            수정
-                          </button>
-                        </div>
-                      </td>
+                      {USE_MOCK_GUIDE && (
+                        <td>
+                          <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                            <span>{v.note || '-'}</span>
+                            <button type="button" className="btn ghost sm" aria-label={`${v.version} 메모 수정`} onClick={() => setDlg({ kind: 'note', g, v })}>
+                              수정
+                            </button>
+                          </div>
+                        </td>
+                      )}
                       <td>
                         {v.state !== '현행' && (
                           <button type="button" className="btn ghost sm" disabled={v.ready !== '준비 완료'} title={v.ready !== '준비 완료' ? '검색 준비가 끝나야 현행으로 바꿀 수 있어요' : v.state === '만료' ? '이전 버전을 다시 현행으로 되돌려요' : undefined} onClick={() => void makeCurrent(g, v)}>
                             현행 전환
                           </button>
                         )}
+                      </td>
+                      <td className="nw">
+                        {v.registeredAt ? formatDateTime(v.registeredAt) : '-'}
+                        {v.registeredAt && Date.now() - Date.parse(v.registeredAt) < 24 * 3600_000 && <span className="nwb">NEW</span>}
                       </td>
                     </tr>
                   ))}
@@ -341,6 +349,17 @@ export function GuidesView() {
 
   const list = guides && (
     <>
+      {failures.length > 0 && (
+        <div className="alert err" role="status" style={{ margin: 0 }}>
+          <Icon name="alert" />
+          <div>
+            검색 준비(적재)에 실패한 가이드 버전이 <b>{failures.length}개</b> 있어요. 실패한 버전은 현행으로 바꿀 수 없어요.
+            <button type="button" className="btn ghost sm" onClick={() => setFailureListOpen(true)}>
+              실패 목록 보기
+            </button>
+          </div>
+        </div>
+      )}
       <div className="row" style={{ justifyContent: 'space-between', margin: 0 }}>
         <span className="small muted">
           분류 {cats.length}개 · 가이드 {shown?.length ?? 0}개{inactiveN > 0 && !hideInactive ? ` (비활성 ${inactiveN}개 포함)` : ''}
