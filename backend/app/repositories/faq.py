@@ -16,7 +16,7 @@ SORT_COLUMNS = {
 @dataclass(frozen=True)
 class FaqLink:
     """현행 청크 하나가 가리키는 FAQ 들 (meta.faq_ids), 또는 FAQ 에 직접 지정한 문서 (location 없음).
-    출처·게시 조건 판단에 쓴다. excerpt 는 links(with_excerpt=True) 의 청크 연결에만 있다."""
+    출처·게시 조건 판단에 쓴다. excerpt·meta 는 links(with_excerpt=True) 의 청크 연결에만 있다."""
     faq_codes: tuple[str, ...]
     doc_type: str
     view_scope: str
@@ -26,6 +26,7 @@ class FaqLink:
     version: str
     location: str | None
     excerpt: str | None = None
+    meta: dict | None = None
 
 
 class FaqRepository:
@@ -105,7 +106,8 @@ class FaqRepository:
             .where(DocumentVersion.is_current.is_(True), KnowledgeDocument.is_active.is_(True))
             .order_by(KnowledgeDocument.doc_code, DocumentChunk.seq)
         )
-        links = [FaqLink(tuple(meta.get("faq_ids") or ()), *rest) for meta, *rest in chunks if (meta or {}).get("faq_ids")]
+        links = [FaqLink(tuple(meta["faq_ids"]), *rest, meta=meta if with_excerpt else None)
+                 for meta, *rest in chunks if (meta or {}).get("faq_ids")]
         direct = self.db.execute(
             select(Faq.faq_code, *document_columns)
             .join(FaqSourceDocument, FaqSourceDocument.faq_id == Faq.id)

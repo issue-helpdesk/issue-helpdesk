@@ -19,6 +19,8 @@ RUN uv sync --frozen --no-dev --extra embedding --no-install-project
 
 # config.py 가 저장소 루트를 parents[3] 으로 찾으므로 /app/backend/app 구조를 유지한다
 COPY backend ./backend
+# 가이드 그림 (DC-11).
+COPY dataset/guide_images ./dataset/guide_images
 
 ENV PATH="/app/.venv/bin:$PATH"
 

@@ -8,6 +8,7 @@ from app.db.session import DbSession
 from app.models import (
     Category,
     ChatSession,
+    DocumentChunk,
     DocumentVersion,
     Inquiry,
     InquiryAssessment,
@@ -149,6 +150,12 @@ class InquiryRepository:
         if session_id is not None:
             query = query.where(Message.session_id == session_id)
         return list(self.db.scalars(query))
+
+    def chunk_metas(self, chunk_ids: list[int]) -> dict[int, dict]:
+        if not chunk_ids:
+            return {}
+        rows = self.db.execute(select(DocumentChunk.id, DocumentChunk.meta).where(DocumentChunk.id.in_(chunk_ids)))
+        return {chunk_id: meta or {} for chunk_id, meta in rows}
 
     def sources_with_scope(self, message_ids: list[int]) -> list[tuple[MessageSource, str | None]]:
         if not message_ids:

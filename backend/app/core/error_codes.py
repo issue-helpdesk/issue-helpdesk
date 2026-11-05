@@ -75,6 +75,9 @@ class ErrorCode(Enum):
     TIME_OFF_NOT_FOUND = (404, "연차·반차 일정을 찾을 수 없습니다.")
     TIME_OFF_OVERLAP = (409, "같은 기간에 이미 등록된 연차·반차 일정이 있습니다.")
 
+    # 가이드 그림
+    GUIDE_IMAGE_NOT_FOUND = (404, "그림을 찾을 수 없습니다.")
+
     # FAQ (5.6)
     FAQ_NOT_FOUND = (404, "FAQ를 찾을 수 없습니다.")
     FAQ_CODE_DUPLICATE = (409, "이미 등록된 FAQ 번호입니다.")

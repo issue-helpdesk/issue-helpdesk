@@ -2,7 +2,7 @@ from typing import Annotated
 
 from pydantic import Field
 
-from app.schemas.common import CamelModel, KstDatetime, PageQuery, sort_param, trimmed_str
+from app.schemas.common import CamelModel, GuideImage, KstDatetime, PageQuery, sort_param, trimmed_str
 from app.schemas.inquiry import CategoryRef, UserRef
 
 Keywords = Annotated[list[trimmed_str(1, 30)], Field(max_length=20)]
@@ -30,6 +30,7 @@ class FaqSource(CamelModel):
     version: str
     location: str | None                    # 문서를 직접 지정한 출처는 null
     excerpt: str | None                     # 해당 청크의 본문. 문서를 직접 지정한 출처는 null
+    images: list[GuideImage]                # 본문에 나오는 그림. 파일은 DC-11
 
 
 class FaqDetail(Faq):
