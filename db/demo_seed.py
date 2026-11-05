@@ -340,8 +340,8 @@ def apply(cur, ref: dict, items: list[dict], args) -> dict:
     return ids
 
 
-DELETE_ORDER = ['audit_logs', 'notifications', 'ticket_status_history', 'assignment_logs', 'tickets', 'ticket_drafts',
-                'llm_calls', 'inquiry_assessments', 'message_sources', 'messages', 'chat_sessions', 'inquiries']
+DELETE_ORDER = ['audit_logs', 'notifications', 'ticket_status_history', 'assignment_logs', 'tickets',
+                'llm_calls', 'inquiry_assessments', 'message_sources', 'messages', 'ticket_drafts', 'chat_sessions', 'inquiries']
 
 
 def summary(items):

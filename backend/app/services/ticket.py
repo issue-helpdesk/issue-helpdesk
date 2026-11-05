@@ -51,7 +51,14 @@ from app.schemas.ticket import (
     TicketUpdateRequest,
 )
 from app.services.ai_responder import facts_of, type_info
-from app.services.inquiry import can_view_inquiry, close_unresolved, end_session, invalid_state, record_sensitive_input
+from app.services.inquiry import (
+    can_view_inquiry,
+    close_unresolved,
+    draft_view,
+    end_session,
+    invalid_state,
+    record_sensitive_input,
+)
 from app.services.inquiry_status import CLOSED_STATUSES, display_status, ticket_display_status
 from app.services.assignment import AssigneeNotAssignable, reserve_assignment
 from app.services.integration_retry import JiraOpenerDep, retry_job
@@ -114,6 +121,8 @@ class TicketService:
             recommended_group_id=inquiry.recommended_group_id or self.references.triage_group_id(),
             status="EDITING",
         ))
+        self.inquiries.add_choice(session.id, "CONNECT")
+        self.inquiries.add_draft_card(session.id, draft.id)
         self.db.commit()
         return self.to_draft(draft)
 
@@ -137,7 +146,7 @@ class TicketService:
             raise draft_not_editable(draft)
 
         if "status" in sent:
-            close_unresolved(self.inquiries, self.audit_logs, inquiry, user)
+            close_unresolved(self.inquiries, self.audit_logs, inquiry, user, "CANCEL")
             self.db.commit()
             return DraftUpdateResult(draft=self.to_draft(draft), changes=[])
 
@@ -246,6 +255,8 @@ class TicketService:
             assign_status="PENDING",
         ))
         ticket.receipt_no = f"RCPT-{ticket.id:04d}"
+        self.inquiries.add_choice(draft.session_id, "CONFIRM")
+        self.inquiries.add_ticket_card(draft.session_id)
         draft.status = "CONFIRMED"
         inquiry.status = "RECEIVED"
         inquiry.updated_at = now
@@ -392,6 +403,8 @@ class TicketService:
         ticket.transition_status = "PENDING"
         if target == "CLS":
             ticket.resolution_confirmed_at = now
+        if target is not None and required_role(current, target) == "REQUESTER":
+            self.add_resolution_messages(ticket.session_id, target, texts.get("reason"))
         try:
             enqueue_jira_transition(self.db, ticket, {
                 "ticketId": ticket.id,
@@ -519,32 +532,15 @@ class TicketService:
             raise AppError(ErrorCode.DRAFT_NOT_FOUND)
         return inquiry, self.tickets.get_draft_for_update(draft_id)
 
+    def add_resolution_messages(self, session_id: int, target: str, reason: str | None) -> None:
+        """접수 뒤 문의자의 해결·미해결 선택을 대화에 남긴다. 남은 증상은 가린 글이다."""
+        self.inquiries.add_choice(session_id, "TICKET_RESOLVED" if target == "CLS" else "TICKET_UNRESOLVED")
+        if target == "WIP":
+            self.inquiries.add_message(session_id, "USER", reason)
+            self.inquiries.add_ticket_card(session_id)
+
     def to_draft(self, draft: TicketDraft) -> TicketDraftView:
-        category = self.inquiries.ref(Category, draft.category_code)
-        inquiry_type = self.inquiries.ref(InquiryType, draft.inquiry_type_id)
-        group = self.inquiries.ref(SupportGroup, draft.recommended_group_id)
-        return TicketDraftView(
-            id=draft.id,
-            inquiry_id=draft.inquiry_id,
-            session_id=draft.session_id,
-            summary=draft.summary,
-            target_system=draft.target_system,
-            symptom=draft.symptom,
-            occurred_at=draft.occurred_at,
-            category_code=draft.category_code,
-            category=CategoryRef.model_validate(category) if category else None,
-            inquiry_type_id=draft.inquiry_type_id,
-            inquiry_type=InquiryTypeRef.model_validate(inquiry_type) if inquiry_type else None,
-            urgency=draft.urgency,
-            urgency_reason=draft.urgency_reason,
-            business_impact=draft.business_impact,
-            tried_actions=draft.tried_actions,
-            recommended_group_id=draft.recommended_group_id,
-            recommended_group=GroupRef.model_validate(group) if group else None,
-            status=draft.status,
-            created_at=draft.created_at,
-            updated_at=draft.updated_at,
-        )
+        return draft_view(self.inquiries, draft)
 
     def to_ticket(self, ticket: Ticket, inquiry: Inquiry) -> TicketView:
         requester = self.inquiries.ref(User, inquiry.user_id)
