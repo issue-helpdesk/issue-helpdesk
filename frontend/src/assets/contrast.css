@@ -12,6 +12,8 @@
 /* ---- 선: 조작 경계는 2px, 포커스 링은 3px ---- */
 :root[data-contrast="high"] :focus-visible{outline:3px solid var(--link);outline-offset:2px}
 :root[data-contrast="high"] a{text-decoration:underline}
+/* 모달이 열릴 때 컨테이너 자체가 포커스를 받는 경우가 있는데, 3px 테두리가 이미 있으므로 링을 겹쳐 그리지 않는다 */
+:root[data-contrast="high"] .modal:focus-visible{outline:0}
 :root[data-contrast="high"] ::selection{background:var(--hc-accent);color:#000}
 :root[data-contrast="high"] .d2p:focus-within,:root[data-contrast="high"] .sbx:focus-visible,:root[data-contrast="high"] .sbx.open,:root[data-contrast="high"] select.sel:focus-visible{outline:0;box-shadow:inset 0 0 0 3px var(--link)}
 :root[data-contrast="high"] .composer textarea:focus-visible{outline:0}
