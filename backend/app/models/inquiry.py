@@ -78,13 +78,22 @@ class Message(Base):
     __table_args__ = (
         UniqueConstraint("session_id", "seq", name="uq_messages_session_id_seq"),
         CheckConstraint("sender in ('USER', 'AI', 'SYSTEM')", name="sender"),
+        CheckConstraint("kind in ('TEXT', 'CHOICE', 'NOTICE', 'DRAFT_CARD', 'TICKET_CARD')", name="kind"),
+        CheckConstraint("code in ('RESOLVED', 'UNRESOLVED', 'CONNECT', 'NO_CONNECT', 'CONFIRM', 'CANCEL', 'TICKET_RESOLVED', 'TICKET_UNRESOLVED')",
+                        name="code"),
+        CheckConstraint("(kind = 'CHOICE') = (code is not null)", name="choice_code"),
+        CheckConstraint("(kind in ('TEXT', 'NOTICE')) = (content is not null)", name="content_ref"),
+        CheckConstraint("(kind = 'DRAFT_CARD') = (draft_id is not null)", name="draft_ref"),
     )
 
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)
     session_id: Mapped[int] = mapped_column(ForeignKey("chat_sessions.id"))
     seq: Mapped[int] = mapped_column(Integer)
     sender: Mapped[str]
-    content: Mapped[str]
+    kind: Mapped[str] = mapped_column(server_default=text("'TEXT'"))
+    code: Mapped[str | None]                     # CHOICE 가 누른 버튼. 문구는 화면이 정한다
+    content: Mapped[str | None]                  # 사용자 글·AI 답변·가림 안내만 값이 있다
+    draft_id: Mapped[int | None] = mapped_column(ForeignKey("ticket_drafts.id"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 

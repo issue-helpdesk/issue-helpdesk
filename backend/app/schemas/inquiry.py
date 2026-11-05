@@ -117,14 +117,40 @@ class Question(CamelModel):
     allow_text: bool = False                # 선택지와 함께 직접 입력도 받는가
 
 
+class TicketDraft(CamelModel):
+    id: int
+    inquiry_id: int
+    session_id: int
+    summary: str | None
+    target_system: str | None
+    symptom: str | None
+    occurred_at: str | None
+    category_code: str | None
+    category: CategoryRef | None
+    inquiry_type_id: int | None
+    inquiry_type: InquiryTypeRef | None
+    urgency: Urgency | None
+    urgency_reason: str | None
+    business_impact: str | None
+    tried_actions: str | None
+    recommended_group_id: int | None
+    recommended_group: GroupRef | None
+    status: str
+    created_at: KstDatetime
+    updated_at: KstDatetime | None
+
+
 class Message(CamelModel):
     id: int
     session_id: int
     seq: int
     sender: str
-    content: str
+    kind: str                               # TEXT / CHOICE / NOTICE / DRAFT_CARD / TICKET_CARD
+    code: str | None = None                 # CHOICE 가 누른 버튼. 문구는 화면이 정한다
+    content: str | None                     # 사용자 글·AI 답변·가림 안내만 값이 있다
     sources: list[MessageSource] = []
     questions: list[Question] = []          # 이 AI 메시지가 물은 추가 질문. 본문에는 인사말만 저장된다
+    draft: TicketDraft | None = None        # DRAFT_CARD 의 초안. 목록 조회(IQ-07)에서만 채운다
     created_at: KstDatetime
 
 

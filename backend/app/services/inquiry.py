@@ -23,6 +23,7 @@ from app.models import (
     MessageSource,
     SupportGroup,
     Ticket,
+    TicketDraft,
     User,
 )
 from app.repositories.audit_log import AuditLogRepository, AuditLogRepositoryDep
@@ -44,6 +45,7 @@ from app.schemas.inquiry import (
     Question as QuestionView,
     Session as SessionView,
     SessionResume,
+    TicketDraft as TicketDraftView,
     TicketRef,
     UserRef,
 )
@@ -57,7 +59,6 @@ from app.utils.dict_utils import camel_keys
 logger = logging.getLogger(__name__)
 
 DEFAULT_TITLE_MAX = 40                 # AI 제목이 생기기 전까지 목록에 보이는 제목
-RESOLVED_NOTICE = "해결로 종료되었습니다."
 
 
 class InquiryService:
@@ -111,7 +112,7 @@ class InquiryService:
         그 밖의 예외(검색 실패, 모델 설정 없음 등)만 503 으로 응답한다.
         """
         try:
-            result = self.ai.respond(inquiry, user, self.inquiries.messages(session.id))
+            result = self.ai.respond(inquiry, user, self.inquiries.conversation(session.id))
         except Exception:
             logger.exception("AI 처리 실패 inquiry_id=%s", inquiry.id)
             raise unavailable
@@ -133,7 +134,7 @@ class InquiryService:
             ai_output=result.ai_output,
             override_reasons=list(result.override_reasons),
         ))
-        message = self.add_message(session, "AI", BLOCKED_NOTICE if result.failure == "ALL_BLOCKED" else out.reply)
+        message = self.inquiries.add_message(session.id, "AI", BLOCKED_NOTICE if result.failure == "ALL_BLOCKED" else out.reply)
         self.record_ai_run(inquiry.id, message, result)
         inquiry.category_code = assessment.category_code
         inquiry.inquiry_type_id = assessment.inquiry_type_id
@@ -156,7 +157,7 @@ class InquiryService:
         if inquiry.status != "IN_PROGRESS":
             raise invalid_state(inquiry)
 
-        close_unresolved(self.inquiries, self.audit_logs, inquiry, user)
+        close_unresolved(self.inquiries, self.audit_logs, inquiry, user, "NO_CONNECT")
         self.db.commit()
         return self.to_detail(inquiry)
 
@@ -181,9 +182,11 @@ class InquiryService:
             inquiry.status = "AI_RESOLVED"
             inquiry.closed_at = now
             end_session(session, now)
-            messages = [self.add_message(session, "SYSTEM", RESOLVED_NOTICE)]
+            messages = [self.inquiries.add_choice(session.id, "RESOLVED")]
         else:
-            messages = self.add_user_message(inquiry, session, user, comment) if comment else []
+            messages = [self.inquiries.add_choice(session.id, "UNRESOLVED")]
+            if comment:
+                messages += self.add_user_message(inquiry, session, user, comment)
         self.db.commit()
         return AiTurn(inquiry=self.to_detail(inquiry), messages=[to_message_view(m) for m in messages],
                       assessment=None, next_actions=next_actions(inquiry))
@@ -274,7 +277,10 @@ class InquiryService:
         everything = messages if session_id is None else self.inquiries.inquiry_messages(inquiry.id, None)
         questions = questions_by_message(everything, self.inquiries.assessments(inquiry.id))
         sources = self.visible_sources(messages, viewer)
-        return ItemList(items=[to_message_view(m, sources.get(m.id, []), questions.get(m.id, [])) for m in messages])
+        drafts = {d.id: draft_view(self.inquiries, d)
+                  for d in self.inquiries.drafts({m.draft_id for m in messages if m.draft_id})}
+        return ItemList(items=[to_message_view(m, sources.get(m.id, []), questions.get(m.id, []), drafts.get(m.draft_id))
+                               for m in messages])
 
     def visible_sources(self, messages: list[Message], viewer: User) -> dict[int, list[MessageSourceView]]:
         """메시지별 출처. 보는 사람의 역할로 열람 범위 밖 출처는 뺀다 (청크_메타데이터.md 4장).
@@ -309,8 +315,8 @@ class InquiryService:
         가리다 오류가 나면 아무것도 저장하지 않고 500 이 된다 (docs/10 3.3).
         """
         masked = mask_secrets(content)
-        messages = [self.add_message(session, "USER", masked.text)]
-        messages += [self.add_message(session, "SYSTEM", notice) for notice in mask_notices(masked)]
+        messages = [self.inquiries.add_message(session.id, "USER", masked.text)]
+        messages += [self.inquiries.add_notice(session.id, notice) for notice in mask_notices(masked)]
         record_sensitive_input(self.audit_logs, inquiry.id, user, masked.counts)
         return messages
 
@@ -322,11 +328,6 @@ class InquiryService:
             self.inquiries.add(MessageSource(message_id=message.id, **row))
         for event_type, outcome, reason in ai_audit_events(result):
             self.audit_logs.add(event_type, "inquiry", inquiry_id, result=outcome, reason=reason)
-
-    def add_message(self, session: ChatSession, sender: str, content: str) -> Message:
-        return self.inquiries.add(Message(
-            session_id=session.id, seq=self.inquiries.next_seq(session.id), sender=sender, content=content,
-        ))
 
     def find_viewable(self, inquiry_id: int, viewer: User) -> Inquiry:
         inquiry = self.inquiries.get(inquiry_id)
@@ -387,16 +388,48 @@ InquiryServiceDep = Annotated[InquiryService, Depends(InquiryService)]
 
 def to_message_view(
     message: Message, sources: list[MessageSourceView] | None = None, questions: list[QuestionView] | None = None,
+    draft: TicketDraftView | None = None,
 ) -> MessageView:
     return MessageView(
         id=message.id,
         session_id=message.session_id,
         seq=message.seq,
         sender=message.sender,
+        kind=message.kind,
+        code=message.code,
         content=message.content,
         sources=sources or [],
         questions=questions or [],
+        draft=draft,
         created_at=message.created_at,
+    )
+
+
+def draft_view(inquiries: InquiryRepository, draft: TicketDraft) -> TicketDraftView:
+    category = inquiries.ref(Category, draft.category_code)
+    inquiry_type = inquiries.ref(InquiryType, draft.inquiry_type_id)
+    group = inquiries.ref(SupportGroup, draft.recommended_group_id)
+    return TicketDraftView(
+        id=draft.id,
+        inquiry_id=draft.inquiry_id,
+        session_id=draft.session_id,
+        summary=draft.summary,
+        target_system=draft.target_system,
+        symptom=draft.symptom,
+        occurred_at=draft.occurred_at,
+        category_code=draft.category_code,
+        category=CategoryRef.model_validate(category) if category else None,
+        inquiry_type_id=draft.inquiry_type_id,
+        inquiry_type=InquiryTypeRef.model_validate(inquiry_type) if inquiry_type else None,
+        urgency=draft.urgency,
+        urgency_reason=draft.urgency_reason,
+        business_impact=draft.business_impact,
+        tried_actions=draft.tried_actions,
+        recommended_group_id=draft.recommended_group_id,
+        recommended_group=GroupRef.model_validate(group) if group else None,
+        status=draft.status,
+        created_at=draft.created_at,
+        updated_at=draft.updated_at,
     )
 
 
@@ -457,12 +490,17 @@ def can_view_inquiry(inquiries: InquiryRepository, inquiry: Inquiry, ticket: Tic
     return bool(ticket and ticket.group_id and inquiries.is_active_group_member(viewer.id, ticket.group_id))
 
 
-def close_unresolved(inquiries: InquiryRepository, audit_logs: AuditLogRepository, inquiry: Inquiry, actor: User) -> None:
-    """접수 없이 미해결로 닫는다 (IQ-04 종료, TK-03 초안 취소). 커밋은 호출자가 한다."""
+def close_unresolved(
+    inquiries: InquiryRepository, audit_logs: AuditLogRepository, inquiry: Inquiry, actor: User, choice: str,
+) -> None:
+    """접수 없이 미해결로 닫는다 (IQ-04 종료, TK-03 초안 취소). choice 는 누른 버튼의 code. 커밋은 호출자가 한다."""
     now = datetime_utils.now()
     inquiry.status = "CLOSED_UNRESOLVED"
     inquiry.closed_at = inquiry.updated_at = now
-    end_session(inquiries.current_session(inquiry.id), now)
+    session = inquiries.current_session(inquiry.id)
+    if session is not None:
+        inquiries.add_choice(session.id, choice)
+    end_session(session, now)
     for draft in inquiries.editing_drafts(inquiry.id):
         draft.status, draft.updated_at = "CANCELLED", now
     if any(a.urgent_signal for a in inquiries.assessments(inquiry.id)):

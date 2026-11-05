@@ -124,8 +124,33 @@ class InquiryRepository:
         last = self.db.scalar(select(func.max(Message.seq)).where(Message.session_id == session_id))
         return (last or 0) + 1
 
-    def messages(self, session_id: int) -> list[Message]:
-        return list(self.db.scalars(select(Message).where(Message.session_id == session_id).order_by(Message.seq)))
+    def add_message(self, session_id: int, sender: str, content: str | None = None, kind: str = "TEXT",
+                    code: str | None = None, draft_id: int | None = None) -> Message:
+        return self.add(Message(session_id=session_id, seq=self.next_seq(session_id), sender=sender, kind=kind,
+                                code=code, content=content, draft_id=draft_id))
+
+    def add_choice(self, session_id: int, code: str) -> Message:
+        return self.add_message(session_id, "USER", kind="CHOICE", code=code)
+
+    def add_notice(self, session_id: int, content: str) -> Message:
+        return self.add_message(session_id, "SYSTEM", content, kind="NOTICE")
+
+    def add_draft_card(self, session_id: int, draft_id: int) -> Message:
+        return self.add_message(session_id, "SYSTEM", kind="DRAFT_CARD", draft_id=draft_id)
+
+    def add_ticket_card(self, session_id: int) -> Message:
+        return self.add_message(session_id, "SYSTEM", kind="TICKET_CARD")
+
+    def conversation(self, session_id: int) -> list[Message]:
+        """AI 에게 넘길 대화. 버튼·안내·카드는 뺀다."""
+        return list(self.db.scalars(
+            select(Message).where(Message.session_id == session_id, Message.kind == "TEXT").order_by(Message.seq)
+        ))
+
+    def drafts(self, draft_ids: set[int]) -> list[TicketDraft]:
+        if not draft_ids:
+            return []
+        return list(self.db.scalars(select(TicketDraft).where(TicketDraft.id.in_(draft_ids))))
 
     def assessments(self, inquiry_id: int) -> list[InquiryAssessment]:
         """이 문의의 판단 이력. 오래된 것부터."""

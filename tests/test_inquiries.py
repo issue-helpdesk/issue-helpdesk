@@ -1154,11 +1154,13 @@ def test_resolved_closes_inquiry(client, db, headers, ai):
     assert (body["inquiry"]["status"], body["inquiry"]["displayStatus"]) == ("AI_RESOLVED", "ai_resolved")
     assert body["inquiry"]["resolutionResult"] == "RESOLVED"
     assert body["inquiry"]["closedAt"] is not None
-    assert [(m["sender"], m["content"]) for m in body["messages"]] == [("SYSTEM", "해결로 종료되었습니다.")]
+    assert [(m["sender"], m["kind"], m["code"], m["content"]) for m in body["messages"]] == [
+        ("USER", "CHOICE", "RESOLVED", None),
+    ]
     assert (body["assessment"], body["nextActions"]) == (None, ["START_NEW"])
     session = db.scalar(select(ChatSession))
     assert session.ended_at is not None and session.end_reason == "USER_END"
-    assert saved_messages(db)[2:] == [(3, "SYSTEM", "해결로 종료되었습니다.")]      # RESOLVED 의 comment 는 저장하지 않는다
+    assert saved_messages(db)[2:] == [(3, "USER", None)]                         # RESOLVED 의 comment 는 저장하지 않는다
     assert len(ai.adapters) == 1                                                   # 첫 답변 때만 불렀다
 
 
@@ -1172,21 +1174,22 @@ def test_unresolved_keeps_inquiry_open_and_offers_handoff(client, db, headers, a
     assert (body["inquiry"]["status"], body["inquiry"]["resolutionResult"]) == ("IN_PROGRESS", "UNRESOLVED")
     assert body["inquiry"]["displayStatus"] == "in_progress"
     assert body["nextActions"] == ["DECIDE_HANDOFF"]
-    message, notice = body["messages"]
-    assert (message["seq"], message["sender"]) == (3, "USER")
+    choice, message, mask_notice = body["messages"]
+    assert (choice["seq"], choice["sender"], choice["kind"], choice["code"]) == (3, "USER", "CHOICE", "UNRESOLVED")
+    assert (message["seq"], message["sender"], message["kind"]) == (4, "USER", "TEXT")
     assert "Abc123!@" not in message["content"] and message["content"].endswith("여전히 안 돼요")
-    assert (notice["seq"], notice["sender"]) == (4, "SYSTEM")                    # 가림 안내
+    assert (mask_notice["seq"], mask_notice["sender"], mask_notice["kind"]) == (5, "SYSTEM", "NOTICE")
     assert db.scalar(select(ChatSession.ended_at)) is None
     assert len(ai.adapters) == 1
 
 
-def test_unresolved_without_comment_saves_no_message(client, db, headers):
+def test_unresolved_without_comment_saves_only_choice(client, db, headers):
     inquiry_id = started(client, db, headers)
 
     res = resolve(client, headers, inquiry_id, "UNRESOLVED")
 
-    assert res.json()["messages"] == []
-    assert len(saved_messages(db)) == 2
+    assert [(m["kind"], m["code"]) for m in res.json()["messages"]] == [("CHOICE", "UNRESOLVED")]
+    assert len(saved_messages(db)) == 3
 
 
 def test_resolved_again_returns_current_inquiry(client, db, headers):
