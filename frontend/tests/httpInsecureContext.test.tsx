@@ -36,9 +36,11 @@ describe('uuid()', () => {
     expect(new Set(ids).size).toBe(50)
   })
 
-  it('getRandomValues 도 없으면 Math.random 으로 대신한다', () => {
+  it('randomUUID·getRandomValues 가 모두 없으면 예측 가능한 값으로 대신하지 않고 예외를 던진다', () => {
     vi.stubGlobal('crypto', {})
-    expect(uuid()).toMatch(UUID_V4)
+    expect(() => uuid()).toThrow()
+    vi.stubGlobal('crypto', undefined)
+    expect(() => uuid()).toThrow()
   })
 
   it('randomUUID 가 있으면 그것을 쓴다', () => {
@@ -69,6 +71,33 @@ describe('서버 모드 문의 보내기 (http: randomUUID 없음)', () => {
     expect(key(0)).toMatch(UUID_V4)
     expect(key(1)).toBe(key(0))
   })
+
+  it('상담 중 추가 질문 답변(IQ-08)과 해결·미해결(IQ-09)도 randomUUID 없이 요청이 나간다', async () => {
+    vi.resetModules()
+    vi.stubEnv('VITE_USE_MOCK_INQUIRY', 'false')
+    withoutRandomUuid()
+    const api = await import('../src/api/inquiryServer')
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+    await api.serverSend(7, '재접속은 해 봤어요')
+    await api.serverResolve(7, 'RESOLVED')
+    await api.serverResolve(7, 'UNRESOLVED')
+    const calls = fetchMock.mock.calls.map((c) => ({ method: (c[1] as RequestInit).method, url: String(c[0]).replace(/^https?:\/\/[^/]+/, ''), key: new Headers((c[1] as RequestInit).headers).get('Idempotency-Key') }))
+    expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual(['POST /api/v1/inquiries/7/messages', 'PUT /api/v1/inquiries/7/resolution', 'PUT /api/v1/inquiries/7/resolution'])
+    calls.forEach((c) => expect(c.key).toMatch(UUID_V4))
+    // 해결과 미해결은 다른 요청이므로 다른 키를 쓴다
+    expect(new Set(calls.map((c) => c.key)).size).toBe(3)
+  })
+
+  it('요청 키를 만들 수 없으면(randomUUID·getRandomValues 없음) 요청 없이 오류 결과로 안내한다', async () => {
+    vi.resetModules()
+    vi.stubEnv('VITE_USE_MOCK_INQUIRY', 'false')
+    vi.stubGlobal('crypto', {})
+    const api = await import('../src/api/inquiryServer')
+    const r = await api.serverStart('VPN 이 안 돼요')
+    expect(r).toMatchObject({ ok: false, error: { code: 'CLIENT_ERROR' } })
+    expect(r.ok ? '' : r.error.message).toContain('요청을 보내지 못했어요')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
 })
 
 describe('대기 화면의 예외 처리', () => {
@@ -90,7 +119,11 @@ describe('대기 화면의 예외 처리', () => {
     await act(async () => {
       await userEvent.click(screen.getByRole('button', { name: /다시 시도/ }))
     })
+    // 다시 보내는 동안 대기 문구가 돌아오고(오류 문구는 사라진다)
+    expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.getByText('계정이 잠겼어요')).toBeInTheDocument()
-  })
+    // 재요청이 성공하면 대기 화면이 사라지고 그 문의의 대화 화면(입력창)으로 넘어간다
+    expect(await screen.findByLabelText('메시지 입력', {}, { timeout: 8000 })).toBeInTheDocument()
+  }, 15_000)
 })
 
