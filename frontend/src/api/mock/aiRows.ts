@@ -19,6 +19,8 @@ export interface AiRow {
   categoryCode: CategoryCode | null
   /** 사용한 가이드 (문서 코드 제목 버전). 없으면 '-' */
   guide: string
+  /** 참고한 과거 처리 사례 본문 (시연용). 없으면 비어 있다 */
+  cases?: string[]
   kind: AiKind
   /** 시점 표시 (오늘, 3일 전) */
   when: string
@@ -43,6 +45,13 @@ const GUIDES: Record<string, string> = {
   HW: 'IT-HW-003 프린터·복합기 이용 가이드 v2',
   ACS: 'IT-ACS-001 사내 시스템 접근권한 신청 가이드 v2',
   SYS: 'IT-SYS-001 그룹웨어·ERP 이용 오류 대응 가이드 v2',
+}
+/** 시연용 과거 처리 사례 본문 (분류별). 서버는 사례를 문서 코드 없이 본문만 준다 */
+const CASES: Record<string, string[]> = {
+  NET: ['VPN 클라이언트를 재설치한 뒤 정상 접속을 확인함', '인증서를 갱신하자 연결 끊김이 해소됨'],
+  ACC: ['계정 잠금을 해제하고 비밀번호를 재설정해 로그인 확인'],
+  SW: ['소프트웨어 센터에서 최신 설치 파일을 받아 다시 설치함', '관리자 권한으로 실행해 설치 오류가 해소됨'],
+  HW: ['프린터 서버 주소를 다시 추가하자 출력이 정상화됨'],
 }
 const NAMES = ['박서연 · EMP-1049', '김민수 · EMP-1003', '최하은 · EMP-1156', '이도윤 · EMP-1082', '정다은 · EMP-1300', '한지우 · EMP-1064']
 /** 최근 7일(오늘부터) 하루별 상담 건수 */
@@ -81,6 +90,8 @@ export function aiRows(now = Date.now()): AiRow[] {
         title: ts[n % ts.length],
         categoryCode: c as CategoryCode,
         guide: GUIDES[c] ?? GUIDES.SYS,
+        // 세 건에 한 건은 과거 처리 사례도 참고한 것으로 보여 준다 (사례가 있는 분류만)
+        cases: n % 3 === 0 ? CASES[c] : undefined,
         kind: n % 15 === 7 ? 'unr' : n % 7 === 2 ? 'pend' : 'ok',
         when: d === 0 ? '오늘' : `${d}일 전`,
         day: d,

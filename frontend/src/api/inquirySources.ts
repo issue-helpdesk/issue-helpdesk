@@ -7,6 +7,7 @@
  */
 import { request } from '../core/apiClient'
 import { USE_MOCK_INQUIRY } from '../core/config'
+import type { GuideImageRef } from './chatTypes'
 import { ok, type ApiResult } from './types'
 
 export interface UsedGuide {
@@ -15,8 +16,10 @@ export interface UsedGuide {
   version: string | null
   location: string | null
   kind: 'DOCUMENT' | 'LEGACY'
-  /** 근거로 쓴 본문. 과거 처리 사례를 펼쳐 보일 때 쓴다 */
+  /** 근거로 쓴 본문. 과거 처리 사례를 펼쳐 보이거나 가이드 출처를 미리 볼 때 쓴다 */
   excerpt: string | null
+  /** 본문의 `[그림]` 줄에 대응하는 그림 (DC-11) */
+  images?: GuideImageRef[]
 }
 
 interface SourceItem {
@@ -25,6 +28,7 @@ interface SourceItem {
   version: string | null
   location: string | null
   excerpt?: string | null
+  images?: GuideImageRef[]
 }
 
 /** 시연 행의 가이드 글("IT-NET-001 VPN 접속 장애 대응 가이드 v2")에서 코드·버전을 뽑는다. '-' 는 없음 */
@@ -34,8 +38,9 @@ export function guideFromText(text: string): UsedGuide[] {
   return m ? [{ docCode: m[1], version: m[2] ?? null, location: null, kind: 'DOCUMENT', excerpt: null }] : []
 }
 
-export async function listUsedGuides(inquiryId: number | null, mockText = ''): Promise<ApiResult<UsedGuide[]>> {
-  if (USE_MOCK_INQUIRY || inquiryId === null) return ok(guideFromText(mockText))
+/** 모의 모드에서는 시연 행의 가이드 글과 과거 사례 본문(mockCases)을 그대로 푼다 */
+export async function listUsedGuides(inquiryId: number | null, mockText = '', mockCases: string[] = []): Promise<ApiResult<UsedGuide[]>> {
+  if (USE_MOCK_INQUIRY || inquiryId === null) return ok([...guideFromText(mockText), ...mockCases.map((c): UsedGuide => ({ docCode: null, version: null, location: null, kind: 'LEGACY', excerpt: c }))])
   const r = await request<{ items: { sources?: SourceItem[] }[] }>(`/inquiries/${inquiryId}/messages`)
   if (!r.ok) return r
   const seen = new Set<string>()
@@ -46,7 +51,7 @@ export async function listUsedGuides(inquiryId: number | null, mockText = ''): P
       const key = s.sourceKind === 'LEGACY' ? `LEGACY|${s.excerpt ?? ''}` : `${s.sourceKind}|${s.docCode}|${s.version}|${s.location}`
       if (seen.has(key)) continue
       seen.add(key)
-      out.push({ docCode: s.docCode, version: s.version, location: s.location, kind: s.sourceKind, excerpt: s.excerpt ?? null })
+      out.push({ docCode: s.docCode, version: s.version, location: s.location, kind: s.sourceKind, excerpt: s.excerpt ?? null, images: s.images?.length ? s.images : undefined })
     }
   }
   return ok(out)
