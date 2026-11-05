@@ -44,6 +44,8 @@ type SortCol = keyof typeof SORT_KEY
 const HIST_TONE: Partial<Record<HistKind, string>> = { '이용 제한': 'urg', '잠금 해제': 'ok', '제한 해제': 'ok', '계정 수정': 'prog', '계정 추가': 're' }
 
 /** 서버가 알려 준 입력 오류를 칸별 문구로 바꾼다 (해요체) */
+/** 계정 추가에서 고르는 직급 (서버 문서의 값: 팀원/팀장/조직장) */
+const POSITIONS = ['팀원', '팀장', '조직장']
 const FIELD_TEXT: Record<string, string> = {
   employeeNo: '사번을 입력해 주세요.',
   name: '이름을 입력해 주세요.',
@@ -495,7 +497,7 @@ function TempPasswordDialog({ name, employeeNo, pw, mode, onClose }: { name: str
 function AddDialog({ depts, onClose, onCreated }: { depts: { id: number; name: string }[]; onClose: () => void; onCreated: (u: UserSummary, pw: string) => void }) {
   const { user } = useAuth()
   const uid = useId()
-  const [f, setF] = useState({ employeeNo: '', name: '', email: '', departmentId: '', position: '', serviceRole: 'EMPLOYEE' as ServiceRole })
+  const [f, setF] = useState({ employeeNo: '', name: '', email: '', departmentId: '', position: '', serviceRole: '' as ServiceRole | '' })
   const [errs, setErrs] = useState<Record<string, string>>({})
   const [general, setGeneral] = useState('')
   const [busy, setBusy] = useState(false)
@@ -510,14 +512,18 @@ function AddDialog({ depts, onClose, onCreated }: { depts: { id: number; name: s
     if (!f.name.trim()) e.name = FIELD_TEXT.name
     if (!f.email.trim()) e.email = FIELD_TEXT.email
     else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email.trim())) e.email = '이메일 형식이 올바르지 않아요.'
+    if (!f.departmentId) e.departmentId = '부서를 선택해 주세요.'
+    if (!f.position) e.position = '직급을 선택해 주세요.'
+    if (!f.serviceRole) e.serviceRole = '역할을 선택해 주세요.'
     if (Object.keys(e).length) return setErrs(e)
+    if (!f.serviceRole) return
     setBusy(true)
     const r = await createUser(user, {
       employeeNo: f.employeeNo.trim().toUpperCase(),
       name: f.name.trim(),
       email: f.email.trim(),
-      departmentId: f.departmentId ? Number(f.departmentId) : null,
-      position: f.position.trim() || null,
+      departmentId: Number(f.departmentId),
+      position: f.position,
       serviceRole: f.serviceRole,
     })
     setBusy(false)
@@ -546,15 +552,15 @@ function AddDialog({ depts, onClose, onCreated }: { depts: { id: number; name: s
       </Field>
       <Field id={`${uid}-d`} label="부서" error={errs.departmentId}>
         {(a) => (
-          <SelectBox id={a.id} invalid={a['aria-invalid']} ariaDescribedBy={a['aria-describedby']} value={f.departmentId} placeholder="선택 안 함" options={[{ value: '', label: '선택 안 함' }, ...depts.map((d) => ({ value: String(d.id), label: d.name }))]} onChange={set('departmentId')} />
+          <SelectBox id={a.id} invalid={a['aria-invalid']} ariaDescribedBy={a['aria-describedby']} value={f.departmentId} placeholder="부서를 선택해 주세요" options={depts.map((d) => ({ value: String(d.id), label: d.name }))} onChange={set('departmentId')} />
         )}
       </Field>
-      <Field id={`${uid}-p`} label="직급 (선택)" error={errs.position}>
-        {(a) => <input {...a} className="inp" value={f.position} placeholder="예) 팀원" autoComplete="off" onChange={(e) => set('position')(e.target.value)} />}
+      <Field id={`${uid}-p`} label="직급" error={errs.position}>
+        {(a) => <SelectBox id={a.id} invalid={a['aria-invalid']} ariaDescribedBy={a['aria-describedby']} value={f.position} placeholder="직급을 선택해 주세요" options={POSITIONS.map((x) => ({ value: x, label: x }))} onChange={set('position')} />}
       </Field>
-      <Field id={`${uid}-r`} label="역할">
+      <Field id={`${uid}-r`} label="역할" error={errs.serviceRole}>
         {(a) => (
-          <SelectBox id={a.id} invalid={a['aria-invalid']} ariaDescribedBy={a['aria-describedby']} value={f.serviceRole} options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} onChange={set('serviceRole')} />
+          <SelectBox id={a.id} invalid={a['aria-invalid']} ariaDescribedBy={a['aria-describedby']} value={f.serviceRole} placeholder="역할을 선택해 주세요" options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} onChange={set('serviceRole')} />
         )}
       </Field>
       {general && (

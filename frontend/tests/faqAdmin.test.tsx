@@ -137,6 +137,10 @@ describe('FAQ 관리 화면 (모의)', () => {
     await userEvent.click(within(first).getByRole('button', { name: '게시 중단' }))
     expect(await screen.findByText(/게시를 멈췄어요/, {}, SLOW)).toBeInTheDocument()
     await waitFor(() => expect(within(screen.getByText(title).closest('details')!).getByText('게시 중단')).toBeInTheDocument(), SLOW)
+    // 게시 중단 표시는 클래스로 목록 글만 흐리게 하고, 목록 전체(수정·다시 게시·삭제 버튼 포함)에 투명도를 걸지 않는다
+    await waitFor(() => expect(screen.getByText(title).closest('details')).toHaveClass('foff'), SLOW)
+    const dimmed = screen.getByText(title).closest('details') as HTMLElement
+    expect(dimmed.style.opacity).toBe('')
     const visible = await listFaqs(false)
     expect(visible.ok && visible.data.some((f) => f.question === title)).toBe(false)
     const again = screen.getByText(title).closest('details') as HTMLElement

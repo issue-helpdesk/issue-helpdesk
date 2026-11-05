@@ -9,6 +9,7 @@
  * 모의 모드는 서버가 주는 모양 그대로의 시연 기록 24건으로 같은 조건을 걸러 준다.
  */
 import { request } from '../core/apiClient'
+import { findStaffTicket } from './mock/staffTickets'
 import { USE_MOCK_OPS } from '../core/config'
 import type { Page } from './inquiries'
 import type { UserRef } from './ticketTypes'
@@ -20,6 +21,9 @@ export interface AuditLog {
   eventType: string
   targetType: string | null
   targetId: number | null
+  /** 접수 대상은 그 접수, 문의 대상은 지금 연결된 접수 (R-40). 연결이 없거나 그 밖의 대상이면 null. 서버가 아직 안 주면 없다 */
+  ticketId?: number | null
+  receiptNo?: string | null
   actorId: number | null
   /** null 이면 시스템이 한 일 */
   actor: UserRef | null
@@ -160,11 +164,11 @@ const row = (id: number, createdAt: string, eventType: string, targetType: strin
 })
 /** 시연 기록 24건 (최근 것부터). 서버가 주는 모양 그대로다: 결과는 코드, 대상은 내부 번호, 처리자가 없으면 시스템 */
 const MOCK: AuditLog[] = [
-  row(24, ago(0, 0, 12), 'CONFIRM', 'ticket', 1041, user(7, 'EMP-1003', '김민지'), 'RCPT-1041'),
-  row(23, ago(0, 0, 16), 'INTEGRATION_RETRY', 'ticket', 1041, ADMIN, 'QUEUED', 'Jira 응답 시간 초과 후 재시도'),
-  row(22, ago(0, 0, 31), 'REASSIGN', 'ticket', 1038, ADMIN, 'REASSIGN', '기존 담당자 휴가'),
-  row(21, ago(0, 0, 45), 'REASSIGN', 'ticket', 1040, ADMIN, 'FAIL', '해당 분류 담당 가능자 없음'),
-  row(20, ago(0, 0, 56), 'INTEGRATION_RETRY', 'ticket', 1036, ADMIN, 'LINKED_EXISTING', 'Jira 이슈를 수동으로 만든 것 확인'),
+  row(24, ago(0, 0, 12), 'CONFIRM', 'ticket', 5001, user(7, 'EMP-1003', '김민지'), 'RCPT-0881'),
+  row(23, ago(0, 0, 16), 'INTEGRATION_RETRY', 'ticket', 5001, ADMIN, 'QUEUED', 'Jira 응답 시간 초과 후 재시도'),
+  row(22, ago(0, 0, 31), 'REASSIGN', 'ticket', 5002, ADMIN, 'REASSIGN', '기존 담당자 휴가'),
+  row(21, ago(0, 0, 45), 'REASSIGN', 'ticket', 5003, ADMIN, 'FAIL', '해당 분류 담당 가능자 없음'),
+  row(20, ago(0, 0, 56), 'INTEGRATION_RETRY', 'ticket', 5004, ADMIN, 'LINKED_EXISTING', 'Jira 이슈를 수동으로 만든 것 확인'),
   row(19, ago(0, 1, 12), 'BLOCK', 'inquiry', 214, null, 'DOC_BLOCKED', 'IT-SEC-003'),
   row(18, ago(0, 1, 12), 'BLOCK', 'inquiry', 215, null, 'ALL_BLOCKED'),
   row(17, ago(0, 1, 28), 'FAIL', 'inquiry', 216, null, 'FILTER_FAILED', '검색 근거 IT-SEC-003'),
@@ -205,5 +209,10 @@ export async function listAuditLogs(user: User, q: AuditQuery = {}): Promise<Api
   const from = q.days === undefined ? 0 : Date.now() - (q.days + 1) * 86_400_000
   const rows = MOCK.filter((r) => (!q.eventType || r.eventType === q.eventType) && (!q.targetType || r.targetType === q.targetType) && Date.parse(r.createdAt) >= from)
   const start = (page - 1) * size
-  return ok({ items: rows.slice(start, start + size), page, size, totalCount: rows.length, totalPages: Math.max(1, Math.ceil(rows.length / size)) })
+  // 서버(R-40)처럼 접수 대상에는 접수 ID·접수번호를 붙인다 (모의는 실제 시연 접수와 맞춘다)
+  const link = (r: AuditLog): AuditLog => {
+    const t = r.targetType === 'ticket' && r.targetId !== null ? findStaffTicket(r.targetId) : undefined
+    return t ? { ...r, ticketId: t.id, receiptNo: t.receiptNo } : { ...r, ticketId: null, receiptNo: null }
+  }
+  return ok({ items: rows.slice(start, start + size).map(link), page, size, totalCount: rows.length, totalPages: Math.max(1, Math.ceil(rows.length / size)) })
 }

@@ -10,8 +10,8 @@ import { useNavigate } from 'react-router-dom'
 import { CATEGORIES, STAFF_STATUS } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { markTicketRead, refreshUnread } from '../../api/notifications'
-import { changeTicketStatus, getTicket, getTicketHistory, getTicketMessages, sendTicketMessage, syncTicket } from '../../api/tickets'
-import type { MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMessage } from '../../api/ticketTypes'
+import { changeTicketStatus, getAssignmentLogs, getTicket, getTicketHistory, getTicketMessages, sendTicketMessage, syncTicket } from '../../api/tickets'
+import type { AssignmentLog, MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMessage } from '../../api/ticketTypes'
 import { USE_MOCK_TICKET } from '../../core/config'
 import { formatDateTime } from '../../core/format'
 import { useAuth } from '../../core/session'
@@ -128,11 +128,29 @@ function statusRows(t: TicketDetail): ReactNode {
   )
 }
 
+/** 배정 이력 한 줄의 제목: 누구에게 어떤 일이 있었는지 */
+function assignTitle(a: AssignmentLog): string {
+  const who = a.assignee ? `${a.assignee.name}` : ''
+  const grp = a.group ? a.group.name : ''
+  switch (a.event) {
+    case 'RECOMMEND':
+      return `담당 그룹 추천${grp ? ` · ${grp}` : ''}`
+    case 'ASSIGN':
+      return `담당자 배정${who ? ` · ${who}` : ''}${grp ? ` (${grp})` : ''}`
+    case 'REASSIGN':
+      return `담당자 재배정${who ? ` · ${who}` : ''}${grp ? ` (${grp})` : ''}`
+    case 'FAIL':
+      return '담당자 배정 실패'
+  }
+}
+
 export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose }: { id: number; tick: number; slide?: boolean; onSlideEnd?: () => void; onClose: () => void }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [t, setT] = useState<TicketDetail | null>(null)
   const [hist, setHist] = useState<StatusHistory[]>([])
+  // 담당자 배정 이력(재배정 포함). 못 읽으면(권한 등) 조용히 비워 두고 상태 이력만 보인다
+  const [assigns, setAssigns] = useState<AssignmentLog[]>([])
   const [msgs, setMsgs] = useState<TicketMessage[]>([])
   const [slack, setSlack] = useState<SlackPreview[]>([])
   // 문의자에게 메시지 (제안)
@@ -205,6 +223,9 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
     getTicketHistory(user, id).then((r) => {
       if (alive && r.ok) setHist(r.data.items)
     })
+    getAssignmentLogs(user, id).then((r) => {
+      if (alive && r.ok) setAssigns(r.data.items)
+    })
     getTicketMessages(user, id).then((r) => {
       if (!alive || !r.ok) return
       setMsgs(r.data.messages)
@@ -220,6 +241,11 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
   const requester = user.serviceRole === 'EMPLOYEE' // 문의자는 진행 단계만 보고, 상태를 바꾸지 못한다
   const admin = user.serviceRole === 'ADMIN' // 관리자는 상태를 바꾸지 않고, 처리 중인 접수의 담당자를 다시 정한다
   const pending = t?.transitionStatus === 'PENDING'
+  // 처리 이력 = 상태 이력 + 담당자 배정 이력(추천·배정·재배정·실패)을 시간순으로 합친다. 화면에는 최근 것이 위에 온다
+  const timeline = [
+    ...hist.map((h) => ({ kind: 's' as const, at: h.changedAt, h })),
+    ...assigns.map((a) => ({ kind: 'a' as const, at: a.createdAt, a })),
+  ].sort((x, y) => Date.parse(y.at) - Date.parse(x.at) || (x.kind === y.kind ? 0 : x.kind === 'a' ? 1 : -1))
 
   /** 상태 변경 요청 (TK-07). 응답은 202 이고 Jira 반영이 확인되면 상태가 바뀐다 */
   async function change(workStatus: 'WIP' | 'FIN', resolutionNote?: string) {
@@ -489,8 +515,30 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
               <div>
                 <h4>처리 이력</h4>
                 <ul className="tl">
-                  {hist.length === 0 && <li className="muted small">아직 이력이 없어요.</li>}
-                  {[...hist].reverse().map((h) => (
+                  {timeline.length === 0 && <li className="muted small">아직 이력이 없어요.</li>}
+                  {timeline.map((e) => {
+                    if (e.kind === 'a') {
+                      const x = e.a
+                      return (
+                        <li key={`a${x.id}`}>
+                          <Icon name="user" />
+                          <div>
+                            <b>{assignTitle(x)}</b>
+                            <small>
+                              {formatDateTime(x.createdAt)} · {x.actor?.name ?? '시스템'}
+                            </small>
+                            {x.reason && (
+                              <p className="tln">
+                                <em>{x.event === 'REASSIGN' ? '재배정 사유' : x.event === 'FAIL' ? '실패 사유' : '근거'}</em>
+                                {x.reason}
+                              </p>
+                            )}
+                          </div>
+                        </li>
+                      )
+                    }
+                    const h = e.h
+                    return (
                     <li key={h.id}>
                       <Icon name="clock" />
                       <div>
@@ -513,7 +561,8 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                         )}
                       </div>
                     </li>
-                  ))}
+                    )
+                  })}
                 </ul>
               </div>
             </>
@@ -567,6 +616,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
             onClose={() => setReassign(false)}
             onDone={(registered) => {
               setReassign(false)
+              getAssignmentLogs(user, id).then((r) => r.ok && setAssigns(r.data.items))
               setToast(registered ? '재배정을 등록했어요. 실행기가 Jira에 반영하면 담당자가 바뀌어요.' : '재배정했어요. 진행 상태는 그대로 유지돼요.')
               setTimeout(() => setToast(''), 2500)
             }}

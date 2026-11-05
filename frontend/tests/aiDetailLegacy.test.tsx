@@ -44,6 +44,7 @@ describe('사용한 가이드와 과거 처리 사례', () => {
     await userEvent.click(b1)
     expect(b1).toHaveAttribute('aria-expanded', 'true')
     expect(within(cases).getByRole('region', { name: '과거 사례 1 본문' })).toHaveTextContent('VPN 클라이언트 재설치 후 정상 접속 확인')
+    expect((within(cases).getByRole('region', { name: '과거 사례 1 본문' }) as HTMLElement).style.border).toBe('') // 본문은 박스 없이 글만
     await userEvent.click(b2)
     expect(b1).toHaveAttribute('aria-expanded', 'false')
     expect(within(cases).getByRole('region', { name: '과거 사례 2 본문' })).toHaveTextContent('인증서를 갱신하자 해결됨')

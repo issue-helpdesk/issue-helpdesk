@@ -493,7 +493,9 @@
 /* 선택 창(.ov.rs)의 입력 칸 글씨는 보통 굵기로: .rs 는 상태 표시용 굵은 글씨(font-weight:600)여서 창 안 입력 칸까지 굵어 보였다 */
 .ov.rs input,.ov.rs textarea,.ov.rs select,.ov.rs .sbx{font-weight:400}
 /* FAQ 항목 하단: 상담하기는 왼쪽, 관리자 단추(게시 중단·삭제)는 오른쪽 끝에 같은 테두리 단추로. 삭제는 붉은 글씨 */
-.faq .fb .row{align-items:center}.faq .fb .faqadm{margin-left:auto;display:inline-flex;gap:8px}
+.faq .fb .row{align-items:center}
+/* 게시 중단 FAQ: 제목·답변·출처만 흐리게 하고 아래 버튼(수정·다시 게시·삭제)은 그대로 둔다 */
+.faq.foff>summary{opacity:.72}.faq.foff .fb{color:var(--ink2)}.faq.foff .fb .srcl{opacity:.8}.faq .fb .faqadm{margin-left:auto;display:inline-flex;gap:8px}
 .faq .fb .btn.sec.dng{color:var(--s-urg-fg)}
 .faq .fb .btn.sec.dng:hover{background:var(--s-urg-bg)}
 /* 접수 상세의 AI 판단 이력(관리자): 문의 요약 → AI 원래 판단(보라 박스) → 규칙이 바꾼 내역 → 최종 적용 */
@@ -539,10 +541,14 @@
 .fsrc{padding:8px}.fsrc+.fsrc{border-top:1px solid var(--line)}.fsrc:hover{background:var(--card)}
 .fsrc label{display:flex;align-items:center;gap:10px;cursor:pointer}.fsrc .fst{flex:1;min-width:0}
 .fsrc .fst b{display:block;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fsrc .fst small{display:block;color:var(--mute);font-size:12px}
-.fpub{display:flex;align-items:flex-start;gap:10px;margin-top:14px}.fpub input{margin-top:3px}.fpub small{display:block;color:var(--mute);font-size:12.5px;line-height:1.45;margin-top:2px}
+.fpub{display:flex;align-items:flex-start;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}.fpub input{margin-top:3px}.fpub small{display:block;color:var(--mute);font-size:12.5px;line-height:1.45;margin-top:2px}
 /* 입력 칸(textarea)의 스크롤바: 둥근 테두리 안에서 깨지지 않게 가늘게, 위아래 여백을 두고, 모서리 크기 조절 표시는 투명하게 */
 .ta{scrollbar-width:thin;scrollbar-color:var(--mute) transparent}
 @supports selector(::-webkit-scrollbar){.ta{scrollbar-width:auto;scrollbar-color:auto}.ta::-webkit-scrollbar{width:10px}.ta::-webkit-scrollbar-track{background:transparent;margin:8px 0}.ta::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--mute) 55%,transparent);border:3px solid transparent;border-radius:999px;background-clip:content-box}.ta::-webkit-scrollbar-corner,.ta::-webkit-resizer{background:transparent}}
+
+/* 운영 기록: 접수번호를 누르면 오른쪽에 접수 상세 패널 (링크처럼 보이는 글자 단추) */
+.aulink{display:block;margin:2px 0 0;padding:0;border:0;background:none;font-size:12.5px;color:var(--link);text-decoration:underline;text-underline-offset:2px;cursor:pointer;text-align:left}.aulink:hover{color:var(--btn-t)}.aulink:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px;border-radius:4px}
+.auditt tr.cur td{background:var(--osoft)}
 
 /* ---- 2026.11.05 버튼·체크박스 기준 (디자인 가이드 03장 · 업데이트 로그) ---- */
 /* 버튼 높이: 일반 36(좌우 12·모서리 6) · 작은 버튼/필터 32 · 모달 주요 작업 40 · 터치 44 이상. 채팅 전송은 입력창 높이에 맞춰 44를 유지한다 */

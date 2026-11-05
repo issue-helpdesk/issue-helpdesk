@@ -1,7 +1,7 @@
 /**
  * 운영 기록 (관리자, OP-04 GET /audit-logs): 모의 필터·관리자 전용·서버 요청 모양·화면.
  */
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -76,7 +76,7 @@ describe('운영 기록 (서버 모드)', () => {
 })
 
 describe('운영 기록 화면', () => {
-  it('기록을 한글로 보여 주고(이벤트 이름 + 서버 코드), 구분·이벤트로 거르며, 링크는 없다', async () => {
+  it('기록을 한글로 보여 주고(이벤트 이름 + 서버 코드), 구분·이벤트로 거른다', async () => {
     renderAs('EMP-1178', '/audit')
     const nav = await screen.findByRole('navigation', { name: '주 메뉴' }, SLOW)
     expect(within(nav).getByRole('button', { name: '운영 기록' })).toBeInTheDocument()
@@ -90,9 +90,7 @@ describe('운영 기록 화면', () => {
     expect(screen.queryByText('QUEUED')).toBeNull()
     expect(screen.getAllByText('시스템').length).toBeGreaterThan(0) // 처리자가 없으면 시스템
     // 접수번호는 구분 칸 둘째 줄에 (종류가 첫 줄)
-    expect(screen.getByText('RCPT-1041').closest('td')).toHaveTextContent('접수RCPT-1041')
-    // 링크·상세 패널은 없다
-    expect(screen.queryByRole('button', { name: /상세 보기/ })).toBeNull()
+    expect(screen.getAllByText('RCPT-0881')[0].closest('td')).toHaveTextContent('접수RCPT-0881')
     // 구분 탭: 문서만
     await userEvent.click(screen.getByRole('button', { name: '문서' }))
     expect(await screen.findByText('현행 v1 → v2', undefined, SLOW)).toBeInTheDocument()
@@ -103,6 +101,20 @@ describe('운영 기록 화면', () => {
     await userEvent.click(await screen.findByRole('option', { name: '재배정' }))
     expect(await screen.findByText('배정 실패', undefined, SLOW)).toBeInTheDocument()
     expect(screen.queryByText('근거 전체 차단, 담당자 연결 제안')).toBeNull()
+  })
+
+  it('접수번호를 누르면 화면은 그대로 두고 오른쪽에 접수 상세 패널이 열리고, 다른 접수번호를 누르면 패널만 바뀐다', async () => {
+    renderAs('EMP-1178', '/audit')
+    const first = (await screen.findAllByRole('button', { name: /접수 RCPT-0881 상세 보기/ }, SLOW))[0]
+    expect(screen.queryByRole('complementary', { name: '티켓 상세' })).toBeNull()
+    await userEvent.click(first)
+    const panel = await screen.findByRole('complementary', { name: '티켓 상세' }, SLOW)
+    expect(await within(panel).findByText('RCPT-0881', undefined, SLOW)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '운영 기록을 확인해요' })).toBeInTheDocument() // 화면은 그대로
+    // 다른 접수(재배정 기록)를 누르면 패널은 하나인 채로 내용만 바뀐다
+    await userEvent.click(screen.getAllByRole('button', { name: /상세 보기/ }).find((b) => !/RCPT-0881/.test(b.getAttribute('aria-label') ?? ''))!)
+    await waitFor(() => expect(within(screen.getByRole('complementary', { name: '티켓 상세' })).queryByText('RCPT-0881')).toBeNull(), SLOW)
+    expect(screen.getAllByRole('complementary', { name: '티켓 상세' })).toHaveLength(1)
   })
 
   it('담당자는 들어올 수 없다', async () => {

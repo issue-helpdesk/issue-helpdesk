@@ -177,7 +177,7 @@ export function FaqView() {
             {shown?.map((f) => {
               const off = f.active === false
               return (
-                <details key={f.id} id={`faq-${f.id}`} className={`panel faq${leaving === f.id ? ' fout' : known?.fresh.has(f.id) ? ' fnew' : ''}`} open={f.id === openId ? true : undefined} style={{ padding: 0, opacity: off ? 0.72 : undefined }} onToggle={(e) => e.currentTarget.open && loadSources(f)}>
+                <details key={f.id} id={`faq-${f.id}`} className={`panel faq${off ? ' foff' : ''}${leaving === f.id ? ' fout' : known?.fresh.has(f.id) ? ' fnew' : ''}`} open={f.id === openId ? true : undefined} style={{ padding: 0 }} onToggle={(e) => e.currentTarget.open && loadSources(f)}>
                   <summary>
                     <span className={`tag c-${f.categoryCode}`}>{CATEGORY_NAME[f.categoryCode] ?? f.categoryCode}</span>
                     <b>{f.question}</b>
