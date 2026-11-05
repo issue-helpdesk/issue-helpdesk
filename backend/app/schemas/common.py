@@ -26,6 +26,12 @@ KstDatetime = Annotated[datetime, PlainSerializer(lambda v: to_kst(v).isoformat(
 def trimmed_str(min_length: int | None = None, max_length: int | None = None):
     return Annotated[str, StringConstraints(strip_whitespace=True, min_length=min_length, max_length=max_length)]
 
+class GuideImage(CamelModel):
+    """출처 본문의 '[그림] 설명' 에 대응하는 그림. 파일은 DC-11 로 받는다."""
+    key: str
+    caption: str
+
+
 # 목록 응답 (2.5). JSON 은 items·page·size·totalCount·totalPages
 class Page[T](CamelModel):
     items: list[T]

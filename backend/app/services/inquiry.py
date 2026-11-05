@@ -46,6 +46,7 @@ from app.schemas.inquiry import (
     UserRef,
 )
 from app.services.ai_responder import AiResponderDep
+from app.services.guide_image import images_of
 from app.services.inquiry_status import CLOSED_STATUSES, display_status, next_actions, resume_actions
 from app.utils import datetime_utils
 from app.utils.text_utils import first_line_summary
@@ -271,12 +272,24 @@ class InquiryService:
         return ItemList(items=[to_message_view(m, sources.get(m.id, [])) for m in messages])
 
     def visible_sources(self, messages: list[Message], viewer: User) -> dict[int, list[MessageSourceView]]:
-        """메시지별 출처. 보는 사람의 역할로 열람 범위 밖 출처는 뺀다 (청크_메타데이터.md 4장)."""
+        """메시지별 출처. 보는 사람의 역할로 열람 범위 밖 출처는 뺀다 (청크_메타데이터.md 4장).
+
+        문서 출처는 조각마다 한 줄이고 본문(excerpt)은 단위 전체라, 그림도 같은 위치의 조각들을 합쳐 준다.
+        """
         allowed = visible_scopes(viewer.service_role)
+        rows = [source for source, scope in self.inquiries.sources_with_scope([m.id for m in messages]) if scope in allowed]
+        metas = self.inquiries.chunk_metas([s.chunk_id for s in rows if s.chunk_id is not None])
+
+        def unit(s: MessageSource) -> tuple:
+            return s.message_id, s.doc_code, s.version, s.location
+
+        unit_metas: dict[tuple, list[dict | None]] = {}
+        for source in rows:
+            unit_metas.setdefault(unit(source), []).append(metas.get(source.chunk_id))
         sources: dict[int, list[MessageSourceView]] = {}
-        for source, scope in self.inquiries.sources_with_scope([m.id for m in messages]):
-            if scope in allowed:
-                sources.setdefault(source.message_id, []).append(MessageSourceView.model_validate(source))
+        for source in rows:
+            view = MessageSourceView.model_validate(source).model_copy(update={"images": images_of(unit_metas[unit(source)])})
+            sources.setdefault(source.message_id, []).append(view)
         return sources
 
     def find_own(self, inquiry_id: int, user: User, for_update: bool = False) -> Inquiry:

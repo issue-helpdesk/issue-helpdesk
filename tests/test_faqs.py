@@ -294,7 +294,7 @@ def test_create_published_with_source_document(client, db, admin, employee, guid
     assert res.json()["faqCode"] in codes(client.get(FAQS, headers=employee))
     assert client.get(f"{FAQS}/{faq_id}", headers=employee).json()["sources"] == [
         {"documentId": guide.id, "docCode": "IT-SW-001", "title": "IT-SW-001 가이드", "version": "v1.0",
-         "location": None, "excerpt": None},
+         "location": None, "excerpt": None, "images": []},
     ]
 
 

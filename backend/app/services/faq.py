@@ -22,6 +22,7 @@ from app.schemas.faq import (
     FaqUpdateRequest,
 )
 from app.schemas.inquiry import CategoryRef, UserRef
+from app.services.guide_image import images_of
 from app.utils import datetime_utils
 
 CODE_NUMBER = re.compile(r"^FAQ-(\d+)$")
@@ -149,16 +150,17 @@ def sources_of(code: str, links: list[FaqLink], scopes: tuple[str, ...]) -> list
     """이 FAQ 의 출처. 같은 문서·위치는 한 번만 내고 본문은 이어 붙인다. 위치를 아는 출처가 있는 문서는 직접 지정을 따로 내지 않는다."""
     mine = [link for link in links if code in link.faq_codes and link.view_scope in scopes]
     located = {link.document_id for link in mine if link.location is not None}
-    found: dict[tuple, tuple[FaqLink, list[str]]] = {}
+    found: dict[tuple, tuple[FaqLink, list[str], list[dict | None]]] = {}
     for link in mine:
         if link.location is None and link.document_id in located:
             continue
-        _, pieces = found.setdefault((link.document_id, link.version, link.location), (link, []))
+        _, pieces, metas = found.setdefault((link.document_id, link.version, link.location), (link, [], []))
+        metas.append(link.meta)
         if link.excerpt:
             pieces.append(link.excerpt)
     return [FaqSource(document_id=link.document_id, doc_code=link.doc_code, title=link.title, version=link.version,
-                      location=link.location, excerpt="\n".join(pieces) or None)
-            for link, pieces in found.values()]
+                      location=link.location, excerpt="\n".join(pieces) or None, images=images_of(metas))
+            for link, pieces, metas in found.values()]
 
 
 def next_code(codes: list[str]) -> str:

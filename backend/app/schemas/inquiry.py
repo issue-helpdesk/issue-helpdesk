@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 
 from fastapi import Header
 
-from app.schemas.common import CamelModel, KstDatetime, PageQuery, sort_param, trimmed_str
+from app.schemas.common import CamelModel, GuideImage, KstDatetime, PageQuery, sort_param, trimmed_str
 
 IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=100)]
 
@@ -107,6 +107,7 @@ class MessageSource(CamelModel):
     location: str | None
     excerpt: str | None
     rank: int | None
+    images: list[GuideImage] = []           # 본문에 나오는 그림. 파일은 DC-11
 
 
 class Message(CamelModel):

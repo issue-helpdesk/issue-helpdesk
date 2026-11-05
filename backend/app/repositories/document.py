@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, cast, func, or_, select, Text
 
 from app.db.session import DbSession
 from app.models import Category, DocumentChunk, DocumentVersion, Faq, FaqSourceDocument, KnowledgeDocument, SupportGroup, User
@@ -119,6 +119,18 @@ class DocumentRepository:
             .where(FaqSourceDocument.document_id == document_id)
         )
         return {code for meta in metas for code in (meta or {}).get("faq_ids", [])} | set(direct)
+
+    def image_scopes(self, key: str) -> set[str]:
+        """이 그림을 실제로 쓰는 청크의 열람 범위들. 활성 문서의 적재 끝난 버전만 본다.
+        글자 검색은 후보만 줄이고, 판단은 meta.images 의 이름표가 정확히 같은지로 한다."""
+        rows = self.db.execute(
+            select(DocumentChunk.meta, DocumentVersion.view_scope)
+            .join(DocumentVersion, DocumentVersion.id == DocumentChunk.version_id)
+            .join(KnowledgeDocument, KnowledgeDocument.id == DocumentVersion.document_id)
+            .where(cast(DocumentChunk.meta, Text).contains(key, autoescape=True),
+                   KnowledgeDocument.is_active.is_(True), DocumentVersion.ingest_status == "DONE")
+        )
+        return {scope for meta, scope in rows if any(image.get("key") == key for image in (meta or {}).get("images", []))}
 
     def active_faqs_for_update(self, codes: set[str]) -> list[Faq]:
         return list(self.db.scalars(select(Faq).where(Faq.faq_code.in_(codes), Faq.is_active.is_(True))
