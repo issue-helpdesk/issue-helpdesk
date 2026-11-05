@@ -111,19 +111,28 @@ describe('가이드 관리 화면', () => {
     expect(await screen.findByRole('heading', { name: /내 담당 문의/ }, SLOW)).toBeInTheDocument()
   })
 
-  it('외부 전송 정책을 느슨하게 바꾸면 사유를 요구하고, 엄격하게 바꾸면 바로 바뀐다', async () => {
+  it('외부 전송 정책을 느슨하게 바꾸면 사유가 필수이고, 엄격하게 바꿀 때도 창이 뜨지만 사유는 비워도 된다', async () => {
     renderAs('EMP-1178', '/guides')
     await userEvent.click(await screen.findByRole('button', { name: /^정보보안/ }, SLOW))
     await userEvent.click(await screen.findByRole('button', { name: /^IT-SEC-004.*현행/ }))
     const grp = await screen.findByRole('group', { name: 'v2 외부 AI 전송' })
     await userEvent.click(within(grp).getByRole('button', { name: '허용' }))
     const dlg = await screen.findByRole('dialog', { name: '외부 전송 정책 변경' })
+    expect(within(dlg).getByText('필수 입력값이에요. 운영 기록에 남아요.')).toBeInTheDocument()
+    expect(within(dlg).getByText('/500', { exact: false })).toHaveTextContent('0/500')
+    expect(within(dlg).getByLabelText('변경 사유 (필수)')).toHaveAttribute('maxlength', '500')
     await userEvent.click(within(dlg).getByRole('button', { name: '변경' }))
     expect(await within(dlg).findByText('변경 사유를 입력해 주세요.')).toBeInTheDocument()
     await userEvent.type(within(dlg).getByLabelText('변경 사유 (필수)'), '개인정보 없음을 확인함')
+    expect(within(dlg).getByText('/500', { exact: false })).toHaveTextContent('12/500')
     await userEvent.click(within(dlg).getByRole('button', { name: '변경' }))
     expect(await screen.findByText('외부 전송 정책을 허용으로 바꿨어요.', {}, SLOW)).toBeInTheDocument()
+    // 엄격하게 바꿀 때도 창이 뜨고, 사유(선택)는 비워도 변경된다
     await userEvent.click(within(await screen.findByRole('group', { name: 'v2 외부 AI 전송' })).getByRole('button', { name: '금지' }))
+    const strict = await screen.findByRole('dialog', { name: '외부 전송 정책 변경' })
+    expect(within(strict).getByText('필수 입력값은 아니에요. 운영 기록에 남아요.')).toBeInTheDocument()
+    expect(within(strict).queryByText(/넓게 외부 AI 모델/)).toBeNull()
+    await userEvent.click(within(strict).getByRole('button', { name: '변경' }))
     expect(await screen.findByText('외부 전송 정책을 금지로 바꿨어요.', {}, SLOW)).toBeInTheDocument()
   })
 
