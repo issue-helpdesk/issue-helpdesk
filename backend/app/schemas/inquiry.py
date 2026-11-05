@@ -110,6 +110,13 @@ class MessageSource(CamelModel):
     images: list[GuideImage] = []           # 본문에 나오는 그림. 파일은 DC-11
 
 
+class Question(CamelModel):
+    label: str | None = None                # 답을 글로 묶을 때 붙이는 이름. 이 칸이 생기기 전 저장된 질문은 null
+    text: str
+    options: list[str]                      # 비어 있으면 입력창으로 보여 주는 질문
+    allow_text: bool = False                # 선택지와 함께 직접 입력도 받는가
+
+
 class Message(CamelModel):
     id: int
     session_id: int
@@ -117,6 +124,7 @@ class Message(CamelModel):
     sender: str
     content: str
     sources: list[MessageSource] = []
+    questions: list[Question] = []          # 이 AI 메시지가 물은 추가 질문. 본문에는 인사말만 저장된다
     created_at: KstDatetime
 
 
@@ -128,6 +136,7 @@ class AssessmentView(CamelModel):
     urgency: str | None
     urgency_reason: str | None
     action: str | None
+    questions: list[Question] = []
 
 
 class AiTurn(CamelModel):

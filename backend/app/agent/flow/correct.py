@@ -4,6 +4,7 @@
 - asks_back    : 9단계. ANSWER reply 가 연결을 제안하거나 정보를 달라고 하는가. drop_asks_back 이 그 문장을 뺀다
 - shown_text   : 9단계 검사 대상. reply 와 추가 질문(questions)
 - correct      : 4~8단계와 처리 방향 보정. 바꾼 것은 override_reasons 항목(08 5.4)으로 함께 돌려준다
+- cap_questions: 질문·선택지 수 상한. 저장된 ai_output(보정 전 값)을 화면에 줄 때도 쓴다
 
 1~3단계(버전·JSON·필수 키)는 call_judge 가 한다. 9단계에서 다시 부르는 일은 graph.py 가 한다.
 """
@@ -183,19 +184,24 @@ def correct(out: AIOutput, inp: AIInput, *, second: bool, sent: Filtered | None,
         o.append(override('escalation_reason', d['escalation_reason'], None, 'INVALID_VALUE', '담당자 연결이 아님'))
         d['escalation_reason'] = None
 
-    # 추가 질문은 ASK_MORE 에만 있다. 상한(질문 3개·선택지 5개)을 넘으면 자르되 마지막 "그 밖의 상황"은 남긴다
+    # 추가 질문은 ASK_MORE 에만 있다
     if d['action'] != 'ASK_MORE':
         if asked and d['questions']:
             d['reply'] = ASK_TO_HANDOFF
         d['questions'] = []
     else:
-        cut = [q | {'options': q['options'] if len(q['options']) <= MAX_OPTIONS
-                    else q['options'][:MAX_OPTIONS - 1] + q['options'][-1:]} for q in d['questions'][:MAX_QUESTIONS]]
+        cut = cap_questions(d['questions'])
         if cut != d['questions']:
             o.append(override('questions', d['questions'], cut, 'INVALID_VALUE', '질문·선택지 수 상한을 넘음'))
             d['questions'] = cut
 
     return Corrected(AIOutput.model_validate(d), tuple(o))
+
+
+def cap_questions(questions: list[dict]) -> list[dict]:
+    """상한(질문 3개·선택지 5개)을 넘으면 자르되 마지막 "그 밖의 상황"은 남긴다."""
+    return [q | {'options': q['options'] if len(q['options']) <= MAX_OPTIONS
+                 else q['options'][:MAX_OPTIONS - 1] + q['options'][-1:]} for q in questions[:MAX_QUESTIONS]]
 
 
 def known_items(facts: Facts | None) -> set[str]:
