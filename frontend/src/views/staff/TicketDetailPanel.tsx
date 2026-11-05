@@ -328,7 +328,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
       )}
       {t.resolutionNote && (
         <>
-          <dt>처리 결과</dt>
+          <dt>{t.workStatus === 'FIN' || t.workStatus === 'CLS' ? '처리 결과' : '이전 처리 결과'}</dt>
           <dd>{t.resolutionNote}</dd>
         </>
       )}
