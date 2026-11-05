@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import App from '../src/App'
-import { advanceChat } from '../src/api/chat'
+import { advanceChat, rejectChat } from '../src/api/chat'
 import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
 
@@ -50,7 +50,7 @@ describe('대화 화면의 요청이 예외로 끝날 때', () => {
     expect(await enabled('미해결')).toBeEnabled()
   })
 
-  it('"미해결" 사유 보내기가 예외로 끝나도 오류 문구가 보이고 창의 버튼이 다시 눌린다', async () => {
+  it('"미해결" 사유 보내기가 예외로 끝나도 창 안에 오류 문구가 보이고, 사유가 남고, 버튼이 다시 눌린다', async () => {
     const user = userEvent.setup()
     renderChat()
     await screen.findByRole('list', { name: '접수 진행 단계' }, SLOW)
@@ -59,10 +59,16 @@ describe('대화 화면의 요청이 예외로 끝날 때', () => {
     const dlg = await screen.findByRole('dialog', { name: '미해결' })
     await user.type(within(dlg).getByLabelText('남은 증상'), '같은 오류가 나요')
     await user.click(within(dlg).getByRole('button', { name: '다시 확인 요청' }))
-    // 오류 문구는 대화 화면 쪽에 뜨고, 창은 닫히지 않은 채 버튼 잠금만 풀린다
-    expect(await screen.findByRole('alert', {}, SLOW)).toHaveTextContent('요청을 보내지 못했어요')
-    expect(screen.getByRole('dialog', { name: '미해결' })).toBeInTheDocument()
+    // 오류 문구는 열려 있는 창 안에 뜨고(화면 뒤쪽에 중복으로 뜨지 않는다), 입력한 사유는 그대로다
+    expect(await within(dlg).findByRole('alert', {}, SLOW)).toHaveTextContent('요청을 보내지 못했어요')
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+    expect(within(dlg).getByLabelText('남은 증상')).toHaveValue('같은 오류가 나요')
+    // 버튼 잠금이 풀려 같은 사유로 다시 보낼 수 있다
     expect(within(dlg).getByRole('button', { name: '다시 확인 요청' })).toBeEnabled()
+    expect(rejectChat).toHaveBeenCalledTimes(1)
+    await user.click(within(dlg).getByRole('button', { name: '다시 확인 요청' }))
+    await waitFor(() => expect(rejectChat).toHaveBeenCalledTimes(2), SLOW)
+    expect(vi.mocked(rejectChat).mock.calls[1][2]).toBe('같은 오류가 나요')
     expect(within(dlg).getByRole('button', { name: '취소' })).toBeEnabled()
   })
 })

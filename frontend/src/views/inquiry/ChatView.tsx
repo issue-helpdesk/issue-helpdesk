@@ -380,7 +380,7 @@ export function ChatView() {
             <span>{IDLE_TEXT[inquiry.idleWarned]}</span>
           </div>
         )}
-        {error && (
+        {error && modal?.kind !== 'reject' && (
           <div className="alert err" role="alert" style={{ maxWidth: 760, margin: '0 auto 10px' }}>
             <div>{error}</div>
           </div>
@@ -523,6 +523,11 @@ export function ChatView() {
             <label htmlFor="m-reason">남은 증상</label>
             <textarea className="ta" id="m-reason" value={reason} placeholder="예) 안내대로 했지만 같은 오류가 나요" onChange={(e) => setReason(e.target.value)} />
           </div>
+          {error && (
+            <div className="ferr" role="alert">
+              {error}
+            </div>
+          )}
           <div className="acts">
             <button type="button" className="btn sec" onClick={() => setModal(null)}>
               취소
