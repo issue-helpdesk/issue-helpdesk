@@ -2,7 +2,7 @@
  * 화면 모드: 라이트·다크 + 그 위에 겹치는 고대비.
  * 고대비는 사용자가 고른 값(켬·끔) > 기기 설정(prefers-contrast) > 꺼짐 순서로 정하고, 라이트·다크 선택과는 서로 영향을 주지 않는다.
  */
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { applyStoredTheme, currentContrast, setContrast, setTheme } from '../src/core/theme'
@@ -128,6 +128,15 @@ describe('화면 모드 버튼', () => {
     expect(hc).toHaveAttribute('aria-pressed', 'false')
     expect(root).not.toHaveAttribute('data-contrast')
     expect(light).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('고대비는 라이트·다크 알약 밖에 따로 떨어져 있다 (추가로 켜는 옵션으로 보이게)', () => {
+    render(<ThemeSwitch />)
+    const pill = screen.getByRole('group', { name: '라이트·다크' })
+    // 알약 안에는 라이트·다크 두 칸뿐이고, 고대비 칸은 그 바깥에 있다
+    expect(within(pill).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['라이트 모드', '다크 모드'])
+    expect(within(pill).queryByRole('button', { name: '고대비 모드' })).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '화면 모드' })).toContainElement(screen.getByRole('button', { name: '고대비 모드' }))
   })
 
   it('작게 접힌 버튼의 이름에 고대비 여부가 들어간다', () => {

@@ -12,8 +12,13 @@
 /* ---- 선: 조작 경계는 2px, 포커스 링은 3px ---- */
 :root[data-contrast="high"] :focus-visible{outline:3px solid var(--link);outline-offset:2px}
 :root[data-contrast="high"] a{text-decoration:underline}
+/* 모달이 열릴 때 컨테이너 자체가 포커스를 받는 경우가 있는데, 3px 테두리가 이미 있으므로 링을 겹쳐 그리지 않는다 */
+:root[data-contrast="high"] .modal:focus-visible{outline:0}
 :root[data-contrast="high"] ::selection{background:var(--hc-accent);color:#000}
-:root[data-contrast="high"] .d2p:focus-within{outline:3px solid var(--link)}
+:root[data-contrast="high"] .d2p:focus-within,:root[data-contrast="high"] .sbx:focus-visible,:root[data-contrast="high"] .sbx.open,:root[data-contrast="high"] select.sel:focus-visible{outline:0;box-shadow:inset 0 0 0 3px var(--link)}
+:root[data-contrast="high"] .composer textarea:focus-visible{outline:0}
+:root[data-contrast="high"] .ddb:focus-visible,:root[data-contrast="high"] .d2p .x:focus-visible{outline:0}
+:root[data-contrast="high"] .composer:focus-within{box-shadow:inset 0 0 0 3px var(--link)}
 :root[data-contrast="high"] .srch:focus-within,:root[data-contrast="high"] .srch.f{box-shadow:inset 0 0 0 3px var(--link)}
 :root[data-contrast="high"] .inp:focus,:root[data-contrast="high"] .ta:focus{outline:0;box-shadow:inset 0 0 0 3px var(--link)}
 :root[data-contrast="high"] select.sel,:root[data-contrast="high"] .btn.sec,:root[data-contrast="high"] .inp,:root[data-contrast="high"] .ta,:root[data-contrast="high"] .srch,:root[data-contrast="high"] .sbx{box-shadow:inset 0 0 0 2px var(--fieldline)}
@@ -26,23 +31,27 @@
 :root[data-contrast="high"] .btn.sec{box-shadow:inset 0 0 0 2px var(--fieldline);font-weight:700}
 :root[data-contrast="high"] .btn.sec:hover{background:var(--hvg)}
 :root[data-contrast="high"] .btn.ghost{text-decoration:underline}
-:root[data-contrast="high"] .btn[disabled],:root[data-contrast="high"] .btn.pri[disabled]{opacity:1;background:var(--hc-dis-bg);color:var(--hc-dis-fg);box-shadow:none;outline:2px dashed var(--hc-dis-fg);outline-offset:-2px}
+:root[data-contrast="high"] .btn[disabled],:root[data-contrast="high"] .btn.pri[disabled],:root[data-contrast="high"] .composer .btn.ico.pri[disabled],:root[data-contrast="high"] .btn.pri.solid[disabled]{opacity:1;background:var(--hc-dis-bg);color:var(--hc-dis-fg);box-shadow:inset 0 0 0 2px var(--hc-dis-fg);outline:0}
 
 /* ---- 화면 모드 버튼: 눌린 칸은 노랑 (라이트·다크 칸과 고대비 칸이 함께 눌릴 수 있음) ---- */
 :root[data-contrast="high"] .tgm button[aria-pressed=true]{background:var(--hc-accent);color:#000;box-shadow:inset 0 0 0 2px var(--hc-ring)}
 :root[data-contrast="high"] .tgm,:root[data-contrast="high"] .t1 .tgm{box-shadow:inset 0 0 0 2px var(--fieldline)}
+:root[data-contrast="high"] .tgh,:root[data-contrast="high"] .t1 .tgh{background:var(--white);box-shadow:inset 0 0 0 2px var(--fieldline)}
+:root[data-contrast="high"] .tgh[aria-pressed=true]{background:var(--hc-accent);color:#000;box-shadow:inset 0 0 0 2px var(--hc-ring)}
 
 /* ---- 면: 반투명·블러·그림자를 끄고 윤곽선으로 ---- */
 :root[data-contrast="high"] .side{background:var(--side)!important;-webkit-backdrop-filter:none;backdrop-filter:none;border-right:2px solid var(--divider)!important;box-shadow:none}
 :root[data-contrast="high"] .app .detail,:root[data-contrast="high"] .detail{background:var(--white)!important;-webkit-backdrop-filter:none;backdrop-filter:none;border-left:3px solid var(--hc-strong);box-shadow:none}
 :root[data-contrast="high"] .composer{box-shadow:inset 0 0 0 2px var(--fieldline)}
-:root[data-contrast="high"] .modal,:root[data-contrast="high"] .lpop,:root[data-contrast="high"] .pop{box-shadow:inset 0 0 0 3px var(--hc-strong)}
+/* 머리 영역(.lph · 모달 제목줄)의 배경이 안쪽 그림자를 덮으므로, 상자 윤곽은 안쪽 그림자가 아니라 실제 테두리로 */
+:root[data-contrast="high"] .modal,:root[data-contrast="high"] .lpop,:root[data-contrast="high"] .pop{box-shadow:none;border:3px solid var(--hc-strong)}
 :root[data-contrast="high"] .totop,:root[data-contrast="high"] .t1 .one{box-shadow:inset 0 0 0 2px var(--fieldline)}
 
 /* ---- 사이드바 활성 메뉴 · 선택된 칩/세그먼트 (그림자 대신 윤곽선 + 노랑) ---- */
 :root[data-contrast="high"] .nav button.on,:root[data-contrast="high"] .recent .rt.on{background:var(--hc-nav);box-shadow:inset 0 0 0 3px var(--hc-strong)}
+:root[data-contrast="high"] .seg button{box-shadow:inset 0 0 0 2px var(--fieldline);font-weight:700}
 :root[data-contrast="high"] .seg button.on,:root[data-contrast="high"] .d2seg button.on,:root[data-contrast="high"] .chip.on,:root[data-contrast="high"] .rwhy .chip[aria-pressed="true"],:root[data-contrast="high"] .seg.gu-seg button.on,:root[data-contrast="high"] .admin .scroll .page>.seg button.on{background:var(--hc-accent);color:#000;box-shadow:inset 0 0 0 2px var(--hc-ring);font-weight:700}
-:root[data-contrast="high"] .d2seg button.on em,:root[data-contrast="high"] .chip.on em,:root[data-contrast="high"] .rwhy .chip[aria-pressed="true"] em{background:#000;color:var(--hc-accent)}
+:root[data-contrast="high"] .d2seg button.on em,:root[data-contrast="high"] .chip.on em,:root[data-contrast="high"] .seg button.on em,:root[data-contrast="high"] .rwhy .chip[aria-pressed="true"] em{background:transparent;color:#000;box-shadow:none}
 :root[data-contrast="high"] .ddm,:root[data-contrast="high"] .sbxl,:root[data-contrast="high"] .stip,:root[data-contrast="high"] .hvtip,:root[data-contrast="high"] .toast{box-shadow:inset 0 0 0 3px var(--hc-strong)}
 :root[data-contrast="high"] .mcard:hover{box-shadow:none}
 :root[data-contrast="high"] .login>.bgsvg{display:none}
@@ -76,6 +85,7 @@
 :root[data-contrast="high"] .mebadge{background:var(--s-prog-fg);color:var(--canvas)}
 :root[data-contrast="high"] .tn-ok,:root[data-contrast="high"] .tn-prog,:root[data-contrast="high"] .tn-need,:root[data-contrast="high"] .tn-asg,:root[data-contrast="high"] .tn-urg,:root[data-contrast="high"] .tn-recv{--tt:var(--canvas)}
 :root[data-contrast="high"] .tn-warn{--tt:var(--canvas)}
+:root[data-contrast="high"] .tn-recv{--td:var(--s-recv-fg)}
 :root[data-contrast="high"] .tag.stf{background:var(--hc-role-bg);color:var(--hc-role-fg)}
 :root[data-contrast="high"] .tag,:root[data-contrast="high"] .tag.c-SYS{background:var(--card);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
 :root[data-contrast="high"] .pf,:root[data-contrast="high"] .wh,:root[data-contrast="high"] .who .pf,:root[data-contrast="high"] .tr .av,:root[data-contrast="high"] .um .av,:root[data-contrast="high"] .pfl .pf,:root[data-contrast="high"] .pwm .pfl .pf{background:var(--ink);color:var(--canvas)}
@@ -90,6 +100,13 @@
 :root[data-contrast="high"] mark.hl{background:var(--hc-accent);color:#000;box-shadow:inset 0 -2px 0 #000;font-weight:700}
 :root[data-contrast="high"] .asx .asai{background:var(--card);box-shadow:inset 4px 0 0 var(--link)}
 :root[data-contrast="high"] .asx .asai .asl{color:var(--link);font-weight:700}
+/* ---- 단계 표시 · 상세 패널 체크: 밝은 면 위 흰 체크, 흰 바탕 위 흰 동그라미를 없앰 ---- */
+:root[data-contrast="high"] .stepper .st .n{color:var(--canvas)}
+:root[data-contrast="high"] .sx.done .mk{background:var(--ink);color:var(--canvas)}
+:root[data-contrast="high"] .sx.done .l,:root[data-contrast="high"] .sx.done .v,:root[data-contrast="high"] .sx.idle .l,:root[data-contrast="high"] .sx.idle .v{color:var(--ink2);opacity:1}
+:root[data-contrast="high"] .sx.idle .mk{box-shadow:inset 0 0 0 2px var(--fieldline)}
+:root[data-contrast="high"] .sx+.sx::before{background:var(--divider)}
+
 :root[data-contrast="high"] .tl li:nth-child(1) b::after{background:var(--hc-accent);color:#000;box-shadow:inset 0 0 0 2px var(--hc-ring)}
 
 /* ---- 우선순위 막대 (통계) ---- */

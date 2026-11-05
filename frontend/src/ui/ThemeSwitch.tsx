@@ -1,6 +1,6 @@
 /**
- * 화면 모드 선택: 라이트 · 다크 중 하나 + 그 위에 켜고 끄는 고대비.
- * 라이트·다크 칸은 둘 중 하나만 눌리고, 고대비 칸은 켜짐·꺼짐 토글이라 둘 중 하나와 함께 눌린다.
+ * 화면 모드 선택: 라이트 · 다크 중 하나 + 그 위에 "더해서" 켜고 끄는 고대비.
+ * 오른쪽 알약에서 라이트·다크는 둘 중 하나만 눌리고, 왼쪽의 동그란 고대비 토글은 켜짐·꺼짐이라 둘 중 하나와 함께 눌린다.
  * 로그인 화면 오른쪽 위와 사이드바 아래에 둔다.
  */
 import { useEffect, useRef, useState } from 'react'
@@ -37,34 +37,16 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
     }
   }, [open])
 
+  // 고대비는 라이트·다크 중 하나를 고른 뒤 "더해서" 켜는 옵션이다. 같은 알약 안에 나란히 두면 세 번째 바탕처럼 보이므로,
+  // 왼쪽에 따로 떼어 둔 동그란 토글로 두고 오른쪽 알약에는 라이트·다크만 둔다.
   const group = (
-    <div className="tgm" role="group" aria-label="화면 모드">
-      {MODES.map((m) => (
-        <button
-          key={m.mode}
-          type="button"
-          aria-pressed={cur === m.mode}
-          aria-label={m.label}
-          title={m.label}
-          onClick={(e) => {
-            // 마우스로 골랐으면 3칸을 접는다 (키보드는 초점을 그대로 둔다)
-            if (compact) {
-              setOpen(false)
-              if (e.detail > 0) e.currentTarget.blur()
-            }
-            if (cur === m.mode) return
-            // 화면이 바뀌는 순간에 눌림 표시도 같이 바뀌도록 전환 안에서 상태를 맞춘다
-            setThemeAnimated(m.mode, e.currentTarget, () => flushSync(() => setCur(m.mode)))
-          }}
-        >
-          <Icon name={m.icon} />
-        </button>
-      ))}
+    <div className="tgw" role="group" aria-label="화면 모드">
       <button
         type="button"
+        className="tgh"
         aria-pressed={hc === 'high'}
         aria-label="고대비 모드"
-        title="고대비 모드"
+        title="고대비 모드 (라이트·다크에 더해서 켜요)"
         onClick={(e) => {
           if (compact) {
             setOpen(false)
@@ -76,6 +58,29 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
       >
         <Icon name="contrast" />
       </button>
+      <div className="tgm" role="group" aria-label="라이트·다크">
+        {MODES.map((m) => (
+          <button
+            key={m.mode}
+            type="button"
+            aria-pressed={cur === m.mode}
+            aria-label={m.label}
+            title={m.label}
+            onClick={(e) => {
+              // 마우스로 골랐으면 펼침을 접는다 (키보드는 초점을 그대로 둔다)
+              if (compact) {
+                setOpen(false)
+                if (e.detail > 0) e.currentTarget.blur()
+              }
+              if (cur === m.mode) return
+              // 화면이 바뀌는 순간에 눌림 표시도 같이 바뀌도록 전환 안에서 상태를 맞춘다
+              setThemeAnimated(m.mode, e.currentTarget, () => flushSync(() => setCur(m.mode)))
+            }}
+          >
+            <Icon name={m.icon} />
+          </button>
+        ))}
+      </div>
     </div>
   )
   if (!compact) return group
