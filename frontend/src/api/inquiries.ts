@@ -13,6 +13,7 @@ import { CATEGORIES } from './catalog'
 import type { CategoryCode } from './chatTypes'
 import { formatRelative } from '../core/format'
 import { pollHints, visiblePoll } from '../core/poll'
+import { hasUnseenUpdate } from './inquirySeen'
 import { listUnread, watchUnread } from './notifications'
 import { ok, type ApiResult, type DisplayStatus, type InquirySummary } from './types'
 
@@ -39,7 +40,8 @@ export async function listMyInquiries(employeeNo: string, ownerId?: number): Pro
   // 처리 완료(FIN) 같은 화면 알림이 안 읽힌 문의는 새 답변 표시(unread)를 켠다
   const unread = new Map<number, number>()
   if (news.ok) for (const n of news.data) unread.set(n.inquiryId, (unread.get(n.inquiryId) ?? 0) + 1)
-  return ok(items.map((i) => ({ ...i, unread: unread.get(i.id) ?? i.unread })))
+  // 서버 알림이 없는 AI 새 답변은 마지막 변경 시각이 내가 본 시각보다 늦으면 표시한다 (본인 목록일 때만)
+  return ok(items.map((i) => ({ ...i, unread: unread.get(i.id) ?? (ownerId === undefined && hasUnseenUpdate(employeeNo, i.id, i.updatedAt) ? 1 : i.unread) })))
 }
 
 /* ------------------------------------------------------------------ 문의 내역 (조건 조회) */

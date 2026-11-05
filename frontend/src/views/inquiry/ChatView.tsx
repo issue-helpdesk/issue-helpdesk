@@ -16,6 +16,7 @@ import { markTicketRead, refreshUnread } from '../../api/notifications'
 import { syncTicket } from '../../api/tickets'
 import type { ApiResult } from '../../api/types'
 import { SERVICEDESK, USE_MOCK_INQUIRY, USE_MOCK_NOTIFY } from '../../core/config'
+import { markInquirySeen } from '../../api/inquirySeen'
 import { refreshInquiryList } from '../../core/poll'
 import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
@@ -104,6 +105,13 @@ export function ChatView() {
   useEffect(() => {
     setError('')
   }, [ticketWork, ticketPending])
+  // 서버 알림이 없는 AI 새 답변 표시용: 이 문의를 여기까지 봤다고 기록하고, 사이드바의 점을 다시 읽는다 (서버 모드)
+  const seenAt = inquiry?.updatedAt
+  useEffect(() => {
+    if (USE_MOCK_INQUIRY || !employeeNo || !seenAt) return
+    markInquirySeen(employeeNo, id, seenAt)
+    refreshInquiryList()
+  }, [employeeNo, id, seenAt])
   const openedTicket = useRef<number | null>(null)
   useEffect(() => {
     if (ticketId === undefined || openedTicket.current === ticketId || !user) return
@@ -137,6 +145,8 @@ export function ChatView() {
     setEntry({ id, kind, popup: kind !== null, done: false })
   }
   const gated = entry?.id === id && entry.kind !== null && !entry.done // 이어가기 창을 거치기 전
+  // 창이 떠 있는 동안만 칩을 막는다. ✕로 닫은 뒤에는 칩을 눌러 바로 이어갈 수 있다 (입력창은 계속 잠겨 있고 누르면 창이 다시 뜬다)
+  const replyBlocked = gated && !!entry?.popup
 
   // 대화는 맨 아래를 따라간다: 아래에 있던 사용자는 새 메시지·이미지·입력창 높이 변화가 있어도 맨 아래에 머문다.
   // 위로 올려 읽는 중이면 그대로 두고, 내가 글을 보내면 다시 맨 아래로 내린다.
@@ -222,7 +232,11 @@ export function ChatView() {
   const actions: ChatActions | null = useMemo(() => {
     if (!employeeNo) return null
     return {
-      reply: (req) => void apply(replyChat(id, employeeNo, req)),
+      reply: (req) => {
+        // 이어가기 창을 ✕로 닫고 칩을 바로 누른 것도 "이어가기"를 고른 것이다
+        setEntry((e) => (e && e.id === id && !e.done ? { ...e, done: true, popup: false } : e))
+        void apply(replyChat(id, employeeNo, req))
+      },
       confirmDraft: () => void apply(confirmChatDraft(id, employeeNo)),
       saveDraft: (edit: DraftEdit) => apply(editDraft(id, employeeNo, edit)),
       cancelDraft: () => void apply(cancelChatDraft(id, employeeNo)),
@@ -354,7 +368,7 @@ export function ChatView() {
         <div className="thread" role="log" aria-live="polite" aria-label="문의 대화">
           {inquiry.messages.map((m, idx) => {
             const pose = poseOf(inquiry, idx)
-            return <MessageItem key={m.id} inquiry={inquiry} message={m} busy={busy} actions={actions} fresh={fresh.has(m.id)} pose={pose} poseText={poseLabel(inquiry, idx, pose)} replyLock={gated} hideReplies={showTail && m.id === tailMsg?.id} />
+            return <MessageItem key={m.id} inquiry={inquiry} message={m} busy={busy} actions={actions} fresh={fresh.has(m.id)} pose={pose} poseText={poseLabel(inquiry, idx, pose)} replyLock={replyBlocked} hideReplies={showTail && m.id === tailMsg?.id} />
           })}
           {showTail && tailMsg && (
             <div className="msg a">
@@ -362,7 +376,7 @@ export function ChatView() {
               <div className="body">
                 <div className="replies">
                   {tailMsg.replies?.map((r) => (
-                    <button key={r.action} type="button" className={`chip${r.primary && !PAIR.has(r.action) ? ' on' : ''}`} disabled={busy || gated} onClick={() => actions.reply({ messageId: tailMsg.id, action: r.action, arg: r.arg })}>
+                    <button key={r.action} type="button" className={`chip${r.primary && !PAIR.has(r.action) ? ' on' : ''}`} disabled={busy || replyBlocked} onClick={() => actions.reply({ messageId: tailMsg.id, action: r.action, arg: r.arg })}>
                       {r.label}
                     </button>
                   ))}
