@@ -6,7 +6,7 @@
  */
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
-import { accountHistory, createUser, issueTempPassword, listDepartments, listUsers, recordAccountHistory, updateUser } from '../../api/users'
+import { accountHistory, createUser, issueTempPassword, listAccountHistory, listDepartments, listUsers, recordAccountHistory, updateUser } from '../../api/users'
 import type { Page } from '../../api/inquiries'
 import type { AccountStatus, ApiFail, ServiceRole } from '../../api/types'
 import type { AccountHistoryItem, Department, HistKind, UserSummary } from '../../api/userTypes'
@@ -94,6 +94,7 @@ export function AccountsView() {
   const [counts, setCounts] = useState<Record<AccountStatus, number> | null>(null)
   const [depts, setDepts] = useState<Department[]>([])
   const [hist, setHist] = useState<AccountHistoryItem[]>(() => accountHistory())
+  const [histErr, setHistErr] = useState('')
   const [dialog, setDialog] = useState<Dialog | null>(null)
 
   useEffect(() => {
@@ -118,6 +119,22 @@ export function AccountsView() {
       alive = false
     }
   }, [user, page, sort, q, dept, role, tab, reload])
+
+  // 변경 이력: 서버 모드는 운영 기록에서, 모의 모드는 이 화면에서 한 일의 기록에서 읽는다. 처리가 끝날 때마다(reload) 다시 읽는다
+  useEffect(() => {
+    if (!user || user.serviceRole !== 'ADMIN') return
+    let alive = true
+    listAccountHistory(user).then((r) => {
+      if (!alive) return
+      if (r.ok) {
+        setHist(r.data)
+        setHistErr('')
+      } else setHistErr(r.error.message)
+    })
+    return () => {
+      alive = false
+    }
+  }, [user, reload])
 
   // 상태 칸의 건수: 서버 목록 응답에 상태별 건수가 없어서 상태마다 1건씩 요청해 총건수만 읽는다
   useEffect(() => {
@@ -162,7 +179,6 @@ export function AccountsView() {
   }
   const done = () => {
     setDialog(null)
-    setHist(accountHistory())
     setReload((n) => n + 1)
   }
   const total = counts ? counts.ACTIVE + counts.LOCKED + counts.INACTIVE : null
@@ -316,21 +332,36 @@ export function AccountsView() {
 
           <div className="panel">
             <h3>
-              이용 제한·해제 이력 <span className="small muted" style={{ fontWeight: 400 }}>이 화면에서 처리한 최근 {Math.min(hist.length, 12)}건</span>
+              {USE_MOCK_AUTH ? '이용 제한·해제 이력' : '계정 변경 이력'}{' '}
+              <span className="small muted" style={{ fontWeight: 400 }}>
+                {USE_MOCK_AUTH ? `이 화면에서 처리한 최근 ${Math.min(hist.length, 12)}건` : `운영 기록의 최근 ${Math.min(hist.length, 12)}건 · 수행자와 변경 대상은 다른 사람이에요`}
+              </span>
             </h3>
+            {histErr && (
+              <div className="alert err" role="alert">
+                <Icon name="alert" />
+                <div>이력을 불러오지 못했어요. {histErr}</div>
+              </div>
+            )}
             {hist.length ? (
               <ul className="hlist">
-                {hist.slice(0, 12).map((h) => (
+                {hist.slice(0, 12).map((h) => {
+                  const tone = h.tone ?? HIST_TONE[h.what as HistKind]
+                  // 서버 기록은 대상 사용자의 이름을 주지 않아서(R-42) 지금 목록에서 찾고, 없으면 번호로 보인다
+                  const found = h.targetId != null ? data?.items.find((u) => u.id === h.targetId) : undefined
+                  const target = found ? `${found.employeeNo} · ${found.name}` : h.target
+                  return (
                   <li key={h.id}>
-                    <span className={`hd ${HIST_TONE[h.what] ?? 'gray'}`} />
+                    <span className={`hd ${tone ?? 'gray'}`} />
                     <div>
-                      <b>{h.target}</b> <StateBadge tone={HIST_TONE[h.what] ?? 'recv'} label={h.what} />
+                      <b>{target}</b> <StateBadge tone={tone ?? 'recv'} label={h.what} />
                       <small>
-                        {h.why} · {h.who} · {formatDateTime(h.at)}
+                        {[h.why, `수행 ${h.who}`, formatDateTime(h.at)].filter(Boolean).join(' · ')}
                       </small>
                     </div>
                   </li>
-                ))}
+                  )
+                })}
               </ul>
             ) : (
               <div className="empty">아직 이력이 없어요.</div>

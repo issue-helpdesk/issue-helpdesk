@@ -9,6 +9,7 @@
  */
 import { request, sleep } from '../core/apiClient'
 import { USE_MOCK_AUTH } from '../core/config'
+import { EVENT_LABEL, describeAudit, listAuditLogs } from './auditLogs'
 import type { Page } from './inquiries'
 import { mockCreateUser, mockDepartments, mockIssueTempPassword, mockListUsers, mockUpdateUser, historyLog, pushHistory } from './mock/users'
 import { ok, type ApiResult, type User } from './types'
@@ -68,4 +69,30 @@ export async function listDepartments(): Promise<ApiResult<Department[]>> {
 
 /** 이 화면에서 처리한 일의 기록. 서버에 이력 조회 API 가 없어서 새로고침하면 비워진다. */
 export const accountHistory = (): AccountHistoryItem[] => historyLog()
+
+/**
+ * 계정 변경 이력 (R-14). 서버 모드는 운영 기록(OP-04)에서 대상이 사용자인 기록을 최근순으로 읽는다. 수행자(actor)는 한 사람이고,
+ * 변경 대상 사용자는 다른 사람이라 `targetId` 로 따로 둔다 (서버는 대상 이름을 주지 않는다, R-42). 모의 모드는 이 화면에서 한 일의 기록이다.
+ */
+export async function listAccountHistory(user: User, size = 12): Promise<ApiResult<AccountHistoryItem[]>> {
+  if (USE_MOCK_AUTH) return ok(historyLog())
+  const r = await listAuditLogs(user, { targetType: 'user', size })
+  if (!r.ok) return r
+  return ok(
+    r.data.items.map((x) => {
+      const d = describeAudit(x)
+      const ev = EVENT_LABEL[x.eventType]
+      return {
+        id: x.id,
+        at: x.createdAt,
+        who: x.actor?.name ?? '시스템',
+        target: x.targetId != null ? `사용자 #${x.targetId}` : '사용자',
+        targetId: x.targetId,
+        what: ev?.label ?? x.eventType,
+        tone: ev?.tone,
+        why: [d.out, d.reason ? `사유: ${d.reason}` : ''].filter(Boolean).join(' · '),
+      }
+    }),
+  )
+}
 export const recordAccountHistory = pushHistory

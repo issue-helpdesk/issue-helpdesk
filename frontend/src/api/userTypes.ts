@@ -70,7 +70,7 @@ export interface UserUpdateRequest {
   reason?: string
 }
 
-/** 이 화면에서 처리한 일의 기록 (서버에 이력 조회 API 가 없어 이 화면에서 한 일만 보여 준다) */
+/** 모의 모드에서 이 화면이 처리한 일의 기록 종류. 서버 모드는 운영 기록(OP-04)의 이벤트 이름을 그대로 쓴다 */
 export type HistKind = '이용 제한' | '제한 해제' | '잠금 해제' | '계정 추가' | '계정 수정' | '임시 비밀번호 재발급'
 
 export interface AccountHistoryItem {
@@ -79,6 +79,11 @@ export interface AccountHistoryItem {
   who: string
   /** 예: `EMP-1001 · 김서연` */
   target: string
-  what: HistKind
+  /** 서버 운영 기록이면 대상 사용자의 내부 ID (화면이 목록에서 이름을 찾아 target 을 바꿔 보인다) */
+  targetId?: number | null
+  /** 모의는 HistKind, 서버는 이벤트 이름(예: 계정 상태 변경) */
+  what: string
+  /** 서버 운영 기록이면 이벤트가 정한 배지 색 */
+  tone?: string
   why: string
 }

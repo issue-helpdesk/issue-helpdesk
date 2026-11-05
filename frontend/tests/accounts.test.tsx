@@ -109,7 +109,7 @@ describe('계정 관리 화면', () => {
     await userEvent.type(within(dlg).getByLabelText('사유 (필수)'), '퇴사 예정')
     await userEvent.click(within(dlg).getByRole('button', { name: '확인' }))
     await waitFor(() => expect(within(screen.getByText('EMP-1003').closest('tr')!).getByRole('button', { name: '제한 해제' })).toBeInTheDocument(), SLOW)
-    expect(await screen.findByText(/퇴사 예정 · 이건우/)).toBeInTheDocument()
+    expect(await screen.findByText(/퇴사 예정 · 수행 이건우/)).toBeInTheDocument()
   })
 
   it('계정을 추가할 때 칸마다 오류를 알리고, 만들면 임시 비밀번호를 한 번 보여 준다', async () => {
