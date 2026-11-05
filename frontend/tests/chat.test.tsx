@@ -270,7 +270,7 @@ describe('접수 흐름 (API)', () => {
     expect(last(d).card).toBe('draft')
   })
 
-  it('초안을 확인하면 접수번호가 생기고, Jira 번호 생성 → 담당자 배정이 이어진다', async () => {
+  it('초안을 확인하면 접수번호가 생기고, ITSM 번호 생성 → 담당자 배정이 이어진다', async () => {
     const d = await toDraft()
     const done = await data(confirmChatDraft(d.id, USER.employeeNo))
     expect(done.ticket?.receiptNo).toMatch(/^RCPT-\d+$/)

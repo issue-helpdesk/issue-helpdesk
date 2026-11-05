@@ -46,7 +46,7 @@ describe('describeAudit', () => {
   it('연동 재처리·근거 차단·AI 실패', () => {
     expect(d('INTEGRATION_RETRY', 'QUEUED').out).toBe('재처리 예약')
     expect(d('INTEGRATION_RETRY', 'ALREADY_APPLIED').out).toBe('이미 반영돼 있음')
-    expect(d('INTEGRATION_RETRY', 'LINKED_EXISTING').out).toBe('기존 Jira 이슈에 연결')
+    expect(d('INTEGRATION_RETRY', 'LINKED_EXISTING').out).toBe('기존 ITSM 이슈에 연결')
     expect(d('BLOCK', 'DOC_BLOCKED', 'IT-SEC-003')).toMatchObject({ out: '근거 문서 차단', reason: '문서 IT-SEC-003' })
     expect(d('BLOCK', 'ALL_BLOCKED').out).toBe('근거 전체 차단, 담당자 연결 제안')
     expect(d('FAIL', 'FILTER_FAILED').out).toBe('민감정보 필터 실패')

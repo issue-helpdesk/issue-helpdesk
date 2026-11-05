@@ -1,5 +1,5 @@
 /**
- * 실서버 테스트에서 나온 문제: Jira 에서 직접 담당자를 지정해 배정 상태가 NEEDS_ADMIN 으로 남아도
+ * 실서버 테스트에서 나온 문제: ITSM 에서 직접 담당자를 지정해 배정 상태가 NEEDS_ADMIN 으로 남아도
  * 처리 중·해결 확인 대기·해결 완료 접수는 진행 단계·상태가 업무 상태를 따르고, 해결된 접수는 운영 확인 목록에서 빠진다.
  */
 import { render, screen, within } from '@testing-library/react'

@@ -72,7 +72,7 @@ describe('전체 문의 API (모의)', () => {
     expect(byTitle.ok && byTitle.data.counts.all).toBe(byTitle.ok ? byTitle.data.totalCount : -1)
   })
 
-  it('재배정은 관리자만, 처리 대기·처리 중인 접수만, 사유와 Jira 연결된 같은 그룹 담당자만', async () => {
+  it('재배정은 관리자만, 처리 대기·처리 중인 접수만, 사유와 ITSM 연결된 같은 그룹 담당자만', async () => {
     const a = admin()
     const staff = MOCK_ACCOUNTS.find((u) => u.employeeNo === 'EMP-1004')!
     const wip = await listTickets(a, { view: 'ALL', size: 100, groupId: 1, workStatus: ['WIP'] }) // 서비스데스크 처리 중
@@ -110,12 +110,12 @@ describe('전체 문의 화면', () => {
     expect(await screen.findByRole('heading', { name: /내 담당 문의/ }, SLOW)).toBeInTheDocument()
   })
 
-  it('배정 전 탭은 Jira 생성 전 접수를 접수 완료·확인 중 상태로 보여 준다', async () => {
+  it('배정 전 탭은 ITSM 생성 전 접수를 접수 완료·확인 중 상태로 보여 준다', async () => {
     renderAs('EMP-1178', '/tickets')
     await userEvent.click(await screen.findByRole('button', { name: /^배정 전/ }, SLOW))
     await waitFor(() => expect(rows()).toHaveLength(3), SLOW)
     expect(within(document.body).getByText('접수 완료')).toBeInTheDocument()
-    expect(within(document.body).getByText('Jira 생성 확인 필요')).toBeInTheDocument()
+    expect(within(document.body).getByText('ITSM 생성 확인 필요')).toBeInTheDocument()
     expect(within(document.body).getByText('생성 여부 확인 중')).toBeInTheDocument()
     expect(rows().every((r) => within(r).getByText('배정 전'))).toBe(true)
   })

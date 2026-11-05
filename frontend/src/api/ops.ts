@@ -20,9 +20,9 @@ import { fail, ok, type ApiResult, type User } from './types'
 export interface OpsSnapshot {
   urgent: TicketSummary[]
   exception: TicketSummary[]
-  /** Jira 이슈가 안 만들어졌거나(확인 필요·결과 확인 중) 상태 변경을 Jira 에서 확인하지 못한 접수 */
+  /** ITSM 이슈가 안 만들어졌거나(확인 필요·결과 확인 중) 상태 변경을 ITSM 에서 확인하지 못한 접수 */
   link: TicketSummary[]
-  /** Jira 이슈는 만들어졌지만 담당자가 비어 있는 접수 */
+  /** ITSM 이슈는 만들어졌지만 담당자가 비어 있는 접수 */
   assign: TicketSummary[]
   /** 조회 시각 */
   asOf: string
@@ -68,10 +68,10 @@ export type RetryDone = TicketDetail & { outcome: RetryOutcome }
 
 /**
  * 서버 재처리: 이 접수의 연동 작업(TK-11) 중 실패했고 아직 재처리하지 않은 같은 종류의 마지막 작업을 골라 TK-12 로 등록한다.
- * 201 은 작업만 등록한 것(실행기가 처리), 200 은 Jira 에서 이미 해결된 것을 확인해 바로 끝난 것이다.
+ * 201 은 작업만 등록한 것(실행기가 처리), 200 은 ITSM 에서 이미 해결된 것을 확인해 바로 끝난 것이다.
  */
 async function serverRetry(user: User, id: number, jobType: IntegrationJobType, reason: string): Promise<ApiResult<RetryDone>> {
-  if (!SERVER_INTAKE) return notReady(jobType === 'JIRA_CREATE' ? 'Jira 생성 확인·재시도' : 'Jira 상태 확인·다시 반영')
+  if (!SERVER_INTAKE) return notReady(jobType === 'JIRA_CREATE' ? 'ITSM 생성 확인·재시도' : 'ITSM 상태 확인·다시 반영')
   if (user.serviceRole !== 'ADMIN') return fail('FORBIDDEN', '관리자만 확인할 수 있어요.')
   const jobs = await request<{ items: IntegrationJob[] }>(`/tickets/${id}/integration-jobs`)
   if (!jobs.ok) return jobs
@@ -91,15 +91,15 @@ async function serverRetry(user: User, id: number, jobType: IntegrationJobType, 
 const needsOf = (t: TicketDetail) => t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.assignStatus === 'NEEDS_ADMIN' || t.transitionStatus === 'NEEDS_ADMIN'
 
 /**
- * Jira 생성 확인·재시도. Jira 에 같은 접수번호의 이슈가 없다는 확인을 거친 뒤 눌러서 새로 만든다 (중복 생성 방지).
- * 모의에서는 이슈를 만들고 처리 대기로 두며, 같은 그룹에서 근무 중이고 Jira 계정이 있는 가장 한가한 사람에게 자동 배정한다. 없으면 배정 확인으로 넘긴다.
+ * ITSM 생성 확인·재시도. ITSM 에 같은 접수번호의 이슈가 없다는 확인을 거친 뒤 눌러서 새로 만든다 (중복 생성 방지).
+ * 모의에서는 이슈를 만들고 처리 대기로 두며, 같은 그룹에서 근무 중이고 ITSM 계정이 있는 가장 한가한 사람에게 자동 배정한다. 없으면 배정 확인으로 넘긴다.
  */
 export async function retryJiraCreate(user: User, id: number, reason: string): Promise<ApiResult<RetryDone>> {
   if (!USE_MOCK_TICKET) return serverRetry(user, id, 'JIRA_CREATE', reason)
   if (user.serviceRole !== 'ADMIN') return fail('FORBIDDEN', '관리자만 확인할 수 있어요.')
   const t = findStaffTicket(id)
   if (!t) return fail('TICKET_NOT_FOUND', '접수를 찾을 수 없어요.')
-  if (t.jiraSyncStatus === 'SYNCED') return fail('TICKET_INVALID_TRANSITION', '이미 Jira 이슈가 만들어진 접수예요.')
+  if (t.jiraSyncStatus === 'SYNCED') return fail('TICKET_INVALID_TRANSITION', '이미 ITSM 이슈가 만들어진 접수예요.')
   const pool = (GROUP_STAFF[t.group?.name ?? ''] ?? [])
     .filter((m) => m.avail && m.jira)
     .map((m) => ({ m, n: workloadOf(m.id).rdy + workloadOf(m.id).wip }))
@@ -120,7 +120,7 @@ export async function retryJiraCreate(user: User, id: number, reason: string): P
   return ok({ ...findStaffTicket(id)!, outcome: 'DONE' as const })
 }
 
-/** Jira 상태 확인·다시 반영: 요청한 상태 변경을 Jira 에서 확인하지 못한 접수를 확인 후 반영한다 */
+/** ITSM 상태 확인·다시 반영: 요청한 상태 변경을 ITSM 에서 확인하지 못한 접수를 확인 후 반영한다 */
 export async function recheckTransition(user: User, id: number, reason: string): Promise<ApiResult<RetryDone>> {
   if (!USE_MOCK_TICKET) return serverRetry(user, id, 'JIRA_TRANSITION', reason)
   if (user.serviceRole !== 'ADMIN') return fail('FORBIDDEN', '관리자만 확인할 수 있어요.')

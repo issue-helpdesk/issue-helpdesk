@@ -147,7 +147,7 @@ describe('서버 모드 메시지·해결 확인·종료', () => {
     expect(await chat.replyChat(128, 'EMP-1300', { messageId: 1, action: 'connect-yes' })).toMatchObject({ ok: false, error: { code: 'NOT_READY' } })
   })
 
-  it('Jira 연동 전에는 접수 초안·최종 접수·접수 이후 해결 확인을 서버로 보내지 않는다', async () => {
+  it('ITSM 연동 전에는 접수 초안·최종 접수·접수 이후 해결 확인을 서버로 보내지 않는다', async () => {
     const { chat } = await load()
     const results = await Promise.all([
       chat.replyChat(128, 'EMP-1300', { messageId: 1, action: 'connect-yes' }),
@@ -157,7 +157,7 @@ describe('서버 모드 메시지·해결 확인·종료', () => {
       chat.resolveChat(128, 'EMP-1300'),
       chat.rejectChat(128, 'EMP-1300', '아직 안 돼요'),
     ])
-    for (const r of results) expect(r).toMatchObject({ ok: false, error: { code: 'NOT_READY', message: expect.stringContaining('Jira 연동이 준비된 뒤에') } })
+    for (const r of results) expect(r).toMatchObject({ ok: false, error: { code: 'NOT_READY', message: expect.stringContaining('ITSM 연동이 준비된 뒤에') } })
     expect(fetchMock).not.toHaveBeenCalled() // 서버에 아무 요청도 가지 않았다
   })
 

@@ -1,7 +1,7 @@
 /**
  * 접수 진행 카드: 접수 → 담당자 배정 → 처리 중 → 해결 완료 단계와 현재 안내 문구.
  * 담당자 배정 여부는 배정 상태(assignStatus)로, 처리 단계는 업무 상태(workStatus)로 본다.
- * Jira 생성이나 배정에 실패하거나 생성 결과를 아직 모를 때(VERIFYING)도 문의자에게는 '담당자 확인 중'으로 안내한다.
+ * ITSM 생성이나 배정에 실패하거나 생성 결과를 아직 모를 때(VERIFYING)도 문의자에게는 '담당자 확인 중'으로 안내한다.
  * (docs/07.API_계약서.md 상태 전환)
  * 담당자가 처리 결과를 등록하면(해결 확인 대기) 문의자가 "해결 / 미해결"을 고른다.
  *
@@ -35,11 +35,11 @@ const assigned = (t: StepsInput) => t.assignStatus === 'ASSIGNED'
 
 /**
  * 업무 상태가 이미 처리 중(WIP)·해결 확인 대기(FIN)·해결 완료(CLS)면 배정 단계는 지났다.
- * Jira 에서 담당자를 직접 지정해 서버의 배정 상태가 NEEDS_ADMIN 으로 남아 있어도 진행 단계는 업무 상태를 따른다.
+ * ITSM 에서 담당자를 직접 지정해 서버의 배정 상태가 NEEDS_ADMIN 으로 남아 있어도 진행 단계는 업무 상태를 따른다.
  */
 const progressed = (t: StepsInput) => t.workStatus === 'WIP' || t.workStatus === 'FIN' || t.workStatus === 'CLS'
 
-/** Jira 생성·배정이 끝나지 않아 관리자가 확인하는 중인지 (실패와 결과 불명을 나누지 않는다). 이미 처리가 진행됐으면 아니다 */
+/** ITSM 생성·배정이 끝나지 않아 관리자가 확인하는 중인지 (실패와 결과 불명을 나누지 않는다). 이미 처리가 진행됐으면 아니다 */
 const needsAdmin = (t: StepsInput) => !progressed(t) && (t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.assignStatus === 'NEEDS_ADMIN')
 
 /** "완료 · 10.20 14:20" 처럼 시각이 있으면 뒤에 붙인다 */
@@ -182,7 +182,7 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
 
       {t.transitionPending && !readOnly && (
         <p className="small muted" role="status" style={{ marginTop: 10 }}>
-          선택하신 내용을 Jira에 반영하는 중이에요. 잠시 뒤 상태가 바뀌어요.
+          선택하신 내용을 ITSM에 반영하는 중이에요. 잠시 뒤 상태가 바뀌어요.
         </p>
       )}
 

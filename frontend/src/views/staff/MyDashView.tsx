@@ -1,7 +1,7 @@
 /**
- * 담당자 내 대시보드 (/my). 내 담당 문의의 상태별 건수, 확인할 Jira 알림, 먼저 볼 문의를 한 화면에 모은다.
+ * 담당자 내 대시보드 (/my). 내 담당 문의의 상태별 건수, 확인할 ITSM 알림, 먼저 볼 문의를 한 화면에 모은다.
  * 건수 칸과 띠, '모두 보기'는 처리할 문의의 해당 조건으로 이어진다. 검색하면 대시보드 대신 내 담당 문의 중 검색 결과만 보인다.
- * Jira 알림 띠는 제안이다. 우리 팀 현황은 서버에 API 가 없어(모의 숫자만 나와서) 뺐고, 팀 업무량은 통계 화면의 팀 보기가 서버 집계로 보여 준다. (design/ITssue-Prototype.html 의 내 대시보드)
+ * ITSM 알림 띠는 제안이다. 우리 팀 현황은 서버에 API 가 없어(모의 숫자만 나와서) 뺐고, 팀 업무량은 통계 화면의 팀 보기가 서버 집계로 보여 준다. (design/ITssue-Prototype.html 의 내 대시보드)
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -37,7 +37,7 @@ function Row({ t, onOpen }: { t: TicketSummary; onOpen: () => void }) {
       type="button"
       className="dtr"
       onClick={onOpen}
-      aria-label={`${t.summary}. 긴급도 ${t.urgency ?? '-'}. 접수 후 경과 ${formatElapsed(t.createdAt)}. 접수번호 ${t.receiptNo}${t.jiraKey ? `, Jira ${t.jiraKey}` : ''}. 문의자 ${t.requester.name}`}
+      aria-label={`${t.summary}. 긴급도 ${t.urgency ?? '-'}. 접수 후 경과 ${formatElapsed(t.createdAt)}. 접수번호 ${t.receiptNo}${t.jiraKey ? `, ITSM ${t.jiraKey}` : ''}. 문의자 ${t.requester.name}`}
     >
       <span className="c-p">
         <UrgencyChip u={t.urgency} />
@@ -139,14 +139,14 @@ export function MyDashView() {
             <div className="eyebrow">MY WORK</div>
             <h1>내 담당 문의</h1>
             <p className="muted" style={{ marginTop: 4 }}>
-              내 담당 문의의 진행 상황을 확인하고 처리해요. 댓글·멘션은 Jira에서 확인해 주세요.
+              내 담당 문의의 진행 상황을 확인하고 처리해요. 댓글·멘션은 ITSM에서 확인해 주세요.
             </p>
           </div>
 
           <div className="dsr">
             <label className="dsb">
               <Icon name="search" />
-              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="접수번호 · Jira 번호 · 문의자·담당자 이름 · 제목 검색" aria-label="내 담당 문의 검색" autoComplete="off" />
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="접수번호 · ITSM 번호 · 문의자·담당자 이름 · 제목 검색" aria-label="내 담당 문의 검색" autoComplete="off" />
             </label>
             <span className="small muted dsy">
               <span>마지막 조회 {synced}</span>

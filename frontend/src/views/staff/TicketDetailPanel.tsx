@@ -1,9 +1,9 @@
 /**
  * 접수 상세 패널. 처리할 문의 오른쪽에 붙는다. (design/ITssue-Prototype.html 의 티켓 상세, 담당자 보기)
  *
- * 처리 상태는 문의 상태 · Jira 연동 · 배정 · 티켓 업무 · 상태 변경 순서의 체크리스트로 보여 준다.
+ * 처리 상태는 문의 상태 · ITSM 연동 · 배정 · 티켓 업무 · 상태 변경 순서의 체크리스트로 보여 준다.
  * 끝난 줄은 회색 한 줄이고, 지금 단계만 카드로 올라온다. 상태 변경(처리 시작·처리 결과 등록)은 TK-07(202)로 요청하며,
- * 현재는 Jira 에서 바꾸는 것이 기본이라 이 화면의 변경은 제안이다. Jira 댓글·멘션은 알림만 전달하고 내용은 Jira 에서 읽는다.
+ * 현재는 ITSM 에서 바꾸는 것이 기본이라 이 화면의 변경은 제안이다. ITSM 댓글·멘션은 알림만 전달하고 내용은 ITSM 에서 읽는다.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -11,8 +11,8 @@ import { CATEGORIES, STAFF_STATUS } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { markTicketRead, refreshUnread } from '../../api/notifications'
 import { isRuleUrgencyReason } from '../../api/urgencyReason'
-import { changeTicketStatus, getAssignmentLogs, getTicket, getTicketHistory, getTicketMessages, sendTicketMessage, syncTicket } from '../../api/tickets'
-import type { AssignmentLog, MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMessage } from '../../api/ticketTypes'
+import { changeTicketStatus, getAssignmentLogs, getTicket, getTicketHistory, syncTicket } from '../../api/tickets'
+import type { AssignmentLog, StatusHistory, TicketDetail } from '../../api/ticketTypes'
 import { USE_MOCK_TICKET } from '../../core/config'
 import { formatDateTime } from '../../core/format'
 import { useAuth } from '../../core/session'
@@ -75,13 +75,13 @@ function statusRows(t: TicketDetail): ReactNode {
   const who = t.assignee?.name ?? ''
   const jira =
     t.jiraSyncStatus === 'SYNCED' ? (
-      <StRow lv="done" label="Jira 연동" val="완료" />
+      <StRow lv="done" label="ITSM 연동" val="완료" />
     ) : t.jiraSyncStatus === 'VERIFYING' ? (
-      <StRow lv="live" tone="warn" label="Jira 연동" val={<Sbd tone="warn">생성 여부 확인 중</Sbd>} sub="생성 결과를 확인하는 중" />
+      <StRow lv="live" tone="warn" label="ITSM 연동" val={<Sbd tone="warn">생성 여부 확인 중</Sbd>} sub="생성 결과를 확인하는 중" />
     ) : t.jiraSyncStatus === 'NEEDS_ADMIN' ? (
-      <StRow lv="live" tone="urg" label="Jira 연동" val={<Sbd tone="urg">Jira 생성 확인 필요</Sbd>} sub="Jira 생성에 실패했어요" />
+      <StRow lv="live" tone="urg" label="ITSM 연동" val={<Sbd tone="urg">ITSM 생성 확인 필요</Sbd>} sub="ITSM 생성에 실패했어요" />
     ) : (
-      <StRow lv="live" tone="recv" label="Jira 연동" val={<Sbd tone="recv">대기</Sbd>} sub="Jira 티켓을 만드는 중" />
+      <StRow lv="live" tone="recv" label="ITSM 연동" val={<Sbd tone="recv">대기</Sbd>} sub="ITSM 티켓을 만드는 중" />
     )
   const asg =
     t.assignStatus === 'ASSIGNED' ? (
@@ -112,11 +112,11 @@ function statusRows(t: TicketDetail): ReactNode {
         lv="live"
         tone="warn"
         label="상태 변경"
-        val={<Sbd tone="warn">Jira 반영 확인 중</Sbd>}
-        sub={`${t.requestedWorkStatus ? STAFF_STATUS[t.requestedWorkStatus].label : '새 상태'}(으)로 바꾸는 요청을 Jira에 보냈어요. 확인되면 상태가 바뀝니다.`}
+        val={<Sbd tone="warn">ITSM 반영 확인 중</Sbd>}
+        sub={`${t.requestedWorkStatus ? STAFF_STATUS[t.requestedWorkStatus].label : '새 상태'}(으)로 바꾸는 요청을 ITSM에 보냈어요. 확인되면 상태가 바뀝니다.`}
       />
     ) : t.transitionStatus === 'NEEDS_ADMIN' ? (
-      <StRow lv="live" tone="urg" label="상태 변경" val={<Sbd tone="urg">Jira 동기화 확인 필요</Sbd>} sub="Jira 반영 결과를 확인하지 못했어요. 운영자가 확인하고 있어요." />
+      <StRow lv="live" tone="urg" label="상태 변경" val={<Sbd tone="urg">ITSM 동기화 확인 필요</Sbd>} sub="ITSM 반영 결과를 확인하지 못했어요. 운영자가 확인하고 있어요." />
     ) : null
   return (
     <div className="stlist" aria-label="처리 상태">
@@ -152,15 +152,8 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
   const [hist, setHist] = useState<StatusHistory[]>([])
   // 담당자 배정 이력(재배정 포함). 못 읽으면(권한 등) 조용히 비워 두고 상태 이력만 보인다
   const [assigns, setAssigns] = useState<AssignmentLog[]>([])
-  const [msgs, setMsgs] = useState<TicketMessage[]>([])
-  const [slack, setSlack] = useState<SlackPreview[]>([])
-  // 문의자에게 메시지 (제안)
-  const [msgModal, setMsgModal] = useState(false)
   // 담당자 재배정 (관리자)
   const [reassign, setReassign] = useState(false)
-  const [msgKind, setMsgKind] = useState<MessageKind>('추가 정보 요청')
-  const [msgText, setMsgText] = useState('')
-  const [msgErr, setMsgErr] = useState('')
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
   const [modal, setModal] = useState(false)
@@ -215,7 +208,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
         markTicketRead(id).then((x) => x.ok && x.data.updatedCount > 0 && refreshUnread())
       } else setError(r.error.message)
     })
-    // 서버 모드: Jira 의 최신 상태를 읽어 오게 하고(TK-14), 달라졌으면 화면에 반영한다
+    // 서버 모드: ITSM 의 최신 상태를 읽어 오게 하고(TK-14), 달라졌으면 화면에 반영한다
     if (!USE_MOCK_TICKET) {
       syncTicket(user, id).then((r) => {
         if (alive && r.ok) setT((cur) => (cur ? { ...cur, ...r.data } : cur))
@@ -230,11 +223,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
         if (alive && r.ok) setAssigns(r.data.items)
       })
     }
-    getTicketMessages(user, id).then((r) => {
-      if (!alive || !r.ok) return
-      setMsgs(r.data.messages)
-      setSlack(r.data.slack)
-    })
     return () => {
       alive = false
     }
@@ -251,7 +239,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
     ...assigns.map((a) => ({ kind: 'a' as const, at: a.createdAt, a })),
   ].sort((x, y) => Date.parse(y.at) - Date.parse(x.at) || (x.kind === y.kind ? 0 : x.kind === 'a' ? 1 : -1))
 
-  /** 상태 변경 요청 (TK-07). 응답은 202 이고 Jira 반영이 확인되면 상태가 바뀐다 */
+  /** 상태 변경 요청 (TK-07). 응답은 202 이고 ITSM 반영이 확인되면 상태가 바뀐다 */
   async function change(workStatus: 'WIP' | 'FIN', resolutionNote?: string) {
     if (!user || !t) return false
     setBusy(true)
@@ -267,28 +255,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
     }
     setT(r.data)
     return true
-  }
-
-  async function submitMessage() {
-    if (!user || !t) return
-    if (!msgText.trim()) {
-      setMsgErr('내용을 입력해 주세요.')
-      return
-    }
-    setBusy(true)
-    const res = await sendTicketMessage(user, t.id, { kind: msgKind, text: msgText })
-    setBusy(false)
-    if (!res.ok) {
-      setMsgErr(res.error.message)
-      return
-    }
-    setMsgs((l) => [...l, res.data])
-    getTicketMessages(user, t.id).then((x) => x.ok && setSlack(x.data.slack))
-    setMsgModal(false)
-    setMsgText('')
-    setMsgErr('')
-    setToast('보냈어요.')
-    setTimeout(() => setToast(''), 2500)
   }
 
   async function submitResult() {
@@ -307,7 +273,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
     <dl className="dl">
       <dt>접수번호</dt>
       <dd className="mono">{t.receiptNo}</dd>
-      <dt>Jira 티켓</dt>
+      <dt>ITSM 티켓</dt>
       {/* 코드용 글꼴(mono)에는 한글이 없어서 "생성 전"은 일반 글꼴로 둔다 */}
       <dd className={t.jiraKey ? 'mono' : undefined}>{t.jiraKey ?? '생성 전'}</dd>
       <dt>문의자</dt>
@@ -441,12 +407,12 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                   )}
                   {mine && (t.workStatus === 'RDY' || t.workStatus === 'WIP') && (
                     <div className="small muted" style={{ marginTop: 8 }}>
-                      <span className="tag gray">제안</span> 현재는 Jira에서 상태를 바꾸고 해결 방법을 입력해요. 이 화면에서 바꾸는 기능은 추후 제안이에요.
+                      <span className="tag gray">제안</span> 현재는 ITSM에서 상태를 바꾸고 해결 방법을 입력해요. 이 화면에서 바꾸는 기능은 추후 제안이에요.
                     </div>
                   )}
                   {pending && (
                     <div className="small muted" style={{ marginTop: 8 }} role="status">
-                      Jira 반영을 확인하는 중이에요. 확인되면 상태가 바뀌어요.
+                      ITSM 반영을 확인하는 중이에요. 확인되면 상태가 바뀌어요.
                     </div>
                   )}
                   {actErr && (
@@ -460,11 +426,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                       <div>문의자의 해결 확인을 기다리고 있어요. 미응답만으로 종료(CLS)하지 않아요.</div>
                     </div>
                   )}
-                  {mine && t.workStatus && (
-                    <button type="button" className="btn sec block" style={{ marginTop: 8 }} onClick={() => setMsgModal(true)}>
-                      문의자에게 메시지 <span className="tag gray">제안</span>
-                    </button>
-                  )}
                   {admin && t.needsAdmin && t.workStatus !== 'CLS' && (
                     <button type="button" className="btn pri block" onClick={() => navigate('/ops')}>
                       연동·배정 확인 화면으로
@@ -476,44 +437,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                     </button>
                   )}
                   {!mine && !admin && <div className="small muted">다른 담당자가 맡은 접수예요. 상태는 맡은 담당자만 바꿀 수 있어요.</div>}
-                </div>
-              )}
-              {msgs.length > 0 && (
-                <div>
-                  <h4>
-                    메시지 <span className="tag gray">제안</span>
-                  </h4>
-                  <ul className="tl">
-                    {[...msgs].reverse().map((m) => (
-                      <li key={m.id}>
-                        <Icon name="chat" />
-                        <div>
-                          <b>
-                            {m.from} · {m.kind}
-                          </b>
-                          {m.text}
-                          <small>{formatDateTime(m.at)}</small>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {!requester && slack.length > 0 && (
-                <div>
-                  <h4>Slack 알림 미리보기</h4>
-                  <ul className="tl">
-                    {slack.map((x, i) => (
-                      <li key={i}>
-                        <Icon name="bell" />
-                        <div>
-                          <b>→ {x.to}</b>
-                          {x.text}
-                          <small>{formatDateTime(x.at)} · 미리보기 (실제 발송 없음)</small>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
                 </div>
               )}
               {/* AI 판단 이력: 관리자만, 서버(IQ-10)에서 읽는다 */}
@@ -550,7 +473,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                       <div>
                         <b>{h.fromStatus ? `${STAFF_STATUS[h.fromStatus].label} → ${STAFF_STATUS[h.toStatus].label}` : `접수 · ${STAFF_STATUS[h.toStatus].label}`}</b>
                         <small>
-                          {formatDateTime(h.changedAt)} · {h.actor?.name ?? 'Jira'}
+                          {formatDateTime(h.changedAt)} · {h.actor?.name ?? 'ITSM'}
                         </small>
                         {/* 완료할 때마다의 처리 결과, 미해결로 되돌릴 때의 남은 증상 */}
                         {h.toStatus === 'FIN' && h.resolutionNote && (
@@ -575,47 +498,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
           )}
         </div>
 
-        {msgModal && (
-          <Modal title="문의자에게 메시지" onClose={() => setMsgModal(false)}>
-            <p className="small muted">
-              문서상 AI 중개 양방향 소통은 Could 범위라서 이 기능은 <b>제안</b>이에요.
-            </p>
-            <div className="field">
-              <label htmlFor="m-k">종류</label>
-              <select className="sel" id="m-k" value={msgKind} onChange={(e) => setMsgKind(e.target.value as MessageKind)}>
-                <option>추가 정보 요청</option>
-                <option>일반 메시지</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="m-t">내용</label>
-              <textarea
-                className={`ta${msgErr ? ' err' : ''}`}
-                id="m-t"
-                value={msgText}
-                aria-invalid={!!msgErr}
-                aria-describedby={msgErr ? 'm-t-e' : undefined}
-                onChange={(e) => {
-                  setMsgText(e.target.value)
-                  setMsgErr('')
-                }}
-              />
-              {msgErr && (
-                <div className="errtx" id="m-t-e" role="alert">
-                  {msgErr}
-                </div>
-              )}
-            </div>
-            <div className="acts">
-              <button type="button" className="btn sec" onClick={() => setMsgModal(false)}>
-                취소
-              </button>
-              <button type="button" className="btn pri" disabled={busy} onClick={() => void submitMessage()}>
-                보내기
-              </button>
-            </div>
-          </Modal>
-        )}
         {reassign && t && (
           <ReassignDialog
             t={t}
@@ -623,7 +505,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
             onDone={(registered) => {
               setReassign(false)
               getAssignmentLogs(user, id).then((r) => r.ok && setAssigns(r.data.items))
-              setToast(registered ? '재배정을 등록했어요. 실행기가 Jira에 반영하면 담당자가 바뀌어요.' : '재배정했어요. 진행 상태는 그대로 유지돼요.')
+              setToast(registered ? '재배정을 등록했어요. 실행기가 ITSM에 반영하면 담당자가 바뀌어요.' : '재배정했어요. 진행 상태는 그대로 유지돼요.')
               setTimeout(() => setToast(''), 2500)
             }}
           />

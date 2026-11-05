@@ -2,23 +2,22 @@
  * 담당자 접수 API 어댑터 (처리할 문의 · 상세). (docs/api/03.접수_연동.md)
  *   GET   /tickets                       TK-05 접수 목록 (AGENT 는 소속 그룹, view=ASSIGNED)
  *   GET   /tickets/{id}                  TK-06 접수 상세
- *   PATCH /tickets/{id}                  TK-07 업무 상태 변경·처리 결과 등록 (202, Jira 반영 확인 뒤 확정)
+ *   PATCH /tickets/{id}                  TK-07 업무 상태 변경·처리 결과 등록 (202, ITSM 반영 확인 뒤 확정)
  *   GET   /tickets/{id}/status-history   TK-08 업무 상태 이력
  * 모의 모드(VITE_USE_MOCK_TICKET, 없으면 VITE_USE_MOCK 이 true)에서는 mock/staffTickets.ts 와 문의 저장소를 읽는다. 서버 모드에서는 같은 형태의 응답을 받는다.
- * 실제 서버에서는 상태 변경 뒤 Jira 반영이 서버에서 일어나므로, 화면은 목록·상세를 주기적으로 다시 읽는다.
+ * 실제 서버에서는 상태 변경 뒤 ITSM 반영이 서버에서 일어나므로, 화면은 목록·상세를 주기적으로 다시 읽는다.
  */
 import { request, sleep } from '../core/apiClient'
-import { MOCK_ONLY, SERVER_INTAKE, USE_MOCK_AUTH, USE_MOCK_TICKET } from '../core/config'
+import { SERVER_INTAKE, USE_MOCK_AUTH, USE_MOCK_TICKET } from '../core/config'
 import { notReady } from './inquiryServer'
 import { staffTransition } from './mock/chatEngine'
 import { later, mockConfig, notify, subscribe } from './mock/chatStore'
-import { GROUP_STAFF, TEAM_MEMBERS, addMessage, bindMockUser, reassignSeed, addHistory, messagesOf, slackOf, allStaffTickets, findStaffTicket, historyOf, mutateSeed, pending, recordOfTicket } from './mock/staffTickets'
+import { GROUP_STAFF, TEAM_MEMBERS, bindMockUser, reassignSeed, addHistory, allStaffTickets, findStaffTicket, historyOf, mutateSeed, pending, recordOfTicket } from './mock/staffTickets'
 import { addAssignmentLog, assignmentLogsOf } from './mock/historyLog'
 import type { Page } from './inquiries'
-import type { AssignmentLog, MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMessage, TicketListQuery, TicketSummary, TicketTransitionRequest } from './ticketTypes'
+import type { AssignmentLog, StatusHistory, TicketDetail, TicketListQuery, TicketSummary, TicketTransitionRequest } from './ticketTypes'
 import { fail, ok, type ApiResult, type User } from './types'
 import { nowIso } from '../core/format'
-import { maskSensitive } from '../core/mask'
 import { visiblePoll } from '../core/poll'
 
 /** 서버를 다시 읽는 간격(ms). 탭이 가려져 있으면 읽지 않는다 */
@@ -116,7 +115,7 @@ const notFound = () => fail('TICKET_NOT_FOUND', '접수를 찾을 수 없어요.
 
 /**
  * 담당자 재배정 (TK-09 PUT /tickets/{id}/assignment). 관리자만, 처리 대기·처리 중인 접수만, 사유 필수.
- * 서버는 요청을 받으면 배정을 예약(배정 상태 PENDING)하고 Jira 실행기가 나중에 반영한다. 그래서 응답이 와도 담당자는 바로 안 바뀔 수 있다.
+ * 서버는 요청을 받으면 배정을 예약(배정 상태 PENDING)하고 ITSM 실행기가 나중에 반영한다. 그래서 응답이 와도 담당자는 바로 안 바뀔 수 있다.
  * 접수를 서버로 보내는 환경(VITE_SERVER_INTAKE)에서만 요청하고, 아니면 안내만 한다. 담당자를 처음 지정할 때도 같은 API 다.
  */
 export async function reassignTicket(user: User, id: number, body: { assigneeId: number; reason: string }): Promise<ApiResult<TicketDetail>> {
@@ -137,7 +136,7 @@ export async function reassignTicket(user: User, id: number, body: { assigneeId:
   if (t.workStatus !== 'RDY' && t.workStatus !== 'WIP') return fail('TICKET_INVALID_TRANSITION', '처리 대기·처리 중인 접수만 담당자를 바꿀 수 있어요.')
   const m = (GROUP_STAFF[t.group?.name ?? ''] ?? []).find((x) => x.id === body.assigneeId)
   if (!m) return fail('ASSIGNEE_NOT_ASSIGNABLE', '이 담당 그룹의 담당자가 아니에요.')
-  if (!m.jira) return fail('ASSIGNEE_NOT_ASSIGNABLE', 'Jira 계정이 연결되지 않아 배정할 수 없어요.')
+  if (!m.jira) return fail('ASSIGNEE_NOT_ASSIGNABLE', 'ITSM 계정이 연결되지 않아 배정할 수 없어요.')
   if (t.assignee?.id === m.id) return fail('ASSIGNEE_NOT_ASSIGNABLE', '이미 이 담당자가 맡고 있어요.')
   const to = { id: m.id, employeeNo: m.employeeNo, name: m.name }
   addAssignmentLog(id, { event: 'REASSIGN', group: t.group ? { id: t.group.id, name: t.group.name } : null, assignee: to, reason: body.reason.trim(), actor: { id: user.id, employeeNo: user.employeeNo, name: user.name }, createdAt: nowIso() })
@@ -160,8 +159,8 @@ export async function getTicket(user: User, id: number): Promise<ApiResult<Ticke
 }
 
 /**
- * 새로고침 동기화 (TK-14): 접수를 열 때 서버가 Jira 의 최신 상태·처리 결과·담당자를 읽어 반영해 돌려준다.
- * 웹훅이 유실되거나 실행기가 멈춘 경우의 보완이다. 서버가 30초 안 재호출 등은 Jira 를 부르지 않고 현재 값을 돌려주므로 열 때마다 불러도 된다.
+ * 새로고침 동기화 (TK-14): 접수를 열 때 서버가 ITSM 의 최신 상태·처리 결과·담당자를 읽어 반영해 돌려준다.
+ * 웹훅이 유실되거나 실행기가 멈춘 경우의 보완이다. 서버가 30초 안 재호출 등은 ITSM 를 부르지 않고 현재 값을 돌려주므로 열 때마다 불러도 된다.
  * 모의 모드에서는 필요 없어서 현재 값을 그대로 돌려준다.
  */
 export async function syncTicket(user: User, id: number): Promise<ApiResult<TicketDetail>> {
@@ -193,7 +192,7 @@ export async function getTicketHistory(user: User, id: number): Promise<ApiResul
 /**
  * 업무 상태 변경·처리 결과 등록 (TK-07). 담당 그룹·관리자만 RDY → WIP, WIP → FIN 을 요청한다.
  * 응답은 202 이고 확인된 상태(workStatus)는 그대로이며 requestedWorkStatus·transitionStatus=PENDING 이다.
- * Jira 반영을 확인하면 상태가 바뀌고 이력이 한 번 남는다. (모의 모드는 잠깐 뒤에 반영한다)
+ * ITSM 반영을 확인하면 상태가 바뀌고 이력이 한 번 남는다. (모의 모드는 잠깐 뒤에 반영한다)
  */
 export async function changeTicketStatus(user: User, id: number, body: TicketTransitionRequest): Promise<ApiResult<TicketDetail>> {
   if (!USE_MOCK_TICKET) return request<TicketDetail>(`/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
@@ -201,8 +200,8 @@ export async function changeTicketStatus(user: User, id: number, body: TicketTra
   const t = findStaffTicket(id)
   if (!t || !canSee(user, t)) return notFound()
   if (user.serviceRole === 'EMPLOYEE') return fail('FORBIDDEN', '이 접수의 상태를 바꿀 수 없어요.')
-  if (pending.has(id)) return fail('INTEGRATION_JOB_IN_PROGRESS', '상태 변경을 Jira에 반영하는 중이에요. 잠시 뒤에 다시 시도해 주세요.')
-  if (t.jiraSyncStatus !== 'SYNCED') return fail('TICKET_NOT_SYNCED', 'Jira 티켓이 아직 만들어지지 않았어요.')
+  if (pending.has(id)) return fail('INTEGRATION_JOB_IN_PROGRESS', '상태 변경을 ITSM에 반영하는 중이에요. 잠시 뒤에 다시 시도해 주세요.')
+  if (t.jiraSyncStatus !== 'SYNCED') return fail('TICKET_NOT_SYNCED', 'ITSM 티켓이 아직 만들어지지 않았어요.')
   const to = body.workStatus
   if (!to) return fail('VALIDATION_ERROR', '바꿀 상태를 골라 주세요.')
   const okMove = (t.workStatus === 'RDY' && to === 'WIP') || (t.workStatus === 'WIP' && to === 'FIN')
@@ -273,35 +272,4 @@ export async function getStatsSource(user: User, section: 'sum' | 'trend' | 'pri
   if (!r.ok) return r
   const names = (USE_MOCK_TICKET ? TEAM_MEMBERS[user.departmentName ?? ''] ?? [] : []).map((m) => m.name)
   return ok({ items: r.data.items, names })
-}
-
-/**
- * 문의자에게 보낸 메시지와 Slack 알림 미리보기 (제안). 문서상 AI 중개 양방향 소통은 Could 범위라 서버 API 가 아직 없다.
- * Slack 미리보기는 담당자·관리자에게만 준다 (실제 발송 없음).
- */
-export async function getTicketMessages(user: User, id: number): Promise<ApiResult<{ messages: TicketMessage[]; slack: SlackPreview[] }>> {
-  if (!MOCK_ONLY) return request<{ messages: TicketMessage[]; slack: SlackPreview[] }>(`/tickets/${id}/messages`)
-  await sleep(100)
-  const t = findStaffTicket(id)
-  if (!t || !canSee(user, t)) return notFound()
-  return ok({ messages: messagesOf(id), slack: user.serviceRole === 'EMPLOYEE' ? [] : slackOf(id) })
-}
-
-/** 담당자가 문의자에게 메시지를 보낸다 (제안). 민감정보는 저장 전에 가린다 */
-export async function sendTicketMessage(user: User, id: number, body: { kind: MessageKind; text: string }): Promise<ApiResult<TicketMessage>> {
-  if (!MOCK_ONLY) return request<TicketMessage>(`/tickets/${id}/messages`, { method: 'POST', body: JSON.stringify(body) })
-  await sleep(150)
-  const t = findStaffTicket(id)
-  if (!t || !canSee(user, t)) return notFound()
-  if (user.serviceRole === 'EMPLOYEE' || (user.serviceRole === 'AGENT' && t.assignee?.id !== user.id)) return fail('FORBIDDEN', '이 접수에 메시지를 보낼 수 없어요.')
-  const text = maskSensitive(body.text.trim()).text
-  if (!text) return fail('VALIDATION_ERROR', '내용을 입력해 주세요.')
-  addMessage(id, { from: `${t.assignee?.name ?? user.name} 담당자`, kind: body.kind, text, at: nowIso() })
-  const rec = recordOfTicket(id)
-  if (rec) {
-    rec.inquiry.unread += 1 // 문의자의 문의 내역에 새 답변으로 보인다
-    notify()
-  }
-  const list = messagesOf(id)
-  return ok(list[list.length - 1])
 }

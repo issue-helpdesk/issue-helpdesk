@@ -35,13 +35,13 @@ export const USE_MOCK_OPS = area(import.meta.env.VITE_USE_MOCK_OPS)
 
 /**
  * 문의 서버 모드에서 접수(담당자 연결 → 초안 → 최종 접수)와 접수 이후 해결·미해결을 실제 서버로 보낼지.
- * 기본은 false(막아 둠): 접수를 만들면 공유 DB 에 접수와 Jira 작업(JIRA_CREATE 등)이 남는데, 작업을 처리하는 실행기(worker)가
+ * 기본은 false(막아 둠): 접수를 만들면 공유 DB 에 접수와 ITSM 작업(JIRA_CREATE 등)이 남는데, 작업을 처리하는 실행기(worker)가
  * 서버에 떠 있지 않으면 끝나지 않고 쌓이기 때문이다. 실행기가 준비된 환경에서만 'true' 로 켠다. USE_MOCK_INQUIRY 가 true 이면 상관없다.
  */
 export const SERVER_INTAKE = raw(import.meta.env.VITE_SERVER_INTAKE) === 'true'
 
 /**
- * 서버에 API 가 아직 없는 기능(로그인 전 상담, 팀 현황, 문의자에게 메시지·Slack 미리보기)은 위 변수와 상관없이 항상 모의로 동작한다.
+ * 서버에 API 가 아직 없는 기능(로그인 전 상담, 통계 집계)은 위 변수와 상관없이 항상 모의로 동작한다.
  * 서버에 만들어지면 이 값을 쓰는 곳을 영역별 변수로 바꾼다.
  */
 export const MOCK_ONLY: boolean = true

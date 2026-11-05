@@ -17,9 +17,9 @@ export const isUnconfirmed = (inq: Inquiry) => !inq.ticket && (inq.status === 'U
 export function inquiryState(inq: Inquiry): { label: string; kind: InquiryStateKind; tone: string } {
   const t = inq.ticket
   if (t) {
-    // Jira 생성이나 배정에 실패하거나 생성 결과를 아직 모르면(VERIFYING) 관리자가 확인한다.
+    // ITSM 생성이나 배정에 실패하거나 생성 결과를 아직 모르면(VERIFYING) 관리자가 확인한다.
     // 문의자에게는 실패와 불명확을 나누지 않고 모두 확인 중으로 안내한다.
-    // 이미 처리 중 이상이면(Jira 에서 직접 지정해 배정 상태가 확인 필요로 남은 경우 포함) 업무 상태를 따른다
+    // 이미 처리 중 이상이면(ITSM 에서 직접 지정해 배정 상태가 확인 필요로 남은 경우 포함) 업무 상태를 따른다
     const progressed = t.workStatus === 'WIP' || t.workStatus === 'FIN' || t.workStatus === 'CLS'
     if (!progressed && (t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.assignStatus === 'NEEDS_ADMIN')) return { label: '담당자 확인 중', kind: 'assigned', tone: 'asg' }
     if (t.needReply) return { label: '추가 답변 필요', kind: 'needs_reply', tone: 'need' }
