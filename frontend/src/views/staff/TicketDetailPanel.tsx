@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import { CATEGORIES, STAFF_STATUS } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { markTicketRead, refreshUnread } from '../../api/notifications'
+import { isRuleUrgencyReason } from '../../api/urgencyReason'
 import { changeTicketStatus, getAssignmentLogs, getTicket, getTicketHistory, getTicketMessages, sendTicketMessage, syncTicket } from '../../api/tickets'
 import type { AssignmentLog, MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMessage } from '../../api/ticketTypes'
 import { USE_MOCK_TICKET } from '../../core/config'
@@ -223,9 +224,12 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
     getTicketHistory(user, id).then((r) => {
       if (alive && r.ok) setHist(r.data.items)
     })
-    getAssignmentLogs(user, id).then((r) => {
-      if (alive && r.ok) setAssigns(r.data.items)
-    })
+    // 서버는 문의자에게 배정 이력을 주지 않고 404 로 답한다 (담당 그룹·관리자만). 문의자는 아예 요청하지 않는다
+    if (user.serviceRole !== 'EMPLOYEE') {
+      getAssignmentLogs(user, id).then((r) => {
+        if (alive && r.ok) setAssigns(r.data.items)
+      })
+    }
     getTicketMessages(user, id).then((r) => {
       if (!alive || !r.ok) return
       setMsgs(r.data.messages)
@@ -304,7 +308,8 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
       <dt>접수번호</dt>
       <dd className="mono">{t.receiptNo}</dd>
       <dt>Jira 티켓</dt>
-      <dd className="mono">{t.jiraKey ?? '생성 전'}</dd>
+      {/* 코드용 글꼴(mono)에는 한글이 없어서 "생성 전"은 일반 글꼴로 둔다 */}
+      <dd className={t.jiraKey ? 'mono' : undefined}>{t.jiraKey ?? '생성 전'}</dd>
       <dt>문의자</dt>
       <dd>
         {t.requester.name} ({t.requester.employeeNo})
@@ -322,7 +327,8 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
       <dt>긴급도</dt>
       <dd>
         <UrgencyChip u={t.urgency} />
-        {t.urgencyReason && <div className="small muted">{t.urgencyReason}</div>}
+        {/* "세부 유형 NET-04 기본 긴급도" 는 서버 규칙의 내부 사유라 문의자에게는 보이지 않는다 (담당자·관리자는 근거로 본다) */}
+        {t.urgencyReason && !(requester && isRuleUrgencyReason(t.urgencyReason)) && <div className="small muted">{t.urgencyReason}</div>}
       </dd>
       <dt>담당 그룹</dt>
       <dd>{t.group?.name ?? '-'}</dd>

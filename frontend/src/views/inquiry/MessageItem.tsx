@@ -8,6 +8,7 @@ import { Fragment } from 'react'
 import { formatDateTime, sourceLabel } from '../../core/format'
 import { Icon } from '../../ui/Icon'
 import { Pav } from '../../ui/Pav'
+import { uniqueSources } from '../../ui/sourceGroups'
 import type { Pose } from '../../ui/poseImages'
 import { RichText } from '../../ui/RichText'
 import { DraftCard } from './DraftCard'
@@ -161,8 +162,9 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false,
         {m.legacy && <LegacyButton legacy={m.legacy} onOpen={actions.showLegacy} />}
         {m.sources && (
           <div>
-            {m.sources.map((s) => (
-              <SourceButton key={`${s.docCode}${s.section}`} source={s} onOpen={actions.showSource} />
+            {/* 서버가 같은 문서·버전·위치 출처를 여러 번 줄 때가 있어서 한 번만 보인다 (docs/api/06 R-44) */}
+            {uniqueSources(m.sources).map((s, i) => (
+              <SourceButton key={`${s.docCode}|${s.version}|${s.section}|${i}`} source={s} onOpen={actions.showSource} />
             ))}
           </div>
         )}

@@ -591,25 +591,35 @@ describe('대화 화면', () => {
     expect(items.indexOf(fin!)).toBeLessThan(items.indexOf(back!))
   })
 
-  it('미확인 문의를 열면 이어가기 창이 뜨고, 고르기 전에는 지난 버튼이 잠겨 있다', async () => {
+  it('미확인 문의를 열면 이어가기 창이 뜨고, 창이 떠 있는 동안은 지난 버튼이 잠겨 있다. 이어서 대화하기를 고르면 풀린다', async () => {
     const user = userEvent.setup()
     renderAs('EMP-1001', '/chat/103')
     const dlg = await screen.findByRole('dialog', { name: '이전 문의를 이어서 진행할까요?' }, SLOW)
     expect(dlg).toHaveTextContent('아직 해결 여부를 확인하지 않은 문의가 있어요')
     const chips = () => screen.getAllByRole('button', { name: /^(해결|미해결)$/ })
     expect(chips().every((b) => (b as HTMLButtonElement).disabled)).toBe(true)
-    // ✕ 는 창만 닫는다. 버튼은 여전히 잠겨 있고, 잠긴 입력창을 누르면 창이 다시 뜬다.
-    await user.click(within(dlg).getByRole('button', { name: '닫기' }))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(chips().every((b) => (b as HTMLButtonElement).disabled)).toBe(true)
-    await user.click(screen.getByRole('button', { name: '이어가기 선택 열기' }))
-    await user.click(await screen.findByRole('button', { name: '이어서 대화하기' }, SLOW))
+    await user.click(within(dlg).getByRole('button', { name: '이어서 대화하기' }))
     // 이어서 대화하기 뒤에는 해결 여부 선택 창이 뜬다. "나중에"로 닫으면 기존 해결·미해결 버튼이 풀려 있다
     const ask = await screen.findByRole('dialog', { name: '해결 여부를 선택해 주세요!' }, SLOW)
     await user.click(within(ask).getByRole('button', { name: '나중에 선택할게요' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     await waitFor(() => expect(chips().every((b) => !(b as HTMLButtonElement).disabled)).toBe(true), SLOW)
     expect(chips()).toHaveLength(2)
+    await user.click(screen.getByRole('button', { name: '해결' }))
+    expect(await screen.findByText(/AI 안내로 문제가 해결되었군요/, {}, SLOW)).toBeInTheDocument()
+  })
+
+  it('이어가기 창을 ✕로 닫으면 해결·미해결 버튼을 눌러 바로 이어갈 수 있다 (입력창은 계속 잠겨 있다)', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1001', '/chat/103')
+    const dlg = await screen.findByRole('dialog', { name: '이전 문의를 이어서 진행할까요?' }, SLOW)
+    const chips = () => screen.getAllByRole('button', { name: /^(해결|미해결)$/ })
+    expect(chips().every((b) => (b as HTMLButtonElement).disabled)).toBe(true)
+    await user.click(within(dlg).getByRole('button', { name: '닫기' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() => expect(chips().every((b) => !(b as HTMLButtonElement).disabled)).toBe(true), SLOW)
+    // 입력창은 잠긴 채이고, 누르면 이어가기 창이 다시 뜬다
+    expect(screen.getByRole('button', { name: '이어가기 선택 열기' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '해결' }))
     expect(await screen.findByText(/AI 안내로 문제가 해결되었군요/, {}, SLOW)).toBeInTheDocument()
   })
