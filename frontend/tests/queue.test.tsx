@@ -95,21 +95,18 @@ describe('처리할 문의 화면', () => {
     await waitFor(() => expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(2), SLOW)
   })
 
-  it('접수를 열면 상세 패널이 붙고, 처리 시작을 누르면 확인 중을 거쳐 처리 중이 된다', async () => {
-    mockConfig.pipelineScale = 1
+  it('접수를 열면 상세 패널이 붙고, 상태를 바꾸는 버튼 없이 ITSM 에서 받아 온다는 안내만 있다', async () => {
     renderAs('EMP-1004', '/queue/5004')
     const panel = await screen.findByRole('complementary', { name: '티켓 상세' }, SLOW)
     expect(await within(panel).findByRole('heading', { name: '재택 VPN 인증 오류' }, SLOW)).toBeInTheDocument()
-    await userEvent.click(within(panel).getByRole('button', { name: /처리 시작/ }))
-    await waitFor(() => expect(within(panel).getAllByText(/ITSM 반영 확인 중/).length).toBeGreaterThan(0), SLOW)
-    await waitFor(() => expect(within(panel).getByText(/처리 결과는 ITSM에서 입력해요/)).toBeInTheDocument(), SLOW)
-    expect(within(panel).queryByRole('button', { name: /처리 결과 등록/ })).toBeNull() // 처리 결과는 ITSM 에서 받아오기만 한다
+    expect(await within(panel).findByText(/처리 상태와 처리 결과는 ITSM에서 입력해요/, undefined, SLOW)).toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: /처리 시작|처리 결과 등록/ })).toBeNull()
   })
 
   it('처리 중인 내 접수에도 처리 결과 등록 버튼은 없다 (처리 결과는 ITSM 에서 받아온다)', async () => {
     renderAs('EMP-1004', '/queue/5002')
     const panel = await screen.findByRole('complementary', { name: '티켓 상세' }, SLOW)
-    expect(await within(panel).findByText(/처리 결과는 ITSM에서 입력해요/, undefined, SLOW)).toBeInTheDocument()
+    expect(await within(panel).findByText(/처리 상태와 처리 결과는 ITSM에서 입력해요/, undefined, SLOW)).toBeInTheDocument()
     expect(within(panel).queryByRole('button', { name: /처리 결과 등록/ })).toBeNull()
   })
 

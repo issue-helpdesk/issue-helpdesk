@@ -2,8 +2,7 @@
  * 접수 상세 패널. 처리할 문의 오른쪽에 붙는다. (design/ITssue-Prototype.html 의 티켓 상세, 담당자 보기)
  *
  * 처리 상태는 문의 상태 · ITSM 연동 · 배정 · 티켓 업무 · 상태 변경 순서의 체크리스트로 보여 준다.
- * 끝난 줄은 회색 한 줄이고, 지금 단계만 카드로 올라온다. 상태 변경(처리 시작)은 TK-07(202)로 요청하며,
- * 현재는 ITSM 에서 바꾸는 것이 기본이라 이 화면의 변경은 제안이다. ITSM 댓글·멘션은 알림만 전달하고 내용은 ITSM 에서 읽는다.
+ * 끝난 줄은 회색 한 줄이고, 지금 단계만 카드로 올라온다. 상태 변경과 처리 결과 입력은 ITSM 에서 하고, 이 화면은 ITSM 의 상태를 받아 보여 주기만 한다. ITSM 댓글·멘션은 알림만 전달하고 내용은 ITSM 에서 읽는다.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -11,7 +10,7 @@ import { CATEGORIES, STAFF_STATUS } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { markTicketRead, refreshUnread } from '../../api/notifications'
 import { isRuleUrgencyReason } from '../../api/urgencyReason'
-import { changeTicketStatus, getAssignmentLogs, getTicket, getTicketHistory, syncTicket } from '../../api/tickets'
+import { getAssignmentLogs, getTicket, getTicketHistory, syncTicket } from '../../api/tickets'
 import type { AssignmentLog, StatusHistory, TicketDetail } from '../../api/ticketTypes'
 import { USE_MOCK_TICKET } from '../../core/config'
 import { formatDateTime } from '../../core/format'
@@ -155,8 +154,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
   const [reassign, setReassign] = useState(false)
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [actErr, setActErr] = useState('')
   // 열릴 때 밀려 들어오고, 닫을 때 밀려 나간 뒤에 실제로 닫는다 (움직임 줄이기 설정이면 바로 닫는다)
   const [slid, setSlid] = useState(false)
   const [leaving, setLeaving] = useState(false)
@@ -234,24 +231,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
     ...hist.map((h) => ({ kind: 's' as const, at: h.changedAt, h })),
     ...assigns.map((a) => ({ kind: 'a' as const, at: a.createdAt, a })),
   ].sort((x, y) => Date.parse(y.at) - Date.parse(x.at) || (x.kind === y.kind ? 0 : x.kind === 'a' ? 1 : -1))
-
-  /** 상태 변경 요청 (TK-07). 응답은 202 이고 ITSM 반영이 확인되면 상태가 바뀐다 */
-  async function change(workStatus: 'WIP' | 'FIN', resolutionNote?: string) {
-    if (!user || !t) return false
-    setBusy(true)
-    setActErr('')
-    const r = await changeTicketStatus(user, t.id, {
-      workStatus,
-      resolutionNote,
-    })
-    setBusy(false)
-    if (!r.ok) {
-      setActErr(r.error.message)
-      return false
-    }
-    setT(r.data)
-    return true
-  }
 
   const info = t && (
     <dl className="dl">
@@ -379,29 +358,14 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
               {info}
               {!requester && (
                 <div>
-                  {mine && t.workStatus === 'RDY' && (
-                    <button type="button" className="btn pri block" disabled={busy || pending} onClick={() => void change('WIP')}>
-                      처리 시작 (RDY → WIP)
-                    </button>
-                  )}
-                  {mine && t.workStatus === 'RDY' && (
+                  {mine && (t.workStatus === 'RDY' || t.workStatus === 'WIP') && (
                     <div className="small muted" style={{ marginTop: 8 }}>
-                      <span className="tag gray">제안</span> 현재는 ITSM에서 상태를 바꾸고 해결 방법을 입력해요. 이 화면에서 바꾸는 기능은 추후 제안이에요.
-                    </div>
-                  )}
-                  {mine && t.workStatus === 'WIP' && (
-                    <div className="small muted" style={{ marginTop: 8 }}>
-                      처리 결과는 ITSM에서 입력해요. 이 화면은 ITSM의 상태를 받아 와서 보여 줘요.
+                      처리 상태와 처리 결과는 ITSM에서 입력해요. 이 화면은 ITSM의 상태를 받아 와서 보여 줘요.
                     </div>
                   )}
                   {pending && (
                     <div className="small muted" style={{ marginTop: 8 }} role="status">
                       ITSM 반영을 확인하는 중이에요. 확인되면 상태가 바뀌어요.
-                    </div>
-                  )}
-                  {actErr && (
-                    <div className="errtx" role="alert" style={{ marginTop: 8 }}>
-                      {actErr}
                     </div>
                   )}
                   {mine && t.workStatus === 'FIN' && (
