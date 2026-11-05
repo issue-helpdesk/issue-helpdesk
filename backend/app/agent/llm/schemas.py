@@ -86,9 +86,12 @@ class Evidence(_Strict):
 
 
 class Question(_Strict):
-    """추가 질문 하나. 화면이 options 는 버튼으로, options 가 [] 면 입력창으로 보여 준다 (M4-3-1)."""
+    """추가 질문 하나 (M4-3-1). 화면이 options 는 버튼으로, allow_text 면 직접 입력칸을 함께 보여 준다.
+    답을 보낼 때 label 을 앞에 붙인다 ("상황: 집에서 자주 끊겨요"). allow_text 는 서버가 정한다 (correct.py)."""
+    label: str
     text: str
     options: list[str]
+    allow_text: bool
 
 
 class AIOutput(_Strict):

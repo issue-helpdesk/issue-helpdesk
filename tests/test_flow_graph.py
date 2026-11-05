@@ -75,7 +75,7 @@ def test_search_query_ends_with_first_situation():
 def test_secret_in_question_is_blocked_like_reply():
     """M4-3-1. 9단계 검사는 reply 뿐 아니라 questions 도 본다."""
     bad = reply('ASK_MORE', missing_items=['situation'], reply='몇 가지 여쭤볼게요.',
-                questions=[{'text': '비밀번호를 알려 주세요', 'options': []}], facts=FACTS | {'symptom': None})
+                questions=[{'label': '대상', 'text': '비밀번호를 알려 주세요', 'options': [], 'allow_text': True}], facts=FACTS | {'symptom': None})
     r, mock, search = run([bad, bad])
     assert len(mock.requests) == 2 and (r.failure, r.error_code) == ('AI_FAILED', 'UNSAFE_REPLY')
     assert r.output.questions == [] and search.requests == []

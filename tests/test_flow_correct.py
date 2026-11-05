@@ -122,17 +122,32 @@ def test_known_situation_is_not_asked_again_in_same_turn():
 
 
 def test_questions_only_on_ask_more_and_capped():
-    """M4-3-1. 질문 3개·선택지 5개까지. 되묻기가 담당자 연결로 바뀌면 질문을 빼고 reply 를 바꾼다."""
-    q = {'text': '어떤 상황인가요?', 'options': ['가', '나', '다', '라', '마', '바', '그 밖의 상황']}
+    """M4-3-1. 질문 3개·선택지 4개까지. 되묻기가 담당자 연결로 바뀌면 질문을 빼고 reply 를 바꾼다."""
+    q = {'label': '상황', 'text': '어떤 상황인가요?', 'options': ['가', '나', '다', '라', '마', '그 밖의 상황'],
+         'allow_text': False}
     ask = out(action='ASK_MORE', evidence=[], missing_items=['situation'], reply='몇 가지 여쭤볼게요.', questions=[q] * 4)
     c = first(ask)
     assert len(c.output.questions) == 3 and rules(c) == ['INVALID_VALUE']
-    assert c.output.questions[0].options == ['가', '나', '다', '라', '그 밖의 상황']
+    assert c.output.questions[0].options == ['가', '나', '다', '라']
+    assert c.output.questions[0].allow_text is True
     c = first(ask, inp(ask_more_count=5))
     assert (c.output.action, c.output.questions, rules(c)[-1]) == ('ESCALATE', [], 'ASK_MORE_LIMIT')
     assert c.output.reply == ASK_TO_HANDOFF
     c = second(out(questions=[q]))                                    # ANSWER 는 reply 를 그대로 두고 질문만 뺀다
     assert c.output.questions == [] and c.output.reply == out().reply
+
+
+def test_allow_text_and_other_option_are_set_by_server():
+    """M4-3-1. 직접 입력 여부는 이름으로 서버가 정하고, "그 밖의 상황" 글자는 options 에서 뺀다. 2차 질문은 입력을 받는다."""
+    qs = [{'label': '상황', 'text': 'a', 'options': ['가', '그 밖의 상황'], 'allow_text': False},
+          {'label': '영향 범위', 'text': 'b', 'options': ['저만 그래요'], 'allow_text': True},
+          {'label': '메뉴', 'text': 'c', 'options': [], 'allow_text': False}]
+    c = first(out(action='ASK_MORE', evidence=[], missing_items=['situation'], questions=qs))
+    assert [q.allow_text for q in c.output.questions] == [True, False, True]
+    assert c.output.questions[0].options == ['가']
+    only_text = [{'label': '영향 범위', 'text': 'b', 'options': ['저만 그래요'], 'allow_text': True}]
+    c = first(out(action='ASK_MORE', evidence=[], missing_items=['situation'], questions=only_text))
+    assert c.output.questions[0].allow_text is False and rules(c) == []     # 직접 입력만 맞추면 기록하지 않는다
 
 
 def test_empty_title_is_filled_from_summary_and_cut():
