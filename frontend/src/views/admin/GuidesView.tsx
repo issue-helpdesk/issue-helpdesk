@@ -1187,7 +1187,7 @@ function TxDialog({ g, v, to, onClose, onApply }: { g: Guide; v: GuideVersion; t
       </div>
       <div className="field">
         <label htmlFor={`${uid}-w`}>변경 사유 (필수)</label>
-        <input id={`${uid}-w`} className={`inp${err ? ' err' : ''}`} value={why} placeholder="예) 개인정보 없음을 확인함" autoComplete="off" aria-invalid={!!err} onChange={(e) => { setWhy(e.target.value); setErr('') }} />
+        <input id={`${uid}-w`} className={`inp${err ? ' err' : ''}`} value={why} placeholder="예) 개인정보 없음을 확인함" maxLength={500} autoComplete="off" aria-invalid={!!err} onChange={(e) => { setWhy(e.target.value); setErr('') }} />
         {err && (
           <div className="ferr" role="alert">
             {err}

@@ -238,6 +238,20 @@ describe('서버 모드 가이드 (VITE_USE_MOCK_GUIDE=false)', () => {
     expect(JSON.parse(String((fetchMock.mock.calls[1][1] as RequestInit).body))).toEqual({ transferPolicy: 'BLOCKED' })
   })
 
+  it('외부 전송을 넓힐 때는 사유를 reason 으로 함께 보낸다 (R-22)', async () => {
+    const api = await load()
+    fetchMock.mockResolvedValueOnce(json(200, ver(31, { transferPolicy: 'ALLOWED' })))
+    expect((await api.setGuideTransfer(admin(), 3, 31, '허용', '  개인정보 없음을 확인함 ')).ok).toBe(true)
+    expect(JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))).toEqual({ transferPolicy: 'ALLOWED', reason: '개인정보 없음을 확인함' })
+  })
+
+  it('사유 없음 오류(reason / REQUIRED)는 서버 메시지 그대로 돌려준다', async () => {
+    const api = await load()
+    fetchMock.mockResolvedValueOnce(json(422, { error: { code: 'VALIDATION_ERROR', message: '입력값을 확인해 주세요.', details: [{ field: 'reason', reason: 'REQUIRED', message: '외부 전송 정책을 완화하는 사유를 입력해 주세요.' }] } }))
+    const r = await api.setGuideTransfer(admin(), 3, 31, '허용', '')
+    expect(r).toMatchObject({ ok: false, error: { code: 'VALIDATION_ERROR' } })
+  })
+
   it('업로드는 문서를 만들고(DC-02) 파일을 multipart 로 올린다(DC-07)', async () => {
     const api = await load()
     fetchMock.mockResolvedValueOnce(json(201, doc(40, 'IT-NET-004', { currentVersion: null }))).mockResolvedValueOnce(json(202, ver(41, { documentId: 40, version: 'v1', ingestStatus: 'PENDING', transferPolicy: 'MASKED', viewScope: 'AGENT' })))

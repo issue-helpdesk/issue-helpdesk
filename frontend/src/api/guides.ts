@@ -353,9 +353,8 @@ export async function setGuideActive(user: User, docId: number, active: boolean)
   return r.ok ? ok({ isActive: r.data.isActive ?? active }) : r
 }
 
-/** 열람 범위·외부 전송 정책 변경. 더 느슨하게 바꿀 때의 사유는 서버에 저장할 곳이 없어 모의에서만 남긴다 (R-22) */
+/** 열람 범위·외부 전송 정책 변경 (DC-09). 더 느슨하게 바꿀 때의 사유(최대 500자)는 `reason` 으로 보내 운영 기록에 남는다 (R-22). 모의에서는 저장하지 않는다 */
 export async function setGuideTransfer(user: User, docId: number, versionId: number, tx: GuideTx, reason: string): Promise<ApiResult<GuideVersion>> {
-  void reason // 사유는 서버에 저장할 곳이 없다 (R-22)
   const no = adminOnly(user)
   if (no) return no
   if (USE_MOCK_GUIDE) {
@@ -367,7 +366,7 @@ export async function setGuideTransfer(user: User, docId: number, versionId: num
     notify()
     return ok({ ...x })
   }
-  const r = await request<SVer>(`/documents/${docId}/versions/${versionId}`, { method: 'PATCH', body: JSON.stringify({ transferPolicy: TX_TO[tx] }) })
+  const r = await request<SVer>(`/documents/${docId}/versions/${versionId}`, { method: 'PATCH', body: JSON.stringify(reason.trim() ? { transferPolicy: TX_TO[tx], reason: reason.trim() } : { transferPolicy: TX_TO[tx] }) })
   return r.ok ? ok(toVersion(r.data)) : r
 }
 
