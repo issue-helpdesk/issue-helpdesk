@@ -1,13 +1,13 @@
 /**
- * 담당자 내 대시보드 (/my). 내 담당 문의의 상태별 건수, 확인할 Jira 알림, 먼저 볼 문의, 우리 팀 현황을 한 화면에 모은다.
+ * 담당자 내 대시보드 (/my). 내 담당 문의의 상태별 건수, 확인할 Jira 알림, 먼저 볼 문의를 한 화면에 모은다.
  * 건수 칸과 띠, '모두 보기'는 처리할 문의의 해당 조건으로 이어진다. 검색하면 대시보드 대신 내 담당 문의 중 검색 결과만 보인다.
- * Jira 알림 띠와 우리 팀 현황은 제안이다. (design/ITssue-Prototype.html 의 내 대시보드)
+ * Jira 알림 띠는 제안이다. 우리 팀 현황은 서버에 API 가 없어(모의 숫자만 나와서) 뺐고, 팀 업무량은 통계 화면의 팀 보기가 서버 집계로 보여 준다. (design/ITssue-Prototype.html 의 내 대시보드)
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
-import { getTeamStatus, listTickets, watchTickets, type TeamStatus } from '../../api/tickets'
+import { listTickets, watchTickets } from '../../api/tickets'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
 import { formatDateTime, formatElapsed } from '../../core/format'
@@ -74,7 +74,6 @@ export function MyDashView() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [mine, setMine] = useState<TicketSummary[] | null>(null)
-  const [team, setTeam] = useState<TeamStatus | null>(null)
   const [error, setError] = useState('')
   const [q, setQ] = useState('')
   const [synced, setSynced] = useState(hm())
@@ -92,9 +91,6 @@ export function MyDashView() {
         setError('')
         setSynced(hm())
       } else setError(r.error.message)
-    })
-    getTeamStatus(user).then((r) => {
-      if (alive && r.ok) setTeam(r.data)
     })
     return () => {
       alive = false
@@ -225,56 +221,6 @@ export function MyDashView() {
                     </div>
                   ) : (
                     <div className="empty">지금 처리할 문의가 없어요.</div>
-                  )}
-                </section>
-
-                <section className="panel" aria-label="우리 팀 현황" style={{ padding: '22px 24px' }}>
-                  <div className="sech">
-                    <div>
-                      <h3 className="sht">
-                        우리 팀 현황 <span className="tag gray">제안</span>
-                      </h3>
-                      <p className="shs">{team?.groupName ?? user.departmentName}</p>
-                    </div>
-                    <button type="button" className="btn ghost sm" onClick={() => navigate('/stats?scope=team')}>
-                      팀원별 보기
-                    </button>
-                  </div>
-                  {team && (
-                    <div className="tgrid">
-                      <div className="tcell">
-                        <span className="tl">근무</span>
-                        <span className="tv">
-                          <b>{team.members - team.off}</b>
-                          <small>명</small>
-                        </span>
-                        <span className="ts">
-                          전체 {team.members}명 · 부재 {team.off}명
-                        </span>
-                      </div>
-                      <div className="tcell">
-                        <span className="tl">처리 대기 (RDY)</span>
-                        <span className="tv">
-                          <b>{team.rdy}</b>
-                          <small>건</small>
-                        </span>
-                      </div>
-                      <div className="tcell">
-                        <span className="tl">처리 중 (WIP)</span>
-                        <span className="tv">
-                          <b>{team.wip}</b>
-                          <small>건</small>
-                        </span>
-                      </div>
-                      <div className={`tcell${team.unassigned ? ' warn' : ''}`}>
-                        <span className="tl">배정 전</span>
-                        <span className="tv">
-                          <b>{team.unassigned}</b>
-                          <small>건</small>
-                        </span>
-                        {team.unassigned > 0 && <span className="ts">담당자가 아직 정해지지 않았어요</span>}
-                      </div>
-                    </div>
                   )}
                 </section>
               </>

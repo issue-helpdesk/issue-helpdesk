@@ -152,14 +152,15 @@ describe('문의자 접수 상세 (문의 대화)', () => {
 })
 
 describe('담당자 내 대시보드', () => {
-  it('상태별 건수와 먼저 볼 문의, 우리 팀 현황이 보인다', async () => {
+  it('상태별 건수와 먼저 볼 문의가 보이고, 서버 API 가 없는 "우리 팀 현황"은 없다', async () => {
     renderAs('EMP-1004', '/my')
     expect(await screen.findByRole('button', { name: /^처리 중 \(WIP\) 7건/ }, SLOW)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^해결 확인 대기 \(FIN\) 3건/ })).toBeInTheDocument()
     const first = await screen.findByRole('region', { name: '먼저 볼 문의' })
     expect(await within(first).findByText('악성 첨부파일 의심 메일 수신', undefined, SLOW)).toBeInTheDocument() // P1 이 맨 위
-    const team = screen.getByRole('region', { name: '우리 팀 현황' })
-    expect(await within(team).findByText('부재 1명', { exact: false }, SLOW)).toBeInTheDocument()
+    // 팀 현황 카드는 서버에 API 가 없어 모의 숫자만 나왔기 때문에 뺐다 (팀 업무량은 통계 화면의 팀 보기)
+    expect(screen.queryByRole('region', { name: '우리 팀 현황' })).toBeNull()
+    expect(screen.queryByText('우리 팀 현황')).toBeNull()
   })
 
   it('Jira 댓글·멘션 알림 띠는 없다 (이번 기능에서 제외)', async () => {

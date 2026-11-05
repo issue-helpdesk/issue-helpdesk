@@ -257,34 +257,6 @@ export function watchTickets(onChange: () => void): () => void {
 const subs = new Set<() => void>()
 let stopPoll: (() => void) | null = null
 
-/** 우리 팀 현황 (제안): 소속 그룹의 근무 인원과 처리 대기·처리 중·배정 전 건수 */
-export interface TeamStatus {
-  groupName: string
-  /** 팀원 이름 */
-  names: string[]
-  members: number
-  off: number
-  rdy: number
-  wip: number
-  unassigned: number
-}
-export async function getTeamStatus(user: User): Promise<ApiResult<TeamStatus>> {
-  if (!MOCK_ONLY) return request<TeamStatus>('/tickets/team-status')
-  await sleep(120)
-  const groupName = user.departmentName ?? ''
-  const team = TEAM_MEMBERS[groupName] ?? []
-  const list = allStaffTickets().filter((t) => t.group?.name === groupName)
-  return ok({
-    groupName,
-    names: team.map((m) => m.name),
-    members: team.length,
-    off: team.filter((m) => !m.avail).length,
-    rdy: list.filter((t) => t.workStatus === 'RDY').length,
-    wip: list.filter((t) => t.workStatus === 'WIP').length,
-    unassigned: list.filter((t) => !t.assignee).length,
-  })
-}
-
 /**
  * 통계 구역 하나의 원자료 (제안): 소속 그룹의 접수와 팀원 이름. 서버에는 구역별 통계 API 가 아직 없어, 구역마다 따로 읽어 화면에서 센다.
  * 한 구역이 실패해도 다른 구역은 그대로 보인다.
