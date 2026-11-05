@@ -36,7 +36,8 @@ from ..parser import PARSER_VERSION
 from ..parser.common import CIRCLED, NUM_RE
 from ..parser.models import Element, ParsedDocument
 
-CHUNKER_VERSION = '1.1'  # 청크 경계·글이 바뀌는 수정을 하면 올린다 (chunk_key 는 같은 버전 안에서만 안정적)
+CHUNKER_VERSION = '1.2'  # 청크 경계·글이 바뀌는 수정을 하면 올린다 (chunk_key 는 같은 버전 안에서만 안정적)
+FIGURE_NO_RE = re.compile(r'^그림\s*(\d+(?:\.\d+)*-\d+)(?=[.\s]|$)')   # 그림 설명의 그림 번호 ('그림 3.1-1. …' → 3.1-1)
 TRANSFER_POLICIES = ('ALLOWED', 'MASKED', 'BLOCKED')    # document_versions.transfer_policy
 VIEW_SCOPES = {'사내 일반': 'ALL', '사내 제한': 'AGENT'}   # 문서 열람 등급 → document_versions.view_scope
 DOC_TYPES = {'guide': 'GUIDE', 'manual': 'MANUAL', 'standard': 'STANDARD', 'policy': 'POLICY'}   # → knowledge_documents.doc_type
@@ -99,8 +100,9 @@ class _Atom:
     text: str
     page: int | None
     sub: str = ''                 # 속한 소제목
-    image: str = ''               # 그림 파일 이름
+    image: str = ''               # 그림 이름 (형식마다 다름: md 링크 파일 이름, docx 안 파일 이름, pptx 도형 이름)
     caption: str = ''             # 그림 설명
+    ext: str = ''                 # 그림 형식 (png·jpg, 모르면 '')
 
 
 def document_row(doc: ParsedDocument) -> dict:
@@ -328,7 +330,7 @@ def _atoms(pieces: list[Element]) -> list[_Atom]:
             for part in _table_parts(rows, width):
                 out.append(_Atom(part, e.page, sub))
         elif e.kind == 'image':
-            out.append(_Atom(f'[그림] {e.text}'.rstrip(), e.page, sub, e.meta.get('name', ''), e.text))
+            out.append(_Atom(f'[그림] {e.text}'.rstrip(), e.page, sub, e.meta.get('name', ''), e.text, e.meta.get('ext', '')))
         elif e.kind == 'list_item':
             bare = NUM_RE.match(e.text) or e.text[:1] in CIRCLED
             out.append(_Atom(e.text if bare else f'- {e.text}', e.page, sub))
@@ -454,14 +456,20 @@ def _make(doc, kind, path, props, atoms, part, parts) -> Chunk:
 
 
 def _images(doc, atoms) -> list[dict]:
-    """그림 파일이 따로 있는 md·txt 의 그림만 {'key': '분류/파일 이름', 'caption': 그림 설명}.
+    """청크 안 그림 {'key': '분류/{문서 번호}_{그림 번호}.{형식}', 'caption': 그림 설명} (청커 1.2).
     key 는 저장 위치와 무관한 이름표로, 그림 파일은 dataset/guide_images/{key} 에 있다 (청크_메타데이터.md 5장 그림).
-    분류는 머리말 category 로, 없으면 그림을 넣지 않는다 (파일 위치로 추측하지 않는다).
-    docx·pptx·pdf 의 그림은 파일 안에 들어 있어 따로 내려 줄 파일이 없으므로 넣지 않는다 (설명은 본문 '[그림] …')."""
-    cat = doc.meta.get('category', '')
-    if doc.format not in ('md', 'txt') or not cat:
+    이름은 형식과 상관없이 문서 번호와 설명의 그림 번호로 만든다 (dataset/guides/README.md 그림 이름 규칙).
+    형식은 파서가 알려 준 값: md·txt 는 링크 파일의 확장자, docx·pptx 는 문서 안 그림의 형식. pdf 는 몰라서 넣지 않는다.
+    분류(머리말 category)·문서 번호·그림 번호가 없어도 넣지 않는다 (파일 위치로 추측하지 않는다. 설명은 본문 '[그림] …')."""
+    cat, doc_no = doc.meta.get('category', ''), doc.meta.get('doc_no', '')
+    if not cat or not doc_no:
         return []
-    return [{'key': f'{cat}/{a.image}', 'caption': a.caption} for a in atoms if a.image]
+    out = []
+    for a in atoms:
+        no = FIGURE_NO_RE.match(a.caption)
+        if a.ext and no:
+            out.append({'key': f'{cat}/{doc_no}_{no.group(1)}.{a.ext}', 'caption': a.caption})
+    return out
 
 
 def _teams(value: str) -> list[str]:

@@ -37,6 +37,14 @@ BULLET_RE = re.compile(r'^\s*([•·▪◦‣\-–]|[①-⑳]|\d{1,2}[.)](?=\s))
 NUM_RE = re.compile(r'(?:^|·\s*)(\d{1,2}(?:\.\d{1,2})*)(\.)?\s+\S')
 CHAPTER_RE = re.compile(r'^(?:0(\d)\s+|(\d{1,2})\.?\s+(?=\D))(.+)$')   # '04 7개 분류…'처럼 0 붙은 번호는 늘 장 번호
 CAPTION_RE = re.compile(r'^그림\s*[\d.-]+')
+IMAGE_EXTS = ('png', 'jpg')                        # 그림 이름표로 쓰는 형식 (그림 API DC-11 이 받는 형식)
+
+
+def image_ext(name: str) -> str:
+    """그림 형식 = 확장자 (소문자, 점 없이, jpeg → jpg). png·jpg 가 아니거나 모르면 ''. 그림 이름표의 확장자로 쓴다."""
+    ext = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
+    ext = 'jpg' if ext == 'jpeg' else ext
+    return ext if ext in IMAGE_EXTS else ''
 _SPACE_RE = re.compile(r'[ \t 　]+')
 _CTRL_RE = re.compile(r'[\x00-\x08\x0c\x0e-\x1f​﻿]')       # 글꼴에 없는 글자가 \x00 으로 나오는 PDF 등
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 
-from .common import clean, finalize
+from .common import clean, finalize, image_ext
 from .models import Element, ParsedDocument
 from .slides import Item, attach_captions, page_elements
 
@@ -33,11 +33,19 @@ def _items(shapes, W, H):
                     rows.append(cells)
             yield Item('table', x, y, w, h, rows=rows)
         elif sh.shape_type == MSO_SHAPE_TYPE.PICTURE:
-            yield Item('image', x, y, w, h, name=getattr(sh, 'name', ''))
+            yield Item('image', x, y, w, h, name=getattr(sh, 'name', ''), ext=_picture_ext(sh))
         elif sh.has_text_frame and sh.text_frame.text.strip():
             yield _text_item(sh, x, y, w, h)
         elif w > 60 and h > 30 and not (w > W * 0.95 and h > H * 0.95):
             yield Item('box', x, y, w, h)      # 카드·안내 상자·그림 틀 (배경 전체는 제외)
+
+
+def _picture_ext(sh) -> str:
+    """그림 도형 안 그림의 형식 (png·jpg). 연결만 된 그림처럼 내용이 없으면 ''."""
+    try:
+        return image_ext('.' + sh.image.ext)
+    except Exception:          # python-pptx: 내장 그림이 없으면 ValueError·KeyError 등
+        return ''
 
 
 def _text_item(sh, x, y, w, h) -> Item:
