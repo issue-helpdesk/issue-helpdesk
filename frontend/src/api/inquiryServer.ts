@@ -24,6 +24,7 @@ interface SSource {
   version: string | null
   location: string | null
   excerpt: string | null
+  images?: { key: string; caption: string }[]
 }
 interface SMessage {
   id: number
@@ -130,7 +131,7 @@ const idemPost = async <T,>(path: string, body: unknown, method: 'POST' | 'PUT' 
 }
 
 /* ------------------------------------------------------------------ 서버 → 화면 변환 */
-const GUIDE = (s: SSource) => ({ docCode: s.docCode ?? '', title: '', version: s.version ?? '', section: s.location ?? '', excerpt: s.excerpt ?? '' })
+const GUIDE = (s: SSource) => ({ docCode: s.docCode ?? '', title: '', version: s.version ?? '', section: s.location ?? '', excerpt: s.excerpt ?? '', images: s.images?.length ? s.images : undefined })
 
 /**
  * 줄바꿈 없이 한 줄로 온 답변 중 "1) … 2) …" 단계가 들어 있는 것은 문장 단위로 줄을 나눈다.

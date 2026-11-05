@@ -202,8 +202,8 @@ export function GuidesView() {
   const reload = () => setTick((n) => n + 1)
 
   const changeTx = (g: Guide, v: GuideVersion, to: GuideTx) => {
-    if (TX_RANK[to] > TX_RANK[v.tx]) return setDlg({ kind: 'tx', g, v, to })
-    void applyTx(g, v, to, '')
+    // 더 느슨해지면 사유가 필수, 더 엄격해져도 사유를 남길 수 있게 창을 띄운다 (사유는 선택)
+    setDlg({ kind: 'tx', g, v, to })
   }
   const applyTx = async (g: Guide, v: GuideVersion, to: GuideTx, why: string) => {
     const r = await setGuideTransfer(user, g.id, v.id, to, why)
@@ -1176,29 +1176,39 @@ function TxDialog({ g, v, to, onClose, onApply }: { g: Guide; v: GuideVersion; t
   const uid = useId()
   const [why, setWhy] = useState('')
   const [err, setErr] = useState('')
+  // 더 넓게 외부로 보내는 변경만 사유가 필수다 (서버도 이때만 요구한다)
+  const wide = TX_RANK[to] > TX_RANK[v.tx]
   return (
     <Modal title="외부 전송 정책 변경" onClose={onClose}>
       <p className="small muted">
         {guideLabel(g)} {v.version} · {v.tx} → {to}
       </p>
-      <div className="alert warn">
-        <Icon name="alert" />
-        <div>이 가이드 내용이 이전보다 넓게 외부 AI 모델에 전달될 수 있어요. 변경 사유를 남겨 주세요.</div>
-      </div>
+      {wide && (
+        <div className="alert warn">
+          <Icon name="alert" />
+          <div>이 가이드 내용이 이전보다 넓게 외부 AI 모델에 전달될 수 있어요. 변경 사유를 남겨 주세요.</div>
+        </div>
+      )}
       <div className="field">
-        <label htmlFor={`${uid}-w`}>변경 사유 (필수)</label>
-        <input id={`${uid}-w`} className={`inp${err ? ' err' : ''}`} value={why} placeholder="예) 개인정보 없음을 확인함" maxLength={500} autoComplete="off" aria-invalid={!!err} onChange={(e) => { setWhy(e.target.value); setErr('') }} />
+        <label htmlFor={`${uid}-w`}>변경 사유 ({wide ? '필수' : '선택'})</label>
+        <input id={`${uid}-w`} className={`inp${err ? ' err' : ''}`} value={why} placeholder={wide ? '예) 개인정보 없음을 확인함' : '예) 외부 전송 범위를 줄임'} maxLength={500} autoComplete="off" aria-invalid={!!err} onChange={(e) => { setWhy(e.target.value); setErr('') }} />
         {err && (
           <div className="ferr" role="alert">
             {err}
           </div>
         )}
+        <div className="wcnt">
+          <span className="hint">{wide ? '필수 입력값이에요. 운영 기록에 남아요.' : '필수 입력값은 아니에요. 운영 기록에 남아요.'}</span>
+          <span className="hint">
+            <b>{why.length}</b>/500
+          </span>
+        </div>
       </div>
       <div className="acts">
         <button type="button" className="btn sec" onClick={onClose}>
           취소
         </button>
-        <button type="button" className="btn pri" onClick={() => (why.trim() ? onApply(why.trim()) : setErr('변경 사유를 입력해 주세요.'))}>
+        <button type="button" className="btn pri" onClick={() => (why.trim() || !wide ? onApply(why.trim()) : setErr('변경 사유를 입력해 주세요.'))}>
           변경
         </button>
       </div>

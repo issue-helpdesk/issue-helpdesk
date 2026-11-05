@@ -84,5 +84,25 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   return r
 }
 
+/**
+ * 파일(그림 등)을 받는다. 토큰을 헤더로 보내야 해서 `<img src>` 에 주소를 바로 넣을 수 없고, 이렇게 받아 blob 으로 보여 준다.
+ * 만료된 토큰은 한 번 재발급해 다시 시도하고, 못 받으면 null 이다 (화면이 대체 표시를 쓴다).
+ */
+export async function requestBlob(path: string): Promise<Blob | null> {
+  const go = () => {
+    const headers = new Headers()
+    const token = tokenStore.get()
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+    return fetch(`${API_BASE_URL}${path}`, { headers, credentials: 'include' })
+  }
+  try {
+    let res = await go()
+    if (res.status === 401 && (await refreshOnce())) res = await go()
+    return res.ok ? await res.blob() : null
+  } catch {
+    return null
+  }
+}
+
 /** 가짜 응답(mock)에서 서버 지연을 흉내 낼 때 쓴다. */
 export const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))

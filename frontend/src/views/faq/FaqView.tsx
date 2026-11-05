@@ -3,11 +3,12 @@
  *
  * 열람이 허용된 Guide를 출처로 한 FAQ 목록이다. 열어 봐도 문의가 접수되지 않으며,
  * 해결되지 않으면 "상담하기"로 새 문의 화면에 질문을 채워 넘어간다.
- * 관리자는 FAQ 를 등록하고, 게시를 멈췄다 다시 게시하고, 삭제할 수 있다 (FQ-03~05).
+ * 관리자는 FAQ 를 등록·수정하고, 게시를 멈췄다 다시 게시하고, 삭제할 수 있다 (FQ-03~05). 등록·수정 때 출처 가이드를 고른다.
  */
 import { useEffect, useId, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { createFaq, deleteFaq, getFaqSources, listFaqs, setFaqActive } from '../../api/faq'
+import { createFaq, deleteFaq, getFaqSources, listFaqs, setFaqActive, updateFaq } from '../../api/faq'
+import { listGuides, type Guide } from '../../api/guides'
 import { CATEGORY_NAME } from '../../api/mock/faqs'
 import type { CategoryCode, GuideSource } from '../../api/chatTypes'
 import type { ApiResult, Faq } from '../../api/types'
@@ -49,6 +50,7 @@ export function FaqView() {
   const [srcs, setSrcs] = useState<Record<string, GuideSource[] | 'err'>>({})
   // 관리자: 등록 창, 삭제 확인 창, 처리 결과 안내
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<Faq | null>(null)
   const [deleting, setDeleting] = useState<Faq | null>(null)
   const [toast, setToast] = useState('')
   const [reload, setReload] = useState(0)
@@ -197,13 +199,16 @@ export function FaqView() {
                       {/* 관리자 단추(게시 중단·삭제)는 오른쪽 끝으로 밀고, 상담하기와 같은 테두리 단추로 맞춘다 */}
                       {admin && (
                         <span className="faqadm">
+                          <button type="button" className="btn sec sm" onClick={() => setEditing(f)}>
+                            수정
+                          </button>
                           <button
                             type="button"
                             className="btn sec sm"
                             onClick={() => {
-                              // 서버 모드에서 가이드 출처가 없는 FAQ 는 게시할 수 없다 (R-41 전까지 막고 안내만)
+                              // 서버 모드에서 가이드 출처가 없는 FAQ 는 게시할 수 없다. 수정에서 출처 가이드를 고르게 안내한다
                               const src = srcs[f.id]
-                              if (off && !USE_MOCK_FAQ && !f.sources.length && Array.isArray(src) && !src.length) return say('지금은 게시할 수 없어요. 게시하려면 FAQ에 가이드 문서를 출처로 연결해야 하는데, 그 기능이 아직 준비되지 않았어요.')
+                              if (off && !USE_MOCK_FAQ && !f.sources.length && Array.isArray(src) && !src.length) return say('출처 가이드가 없어서 게시할 수 없어요. 수정에서 출처 가이드를 고른 뒤 게시해 주세요.')
                               void run(setFaqActive(f, off), off ? '다시 게시했어요. 문의자 FAQ 화면에 보여요.' : '게시를 멈췄어요. 문의자에게는 보이지 않아요.')
                             }}
                           >
@@ -224,11 +229,19 @@ export function FaqView() {
       </main>
 
       {preview && <SourcePreview source={preview} demo={USE_MOCK_FAQ} onClose={() => setPreview(null)} />}
-      {adding && (
-        <AddFaqDialog
-          onClose={() => setAdding(false)}
-          onDone={(msg) => {
+      {(adding || editing) && (
+        <FaqFormDialog
+          key={editing?.id ?? 'new'}
+          faq={editing}
+          loaded={editing ? srcs[editing.id] : undefined}
+          onClose={() => {
             setAdding(false)
+            setEditing(null)
+          }}
+          onDone={(msg) => {
+            if (editing) setSrcs((m) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== editing.id))) // 출처가 바뀌었으니 다시 읽는다
+            setAdding(false)
+            setEditing(null)
             say(msg)
             setReload((n) => n + 1)
           }}
@@ -268,20 +281,49 @@ export function FaqView() {
 }
 
 /**
- * FAQ 등록 창. 서버는 게시하려면 가이드 출처가 연결돼 있어야 하는데, 등록 때 출처를 고르는 기능이 아직 없다(docs/api/06 R-41).
- * 그래서 서버 모드에서는 "바로 게시"를 눌러도 체크되지 않고 안내만 보이며, 항상 게시 전 상태로 저장한다. 모의 모드는 시연이라 그대로 게시된다.
+ * FAQ 등록·수정 창. 출처 가이드는 전 직원용(사내 일반) 현행 가이드만 고를 수 있다 (서버가 그 문서만 받는다).
+ * 수정을 저장하면 FAQ 는 게시가 중단되고, "저장하면서 바로 게시"를 켜면 한 번에 다시 게시한다.
  */
-function AddFaqDialog({ onClose, onDone }: { onClose: () => void; onDone: (message: string) => void }) {
+function FaqFormDialog({ faq, loaded, onClose, onDone }: { faq: Faq | null; loaded: GuideSource[] | 'err' | undefined; onClose: () => void; onDone: (message: string) => void }) {
+  const { user } = useAuth()
   const uid = useId()
-  const [cat, setCat] = useState<CategoryCode>('ACC')
-  const [q, setQ] = useState('')
-  const [a, setA] = useState('')
-  const [publish, setPublish] = useState(USE_MOCK_FAQ)
-  const [pubNote, setPubNote] = useState(false) // 서버 모드에서 게시를 누르면 안내를 보인다
+  const edit = !!faq
+  const wasOn = !!faq && faq.active !== false
+  const [cat, setCat] = useState<CategoryCode>(faq?.categoryCode ?? 'ACC')
+  const [q, setQ] = useState(faq?.question ?? '')
+  const [a, setA] = useState(faq?.answer ?? '')
+  const [guides, setGuides] = useState<Guide[] | null>(null)
+  const [picked, setPicked] = useState<Set<number>>(new Set())
+  const [publish, setPublish] = useState(edit ? wasOn : true)
   const [errs, setErrs] = useState<Record<string, string>>({})
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const clr = (k: string) => setErrs((e) => ({ ...e, [k]: '' }))
+
+  // 고를 수 있는 가이드를 읽고, 수정이면 연결돼 있던 출처를 미리 고른다 (창을 열 때 한 번만)
+  useEffect(() => {
+    if (!user) return
+    let alive = true
+    listGuides(user).then((r) => {
+      if (!alive) return
+      if (!r.ok) return setErr(r.error.message)
+      setGuides(r.data)
+      const src = faq ? (faq.sources.length ? faq.sources : Array.isArray(loaded) ? loaded : []) : []
+      const ids = src.map((s) => s.documentId ?? r.data.find((g) => g.docCode === s.docCode)?.id).filter((x): x is number => x !== undefined)
+      if (ids.length) setPicked(new Set(ids))
+    })
+    return () => {
+      alive = false
+    }
+  }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 전 직원용 현행 가이드(GUIDE) 가운데 고른 분류의 것만 보이고, 다른 분류에서 이미 고른 가이드는 사라지지 않게 함께 보인다 (위에)
+  const eligible = (guides ?? [])
+    .filter((g) => g.isActive && g.current?.scope === '사내 일반' && (!g.docType || g.docType === 'GUIDE'))
+    .filter((g) => g.cat === cat || picked.has(g.id))
+    .sort((x, y) => Number(picked.has(y.id) && y.cat !== cat) - Number(picked.has(x.id) && x.cat !== cat))
+  const pubOk = picked.size > 0
+  const willPublish = publish && pubOk
 
   const submit = async () => {
     const e: Record<string, string> = {}
@@ -289,13 +331,19 @@ function AddFaqDialog({ onClose, onDone }: { onClose: () => void; onDone: (messa
     else if (q.trim().length > 500) e.q = '질문은 500자까지 쓸 수 있어요.'
     if (!a.trim()) e.a = '답변을 입력해 주세요.'
     else if (a.trim().length > 4000) e.a = '답변은 4000자까지 쓸 수 있어요.'
+    if (!picked.size) e.s = '출처 가이드를 하나 이상 선택해 주세요.'
+    else if (picked.size > 20) e.s = '출처 가이드는 20개까지 고를 수 있어요.'
     setErrs(e)
     if (Object.keys(e).length) return
     setBusy(true)
-    const r = await createFaq({ categoryCode: cat, question: q.trim(), answer: a.trim(), keywords: [], isActive: publish })
+    setErr('')
+    const sources = eligible.filter((g) => picked.has(g.id)).map((g) => ({ documentId: g.id, docCode: g.docCode, title: g.title, version: g.current?.version ?? '' }))
+    const input = { categoryCode: cat, question: q.trim(), answer: a.trim(), keywords: [], isActive: willPublish, sources }
+    const r = faq ? await updateFaq(faq, input) : await createFaq(input)
     setBusy(false)
     if (!r.ok) return setErr(r.error.message)
-    onDone(publish ? 'FAQ를 등록했어요. 문의자 FAQ 화면에 바로 보여요.' : 'FAQ를 등록했어요. 게시 전이라 문의자에게는 보이지 않아요.')
+    if (faq) onDone(willPublish ? 'FAQ를 수정하고 다시 게시했어요.' : 'FAQ를 수정했어요. 게시가 중단된 상태라 문의자에게는 보이지 않아요.')
+    else onDone(willPublish ? 'FAQ를 등록했어요. 문의자 FAQ 화면에 바로 보여요.' : 'FAQ를 등록했어요. 게시 전이라 문의자에게는 보이지 않아요.')
   }
 
   const field = (k: string, label: string, body: React.ReactNode) => (
@@ -311,7 +359,7 @@ function AddFaqDialog({ onClose, onDone }: { onClose: () => void; onDone: (messa
   )
 
   return (
-    <Modal title="FAQ 등록" onClose={onClose}>
+    <Modal title={edit ? 'FAQ 수정' : 'FAQ 등록'} onClose={onClose}>
       {field(
         'c',
         '분류',
@@ -319,28 +367,70 @@ function AddFaqDialog({ onClose, onDone }: { onClose: () => void; onDone: (messa
       )}
       {field('q', '질문 제목', <input id={`${uid}-q`} className={`inp${errs.q ? ' err' : ''}`} value={q} placeholder="예) 공용 프린터가 보이지 않아요" autoComplete="off" aria-invalid={!!errs.q} onChange={(e) => { setQ(e.target.value); clr('q') }} />)}
       {field('a', '답변', <textarea id={`${uid}-a`} className={`ta${errs.a ? ' err' : ''}`} value={a} placeholder="사내 가이드 기준으로 안내해 주세요" aria-invalid={!!errs.a} onChange={(e) => { setA(e.target.value); clr('a') }} />)}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <input
-          type="checkbox"
-          checked={publish}
-          aria-describedby={pubNote ? `${uid}-pub` : undefined}
-          onChange={(e) => {
-            // 서버 모드: 출처를 연결할 수 없어 게시되지 않으므로 체크하지 않고 안내만 보인다
-            if (!USE_MOCK_FAQ) return setPubNote(true)
-            setPublish(e.target.checked)
-          }}
-        />
-        바로 게시
-      </label>
-      {pubNote && (
-        <div className="alert warn" id={`${uid}-pub`} role="status">
+      <div className="field">
+        <label id={`${uid}-s`}>
+          출처 가이드 <span className="muted small">(고른 분류의 전 직원용 현행 가이드만 보여요 · 여러 개 선택 가능)</span>
+        </label>
+        <div className="fsl" role="group" aria-labelledby={`${uid}-s`}>
+          {guides === null && !err && (
+            <div className="hint" style={{ padding: 10 }}>
+              가이드를 불러오는 중이에요…
+            </div>
+          )}
+          {guides !== null && eligible.length === 0 && (
+            <div className="hint" style={{ padding: 10 }}>
+              이 분류에는 고를 수 있는 가이드가 아직 없어요.
+            </div>
+          )}
+          {eligible.map((g) => (
+            <div key={g.id} className="fsrc">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={picked.has(g.id)}
+                  onChange={(e) => {
+                    setPicked((p) => {
+                      const n = new Set(p)
+                      if (e.target.checked) n.add(g.id)
+                      else n.delete(g.id)
+                      return n
+                    })
+                    clr('s')
+                  }}
+                />
+                <span className="fst">
+                  <b>
+                    {g.docCode} {g.title}
+                  </b>
+                  <small>
+                    {CATEGORY_NAME[g.cat] ?? g.cat} · {g.current?.version}
+                    {g.cat !== cat && ' · 다른 분류에서 고른 가이드'}
+                  </small>
+                </span>
+              </label>
+            </div>
+          ))}
+        </div>
+        {errs.s && (
+          <div className="ferr" role="alert">
+            {errs.s}
+          </div>
+        )}
+      </div>
+      {edit && (
+        <div className="alert warn">
           <Icon name="alert" />
-          <div>지금은 게시할 수 없어요. 게시하려면 FAQ에 가이드 문서를 출처로 연결해야 하는데, 그 기능이 아직 준비되지 않았어요. 우선 게시 전 상태로 저장돼요.</div>
+          <div>{wasOn ? '수정을 저장하면 이 FAQ는 자동으로 게시가 중단돼요.' : '지금은 게시 중단 상태예요.'} 아래에서 저장하면서 바로 게시할 수 있어요.</div>
         </div>
       )}
-      <div className="hint">
-        {USE_MOCK_FAQ ? '출처 가이드는 가이드 관리에서 연결돼요.' : '게시는 FAQ에 가이드 출처를 연결하는 기능이 준비된 뒤에 쓸 수 있어요. 지금은 게시 전 상태로 저장돼요.'}
-      </div>
+      <label className="fpub">
+        <input type="checkbox" checked={willPublish} disabled={!pubOk} onChange={(e) => setPublish(e.target.checked)} />
+        <span>
+          <b>{edit ? '저장하면서 바로 게시' : '등록하면서 문의자에게 공개'}</b>
+          <small>{edit ? '끄면 "게시 중단"으로 저장돼요. 목록에서 "다시 게시"를 누르면 그때 공개돼요.' : '끄면 "게시 안 함"으로만 저장돼요. 문의자 FAQ에는 보이지 않고, 목록에서 "다시 게시"를 누르면 그때 공개돼요.'}</small>
+        </span>
+      </label>
+      <div className="hint">{pubOk ? '선택한 출처로 바로 게시할 수 있어요.' : '게시하려면 출처 가이드를 하나 이상 골라야 해요.'}</div>
       {err && (
         <div className="ferr" role="alert">
           {err}
@@ -351,7 +441,7 @@ function AddFaqDialog({ onClose, onDone }: { onClose: () => void; onDone: (messa
           취소
         </button>
         <button type="button" className="btn pri" disabled={busy} onClick={() => void submit()}>
-          등록
+          {edit ? '수정 저장' : '등록'}
         </button>
       </div>
     </Modal>

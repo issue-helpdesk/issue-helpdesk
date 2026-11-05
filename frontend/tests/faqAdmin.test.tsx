@@ -50,16 +50,82 @@ describe('FAQ 관리 화면 (모의)', () => {
     await userEvent.click(within(dlg).getByRole('button', { name: '등록' }))
     expect(await within(dlg).findByText('질문 제목을 입력해 주세요.')).toBeInTheDocument()
     expect(within(dlg).getByText('답변을 입력해 주세요.')).toBeInTheDocument()
+    expect(within(dlg).getByText('출처 가이드를 하나 이상 선택해 주세요.')).toBeInTheDocument()
     await choose(dlg, '분류', /HW/)
     // 분류별 포인트 색 막대가 목록 항목 앞에 붙는다 (가이드 관리와 같은 색)
     expect(within(dlg).getByLabelText('분류').querySelector('.tag.gcbar.c-HW')).not.toBeNull()
     await userEvent.type(within(dlg).getByLabelText('질문 제목'), '공용 프린터가 보이지 않아요')
     await userEvent.type(within(dlg).getByLabelText('답변'), '프린터 서버를 다시 추가해 주세요.')
     expect(within(dlg).queryByLabelText(/키워드/)).toBeNull() // 키워드 칸은 두지 않는다 (서버는 비워도 등록되고 화면에서 쓰이는 곳이 없다)
+    // 출처 가이드는 전 직원용 현행 가이드만 고를 수 있다 (제한 가이드는 목록에 없다). 고르기 전에는 게시 체크가 잠겨 있다
+    const group = await within(dlg).findByRole('group', { name: /출처 가이드/ }, SLOW)
+    expect(within(group).queryByText(/IT-SEC-004/)).toBeNull()
+    const pub = within(dlg).getByLabelText(/등록하면서 문의자에게 공개/)
+    expect(pub).toBeDisabled()
+    await userEvent.click(within(group).getByRole('checkbox', { name: /IT-HW-003/ }))
+    expect(pub).toBeEnabled()
     await userEvent.click(within(dlg).getByRole('button', { name: '등록' }))
     expect(await screen.findByText(/FAQ를 등록했어요/, {}, SLOW)).toBeInTheDocument()
     await waitFor(() => expect(count()).toBe(before + 1), SLOW)
     expect(screen.getByText('공용 프린터가 보이지 않아요')).toBeInTheDocument()
+    // 고른 출처가 FAQ 에 붙는다
+    const mine = screen.getByText('공용 프린터가 보이지 않아요').closest('details') as HTMLElement
+    await userEvent.click(mine.querySelector('summary')!)
+    expect(within(mine).getByText(/IT-HW-003/)).toBeInTheDocument()
+  })
+
+  it('분류를 고르면 출처 가이드 목록이 그 분류의 가이드로 바뀌고, 다른 분류에서 이미 고른 가이드는 사라지지 않는다', async () => {
+    renderAs('EMP-1178')
+    await screen.findByRole('group', { name: '분류' }, SLOW)
+    await userEvent.click(screen.getByRole('button', { name: /FAQ 등록/ }))
+    const dlg = await screen.findByRole('dialog', { name: 'FAQ 등록' })
+    const group = await within(dlg).findByRole('group', { name: /출처 가이드/ }, SLOW)
+    await within(group).findByText(/IT-ACC-001/, undefined, SLOW) // 기본 분류(계정·로그인)의 가이드
+    expect(within(group).queryByText(/IT-HW-003/)).toBeNull()
+    await choose(dlg, '분류', /HW/)
+    await waitFor(() => expect(within(group).queryByText(/IT-ACC-001/)).toBeNull())
+    expect(within(group).getByText(/IT-HW-003/)).toBeInTheDocument()
+    await userEvent.click(within(group).getByRole('checkbox', { name: /IT-HW-003/ }))
+    await choose(dlg, '분류', /계정/)
+    await within(group).findByText(/IT-ACC-001/, undefined, SLOW)
+    // 다른 분류에서 고른 가이드는 체크된 채로 남아 있고 안내가 붙는다
+    expect(within(group).getByRole('checkbox', { name: /IT-HW-003/ })).toBeChecked()
+    expect(within(group).getByText(/다른 분류에서 고른 가이드/)).toBeInTheDocument()
+  })
+
+  it('수정 창은 기존 내용과 출처를 채워 열고, 저장하면 게시가 중단되며 "바로 게시"를 켜면 다시 게시된다', async () => {
+    renderAs('EMP-1178')
+    await screen.findByRole('group', { name: '분류' }, SLOW)
+    const first = document.querySelector('details.faq') as HTMLElement
+    const title = first.querySelector('summary b')!.textContent!
+    await userEvent.click(first.querySelector('summary')!)
+    await userEvent.click(within(first).getByRole('button', { name: '수정' }))
+    const dlg = await screen.findByRole('dialog', { name: 'FAQ 수정' })
+    expect(within(dlg).getByLabelText('질문 제목')).toHaveValue(title)
+    expect(within(dlg).getByText(/수정을 저장하면 이 FAQ는 자동으로 게시가 중단돼요/)).toBeInTheDocument()
+    const group = await within(dlg).findByRole('group', { name: /출처 가이드/ }, SLOW)
+    await waitFor(() => expect(within(group).getAllByRole('checkbox').some((c) => (c as HTMLInputElement).checked)).toBe(true), SLOW)
+    // 게시를 끄고 저장하면 게시 중단으로 남는다
+    await userEvent.clear(within(dlg).getByLabelText('질문 제목'))
+    await userEvent.type(within(dlg).getByLabelText('질문 제목'), '수정한 질문')
+    await userEvent.click(within(dlg).getByLabelText(/저장하면서 바로 게시/))
+    await userEvent.click(within(dlg).getByRole('button', { name: '수정 저장' }))
+    expect(await screen.findByText(/게시가 중단된 상태/, {}, SLOW)).toBeInTheDocument()
+    const off = (await listFaqs(true)).ok ? ((await listFaqs(true)) as { ok: true; data: { question: string; active?: boolean }[] }).data.find((f) => f.question === '수정한 질문') : undefined
+    expect(off?.active).toBe(false)
+    // 다시 수정하면서 바로 게시를 켜면 게시된다
+    const again = (await screen.findByText('수정한 질문', {}, SLOW)).closest('details') as HTMLElement
+    await userEvent.click(again.querySelector('summary')!)
+    await userEvent.click(within(again).getByRole('button', { name: '수정' }))
+    const dlg2 = await screen.findByRole('dialog', { name: 'FAQ 수정' })
+    expect(within(dlg2).getByText(/지금은 게시 중단 상태예요/)).toBeInTheDocument()
+    await within(dlg2).findByRole('group', { name: /출처 가이드/ }, SLOW)
+    await waitFor(() => expect(within(dlg2).getByLabelText(/저장하면서 바로 게시/)).toBeEnabled(), SLOW)
+    await userEvent.click(within(dlg2).getByLabelText(/저장하면서 바로 게시/))
+    await userEvent.click(within(dlg2).getByRole('button', { name: '수정 저장' }))
+    expect(await screen.findByText(/수정하고 다시 게시했어요/, {}, SLOW)).toBeInTheDocument()
+    const on = await listFaqs(false)
+    expect(on.ok && on.data.some((f) => f.question === '수정한 질문')).toBe(true)
   })
 
   it('게시 중단하면 관리자에게는 "게시 중단" 표시로 남고 문의자 목록에서는 빠지며, 다시 게시할 수 있다', async () => {
@@ -148,6 +214,19 @@ describe('서버 모드 FAQ 관리 (VITE_USE_MOCK_FAQ=false)', () => {
     const f = { id: 'FAQ-001', serverId: 1, categoryCode: 'NET' as const, question: 'q', answer: 'a', sources: [], active: false }
     const again = await api.setFaqActive(f, true)
     expect(!again.ok && again.error.message).toContain('가이드 출처')
+  })
+
+  it('출처 가이드는 문서 ID 목록(sourceDocumentIds)으로 보내고, 수정은 PATCH 로 통째로 바꾼다', async () => {
+    const api = await load()
+    const src = [{ documentId: 12, docCode: 'IT-NET-001', title: 'VPN', version: 'v2' }]
+    fetchMock.mockResolvedValueOnce(json(201, sfaq(42))).mockResolvedValueOnce(json(200, sfaq(42, { isActive: false })))
+    await api.createFaq({ categoryCode: 'NET', question: 'q', answer: 'a', keywords: [], isActive: true, sources: src })
+    expect(JSON.parse(String(sent()[0].body))).toEqual({ categoryCode: 'NET', question: 'q', answer: 'a', keywords: [], isActive: true, sourceDocumentIds: [12] })
+    const f = { id: 'FAQ-042', serverId: 42, categoryCode: 'NET' as const, question: 'q', answer: 'a', sources: [] }
+    const r = await api.updateFaq(f, { question: 'q2', isActive: false, sources: [...src, { documentId: 13, docCode: 'IT-NET-002', title: 'Wi-Fi', version: 'v1' }] })
+    expect(r.ok && r.data.active).toBe(false)
+    expect(sent()[1]).toMatchObject({ url: '/api/v1/faqs/42', method: 'PATCH' })
+    expect(JSON.parse(String(sent()[1].body))).toEqual({ question: 'q2', isActive: false, sourceDocumentIds: [12, 13] })
   })
 
   it('게시 중단·삭제는 PATCH·DELETE 로 보낸다', async () => {

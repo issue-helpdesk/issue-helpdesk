@@ -44,11 +44,21 @@ export interface GuideSource {
   docCode: string
   /** 문서 제목 */
   title: string
+  /** 서버 문서 ID (FAQ 수정 때 연결된 출처를 미리 고르는 데 쓴다) */
+  documentId?: number
   /** 문서 버전 (document_versions.version, 예: v2) */
   version: string
   section: string
   /** 출처 미리보기에 보여 줄 요약 */
   excerpt: string
+  /** 본문의 `[그림] 설명` 줄에 대응하는 그림 (설명이 같은 것끼리 짝지어 보여 준다). 서버 모드에서만 온다 */
+  images?: GuideImageRef[]
+}
+
+/** 가이드 그림 (DC-11 `GET /guide-images/{key}` 로 받는다) */
+export interface GuideImageRef {
+  key: string
+  caption: string
 }
 
 /** 도입 이전 처리 이력(읽기 전용) 참고 표시 */

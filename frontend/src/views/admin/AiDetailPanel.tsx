@@ -4,13 +4,15 @@
  * 다른 행을 누르면 패널을 닫았다 열지 않고 안의 내용만 바뀐다. 대화 원문은 보여 주지 않는다.
  * 데이터: 제목·구분·분류·문의자는 목록 행, 판단 이력은 GET /inquiries/{id}/assessments, 사용한 가이드는 GET /inquiries/{id}/messages 의 출처.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { CATEGORIES } from '../../api/catalog'
 import { USE_MOCK_INQUIRY } from '../../core/config'
 import { listUsedGuides, type UsedGuide } from '../../api/inquirySources'
+import type { GuideSource } from '../../api/chatTypes'
 import type { AiRow } from '../../api/inquiries'
 import { mockJudgments } from '../../api/mock/aiRows'
 import { Icon } from '../../ui/Icon'
+import { SourcePreview } from '../../ui/SourcePreview'
 import { StateBadge } from '../../ui/StateBadge'
 import { AssessmentHistory } from '../staff/AssessmentHistory'
 
@@ -61,7 +63,7 @@ export function AiDetailPanel({ row, slide, onSlideEnd, onClose }: { row: AiRow;
     let alive = true
     setGuides(null)
     setGuideErr(false)
-    listUsedGuides(row.inquiryId, row.guide).then((r) => {
+    listUsedGuides(row.inquiryId, row.guide, row.cases).then((r) => {
       if (!alive) return
       if (r.ok) setGuides(r.data)
       else setGuideErr(true)
@@ -69,7 +71,7 @@ export function AiDetailPanel({ row, slide, onSlideEnd, onClose }: { row: AiRow;
     return () => {
       alive = false
     }
-  }, [row.id, row.inquiryId, row.guide])
+  }, [row.id, row.inquiryId, row.guide, row.cases])
 
   return (
     <aside
@@ -117,37 +119,68 @@ export function AiDetailPanel({ row, slide, onSlideEnd, onClose }: { row: AiRow;
         </div>
         {/* 같은 문의에서 패널 안만 바뀌도록 key 로 판단 이력을 다시 읽는다 */}
         {USE_MOCK_INQUIRY ? <AssessmentHistory key={row.id} inquiryId={row.inquiryId ?? 0} preset={mockJudgments(row)} /> : row.inquiryId !== null && <AssessmentHistory key={row.id} inquiryId={row.inquiryId} />}
-        <div>
-          <h4>사용한 가이드</h4>
-          {guideErr ? (
-            <div className="small muted" style={{ marginTop: 8 }}>
-              사용한 가이드를 불러오지 못했어요.
-            </div>
-          ) : guides === null ? (
-            <div className="small muted" role="status" style={{ marginTop: 8 }}>
-              불러오는 중이에요…
-            </div>
-          ) : guides.length === 0 ? (
-            <div className="small muted" style={{ marginTop: 8 }}>
-              사용한 가이드가 없어요. 근거가 될 문서를 찾지 못했거나 차단되어 AI가 답하지 못했을 수 있어요.
-            </div>
-          ) : (
-            guides.map((g, i) =>
-              g.kind === 'LEGACY' ? (
-                <span className="src" key={i} style={{ cursor: 'default' }}>
-                  과거 처리 사례 참고
-                </span>
-              ) : (
-                <span className="src" key={i} style={{ cursor: 'default' }}>
-                  <Icon name="file" size={16} />
-                  {[g.docCode, g.version].filter(Boolean).join(' ')}
-                  {g.location ? ` · ${g.location}` : ''}
-                </span>
-              ),
-            )
-          )}
-        </div>
+        {/* 다른 행을 누르면 펼침도 처음으로 */}
+        <UsedSources key={`used-${row.id}`} guides={guides} failed={guideErr} />
       </div>
     </aside>
+  )
+}
+
+/**
+ * 사용한 가이드와 참고한 과거 처리 사례. 서버는 과거 처리 사례를 문서 코드 없이 본문(excerpt)만 주므로,
+ * 가이드와 묶음을 나누고 사례는 누르면 아래에 본문을 짧게 펼쳐 보인다 (한 번에 하나).
+ */
+function UsedSources({ guides, failed }: { guides: UsedGuide[] | null; failed: boolean }) {
+  const uid = useId()
+  const [open, setOpen] = useState<number | null>(null)
+  // 가이드를 누르면 AI 가 근거로 쓴 본문(그림 포함)을 미리 본다
+  const [preview, setPreview] = useState<GuideSource | null>(null)
+  const docs = guides?.filter((g) => g.kind !== 'LEGACY') ?? []
+  const cases = guides?.filter((g) => g.kind === 'LEGACY') ?? []
+  return (
+    <>
+      <div>
+        <h4>사용한 가이드</h4>
+        {failed ? (
+          <div className="small muted" style={{ marginTop: 8 }}>
+            사용한 가이드를 불러오지 못했어요.
+          </div>
+        ) : guides === null ? (
+          <div className="small muted" role="status" style={{ marginTop: 8 }}>
+            불러오는 중이에요…
+          </div>
+        ) : docs.length === 0 ? (
+          <div className="small muted" style={{ marginTop: 8 }}>
+            {cases.length ? '사용한 가이드가 없어요. 아래 과거 처리 사례만 참고했어요.' : '사용한 가이드가 없어요. 근거가 될 문서를 찾지 못했거나 차단되어 AI가 답하지 못했을 수 있어요.'}
+          </div>
+        ) : (
+          docs.map((g, i) => (
+            <button key={i} type="button" className="src" title="AI가 근거로 쓴 본문 보기" onClick={() => setPreview({ docCode: g.docCode ?? '', title: '', version: g.version ?? '', section: g.location ?? '', excerpt: g.excerpt ?? '', images: g.images })}>
+              <Icon name="file" size={16} />
+              {[g.docCode, g.version].filter(Boolean).join(' ')}
+              {g.location ? ` · ${g.location}` : ''}
+            </button>
+          ))
+        )}
+      </div>
+      {cases.length > 0 && (
+        <div>
+          <h4>참고한 과거 처리 사례</h4>
+          <div style={{ marginTop: 8 }}>
+            {cases.map((_, i) => (
+              <button key={i} type="button" className="src" aria-expanded={open === i} aria-controls={`${uid}-case`} onClick={() => setOpen(open === i ? null : i)}>
+                과거 사례 {i + 1}
+              </button>
+            ))}
+          </div>
+          {open !== null && (
+            <div id={`${uid}-case`} className="small" role="region" aria-label={`과거 사례 ${open + 1} 본문`} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '8px 10px', marginTop: 6, whiteSpace: 'pre-wrap' }}>
+              {cases[open].excerpt?.trim() || '본문이 없어요.'}
+            </div>
+          )}
+        </div>
+      )}
+      {preview && <SourcePreview source={preview} demo={USE_MOCK_INQUIRY} onClose={() => setPreview(null)} />}
+    </>
   )
 }

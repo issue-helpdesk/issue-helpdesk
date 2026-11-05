@@ -167,7 +167,7 @@ const MOCK: AuditLog[] = [
   row(20, ago(0, 0, 56), 'INTEGRATION_RETRY', 'ticket', 1036, ADMIN, 'LINKED_EXISTING', 'Jira 이슈를 수동으로 만든 것 확인'),
   row(19, ago(0, 1, 12), 'BLOCK', 'inquiry', 214, null, 'DOC_BLOCKED', 'IT-SEC-003'),
   row(18, ago(0, 1, 12), 'BLOCK', 'inquiry', 215, null, 'ALL_BLOCKED'),
-  row(17, ago(0, 1, 28), 'FAIL', 'inquiry', 216, null, 'FILTER_FAILED', '④ 검색 근거 IT-SEC-003'),
+  row(17, ago(0, 1, 28), 'FAIL', 'inquiry', 216, null, 'FILTER_FAILED', '검색 근거 IT-SEC-003'),
   row(16, ago(0, 1, 46), 'FAIL', 'inquiry', 217, null, 'AI_FAILED', 'TIMEOUT'),
   row(15, ago(0, 2, 4), 'SENSITIVE_INPUT', 'inquiry', 218, user(11, 'EMP-1156', '최하은'), 'PASSWORD', '1건'),
   row(14, ago(0, 2, 25), 'URGENT_CLOSED', 'inquiry', 219, user(12, 'EMP-1049', '박서연'), 'CLOSED_UNRESOLVED'),
