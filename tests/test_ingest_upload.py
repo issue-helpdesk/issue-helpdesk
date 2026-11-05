@@ -16,7 +16,7 @@ import pytest
 
 from app.rag.chunker import chunk_document
 from app.rag.ingest import GUIDES, FakeEmbedder, IngestError, activate, connect, load_manifest
-from app.rag.ingest.upload import ingest_version, prepare_version, resolve_file, resume_pending, unknown_inquiry_types
+from app.rag.ingest.upload import check_images, ingest_version, prepare_version, resolve_file, resume_pending, unknown_inquiry_types
 from app.rag.parser import parse
 
 URL = os.environ.get('TEST_DATABASE_URL', '')
@@ -102,6 +102,74 @@ def test_prepare_warns_but_keeps_registered_values():
     prepare_version(row(code='IT-HW-001-M', file_path=guide_file('IT-HW-001-M'), scope='ALL', category='HW'),
                     REPO, CODES, m_warn)
     assert any('열람' in w for w in m_warn)                       # 매뉴얼(담당자 전용)을 ALL 로 등록
+
+
+def _image_keys(p):
+    return [i['key'] for r in p.rows for i in r['meta']['images']]
+
+
+@pytest.mark.parametrize('fmt', ['md', 'docx', 'pptx'])
+def test_prepare_keeps_images_same_as_deployed(fmt):
+    """정리본 그대로 올리면 형식과 상관없이 md 일괄 적재와 같은 그림 이름표. DB 행에는 sha256 을 넣지 않는다."""
+    warnings = []
+    p = prepare_version(row(file_path=guide_file('IT-SW-002', fmt)), REPO, CODES, warnings)
+    want = [i['key'] for c in chunk_document(parse(str(REPO / guide_file('IT-SW-002')))) for i in c.images]
+    assert want and _image_keys(p) == want
+    assert not [w for w in warnings if '그림' in w]
+    assert all(set(i) == {'key', 'caption'} for r in p.rows for i in r['meta']['images'])
+
+
+def test_prepare_pdf_has_no_image_keys():
+    assert _image_keys(prepare_version(row(file_path=guide_file('IT-SW-002', 'pdf')), REPO, CODES, [])) == []
+
+
+@pytest.mark.parametrize('fmt, media', [('docx', 'word/media/'), ('pptx', 'ppt/media/')])
+def test_prepare_drops_image_changed_in_file(tmp_path, fmt, media):
+    """같은 문서·그림 번호인데 파일 안 그림만 바꾼 새 버전: 배포된 옛 그림을 가리키지 않게 그 이름표를 뺀다 (PR #297 검수)."""
+    import zipfile
+    src = REPO / guide_file('IT-SW-002', fmt)
+    f = tmp_path / src.name
+    with zipfile.ZipFile(src) as zin, zipfile.ZipFile(f, 'w', zipfile.ZIP_DEFLATED) as zout:
+        target = sorted(n for n in zin.namelist() if n.startswith(media) and n.endswith('.png'))[0]
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            zout.writestr(item, data + b'changed' if item.filename == target else data)
+    warnings = []
+    p = prepare_version(row(file_path=str(f)), REPO, CODES, warnings)
+    same = prepare_version(row(file_path=guide_file('IT-SW-002', fmt)), REPO, CODES, [])
+    full = _image_keys(same)
+    assert len(_image_keys(p)) == len(full) - 1 and set(_image_keys(p)) < set(full)
+    assert [w for w in warnings if '배포 그림과 달라' in w and '1개' in w]
+    assert [r['content'] for r in p.rows] == [r['content'] for r in same.rows]     # 본문 '[그림] 설명' 줄은 그대로
+
+
+def test_check_images_drops_missing_and_bad_keys(tmp_path):
+    """배포 그림이 없거나 이름표 형식이 그림 API 와 다르면 뺀다 (새 문서·새 그림 번호는 404 대신 설명 줄만)."""
+    (tmp_path / 'SW').mkdir()
+    (tmp_path / 'SW' / 'IT-SW-002_3.1-1.png').write_bytes(b'png')
+    chunks = chunk_document(parse(str(REPO / guide_file('IT-SW-002'))))
+    total = sum(len(c.images) for c in chunks)
+    warnings = check_images(chunks, tmp_path)
+    assert [i['key'] for c in chunks for i in c.images] == ['SW/IT-SW-002_3.1-1.png']
+    assert len(warnings) == 1 and f'그림 {total - 1}개' in warnings[0]
+    c = chunks[0]
+    c.images = [{'key': 'SW/../SW/IT-SW-002_3.1-1.png', 'caption': ''}]
+    assert check_images([c], tmp_path) and c.images == []
+
+
+def test_check_images_compares_each_use_of_same_key():
+    """같은 이름표를 여러 곳에서 쓰면 쓰는 곳마다 따로 비교한다 (첫 비교 결과를 같은 이름표에 재사용하지 않게, PR #297 재검수)."""
+    import dataclasses
+    import hashlib
+    from app.rag.ingest.upload import GUIDE_IMAGES
+    key = 'SW/IT-SW-002_3.1-1.png'
+    good = hashlib.sha256((GUIDE_IMAGES / key).read_bytes()).hexdigest()
+    base = chunk_document(parse(str(REPO / guide_file('IT-SW-002'))))[0]
+    uses = [('같음', good), ('다름', '0' * 64), ('같음', good), ('다름', 'f' * 64)]
+    chunks = [dataclasses.replace(base, images=[{'key': key, 'caption': name, 'sha256': sha}]) for name, sha in uses]
+    warnings = check_images(chunks)
+    assert [[i['caption'] for i in c.images] for c in chunks] == [['같음'], [], ['같음'], []]
+    assert len(warnings) == 1 and '그림 2개' in warnings[0]
 
 
 def test_resolve_file_stays_inside_root(tmp_path):

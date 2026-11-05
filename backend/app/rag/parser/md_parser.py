@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from .common import TOC_TITLES, clean, finalize
+from .common import TOC_TITLES, clean, finalize, image_ext
 from .errors import ParseError
 from .models import Element, ParsedDocument
 
@@ -133,7 +133,8 @@ def parse_md(path: str, safe: bool = False) -> ParsedDocument:
                     out.append(Element('paragraph', _inline(t), meta={'cover_line': True} if cover else {}))
         elif img := IMAGE_RE.match(s):
             alt = _inline(img.group(1))
-            out.append(Element('image', alt, meta={'name': img.group(2).rsplit('/', 1)[-1]}))
+            name = img.group(2).rsplit('/', 1)[-1]
+            out.append(Element('image', alt, meta={'name': name, 'ext': image_ext(name)}))
             j = i + 1
             while j < len(lines) and not lines[j].strip():
                 j += 1

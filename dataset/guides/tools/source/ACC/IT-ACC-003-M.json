@@ -235,7 +235,7 @@
     },
     {
      "t": "fig",
-     "src": "acc_m003_flow.png",
+     "src": "IT-ACC-003-M_2-1.png",
      "caption": "MFA 문의 처리 흐름"
     }
    ],
@@ -570,7 +570,7 @@
       },
       {
        "t": "fig",
-       "src": "acc_m_iam_mfa.png",
+       "src": "IT-ACC-003-M_3.4-1.png",
        "caption": "계정 관리 콘솔 MFA 기기 관리: ① 기기 상태 ② 등록 해제·재등록 링크"
       },
       {
@@ -671,7 +671,7 @@
       },
       {
        "t": "fig",
-       "src": "acc_m_iam_mfa.png",
+       "src": "IT-ACC-003-M_3.5-1.png",
        "caption": "계정 관리 콘솔: 예전 기기 등록 해제 후 ② 재등록 링크 발송"
       },
       {

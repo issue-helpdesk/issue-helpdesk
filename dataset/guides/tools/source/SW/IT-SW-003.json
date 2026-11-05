@@ -421,12 +421,12 @@
       },
       {
        "t": "fig",
-       "src": "sw003_office_repair.png",
+       "src": "IT-SW-003_3.1-1.png",
        "caption": "Office 복구 방법 선택"
       },
       {
        "t": "fig",
-       "src": "sw003_reinstall.png",
+       "src": "IT-SW-003_3.1-2.png",
        "caption": "소프트웨어 센터 [설치됨] 탭의 [다시 설치]"
       },
       {
@@ -701,12 +701,12 @@
       },
       {
        "t": "fig",
-       "src": "sw003_excel_safe.png",
+       "src": "IT-SW-003_3.2-1.png",
        "caption": "Excel 응답 없음과 안전 모드 안내"
       },
       {
        "t": "fig",
-       "src": "sw003_com_addin.png",
+       "src": "IT-SW-003_3.2-2.png",
        "caption": "COM 추가 기능 해제",
        "points": [
         "① 문제 추가 기능의 체크 해제",
@@ -798,12 +798,12 @@
       },
       {
        "t": "fig",
-       "src": "sw003_protected_view.png",
+       "src": "IT-SW-003_3.3-1.png",
        "caption": "보호된 보기와 [편집 사용]"
       },
       {
        "t": "fig",
-       "src": "sw003_unblock.png",
+       "src": "IT-SW-003_3.3-2.png",
        "caption": "파일 속성의 [차단 해제]"
       },
       {
@@ -895,7 +895,7 @@
       },
       {
        "t": "fig",
-       "src": "sw003_app_login.png",
+       "src": "IT-SW-003_3.4-1.png",
        "caption": "멈춘 로그인 창과 [브라우저로 로그인]"
       },
       {
@@ -1072,7 +1072,7 @@
       },
       {
        "t": "fig",
-       "src": "sw003_ssl_error.png",
+       "src": "IT-SW-003_3.6-1.png",
        "caption": "터미널의 SSL 인증서 오류"
       },
       {

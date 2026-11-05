@@ -308,7 +308,7 @@
     },
     {
      "t": "fig",
-     "src": "acc_m001_flow.png",
+     "src": "IT-ACC-001-M_2-1.png",
      "caption": "SSO 로그인 문의 처리 흐름"
     }
    ],
@@ -472,7 +472,7 @@
       },
       {
        "t": "fig",
-       "src": "acc_m_iam_fail.png",
+       "src": "IT-ACC-001-M_3.2-1.png",
        "caption": "계정 관리 콘솔: ① 같은 기기·1분 간격 실패 = 저장된 예전 비밀번호"
       },
       {
@@ -569,7 +569,7 @@
       },
       {
        "t": "fig",
-       "src": "acc_m_sso_status.png",
+       "src": "IT-ACC-001-M_3.3-1.png",
        "caption": "SSO 서비스 상태: ① 인증 성공률·문의 급증 ② 인증서 만료·직전 배포"
       },
       {
@@ -673,7 +673,7 @@
       },
       {
        "t": "fig",
-       "src": "acc_m_iam_user.png",
+       "src": "IT-ACC-001-M_3.4-1.png",
        "caption": "계정 관리 콘솔: ① 계정 상태·인사 상태 확인 ② 콘솔 작업 버튼"
       },
       {
