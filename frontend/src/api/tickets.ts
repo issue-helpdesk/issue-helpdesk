@@ -193,8 +193,10 @@ export async function changeTicketStatus(user: User, id: number, body: TicketTra
   if (!to) return fail('VALIDATION_ERROR', '바꿀 상태를 골라 주세요.')
   const okMove = (t.workStatus === 'RDY' && to === 'WIP') || (t.workStatus === 'WIP' && to === 'FIN')
   if (!okMove) return fail('TICKET_INVALID_TRANSITION', '이 상태에서는 바꿀 수 없는 변경이에요.')
-  const note = (body.resolutionNote ?? t.resolutionNote ?? '').trim()
-  if (to === 'FIN' && !note) return fail('TICKET_RESOLUTION_NOTE_REQUIRED', '처리 결과를 입력해 주세요.')
+  // 재완료(미해결로 FIN → WIP 이 된 적 있는 접수의 WIP → FIN)는 저장된 이전 결과가 있어도 이번 요청에 새 처리 결과를 받는다
+  const reopened = historyOf(t).some((h) => h.fromStatus === 'FIN' && h.toStatus === 'WIP')
+  const note = (reopened ? (body.resolutionNote ?? '') : (body.resolutionNote ?? t.resolutionNote ?? '')).trim()
+  if (to === 'FIN' && !note) return fail('TICKET_RESOLUTION_NOTE_REQUIRED', reopened ? '다시 완료하려면 새 처리 결과를 입력해 주세요.' : '처리 결과를 입력해 주세요.')
   const from = t.workStatus
   pending.set(id, to)
   notify()
@@ -212,7 +214,8 @@ export async function changeTicketStatus(user: User, id: number, body: TicketTra
           s.finishedAt = nowIso()
         }
       })
-    addHistory(id, { fromStatus: from, toStatus: to, source: 'ITSSUE', actor: { id: user.id, employeeNo: user.employeeNo, name: user.name }, reason: null, resolutionNote: to === 'FIN' ? note : null, changedAt: nowIso() })
+    // 문의자 접수는 staffTransition 이 상태를 바꾸면서 이력도 남긴다 (여기서 또 남기면 같은 전환이 두 줄이 된다)
+    if (!rec) addHistory(id, { fromStatus: from, toStatus: to, source: 'ITSSUE', actor: { id: user.id, employeeNo: user.employeeNo, name: user.name }, reason: null, resolutionNote: to === 'FIN' ? note : null, changedAt: nowIso() })
     notify()
   })
   const cur = findStaffTicket(id)!

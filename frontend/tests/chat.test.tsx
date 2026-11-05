@@ -13,9 +13,9 @@ import type { Inquiry } from '../src/api/chatTypes'
 import { MOCK_ACCOUNTS } from '../src/api/mock/accounts'
 import { calcUrgency, detectCategory } from '../src/api/mock/chatEngine'
 import { ticketIdOfInquiry } from '../src/api/mock/staffTickets'
-import { getTicketHistory } from '../src/api/tickets'
+import { changeTicketStatus, getTicketHistory } from '../src/api/tickets'
 import { mockConfig } from '../src/api/mock/chatStore'
-import type { ApiResult } from '../src/api/types'
+import type { ApiResult, User } from '../src/api/types'
 import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
 
@@ -335,6 +335,32 @@ describe('접수 흐름 (API)', () => {
     // 지난 진행 카드는 기록으로 남고, 새 진행 카드가 붙는다
     expect(re.messages.filter((m) => m.card === 'ticket' && m.ticketSnapshot)).toHaveLength(1)
     expect(re.messages.filter((m) => m.card === 'ticket')).toHaveLength(2)
+  })
+
+  it('미해결로 처리 중으로 돌아가도 이전 처리 결과는 남고, 다시 완료하려면 새 처리 결과를 받아야 한다', async () => {
+    const d = await toDraft()
+    await data(confirmChatDraft(d.id, USER.employeeNo))
+    await settle()
+    await data(advanceChat(d.id, USER.employeeNo))
+    const fin = await data(advanceChat(d.id, USER.employeeNo))
+    const first = fin.ticket?.resolutionNote
+    expect(first).toBeTruthy()
+    const re = await data(rejectChat(d.id, USER.employeeNo, '같은 오류가 계속 나요'))
+    expect(re.ticket?.workStatus).toBe('WIP')
+    expect(re.ticket?.resolutionNote).toBe(first) // 비우지 않고 보존 (서버와 같다)
+    // 재완료: 저장된 이전 결과가 있어도 이번 요청에 새 처리 결과가 있어야 한다
+    const a = MOCK_ACCOUNTS.find((u) => u.employeeNo === 'EMP-1178')!
+    const admin = { id: a.id, employeeNo: a.employeeNo, name: a.name, serviceRole: 'ADMIN', departmentName: '' } as User
+    const tid = ticketIdOfInquiry(d.id)
+    const noNote = await changeTicketStatus(admin, tid, { workStatus: 'FIN' })
+    expect(!noNote.ok && noNote.error.code).toBe('TICKET_RESOLUTION_NOTE_REQUIRED')
+    const done = await changeTicketStatus(admin, tid, { workStatus: 'FIN', resolutionNote: '설정을 다시 바로잡았습니다.' })
+    expect(done.ok).toBe(true)
+    await waitFor(async () => expect((await get(d.id)).ticket).toMatchObject({ workStatus: 'FIN', resolutionNote: '설정을 다시 바로잡았습니다.' }), SLOW)
+    // 완료마다의 처리 결과는 이력에 각각 남는다
+    const h = await getTicketHistory(admin, tid)
+    const notes = (h.ok ? h.data.items : []).filter((x) => x.toStatus === 'FIN').map((x) => x.resolutionNote)
+    expect(notes).toEqual([first, '설정을 다시 바로잡았습니다.'])
   })
 
   it('사유 없이는 다시 확인을 요청할 수 없다', async () => {

@@ -775,7 +775,7 @@ export function denyResolved(rec: StoreRecord, reason: string) {
   logStatus(rec, 'WIP', { source: 'ITSSUE', reason: reason.trim() })
   t.workStatus = 'WIP'
   t.finishedAt = null
-  t.resolutionNote = ''
+  // 처리 결과는 비우지 않고 남긴다 (서버도 재처리 중 이전 결과를 보존하고, 재완료 때 새 결과로 덮어쓴다)
   inquiry.updatedAt = nowIso()
   push(inquiry, { role: 'assistant', blocks: [p('다시 확인을 요청했어요. 담당자가 재확인하고 있어요. 아래 카드에서 새 진행 상황을 볼 수 있어요.')], card: 'ticket' })
 }
