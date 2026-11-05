@@ -2,7 +2,7 @@
  * 접수 상세 패널. 처리할 문의 오른쪽에 붙는다. (design/ITssue-Prototype.html 의 티켓 상세, 담당자 보기)
  *
  * 처리 상태는 문의 상태 · ITSM 연동 · 배정 · 티켓 업무 · 상태 변경 순서의 체크리스트로 보여 준다.
- * 끝난 줄은 회색 한 줄이고, 지금 단계만 카드로 올라온다. 상태 변경(처리 시작·처리 결과 등록)은 TK-07(202)로 요청하며,
+ * 끝난 줄은 회색 한 줄이고, 지금 단계만 카드로 올라온다. 상태 변경(처리 시작)은 TK-07(202)로 요청하며,
  * 현재는 ITSM 에서 바꾸는 것이 기본이라 이 화면의 변경은 제안이다. ITSM 댓글·멘션은 알림만 전달하고 내용은 ITSM 에서 읽는다.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
@@ -19,7 +19,6 @@ import { useAuth } from '../../core/session'
 import { AssessmentHistory } from './AssessmentHistory'
 import { Icon } from '../../ui/Icon'
 import { ReassignDialog } from '../admin/ReassignDialog'
-import { Modal } from '../../ui/Modal'
 import { Toast } from '../../ui/Toast'
 import { UrgencyChip } from './QueueView'
 import { TicketStepper } from '../inquiry/TicketCard'
@@ -156,9 +155,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
   const [reassign, setReassign] = useState(false)
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
-  const [modal, setModal] = useState(false)
-  const [note, setNote] = useState('')
-  const [noteErr, setNoteErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [actErr, setActErr] = useState('')
   // 열릴 때 밀려 들어오고, 닫을 때 밀려 나간 뒤에 실제로 닫는다 (움직임 줄이기 설정이면 바로 닫는다)
@@ -255,18 +251,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
     }
     setT(r.data)
     return true
-  }
-
-  async function submitResult() {
-    if (!note.trim()) {
-      setNoteErr('처리 결과를 입력해 주세요.')
-      return
-    }
-    if (await change('FIN', note.trim())) {
-      setModal(false)
-      setNote('')
-      setNoteErr('')
-    } else setNoteErr('처리 결과를 등록하지 못했어요. 다시 시도해 주세요.')
   }
 
   const info = t && (
@@ -400,14 +384,14 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                       처리 시작 (RDY → WIP)
                     </button>
                   )}
-                  {mine && t.workStatus === 'WIP' && (
-                    <button type="button" className="btn pri block" disabled={busy || pending} onClick={() => setModal(true)}>
-                      처리 결과 등록 (WIP → FIN)
-                    </button>
-                  )}
-                  {mine && (t.workStatus === 'RDY' || t.workStatus === 'WIP') && (
+                  {mine && t.workStatus === 'RDY' && (
                     <div className="small muted" style={{ marginTop: 8 }}>
                       <span className="tag gray">제안</span> 현재는 ITSM에서 상태를 바꾸고 해결 방법을 입력해요. 이 화면에서 바꾸는 기능은 추후 제안이에요.
+                    </div>
+                  )}
+                  {mine && t.workStatus === 'WIP' && (
+                    <div className="small muted" style={{ marginTop: 8 }}>
+                      처리 결과는 ITSM에서 입력해요. 이 화면은 ITSM의 상태를 받아 와서 보여 줘요.
                     </div>
                   )}
                   {pending && (
@@ -511,39 +495,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
           />
         )}
         <Toast text={toast} />
-        {modal && (
-          <Modal title="처리 결과 등록" onClose={() => setModal(false)}>
-            <p className="small muted">문의자에게 보이는 내용이에요. 비밀번호·인증번호는 적지 마세요.</p>
-            <div className="field">
-              <label htmlFor="m-res">처리 결과</label>
-              <textarea
-                className={`ta${noteErr ? ' err' : ''}`}
-                id="m-res"
-                value={note}
-                placeholder="어떤 원인을 어떻게 조치했는지 적어 주세요"
-                aria-invalid={!!noteErr}
-                aria-describedby={noteErr ? 'm-res-e' : undefined}
-                onChange={(e) => {
-                  setNote(e.target.value)
-                  setNoteErr('')
-                }}
-              />
-              {noteErr && (
-                <div className="errtx" id="m-res-e" role="alert">
-                  {noteErr}
-                </div>
-              )}
-            </div>
-            <div className="acts">
-              <button type="button" className="btn sec" onClick={() => setModal(false)}>
-                취소
-              </button>
-              <button type="button" className="btn pri" disabled={busy} onClick={() => void submitResult()}>
-                등록하고 해결 확인 요청
-              </button>
-            </div>
-          </Modal>
-        )}
       </aside>
     </>
   )

@@ -290,6 +290,9 @@
 
 .count{padding-bottom:.18em!important}
 
+/* 최근 문의 항목(button.on)은 위 보정이 아래 여백만 줄여 선택한 칸의 글자가 아래 선에 붙었다: 원래 여백으로 되돌린다 */
+.recent .rt{padding-bottom:8px!important}
+
 
 
 /* 가이드 업로드 창: 올리는 방식 알약 · 하위 버전 목록 · 읽기 전용 칸 */

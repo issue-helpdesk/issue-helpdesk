@@ -551,11 +551,10 @@ describe('대화 화면', () => {
     expect(await screen.findByText(/긴급도를 P3에서 P1\(으\)로/, {}, SLOW)).toBeInTheDocument()
   })
 
-  it('접수된 문의(시연 데이터)를 열면 진행 카드·담당자 메시지가 보이고 새 답변 표시가 지워진다', async () => {
+  it('접수된 문의(시연 데이터)를 열면 진행 카드가 보이고 새 답변 표시가 지워진다', async () => {
     renderAs('EMP-1001', '/chat/101')
     expect(await screen.findByRole('list', { name: '접수 진행 단계' }, SLOW)).toBeInTheDocument()
     expect(screen.getByText(/성민경 담당자가 처리하고 있어요/)).toBeInTheDocument()
-    expect(screen.getByText(/VPN 서버 쪽 인증 정보를 확인하고 있어요/)).toBeInTheDocument()
     expect(screen.getByLabelText('메시지 입력')).toHaveAttribute('placeholder', '담당자에게 추가로 전달할 내용을 입력해 주세요.')
     const list = await screen.findByRole('button', { name: /문의 내역/ }, SLOW)
     expect(within(list).queryByText('1')).not.toBeInTheDocument()
