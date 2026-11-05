@@ -174,7 +174,7 @@ function UsedSources({ guides, failed }: { guides: UsedGuide[] | null; failed: b
             ))}
           </div>
           {open !== null && (
-            <div id={`${uid}-case`} className="small" role="region" aria-label={`과거 사례 ${open + 1} 본문`} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '8px 10px', marginTop: 6, whiteSpace: 'pre-wrap' }}>
+            <div id={`${uid}-case`} className="small" role="region" aria-label={`과거 사례 ${open + 1} 본문`} style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>
               {cases[open].excerpt?.trim() || '본문이 없어요.'}
             </div>
           )}
