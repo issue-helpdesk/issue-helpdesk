@@ -1,8 +1,5 @@
 """인증 API (AU-01~05) — SQLite 메모리 DB 로 돌린다. 공용 DB 에는 쓰지 않는다."""
-import os
 from datetime import timedelta
-
-os.environ.setdefault("JWT_SECRET", "test-secret-test-secret-test-secret-0123")
 
 import pytest
 from fastapi.testclient import TestClient

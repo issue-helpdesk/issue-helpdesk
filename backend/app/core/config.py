@@ -1,3 +1,4 @@
+import logging
 import os
 from functools import lru_cache
 from pathlib import Path
@@ -6,6 +7,8 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(ROOT / ".env")
+
+logger = logging.getLogger(__name__)
 
 class Settings:
     def __init__(self) -> None:
@@ -60,3 +63,14 @@ def get_auth_settings() -> AuthSettings:
 
 def to_sqlalchemy_url(url: str) -> str:
     return url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+# 없으면 경고 메시지만
+FEATURE_ENV_NAMES = ("LLM_API_KEY", "JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_WEBHOOK_SECRET")
+
+def check_startup_settings() -> None:
+    """API 서버가 시작할 때 부른다. 필수 설정이 틀리면 RuntimeError 로 시작을 막는다."""
+    get_settings()
+    get_auth_settings()
+    missing = [n for n in FEATURE_ENV_NAMES if not os.environ.get(n)]
+    if missing:
+        logger.warning("%s 이 없어 관련 기능이 동작하지 않습니다. 루트 .env 를 확인하세요.", ", ".join(missing))
