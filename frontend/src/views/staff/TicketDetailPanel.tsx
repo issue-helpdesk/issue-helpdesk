@@ -10,6 +10,7 @@ import { CATEGORIES, STAFF_STATUS } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { markTicketRead, refreshUnread } from '../../api/notifications'
 import { isRuleUrgencyReason } from '../../api/urgencyReason'
+import { friendlyAssignReason } from '../../api/assignReason'
 import { getAssignmentLogs, getTicket, getTicketHistory, syncTicket } from '../../api/tickets'
 import type { AssignmentLog, StatusHistory, TicketDetail } from '../../api/ticketTypes'
 import { USE_MOCK_TICKET } from '../../core/config'
@@ -18,7 +19,7 @@ import { useAuth } from '../../core/session'
 import { AssessmentHistory } from './AssessmentHistory'
 import { Icon } from '../../ui/Icon'
 import { ReassignDialog } from '../admin/ReassignDialog'
-import { Toast } from '../../ui/Toast'
+import { useToast } from '../../ui/useToast'
 import { UrgencyChip } from './QueueView'
 import { TicketStepper } from '../inquiry/TicketCard'
 
@@ -152,7 +153,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
   const [assigns, setAssigns] = useState<AssignmentLog[]>([])
   // 담당자 재배정 (관리자)
   const [reassign, setReassign] = useState(false)
-  const [toast, setToast] = useState('')
+  const { say } = useToast()
   const [error, setError] = useState('')
   // 열릴 때 밀려 들어오고, 닫을 때 밀려 나간 뒤에 실제로 닫는다 (움직임 줄이기 설정이면 바로 닫는다)
   const [slid, setSlid] = useState(false)
@@ -410,7 +411,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                             {x.reason && (
                               <p className="tln">
                                 <em>{x.event === 'REASSIGN' ? '재배정 사유' : x.event === 'FAIL' ? '실패 사유' : '근거'}</em>
-                                {x.reason}
+                                {friendlyAssignReason(x.reason, t?.workStatus)}
                               </p>
                             )}
                           </div>
@@ -456,12 +457,10 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
             onDone={(registered) => {
               setReassign(false)
               getAssignmentLogs(user, id).then((r) => r.ok && setAssigns(r.data.items))
-              setToast(registered ? '재배정을 등록했어요. 실행기가 ITSM에 반영하면 담당자가 바뀌어요.' : '재배정했어요. 진행 상태는 그대로 유지돼요.')
-              setTimeout(() => setToast(''), 2500)
+              say(registered ? '재배정을 등록했어요. 실행기가 ITSM에 반영하면 담당자가 바뀌어요.' : '재배정했어요. 진행 상태는 그대로 유지돼요.')
             }}
           />
         )}
-        <Toast text={toast} />
       </aside>
     </>
   )

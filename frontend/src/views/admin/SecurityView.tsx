@@ -4,7 +4,7 @@
  * 민감정보를 가린 내용만 보이고, 원문은 사유를 적어야 볼 수 있으며 열람 기록이 남는다. 상태: 신규 → 확인 중 → 종결(사유 필수).
  * 서버에는 이 기능의 API 가 없어 서버 모드에서도 시연 데이터로 동작한다. (api/security.ts, 요청 R-20)
  */
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import {
   SEC_TYPES,
@@ -28,7 +28,7 @@ import { CountUp } from '../../ui/CountUp'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { SelectBox } from '../../ui/SelectBox'
-import { Toast } from '../../ui/Toast'
+import { useToast } from '../../ui/useToast'
 import { SortTh } from '../../ui/SortTh'
 import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
@@ -71,7 +71,7 @@ export function SecurityView() {
   const [error, setError] = useState('')
   const [tick, setTick] = useState(0)
   const [openId, setOpenId] = useState<string | null>(null)
-  const [toast, setToast] = useState('')
+  const { say } = useToast()
   const admin = user?.serviceRole === 'ADMIN'
 
   useEffect(() => watchSecurity(() => setTick((n) => n + 1)), [])
@@ -89,11 +89,6 @@ export function SecurityView() {
       alive = false
     }
   }, [user, admin, status, type, tick])
-
-  const say = useCallback((m: string) => {
-    setToast(m)
-    setTimeout(() => setToast(''), 2500)
-  }, [])
 
   if (user && !admin) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
   if (!user) return null
@@ -234,7 +229,6 @@ export function SecurityView() {
         </div>
       </main>
       {openId && <SecurityDialog id={openId} onClose={() => setOpenId(null)} onToast={say} />}
-      <Toast text={toast} />
     </>
   )
 }

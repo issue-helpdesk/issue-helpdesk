@@ -18,7 +18,7 @@ import titleFaq from '../../assets/mascot/title-faq.webp'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { SelectBox } from '../../ui/SelectBox'
-import { Toast } from '../../ui/Toast'
+import { useToast } from '../../ui/useToast'
 import { SourceList } from '../../ui/SourceList'
 import { SourcePreview } from '../../ui/SourcePreview'
 import { Topbar } from '../../ui/Topbar'
@@ -52,7 +52,7 @@ export function FaqView() {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<Faq | null>(null)
   const [deleting, setDeleting] = useState<Faq | null>(null)
-  const [toast, setToast] = useState('')
+  const { say } = useToast()
   const [reload, setReload] = useState(0)
   const [preview, setPreview] = useState<GuideSource | null>(null)
   // 삭제하는 중인 FAQ (사라지는 모션용)
@@ -61,11 +61,6 @@ export function FaqView() {
   const [known, setKnown] = useState<{ ids: Set<string>; fresh: Set<string> } | null>(null)
   // 새 문의 화면의 추천 FAQ 에서 넘어오면(?open=FAQ-001) 그 FAQ 를 펼쳐서 보여 준다
   const openId = useSearchParams()[0].get('open')
-
-  const say = (m: string) => {
-    setToast(m)
-    setTimeout(() => setToast(''), 3000)
-  }
 
   // 처음 열 때와 관리자가 바꾼 뒤에 FAQ 목록을 불러온다 (화면이 사라진 뒤에는 상태를 바꾸지 않는다)
   useEffect(() => {
@@ -275,7 +270,6 @@ export function FaqView() {
           </div>
         </Modal>
       )}
-      <Toast text={toast} />
     </>
   )
 }

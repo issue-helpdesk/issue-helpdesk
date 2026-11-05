@@ -36,7 +36,8 @@ async function load(serviceRole?: string) {
     const auth = { user: { role: 'EMPLOYEE', serviceRole } }
     return { useAuth: () => auth }
   })
-  return { api: await import('../src/api/faq'), view: await import('../src/views/faq/FaqView') }
+  // 토스트 창고도 같은 모듈 묶음에서 가져와야 화면이 띄운 토스트가 보인다
+  return { api: await import('../src/api/faq'), view: await import('../src/views/faq/FaqView'), toast: await import('../src/ui/Toast') }
 }
 
 beforeEach(() => {
@@ -143,11 +144,12 @@ describe('서버 모드 FAQ 등록 창 (출처 가이드를 고르면 문서 ID 
 
 describe('서버 모드 FAQ 카드의 다시 게시 (출처 없는 FAQ 는 게시하지 않는다)', () => {
   it('출처가 없는 게시 중단 FAQ 는 다시 게시를 눌러도 서버에 보내지 않고 안내만 보인다', async () => {
-    const { view } = await load('ADMIN')
+    const { view, toast } = await load('ADMIN')
     fetchMock.mockImplementation(async (u: unknown) => (String(u).endsWith('/faqs/1') ? json(200, { ...faq(1, { isActive: false }), sources: [] }) : json(200, page([faq(1, { isActive: false })]))))
     render(
       <MemoryRouter>
         <view.FaqView />
+        <toast.ToastHost /> {/* 토스트는 앱 틀의 ToastHost 가 그린다 */}
       </MemoryRouter>,
     )
     await userEvent.click(await screen.findByText('질문 1'))

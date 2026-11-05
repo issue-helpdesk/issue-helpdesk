@@ -12,6 +12,7 @@ import { useAuth } from '../core/session'
 import { GuideIngestAlert } from './GuideIngestAlert'
 import { PasswordDialog } from './PasswordDialog'
 import { ScrollTop } from './ScrollTop'
+import { ToastHost } from './Toast'
 import { Sidebar } from './Sidebar'
 import { ShellContext } from './shellContext'
 
@@ -114,6 +115,8 @@ export function AppShell() {
         <ScrollTop />
         {/* 가이드 적재 실패 알림 창 (관리자, 어느 화면에서나) */}
         <GuideIngestAlert />
+        {/* 어느 화면의 토스트든 여기에 쌓여 보인다 */}
+        <ToastHost />
         {(forced || profileOpen) && <PasswordDialog forced={forced} onClose={() => setProfileOpen(false)} />}
       </div>
     </ShellContext.Provider>

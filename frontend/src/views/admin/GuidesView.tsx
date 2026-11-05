@@ -5,7 +5,7 @@
  * 문서·버전은 문서 API(DC-01·02·06·07·09), 해결 사례 묶음은 접수 목록(TK-05)을 읽어 화면에서 만든다.
  * 서버에 없는 버전 메모·정책 변경 사유·가이드 초안 만들기는 서버 모드에서 안내만 한다. (api/guides.ts, 요청 R-21~23)
  */
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
@@ -52,7 +52,7 @@ import { Collapse } from '../../ui/Collapse'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { SelectBox } from '../../ui/SelectBox'
-import { Toast } from '../../ui/Toast'
+import { useToast } from '../../ui/useToast'
 import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
 import { StaffStatus } from '../staff/QueueView'
@@ -116,17 +116,12 @@ export function GuidesView() {
   const failDocs = useMemo(() => new Set(failures.map((f) => f.docId)), [failures])
   const failCats = useMemo(() => new Set(failures.map((f) => f.cat)), [failures])
   const guidesRef = useRef<Guide[] | null>(null)
-  const [toast, setToast] = useState('')
+  const { say } = useToast()
   const [dlg, setDlg] = useState<null | { kind: 'upload' } | { kind: 'ingest'; g: Guide; v: GuideVersion } | { kind: 'active'; g: Guide; to: boolean } | { kind: 'tx'; g: Guide; v: GuideVersion; to: GuideTx } | { kind: 'note'; g: Guide; v: GuideVersion } | { kind: 'draft'; c: Cluster; i: number }>(null)
   const admin = user?.serviceRole === 'ADMIN'
   useEffect(() => {
     guidesRef.current = guides
   }, [guides])
-
-  const say = useCallback((m: string) => {
-    setToast(m)
-    setTimeout(() => setToast(''), 3000)
-  }, [])
 
   useEffect(() => watchGuides(() => setTick((n) => n + 1)), [])
   // 적재 추적이 결과를 알아내면(성공·실패·멈춤) 바로 다시 읽는다. 그래서 화면 쪽 주기 조회는 느려도 된다
@@ -278,8 +273,8 @@ export function GuidesView() {
                     <th className="c" title="이 가이드의 내용을 외부 AI 모델에 보내 답변 생성에 써도 되는지">
                       외부 AI 전송
                     </th>
-                    {USE_MOCK_GUIDE && <th>메모</th>}
-                    <th>현행 관리</th>
+                    {USE_MOCK_GUIDE && <th className="memo">메모</th>}
+                    <th className="c">현행 관리</th>
                     <th>올린 시각</th>
                   </tr>
                 </thead>
@@ -315,7 +310,7 @@ export function GuidesView() {
                         </div>
                       </td>
                       {USE_MOCK_GUIDE && (
-                        <td>
+                        <td className="memo">
                           <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
                             <span>{v.note || '-'}</span>
                             <button type="button" className="btn ghost sm" aria-label={`${v.version} 메모 수정`} onClick={() => setDlg({ kind: 'note', g, v })}>
@@ -324,7 +319,7 @@ export function GuidesView() {
                           </div>
                         </td>
                       )}
-                      <td>
+                      <td className="c">
                         {v.state !== '현행' && (
                           <button type="button" className="btn ghost sm" disabled={v.ready !== '준비 완료'} title={v.ready !== '준비 완료' ? '검색 준비가 끝나야 현행으로 바꿀 수 있어요' : v.state === '만료' ? '이전 버전을 다시 현행으로 되돌려요' : undefined} onClick={() => void makeCurrent(g, v)}>
                             현행 전환
@@ -731,7 +726,6 @@ export function GuidesView() {
           }}
         />
       )}
-      <Toast text={toast} />
     </>
   )
 }

@@ -6,7 +6,7 @@
  * 확인·재시도는 접수를 서버로 보내는 환경(VITE_SERVER_INTAKE)에서 연동 작업 재처리(TK-12)를 등록한다. 서버는 등록만 하고 실행기가 나중에 처리한다.
  * 담당자 지정은 서버의 배정 API(TK-09)로 예약하고, 마찬가지로 실행기가 반영한다.
  */
-import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { URGENCY_LABEL } from '../../api/catalog'
 import type { Urgency } from '../../api/chatTypes'
@@ -22,7 +22,7 @@ import { FilterPill } from '../../ui/FilterPill'
 import { Collapse } from '../../ui/Collapse'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
-import { Toast } from '../../ui/Toast'
+import { useToast } from '../../ui/useToast'
 import { Topbar } from '../../ui/Topbar'
 import { StaffStatus, UrgencyChip } from '../staff/QueueView'
 import { ReassignDialog } from './ReassignDialog'
@@ -97,7 +97,7 @@ export function OpsView() {
   const [resMore, setResMore] = useState(false)
   const [curOpen, setCurOpen] = useState(false)
   const [pending, setPending] = useState<number[]>([])
-  const [toast, setToast] = useState('')
+  const { say } = useToast()
   const [check, setCheck] = useState<TicketSummary | null>(null)
   const [assign, setAssign] = useState<TicketDetail | null>(null)
   const [busy, setBusy] = useState(false)
@@ -105,7 +105,6 @@ export function OpsView() {
   const [tick, setTick] = useState(0)
   const [opened] = useState(() => new Date().toISOString())
   const [reload, setReload] = useState(0)
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const admin = user?.serviceRole === 'ADMIN'
   const groupId = groups.find((g) => g.name === team)?.id
@@ -151,14 +150,6 @@ export function OpsView() {
       alive = false
     }
   }, [user, admin, groups, tick, reload])
-
-  useEffect(() => () => clearTimeout(timer.current), [])
-
-  const say = useCallback((m: string) => {
-    setToast(m)
-    clearTimeout(timer.current)
-    timer.current = setTimeout(() => setToast(''), 3000)
-  }, [])
 
   /** 같은 접수의 요청과 결과는 한 줄로 묶고, 가장 최근에 건드린 건이 맨 위에 온다 */
   const note = useCallback((t: { id: number; receiptNo: string; jiraKey?: string | null }, text: string, st: 'req' | 'done' = 'done') => {
@@ -621,7 +612,6 @@ export function OpsView() {
           }}
         />
       )}
-      <Toast text={toast} />
     </>
   )
 }
