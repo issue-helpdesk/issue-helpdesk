@@ -52,7 +52,6 @@ import { Collapse } from '../../ui/Collapse'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { SelectBox } from '../../ui/SelectBox'
-import { Toast } from '../../ui/Toast'
 import { useToast } from '../../ui/useToast'
 import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
@@ -117,7 +116,7 @@ export function GuidesView() {
   const failDocs = useMemo(() => new Set(failures.map((f) => f.docId)), [failures])
   const failCats = useMemo(() => new Set(failures.map((f) => f.cat)), [failures])
   const guidesRef = useRef<Guide[] | null>(null)
-  const { toast, say } = useToast()
+  const { say } = useToast()
   const [dlg, setDlg] = useState<null | { kind: 'upload' } | { kind: 'ingest'; g: Guide; v: GuideVersion } | { kind: 'active'; g: Guide; to: boolean } | { kind: 'tx'; g: Guide; v: GuideVersion; to: GuideTx } | { kind: 'note'; g: Guide; v: GuideVersion } | { kind: 'draft'; c: Cluster; i: number }>(null)
   const admin = user?.serviceRole === 'ADMIN'
   useEffect(() => {
@@ -274,7 +273,7 @@ export function GuidesView() {
                     <th className="c" title="이 가이드의 내용을 외부 AI 모델에 보내 답변 생성에 써도 되는지">
                       외부 AI 전송
                     </th>
-                    {USE_MOCK_GUIDE && <th>메모</th>}
+                    {USE_MOCK_GUIDE && <th className="memo">메모</th>}
                     <th className="c">현행 관리</th>
                     <th>올린 시각</th>
                   </tr>
@@ -311,7 +310,7 @@ export function GuidesView() {
                         </div>
                       </td>
                       {USE_MOCK_GUIDE && (
-                        <td>
+                        <td className="memo">
                           <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
                             <span>{v.note || '-'}</span>
                             <button type="button" className="btn ghost sm" aria-label={`${v.version} 메모 수정`} onClick={() => setDlg({ kind: 'note', g, v })}>
@@ -727,7 +726,6 @@ export function GuidesView() {
           }}
         />
       )}
-      <Toast text={toast} />
     </>
   )
 }

@@ -18,7 +18,6 @@ import titleFaq from '../../assets/mascot/title-faq.webp'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { SelectBox } from '../../ui/SelectBox'
-import { Toast } from '../../ui/Toast'
 import { useToast } from '../../ui/useToast'
 import { SourceList } from '../../ui/SourceList'
 import { SourcePreview } from '../../ui/SourcePreview'
@@ -53,7 +52,7 @@ export function FaqView() {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<Faq | null>(null)
   const [deleting, setDeleting] = useState<Faq | null>(null)
-  const { toast, say } = useToast()
+  const { say } = useToast()
   const [reload, setReload] = useState(0)
   const [preview, setPreview] = useState<GuideSource | null>(null)
   // 삭제하는 중인 FAQ (사라지는 모션용)
@@ -271,7 +270,6 @@ export function FaqView() {
           </div>
         </Modal>
       )}
-      <Toast text={toast} />
     </>
   )
 }

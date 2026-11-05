@@ -28,7 +28,6 @@ import { CountUp } from '../../ui/CountUp'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { SelectBox } from '../../ui/SelectBox'
-import { Toast } from '../../ui/Toast'
 import { useToast } from '../../ui/useToast'
 import { SortTh } from '../../ui/SortTh'
 import { StateBadge } from '../../ui/StateBadge'
@@ -72,7 +71,7 @@ export function SecurityView() {
   const [error, setError] = useState('')
   const [tick, setTick] = useState(0)
   const [openId, setOpenId] = useState<string | null>(null)
-  const { toast, say } = useToast()
+  const { say } = useToast()
   const admin = user?.serviceRole === 'ADMIN'
 
   useEffect(() => watchSecurity(() => setTick((n) => n + 1)), [])
@@ -230,7 +229,6 @@ export function SecurityView() {
         </div>
       </main>
       {openId && <SecurityDialog id={openId} onClose={() => setOpenId(null)} onToast={say} />}
-      <Toast text={toast} />
     </>
   )
 }

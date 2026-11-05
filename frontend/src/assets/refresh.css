@@ -486,12 +486,13 @@
 /* 가이드 적재 실패 표시: 점(사이드바·분류·가이드), 버전 표의 준비 실패 배지 단추, 알림 창 목록. 버전 칸은 줄바꿈 없이 넓게 */
 .count.dot{min-width:8px;width:8px;height:8px;padding:0;font-size:0;line-height:0;border-radius:50%;background:var(--s-urg-dot);color:transparent}
 .fdot{display:inline-block;width:8px;height:8px;margin-left:8px;border-radius:50%;background:var(--s-urg-dot);vertical-align:middle;box-shadow:0 0 0 3px color-mix(in srgb,var(--s-urg-dot) 22%,transparent)}
-.gvt .tbl th:first-child,.gvt .tbl td:first-child{white-space:nowrap;width:1%;min-width:72px;padding-left:20px}
-/* 버전·상태는 내용만큼만, 남는 폭은 검색 준비와 외부 AI 전송에 준다 */
-.gvt .tbl th:nth-child(2),.gvt .tbl td:nth-child(2){width:1%;white-space:nowrap}
-.gvt .tbl th:nth-child(3),.gvt .tbl td:nth-child(3){min-width:136px}
-.gvt .tbl th:nth-child(5),.gvt .tbl td:nth-child(5){min-width:300px}
-.gvt .tbl th{white-space:nowrap}.gvt .tbl td:nth-child(4){white-space:nowrap}
+/* 버전 표: 열은 내용만큼만 쓰고(왼쪽으로 모여 열 사이가 벌어지지 않게), 남는 폭은 맨 끝 "올린 시각" 열이 받는다 */
+.gvt .tbl th,.gvt .tbl td{white-space:nowrap;width:1%;padding-left:14px;padding-right:14px}
+.gvt .tbl th:first-child,.gvt .tbl td:first-child{padding-left:20px}
+.gvt .tbl th:last-child,.gvt .tbl td:last-child{width:auto}
+.gvt .tbl th:nth-child(3),.gvt .tbl td:nth-child(3){min-width:128px}
+/* 모의 모드의 메모 열은 길면 줄을 바꾼다 */
+.gvt .tbl .memo{white-space:normal;width:auto;min-width:150px}
 .gvt .tbl td .rfail{display:inline-flex;flex-direction:column;align-items:center;gap:2px;background:none;border:0;padding:2px 4px;border-radius:10px;cursor:pointer;font:inherit}
 .gvt .tbl td .rfail:hover{background:var(--osoft)}.gvt .tbl td .rfail:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px}
 .rfm{font-size:12px;color:var(--link);text-decoration:underline;text-underline-offset:2px}

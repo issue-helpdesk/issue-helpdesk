@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { friendlyAssignReason } from '../src/api/assignReason'
-import { toastMs } from '../src/ui/useToast'
+import { toastMs } from '../src/ui/toastStore'
 
 describe('배정 실패 사유 표시', () => {
   it('알려진 코드는 풀어 쓰고 Jira 는 ITSM 으로 쓴다', () => {

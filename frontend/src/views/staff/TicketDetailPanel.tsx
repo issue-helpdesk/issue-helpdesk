@@ -19,7 +19,6 @@ import { useAuth } from '../../core/session'
 import { AssessmentHistory } from './AssessmentHistory'
 import { Icon } from '../../ui/Icon'
 import { ReassignDialog } from '../admin/ReassignDialog'
-import { Toast } from '../../ui/Toast'
 import { useToast } from '../../ui/useToast'
 import { UrgencyChip } from './QueueView'
 import { TicketStepper } from '../inquiry/TicketCard'
@@ -154,7 +153,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
   const [assigns, setAssigns] = useState<AssignmentLog[]>([])
   // 담당자 재배정 (관리자)
   const [reassign, setReassign] = useState(false)
-  const { toast, say } = useToast()
+  const { say } = useToast()
   const [error, setError] = useState('')
   // 열릴 때 밀려 들어오고, 닫을 때 밀려 나간 뒤에 실제로 닫는다 (움직임 줄이기 설정이면 바로 닫는다)
   const [slid, setSlid] = useState(false)
@@ -462,7 +461,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
             }}
           />
         )}
-        <Toast text={toast} />
       </aside>
     </>
   )

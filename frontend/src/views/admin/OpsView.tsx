@@ -22,7 +22,6 @@ import { FilterPill } from '../../ui/FilterPill'
 import { Collapse } from '../../ui/Collapse'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
-import { Toast } from '../../ui/Toast'
 import { useToast } from '../../ui/useToast'
 import { Topbar } from '../../ui/Topbar'
 import { StaffStatus, UrgencyChip } from '../staff/QueueView'
@@ -98,7 +97,7 @@ export function OpsView() {
   const [resMore, setResMore] = useState(false)
   const [curOpen, setCurOpen] = useState(false)
   const [pending, setPending] = useState<number[]>([])
-  const { toast, say } = useToast()
+  const { say } = useToast()
   const [check, setCheck] = useState<TicketSummary | null>(null)
   const [assign, setAssign] = useState<TicketDetail | null>(null)
   const [busy, setBusy] = useState(false)
@@ -613,7 +612,6 @@ export function OpsView() {
           }}
         />
       )}
-      <Toast text={toast} />
     </>
   )
 }
