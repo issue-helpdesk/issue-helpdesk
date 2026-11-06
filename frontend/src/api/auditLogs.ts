@@ -107,7 +107,8 @@ export function describeAudit(x: Pick<AuditLog, 'eventType' | 'result' | 'reason
       if (res === 'DOC_BLOCKED') return t('', '근거 문서 차단', reason ? `문서 ${reason}` : '')
       return t('', res === 'ALL_BLOCKED' ? '근거 전체 차단, 담당자 연결 제안' : res)
     case 'FAIL':
-      return t('', { FILTER_FAILED: '민감정보 필터 실패', AI_FAILED: 'AI 답변 실패' }[res] ?? res)
+      // 사유 앞의 "④ "는 서버 내부의 민감정보 필터 적용 지점 번호라 관리자에게는 뜻이 없어 뗀다 (docs/api/06 확인 문구 4번)
+      return t('', { FILTER_FAILED: '민감정보 필터 실패', AI_FAILED: 'AI 답변 실패' }[res] ?? res, reason.replace(/^[①-⑳]\s*/, ''))
     case 'SENSITIVE_INPUT':
       return t('', `가린 항목: ${SENSITIVE_LABEL[res] ?? res}`)
     case 'URGENT_CLOSED':
