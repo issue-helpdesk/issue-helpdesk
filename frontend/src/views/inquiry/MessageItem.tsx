@@ -169,18 +169,25 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false,
           </div>
         )}
 
-        {m.card === 'draft' && inquiry.draft && (
-          <DraftCard
-            draft={inquiry.draft}
-            state={inquiry.draftState}
-            note={inquiry.draftNote}
-            active={m.id === lastDraftId}
-            busy={busy}
-            onConfirm={actions.confirmDraft}
-            onSave={actions.saveDraft}
-            onCancel={actions.cancelDraft}
-          />
-        )}
+        {m.card === 'draft' &&
+          (() => {
+            // 작성 중인 마지막 초안은 화면이 들고 있는 최신 내용으로, 접수·취소된 지난 초안은 서버가 메시지에 담아 준 내용으로 읽기 전용으로 보인다 (R-29)
+            const live = m.id === lastDraftId ? inquiry.draft : null
+            const d = live ?? m.draft ?? inquiry.draft
+            if (!d) return null
+            return (
+              <DraftCard
+                draft={d}
+                state={live ? inquiry.draftState : (m.draftState ?? inquiry.draftState)}
+                note={live ? inquiry.draftNote : ''}
+                active={m.id === lastDraftId}
+                busy={busy}
+                onConfirm={actions.confirmDraft}
+                onSave={actions.saveDraft}
+                onCancel={actions.cancelDraft}
+              />
+            )
+          })()}
 
         {m.card === 'ticket' && (m.ticketSnapshot ?? inquiry.ticket) && (
           <TicketCard ticket={(m.ticketSnapshot ?? inquiry.ticket)!} readOnly={!!m.ticketSnapshot} busy={busy} onResolve={actions.resolve} onReject={actions.reject} onDetail={actions.openDetail} />
