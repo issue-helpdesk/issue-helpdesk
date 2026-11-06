@@ -102,14 +102,8 @@ describe('운영 현황 화면', () => {
     expect(within(section(/티켓 연동 확인/)).getByText(/^\d+건$/)).toBeInTheDocument()
     expect(within(section(/담당자 배정 확인/)).getByText(/^\d+건$/)).toBeInTheDocument()
     expect(section(/티켓 연동 확인/)).toHaveClass('need')
-    // 팀별 개인 현황: 첫 그룹의 구성원 표와 근무/전체 칩
-    const grp = await screen.findByRole('group', { name: '담당 그룹' }, SLOW)
-    expect(within(grp).getByRole('button', { name: /^서비스데스크\s*3\/4/ })).toBeInTheDocument()
-    // 팀별 개인 현황은 처음에 접혀 있고, 팀 칩 옆 버튼으로 펼친다
-    expect(screen.queryByText('부재 (연차)')).toBeNull()
-    await userEvent.click(within(grp).getByRole('button', { name: /^네트워크팀/ }))
-    await userEvent.click(screen.getByRole('button', { name: /담당자 펼치기/ }))
-    expect(await screen.findByText('부재 (연차)')).toBeInTheDocument()
+    // 팀별 개인 현황은 캘린더 화면 맨 아래로 옮겼다
+    expect(screen.queryByRole('group', { name: '담당 그룹' })).toBeNull()
     unmount()
     renderAs('EMP-1004', '/ops')
     expect(await screen.findByRole('heading', { name: /내 담당 문의/ }, SLOW)).toBeInTheDocument()

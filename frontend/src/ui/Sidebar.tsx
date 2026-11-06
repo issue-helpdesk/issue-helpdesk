@@ -55,12 +55,12 @@ const EXTRA_MENU: Partial<Record<ServiceRole, { group: string; items: NavItem[] 
     items: [
       { to: '/dash', label: '대시보드', icon: 'home' },
       { to: '/stats', label: '통계', icon: 'chart' },
-      { to: '/calendar', label: '캘린더', icon: 'calendar' },
       { to: '/ops', label: '운영 현황', icon: 'alert' },
       { to: '/security', label: '보안·감사 알림', icon: 'bell' },
       { to: '/audit', label: '운영 기록', icon: 'clock' },
       { to: '/tickets', label: '전체 문의', icon: 'file' },
       { to: '/guides', label: '가이드 관리', icon: 'folder' },
+      { to: '/calendar', label: '캘린더', icon: 'calendar' },
       { to: '/accounts', label: '계정 관리', icon: 'user' },
       { to: '/ai', label: 'AI 운영', icon: 'shield' },
     ],

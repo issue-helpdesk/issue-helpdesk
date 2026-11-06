@@ -140,4 +140,4 @@ button.grb{width:100%;display:flex;align-items:center;justify-content:space-betw
 
 /* 표 보기에서 값이 0 인 칸(AI 운영): 흐리게 해서 값이 있는 칸과 구분한다 */
 .hvt td.zero{opacity:.4}
-.gbs{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.gbs{display:grid;grid-template-columns:100px 118px;gap:8px;align-items:center;justify-items:start;flex:none}.gbs>span{min-width:0}

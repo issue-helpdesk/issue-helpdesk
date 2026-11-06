@@ -8,20 +8,22 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { listBoard, listSupportGroups, type Candidate } from '../../api/reference'
 import { createTimeOff, deleteTimeOff, listTimeOff, TIME_OFF_LABEL, ymd, type TimeOff, type TimeOffType } from '../../api/timeOff'
 import titleOps from '../../assets/mascot/title-ops.webp'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
+import { FilterPill } from '../../ui/FilterPill'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { SelectBox } from '../../ui/SelectBox'
 import { Topbar } from '../../ui/Topbar'
 import { useToast } from '../../ui/useToast'
+import { TeamBoard } from '../admin/TeamBoard'
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토']
 const KIND_CLS: Record<TimeOffType, string> = { ANNUAL: 'an', HALF_AM: 'am', HALF_PM: 'pm' }
 
-const pad = (n: number) => String(n).padStart(2, '0')
 const fmtDay = (s: string) => {
   const d = new Date(`${s}T00:00:00`)
   return `${d.getMonth() + 1}/${d.getDate()}(${DOW[d.getDay()]})`
@@ -49,11 +51,26 @@ export function CalendarView() {
   const [error, setError] = useState('')
   const [scope, setScope] = useState<'all' | 'mine'>('all')
   const [tick, setTick] = useState(0)
+  // 팀별로 보기 (관리자): 팀 구성원 표로 일정 주인을 팀에 맞춘다
+  const [team, setTeam] = useState('')
+  const [board, setBoard] = useState<Record<string, Candidate[]>>({})
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<TimeOff | null>(null)
   const { say, fail } = useToast()
   const allowed = user?.serviceRole === 'AGENT' || user?.serviceRole === 'ADMIN'
   const admin = user?.serviceRole === 'ADMIN'
+
+  useEffect(() => {
+    if (!user || user.serviceRole !== 'ADMIN') return
+    let alive = true
+    listSupportGroups().then((g) => {
+      if (!alive || !g.ok) return
+      listBoard(user, g.data.map((x) => x.name)).then((r) => alive && r.ok && setBoard(r.data))
+    })
+    return () => {
+      alive = false
+    }
+  }, [user])
 
   const days = useMemo(() => gridDays(ym.y, ym.m), [ym])
 
@@ -75,10 +92,8 @@ export function CalendarView() {
   if (user && !allowed) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
   if (!user) return null
 
-  const items = (all ?? []).filter((t) => scope === 'all' || t.userId === user.id)
-  const monthFrom = `${ym.y}-${pad(ym.m + 1)}-01`
-  const monthTo = ymd(new Date(ym.y, ym.m + 1, 0))
-  const inMonth = items.filter((t) => t.startDate <= monthTo && t.endDate >= monthFrom)
+  const teamIds = team ? new Set((board[team] ?? []).map((c) => c.id)) : null
+  const items = (all ?? []).filter((t) => (scope === 'all' || t.userId === user.id) && (!teamIds || teamIds.has(t.userId)))
   const onDay = (d: string) => items.filter((t) => t.startDate <= d && t.endDate >= d)
   const move = (delta: number) => setYm((c) => { const d = new Date(c.y, c.m + delta, 1); return { y: d.getFullYear(), m: d.getMonth() } })
   const showAllLabel = admin ? '전체' : '보이는 일정'
@@ -121,6 +136,9 @@ export function CalendarView() {
                 </button>
               </div>
               <div className="calact">
+                {admin && Object.keys(board).length > 0 && (
+                  <FilterPill label="팀" value={team} options={Object.keys(board).map((g) => ({ value: g, label: g }))} onChange={setTeam} />
+                )}
                 {admin && (
                   <div className="seg" role="group" aria-label="보기 범위">
                     <button type="button" className={scope === 'mine' ? 'on' : ''} aria-pressed={scope === 'mine'} onClick={() => setScope('mine')}>
@@ -163,9 +181,15 @@ export function CalendarView() {
                     <div key={d} className={`cd${out ? ' out' : ''}${d === today ? ' today' : ''}`} role="gridcell" aria-current={d === today ? 'date' : undefined}>
                       <span className="dn">{Number(d.slice(8))}</span>
                       {evs.map((t) => (
-                        <span key={t.id} className={`ev ${KIND_CLS[t.timeOffType]}`} title={`${t.user.name} · ${TIME_OFF_LABEL[t.timeOffType]}${t.note ? ` · ${t.note}` : ''}`}>
-                          {t.user.name} {TIME_OFF_LABEL[t.timeOffType]}
-                        </span>
+                        t.userId === user.id ? (
+                          <button key={t.id} type="button" className={`ev ${KIND_CLS[t.timeOffType]} mine`} title={`${t.user.name} · ${TIME_OFF_LABEL[t.timeOffType]}${t.note ? ` · ${t.note}` : ''} · 눌러서 삭제`} aria-label={`${period(t)} ${TIME_OFF_LABEL[t.timeOffType]} 삭제`} onClick={() => setRemoving(t)}>
+                            {t.user.name} {TIME_OFF_LABEL[t.timeOffType]}
+                          </button>
+                        ) : (
+                          <span key={t.id} className={`ev ${KIND_CLS[t.timeOffType]}`} title={`${t.user.name} · ${TIME_OFF_LABEL[t.timeOffType]}${t.note ? ` · ${t.note}` : ''}`}>
+                            {t.user.name} {TIME_OFF_LABEL[t.timeOffType]}
+                          </span>
+                        )
                       ))}
                     </div>
                   )
@@ -173,57 +197,14 @@ export function CalendarView() {
               </div>
             </div>
 
-            <div className="panel">
-              <h3 style={{ margin: '0 0 8px' }}>
-                {ym.m + 1}월 일정 <span className="small muted">{inMonth.length}건</span>
-              </h3>
-              {all === null && !error ? (
-                <div className="muted small" role="status">
-                  불러오는 중이에요.
-                </div>
-              ) : inMonth.length === 0 ? (
-                <div className="muted" style={{ padding: '14px 0' }}>
-                  이번 달 등록된 부재 일정이 없어요. 연차나 반차 계획이 있으면 미리 등록해 두세요.
-                </div>
-              ) : (
-                <div className="tw">
-                  <table className="tbl">
-                    <thead>
-                      <tr>
-                        <th>구성원</th>
-                        <th>유형</th>
-                        <th>기간</th>
-                        <th>메모</th>
-                        <th>
-                          <span className="sr">관리</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {inMonth.map((t) => (
-                        <tr key={t.id}>
-                          <td>
-                            <b>{t.user.name}</b>
-                          </td>
-                          <td>
-                            <span className={`evt ${KIND_CLS[t.timeOffType]}`}>{TIME_OFF_LABEL[t.timeOffType]}</span>
-                          </td>
-                          <td>{period(t)}</td>
-                          <td>{t.note || '—'}</td>
-                          <td>
-                            {t.userId === user.id && (
-                              <button type="button" className="btn ghost sm" aria-label={`${period(t)} ${TIME_OFF_LABEL[t.timeOffType]} 삭제`} onClick={() => setRemoving(t)}>
-                                삭제
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+            {all === null && !error && (
+              <div className="muted small" role="status">
+                불러오는 중이에요.
+              </div>
+            )}
+            <p className="small muted">내 일정(굵은 테두리)을 누르면 삭제할 수 있어요.</p>
+
+            {admin && <TeamBoard />}
           </div>
         </div>
       </main>

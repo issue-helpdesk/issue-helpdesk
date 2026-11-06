@@ -8,7 +8,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { getAdminStatsSource, type AdminStatKey, type StatCounts, type StatsOverview } from '../../api/adminStats'
-import { URGENCY_LABEL } from '../../api/catalog'
 import type { AiPage } from '../../api/inquiries'
 import { watchTickets } from '../../api/tickets'
 import titleOps from '../../assets/mascot/title-ops.webp'
@@ -20,8 +19,7 @@ import { Icon } from '../../ui/Icon'
 import { StatSr } from '../../ui/StatSr'
 import { useStatTip } from '../../ui/StatTip'
 import { Topbar } from '../../ui/Topbar'
-import { UrgencyChip } from '../staff/QueueView'
-import { CurveChart, PERN, PRI_RULE, STATES, Section, TREND_NOTE, UDEF, UL, UNITS, URGS, sumOf, useSection, type Per, type Unit } from '../staff/StatsView'
+import { CurveChart, PERN, STATES, Section, TREND_NOTE, UDEF, UL, UNITS, sumOf, useSection, type Per, type Unit } from '../staff/StatsView'
 import { MemberCards } from './MemberCards'
 import { loadOverview } from './statsOverview'
 
@@ -137,8 +135,6 @@ export function AdminStatsView() {
   const none = ov?.none ?? 0
   const total = sumOf(v)
   const b = per === 'd' ? null : (tr?.trend ?? null)
-  const urgN = URGS.map((p) => ov?.urgency[p] ?? 0)
-  const urgMx = Math.max(1, ...urgN)
   const q = `per=${per}`
   const pickPer = (p: Per) => {
     setPer(p)
@@ -307,27 +303,6 @@ export function AdminStatsView() {
               </div>
               <div className="hint" style={{ marginTop: 8 }}>
                 막대에 마우스를 올리면 처리 대기·처리 중·해결 확인 대기·해결 완료 건수를 볼 수 있어요. 팀을 누르면 그 아래에 팀원별 카드를 보여요.
-              </div>
-            </Section>
-
-            <Section title="긴급도 분포" sec={main} note="선택 기간에 접수된 티켓 전체 기준이에요(배정 전 포함). 줄을 누르면 해당 긴급도 문의 목록으로 가요.">
-              <div className="pdist">
-                {URGS.map((p, i) => (
-                  <button key={p} type="button" className="pd" onClick={() => navigate(`/tickets?pri=${p}&${q}`)} aria-label={`${URGENCY_LABEL[p]} ${urgN[i]}건. 이 긴급도의 문의 목록 보기`}>
-                    <span className="pl">
-                      <UrgencyChip u={p} />
-                    </span>
-                    <span className="bar" aria-hidden="true">
-                      <i className={`pb-${p.toLowerCase()}`} style={{ width: `${Math.max(urgN[i] ? 3 : 0, (urgN[i] / urgMx) * 100)}%` }} />
-                    </span>
-                    <b>
-                      {urgN[i]}
-                      <small>건</small>
-                    </b>
-                    <Icon name="chevron" className="go" />
-                    <span className="small muted pr">{PRI_RULE[p]}</span>
-                  </button>
-                ))}
               </div>
             </Section>
           </div>

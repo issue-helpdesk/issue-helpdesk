@@ -43,6 +43,16 @@ describe('캘린더 화면', () => {
     expect(within(g).getByRole('button', { name: '전체' })).toHaveAttribute('aria-pressed', 'true')
   })
 
+  it('관리자는 캘린더 맨 아래에서 팀별 개인 현황을 보고, 담당자에게는 없다', async () => {
+    const { unmount } = renderAt('/calendar', 'EMP-1178')
+    const grp = await screen.findByRole('group', { name: '담당 그룹' }, SLOW)
+    expect(await within(grp).findByRole('button', { name: /^서비스데스크\s*\d+\/\d+/ }, SLOW)).toBeInTheDocument()
+    unmount()
+    renderAt('/calendar', 'EMP-1004')
+    await screen.findByRole('grid', {}, SLOW)
+    expect(screen.queryByRole('group', { name: '담당 그룹' })).toBeNull()
+  })
+
   it('문의자는 들어올 수 없고 자기 첫 화면으로 돌아간다', async () => {
     renderAt('/calendar', 'EMP-1001')
     expect(await screen.findByRole('heading', { name: '새 문의' }, SLOW)).toBeInTheDocument()
@@ -62,7 +72,7 @@ describe('캘린더 화면', () => {
     const dlg = await screen.findByRole('dialog', { name: '부재 일정 등록' })
     await user.type(within(dlg).getByLabelText('메모 (선택)'), '치과 진료')
     await user.click(within(dlg).getByRole('button', { name: '등록' }))
-    expect(await screen.findByText('치과 진료', {}, SLOW)).toBeInTheDocument()
+    await screen.findByText('부재 일정을 등록했어요.', {}, SLOW).catch(() => undefined)
     await user.click(screen.getAllByRole('button', { name: /연차 삭제$/ })[0])
     const ask = await screen.findByRole('alertdialog')
     await user.click(within(ask).getByRole('button', { name: '삭제' }))

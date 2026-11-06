@@ -244,7 +244,10 @@ export function GuidesView() {
               {!g.isActive && ' · 검색·답변에 쓰이지 않아요'}
             </div>
           </span>
-          <span className="gbs">{g.current?.scope && <StateBadge tone="info" label={g.current.scope} />}{g.current?.tx === '금지' ? <StateBadge tone="urg" label="외부 전송 금지" /> : g.current?.tx === '마스킹 후 허용' ? <StateBadge tone="warn" label="마스킹 후 전송" /> : null}</span>
+          <span className="gbs">
+            <span className="gb1">{g.current?.scope && <StateBadge tone="info" label={g.current.scope} />}</span>
+            <span className="gb2">{g.current?.tx === '금지' ? <StateBadge tone="urg" label="외부 전송 금지" /> : g.current?.tx === '마스킹 후 허용' ? <StateBadge tone="warn" label="마스킹 후 전송" /> : null}</span>
+          </span>
         </button>
         {/* 문서 전체를 켜고 끄는 버튼: 제목과 같은 줄, 펼쳤을 때만 보인다 */}
         {open && (

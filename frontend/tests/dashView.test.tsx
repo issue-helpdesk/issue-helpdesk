@@ -64,7 +64,11 @@ describe('대시보드 화면', () => {
     // ITSM 댓글·멘션 알림은 이번 기능에서 제외했다
     expect(screen.queryByRole('region', { name: '확인할 ITSM 알림' })).toBeNull()
     const urg = screen.getByRole('region', { name: '긴급·높음 미해결' })
-    await waitFor(() => expect(urg.querySelectorAll('.dtr')).toHaveLength(3), SLOW)
+    await waitFor(() => expect(urg.querySelectorAll('.orow')).toHaveLength(3), SLOW)
+    // 긴급도 분포는 긴급·높음 미해결 카드 바로 위에 있다
+    const dist = await screen.findByRole('region', { name: '긴급도 분포' }, SLOW)
+    expect(dist.compareDocumentPosition(urg) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(await within(dist).findByRole('button', { name: /^긴급 [0-9]+건/ }, SLOW)).toBeInTheDocument()
     unmount()
     renderAs('EMP-1004', '/dash')
     expect(await screen.findByRole('heading', { name: /내 담당 문의/ }, SLOW)).toBeInTheDocument()
