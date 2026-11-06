@@ -3,7 +3,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanServerText, displayMessage, errorText } from '../src/api/errorText'
-import { request } from '../src/core/apiClient'
+import { request, setPasswordRequiredHandler } from '../src/core/apiClient'
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 const err = (code: string, message: string, details?: unknown) => json(409, { error: { code, message, details } })
@@ -81,5 +81,17 @@ describe('요청 클라이언트의 오류 문구', () => {
     expect(!write.ok && write.error.message).toContain('처리 결과를 확인하지 못했어요')
     expect(!write.ok && write.error.message).not.toContain('실패')
     expect(!write.ok && write.error.code).toBe('NETWORK_ERROR')
+  })
+})
+
+describe('비밀번호 변경 요구', () => {
+  it('서버가 AUTH_PASSWORD_CHANGE_REQUIRED 를 주면 변경 창을 띄우는 처리기를 부른다', async () => {
+    const on = vi.fn()
+    setPasswordRequiredHandler(on)
+    vi.stubGlobal('fetch', vi.fn(async () => json(403, { error: { code: 'AUTH_PASSWORD_CHANGE_REQUIRED', message: 'x' } })))
+    const r = await request('/tickets')
+    expect(on).toHaveBeenCalledTimes(1)
+    expect(!r.ok && r.error.message).toBe('비밀번호를 변경한 뒤 이용할 수 있어요.')
+    setPasswordRequiredHandler(null)
   })
 })

@@ -5,7 +5,7 @@
  */
 import { useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
-import { getToasts, watchToasts } from './toastStore'
+import { dismiss, getToasts, watchToasts } from './toastStore'
 
 export function ToastHost() {
   const toasts = useSyncExternalStore(watchToasts, getToasts)
@@ -13,8 +13,13 @@ export function ToastHost() {
   return createPortal(
     <div className="toasts">
       {toasts.map((t) => (
-        <div key={t.id} className={`toast${t.out ? ' out' : ''}`} role="status">
-          {t.text}
+        <div key={t.id} className={`toast${t.error ? ' err' : ''}${t.out ? ' out' : ''}`} role={t.error ? 'alert' : 'status'}>
+          <span>{t.text}</span>
+          {t.error && (
+            <button type="button" className="toast-x" aria-label="안내 닫기" onClick={() => dismiss(t.id)}>
+              ×
+            </button>
+          )}
         </div>
       ))}
     </div>,

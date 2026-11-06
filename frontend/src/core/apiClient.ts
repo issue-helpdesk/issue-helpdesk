@@ -18,6 +18,12 @@ let refresher: (() => Promise<boolean>) | null = null
 /** 로그인이 끊겼을 때(재발급 실패·무효 토큰) 부르는 함수. (core/session.tsx 가 등록한다) */
 let authLost: (() => void) | null = null
 
+/** 서버가 "비밀번호를 먼저 변경하세요"(403 AUTH_PASSWORD_CHANGE_REQUIRED)라고 답했을 때 부르는 함수. (core/session.tsx 가 등록한다) */
+let pwRequired: (() => void) | null = null
+export const setPasswordRequiredHandler = (fn: (() => void) | null) => {
+  pwRequired = fn
+}
+
 export const setTokenRefresher = (fn: (() => Promise<boolean>) | null) => {
   refresher = fn
 }
@@ -85,6 +91,9 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   } else if (r.error.code === 'UNAUTHORIZED') {
     // 폐기됐거나 잘못된 토큰: 다시 로그인해야 한다
     authLost?.()
+  } else if (r.error.code === 'AUTH_PASSWORD_CHANGE_REQUIRED') {
+    // 임시 비밀번호 상태: 닫을 수 없는 비밀번호 변경 창을 띄운다
+    pwRequired?.()
   }
   return r
 }

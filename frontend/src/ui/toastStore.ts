@@ -3,12 +3,15 @@
  * - 같은 문구가 이미 떠 있으면 새로 쌓지 않고 그 토스트의 시간만 다시 센다.
  * - 한 번에 MAX_SHOWN 개까지만 보인다. 넘으면 가장 오래된(맨 위) 토스트를 먼저 내린다.
  * - 보이는 시간은 문구 길이에 따라 3.5~7초 (toastMs).
+ * - 실패 안내(showError)는 저절로 사라지지 않고, 닫기(×)를 누르거나 같은 일이 성공해 새로 알릴 때까지 남는다.
  */
 export interface ToastItem {
   id: number
   text: string
   /** true 면 사라지는 모션 중 */
   out: boolean
+  /** true 면 실패 안내: 시간이 지나도 사라지지 않고 닫기 버튼이 있다 */
+  error: boolean
 }
 
 /** 한 번에 보이는 최대 개수 */
@@ -35,7 +38,7 @@ export function watchToasts(onChange: () => void): () => void {
   }
 }
 
-function dismiss(id: number) {
+export function dismiss(id: number) {
   clearTimeout(timers.get(id))
   const it = items.find((x) => x.id === id)
   if (!it || it.out) return
@@ -51,22 +54,26 @@ function dismiss(id: number) {
   emit()
 }
 
-/** 토스트를 띄운다 */
-export function showToast(text: string) {
+function push(text: string, error: boolean) {
   if (!text) return
   const same = items.find((x) => x.text === text && !x.out)
   if (same) {
     clearTimeout(timers.get(same.id))
-    timers.set(same.id, setTimeout(() => dismiss(same.id), toastMs(text)))
+    if (!same.error) timers.set(same.id, setTimeout(() => dismiss(same.id), toastMs(text)))
     return
   }
   const id = ++seq
-  items = [...items, { id, text, out: false }]
-  timers.set(id, setTimeout(() => dismiss(id), toastMs(text)))
+  items = [...items, { id, text, out: false, error }]
+  if (!error) timers.set(id, setTimeout(() => dismiss(id), toastMs(text)))
   const live = items.filter((x) => !x.out)
   live.slice(0, Math.max(0, live.length - MAX_SHOWN)).forEach((x) => dismiss(x.id))
   emit()
 }
+
+/** 토스트를 띄운다 */
+export const showToast = (text: string) => push(text, false)
+/** 실패 안내를 띄운다: 닫을 때까지 남는다 */
+export const showError = (text: string) => push(text, true)
 
 /** 테스트에서 토스트를 모두 비운다 */
 export function resetToasts() {

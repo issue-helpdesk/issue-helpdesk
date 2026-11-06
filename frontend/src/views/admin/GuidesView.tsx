@@ -116,7 +116,7 @@ export function GuidesView() {
   const failDocs = useMemo(() => new Set(failures.map((f) => f.docId)), [failures])
   const failCats = useMemo(() => new Set(failures.map((f) => f.cat)), [failures])
   const guidesRef = useRef<Guide[] | null>(null)
-  const { say } = useToast()
+  const { say, fail } = useToast()
   const [dlg, setDlg] = useState<null | { kind: 'upload' } | { kind: 'ingest'; g: Guide; v: GuideVersion } | { kind: 'active'; g: Guide; to: boolean } | { kind: 'tx'; g: Guide; v: GuideVersion; to: GuideTx } | { kind: 'note'; g: Guide; v: GuideVersion } | { kind: 'draft'; c: Cluster; i: number }>(null)
   const admin = user?.serviceRole === 'ADMIN'
   useEffect(() => {
@@ -203,27 +203,27 @@ export function GuidesView() {
   }
   const applyTx = async (g: Guide, v: GuideVersion, to: GuideTx, why: string) => {
     const r = await setGuideTransfer(user, g.id, v.id, to, why)
-    if (!r.ok) return say(r.error.message)
+    if (!r.ok) return fail(r.error.message)
     say(`외부 전송 정책을 ${to}${to === '금지' ? '로' : '으로'} 바꿨어요.`)
     reload()
   }
   const retryIngest = async (g: Guide, v: GuideVersion, file?: File) => {
-    if (file && file.size > MAX_UPLOAD_BYTES) return say(MAX_UPLOAD_MESSAGE)
+    if (file && file.size > MAX_UPLOAD_BYTES) return fail(MAX_UPLOAD_MESSAGE)
     const r = await retryGuideIngest(user, g.id, v.id, file)
-    if (!r.ok) return say(r.error.message)
+    if (!r.ok) return fail(r.error.message)
     trackIngest({ docId: g.id, versionId: v.id, docCode: g.docCode, title: g.title, cat: g.cat, version: v.version })
     say(file ? `${v.version} 파일을 바꿔 검색 준비를 다시 시작했어요.` : `${v.version} 검색 준비를 다시 시작했어요.`)
     reload()
   }
   const applyActive = async (g: Guide, to: boolean) => {
     const r = await setGuideActive(user, g.id, to)
-    if (!r.ok) return say(r.error.message)
+    if (!r.ok) return fail(r.error.message)
     say(to ? `${g.docCode}을(를) 활성화했어요.` : `${g.docCode}을(를) 비활성화했어요. 번호는 그대로 남아요.`)
     reload()
   }
   const makeCurrent = async (g: Guide, v: GuideVersion) => {
     const r = await setGuideCurrent(user, g.id, v.id)
-    if (!r.ok) return say(r.error.message)
+    if (!r.ok) return fail(r.error.message)
     say(v.state === '만료' ? `${v.version}을(를) 다시 현행으로 되돌렸어요.` : '현행 버전을 바꿨어요.')
     reload()
   }

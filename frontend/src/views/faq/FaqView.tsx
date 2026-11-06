@@ -52,7 +52,7 @@ export function FaqView() {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<Faq | null>(null)
   const [deleting, setDeleting] = useState<Faq | null>(null)
-  const { say } = useToast()
+  const { say, fail } = useToast()
   const [reload, setReload] = useState(0)
   const [preview, setPreview] = useState<GuideSource | null>(null)
   // 삭제하는 중인 FAQ (사라지는 모션용)
@@ -98,7 +98,7 @@ export function FaqView() {
   /** 관리자 동작 하나를 실행하고 결과를 안내한다 (실패하면 서버가 준 이유를 그대로 보인다) */
   async function run<T>(job: Promise<ApiResult<T>>, done: string) {
     const r = await job
-    if (!r.ok) return say(r.error.message)
+    if (!r.ok) return fail(r.error.message)
     say(done)
     setReload((n) => n + 1)
   }
@@ -203,7 +203,7 @@ export function FaqView() {
                             onClick={() => {
                               // 서버 모드에서 가이드 출처가 없는 FAQ 는 게시할 수 없다. 수정에서 출처 가이드를 고르게 안내한다
                               const src = srcs[f.id]
-                              if (off && !USE_MOCK_FAQ && !f.sources.length && Array.isArray(src) && !src.length) return say('출처 가이드가 없어서 게시할 수 없어요. 수정에서 출처 가이드를 고른 뒤 게시해 주세요.')
+                              if (off && !USE_MOCK_FAQ && !f.sources.length && Array.isArray(src) && !src.length) return fail('출처 가이드가 없어서 게시할 수 없어요. 수정에서 출처 가이드를 고른 뒤 게시해 주세요.')
                               void run(setFaqActive(f, off), off ? '다시 게시했어요. 문의자 FAQ 화면에 보여요.' : '게시를 멈췄어요. 문의자에게는 보이지 않아요.')
                             }}
                           >

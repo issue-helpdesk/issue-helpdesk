@@ -97,7 +97,7 @@ export function OpsView() {
   const [resMore, setResMore] = useState(false)
   const [curOpen, setCurOpen] = useState(false)
   const [pending, setPending] = useState<number[]>([])
-  const { say } = useToast()
+  const { say, fail } = useToast()
   const [check, setCheck] = useState<TicketSummary | null>(null)
   const [assign, setAssign] = useState<TicketDetail | null>(null)
   const [busy, setBusy] = useState(false)
@@ -292,7 +292,7 @@ export function OpsView() {
     if (!user) return
     const r = await getTicket(user, t.id)
     if (r.ok) setAssign(r.data)
-    else say(r.error.message)
+    else fail(r.error.message)
   }
 
   const sec = (title: ReactNode, desc: ReactNode, right: ReactNode, inner: ReactNode, cls?: string, label?: string) => (
