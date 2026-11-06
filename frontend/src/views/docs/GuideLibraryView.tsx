@@ -1,6 +1,6 @@
 /**
- * 가이드 열람 (문의자·담당자, /docs). 내가 볼 수 있는 가이드의 현행 버전을 분류별로 훑고, "보기"로 본문을 오른쪽 패널에서 읽는다.
- * 관리 화면(가이드 관리)과 같은 분류별 접이식 목록이고, 버전·외부 전송 같은 관리 정보는 보이지 않는다.
+ * 가이드 열람 (문의자·담당자, /docs). 내가 볼 수 있는 가이드의 현행 버전을 분류별로 훑고, 가이드 박스를 눌러 본문을 오른쪽 패널에서 읽는다.
+ * 관리 화면(가이드 관리)과 같은 분류별 접이식 목록이고, 버전·외부 전송 같은 관리 정보는 보이지 않는다. 가이드 박스를 누르면 본문이 열린다.
  * 목록은 문서 API(DC-01, 열람 범위 안의 현행 버전만), 본문은 R-48(요청 중)로 읽는다. (api/guides.ts)
  */
 import { useEffect, useMemo, useState } from 'react'
@@ -110,17 +110,16 @@ export function GuideLibraryView() {
                             gs.map((g) => (
                               <div className="gprow" key={g.id}>
                                 <div className="gprh">
-                                  <div className="grb" style={{ cursor: 'default' }}>
+                                  {/* 가이드 박스 전체가 단추다: 누르면 오른쪽 패널에 본문이 열린다 */}
+                                  <button type="button" className="grb" aria-label={`${g.docCode} 본문 보기`} onClick={() => setReader({ id: g.id, docCode: g.docCode, title: g.title, version: g.current?.version })}>
                                     <span className="grt">
                                       <span className="grtl">
                                         <b>{guideLabel(g)}</b>
                                       </span>
                                       <div className="small muted">현행 {g.current?.version}</div>
                                     </span>
-                                    <span className="gbs">{g.current?.scope && <ScopeBadge scope={g.current.scope} />}</span>
-                                  </div>
-                                  <button type="button" className="btn sec sm" aria-label={`${g.docCode} 본문 보기`} onClick={() => setReader({ id: g.id, docCode: g.docCode, title: g.title, version: g.current?.version })}>
-                                    보기
+                                    {/* 라벨은 담당자 이상만 볼 수 있는 가이드에만 붙인다 (문의자에게는 모두 전 직원용이라 의미가 없다) */}
+                                    <span className="gbs">{g.current?.scope === '담당자 이상' && <ScopeBadge scope="담당자 이상" />}</span>
                                   </button>
                                 </div>
                               </div>
@@ -135,7 +134,7 @@ export function GuideLibraryView() {
           </div>
         </div>
       </main>
-      {reader && <GuideReaderPanel key={reader.id} target={reader} onClose={() => setReader(null)} />}
+      {reader && <GuideReaderPanel target={reader} onClose={() => setReader(null)} />}
     </>
   )
 }

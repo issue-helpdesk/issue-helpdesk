@@ -3,7 +3,7 @@
  * 접수 목록(TK-05 view=ALL)을 조건별로 받아 건수와 먼저 볼 문의를 만든다. 서버에는 집계 API 가 없어 건수는 size=1 로 받은 총건수를 쓴다.
  *   처리 현황       workStatus=RDY / WIP / FIN 각각의 totalCount
  *   연동·배정 확인  needsAdmin=true (원인별 건수는 목록의 jiraSyncStatus·assignStatus·transitionStatus 로 나눈다)
- *   긴급·높음 미해결 urgency=P1,P2 · workStatus=RDY,WIP,FIN + ITSM 생성 전(jiraSyncStatus) 접수
+ *   긴급·높음 미해결 urgency=P1,P2 · workStatus=RDY,WIP (처리 대기·처리 중). ITSM 생성 전 접수는 운영 현황의 연동 확인에서 본다
  */
 import { listTickets } from './tickets'
 import type { TicketSummary } from './ticketTypes'
@@ -20,30 +20,23 @@ export interface DashSnapshot {
   asOf: string
 }
 
-const PRE_JIRA = ['PENDING', 'VERIFYING', 'NEEDS_ADMIN'] as const
-
 export async function getDashSnapshot(user: User): Promise<ApiResult<DashSnapshot>> {
   const base = { view: 'ALL' as const }
   const total = (workStatus: ('RDY' | 'WIP' | 'FIN')[]) => listTickets(user, { ...base, workStatus, size: 1 })
-  const [rdy, wip, fin, need, open, pre] = await Promise.all([
+  const [rdy, wip, fin, need, open] = await Promise.all([
     total(['RDY']),
     total(['WIP']),
     total(['FIN']),
     listTickets(user, { ...base, needsAdmin: true, size: 100 }),
-    listTickets(user, { ...base, urgency: ['P1', 'P2'], workStatus: ['RDY', 'WIP', 'FIN'], size: 100, sort: 'createdAt,asc' }),
-    listTickets(user, { ...base, urgency: ['P1', 'P2'], jiraSyncStatus: [...PRE_JIRA], size: 100, sort: 'createdAt,asc' }),
+    listTickets(user, { ...base, urgency: ['P1', 'P2'], workStatus: ['RDY', 'WIP'], size: 100, sort: 'createdAt,asc' }),
   ])
   if (!rdy.ok) return rdy
   if (!wip.ok) return wip
   if (!fin.ok) return fin
   if (!need.ok) return need
   if (!open.ok) return open
-  if (!pre.ok) return pre
   const items = need.data.items.filter((t) => t.workStatus !== 'CLS') // 해결 완료된 접수는 확인할 일이 없다
-  const seen = new Set<number>()
-  const un = [...open.data.items, ...pre.data.items.filter((t) => !t.workStatus)]
-    .filter((t) => (seen.has(t.id) ? false : (seen.add(t.id), true)))
-    .sort((a, b) => (a.urgency ?? '').localeCompare(b.urgency ?? '') || Date.parse(a.createdAt) - Date.parse(b.createdAt))
+  const un = [...open.data.items].sort((a, b) => (a.urgency ?? '').localeCompare(b.urgency ?? '') || Date.parse(a.createdAt) - Date.parse(b.createdAt))
   const p1 = un.filter((t) => t.urgency === 'P1').length
   return ok({
     rdy: rdy.data.totalCount,

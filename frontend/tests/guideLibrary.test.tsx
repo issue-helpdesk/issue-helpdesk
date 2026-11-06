@@ -47,3 +47,18 @@ describe('가이드 열람 화면', () => {
     await waitFor(() => expect(screen.queryByRole('complementary', { name: '가이드 본문' })).toBeNull())
   })
 })
+
+describe('가이드 열람 화면의 열람 범위 라벨', () => {
+  it('담당자에게는 담당자 이상 가이드에만 라벨이 붙고, 문의자에게는 라벨이 없다', async () => {
+    const { unmount } = renderAs('EMP-1004', '/docs')
+    await userEvent.click(await screen.findByRole('button', { name: /^정보보안/ }, SLOW))
+    const doc = await screen.findByRole('button', { name: /IT-SEC-004 본문 보기/ })
+    expect(within(doc).getByText('담당자 이상')).toBeInTheDocument()
+    unmount()
+    renderAs('EMP-1001', '/docs')
+    await userEvent.click(await screen.findByRole('button', { name: /^VPN·네트워크/ }, SLOW))
+    await screen.findAllByRole('button', { name: /본문 보기/ })
+    expect(screen.queryByText('담당자 이상')).toBeNull()
+    expect(screen.queryByText('전 직원')).toBeNull()
+  })
+})

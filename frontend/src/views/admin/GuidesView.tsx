@@ -282,7 +282,7 @@ export function GuidesView() {
                     </th>
                     <th className="c">현행 관리</th>
                     <th>올린 시각</th>
-                    <th>본문</th>
+                    <th className="c">본문</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -329,7 +329,7 @@ export function GuidesView() {
                         {v.registeredAt ? formatDateTime(v.registeredAt) : '-'}
                         {v.registeredAt && Date.now() - Date.parse(v.registeredAt) < 24 * 3600_000 && <span className="nwb">NEW</span>}
                       </td>
-                      <td>
+                      <td className="c">
                         <button type="button" className="btn sec sm" aria-label={`${g.docCode} ${v.version} 본문 보기`} onClick={() => setReader({ id: g.id, docCode: g.docCode, title: g.title, versionId: v.id, version: v.version })}>
                           보기
                         </button>
@@ -650,7 +650,7 @@ export function GuidesView() {
           </div>
         </div>
       </main>
-      {reader && <GuideReaderPanel key={`${reader.id}:${reader.versionId}`} target={reader} onClose={() => setReader(null)} />}
+      {reader && <GuideReaderPanel target={reader} onClose={() => setReader(null)} />}
       {dlg?.kind === 'upload' && (
         <UploadDialog
           guides={guides ?? []}

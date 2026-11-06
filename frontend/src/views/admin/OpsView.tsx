@@ -23,7 +23,6 @@ import { Topbar } from '../../ui/Topbar'
 import { UrgencyChip } from '../staff/QueueView'
 import { CheckDialog, linkWhy } from './CheckDialog'
 import { ReassignDialog } from './ReassignDialog'
-import { UrgentRow } from './UrgentRow'
 import { TicketDetailPanel } from '../staff/TicketDetailPanel'
 
 const hm = (iso: string) => {
@@ -70,7 +69,7 @@ function Dots({ t, mode }: { t: TicketSummary; mode: 'link' | 'asg' }) {
 
 const sub = (t: TicketSummary) => `${t.receiptNo} · ${t.group?.name ?? '-'} · ${t.assignee?.name ?? '배정 전'}`
 
-type Key = 'U' | 'X' | 'L' | 'A'
+type Key = 'L' | 'A'
 /** 최근 처리 결과: 같은 접수의 요청 → 결과를 한 건으로 묶는다 */
 interface Res {
   id: number
@@ -86,7 +85,7 @@ export function OpsView() {
   const [team, setTeam] = useState('')
   const [snap, setSnap] = useState<OpsSnapshot | null>(null)
   const [error, setError] = useState('')
-  const [more, setMore] = useState<Record<Key, boolean>>({ U: false, X: false, L: false, A: false })
+  const [more, setMore] = useState<Record<Key, boolean>>({ L: false, A: false })
   const [results, setResults] = useState<Res[]>([])
   const [resMore, setResMore] = useState(false)
   const [pending, setPending] = useState<number[]>([])
@@ -212,7 +211,6 @@ export function OpsView() {
     )
   }
 
-  const rowU = (t: TicketSummary) => <UrgentRow key={t.id} t={t} onOpen={() => open(t.id)} />
   const rowC = (mode: 'link' | 'asg') => (t: TicketSummary) => (
     <div key={t.id} className="orow l">
       <button type="button" className="o-main" title="상세 보기" aria-label={`${t.summary} 상세 보기`} onClick={() => open(t.id)}>
@@ -271,8 +269,6 @@ export function OpsView() {
     </section>
   )
 
-  const urgent = snap?.urgent ?? []
-  const exc = snap?.exception ?? []
   const linkL = snap?.link ?? []
   const asgL = snap?.assign ?? []
   const wait = (body: ReactNode) => (snap ? body : <div className="empty" role="status">불러오는 중이에요…</div>)
@@ -404,29 +400,6 @@ export function OpsView() {
                 )}
               </section>
             )}
-
-            <div className="ogrid">
-              {sec(
-                <>
-                  긴급 조치 필요 <span className="ocnt">{urgent.length}건</span>
-                </>,
-                '현재 미처리 · 처리 대기·처리 중 (과거 접수 포함)',
-                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P1&st=open')}>
-                  모두 보기
-                </button>,
-                wait(list('U', urgent, rowU, '처리 대기·처리 중인 긴급 건이 없어요.')),
-              )}
-              {sec(
-                <>
-                  당일 미종결 예외 <span className="ocnt">{exc.length}건</span>
-                </>,
-                '접수 당일 안에 끝나지 않은 긴급·높음 건',
-                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P12&unres=1')}>
-                  모두 보기
-                </button>,
-                wait(list('X', exc, rowU, '접수 당일 안에 끝나지 않은 긴급·높음 건이 없어요.')),
-              )}
-            </div>
 
             <div className="ogrid">
               {sec(

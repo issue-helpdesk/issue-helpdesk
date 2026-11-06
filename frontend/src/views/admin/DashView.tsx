@@ -313,9 +313,9 @@ export function DashView() {
                   <div className="sech">
                     <div>
                       <h3 className="sht">긴급·높음 미해결</h3>
-                      <p className="shs">긴급도가 높은 문의 중 해결 완료가 아닌 문의</p>
+                      <p className="shs">긴급도가 높은 문의 중 처리 대기·처리 중인 문의</p>
                     </div>
-                    <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P12&unres=1')}>
+                    <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P12&st=open')}>
                       전체 문의에서 보기
                     </button>
                   </div>
@@ -341,7 +341,7 @@ export function DashView() {
                       </p>
                     </>
                   ) : (
-                    <div className="empty">미해결 긴급·높음 문의가 없어요.</div>
+                    <div className="empty">처리 대기·처리 중인 긴급·높음 문의가 없어요.</div>
                   )}
                 </section>
 

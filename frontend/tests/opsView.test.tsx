@@ -31,17 +31,11 @@ const staff = (): User => MOCK_ACCOUNTS.find((u) => u.employeeNo === 'EMP-1004')
 const section = (name: RegExp) => screen.getByRole('heading', { name }).closest('section') as HTMLElement
 
 describe('운영 현황 API (모의)', () => {
-  it('긴급·예외·연동 확인·배정 확인 목록을 나눠 준다', async () => {
+  it('연동 확인·배정 확인 목록만 나눠 준다 (긴급·높음 미해결은 대시보드에서 본다)', async () => {
     const r = await getOpsSnapshot(admin())
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.data.urgent.length).toBeGreaterThan(0)
-    expect(r.data.urgent.every((t) => t.urgency === 'P1' && (t.workStatus === 'RDY' || t.workStatus === 'WIP'))).toBe(true)
-    // 당일 미종결 예외: P1·P2, 접수일이 오늘 이전, 긴급 목록(P1 진행 중)과 겹치지 않는다
-    expect(r.data.exception.length).toBeGreaterThan(0)
-    expect(r.data.exception.every((t) => t.urgency === 'P1' || t.urgency === 'P2')).toBe(true)
-    const urgentIds = new Set(r.data.urgent.map((t) => t.id))
-    expect(r.data.exception.some((t) => urgentIds.has(t.id))).toBe(false)
+    expect(Object.keys(r.data).sort()).toEqual(['asOf', 'assign', 'link'])
     expect(r.data.link.every((t) => t.jiraSyncStatus !== 'SYNCED' || t.transitionStatus === 'NEEDS_ADMIN')).toBe(true)
     expect(r.data.assign.every((t) => t.jiraSyncStatus === 'SYNCED' && t.assignStatus === 'NEEDS_ADMIN')).toBe(true)
     expect(r.data.link.length).toBe(3)
@@ -53,7 +47,7 @@ describe('운영 현황 API (모의)', () => {
     const infra = await getOpsSnapshot(admin(), 4)
     expect(all.ok && infra.ok).toBe(true)
     if (!all.ok || !infra.ok) return
-    const groups = [...infra.data.urgent, ...infra.data.exception, ...infra.data.link, ...infra.data.assign].map((t) => t.group?.id)
+    const groups = [...infra.data.link, ...infra.data.assign].map((t) => t.group?.id)
     expect(groups.every((g) => g === 4)).toBe(true)
     expect(infra.data.link.length).toBeLessThan(all.data.link.length)
   })
@@ -98,7 +92,9 @@ describe('운영 현황 화면', () => {
   it('구역별 건수와 팀별 개인 현황이 보이고, 문의자·담당자는 들어올 수 없다', async () => {
     const { unmount } = renderAs('EMP-1178', '/ops')
     expect(await screen.findByRole('heading', { name: '운영 현황', level: 1 }, SLOW)).toBeInTheDocument()
-    await waitFor(() => expect(section(/긴급 조치 필요/).querySelectorAll('.orow').length).toBeGreaterThan(0), SLOW)
+    await waitFor(() => expect(section(/티켓 연동 확인/).querySelectorAll('.orow').length).toBeGreaterThan(0), SLOW)
+    // 긴급 조치·당일 미종결 예외는 운영 현황에서 뺐다
+    expect(screen.queryByRole('heading', { name: /긴급 조치 필요|당일 미종결 예외/ })).toBeNull()
     expect(within(section(/티켓 연동 확인/)).getByText(/^\d+건$/)).toBeInTheDocument()
     expect(within(section(/담당자 배정 확인/)).getByText(/^\d+건$/)).toBeInTheDocument()
     expect(section(/티켓 연동 확인/)).toHaveClass('need')
@@ -109,15 +105,11 @@ describe('운영 현황 화면', () => {
     expect(await screen.findByRole('heading', { name: /내 담당 문의/ }, SLOW)).toBeInTheDocument()
   })
 
-  it('나머지 건 보기·접기가 되고, 담당 그룹을 고르면 목록이 줄어든다', async () => {
+  it('담당 그룹을 고르면 목록이 줄어든다', async () => {
     renderAs('EMP-1178', '/ops')
-    await waitFor(() => expect(section(/긴급 조치 필요/).querySelectorAll('.orow').length).toBeGreaterThan(0), SLOW)
-    const exc = () => section(/당일 미종결 예외/).querySelectorAll('.orow').length
-    expect(exc()).toBe(3)
-    await userEvent.click(within(section(/당일 미종결 예외/)).getByRole('button', { name: /^나머지 \d+건 보기/ }))
-    expect(exc()).toBeGreaterThan(3)
-    await userEvent.click(within(section(/당일 미종결 예외/)).getByRole('button', { name: '접기' }))
-    expect(exc()).toBe(3)
+    await waitFor(() => expect(section(/담당자 배정 확인/).querySelectorAll('.orow').length).toBeGreaterThan(0), SLOW)
+    const asg = () => section(/담당자 배정 확인/).querySelectorAll('.orow').length
+    expect(asg()).toBe(2)
     await userEvent.click(screen.getByRole('button', { name: /^담당 그룹\s*전체/ }))
     await userEvent.click(await screen.findByRole('option', { name: '정보보안팀' }))
     await waitFor(() => expect(within(section(/티켓 연동 확인/)).getByText('0건')).toBeInTheDocument(), SLOW)

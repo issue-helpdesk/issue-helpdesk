@@ -43,7 +43,8 @@ describe('대시보드 API (모의)', () => {
     expect(u.top).toHaveLength(3)
     // P1 이 먼저
     expect(u.top[0].urgency).toBe('P1')
-    expect(u.top.every((t) => t.workStatus !== 'CLS')).toBe(true)
+    // 처리 대기·처리 중만 (해결 확인 대기·ITSM 생성 전 건은 넣지 않는다)
+    expect(u.top.every((t) => t.workStatus === 'RDY' || t.workStatus === 'WIP')).toBe(true)
   })
 
   it('검색은 접수번호·제목으로 최근 10건까지 찾는다', async () => {

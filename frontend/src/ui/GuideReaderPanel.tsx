@@ -21,20 +21,40 @@ export interface ReaderTarget {
 export function GuideReaderPanel({ target, onClose }: { target: ReaderTarget; onClose: () => void }) {
   const { user } = useAuth()
   const [wide, setWide] = useState(false)
+  // 열릴 때 오른쪽에서 밀려 들어오고, 닫을 때 밀려 나간 뒤에 실제로 닫는다 (접수 상세 패널과 같다. 움직임 줄이기 설정이면 바로 닫는다)
+  const [slid, setSlid] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  const opener = useRef<HTMLElement | null>(null)
   const [res, setRes] = useState<{ key: string; data: GuideContent | null; error: string } | null>(null)
   const closeBtn = useRef<HTMLButtonElement>(null)
   const key = `${target.id}:${target.versionId ?? 'cur'}`
 
   useEffect(() => {
+    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     closeBtn.current?.focus({ preventScroll: true })
   }, [])
+  const finish = () => {
+    const el = opener.current
+    onClose()
+    if (el && el !== document.body) setTimeout(() => el.isConnected && el.focus({ preventScroll: true }), 0)
+  }
+  const close = () => {
+    if (leaving) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) finish()
+    else setLeaving(true)
+  }
+  useEffect(() => {
+    if (!leaving) return
+    const t = setTimeout(finish, 400)
+    return () => clearTimeout(t)
+  })
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !document.querySelector('[role="dialog"]')) onClose()
+      if (e.key === 'Escape' && !document.querySelector('[role="dialog"]')) close()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  })
   useEffect(() => {
     if (!user) return
     let alive = true
@@ -48,7 +68,15 @@ export function GuideReaderPanel({ target, onClose }: { target: ReaderTarget; on
 
   const cur = res && res.key === key ? res : null
   return (
-    <aside className={`detail gread${wide ? ' wide' : ''}`} role="complementary" aria-label="가이드 본문">
+    <aside
+      className={`detail gread${wide ? ' wide' : ''}${!slid && !leaving ? ' slide' : ''}${leaving ? ' leave' : ''}`}
+      role="complementary"
+      aria-label="가이드 본문"
+      onAnimationEnd={() => {
+        if (leaving) finish()
+        else setSlid(true)
+      }}
+    >
       <div className="dh">
         <div className="row" style={{ flexWrap: 'nowrap' }}>
           <div style={{ minWidth: 0 }}>
@@ -62,7 +90,7 @@ export function GuideReaderPanel({ target, onClose }: { target: ReaderTarget; on
           <button type="button" className="btn sec sm ico" aria-label={wide ? '패널 크기로 줄이기' : '크게 보기'} aria-pressed={wide} title={wide ? '패널 크기로 줄이기' : '화면 전체로 크게 보기'} onClick={() => setWide((w) => !w)}>
             <Icon name={wide ? 'minimize' : 'expand'} />
           </button>
-          <button type="button" ref={closeBtn} className="btn sec sm ico" aria-label="닫기" onClick={onClose}>
+          <button type="button" ref={closeBtn} className="btn sec sm ico" aria-label="닫기" onClick={close}>
             <Icon name="x" />
           </button>
         </div>
