@@ -56,7 +56,7 @@ function fieldErrors(e: ApiFail['error']): Record<string, string> {
   const out: Record<string, string> = {}
   if (e.code === 'USER_EMPLOYEE_NO_DUPLICATE') out.employeeNo = '이미 등록된 사번이에요.'
   else if (e.code === 'USER_EMAIL_DUPLICATE') out.email = '이미 등록된 이메일이에요.'
-  else if (e.code === 'USER_STATUS_REASON_REQUIRED') out.reason = '사유를 입력해 주세요.'
+  else if (e.code === 'USER_STATUS_REASON_REQUIRED') out.reason = '변경 사유를 입력해 주세요.'
   for (const d of e.details ?? []) {
     if (!d.field || out[d.field]) continue
     if (d.reason === 'REQUIRED') out[d.field] = FIELD_TEXT[d.field] ?? '값을 입력해 주세요.'
@@ -70,8 +70,6 @@ function fieldErrors(e: ApiFail['error']): Record<string, string> {
 /** 칸에 붙일 수 없는 오류의 문구 */
 function generalError(e: ApiFail['error']): string {
   if (e.code === 'FORBIDDEN') return '관리자만 할 수 있어요.'
-  if (e.code === 'USER_NOT_FOUND') return '사용자를 찾을 수 없어요. 목록을 새로 불러온 뒤 다시 시도해 주세요.'
-  if (e.code === 'USER_SELF_CHANGE_NOT_ALLOWED') return '내 계정의 권한과 상태는 바꿀 수 없어요.'
   return e.message
 }
 
@@ -462,7 +460,7 @@ function PasswordIssueDialog({ u, onClose, onIssued }: { u: UserSummary; onClose
         발급하면 임시 비밀번호가 <b>한 번만</b> 보여요. 안전한 방법으로 전달해 주세요.
       </p>
       <Field id={`${uid}-w`} label="발급 사유 (선택)" error={err}>
-        {(a) => <input {...a} className="inp" value={why} placeholder="예) 비밀번호를 잊어 서비스데스크로 요청" autoComplete="off" onChange={(e) => setWhy(e.target.value)} />}
+        {(a) => <input {...a} className="inp" value={why} placeholder="예) 비밀번호를 잊어 IT 헬프데스크로 요청" autoComplete="off" onChange={(e) => setWhy(e.target.value)} />}
       </Field>
       <div className="acts">
         <button type="button" className="btn sec" onClick={onClose}>

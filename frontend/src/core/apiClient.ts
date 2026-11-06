@@ -9,7 +9,8 @@
  * - 네트워크 오류·형식 오류도 같은 모양의 실패 응답으로 바꿔서, 화면이 한 가지 방식으로만 처리하게 한다.
  */
 import { fail, ok, type ApiResult, type ErrorDetail } from '../api/types'
-import { API_BASE_URL, SERVICEDESK } from './config'
+import { BAD_RESPONSE_TEXT, NETWORK_READ, NETWORK_WRITE, displayMessage } from '../api/errorText'
+import { API_BASE_URL } from './config'
 import { tokenStore } from './tokenStore'
 
 /** 토큰 재발급을 하는 함수. 성공하면 새 토큰을 저장하고 true 를 돌려준다. (api/auth.ts 가 등록한다) */
@@ -52,19 +53,23 @@ async function send<T>(path: string, init: RequestInit): Promise<ApiResult<T>> {
 
     const body: unknown = await res.json().catch(() => null)
     if (res.ok) {
-      if (body === null) return fail('BAD_RESPONSE', '서버 응답을 읽지 못했어요. 잠시 후 다시 시도해 주세요.')
+      if (body === null) return fail('BAD_RESPONSE', BAD_RESPONSE_TEXT)
       return ok(body as T)
     }
 
     // 약속한 실패 형식이면 코드·문구·상세를 그대로 전달한다
     const e = (body as { error?: { code?: unknown; message?: unknown; details?: unknown } } | null)?.error
     if (e && typeof e.code === 'string') {
-      return fail(e.code, typeof e.message === 'string' ? e.message : '', { details: Array.isArray(e.details) ? (e.details as ErrorDetail[]) : undefined })
+      const details = Array.isArray(e.details) ? (e.details as ErrorDetail[]) : undefined
+      // 화면 문구는 코드별 사전(api/errorText.ts)에서 정한다. 없는 코드는 서버 문구를 쓰되 용어만 맞춘다
+      return fail(e.code, displayMessage(e.code, typeof e.message === 'string' ? e.message : '', details), { details })
     }
-    return fail('BAD_RESPONSE', '서버 응답을 읽지 못했어요. 잠시 후 다시 시도해 주세요.')
+    return fail('BAD_RESPONSE', BAD_RESPONSE_TEXT)
   } catch {
     // 서버에 닿지 못한 경우 (오프라인, 서버 중지 등)
-    return fail('NETWORK_ERROR', `서버에 연결하지 못했어요. 잠시 후 다시 시도하거나 IT 헬프데스크 ${SERVICEDESK}로 문의해 주세요.`)
+    // 읽기는 다시 불러오면 되고, 변경 요청은 서버가 이미 처리했을 수 있어서 실패로 단정하지 않고 처리 상태를 확인하게 한다
+    const read = !init.method || init.method.toUpperCase() === 'GET'
+    return fail('NETWORK_ERROR', read ? NETWORK_READ : NETWORK_WRITE)
   }
 }
 

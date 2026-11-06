@@ -42,9 +42,8 @@ export function resetFaqMock() {
   mockStore = MOCK_FAQS.map((f) => ({ ...f, active: true }))
 }
 
-/** 게시 출처 조건을 못 채워 서버가 거절했을 때 보여 줄 안내 (409 FAQ_SOURCE_NOT_PUBLIC) */
-const SOURCE_HINT = '전 직원용 가이드 출처가 연결되어 있어야 게시할 수 있어요. 먼저 "게시 안 함"으로 등록하고, 가이드를 올려 출처가 연결된 뒤에 게시해 주세요.'
-const explain = <T,>(r: ApiResult<T>): ApiResult<T> => (!r.ok && r.error.code === 'FAQ_SOURCE_NOT_PUBLIC' ? fail(r.error.code, SOURCE_HINT) : r)
+/** 게시 출처 조건을 못 채워 서버가 거절했을 때(409 FAQ_SOURCE_NOT_PUBLIC)의 안내는 코드별 문구 사전(api/errorText.ts)이 정한다 */
+const explain = <T,>(r: ApiResult<T>): ApiResult<T> => r
 
 /**
  * FAQ 목록. 관리자(admin=true)는 게시 중단된 FAQ 도 함께 받아 다시 게시할 수 있다. 그 밖에는 게시 중인 FAQ 만 보인다.

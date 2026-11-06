@@ -190,7 +190,7 @@ describe('진행 카드', () => {
 })
 
 describe('비밀번호를 잊으셨나요? 안내와 모달 초점', () => {
-  it('로그인 화면의 링크로 안내 창을 열면 입력칸 없이 서비스데스크 요청 방법을 알려 준다', async () => {
+  it('로그인 화면의 링크로 안내 창을 열면 입력칸 없이 IT 헬프데스크 요청 방법을 알려 준다', async () => {
     const user = userEvent.setup()
     renderAt('/login')
     await user.click(screen.getByRole('button', { name: '비밀번호를 잊으셨나요?' }))
@@ -198,7 +198,7 @@ describe('비밀번호를 잊으셨나요? 안내와 모달 초점', () => {
     // 문서에는 셀프 초기화가 없으므로 사번 입력칸과 휴대폰 인증 단계가 없다
     expect(within(dialog).queryByLabelText('사번')).not.toBeInTheDocument()
     expect(within(dialog).queryByRole('button', { name: /휴대폰/ })).not.toBeInTheDocument()
-    expect(dialog).toHaveTextContent('서비스데스크에 임시 비밀번호 발급을 요청해 주세요')
+    expect(dialog).toHaveTextContent('IT 헬프데스크에 임시 비밀번호 발급을 요청해 주세요')
     expect(dialog).toHaveTextContent('사번과 이름을 알려 주세요')
     // 열면 창 안의 첫 버튼으로 초점이 가고, 확인으로 닫는다
     expect(within(dialog).getByRole('button', { name: '확인' })).toHaveFocus()

@@ -232,7 +232,7 @@ const RESOLVED_NOTICE = '해결로 종료되었습니다.'
 export const NO_CONNECT_LABEL = '미연결 (종료)'
 
 /** AI 가 답을 만들지 못했을 때 화면이 붙이는 안내 (서버는 저장하지 않는다) */
-const NO_ANSWER_TEXT = '지금은 답변을 만들지 못했어요. 담당자에게 연결해 드릴까요?'
+const NO_ANSWER_TEXT = '지금은 AI 답변을 만들지 못했어요. 입력한 내용은 저장됐어요. 담당자에게 연결해 드릴까요?'
 
 /** 접수 없이 끝났을 때 보여 주는 종료 안내 (모의의 noTicketClosed 와 같은 글) */
 export const NO_TICKET_CLOSED: ChatMessage[] = [

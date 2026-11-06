@@ -38,7 +38,7 @@ export interface ChatActions {
   openDetail: () => void
   showSource: (s: GuideSource) => void
   showLegacy: (l: LegacyCase) => void
-  /** 접수 실패 안내에 보여 줄 서비스데스크 연락처 */
+  /** 접수 실패 안내에 보여 줄 IT 헬프데스크 연락처 */
   servicedesk: string
 }
 
@@ -233,7 +233,7 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false,
               작성한 내용은 그대로 보관했어요. 잠시 후 다시 시도하거나 아래 경로로 접수해 주세요.
               <br />
               <span className="small">
-                · 서비스데스크 {actions.servicedesk}
+                · IT 헬프데스크 {actions.servicedesk}
                 <br />· 그룹웨어 IT 요청 메뉴
               </span>
             </div>
