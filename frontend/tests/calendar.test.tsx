@@ -55,6 +55,29 @@ describe('캘린더 화면', () => {
     expect(screen.queryByRole('group', { name: '담당 그룹' })).toBeNull()
   })
 
+  it('관리자는 여러 팀의 일정을 이름 앞 팀 두 글자와 함께 보고, 팀별 개인 현황은 접기 버튼 없이 펼쳐져 있다', async () => {
+    renderAt('/calendar', 'EMP-1178')
+    const grp = await screen.findByRole('group', { name: '담당 그룹' }, SLOW)
+    await within(grp).findByRole('button', { name: /^서비스데스크/ }, SLOW)
+    // 일정 이름 앞에 [팀 두 글자]가 붙는다
+    expect((await screen.findAllByText(/^\[[가-힣]{2}\] /, undefined, SLOW)).length).toBeGreaterThan(0)
+    // 접기·펼치기 버튼이 없고 구성원 표가 바로 보인다
+    expect(screen.queryByRole('button', { name: /담당자 (접기|펼치기)/ })).toBeNull()
+    expect(screen.getAllByRole('columnheader', { name: '오늘 상태' }).length).toBeGreaterThan(0)
+  })
+
+  it('날짜 칸을 누르면 그날 일정 목록이 열리고, 거기서 그 날짜로 일정을 등록할 수 있다', async () => {
+    renderAt('/calendar', 'EMP-1004')
+    const grid = await screen.findByRole('grid', {}, SLOW)
+    const cell = within(grid).getAllByRole('gridcell').find((c) => !c.classList.contains('out'))!
+    await userEvent.click(cell)
+    const dlg = await screen.findByRole('dialog')
+    expect(within(dlg).getByRole('button', { name: '이 날 일정 등록' })).toBeInTheDocument()
+    await userEvent.click(within(dlg).getByRole('button', { name: '이 날 일정 등록' }))
+    const add = await screen.findByRole('dialog', { name: '부재 일정 등록' })
+    expect((within(add).getByLabelText(/날짜|시작일/) as HTMLInputElement).value).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
   it('문의자는 들어올 수 없고 자기 첫 화면으로 돌아간다', async () => {
     renderAt('/calendar', 'EMP-1001')
     expect(await screen.findByRole('heading', { name: '새 문의' }, SLOW)).toBeInTheDocument()

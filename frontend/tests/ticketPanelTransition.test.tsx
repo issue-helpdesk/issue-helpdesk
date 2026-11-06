@@ -129,6 +129,24 @@ describe('패널의 서버 상태 변경', () => {
   })
 })
 
+describe('긴급도 표시', () => {
+  it('담당자에게는 긴급도와 사유(P1 같은 코드는 한글 이름으로)를 보이고, 문의자에게는 긴급도 칸이 없다', async () => {
+    latest = { ...base, urgency: 'P1', urgencyReason: '통합 로그인(SSO) 장애 기본 긴급도 P1에서 시작해요.' }
+    const staff = render(panel())
+    expect(await screen.findByText('긴급도')).toBeInTheDocument()
+    expect(screen.getByText('통합 로그인(SSO) 장애 기본 긴급도 긴급에서 시작해요.')).toBeInTheDocument()
+    expect(screen.queryByText(/P1/)).toBeNull()
+    staff.unmount()
+    auth.user = { ...agent, serviceRole: 'EMPLOYEE' }
+    render(panel())
+    await screen.findByText('계정 잠금 문의', undefined, { timeout: 3000 }).catch(() => undefined)
+    await waitFor(() => expect(api.getTicket).toHaveBeenCalled())
+    await screen.findByText('접수번호')
+    expect(screen.queryByText('긴급도')).toBeNull()
+    expect(screen.queryByText(/기본 긴급도/)).toBeNull()
+  })
+})
+
 describe('처리 동작의 노출·입력 제한', () => {
   it.each(['EMPLOYEE', 'ADMIN'] as const)('%s에게 담당자 처리 버튼을 표시하지 않는다', (serviceRole) => {
     render(<TicketWorkActions ticket={base} user={{ ...agent, serviceRole }} onRequested={vi.fn()} />)

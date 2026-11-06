@@ -11,7 +11,7 @@
  */
 import { request } from '../core/apiClient'
 import { USE_MOCK_GUIDE } from '../core/config'
-import type { CategoryCode } from './chatTypes'
+import type { CategoryCode, GuideImageRef } from './chatTypes'
 import { subscribe, notify } from './mock/chatStore'
 import { fail, ok, type ApiResult, type User } from './types'
 
@@ -426,3 +426,88 @@ export async function createGuideDraft(user: User, draft: { cat: CategoryCode; t
 }
 
 export const guideLabel = (g: Pick<Guide, 'docCode' | 'title'>) => `${g.docCode} ${g.title}`
+
+/* ------------------------------------------------------------------ 본문 보기 · 열람 (문의자·담당자·관리자) */
+/** 가이드 본문(마크다운) 한 건. 서버 API 는 docs/api/06 R-48 로 요청 중이다 */
+export interface GuideContent {
+  docCode: string
+  title: string
+  version: string
+  text: string
+  images?: GuideImageRef[]
+}
+interface SContent {
+  version?: string
+  content?: string
+  text?: string
+  markdown?: string
+  images?: GuideImageRef[]
+}
+
+/** 시연용 본문: 제목과 문서 번호로 만든 짧은 가이드 */
+function mockContent(g: { docCode: string; title: string }, version: string): GuideContent {
+  const text = [
+    `# ${g.title}`,
+    '',
+    '## 1. 개요',
+    '',
+    '이 문서는 시연용 본문이에요. 실제 가이드는 서버가 본문 API를 제공하면 그대로 보여요.',
+    '',
+    '## 2. 먼저 확인할 사항',
+    '',
+    '- 증상이 언제부터 시작됐는지',
+    '- 같은 증상이 다른 기기나 계정에서도 나타나는지',
+    '- 화면에 뜨는 메시지가 있는지',
+    '',
+    '## 3. 조치 순서',
+    '',
+    '1. 안내된 방법을 먼저 시도합니다.',
+    '2. 해결되지 않으면 화면의 메시지를 그대로 적어 ITssue에 문의합니다.',
+  ].join('\n')
+  return { docCode: g.docCode, title: g.title, version, text }
+}
+
+/**
+ * 가이드 본문. versionId 를 주면 그 버전(관리자만), 없으면 현행 버전이다. 현행 본문은 열람 범위 안에서만 받는다.
+ * 서버에 본문 API 가 없으면(R-48) 안내만 하고, 있으면 본문과 그림 목록을 그대로 쓴다.
+ */
+export async function getGuideContent(user: User, doc: { id: number; docCode: string; title: string }, versionId?: number, version = ''): Promise<ApiResult<GuideContent>> {
+  if (USE_MOCK_GUIDE) {
+    await sleep(150)
+    return ok(mockContent(doc, version || 'v1.0'))
+  }
+  const path = versionId !== undefined && user.serviceRole === 'ADMIN' ? `/documents/${doc.id}/versions/${versionId}/content` : `/documents/${doc.id}/content`
+  const r = await request<SContent>(path)
+  if (!r.ok) {
+    // 서버에 이 API 가 없으면 404·405 가 온다. 문서가 없는 경우(DOCUMENT_NOT_FOUND)와 구분해서 안내한다
+    if (r.error.code !== 'DOCUMENT_NOT_FOUND' && r.error.code !== 'FORBIDDEN') return fail('NOT_READY', '가이드 본문을 보는 기능은 서버가 준비 중이에요. (요청 R-48)')
+    return r
+  }
+  const text = r.data.content ?? r.data.text ?? r.data.markdown ?? ''
+  return ok({ docCode: doc.docCode, title: doc.title, version: r.data.version ?? version, text, images: r.data.images })
+}
+
+/**
+ * 문의자·담당자가 읽을 수 있는 가이드 목록 (현행 버전만). 서버는 열람 범위 안의 문서만 준다(DC-01).
+ * 모의에서는 내 역할로 볼 수 있는 범위(전 직원 / 담당자 이상 / 관리자만)로 거른다.
+ */
+export async function listReadableGuides(user: User): Promise<ApiResult<Guide[]>> {
+  if (USE_MOCK_GUIDE) {
+    await sleep(150)
+    const rank = { EMPLOYEE: 0, AGENT: 1, ADMIN: 2 }[user.serviceRole]
+    const need: Record<GuideScope, number> = { '전 직원': 0, '담당자 이상': 1, '관리자만': 2 }
+    return ok(store.map(toGuide).filter((g) => g.isActive && g.current && rank >= need[g.current.scope ?? '전 직원']))
+  }
+  const out: Guide[] = []
+  for (let page = 1; page <= 10; page++) {
+    const r = await request<{ items: SDoc[]; totalPages: number }>(`/documents?size=100&page=${page}&docType=GUIDE&docType=MANUAL&sort=docCode,asc`)
+    if (!r.ok) return r
+    r.data.items.forEach((d) => {
+      const c = d.currentVersion
+      if (!d.categoryCode || !c || d.isActive === false) return
+      out.push({ id: d.id, docCode: d.docCode, title: d.title, cat: d.categoryCode, isActive: true, docType: d.docType, current: { version: c.version, tx: c.transferPolicy ? TX_FROM[c.transferPolicy] : '금지', scope: c.viewScope ? SCOPE_FROM[c.viewScope] : undefined }, versions: null })
+    })
+    if (page >= r.data.totalPages) break
+  }
+  return ok(out)
+}

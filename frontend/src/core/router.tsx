@@ -17,6 +17,7 @@ import { OpsView } from '../views/admin/OpsView'
 import { AuditLogView } from '../views/admin/AuditLogView'
 import { SecurityView } from '../views/admin/SecurityView'
 import { FaqView } from '../views/faq/FaqView'
+import { GuideLibraryView } from '../views/docs/GuideLibraryView'
 import { ChatView } from '../views/inquiry/ChatView'
 import { InquiryListView } from '../views/inquiry/InquiryListView'
 import { NewInquiryView } from '../views/inquiry/NewInquiryView'
@@ -68,6 +69,7 @@ export function AppRoutes() {
           <Route path="/chat/new" element={<PendingChatView />} />
           <Route path="/chat/:id" element={<ChatView />} />
           <Route path="/faq" element={<FaqView />} />
+          <Route path="/docs" element={<GuideLibraryView />} />
           {/* 담당자·관리자. 화면을 만들면 HomePlaceholder 를 실제 화면으로 바꾼다 */}
           <Route path="/my" element={<MyDashView />} />
           <Route path="/stats" element={<StatsEntry />} />

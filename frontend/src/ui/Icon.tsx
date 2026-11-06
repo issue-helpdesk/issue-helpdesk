@@ -34,6 +34,8 @@ const PATHS = {
   ),
   down: <path d="M5 8l5 5 5-5" />,
   x: <path d="M5.5 5.5l9 9M14.5 5.5l-9 9" />,
+  expand: <path d="M12 3.5h4.5V8M8 16.5H3.5V12M16.5 3.5l-5 5M3.5 16.5l5-5" />,
+  minimize: <path d="M16 8h-4V4M4 12h4v4M12 8l4.5-4.5M8 12l-4.5 4.5" />,
   clock: (
     <>
       <circle cx="10" cy="10" r="7" />

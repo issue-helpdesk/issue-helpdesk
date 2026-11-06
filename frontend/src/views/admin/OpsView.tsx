@@ -18,12 +18,12 @@ import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
 import { FilterPill } from '../../ui/FilterPill'
 import { Icon } from '../../ui/Icon'
-import { Modal } from '../../ui/Modal'
 import { useToast } from '../../ui/useToast'
 import { Topbar } from '../../ui/Topbar'
 import { UrgencyChip } from '../staff/QueueView'
+import { CheckDialog } from './CheckDialog'
+import { linkWhy } from './checkText'
 import { ReassignDialog } from './ReassignDialog'
-import { UrgentRow } from './UrgentRow'
 import { TicketDetailPanel } from '../staff/TicketDetailPanel'
 
 const hm = (iso: string) => {
@@ -68,10 +68,9 @@ function Dots({ t, mode }: { t: TicketSummary; mode: 'link' | 'asg' }) {
   )
 }
 
-const linkWhy = (t: TicketSummary) => (t.transitionStatus === 'NEEDS_ADMIN' ? 'ITSM 동기화 확인 필요' : t.jiraSyncStatus === 'NEEDS_ADMIN' ? 'ITSM 생성 요청 응답 시간 초과 · 생성 여부 확인 필요' : 'ITSM 생성 결과 확인 중')
 const sub = (t: TicketSummary) => `${t.receiptNo} · ${t.group?.name ?? '-'} · ${t.assignee?.name ?? '배정 전'}`
 
-type Key = 'U' | 'X' | 'L' | 'A'
+type Key = 'L' | 'A'
 /** 최근 처리 결과: 같은 접수의 요청 → 결과를 한 건으로 묶는다 */
 interface Res {
   id: number
@@ -87,7 +86,7 @@ export function OpsView() {
   const [team, setTeam] = useState('')
   const [snap, setSnap] = useState<OpsSnapshot | null>(null)
   const [error, setError] = useState('')
-  const [more, setMore] = useState<Record<Key, boolean>>({ U: false, X: false, L: false, A: false })
+  const [more, setMore] = useState<Record<Key, boolean>>({ L: false, A: false })
   const [results, setResults] = useState<Res[]>([])
   const [resMore, setResMore] = useState(false)
   const [pending, setPending] = useState<number[]>([])
@@ -213,10 +212,9 @@ export function OpsView() {
     )
   }
 
-  const rowU = (t: TicketSummary) => <UrgentRow key={t.id} t={t} onOpen={() => open(t.id)} />
   const rowC = (mode: 'link' | 'asg') => (t: TicketSummary) => (
     <div key={t.id} className="orow l">
-      <div className="o-main">
+      <button type="button" className="o-main" title="상세 보기" aria-label={`${t.summary} 상세 보기`} onClick={() => open(t.id)}>
         <span className="o-p">
           <UrgencyChip u={t.urgency} />
         </span>
@@ -226,7 +224,7 @@ export function OpsView() {
             {sub(t)} · {mode === 'link' ? linkWhy(t) : '개인 배정을 확인해야 해요'}
           </small>
         </span>
-      </div>
+      </button>
       <Dots t={t} mode={mode} />
       <span className="o-e">
         <b>{formatElapsed(t.createdAt)}</b> 경과
@@ -272,8 +270,6 @@ export function OpsView() {
     </section>
   )
 
-  const urgent = snap?.urgent ?? []
-  const exc = snap?.exception ?? []
   const linkL = snap?.link ?? []
   const asgL = snap?.assign ?? []
   const wait = (body: ReactNode) => (snap ? body : <div className="empty" role="status">불러오는 중이에요…</div>)
@@ -409,33 +405,10 @@ export function OpsView() {
             <div className="ogrid">
               {sec(
                 <>
-                  긴급 조치 필요 <span className="ocnt">{urgent.length}건</span>
-                </>,
-                '현재 미처리 · 처리 대기·처리 중 (과거 접수 포함)',
-                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P1&st=open')}>
-                  모두 보기
-                </button>,
-                wait(list('U', urgent, rowU, '처리 대기·처리 중인 긴급 건이 없어요.')),
-              )}
-              {sec(
-                <>
-                  당일 미종결 예외 <span className="ocnt">{exc.length}건</span>
-                </>,
-                '접수 당일 안에 끝나지 않은 긴급·높음 건',
-                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P12&unres=1')}>
-                  모두 보기
-                </button>,
-                wait(list('X', exc, rowU, '접수 당일 안에 끝나지 않은 긴급·높음 건이 없어요.')),
-              )}
-            </div>
-
-            <div className="ogrid">
-              {sec(
-                <>
                   티켓 연동 확인 <span className="ocnt">{linkL.length}건</span>
                 </>,
                 'ITSM 이슈가 안 만들어졌거나 상태를 가져오지 못한 건',
-                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?st=none')}>
+                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?needs=1')}>
                   모두 보기
                 </button>,
                 wait(list('L', linkL, rowC('link'), '연동 확인이 필요한 건이 없어요.')),
@@ -446,7 +419,7 @@ export function OpsView() {
                   담당자 배정 확인 <span className="ocnt">{asgL.length}건</span>
                 </>,
                 'ITSM 이슈는 만들어졌지만 담당자가 비어 있는 건',
-                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?st=none')}>
+                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?needs=1')}>
                   모두 보기
                 </button>,
                 wait(list('A', asgL, rowC('asg'), '배정 확인이 필요한 건이 없어요.')),
@@ -457,7 +430,7 @@ export function OpsView() {
         </div>
       </main>
 
-      {openId !== null && <TicketDetailPanel key={openId} id={openId} tick={tick} slide={slide} onSlideEnd={() => setSlide(false)} onClose={() => setOpenId(null)} />}
+      {openId !== null && <TicketDetailPanel key={openId} id={openId} tick={tick} slide={slide} onSlideEnd={() => setSlide(false)} onClose={() => setOpenId(null)}  />}
       {check && (
         <CheckDialog
           t={check}
@@ -485,89 +458,5 @@ export function OpsView() {
         />
       )}
     </>
-  )
-}
-
-const WORK_LABEL = { RDY: '처리 대기', WIP: '처리 중', FIN: '해결 확인 대기', CLS: '해결 완료' } as const
-
-function CheckDialog({ t, busy, err, onClose, onDetail, onGo }: { t: TicketSummary; busy: boolean; err: string; onClose: () => void; onDetail: () => void; onGo: (kind: 'link' | 'trn', reason: string) => void }) {
-  const trn = t.transitionStatus === 'NEEDS_ADMIN'
-  const [why, setWhy] = useState('')
-  const [whyErr, setWhyErr] = useState('')
-  const to = t.requestedWorkStatus ? WORK_LABEL[t.requestedWorkStatus] : '요청한 상태'
-  const now = t.workStatus ? WORK_LABEL[t.workStatus] : '이전 상태'
-  const verifying = t.jiraSyncStatus === 'VERIFYING'
-  const submit = () => {
-    const w = why.trim()
-    if (!w) return setWhyErr('재처리 사유를 입력해 주세요.')
-    onGo(trn ? 'trn' : 'link', w)
-  }
-  return (
-    <Modal title={trn ? 'ITSM 상태 확인' : 'ITSM 생성 확인'} onClose={onClose}>
-      <p className="small muted" style={{ margin: 0 }}>
-        접수 <span className="mono">{t.receiptNo}</span> · {t.jiraKey ? <>ITSM <b className="mono">{t.jiraKey}</b></> : 'ITSM 티켓 없음'} · {t.group?.name ?? '-'} · <UrgencyChip u={t.urgency} />
-      </p>
-      <div className="mdl-issue">
-        <div className="stlist" aria-label="확인이 필요한 내용">
-          <div className={`sx live ${trn || !verifying ? 'tn-urg' : 'tn-warn'}`}>
-            <span className="mk">
-              <Icon name="alert" />
-            </span>
-            <span className="l">{trn ? '상태 변경' : 'ITSM 연동'}</span>
-            <span className="vb">
-              <span className={`sbd ${trn || !verifying ? 'tn-urg' : 'tn-warn'}`}>
-                <i />
-                {trn ? 'ITSM 동기화 필요' : verifying ? '생성 여부 확인 중' : 'ITSM 생성 확인 필요'}
-              </span>
-            </span>
-            <span className="sxs">{trn ? `${now} → ${to} 변경이 ITSM에 반영됐는지 확인하지 못함` : linkWhy(t)}</span>
-          </div>
-        </div>
-      </div>
-      <p className="mdl-how">
-        {trn ? (
-          <>
-            ITSM에서 현재 상태를 먼저 읽어 와요. 이미 <b>{to}</b>이면 다시 요청하지 않고 완료로 처리하고, 아직 <b>{now}</b>이면 <b>{to}</b>로 바꾸는 요청을 다시 보내요.
-          </>
-        ) : (
-          <>
-            ITSM에서 접수번호 <b className="mono">{t.receiptNo}</b>로 만든 티켓이 있는지 먼저 찾아요. 있으면 그 티켓을 연결하고, 없을 때만 새로 만들어요. (중복 생성 방지)
-          </>
-        )}
-      </p>
-      <div className="field">
-        <label htmlFor="ops-why">
-          재처리 사유 <span className="muted">(필수)</span>
-        </label>
-        <textarea id="ops-why" className={`ta${whyErr ? ' err' : ''}`} maxLength={500} value={why} placeholder="예) ITSM 장애 복구 후 재처리" aria-invalid={!!whyErr} aria-describedby={whyErr ? 'ops-why-e' : undefined} onChange={(e) => { setWhy(e.target.value); setWhyErr('') }} />
-        {whyErr && (
-          <div className="ferr" id="ops-why-e" role="alert">
-            {whyErr}
-          </div>
-        )}
-        <div className="wcnt">
-          <span className="hint">처리 이력과 감사 기록에 남아요.</span>
-          <span className="hint">
-            <b>{why.length}</b>/500
-          </span>
-        </div>
-      </div>
-      {err && (
-        <div className="ferr" role="alert">
-          {err}
-        </div>
-      )}
-      <div className="acts">
-        <button type="button" className="btn sec" onClick={onClose}>
-          닫기
-        </button>
-        <button type="button" className="btn sec" onClick={onDetail}>
-          상세
-        </button>
-        <button type="button" className="btn pri" disabled={busy} onClick={submit}>
-          {trn ? 'ITSM 상태 확인·다시 반영' : 'ITSM 생성 확인·재시도'}
-        </button>
-      </div>
-    </Modal>
   )
 }

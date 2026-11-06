@@ -8,6 +8,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { ACTION_LABEL, FIELD_LABEL, MISSING_LABEL, listAssessments, type Assessment } from '../../api/assessments'
 import { CATEGORIES, urgencyText } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
+import { urgencyReasonText } from '../../api/urgencyReason'
 import { formatDateTime } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { StateBadge } from '../../ui/StateBadge'
@@ -83,7 +84,7 @@ export function AssessmentHistory({ inquiryId, preset }: { inquiryId: number; pr
                 <ul>
                   {a.overrideReasons.map((o, j) => (
                     <li key={j}>
-                      {FIELD_LABEL[o.field] ?? o.field} <s>{show(o.field, o.ai)}</s> → <b>{show(o.field, o.final)}</b> · {o.reason} <span className="mono small muted">{o.rule}</span>
+                      {FIELD_LABEL[o.field] ?? o.field} <s>{show(o.field, o.ai)}</s> → <b>{show(o.field, o.final)}</b> · {urgencyReasonText(o.reason)} <span className="mono small muted">{o.rule}</span>
                     </li>
                   ))}
                 </ul>

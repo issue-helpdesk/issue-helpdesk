@@ -8,7 +8,6 @@ import { URGENCY_LABEL } from '../../api/catalog'
 import { listBoard, listSupportGroups, type Candidate, type SupportGroupRef } from '../../api/reference'
 import { watchTickets } from '../../api/tickets'
 import { useAuth } from '../../core/session'
-import { Collapse } from '../../ui/Collapse'
 import { Icon } from '../../ui/Icon'
 import { URGS } from '../staff/StatsView'
 
@@ -19,7 +18,6 @@ export function TeamBoard() {
   const [people, setPeople] = useState<Record<string, Candidate[]>>({})
   const [peopleErr, setPeopleErr] = useState('')
   const [chip, setChip] = useState('')
-  const [curOpen, setCurOpen] = useState(false)
   const [tick, setTick] = useState(0)
   useEffect(() => watchTickets(() => setTick((n) => n + 1)), [])
   useEffect(() => {
@@ -74,11 +72,7 @@ export function TeamBoard() {
                 )
               })}
             </div>
-            <button type="button" className="tgc" aria-expanded={curOpen} aria-controls="ocur-b" aria-label={`${grp} 담당자 ${curOpen ? '접기' : '펼치기'}`} title={curOpen ? '접기' : `${members.length}명 보기`} onClick={() => setCurOpen((v) => !v)}>
-              <Icon name="chevron" />
-            </button>
           </div>
-          <Collapse open={curOpen}>
           <div className="tw" id="ocur-b">
             <table className="tbl ptbl">
               <colgroup>
@@ -138,7 +132,6 @@ export function TeamBoard() {
               </tbody>
             </table>
           </div>
-          </Collapse>
         </>
       )}
     </section>

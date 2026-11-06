@@ -43,6 +43,8 @@ import { listTickets } from '../../api/tickets'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
 import { formatDateTime, formatElapsed } from '../../core/format'
+import { GuideReaderPanel, type ReaderTarget } from '../../ui/GuideReaderPanel'
+import { ScopeBadge } from '../../ui/ScopeBadge'
 import { visiblePoll } from '../../core/poll'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
@@ -109,6 +111,8 @@ export function GuidesView() {
   const [clOpen, setClOpen] = useState<number | null>(null)
   const [tick, setTick] = useState(0)
   const [hideInactive, setHideInactive] = useState(false)
+  // 가이드 본문을 오른쪽 패널로 읽는다 (관리자는 버전마다)
+  const [reader, setReader] = useState<ReaderTarget | null>(null)
   // 적재에 실패한 버전 (가이드·분류 옆 점). 추적 기록은 api/guideWatch.ts 가 관리한다
   const failures = useSyncExternalStore(watchIngest, getIngestFailures)
   const failDocs = useMemo(() => new Set(failures.map((f) => f.docId)), [failures])
@@ -245,20 +249,22 @@ export function GuidesView() {
             </div>
           </span>
           <span className="gbs">
-            <span className="gb1">{g.current?.scope && <StateBadge tone="info" label={g.current.scope} />}</span>
+            <span className="gb1">{g.current?.scope && <ScopeBadge scope={g.current.scope} />}</span>
             <span className="gb2">{g.current?.tx === '금지' ? <StateBadge tone="urg" label="외부 전송 금지" /> : g.current?.tx === '마스킹 후 허용' ? <StateBadge tone="warn" label="마스킹 후 전송" /> : null}</span>
           </span>
         </button>
-        {/* 문서 전체를 켜고 끄는 버튼: 제목과 같은 줄, 펼쳤을 때만 보인다 */}
-        {open && (
-          <button type="button" className={`btn ${g.isActive ? 'sec' : 'pri'} sm gact`} aria-label={`${g.docCode} ${g.isActive ? '비활성화' : '활성화'}`} onClick={() => setDlg({ kind: 'active', g, to: !g.isActive })}>
-            {g.isActive ? '비활성화' : '활성화'}
-          </button>
-        )}
         </div>
         <Collapse open={open}>
         {open && (
-          <div className="tw gvt" style={{ marginTop: 12 }}>
+          <div className="gvt-wrap">
+            {/* 문서 전체를 켜고 끄는 버튼: 접었을 때 줄 정렬을 흔들지 않도록 펼친 영역 안 오른쪽 위에 둔다 */}
+            <div className="gvt-bar">
+              <span className="small muted">{list ? `버전 ${list.length}개` : ''}</span>
+              <button type="button" className={`btn ${g.isActive ? 'sec' : 'pri'} sm`} aria-label={`${g.docCode} ${g.isActive ? '비활성화' : '활성화'}`} onClick={() => setDlg({ kind: 'active', g, to: !g.isActive })}>
+                {g.isActive ? '비활성화' : '활성화'}
+              </button>
+            </div>
+          <div className="tw gvt">
             {!list ? (
               <div className="empty" role="status">
                 불러오는 중이에요…
@@ -276,6 +282,7 @@ export function GuidesView() {
                     </th>
                     <th className="c">현행 관리</th>
                     <th>올린 시각</th>
+                    <th className="c">본문</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -297,7 +304,9 @@ export function GuidesView() {
                           <StateBadge tone={v.ready === '준비 완료' ? 'ok' : 'warn'} label={v.ready} />
                         )}
                       </td>
-                      <td>{v.scope}</td>
+                      <td>
+                        <ScopeBadge scope={v.scope} />
+                      </td>
                       <td className="c">
                         <div className="seg tx" role="group" aria-label={`${v.version} 외부 AI 전송`}>
                           {GUIDE_TXS.slice()
@@ -320,11 +329,17 @@ export function GuidesView() {
                         {v.registeredAt ? formatDateTime(v.registeredAt) : '-'}
                         {v.registeredAt && Date.now() - Date.parse(v.registeredAt) < 24 * 3600_000 && <span className="nwb">NEW</span>}
                       </td>
+                      <td className="c">
+                        <button type="button" className="btn sec sm" aria-label={`${g.docCode} ${v.version} 본문 보기`} onClick={() => setReader({ id: g.id, docCode: g.docCode, title: g.title, versionId: v.id, version: v.version })}>
+                          보기
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
+          </div>
           </div>
         )}
         </Collapse>
@@ -635,6 +650,7 @@ export function GuidesView() {
           </div>
         </div>
       </main>
+      {reader && <GuideReaderPanel target={reader} onClose={() => setReader(null)} />}
       {dlg?.kind === 'upload' && (
         <UploadDialog
           guides={guides ?? []}

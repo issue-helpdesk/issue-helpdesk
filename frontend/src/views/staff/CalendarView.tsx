@@ -23,6 +23,8 @@ import { TeamBoard } from '../admin/TeamBoard'
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토']
 const KIND_CLS: Record<TimeOffType, string> = { ANNUAL: 'an', HALF_AM: 'am', HALF_PM: 'pm' }
+/** 달력 한 칸에 보이는 일정 수. 넘으면 "+N개 더 보기"로 줄이고 칸을 누르면 그날 전체를 본다 */
+const MAX_PER_DAY = 2
 
 const fmtDay = (s: string) => {
   const d = new Date(`${s}T00:00:00`)
@@ -55,6 +57,9 @@ export function CalendarView() {
   const [team, setTeam] = useState('')
   const [board, setBoard] = useState<Record<string, Candidate[]>>({})
   const [adding, setAdding] = useState(false)
+  // 칸을 눌러 연 날짜(그날 일정 목록)와, 그 날짜로 시작하는 등록 창
+  const [day, setDay] = useState<string | null>(null)
+  const [addDate, setAddDate] = useState<string | undefined>(undefined)
   const [removing, setRemoving] = useState<TimeOff | null>(null)
   const { say, fail } = useToast()
   const allowed = user?.serviceRole === 'AGENT' || user?.serviceRole === 'ADMIN'
@@ -97,6 +102,11 @@ export function CalendarView() {
   const onDay = (d: string) => items.filter((t) => t.startDate <= d && t.endDate >= d)
   const move = (delta: number) => setYm((c) => { const d = new Date(c.y, c.m + delta, 1); return { y: d.getFullYear(), m: d.getMonth() } })
   const showAllLabel = admin ? '전체' : '팀 일정'
+  // 관리자는 여러 팀의 일정을 함께 보므로 이름 앞에 팀 이름 앞 두 글자를 붙인다: [네트] 박지유 연차
+  const teamOf = new Map<number, string>()
+  if (admin) Object.entries(board).forEach(([g, list]) => list.forEach((c) => teamOf.set(c.id, g)))
+  const tag = (t: TimeOff) => (teamOf.has(t.userId) ? `[${teamOf.get(t.userId)!.slice(0, 2)}] ` : '')
+  const label = (t: TimeOff) => `${tag(t)}${t.user.name} ${TIME_OFF_LABEL[t.timeOffType]}`
 
   async function remove(t: TimeOff) {
     const r = await deleteTimeOff(t.id)
@@ -121,17 +131,17 @@ export function CalendarView() {
             </div>
 
             <div className="calbar">
-              <div className="calnav">
-                <button type="button" className="btn sec sm" aria-label="이전 달" onClick={() => move(-1)}>
-                  <Icon name="chevron" className="flip" />
+              <div className="calnav nav1">
+                <button type="button" aria-label="이전 달" onClick={() => move(-1)}>
+                  ‹
                 </button>
                 <h2 className="calttl" aria-live="polite">
                   {ym.y}년 {ym.m + 1}월
                 </h2>
-                <button type="button" className="btn sec sm" aria-label="다음 달" onClick={() => move(1)}>
-                  <Icon name="chevron" />
+                <button type="button" aria-label="다음 달" onClick={() => move(1)}>
+                  ›
                 </button>
-                <button type="button" className="btn sec sm" onClick={() => setYm({ y: new Date().getFullYear(), m: new Date().getMonth() })}>
+                <button type="button" className="today" onClick={() => setYm({ y: new Date().getFullYear(), m: new Date().getMonth() })}>
                   오늘
                 </button>
               </div>
@@ -147,7 +157,7 @@ export function CalendarView() {
                     {showAllLabel}
                   </button>
                   </div>
-                <button type="button" className="btn pri" onClick={() => setAdding(true)}>
+                <button type="button" className="btn pri" onClick={() => { setAddDate(undefined); setAdding(true) }}>
                   <Icon name="plus" /> 일정 등록
                 </button>
               </div>
@@ -176,19 +186,34 @@ export function CalendarView() {
                   const evs = onDay(d)
                   const out = Number(d.slice(5, 7)) - 1 !== ym.m
                   return (
-                    <div key={d} className={`cd${out ? ' out' : ''}${d === today ? ' today' : ''}`} role="gridcell" aria-current={d === today ? 'date' : undefined}>
+                    <div
+                      key={d}
+                      className={`cd clk${out ? ' out' : ''}${d === today ? ' today' : ''}`}
+                      role="gridcell"
+                      tabIndex={0}
+                      aria-label={`${fmtDay(d)} 일정 ${evs.length}건 보기`}
+                      aria-current={d === today ? 'date' : undefined}
+                      onClick={() => setDay(d)}
+                      onKeyDown={(e) => {
+                        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault()
+                          setDay(d)
+                        }
+                      }}
+                    >
                       <span className="dn">{Number(d.slice(8))}</span>
-                      {evs.map((t) => (
+                      {evs.slice(0, MAX_PER_DAY).map((t) => (
                         t.userId === user.id ? (
-                          <button key={t.id} type="button" className={`ev ${KIND_CLS[t.timeOffType]} mine`} title={`${t.user.name} · ${TIME_OFF_LABEL[t.timeOffType]}${t.note ? ` · ${t.note}` : ''} · 눌러서 삭제`} aria-label={`${period(t)} ${TIME_OFF_LABEL[t.timeOffType]} 삭제`} onClick={() => setRemoving(t)}>
-                            {t.user.name} {TIME_OFF_LABEL[t.timeOffType]}
+                          <button key={t.id} type="button" className={`ev ${KIND_CLS[t.timeOffType]} mine`} title={`${label(t)}${t.note ? ` · ${t.note}` : ''} · 눌러서 삭제`} aria-label={`${period(t)} ${TIME_OFF_LABEL[t.timeOffType]} 삭제`} onClick={(e) => { e.stopPropagation(); setRemoving(t) }}>
+                            {label(t)}
                           </button>
                         ) : (
-                          <span key={t.id} className={`ev ${KIND_CLS[t.timeOffType]}`} title={`${t.user.name} · ${TIME_OFF_LABEL[t.timeOffType]}${t.note ? ` · ${t.note}` : ''}`}>
-                            {t.user.name} {TIME_OFF_LABEL[t.timeOffType]}
+                          <span key={t.id} className={`ev ${KIND_CLS[t.timeOffType]}`} title={`${label(t)}${t.note ? ` · ${t.note}` : ''}`}>
+                            {label(t)}
                           </span>
                         )
                       ))}
+                      {evs.length > MAX_PER_DAY && <span className="more">+{evs.length - MAX_PER_DAY}개 더 보기</span>}
                     </div>
                   )
                 })}
@@ -200,15 +225,47 @@ export function CalendarView() {
                 불러오는 중이에요.
               </div>
             )}
-            <p className="small muted">내 일정(굵은 테두리)을 누르면 삭제할 수 있어요.</p>
+            <p className="small muted">날짜 칸을 누르면 그날 일정을 모두 보고 등록할 수 있어요. 내 일정(굵은 테두리)을 누르면 삭제할 수 있어요.</p>
 
             {admin && <TeamBoard />}
           </div>
         </div>
       </main>
 
+      {day && (
+        <Modal title={`${fmtDay(day)} 일정`} variant="form" onClose={() => setDay(null)}>
+          {onDay(day).length === 0 ? (
+            <p className="muted small" style={{ margin: 0 }}>
+              이 날 등록된 일정이 없어요.
+            </p>
+          ) : (
+            <ul className="dayl">
+              {onDay(day).map((t) => (
+                <li key={t.id}>
+                  <span className={`ev ${KIND_CLS[t.timeOffType]}`}>{label(t)}</span>
+                  <span className="small muted">{period(t)}{t.note ? ` · ${t.note}` : ''}</span>
+                  {t.userId === user.id && (
+                    <button type="button" className="btn ghost sm" aria-label={`${period(t)} ${TIME_OFF_LABEL[t.timeOffType]} 삭제`} onClick={() => { setDay(null); setRemoving(t) }}>
+                      삭제
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="acts">
+            <button type="button" className="btn sec" onClick={() => setDay(null)}>
+              닫기
+            </button>
+            <button type="button" className="btn pri" onClick={() => { setAddDate(day); setDay(null); setAdding(true) }}>
+              <Icon name="plus" /> 이 날 일정 등록
+            </button>
+          </div>
+        </Modal>
+      )}
       {adding && (
         <AddDialog
+          initialDate={addDate}
           onClose={() => setAdding(false)}
           onDone={(msg, firstDay) => {
             setAdding(false)
@@ -238,12 +295,12 @@ export function CalendarView() {
   )
 }
 
-function AddDialog({ onClose, onDone }: { onClose: () => void; onDone: (message: string, firstDay: string) => void }) {
+function AddDialog({ onClose, onDone, initialDate }: { onClose: () => void; onDone: (message: string, firstDay: string) => void; initialDate?: string }) {
   const { user } = useAuth()
   const [today] = useState(() => ymd(new Date()))
   const [kind, setKind] = useState<TimeOffType>('ANNUAL')
-  const [start, setStart] = useState(today)
-  const [end, setEnd] = useState(today)
+  const [start, setStart] = useState(initialDate ?? today)
+  const [end, setEnd] = useState(initialDate ?? today)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [top, setTop] = useState('')
