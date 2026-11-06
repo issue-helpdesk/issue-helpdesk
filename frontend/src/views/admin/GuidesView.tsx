@@ -588,7 +588,7 @@ export function GuidesView() {
             </div>
             <div>
               <p className="muted">
-                <b>외부 AI 전송</b>은 이 가이드 내용을 AI 모델에 보내 답변을 만들어도 되는지에 관한 설정이에요(문서 열람 권한인 열람 범위와는 별개). <b>허용</b>은 그대로 보내고, <b>마스킹 후 허용</b>은 민감정보를 가린 내용만 보내요. <b>금지</b>인 가이드 내용은 외부 AI에 보내지 않아요. 사용할 수 있는 근거가 없으면 담당자 연결을 제안해요. 열람 범위와 전송 정책을 정하지 않으면 관리자 전용·금지로 처리돼요.
+                <b>외부 AI 전송</b>은 이 가이드 내용을 AI 모델에 보내 답변을 만들어도 되는지에 관한 설정이에요(문서 열람 권한인 열람 범위와는 별개). <b>허용</b>은 그대로 보내고, <b>마스킹 후 허용</b>은 민감정보를 가린 내용만 보내요. <b>금지</b>인 가이드 내용은 외부 AI에 보내지 않아요. 사용할 수 있는 근거가 없으면 담당자 연결을 제안해요. 열람 범위와 전송 정책을 정하지 않으면 관리자만·금지로 처리돼요.
               </p>
             </div>
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
@@ -817,7 +817,7 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
   const [docVers, setDocVers] = useState<GuideVersion[] | null>(null)
   const [title, setTitle] = useState('')
   const [ver, setVer] = useState('')
-  const [scope, setScope] = useState<GuideScope>('관리자 전용')
+  const [scope, setScope] = useState<GuideScope>('관리자만')
   const [tx, setTx] = useState<GuideTx>('금지')
   // 파일 머리의 version: 값 (md·txt 만 읽는다). 서버는 이 값과 입력한 버전이 다르면 적재를 실패 처리한다
   const [fileVer, setFileVer] = useState<string | null>(null)
@@ -1141,7 +1141,7 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
         </div>
       )}
       <div className="hint">
-        {mode === 'ver' && doc ? '앞 버전의 열람 범위·외부 전송 값을 채워 두었어요. 필요하면 바꿔 주세요. ' : ''}정하지 않으면 가장 제한적인 값(관리자 전용·금지)이 적용돼요.
+        {mode === 'ver' && doc ? '앞 버전의 열람 범위·외부 전송 값을 채워 두었어요. 필요하면 바꿔 주세요. ' : ''}정하지 않으면 가장 제한적인 값(관리자만·금지)이 적용돼요.
       </div>
       {err && (
         <div className="ferr" role="alert">

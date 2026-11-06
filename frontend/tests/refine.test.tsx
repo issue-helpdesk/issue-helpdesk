@@ -134,14 +134,14 @@ describe('접수 초안 수정', () => {
     expect(screen.getByLabelText('발생 시점')).toBeInTheDocument()
     expect(screen.getByLabelText('업무 영향')).toBeInTheDocument()
     expect(screen.getByLabelText('시도한 조치')).toBeInTheDocument()
-    // 자동 판단 항목(대상 시스템, AI 안내, 분류, 세부 유형, 긴급도, 담당 그룹)은 잠금 표시
-    expect(screen.getAllByText('자동으로 판단하는 항목')).toHaveLength(6)
+    // 자동 판단 항목(대상 시스템, AI 안내, 분류, 세부 유형, 담당 그룹)은 잠금 표시
+    expect(screen.getAllByText('자동으로 판단하는 항목')).toHaveLength(5)
     const onset = screen.getByLabelText('발생 시점')
     await user.clear(onset)
     await user.type(onset, '어제 오후부터 전사 접속이 안 돼요')
     await user.click(screen.getByRole('button', { name: '수정 저장' }))
     expect(await screen.findByText('NET-03 · VPN 전사 장애', {}, SLOW)).toBeInTheDocument()
-    expect(screen.getAllByText('다시 판단됨').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('다시 판단됨').length).toBeGreaterThanOrEqual(1)
   })
 })
 

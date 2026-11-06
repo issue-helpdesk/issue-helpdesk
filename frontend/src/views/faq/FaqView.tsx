@@ -275,7 +275,7 @@ export function FaqView() {
 }
 
 /**
- * FAQ 등록·수정 창. 출처 가이드는 전 직원용(사내 일반) 현행 가이드만 고를 수 있다 (서버가 그 문서만 받는다).
+ * FAQ 등록·수정 창. 출처 가이드는 전 직원용(전 직원) 현행 가이드만 고를 수 있다 (서버가 그 문서만 받는다).
  * 수정을 저장하면 FAQ 는 게시가 중단되고, "저장하면서 바로 게시"를 켜면 한 번에 다시 게시한다.
  */
 function FaqFormDialog({ faq, loaded, onClose, onDone }: { faq: Faq | null; loaded: GuideSource[] | 'err' | undefined; onClose: () => void; onDone: (message: string) => void }) {
@@ -313,7 +313,7 @@ function FaqFormDialog({ faq, loaded, onClose, onDone }: { faq: Faq | null; load
 
   // 전 직원용 현행 가이드(GUIDE) 가운데 고른 분류의 것만 보이고, 다른 분류에서 이미 고른 가이드는 사라지지 않게 함께 보인다 (위에)
   const eligible = (guides ?? [])
-    .filter((g) => g.isActive && g.current?.scope === '사내 일반' && (!g.docType || g.docType === 'GUIDE'))
+    .filter((g) => g.isActive && g.current?.scope === '전 직원' && (!g.docType || g.docType === 'GUIDE'))
     .filter((g) => g.cat === cat || picked.has(g.id))
     .sort((x, y) => Number(picked.has(y.id) && y.cat !== cat) - Number(picked.has(x.id) && x.cat !== cat))
   const pubOk = picked.size > 0

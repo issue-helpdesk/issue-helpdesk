@@ -17,9 +17,9 @@ import { fail, ok, type ApiResult, type User } from './types'
 
 export type GuideState = '현행' | '초안' | '만료'
 export type GuideReady = '준비 완료' | '준비 중' | '준비 실패'
-export type GuideScope = '관리자 전용' | '사내 제한' | '사내 일반'
+export type GuideScope = '관리자만' | '담당자 이상' | '전 직원'
 export type GuideTx = '허용' | '마스킹 후 허용' | '금지'
-export const GUIDE_SCOPES: GuideScope[] = ['관리자 전용', '사내 제한', '사내 일반']
+export const GUIDE_SCOPES: GuideScope[] = ['관리자만', '담당자 이상', '전 직원']
 export const GUIDE_TXS: GuideTx[] = ['금지', '마스킹 후 허용', '허용']
 /** 외부 전송 정책의 엄격한 순서: 금지 < 마스킹 후 허용 < 허용. 값이 커지면 더 느슨해진다 */
 export const TX_RANK: Record<GuideTx, number> = { 금지: 0, '마스킹 후 허용': 1, 허용: 2 }
@@ -51,8 +51,8 @@ export interface Guide {
   versions: GuideVersion[] | null
 }
 
-const SCOPE_FROM = { ALL: '사내 일반', AGENT: '사내 제한', ADMIN: '관리자 전용' } as const
-const SCOPE_TO = { '사내 일반': 'ALL', '사내 제한': 'AGENT', '관리자 전용': 'ADMIN' } as const
+const SCOPE_FROM = { ALL: '전 직원', AGENT: '담당자 이상', ADMIN: '관리자만' } as const
+const SCOPE_TO = { '전 직원': 'ALL', '담당자 이상': 'AGENT', '관리자만': 'ADMIN' } as const
 const TX_FROM = { ALLOWED: '허용', MASKED: '마스킹 후 허용', BLOCKED: '금지' } as const
 const TX_TO = { 허용: 'ALLOWED', '마스킹 후 허용': 'MASKED', 금지: 'BLOCKED' } as const
 
@@ -69,16 +69,16 @@ const v = (id: number, version: string, state: GuideState, scope: GuideScope, tx
 /** 이 화면에서 새로 올리거나 만든 버전: 올린 시각이 붙는다 */
 const vNew = (...a: Parameters<typeof v>): GuideVersion => ({ ...v(...a), registeredAt: new Date().toISOString() })
 const seed = (): MockGuide[] => [
-  { id: 1, docCode: 'IT-NET-001', title: 'VPN 접속 장애 대응 가이드', cat: 'NET', versions: [v(13, 'v3', '초안', '사내 제한', '허용', '준비 중'), v(12, 'v2', '현행', '사내 일반', '허용', '준비 완료'), v(11, 'v1', '만료', '사내 일반', '허용', '준비 완료')] },
-  { id: 2, docCode: 'IT-ACC-001', title: '사내 SSO 로그인 오류 대응 가이드', cat: 'ACC', versions: [v(21, 'v2', '현행', '사내 일반', '허용', '준비 완료')] },
-  { id: 3, docCode: 'IT-ACC-002', title: '비밀번호 변경·초기화 가이드', cat: 'ACC', versions: [v(31, 'v2', '현행', '사내 일반', '허용', '준비 완료')] },
-  { id: 4, docCode: 'IT-ACC-003', title: 'MFA 인증 오류 대응 가이드', cat: 'ACC', versions: [v(41, 'v2', '현행', '사내 일반', '허용', '준비 완료')] },
-  { id: 5, docCode: 'IT-SW-001', title: '업무용 SW 설치 가이드', cat: 'SW', versions: [v(51, 'v2', '현행', '사내 일반', '허용', '준비 완료')] },
-  { id: 6, docCode: 'IT-HW-003', title: '프린터·복합기 이용 가이드', cat: 'HW', versions: [v(62, 'v2', '현행', '사내 일반', '허용', '준비 완료'), v(61, 'v1', '만료', '사내 일반', '허용', '준비 완료')] },
-  { id: 7, docCode: 'IT-ACS-001', title: '사내 시스템 접근권한 신청 가이드', cat: 'ACS', versions: [v(71, 'v2', '현행', '사내 일반', '허용', '준비 완료')] },
-  { id: 8, docCode: 'IT-SYS-001', title: '그룹웨어·ERP 이용 오류 대응 가이드', cat: 'SYS', versions: [v(81, 'v2', '현행', '사내 일반', '허용', '준비 완료')] },
-  { id: 9, docCode: 'IT-SEC-004', title: '보안 예외 신청·정책 안내 가이드', cat: 'SEC', versions: [v(91, 'v2', '현행', '사내 제한', '금지', '준비 완료')] },
-  { id: 10, docCode: 'IT-SEC-001', title: '피싱·의심 메일 대응 가이드', cat: 'SEC', versions: [v(102, 'v2', '현행', '사내 일반', '마스킹 후 허용', '준비 완료'), v(103, 'v3', '초안', '사내 일반', '허용', '준비 중')] },
+  { id: 1, docCode: 'IT-NET-001', title: 'VPN 접속 장애 대응 가이드', cat: 'NET', versions: [v(13, 'v3', '초안', '담당자 이상', '허용', '준비 중'), v(12, 'v2', '현행', '전 직원', '허용', '준비 완료'), v(11, 'v1', '만료', '전 직원', '허용', '준비 완료')] },
+  { id: 2, docCode: 'IT-ACC-001', title: '사내 SSO 로그인 오류 대응 가이드', cat: 'ACC', versions: [v(21, 'v2', '현행', '전 직원', '허용', '준비 완료')] },
+  { id: 3, docCode: 'IT-ACC-002', title: '비밀번호 변경·초기화 가이드', cat: 'ACC', versions: [v(31, 'v2', '현행', '전 직원', '허용', '준비 완료')] },
+  { id: 4, docCode: 'IT-ACC-003', title: 'MFA 인증 오류 대응 가이드', cat: 'ACC', versions: [v(41, 'v2', '현행', '전 직원', '허용', '준비 완료')] },
+  { id: 5, docCode: 'IT-SW-001', title: '업무용 SW 설치 가이드', cat: 'SW', versions: [v(51, 'v2', '현행', '전 직원', '허용', '준비 완료')] },
+  { id: 6, docCode: 'IT-HW-003', title: '프린터·복합기 이용 가이드', cat: 'HW', versions: [v(62, 'v2', '현행', '전 직원', '허용', '준비 완료'), v(61, 'v1', '만료', '전 직원', '허용', '준비 완료')] },
+  { id: 7, docCode: 'IT-ACS-001', title: '사내 시스템 접근권한 신청 가이드', cat: 'ACS', versions: [v(71, 'v2', '현행', '전 직원', '허용', '준비 완료')] },
+  { id: 8, docCode: 'IT-SYS-001', title: '그룹웨어·ERP 이용 오류 대응 가이드', cat: 'SYS', versions: [v(81, 'v2', '현행', '전 직원', '허용', '준비 완료')] },
+  { id: 9, docCode: 'IT-SEC-004', title: '보안 예외 신청·정책 안내 가이드', cat: 'SEC', versions: [v(91, 'v2', '현행', '담당자 이상', '금지', '준비 완료')] },
+  { id: 10, docCode: 'IT-SEC-001', title: '피싱·의심 메일 대응 가이드', cat: 'SEC', versions: [v(102, 'v2', '현행', '전 직원', '마스킹 후 허용', '준비 완료'), v(103, 'v3', '초안', '전 직원', '허용', '준비 중')] },
 ]
 let store: MockGuide[] = seed()
 let seq = { doc: 10, ver: 200 }
@@ -406,10 +406,10 @@ export async function createGuideDraft(user: User, draft: { cat: CategoryCode; t
   if (g) {
     const n = Math.max(0, ...g.versions.map((x) => Number(x.version.replace(/\D/g, '')) || 0)) + 1
     version = `v${n}`
-    g.versions.unshift(vNew(++seq.ver, version, '초안', '사내 제한', '허용', '준비 중'))
+    g.versions.unshift(vNew(++seq.ver, version, '초안', '담당자 이상', '허용', '준비 중'))
   } else {
     const code = `IT-${draft.cat}-${String(900 + ++seq.doc).slice(-3)}`
-    g = { id: seq.doc, docCode: code, title: draft.title, cat: draft.cat, versions: [vNew(++seq.ver, 'v1', '초안', '사내 제한', '허용', '준비 중')] }
+    g = { id: seq.doc, docCode: code, title: draft.title, cat: draft.cat, versions: [vNew(++seq.ver, 'v1', '초안', '담당자 이상', '허용', '준비 중')] }
     store.push(g)
   }
   const made = g

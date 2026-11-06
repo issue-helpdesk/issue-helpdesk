@@ -68,7 +68,7 @@ export const EVENT_LABEL: Record<string, { label: string; tone: string }> = {
 }
 
 const ACCOUNT_STATUS: Record<string, string> = { ACTIVE: '정상', LOCKED: '잠김', INACTIVE: '이용 제한' } // 계정 관리 화면과 같은 말
-const SCOPE_LABEL: Record<string, string> = { ALL: '전 직원', AGENT: '담당자', ADMIN: '관리자 전용' }
+const SCOPE_LABEL: Record<string, string> = { ALL: '전 직원', AGENT: '담당자 이상', ADMIN: '관리자만' }
 const POLICY_LABEL: Record<string, string> = { ALLOWED: '허용', MASKED: '마스킹 후 허용', BLOCKED: '금지' }
 const SENSITIVE_LABEL: Record<string, string> = { PASSWORD: '비밀번호', OTP: '인증번호', API_KEY: 'API 키', PRIVATE_KEY: '비공개 키', RRN: '주민등록번호', CARD: '카드번호', ACCOUNT: '계좌번호' }
 
