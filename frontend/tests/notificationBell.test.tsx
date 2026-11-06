@@ -94,6 +94,22 @@ describe('알림 종', () => {
     expect(screen.getByTestId('at')).toHaveTextContent('/chat/72')
   })
 
+  it('최근 10일 알림만 최근순으로 보이고, 안내 문구가 있다', async () => {
+    const user = userEvent.setup()
+    const ago = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString()
+    state.list = () => ok({ items: [{ ...mk(1, 'ASSIGNED', null, '오래된 것'), createdAt: ago(12) }, { ...mk(2, 'ASSIGNED', null, '이틀 전'), createdAt: ago(2) }, { ...mk(3, 'FIN', null, '방금'), createdAt: ago(0) }, { ...mk(4, 'ASSIGNED', null, '아홉 날 전'), createdAt: ago(9) }], hasMore: false })
+    renderBell()
+    await user.click(screen.getByRole('button', { name: '알림 2건' }))
+    const dlg = await screen.findByRole('dialog', { name: '알림' })
+    expect(within(dlg).getByText('최근 10일 알림만 보여 드려요.')).toBeInTheDocument()
+    await within(dlg).findByText('RCPT-092 · 이틀 전')
+    expect(within(dlg).queryByText(/오래된 것/)).not.toBeInTheDocument()
+    const order = within(dlg).getAllByRole('button').filter((b) => b.className.includes('bitem')).map((b) => b.textContent)
+    expect(order[0]).toContain('방금')
+    expect(order[1]).toContain('이틀 전')
+    expect(order[2]).toContain('아홉 날 전')
+  })
+
   it('알림이 없으면 빈 상태 안내를, 불러오기에 실패하면 다시 불러오기 버튼을 보인다', async () => {
     const user = userEvent.setup()
     state.list = () => ok({ items: [], hasMore: false })

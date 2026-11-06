@@ -1,6 +1,7 @@
 /**
  * 알림 종 (공통 UI): 오른쪽 위에서 안 읽은 알림 수를 보여 주고, 누르면 내 알림 목록을 연다. (docs/api/05 NT-01~04)
  * - 알림 종류는 두 가지다: 담당자에게 "새 티켓이 배정됐어요"(ASSIGNED), 문의자에게 "문의가 처리 완료됐어요"(FIN). 내용은 서버가 저장하지 않아 종류로 문구를 만든다.
+ * - 알림은 최근 10일 것만, 최근순으로 보인다. 종류는 체크 모양 아이콘 배지로 구분한다(배정=주황, 완료=초록, 프로필 이미지는 쓰지 않는다).
  * - 안 읽은 알림은 색에만 기대지 않고 굵은 제목과 "안 읽음" 글자로 보인다. 아이콘이나 프로필 이미지는 쓰지 않는다.
  * - 알림을 누르면 그 티켓(담당자) 또는 문의(문의자)로 이동하고, 그 접수의 알림은 모두 읽음이 된다(NT-04).
  * - Esc·바깥 누르기로 닫으면 종 버튼으로 초점이 돌아온다.
@@ -12,6 +13,9 @@ import { formatRelative } from '../core/format'
 import { Icon } from './Icon'
 
 const TITLE: Record<AppNotification['kind'], string> = { ASSIGNED: '새 티켓이 배정됐어요', FIN: '문의가 처리 완료됐어요' }
+/** 알림은 최근 며칠 것만 보여 준다 */
+export const NOTICE_DAYS = 10
+const newestFirst = (a: AppNotification, b: AppNotification) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : b.id - a.id)
 const LOAD_FAIL = '알림을 불러오지 못했어요. 연결 상태를 확인한 뒤 다시 불러와 주세요.'
 
 export function NotificationBell() {
@@ -35,8 +39,11 @@ export function NotificationBell() {
       if (!alive) return
       if (!r.ok) return setError(r.error.message || LOAD_FAIL)
       setError('')
-      setItems((cur) => (page === 1 || !cur ? r.data.items : [...cur, ...r.data.items]))
-      setMore(r.data.hasMore)
+      // 최근 10일 것만, 최근순으로. 쪽에 10일보다 오래된 알림이 나오면 그 뒤는 더 볼 필요가 없다
+      const since = new Date(Date.now() - NOTICE_DAYS * 86_400_000).toISOString()
+      const recent = r.data.items.filter((n) => n.createdAt >= since)
+      setItems((cur) => (page === 1 || !cur ? recent : [...cur, ...recent]).sort(newestFirst))
+      setMore(r.data.hasMore && recent.length === r.data.items.length)
     })
     return () => {
       alive = false
@@ -113,6 +120,7 @@ export function NotificationBell() {
               안 읽음만
             </label>
           </div>
+          <p className="bnote">최근 {NOTICE_DAYS}일 알림만 보여 드려요.</p>
           {error ? (
             <div className="bem" role="alert">
               <b>{error}</b>
@@ -134,6 +142,9 @@ export function NotificationBell() {
               {items.map((n) => (
                 <li key={n.id}>
                   <button type="button" className={`bitem${n.readAt ? ' read' : ''}`} onClick={() => void go(n)}>
+                    <span className={`bic ${n.kind === 'FIN' ? 'f' : 'a'}`} aria-hidden="true">
+                      <Icon name="check" />
+                    </span>
                     <span className="bt">
                       {TITLE[n.kind]}
                       {!n.readAt && <span className="bnew">안 읽음</span>}
