@@ -408,10 +408,10 @@ footer{padding:56px 0 64px;color:var(--mut);font-size:13px}
 <tr><td style="white-space:nowrap;font-weight:600">질문 형식</td><td>서버 질문은 <span class="mono">{ label, text, options, allowText }</span>입니다. <span class="mono">label</span>은 답을 묶을 때 쓰는 이름이고, 옛 질문은 <span class="mono">label=null</span>이라 질문 글을 이름으로 씁니다.</td></tr>
 <tr><td style="white-space:nowrap;font-weight:600">선택</td><td>질문마다 하나만 고릅니다(라디오 동작, 칩 모양). 누르는 즉시 보내지 않습니다.</td></tr>
 <tr><td style="white-space:nowrap;font-weight:600">직접 입력</td><td>선택지가 없으면 입력칸을 바로 보여 줍니다(옛 질문의 <span class="mono">allowText=false</span>로 막지 않음). 선택지가 있고 <span class="mono">allowText=true</span>이면 마지막 칩이 입력칸을 엽니다. 이름은 상황 질문이면 <b>"그 밖의 상황"</b>으로 고정하고, 그 밖의 질문은 "직접 입력"입니다. "그 밖의 상황"에는 "잘 모르겠어요"라고 적어도 됩니다.</td></tr>
-<tr><td style="white-space:nowrap;font-weight:600">보내기</td><td>표시된 질문을 <b>모두</b> 답해야 "답변 보내기"가 켜집니다. 빈칸을 자동으로 채우지 않습니다. 채팅 입력창에서 Enter나 보내기 버튼을 눌러도 질문에 모두 답하기 전에는 보내지 않고 "아직 답하지 않은 질문이 N개 있어요"를 보여 줍니다.</td></tr>
+<tr><td style="white-space:nowrap;font-weight:600">보내기</td><td>표시된 질문을 <b>모두</b> 답해야 "답변 보내기"가 켜집니다. 빈칸을 자동으로 채우지 않습니다. 채팅 입력창에서 Enter나 보내기 버튼을 눌러도 질문에 모두 답하기 전에는 보내지 않습니다. 이때 <b>입력창이 빨갛게 바뀌고</b> 입력창 아래에 빨간 문구 "아직 답하지 않은 질문이 N개 있어요"가 4초 동안 보인 뒤 사라집니다(채팅 글로 쌓이지 않고, 질문에 답을 고르면 바로 사라집니다). 쓴 글은 그대로 남습니다.</td></tr>
 <tr><td style="white-space:nowrap;font-weight:600">묶음 전송</td><td>질문마다 "이름: 답" 줄로 묶어 한 번에 보냅니다. 채팅 입력창에 쓴 글은 선택 답변을 보충하는 <b>"추가 내용: …"</b> 줄로 맨 끝에 붙이고, 없으면 그 줄은 생략합니다. 내 말풍선에는 줄바꿈 그대로 보입니다.</td></tr>
 <tr><td style="white-space:nowrap;font-weight:600">답할 수 있는 때</td><td>마지막 메시지가 그 AI 메시지이고 문의가 진행 중(<span class="mono">IN_PROGRESS</span>)·추가 질문(<span class="mono">ASK_MORE</span>)일 때만입니다. 다시 열 때는 다음 행동(<span class="mono">nextActions</span>) 없이 이 조건으로 정합니다. 보내는 중에는 선택·입력·버튼을 막습니다.</td></tr>
-<tr><td style="white-space:nowrap;font-weight:600">지난 질문</td><td>흐리게(70%) 읽기 전용으로 남기고 선택·입력·보내기는 없습니다. 보낸 답은 내 말풍선에 이어집니다.</td></tr>
+<tr><td style="white-space:nowrap;font-weight:600">지난 질문</td><td>흐리게(70%) 읽기 전용으로 남기고 선택·입력·보내기는 없습니다. 내가 고른 칸은 흐림은 같게 두고 <b>색 있는 선(브랜드색 1.5px)과 연한 면</b>으로만 구분하며, 직접 입력한 답은 칩 아래에 글로 보입니다. 보낸 답은 내 말풍선에 이어집니다.</td></tr><tr><td style="white-space:nowrap;font-weight:600">간격 · 글자 위치</td><td>질문과 그 선택지는 가깝게(질문 아래 6px), 질문 묶음 사이는 넓게(22px) 두어 "질문-선택" 한 묶음이 구분되게 합니다. 선택칩의 글자는 칸의 가운데에 오도록 위 5px · 아래 7px 안쪽 여백을 씁니다.</td></tr>
 <tr><td style="white-space:nowrap;font-weight:600">실패</td><td>고른 선택·직접 입력·추가 내용을 그대로 두고 오류 안내를 보여 줍니다. 다시 누르면 같은 내용을 한 번 보냅니다. 성공하면 보낸 질문은 읽기 전용이 됩니다.</td></tr>
 <tr><td style="white-space:nowrap;font-weight:600">민감정보</td><td>보내는 글은 기존 민감정보 처리 경로를 그대로 거칩니다(가림 안내 포함).</td></tr>
 </tbody></table></div>
@@ -903,7 +903,7 @@ body { word-break: keep-all; overflow-wrap: anywhere; }
 </details>
 <details data-doc-detail="" class="doc-topic"><summary class="doc-topic-title">업데이트 로그</summary><h3 id="update-log">업데이트 로그</h3><p class="sub">가이드의 규칙을 바꾼 기록입니다. 이전 기록은 저장소의 변경 이력(git log)을 따릅니다.</p>
 <div class="panel tw" style="margin-top:12px;padding:8px 20px"><table><thead><tr><th>날짜</th><th>버전</th><th>변경</th></tr></thead><tbody>
-<tr><td style="white-space:nowrap">2026-11-06</td><td style="white-space:nowrap">v1.7</td><td><b>AI 추가 질문(선택칩) 추가.</b> 03장 "AI 추가 질문 (선택칩)"에 질문 형식·선택·직접 입력("그 밖의 상황" 고정)·모두 답해야 전송·"이름: 답" 줄 묶음 전송·"추가 내용" 줄·답할 수 있는 조건·지난 질문 읽기 전용·실패 시 입력 유지를 정리했습니다. 프론트 구현(ChatView·QuestionForm·모의 질문)과 함께 반영했습니다.</td></tr>
+<tr><td style="white-space:nowrap">2026-11-06</td><td style="white-space:nowrap">v1.7</td><td><b>AI 추가 질문(선택칩) 추가.</b> 03장 "AI 추가 질문 (선택칩)"에 질문 형식·선택·직접 입력("그 밖의 상황" 고정)·모두 답해야 전송·"이름: 답" 줄 묶음 전송·"추가 내용" 줄·답할 수 있는 조건·지난 질문 읽기 전용·실패 시 입력 유지를 정리했습니다. 프론트 구현(ChatView·QuestionForm·모의 질문)과 함께 반영했습니다. 같은 날 사용 확인 뒤 보완: 질문 묶음 간격 구분, 선택칩 글자 위치, 지난 질문에서 고른 칸 표시, 질문 미답 경고를 입력창 빨간 표시로 바꿈.</td></tr>
 </tbody></table></div></details><p class="cap">문서 정리일: 2026-11-05. CSS·컴포넌트 예시·이미지·SVG·기존 시연 스크립트는 보존했습니다. 브라우저 화면·실기기 검증은 이번 작업에 포함하지 않았습니다.</p></details></section></main>
 <footer class="wrap">ITssue 디자인 가이드 v1.7 · 로고 도형은 제공된 PNG를 벡터로 다시 그린 임시 작도본입니다(I·T·u는 기하 작도, s·s·e는 곡선 피팅). 확정 원본 패스를 받으면 교체합니다. 에셋 목록은 07장, 검증 범위와 과거 기록은 08장에 있습니다. 문서 정리: 2026-11-05.</footer>
 <div id="copied" role="status" hidden=""></div>
