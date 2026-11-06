@@ -7,7 +7,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/App'
 import { MOCK_ACCOUNTS } from '../src/api/mock/accounts'
-import { createGuideDraft, listGuideVersions, listGuides, nextDocCode, nextVersion, normalizeVersion, resetGuideMock, setGuideCurrent, setGuideNote, setGuideTransfer, uploadGuide, uploadGuideVersion } from '../src/api/guides'
+import { createGuideDraft, listGuideVersions, listGuides, nextDocCode, nextVersion, normalizeVersion, resetGuideMock, setGuideCurrent, setGuideTransfer, uploadGuide, uploadGuideVersion } from '../src/api/guides'
 import type { User } from '../src/api/types'
 import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
@@ -52,11 +52,10 @@ describe('가이드 API (모의)', () => {
     expect(v.ok && v.data.filter((x) => x.state === '현행').map((x) => x.version)).toEqual(['v1'])
   })
 
-  it('외부 전송 정책과 메모를 바꾼다. 관리자만 쓸 수 있다', async () => {
+  it('외부 전송 정책을 바꾼다. 관리자만 쓸 수 있다', async () => {
     expect((await setGuideTransfer(admin(), 9, 91, '허용', '개인정보 없음')).ok).toBe(true)
     const l = await listGuides(admin())
     expect(l.ok && l.data.find((x) => x.id === 9)?.current?.tx).toBe('허용')
-    expect((await setGuideNote(admin(), 1, 12, '새 메모')).ok).toBe(true)
     const staff = MOCK_ACCOUNTS.find((u) => u.employeeNo === 'EMP-1004')!
     expect((await listGuides(staff)).ok).toBe(false)
   })
@@ -275,9 +274,8 @@ describe('서버 모드 가이드 (VITE_USE_MOCK_GUIDE=false)', () => {
     expect(new Headers((fetchMock.mock.calls[1][1] as RequestInit).headers).has('Content-Type')).toBe(false)
   })
 
-  it('서버에 없는 메모·가이드 초안 만들기는 요청하지 않고 안내한다', async () => {
+  it('서버에 없는 가이드 초안 만들기는 요청하지 않고 안내한다', async () => {
     const api = await load()
-    expect(await api.setGuideNote(admin(), 3, 31, '메모')).toMatchObject({ ok: false, error: { code: 'NOT_READY' } })
     expect(await api.createGuideDraft(admin(), { cat: 'NET', title: 't', existId: null, note: '' })).toMatchObject({ ok: false, error: { code: 'NOT_READY' } })
     expect(fetchMock).not.toHaveBeenCalled()
   })

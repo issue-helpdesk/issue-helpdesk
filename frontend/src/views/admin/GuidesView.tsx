@@ -3,7 +3,7 @@
  * AI 답변의 근거가 되는 문서를 분류별로 보고, 버전마다 열람 범위·외부 AI 전송 정책·현행 여부를 관리한다.
  * 현행 버전 중 검색 준비가 끝난 것만 AI 답변에 쓰인다. 해결 사례를 묶어 가이드 초안으로 만드는 탭은 제안이다.
  * 문서·버전은 문서 API(DC-01·02·06·07·09), 해결 사례 묶음은 접수 목록(TK-05)을 읽어 화면에서 만든다.
- * 서버에 없는 버전 메모·정책 변경 사유·가이드 초안 만들기는 서버 모드에서 안내만 한다. (api/guides.ts, 요청 R-21~23)
+ * 서버에 없는 정책 변경 사유·가이드 초안 만들기는 서버 모드에서 안내만 한다. (api/guides.ts, 요청 R-22~23)
  */
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
@@ -29,7 +29,6 @@ import {
   retryGuideIngest,
   setGuideActive,
   setGuideCurrent,
-  setGuideNote,
   setGuideTransfer,
   uploadGuide,
   uploadGuideVersion,
@@ -43,7 +42,6 @@ import { breakSentences, getIngestFailures, recordVersions, setFailureListOpen, 
 import { listTickets } from '../../api/tickets'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
-import { USE_MOCK_GUIDE } from '../../core/config'
 import { formatDateTime, formatElapsed } from '../../core/format'
 import { visiblePoll } from '../../core/poll'
 import { HOME_BY_ROLE } from '../../core/roles'
@@ -117,7 +115,7 @@ export function GuidesView() {
   const failCats = useMemo(() => new Set(failures.map((f) => f.cat)), [failures])
   const guidesRef = useRef<Guide[] | null>(null)
   const { say, fail } = useToast()
-  const [dlg, setDlg] = useState<null | { kind: 'upload' } | { kind: 'ingest'; g: Guide; v: GuideVersion } | { kind: 'active'; g: Guide; to: boolean } | { kind: 'tx'; g: Guide; v: GuideVersion; to: GuideTx } | { kind: 'note'; g: Guide; v: GuideVersion } | { kind: 'draft'; c: Cluster; i: number }>(null)
+  const [dlg, setDlg] = useState<null | { kind: 'upload' } | { kind: 'ingest'; g: Guide; v: GuideVersion } | { kind: 'active'; g: Guide; to: boolean } | { kind: 'tx'; g: Guide; v: GuideVersion; to: GuideTx } | { kind: 'draft'; c: Cluster; i: number }>(null)
   const admin = user?.serviceRole === 'ADMIN'
   useEffect(() => {
     guidesRef.current = guides
@@ -273,7 +271,6 @@ export function GuidesView() {
                     <th className="c" title="이 가이드의 내용을 외부 AI 모델에 보내 답변 생성에 써도 되는지">
                       외부 AI 전송
                     </th>
-                    {USE_MOCK_GUIDE && <th className="memo">메모</th>}
                     <th className="c">현행 관리</th>
                     <th>올린 시각</th>
                   </tr>
@@ -309,16 +306,6 @@ export function GuidesView() {
                             ))}
                         </div>
                       </td>
-                      {USE_MOCK_GUIDE && (
-                        <td className="memo">
-                          <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
-                            <span>{v.note || '-'}</span>
-                            <button type="button" className="btn ghost sm" aria-label={`${v.version} 메모 수정`} onClick={() => setDlg({ kind: 'note', g, v })}>
-                              수정
-                            </button>
-                          </div>
-                        </td>
-                      )}
                       <td className="c">
                         {v.state !== '현행' && (
                           <button type="button" className="btn ghost sm" disabled={v.ready !== '준비 완료'} title={v.ready !== '준비 완료' ? '검색 준비가 끝나야 현행으로 바꿀 수 있어요' : v.state === '만료' ? '이전 버전을 다시 현행으로 되돌려요' : undefined} onClick={() => void makeCurrent(g, v)}>
@@ -696,18 +683,6 @@ export function GuidesView() {
             const d = dlg
             setDlg(null)
             void applyTx(d.g, d.v, d.to, why)
-          }}
-        />
-      )}
-      {dlg?.kind === 'note' && (
-        <NoteDialog
-          g={dlg.g}
-          v={dlg.v}
-          onClose={() => setDlg(null)}
-          onDone={() => {
-            setDlg(null)
-            say('메모를 저장했어요.')
-            reload()
           }}
         />
       )}
@@ -1223,43 +1198,6 @@ function TxDialog({ g, v, to, onClose, onApply }: { g: Guide; v: GuideVersion; t
         </button>
         <button type="button" className="btn pri" onClick={() => (why.trim() || !wide ? onApply(why.trim()) : setErr('변경 사유를 입력해 주세요.'))}>
           변경
-        </button>
-      </div>
-    </Modal>
-  )
-}
-
-function NoteDialog({ g, v, onClose, onDone }: { g: Guide; v: GuideVersion; onClose: () => void; onDone: () => void }) {
-  const { user } = useAuth()
-  const uid = useId()
-  const [note, setNote] = useState(v.note)
-  const [err, setErr] = useState('')
-  const save = async () => {
-    if (!user) return
-    const r = await setGuideNote(user, g.id, v.id, note)
-    if (!r.ok) return setErr(r.error.message)
-    onDone()
-  }
-  return (
-    <Modal title={`${v.version} 메모 수정`} onClose={onClose}>
-      <p className="small muted" style={{ margin: 0 }}>
-        {guideLabel(g)} · 관리자가 직접 적는 메모예요. AI가 쓰지 않고, 수정하면 변경 기록이 남아요.
-      </p>
-      <div className="field">
-        <label htmlFor={`${uid}-n`}>메모</label>
-        <input id={`${uid}-n`} className="inp" value={note} placeholder="예) 5회 실패 시 잠금, 10분 후 해제" autoComplete="off" onChange={(e) => setNote(e.target.value)} />
-      </div>
-      {err && (
-        <div className="ferr" role="alert">
-          {err}
-        </div>
-      )}
-      <div className="acts">
-        <button type="button" className="btn sec" onClick={onClose}>
-          취소
-        </button>
-        <button type="button" className="btn pri" onClick={() => void save()}>
-          저장
         </button>
       </div>
     </Modal>
