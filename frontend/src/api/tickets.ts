@@ -253,6 +253,12 @@ export function watchTickets(onChange: () => void): () => void {
     }
   }
 }
+/** 상태 변경 요청·확정 뒤 같은 화면의 목록·건수를 다시 읽는다. */
+export function refreshTickets(): void {
+  if (USE_MOCK_TICKET) notify()
+  else subs.forEach((f) => f())
+}
+
 const subs = new Set<() => void>()
 let stopPoll: (() => void) | null = null
 

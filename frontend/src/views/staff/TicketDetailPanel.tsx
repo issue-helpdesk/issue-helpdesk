@@ -2,7 +2,7 @@
  * 접수 상세 패널. 처리할 문의 오른쪽에 붙는다. (design/ITssue-Prototype.html 의 티켓 상세, 담당자 보기)
  *
  * 처리 상태는 문의 상태 · ITSM 연동 · 배정 · 티켓 업무 · 상태 변경 순서의 체크리스트로 보여 준다.
- * 끝난 줄은 회색 한 줄이고, 지금 단계만 카드로 올라온다. 상태 변경과 처리 결과 입력은 ITSM 에서 하고, 이 화면은 ITSM 의 상태를 받아 보여 주기만 한다. ITSM 댓글·멘션은 알림만 전달하고 내용은 ITSM 에서 읽는다.
+ * 끝난 줄은 회색 한 줄이고, 지금 단계만 카드로 올라온다. 담당자는 패널에서도 상태 변경과 처리 결과를 요청할 수 있고, ITSM 반영 확인 뒤 확정한다. ITSM 댓글·멘션은 알림만 전달하고 내용은 ITSM 에서 읽는다.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -11,7 +11,7 @@ import type { CategoryCode } from '../../api/chatTypes'
 import { markTicketRead, refreshUnread } from '../../api/notifications'
 import { isRuleUrgencyReason } from '../../api/urgencyReason'
 import { friendlyAssignReason } from '../../api/assignReason'
-import { getAssignmentLogs, getTicket, getTicketHistory, syncTicket } from '../../api/tickets'
+import { getAssignmentLogs, getTicket, getTicketHistory, refreshTickets, syncTicket } from '../../api/tickets'
 import type { AssignmentLog, StatusHistory, TicketDetail } from '../../api/ticketTypes'
 import { USE_MOCK_TICKET } from '../../core/config'
 import { formatDateTime } from '../../core/format'
@@ -21,6 +21,8 @@ import { Icon } from '../../ui/Icon'
 import { ReassignDialog } from '../admin/ReassignDialog'
 import { useToast } from '../../ui/useToast'
 import { UrgencyChip } from './QueueView'
+import { TicketWorkActions } from './TicketWorkActions'
+import { visiblePoll } from '../../core/poll'
 import { TicketStepper } from '../inquiry/TicketCard'
 
 type Tone = 'ok' | 'prog' | 'need' | 'asg' | 'urg' | 'warn' | 'recv'
@@ -148,6 +150,9 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
   const { user } = useAuth()
   const navigate = useNavigate()
   const [t, setT] = useState<TicketDetail | null>(null)
+  const pending = t?.transitionStatus === 'PENDING'
+  const mutationVersion = useRef(0)
+  const [reload, setReload] = useState(0)
   const [hist, setHist] = useState<StatusHistory[]>([])
   // 담당자 배정 이력(재배정 포함). 못 읽으면(권한 등) 조용히 비워 두고 상태 이력만 보인다
   const [assigns, setAssigns] = useState<AssignmentLog[]>([])
@@ -193,40 +198,58 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
   useEffect(() => {
     if (!user) return
     let alive = true
-    getTicket(user, id).then((r) => {
-      if (!alive) return
+    const version = mutationVersion.current
+    const current = () => alive && version === mutationVersion.current
+    // 반영 중에는 worker가 확정한 DB 값만 읽는다. 그 외에는 Jira 대조 후 상세를 읽는다.
+    const read = async () => {
+      if (!USE_MOCK_TICKET && !pending) await syncTicket(user, id)
+      if (!current()) return
+      return getTicket(user, id)
+    }
+    read().then((r) => {
+      if (!current() || !r) return
       if (r.ok) {
         setT(r.data)
         setError('')
+        getTicketHistory(user, id).then((history) => {
+          if (current() && history.ok) setHist(history.data.items)
+        })
         // 이 접수의 내 알림(담당자 배정 등)은 열었으니 읽음으로 바꾸고 사이드바 개수를 다시 읽는다 (NT-04)
         markTicketRead(id).then((x) => x.ok && x.data.updatedCount > 0 && refreshUnread())
       } else setError(r.error.message)
     })
-    // 서버 모드: ITSM 의 최신 상태를 읽어 오게 하고(TK-14), 달라졌으면 화면에 반영한다
-    if (!USE_MOCK_TICKET) {
-      syncTicket(user, id).then((r) => {
-        if (alive && r.ok) setT((cur) => (cur ? { ...cur, ...r.data } : cur))
-      })
-    }
-    getTicketHistory(user, id).then((r) => {
-      if (alive && r.ok) setHist(r.data.items)
-    })
     // 서버는 문의자에게 배정 이력을 주지 않고 404 로 답한다 (담당 그룹·관리자만). 문의자는 아예 요청하지 않는다
     if (user.serviceRole !== 'EMPLOYEE') {
       getAssignmentLogs(user, id).then((r) => {
-        if (alive && r.ok) setAssigns(r.data.items)
+        if (current() && r.ok) setAssigns(r.data.items)
       })
     }
     return () => {
       alive = false
     }
-  }, [user, id, tick])
+  }, [user, id, tick, reload, pending])
+
+  // 반영 중에는 상세를 더 자주 읽는다. 탭이 숨겨지거나 패널이 닫히면 중단한다.
+  useEffect(() => {
+    if (t?.transitionStatus !== 'PENDING') return
+    return visiblePoll(() => setReload((n) => n + 1), 3000)
+  }, [t?.transitionStatus])
+
+  const transitionStatus = t?.transitionStatus
+  const previousTransition = useRef(transitionStatus)
+  useEffect(() => {
+    const wasPending = previousTransition.current === 'PENDING'
+    previousTransition.current = transitionStatus
+    if (wasPending && transitionStatus && transitionStatus !== 'PENDING') {
+      refreshTickets()
+      refreshUnread()
+    }
+  }, [transitionStatus])
 
   if (!user) return null
   const mine = !!t && t.assignee?.id === user.id
   const requester = user.serviceRole === 'EMPLOYEE' // 문의자는 진행 단계만 보고, 상태를 바꾸지 못한다
-  const admin = user.serviceRole === 'ADMIN' // 관리자는 상태를 바꾸지 않고, 처리 중인 접수의 담당자를 다시 정한다
-  const pending = t?.transitionStatus === 'PENDING'
+  const admin = user.serviceRole === 'ADMIN' // 관리자는 연동 확인·재배정을 한다
   // 처리 이력 = 상태 이력 + 담당자 배정 이력(추천·배정·재배정·실패)을 시간순으로 합친다. 화면에는 최근 것이 위에 온다
   const timeline = [
     ...hist.map((h) => ({ kind: 's' as const, at: h.changedAt, h })),
@@ -362,11 +385,17 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
               {info}
               {!requester && (
                 <div>
-                  {mine && (t.workStatus === 'RDY' || t.workStatus === 'WIP') && (
-                    <div className="small muted" style={{ marginTop: 8 }}>
-                      처리 상태와 처리 결과는 ITSM에서 입력해요. 이 화면은 ITSM의 상태를 받아 와서 보여 줘요.
-                    </div>
-                  )}
+                  <TicketWorkActions
+                    key={`${id}:${t.workStatus}`}
+                    ticket={t}
+                    user={user}
+                    onRequested={(updated) => {
+                      mutationVersion.current += 1
+                      setT(updated)
+                      refreshTickets()
+                      setReload((n) => n + 1)
+                    }}
+                  />
                   {pending && (
                     <div className="small muted" style={{ marginTop: 8 }} role="status">
                       ITSM 반영을 확인하는 중이에요. 확인되면 상태가 바뀌어요.
