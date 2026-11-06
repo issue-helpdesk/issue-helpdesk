@@ -239,8 +239,8 @@ main.enter>.top>.row>:nth-child(2){--i:1}main.enter>.top>.row>:nth-child(3){--i:
 .tr{position:absolute;right:16px;z-index:7;display:flex;align-items:center;gap:8px}
 .top>.tr{top:50%;margin-top:-22px}
 .tr.fl{top:12px}
-.main>.top{padding-right:144px}
-@media (max-width:860px){.main>.top{padding-right:128px}.tr{right:max(12px,env(safe-area-inset-right,0px))}}
+.main>.top{padding-right:196px}
+@media (max-width:860px){.main>.top{padding-right:180px}.tr{right:max(12px,env(safe-area-inset-right,0px))}}
 /* 1칸: 지금 모드 아이콘 하나 → 마우스를 올리거나 키보드로 오면 3칸으로 펼쳐진다 (터치는 누르면 펼침) */
 .t1{position:relative;width:44px;height:44px}
 .t1 .one{position:absolute;right:0;top:0;width:44px;height:44px;padding:0;border-radius:50%;border:0;background:var(--white);color:var(--ink2);box-shadow:inset 0 0 0 1px var(--line),var(--shadow);display:grid;place-items:center;cursor:pointer;transition:opacity .15s}
@@ -284,3 +284,20 @@ main.enter>.top>.row>:nth-child(2){--i:1}main.enter>.top>.row>:nth-child(3){--i:
 @keyframes totopin{from{opacity:0;transform:translateY(10px) scale(.9)}}
 @media (max-width:860px){.totop{right:max(14px,env(safe-area-inset-right,0px))}}
 @media (prefers-reduced-motion:reduce){.totop,.totop.out{animation:none;transition:none}}
+
+/* 알림 종: 화면 모드 버튼 오른쪽, 내 메뉴 왼쪽. 안 읽음은 숫자와 "안 읽음" 글자로 알리고 아이콘·프로필 이미지는 쓰지 않는다 */
+.bell{position:relative}
+.bellbtn{position:relative;width:44px;height:44px;padding:0;border-radius:50%;border:0;background:var(--white);color:var(--ink2);box-shadow:inset 0 0 0 1px var(--line),var(--shadow);display:grid;place-items:center;cursor:pointer}
+.bellbtn[aria-expanded="true"]{box-shadow:inset 0 0 0 2px var(--o600)}
+.bpip{position:absolute;top:-3px;right:-3px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--o600);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center;box-shadow:0 0 0 2px var(--canvas)}
+.bpop{position:absolute;top:52px;right:0;width:min(380px,calc(100vw - 24px));max-height:min(520px,calc(100vh - 100px));display:flex;flex-direction:column;background:var(--white);border-radius:18px;box-shadow:inset 0 0 0 1px var(--line),var(--pop);z-index:9;overflow:hidden}
+.bhd{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 16px 10px}.bhd b{font-size:15px}
+.bchk{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--mute);cursor:pointer}
+.blist{list-style:none;margin:0;padding:0;overflow-y:auto}
+.bitem{display:grid;gap:2px;width:100%;text-align:left;border:0;border-top:1px solid var(--line2);background:none;padding:12px 16px;font:inherit;color:var(--ink);cursor:pointer}
+.bitem:hover,.bitem:focus-visible{background:var(--shell)}
+.bitem .bt{font-size:13.5px;font-weight:700}.bitem.read .bt{font-weight:500;color:var(--ink2)}
+.bnew{margin-left:8px;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:var(--osurf);color:var(--o700);vertical-align:1px}
+.bitem .bs{font-size:12.5px;color:var(--mute);overflow-wrap:anywhere}.bitem .bw{font-size:12px;color:var(--sec)}
+.bem{display:grid;gap:6px;justify-items:center;text-align:center;padding:28px 16px;border-top:1px solid var(--line2);color:var(--mute);font-size:13px}.bem b{color:var(--ink);font-size:13.5px}
+.bmore{display:flex;justify-content:center;padding:10px 16px 14px;border-top:1px solid var(--line2)}
