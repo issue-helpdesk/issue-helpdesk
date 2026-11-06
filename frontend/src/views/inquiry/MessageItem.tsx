@@ -2,7 +2,6 @@
  * 대화 메시지 한 줄. 문의자·AI·담당자·시스템 안내를 역할에 맞게 그린다.
  * 본문은 구조화된 블록을 React 요소로만 그리며, HTML 로 해석하지 않는다.
  */
-import { URGENCY_LABEL } from '../../api/catalog'
 import type { ChatBlock, ChatMessage, DraftEdit, GuideSource, Inquiry, LegacyCase, ReplyRequest } from '../../api/chatTypes'
 import { Fragment } from 'react'
 import { formatDateTime, sourceLabel } from '../../core/format'
@@ -38,7 +37,7 @@ export interface ChatActions {
   openDetail: () => void
   showSource: (s: GuideSource) => void
   showLegacy: (l: LegacyCase) => void
-  /** 접수 실패 안내에 보여 줄 서비스데스크 연락처 */
+  /** 접수 실패 안내에 보여 줄 IT 헬프데스크 연락처 */
   servicedesk: string
 }
 
@@ -63,20 +62,12 @@ function Block({ b }: { b: ChatBlock }) {
       </ol>
     )
   }
-  // 긴급 징후 요약
+  // 추천 담당 그룹 요약 (긴급도는 문의자에게 보이지 않는다)
   return (
     <div className="card w">
       <dl className="dl" style={{ margin: 0 }}>
         <dt>추천 담당 그룹</dt>
         <dd>{b.groupName}</dd>
-        <dt>긴급도</dt>
-        <dd>
-          <span className={`pri-${b.urgency.toLowerCase()}`}>
-            {b.urgency} · {URGENCY_LABEL[b.urgency]}
-          </span>
-        </dd>
-        <dt>판단 근거</dt>
-        <dd>{b.urgencyReasons.join(' · ')}</dd>
       </dl>
     </div>
   )
@@ -233,7 +224,7 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false,
               작성한 내용은 그대로 보관했어요. 잠시 후 다시 시도하거나 아래 경로로 접수해 주세요.
               <br />
               <span className="small">
-                · 서비스데스크 {actions.servicedesk}
+                · IT 헬프데스크 {actions.servicedesk}
                 <br />· 그룹웨어 IT 요청 메뉴
               </span>
             </div>

@@ -214,10 +214,10 @@ describe('서버 모드 FAQ 관리 (VITE_USE_MOCK_FAQ=false)', () => {
     fetchMock.mockImplementation(async () => json(409, { error: { code: 'FAQ_SOURCE_NOT_PUBLIC', message: '출처', details: null, traceId: 't' } }))
     const r = await api.createFaq({ categoryCode: 'NET', question: 'q', answer: 'a', keywords: [], isActive: true })
     expect(r).toMatchObject({ ok: false, error: { code: 'FAQ_SOURCE_NOT_PUBLIC' } })
-    expect(!r.ok && r.error.message).toContain('먼저 "게시 안 함"으로 등록')
+    expect(!r.ok && r.error.message).toContain('출처로 연결한 뒤 게시해 주세요')
     const f = { id: 'FAQ-001', serverId: 1, categoryCode: 'NET' as const, question: 'q', answer: 'a', sources: [], active: false }
     const again = await api.setFaqActive(f, true)
-    expect(!again.ok && again.error.message).toContain('가이드 출처')
+    expect(!again.ok && again.error.message).toContain('현행 가이드')
   })
 
   it('출처 가이드는 문서 ID 목록(sourceDocumentIds)으로 보내고, 수정은 PATCH 로 통째로 바꾼다', async () => {

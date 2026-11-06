@@ -13,6 +13,12 @@ const PATHS = {
       <path d="M10 6.2v4.4M10 13.4v.1" />
     </>
   ),
+  calendar: (
+    <>
+      <rect x="3.5" y="4.5" width="13" height="12" rx="2" />
+      <path d="M3.5 8.5h13M7 3v3M13 3v3" />
+    </>
+  ),
   bell: <path d="M5 14V9a5 5 0 0 1 10 0v5l1.5 2h-13zM8.5 17.5a1.7 1.7 0 0 0 3 0" />,
   logout: (
     <>

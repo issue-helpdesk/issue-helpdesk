@@ -6,7 +6,7 @@
  */
 import { Fragment, useEffect, useState } from 'react'
 import { ACTION_LABEL, FIELD_LABEL, MISSING_LABEL, listAssessments, type Assessment } from '../../api/assessments'
-import { CATEGORIES } from '../../api/catalog'
+import { CATEGORIES, urgencyText } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { formatDateTime } from '../../core/format'
 import { useAuth } from '../../core/session'
@@ -20,6 +20,7 @@ function show(field: string, v: unknown): string {
   const s = String(v)
   if (field === 'action') return ACTION_LABEL[s] ?? s
   if (field === 'categoryCode' || field === 'category') return catName(s)
+  if (field === 'urgency') return urgencyText(s)
   return s
 }
 
@@ -71,7 +72,7 @@ export function AssessmentHistory({ inquiryId, preset }: { inquiryId: number; pr
             <div className="asai">
               <div className="asl">AI 원래 판단</div>
               <div className="asv">
-                긴급도 <b>{aiUrgency ?? '-'}</b>
+                긴급도 <b>{urgencyText(aiUrgency)}</b>
                 {a.aiOutput.categoryCode && a.aiOutput.categoryCode !== a.categoryCode ? ` · 분류 ${catName(a.aiOutput.categoryCode)}` : ''}
                 {conf !== null ? ` · 신뢰도 ${conf}` : ''}
               </div>
@@ -96,7 +97,7 @@ export function AssessmentHistory({ inquiryId, preset }: { inquiryId: number; pr
             <div className="asfin">
               <span className="asl">최종 적용</span>
               <StateBadge tone="prog" label={catName(a.categoryCode)} />
-              {a.urgency && <StateBadge tone={pTone(a.urgency)} label={a.urgency} />}
+              {a.urgency && <StateBadge tone={pTone(a.urgency)} label={urgencyText(a.urgency)} />}
               {a.action && <StateBadge tone="recv" label={ACTION_LABEL[a.action] ?? a.action} />}
             </div>
           </div>

@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom'
 import { ROLE_LABEL } from '../core/roles'
 import { useAuth } from '../core/session'
 import { Icon } from './Icon'
+import { NotificationBell } from './NotificationBell'
 import { useShell } from './shellContext'
 import { ThemeSwitch } from './ThemeSwitch'
 import { USER_IN_TOP_RIGHT } from './userPlacement'
@@ -62,6 +63,7 @@ export function UserControls({ floating = false }: { floating?: boolean }) {
   return (
     <div className={`tr${floating ? ' fl' : ''}`}>
       <ThemeSwitch compact />
+      <NotificationBell />
       <div className="um" ref={box}>
         <button type="button" className="av" aria-label="내 메뉴" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           {initials(user.name)}

@@ -15,7 +15,7 @@ import { displayStatusOf, inquiryState } from '../../api/inquiryState'
 import { markTicketRead, refreshUnread } from '../../api/notifications'
 import { syncTicket } from '../../api/tickets'
 import type { ApiResult } from '../../api/types'
-import { SERVICEDESK, USE_MOCK_INQUIRY, USE_MOCK_NOTIFY } from '../../core/config'
+import { HELPDESK, SERVICEDESK, USE_MOCK_INQUIRY, USE_MOCK_NOTIFY } from '../../core/config'
 import { markInquirySeen } from '../../api/inquirySeen'
 import { refreshInquiryList } from '../../core/poll'
 import { useAuth } from '../../core/session'
@@ -235,7 +235,7 @@ export function ChatView() {
       if (!r.ok) {
         // 같은 변경이 ITSM 에 반영되는 중이면 잘못이 아니라 기다리라는 안내다. 최신 문의로 다시 그리면 버튼이 잠긴다
         const inFlight = r.error.code === 'INTEGRATION_JOB_IN_PROGRESS'
-        setError(inFlight ? 'ITSM에 반영하는 중이에요. 잠시 뒤 상태가 바뀌어요.' : r.error.message)
+        setError(r.error.message)
         // 지난 버튼·중복 요청 같은 409: 안내만 하고 끝내지 않고 최신 문의로 다시 그린다
         if ((inFlight || isStaleInquiry(r.error.code)) && employeeNo) {
           const fresh = await getChat(id, employeeNo)
@@ -308,7 +308,7 @@ export function ChatView() {
                   </button>
                 </>
               }
-              note={`계속되면 IT 헬프데스크 ${SERVICEDESK}로 연락해 주세요.`}
+              note={`계속되면 ${HELPDESK}로 연락해 주세요.`}
             >
               연결이 불안정할 수 있어요. 잠시 뒤 다시 시도해 주세요.
             </EmptyState>

@@ -7,7 +7,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/App'
 import { MOCK_ACCOUNTS } from '../src/api/mock/accounts'
-import { createGuideDraft, listGuideVersions, listGuides, nextDocCode, nextVersion, normalizeVersion, resetGuideMock, setGuideCurrent, setGuideNote, setGuideTransfer, uploadGuide, uploadGuideVersion } from '../src/api/guides'
+import { createGuideDraft, listGuideVersions, listGuides, nextDocCode, nextVersion, normalizeVersion, resetGuideMock, setGuideCurrent, setGuideTransfer, uploadGuide, uploadGuideVersion } from '../src/api/guides'
 import type { User } from '../src/api/types'
 import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
@@ -40,7 +40,7 @@ describe('가이드 API (모의)', () => {
     const r = await listGuides(admin())
     expect(r.ok && r.data).toHaveLength(10)
     const g = r.ok ? r.data.find((x) => x.docCode === 'IT-NET-001')! : null
-    expect(g?.current).toEqual({ version: 'v2', tx: '허용', scope: '사내 일반' })
+    expect(g?.current).toEqual({ version: 'v2', tx: '허용', scope: '전 직원' })
     const v = await listGuideVersions(admin(), g!.id)
     expect(v.ok && v.data.map((x) => [x.version, x.state])).toEqual([['v3', '초안'], ['v2', '현행'], ['v1', '만료']])
   })
@@ -52,20 +52,19 @@ describe('가이드 API (모의)', () => {
     expect(v.ok && v.data.filter((x) => x.state === '현행').map((x) => x.version)).toEqual(['v1'])
   })
 
-  it('외부 전송 정책과 메모를 바꾼다. 관리자만 쓸 수 있다', async () => {
+  it('외부 전송 정책을 바꾼다. 관리자만 쓸 수 있다', async () => {
     expect((await setGuideTransfer(admin(), 9, 91, '허용', '개인정보 없음')).ok).toBe(true)
     const l = await listGuides(admin())
     expect(l.ok && l.data.find((x) => x.id === 9)?.current?.tx).toBe('허용')
-    expect((await setGuideNote(admin(), 1, 12, '새 메모')).ok).toBe(true)
     const staff = MOCK_ACCOUNTS.find((u) => u.employeeNo === 'EMP-1004')!
     expect((await listGuides(staff)).ok).toBe(false)
   })
 
   it('업로드는 문서 번호 형식·중복을 막고, 초안으로 만든 뒤 잠시 뒤 검색 준비가 끝난다', async () => {
-    expect(await uploadGuide(admin(), { file: file(), docCode: 'net-4', title: '새', cat: 'NET', scope: '관리자 전용', tx: '금지' })).toMatchObject({ ok: false, error: { code: 'VALIDATION_ERROR' } })
-    expect(await uploadGuide(admin(), { file: file(), docCode: 'IT-NET-001', title: '새', cat: 'NET', scope: '관리자 전용', tx: '금지' })).toMatchObject({ ok: false, error: { code: 'DOCUMENT_CODE_DUPLICATE' } })
-    const r = await uploadGuide(admin(), { file: file(), docCode: 'IT-NET-004', title: '사내 Wi-Fi 가이드', cat: 'NET', scope: '사내 제한', tx: '마스킹 후 허용' })
-    expect(r.ok && r.data.versions?.[0]).toMatchObject({ version: 'v1.0', state: '초안', ready: '준비 중', scope: '사내 제한', tx: '마스킹 후 허용' })
+    expect(await uploadGuide(admin(), { file: file(), docCode: 'net-4', title: '새', cat: 'NET', scope: '관리자만', tx: '금지' })).toMatchObject({ ok: false, error: { code: 'VALIDATION_ERROR' } })
+    expect(await uploadGuide(admin(), { file: file(), docCode: 'IT-NET-001', title: '새', cat: 'NET', scope: '관리자만', tx: '금지' })).toMatchObject({ ok: false, error: { code: 'DOCUMENT_CODE_DUPLICATE' } })
+    const r = await uploadGuide(admin(), { file: file(), docCode: 'IT-NET-004', title: '사내 Wi-Fi 가이드', cat: 'NET', scope: '담당자 이상', tx: '마스킹 후 허용' })
+    expect(r.ok && r.data.versions?.[0]).toMatchObject({ version: 'v1.0', state: '초안', ready: '준비 중', scope: '담당자 이상', tx: '마스킹 후 허용' })
     await waitFor(async () => {
       const v = await listGuideVersions(admin(), r.ok ? r.data.id : 0)
       expect(v.ok && v.data[0].ready).toBe('준비 완료')
@@ -73,9 +72,9 @@ describe('가이드 API (모의)', () => {
   })
 
   it('기존 가이드에 새 버전을 올리고, 같은 버전 이름은 막는다. 번호·버전 이름 도우미', async () => {
-    expect(await uploadGuideVersion(admin(), 1, { file: file(), version: 'v2', scope: '사내 일반', tx: '허용' })).toMatchObject({ ok: false, error: { code: 'DOCUMENT_VERSION_DUPLICATE' } })
-    const r = await uploadGuideVersion(admin(), 1, { file: file(), version: 'v4', scope: '사내 제한', tx: '금지' })
-    expect(r.ok && r.data).toMatchObject({ version: 'v4', state: '초안', ready: '준비 중', scope: '사내 제한', tx: '금지' })
+    expect(await uploadGuideVersion(admin(), 1, { file: file(), version: 'v2', scope: '전 직원', tx: '허용' })).toMatchObject({ ok: false, error: { code: 'DOCUMENT_VERSION_DUPLICATE' } })
+    const r = await uploadGuideVersion(admin(), 1, { file: file(), version: 'v4', scope: '담당자 이상', tx: '금지' })
+    expect(r.ok && r.data).toMatchObject({ version: 'v4', state: '초안', ready: '준비 중', scope: '담당자 이상', tx: '금지' })
     const v = await listGuideVersions(admin(), 1)
     expect(v.ok && v.data.map((x) => x.version)).toEqual(['v4', 'v3', 'v2', 'v1'])
     const l = await listGuides(admin())
@@ -219,7 +218,7 @@ describe('서버 모드 가이드 (VITE_USE_MOCK_GUIDE=false)', () => {
     fetchMock.mockResolvedValueOnce(json(200, { items: [doc(3, 'IT-NET-001'), doc(4, 'IT-STD-001', { docType: 'STANDARD', categoryCode: null }), doc(5, 'IT-ACC-001', { categoryCode: 'ACC', currentVersion: null })], page: 1, size: 100, totalCount: 3, totalPages: 1 }))
     const r = await api.listGuides(admin())
     expect(r.ok && r.data.map((g) => [g.docCode, g.cat, g.current])).toEqual([
-      ['IT-NET-001', 'NET', { version: 'v1.2', tx: '마스킹 후 허용', scope: '사내 일반' }],
+      ['IT-NET-001', 'NET', { version: 'v1.2', tx: '마스킹 후 허용', scope: '전 직원' }],
       ['IT-ACC-001', 'ACC', null],
     ])
     expect(urls()[0]).toBe('GET /api/v1/documents?size=100&page=1&docType=GUIDE&docType=MANUAL&includeInactive=true&sort=docCode,asc')
@@ -230,9 +229,9 @@ describe('서버 모드 가이드 (VITE_USE_MOCK_GUIDE=false)', () => {
     fetchMock.mockResolvedValueOnce(json(200, { items: [ver(31, { version: 'v1.3', ingestStatus: 'PENDING' }), ver(12, { isCurrent: true, versionState: 'CURRENT', viewScope: 'ADMIN', transferPolicy: 'BLOCKED' }), ver(9, { versionState: 'EXPIRED', ingestStatus: 'FAILED', ingestError: '본문을 추출하지 못했습니다' })] }))
     const r = await api.listGuideVersions(admin(), 3)
     expect(r.ok && r.data.map((v) => [v.state, v.ready, v.scope, v.tx])).toEqual([
-      ['초안', '준비 중', '사내 일반', '허용'],
-      ['현행', '준비 완료', '관리자 전용', '금지'],
-      ['만료', '준비 실패', '사내 일반', '허용'],
+      ['초안', '준비 중', '전 직원', '허용'],
+      ['현행', '준비 완료', '관리자만', '금지'],
+      ['만료', '준비 실패', '전 직원', '허용'],
     ])
     expect(r.ok && r.data[2].error).toBe('본문을 추출하지 못했습니다')
   })
@@ -264,8 +263,8 @@ describe('서버 모드 가이드 (VITE_USE_MOCK_GUIDE=false)', () => {
   it('업로드는 문서를 만들고(DC-02) 파일을 multipart 로 올린다(DC-07)', async () => {
     const api = await load()
     fetchMock.mockResolvedValueOnce(json(201, doc(40, 'IT-NET-004', { currentVersion: null }))).mockResolvedValueOnce(json(202, ver(41, { documentId: 40, version: 'v1', ingestStatus: 'PENDING', transferPolicy: 'MASKED', viewScope: 'AGENT' })))
-    const r = await api.uploadGuide(admin(), { file: file(), docCode: 'it-net-004', title: '사내 Wi-Fi', cat: 'NET', scope: '사내 제한', tx: '마스킹 후 허용' })
-    expect(r.ok && r.data.versions?.[0]).toMatchObject({ version: 'v1', ready: '준비 중', scope: '사내 제한', tx: '마스킹 후 허용' })
+    const r = await api.uploadGuide(admin(), { file: file(), docCode: 'it-net-004', title: '사내 Wi-Fi', cat: 'NET', scope: '담당자 이상', tx: '마스킹 후 허용' })
+    expect(r.ok && r.data.versions?.[0]).toMatchObject({ version: 'v1', ready: '준비 중', scope: '담당자 이상', tx: '마스킹 후 허용' })
     expect(urls()).toEqual(['POST /api/v1/documents', 'POST /api/v1/documents/40/versions'])
     expect(JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))).toEqual({ docCode: 'IT-NET-004', docType: 'GUIDE', title: '사내 Wi-Fi', categoryCode: 'NET' })
     const form = (fetchMock.mock.calls[1][1] as RequestInit).body as FormData
@@ -275,9 +274,8 @@ describe('서버 모드 가이드 (VITE_USE_MOCK_GUIDE=false)', () => {
     expect(new Headers((fetchMock.mock.calls[1][1] as RequestInit).headers).has('Content-Type')).toBe(false)
   })
 
-  it('서버에 없는 메모·가이드 초안 만들기는 요청하지 않고 안내한다', async () => {
+  it('서버에 없는 가이드 초안 만들기는 요청하지 않고 안내한다', async () => {
     const api = await load()
-    expect(await api.setGuideNote(admin(), 3, 31, '메모')).toMatchObject({ ok: false, error: { code: 'NOT_READY' } })
     expect(await api.createGuideDraft(admin(), { cat: 'NET', title: 't', existId: null, note: '' })).toMatchObject({ ok: false, error: { code: 'NOT_READY' } })
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -285,7 +283,7 @@ describe('서버 모드 가이드 (VITE_USE_MOCK_GUIDE=false)', () => {
   it('문서 번호 중복 오류는 필드 오류로 돌려준다', async () => {
     const api = await load()
     fetchMock.mockResolvedValueOnce(json(409, { error: { code: 'DOCUMENT_CODE_DUPLICATE', message: '이미 있는 문서 번호예요.', details: [{ field: 'docCode', reason: 'DUPLICATE', message: '이미 있는 문서 번호예요.' }], traceId: 't' } }))
-    const r = await api.uploadGuide(admin(), { file: file(), docCode: 'IT-NET-001', title: 't', cat: 'NET', scope: '관리자 전용', tx: '금지' })
+    const r = await api.uploadGuide(admin(), { file: file(), docCode: 'IT-NET-001', title: 't', cat: 'NET', scope: '관리자만', tx: '금지' })
     expect(r).toMatchObject({ ok: false, error: { code: 'DOCUMENT_CODE_DUPLICATE' } })
   })
 })

@@ -64,7 +64,7 @@ export function PasswordDialog({ forced, onClose }: { forced: boolean; onClose: 
       setDone(true)
       return
     }
-    if (r.error.code === 'AUTH_CURRENT_PASSWORD_MISMATCH') setErrors({ cur: ['현재 비밀번호가 맞지 않아요.'] })
+    if (r.error.code === 'AUTH_CURRENT_PASSWORD_MISMATCH') setErrors({ cur: [r.error.message] })
     else if (r.error.code === 'AUTH_PASSWORD_POLICY_VIOLATION') setErrors({ nw: (r.error.details ?? []).map((d) => d.message) })
     else setErrors({ cf: [r.error.message] })
   }

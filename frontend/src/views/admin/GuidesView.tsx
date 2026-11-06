@@ -3,7 +3,7 @@
  * AI 답변의 근거가 되는 문서를 분류별로 보고, 버전마다 열람 범위·외부 AI 전송 정책·현행 여부를 관리한다.
  * 현행 버전 중 검색 준비가 끝난 것만 AI 답변에 쓰인다. 해결 사례를 묶어 가이드 초안으로 만드는 탭은 제안이다.
  * 문서·버전은 문서 API(DC-01·02·06·07·09), 해결 사례 묶음은 접수 목록(TK-05)을 읽어 화면에서 만든다.
- * 서버에 없는 버전 메모·정책 변경 사유·가이드 초안 만들기는 서버 모드에서 안내만 한다. (api/guides.ts, 요청 R-21~23)
+ * 서버에 없는 정책 변경 사유·가이드 초안 만들기는 서버 모드에서 안내만 한다. (api/guides.ts, 요청 R-22~23)
  */
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
@@ -29,7 +29,6 @@ import {
   retryGuideIngest,
   setGuideActive,
   setGuideCurrent,
-  setGuideNote,
   setGuideTransfer,
   uploadGuide,
   uploadGuideVersion,
@@ -43,7 +42,6 @@ import { breakSentences, getIngestFailures, recordVersions, setFailureListOpen, 
 import { listTickets } from '../../api/tickets'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
-import { USE_MOCK_GUIDE } from '../../core/config'
 import { formatDateTime, formatElapsed } from '../../core/format'
 import { visiblePoll } from '../../core/poll'
 import { HOME_BY_ROLE } from '../../core/roles'
@@ -116,8 +114,8 @@ export function GuidesView() {
   const failDocs = useMemo(() => new Set(failures.map((f) => f.docId)), [failures])
   const failCats = useMemo(() => new Set(failures.map((f) => f.cat)), [failures])
   const guidesRef = useRef<Guide[] | null>(null)
-  const { say } = useToast()
-  const [dlg, setDlg] = useState<null | { kind: 'upload' } | { kind: 'ingest'; g: Guide; v: GuideVersion } | { kind: 'active'; g: Guide; to: boolean } | { kind: 'tx'; g: Guide; v: GuideVersion; to: GuideTx } | { kind: 'note'; g: Guide; v: GuideVersion } | { kind: 'draft'; c: Cluster; i: number }>(null)
+  const { say, fail } = useToast()
+  const [dlg, setDlg] = useState<null | { kind: 'upload' } | { kind: 'ingest'; g: Guide; v: GuideVersion } | { kind: 'active'; g: Guide; to: boolean } | { kind: 'tx'; g: Guide; v: GuideVersion; to: GuideTx } | { kind: 'draft'; c: Cluster; i: number }>(null)
   const admin = user?.serviceRole === 'ADMIN'
   useEffect(() => {
     guidesRef.current = guides
@@ -174,7 +172,7 @@ export function GuidesView() {
     return visiblePoll(() => setTick((n) => n + 1), 10_000)
   }, [vers])
 
-  // 해결 사례 묶음: 해결 완료(CLS) 접수를 읽는다 (탭 건수에도 쓴다)
+  // 해결 사례 묶음: 해결 완료 접수를 읽는다 (탭 건수에도 쓴다)
   useEffect(() => {
     if (!user || !admin) return
     let alive = true
@@ -203,27 +201,27 @@ export function GuidesView() {
   }
   const applyTx = async (g: Guide, v: GuideVersion, to: GuideTx, why: string) => {
     const r = await setGuideTransfer(user, g.id, v.id, to, why)
-    if (!r.ok) return say(r.error.message)
+    if (!r.ok) return fail(r.error.message)
     say(`외부 전송 정책을 ${to}${to === '금지' ? '로' : '으로'} 바꿨어요.`)
     reload()
   }
   const retryIngest = async (g: Guide, v: GuideVersion, file?: File) => {
-    if (file && file.size > MAX_UPLOAD_BYTES) return say(MAX_UPLOAD_MESSAGE)
+    if (file && file.size > MAX_UPLOAD_BYTES) return fail(MAX_UPLOAD_MESSAGE)
     const r = await retryGuideIngest(user, g.id, v.id, file)
-    if (!r.ok) return say(r.error.message)
+    if (!r.ok) return fail(r.error.message)
     trackIngest({ docId: g.id, versionId: v.id, docCode: g.docCode, title: g.title, cat: g.cat, version: v.version })
     say(file ? `${v.version} 파일을 바꿔 검색 준비를 다시 시작했어요.` : `${v.version} 검색 준비를 다시 시작했어요.`)
     reload()
   }
   const applyActive = async (g: Guide, to: boolean) => {
     const r = await setGuideActive(user, g.id, to)
-    if (!r.ok) return say(r.error.message)
+    if (!r.ok) return fail(r.error.message)
     say(to ? `${g.docCode}을(를) 활성화했어요.` : `${g.docCode}을(를) 비활성화했어요. 번호는 그대로 남아요.`)
     reload()
   }
   const makeCurrent = async (g: Guide, v: GuideVersion) => {
     const r = await setGuideCurrent(user, g.id, v.id)
-    if (!r.ok) return say(r.error.message)
+    if (!r.ok) return fail(r.error.message)
     say(v.state === '만료' ? `${v.version}을(를) 다시 현행으로 되돌렸어요.` : '현행 버전을 바꿨어요.')
     reload()
   }
@@ -246,7 +244,10 @@ export function GuidesView() {
               {!g.isActive && ' · 검색·답변에 쓰이지 않아요'}
             </div>
           </span>
-          <span className="gbs">{g.current?.tx === '금지' ? <StateBadge tone="urg" label="외부 전송 금지" /> : g.current?.tx === '마스킹 후 허용' ? <StateBadge tone="warn" label="마스킹 후 전송" /> : null}</span>
+          <span className="gbs">
+            <span className="gb1">{g.current?.scope && <StateBadge tone="info" label={g.current.scope} />}</span>
+            <span className="gb2">{g.current?.tx === '금지' ? <StateBadge tone="urg" label="외부 전송 금지" /> : g.current?.tx === '마스킹 후 허용' ? <StateBadge tone="warn" label="마스킹 후 전송" /> : null}</span>
+          </span>
         </button>
         {/* 문서 전체를 켜고 끄는 버튼: 제목과 같은 줄, 펼쳤을 때만 보인다 */}
         {open && (
@@ -273,7 +274,6 @@ export function GuidesView() {
                     <th className="c" title="이 가이드의 내용을 외부 AI 모델에 보내 답변 생성에 써도 되는지">
                       외부 AI 전송
                     </th>
-                    {USE_MOCK_GUIDE && <th className="memo">메모</th>}
                     <th className="c">현행 관리</th>
                     <th>올린 시각</th>
                   </tr>
@@ -309,16 +309,6 @@ export function GuidesView() {
                             ))}
                         </div>
                       </td>
-                      {USE_MOCK_GUIDE && (
-                        <td className="memo">
-                          <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
-                            <span>{v.note || '-'}</span>
-                            <button type="button" className="btn ghost sm" aria-label={`${v.version} 메모 수정`} onClick={() => setDlg({ kind: 'note', g, v })}>
-                              수정
-                            </button>
-                          </div>
-                        </td>
-                      )}
                       <td className="c">
                         {v.state !== '현행' && (
                           <button type="button" className="btn ghost sm" disabled={v.ready !== '준비 완료'} title={v.ready !== '준비 완료' ? '검색 준비가 끝나야 현행으로 바꿀 수 있어요' : v.state === '만료' ? '이전 버전을 다시 현행으로 되돌려요' : undefined} onClick={() => void makeCurrent(g, v)}>
@@ -412,7 +402,7 @@ export function GuidesView() {
       <div className="alert info">
         <Icon name="file" />
         <div>
-          매일 자정에 AI가 해결 완료(CLS)된 티켓의 유사도를 분석해요 <span className="tag gray">제안</span>. 비슷한 주제로 들어온 건을 묶어 보여 주고, 골라서 가이드 초안으로 만들 수 있어요. 초안은 관리자 검토와 검색 준비가 끝난 뒤에만 현행이 될 수 있어요.
+          매일 자정에 AI가 해결 완료된 티켓의 유사도를 분석해요 <span className="tag gray">제안</span>. 비슷한 주제로 들어온 건을 묶어 보여 주고, 골라서 가이드 초안으로 만들 수 있어요. 초안은 관리자 검토와 검색 준비가 끝난 뒤에만 현행이 될 수 있어요.
         </div>
       </div>
       <div className="row" style={{ justifyContent: 'space-between', margin: '14px 0 10px' }}>
@@ -601,7 +591,7 @@ export function GuidesView() {
             </div>
             <div>
               <p className="muted">
-                <b>외부 AI 전송</b>은 이 가이드 내용을 AI 모델에 보내 답변을 만들어도 되는지에 관한 설정이에요(문서 열람 권한인 열람 범위와는 별개). <b>허용</b>은 그대로 보내고, <b>마스킹 후 허용</b>은 민감정보를 가린 내용만 보내요. <b>금지</b>인 가이드 내용은 외부 AI에 보내지 않아요. 사용할 수 있는 근거가 없으면 담당자 연결을 제안해요. 열람 범위와 전송 정책을 정하지 않으면 관리자 전용·금지로 처리돼요.
+                <b>외부 AI 전송</b>은 이 가이드 내용을 AI 모델에 보내 답변을 만들어도 되는지에 관한 설정이에요(문서 열람 권한인 열람 범위와는 별개). <b>허용</b>은 그대로 보내고, <b>마스킹 후 허용</b>은 민감정보를 가린 내용만 보내요. <b>금지</b>인 가이드 내용은 외부 AI에 보내지 않아요. 사용할 수 있는 근거가 없으면 담당자 연결을 제안해요. 열람 범위와 전송 정책을 정하지 않으면 관리자만·금지로 처리돼요.
               </p>
             </div>
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
@@ -696,18 +686,6 @@ export function GuidesView() {
             const d = dlg
             setDlg(null)
             void applyTx(d.g, d.v, d.to, why)
-          }}
-        />
-      )}
-      {dlg?.kind === 'note' && (
-        <NoteDialog
-          g={dlg.g}
-          v={dlg.v}
-          onClose={() => setDlg(null)}
-          onDone={() => {
-            setDlg(null)
-            say('메모를 저장했어요.')
-            reload()
           }}
         />
       )}
@@ -842,7 +820,7 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
   const [docVers, setDocVers] = useState<GuideVersion[] | null>(null)
   const [title, setTitle] = useState('')
   const [ver, setVer] = useState('')
-  const [scope, setScope] = useState<GuideScope>('관리자 전용')
+  const [scope, setScope] = useState<GuideScope>('관리자만')
   const [tx, setTx] = useState<GuideTx>('금지')
   // 파일 머리의 version: 값 (md·txt 만 읽는다). 서버는 이 값과 입력한 버전이 다르면 적재를 실패 처리한다
   const [fileVer, setFileVer] = useState<string | null>(null)
@@ -1166,7 +1144,7 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
         </div>
       )}
       <div className="hint">
-        {mode === 'ver' && doc ? '앞 버전의 열람 범위·외부 전송 값을 채워 두었어요. 필요하면 바꿔 주세요. ' : ''}정하지 않으면 가장 제한적인 값(관리자 전용·금지)이 적용돼요.
+        {mode === 'ver' && doc ? '앞 버전의 열람 범위·외부 전송 값을 채워 두었어요. 필요하면 바꿔 주세요. ' : ''}정하지 않으면 가장 제한적인 값(관리자만·금지)이 적용돼요.
       </div>
       {err && (
         <div className="ferr" role="alert">
@@ -1223,43 +1201,6 @@ function TxDialog({ g, v, to, onClose, onApply }: { g: Guide; v: GuideVersion; t
         </button>
         <button type="button" className="btn pri" onClick={() => (why.trim() || !wide ? onApply(why.trim()) : setErr('변경 사유를 입력해 주세요.'))}>
           변경
-        </button>
-      </div>
-    </Modal>
-  )
-}
-
-function NoteDialog({ g, v, onClose, onDone }: { g: Guide; v: GuideVersion; onClose: () => void; onDone: () => void }) {
-  const { user } = useAuth()
-  const uid = useId()
-  const [note, setNote] = useState(v.note)
-  const [err, setErr] = useState('')
-  const save = async () => {
-    if (!user) return
-    const r = await setGuideNote(user, g.id, v.id, note)
-    if (!r.ok) return setErr(r.error.message)
-    onDone()
-  }
-  return (
-    <Modal title={`${v.version} 메모 수정`} onClose={onClose}>
-      <p className="small muted" style={{ margin: 0 }}>
-        {guideLabel(g)} · 관리자가 직접 적는 메모예요. AI가 쓰지 않고, 수정하면 변경 기록이 남아요.
-      </p>
-      <div className="field">
-        <label htmlFor={`${uid}-n`}>메모</label>
-        <input id={`${uid}-n`} className="inp" value={note} placeholder="예) 5회 실패 시 잠금, 10분 후 해제" autoComplete="off" onChange={(e) => setNote(e.target.value)} />
-      </div>
-      {err && (
-        <div className="ferr" role="alert">
-          {err}
-        </div>
-      )}
-      <div className="acts">
-        <button type="button" className="btn sec" onClick={onClose}>
-          취소
-        </button>
-        <button type="button" className="btn pri" onClick={() => void save()}>
-          저장
         </button>
       </div>
     </Modal>

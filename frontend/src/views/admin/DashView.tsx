@@ -3,9 +3,9 @@
  * 처리 현황(건수), 연동·배정 확인 띠, 긴급·높음 미해결 상위 3건을 한 화면에 모은다.
  * 건수와 띠는 전체 문의·운영 현황의 해당 조건으로 이어진다. 검색하면 대시보드 대신 검색 결과만 보인다.
  */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { CATEGORIES } from '../../api/catalog'
+import { CATEGORIES, URGENCY_LABEL, urgencyText } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { getDashSnapshot, searchTickets, type DashSnapshot } from '../../api/dash'
 import { countSecurityAlerts, watchSecurity, type SecCounts } from '../../api/security'
@@ -20,6 +20,10 @@ import { CountUp } from '../../ui/CountUp'
 import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
 import { StaffStatus, UrgencyChip } from '../staff/QueueView'
+import { PRI_RULE, Section, URGS, useSection } from '../staff/StatsView'
+import { TicketDetailPanel } from '../staff/TicketDetailPanel'
+import { loadOverview } from './statsOverview'
+import { UrgentRow } from './UrgentRow'
 
 const hm = (iso: string) => {
   const d = new Date(iso)
@@ -44,7 +48,7 @@ function Row({ t, onOpen }: { t: TicketSummary; onOpen: () => void }) {
       type="button"
       className="dtr"
       onClick={onOpen}
-      aria-label={`${t.summary}. 긴급도 ${t.urgency ?? '-'}. 접수 후 경과 ${formatElapsed(t.createdAt)}. 담당 ${who}, ${t.group?.name ?? '-'}. 접수번호 ${t.receiptNo}${t.jiraKey ? `, ITSM ${t.jiraKey}` : ''}. 문의자 ${t.requester.name}`}
+      aria-label={`${t.summary}. 긴급도 ${urgencyText(t.urgency)}. 접수 후 경과 ${formatElapsed(t.createdAt)}. 담당 ${who}, ${t.group?.name ?? '-'}. 접수번호 ${t.receiptNo}${t.jiraKey ? `, ITSM ${t.jiraKey}` : ''}. 문의자 ${t.requester.name}`}
     >
       <span className="c-p">
         <UrgencyChip u={t.urgency} />
@@ -85,6 +89,12 @@ export function DashView() {
   const [reload, setReload] = useState(0)
   const [opened] = useState(() => new Date().toISOString())
   const admin = user?.serviceRole === 'ADMIN'
+  // 긴급도 분포: 통계에서 옮겨 온 구역 (최근 30일에 접수된 티켓 기준)
+  const loadDist = useCallback((u: NonNullable<typeof user>) => loadOverview(u, 'm', 'd'), [])
+  const dist = useSection('ov', 'm', tick, loadDist)
+  // 문의를 누르면 전체 문의로 가지 않고 오른쪽에 그 문의의 상세만 연다
+  const [openId, setOpenId] = useState<number | null>(null)
+  const [slide, setSlide] = useState(false)
 
   useEffect(() => watchTickets(() => setTick((n) => n + 1)), [])
   useEffect(() => {
@@ -128,7 +138,12 @@ export function DashView() {
   }, [user, admin, needle, tick])
 
   if (user && !admin) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
-  const open = (t: TicketSummary) => navigate(`/tickets/${t.id}`)
+  const open = (t: TicketSummary) => {
+    if (openId === null) setSlide(true)
+    setOpenId(t.id)
+  }
+  const urgN = URGS.map((p) => (dist.extra as { urgency: Record<string, number> } | undefined)?.urgency[p] ?? 0)
+  const urgMx = Math.max(1, ...urgN)
   const at = snap?.asOf ?? opened
   const ex = snap?.attention
   // 배너가 늦게 끼어들어 아래 내용이 밀리지 않도록, 처음에는 데이터가 모두 올 때까지 본문을 그리지 않는다
@@ -147,9 +162,9 @@ export function DashView() {
   const un = snap?.unresolved
 
   const pipe = [
-    { label: '처리 대기 (RDY)', n: snap?.rdy ?? 0, to: '/tickets?st=RDY', hint: '전체 문의에서 처리 대기 보기', cls: '' },
-    { label: '처리 중 (WIP)', n: snap?.wip ?? 0, to: '/tickets?st=WIP', hint: '전체 문의에서 처리 중 보기', cls: '' },
-    { label: '해결 확인 대기 (FIN)', n: snap?.fin ?? 0, to: '/tickets?st=FIN', hint: '전체 문의에서 해결 확인 대기 보기', cls: '' },
+    { label: '처리 대기', n: snap?.rdy ?? 0, to: '/tickets?st=RDY', hint: '전체 문의에서 처리 대기 보기', cls: '' },
+    { label: '처리 중', n: snap?.wip ?? 0, to: '/tickets?st=WIP', hint: '전체 문의에서 처리 중 보기', cls: '' },
+    { label: '해결 확인 대기', n: snap?.fin ?? 0, to: '/tickets?st=FIN', hint: '전체 문의에서 해결 확인 대기 보기', cls: '' },
     { label: '연동·배정 확인', n: ex?.total ?? 0, to: '/ops', hint: '운영 현황 화면으로 가기', cls: ex?.total ? 'al' : 'z' },
   ]
 
@@ -273,6 +288,27 @@ export function DashView() {
                   </div>
                 </div>
 
+                <Section title="긴급도 분포" sec={dist} note="최근 30일에 접수된 티켓 전체 기준이에요(배정 전 포함). 줄을 누르면 해당 긴급도 문의 목록으로 가요.">
+                  <div className="pdist">
+                    {URGS.map((p, i) => (
+                      <button key={p} type="button" className="pd" onClick={() => navigate(`/tickets?pri=${p}&per=m`)} aria-label={`${URGENCY_LABEL[p]} ${urgN[i]}건. 이 긴급도의 문의 목록 보기`}>
+                        <span className="pl">
+                          <UrgencyChip u={p} />
+                        </span>
+                        <span className="bar" aria-hidden="true">
+                          <i className={`pb-${p.toLowerCase()}`} style={{ width: `${Math.max(urgN[i] ? 3 : 0, (urgN[i] / urgMx) * 100)}%` }} />
+                        </span>
+                        <b>
+                          {urgN[i]}
+                          <small>건</small>
+                        </b>
+                        <Icon name="chevron" className="go" />
+                        <span className="small muted pr">{PRI_RULE[p]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </Section>
+
                 <section className="panel urg" aria-label="긴급·높음 미해결" style={{ padding: '22px 24px' }}>
                   <div className="sech">
                     <div>
@@ -295,10 +331,9 @@ export function DashView() {
                     </div>
                   ) : un && un.top.length ? (
                     <>
-                      <div className="dtb">
-                        <Head />
+                      <div className="otb">
                         {un.top.map((t) => (
-                          <Row key={t.id} t={t} onOpen={() => open(t)} />
+                          <UrgentRow key={t.id} t={t} onOpen={() => open(t)} />
                         ))}
                       </div>
                       <p className="small muted" style={{ marginTop: 10 }}>
@@ -315,7 +350,7 @@ export function DashView() {
                     <div>
                       <b>추이·분포·진행도는 통계에서 확인해요</b>
                       <div className="small muted" style={{ marginTop: 2 }}>
-                        접수 추이, 팀별·분류별 진행도, 구성원별 현황, 긴급도 분포를 기간별로 볼 수 있어요.
+                        접수 추이, 팀별 진행도, 구성원별 현황을 기간별로 볼 수 있어요.
                       </div>
                     </div>
                     <button type="button" className="btn ghost sm" onClick={() => navigate('/stats')}>
@@ -329,6 +364,7 @@ export function DashView() {
         </div>
       </div>
     </main>
+    {openId !== null && <TicketDetailPanel key={openId} id={openId} tick={tick} slide={slide} onSlideEnd={() => setSlide(false)} onClose={() => setOpenId(null)} />}
     </div>
   )
 }

@@ -4,7 +4,7 @@
  * 로그인 화면에서 계정·로그인 범위의 공개 Guide 안내만 한다. 인증 없이 호출하며 Ticket은 만들지 않는다.
  */
 import { request, sleep } from '../core/apiClient'
-import { SERVICEDESK, MOCK_ONLY } from '../core/config'
+import { HELPDESK, MOCK_ONLY } from '../core/config'
 import { guideSource } from './mock/sources'
 import { ok, type ApiResult, type ConsultReply } from './types'
 
@@ -14,7 +14,7 @@ const LOCK_GUIDE = `### 이런 경우
 ### 조치 방법
 1. 10분을 기다리면 잠금이 자동으로 해제돼요.
 2. 해제된 뒤 비밀번호를 정확히 입력해 보세요.
-3. 그래도 안 되면 서비스데스크에 연락해 주세요.
+3. 그래도 안 되면 IT 헬프데스크에 연락해 주세요.
 ### 해결 확인
 - 로그인이 되면 해결된 것입니다.`
 const MFA_GUIDE = `### 이런 경우
@@ -39,7 +39,7 @@ function mockReply(text: string): ConsultReply {
       sources: [],
       paragraphs: [
         '보안 사고가 의심되면 **로그인 후 새 문의**에서 담당자 연결을 요청해 주세요. 로그인할 수 없는 상황이면 서비스데스크로 바로 연락해 주세요.',
-        `서비스데스크 ${SERVICEDESK}`,
+        HELPDESK,
       ],
     }
   }
@@ -75,7 +75,7 @@ function mockReply(text: string): ConsultReply {
     sources: [],
     paragraphs: [
       '이 질문은 로그인 전 상담 범위(계정·로그인)를 벗어나요. 근거 없이 안내하지 않을게요. 로그인 후 새 문의로 질문하거나 서비스데스크로 연락해 주세요.',
-      `서비스데스크 ${SERVICEDESK}`,
+      HELPDESK,
     ],
   }
 }

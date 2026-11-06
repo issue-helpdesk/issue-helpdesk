@@ -1,17 +1,15 @@
 /**
  * 운영 현황 (관리자, /ops). (design/ITssue-Prototype.html viewExc)
- * 현재 미처리 문의 중 지금 확인하고 처리할 일만 모았다: 긴급 조치(P1), 당일 미종결 예외, 티켓 연동 확인, 담당자 배정 확인, 팀별 개인 현황.
+ * 현재 미처리 문의 중 지금 확인하고 처리할 일만 모았다: 긴급 조치(P1), 당일 미종결 예외, 티켓 연동 확인, 담당자 배정 확인. (팀별 개인 현황은 캘린더 화면 맨 아래에 있다)
  *
- * 목록은 접수 목록(TK-05 view=ALL)을 조건별로 받아 나눈다 (api/ops.ts). 팀별 개인 현황의 구성원·부재·업무량은 RF-04·TO-01·TK-05 로 읽는다 (api/reference.ts).
+ * 목록은 접수 목록(TK-05 view=ALL)을 조건별로 받아 나눈다 (api/ops.ts). 
  * 확인·재시도는 접수를 서버로 보내는 환경(VITE_SERVER_INTAKE)에서 연동 작업 재처리(TK-12)를 등록한다. 서버는 등록만 하고 실행기가 나중에 처리한다.
  * 담당자 지정은 서버의 배정 API(TK-09)로 예약하고, 마찬가지로 실행기가 반영한다.
  */
 import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { URGENCY_LABEL } from '../../api/catalog'
-import type { Urgency } from '../../api/chatTypes'
 import { getOpsSnapshot, recheckTransition, retryJiraCreate, type OpsSnapshot } from '../../api/ops'
-import { listBoard, listSupportGroups, type Candidate, type SupportGroupRef } from '../../api/reference'
+import { listSupportGroups, type SupportGroupRef } from '../../api/reference'
 import { getTicket, watchTickets } from '../../api/tickets'
 import type { TicketDetail, TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
@@ -19,15 +17,15 @@ import { formatElapsed } from '../../core/format'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
 import { FilterPill } from '../../ui/FilterPill'
-import { Collapse } from '../../ui/Collapse'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { useToast } from '../../ui/useToast'
 import { Topbar } from '../../ui/Topbar'
-import { StaffStatus, UrgencyChip } from '../staff/QueueView'
+import { UrgencyChip } from '../staff/QueueView'
 import { ReassignDialog } from './ReassignDialog'
+import { UrgentRow } from './UrgentRow'
+import { TicketDetailPanel } from '../staff/TicketDetailPanel'
 
-const URGS: Urgency[] = ['P1', 'P2', 'P3', 'P4']
 const hm = (iso: string) => {
   const d = new Date(iso)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
@@ -87,17 +85,13 @@ export function OpsView() {
   const navigate = useNavigate()
   const [groups, setGroups] = useState<SupportGroupRef[]>([])
   const [team, setTeam] = useState('')
-  const [chip, setChip] = useState('')
   const [snap, setSnap] = useState<OpsSnapshot | null>(null)
   const [error, setError] = useState('')
   const [more, setMore] = useState<Record<Key, boolean>>({ U: false, X: false, L: false, A: false })
-  const [people, setPeople] = useState<Record<string, Candidate[]>>({})
-  const [peopleErr, setPeopleErr] = useState('')
   const [results, setResults] = useState<Res[]>([])
   const [resMore, setResMore] = useState(false)
-  const [curOpen, setCurOpen] = useState(false)
   const [pending, setPending] = useState<number[]>([])
-  const { say } = useToast()
+  const { say, fail } = useToast()
   const [check, setCheck] = useState<TicketSummary | null>(null)
   const [assign, setAssign] = useState<TicketDetail | null>(null)
   const [busy, setBusy] = useState(false)
@@ -132,24 +126,6 @@ export function OpsView() {
     }
   }, [user, admin, groupId, tick, reload])
 
-  // 팀별 개인 현황: 담당 그룹마다 구성원·부재·업무량
-  useEffect(() => {
-    if (!user || !admin || !groups.length) return
-    let alive = true
-    listBoard(user).then((r) => {
-      if (!alive) return
-      if (!r.ok) {
-        setPeopleErr(r.error.message)
-        setPeople({})
-        return
-      }
-      setPeopleErr('')
-      setPeople(r.data)
-    })
-    return () => {
-      alive = false
-    }
-  }, [user, admin, groups, tick, reload])
 
   /** 같은 접수의 요청과 결과는 한 줄로 묶고, 가장 최근에 건드린 건이 맨 위에 온다 */
   const note = useCallback((t: { id: number; receiptNo: string; jiraKey?: string | null }, text: string, st: 'req' | 'done' = 'done') => {
@@ -161,9 +137,13 @@ export function OpsView() {
     })
   }, [])
 
-  const grp = chip || team || groups[0]?.name || ''
-  const members = people[grp] ?? []
-  const open = (id: number) => navigate(`/tickets/${id}`)
+  // 문의를 누르면 전체 문의로 가지 않고 오른쪽에 그 문의의 상세만 연다
+  const [openId, setOpenId] = useState<number | null>(null)
+  const [slide, setSlide] = useState(false)
+  const open = (id: number) => {
+    if (openId === null) setSlide(true)
+    setOpenId(id)
+  }
   const toggle = (k: Key) => setMore((m) => ({ ...m, [k]: !m[k] }))
   const asOf = snap?.asOf ?? opened
 
@@ -233,23 +213,7 @@ export function OpsView() {
     )
   }
 
-  const rowU = (t: TicketSummary) => (
-    <button key={t.id} type="button" className="orow" onClick={() => open(t.id)}>
-      <span className="o-p">
-        <UrgencyChip u={t.urgency} />
-      </span>
-      <span className="o-t">
-        <b>{t.summary}</b>
-        <small>{sub(t)}</small>
-      </span>
-      <span className="o-s">
-        <StaffStatus t={t} />
-      </span>
-      <span className="o-e">
-        <b>{formatElapsed(t.createdAt)}</b> 경과
-      </span>
-    </button>
-  )
+  const rowU = (t: TicketSummary) => <UrgentRow key={t.id} t={t} onOpen={() => open(t.id)} />
   const rowC = (mode: 'link' | 'asg') => (t: TicketSummary) => (
     <div key={t.id} className="orow l">
       <div className="o-main">
@@ -292,7 +256,7 @@ export function OpsView() {
     if (!user) return
     const r = await getTicket(user, t.id)
     if (r.ok) setAssign(r.data)
-    else say(r.error.message)
+    else fail(r.error.message)
   }
 
   const sec = (title: ReactNode, desc: ReactNode, right: ReactNode, inner: ReactNode, cls?: string, label?: string) => (
@@ -341,7 +305,6 @@ export function OpsView() {
                 options={groups.map((g) => ({ value: g.name, label: g.name }))}
                 onChange={(v) => {
                   setTeam(v)
-                  setChip('')
                 }}
               />
               <span className="small muted">
@@ -463,7 +426,7 @@ export function OpsView() {
                 <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P12&unres=1')}>
                   모두 보기
                 </button>,
-                wait(list('X', exc, rowU, '접수 당일 안에 끝나지 않은 P1·P2 건이 없어요.')),
+                wait(list('X', exc, rowU, '접수 당일 안에 끝나지 않은 긴급·높음 건이 없어요.')),
               )}
             </div>
 
@@ -491,101 +454,11 @@ export function OpsView() {
                 asgL.length ? 'need' : '',
               )}
             </div>
-
-            {sec(
-              '팀별 개인 현황',
-              '팀별로 근무 여부와 진행 중 티켓의 긴급도를 확인해요. 이름을 누르면 그 담당자의 처리 대기·처리 중 티켓을 볼 수 있어요. 칩 숫자는 근무/전체 인원이에요.',
-              null,
-              peopleErr ? (
-                <div className="alert info" role="status">
-                  <Icon name="alert" />
-                  <div>{peopleErr}</div>
-                </div>
-              ) : (
-                <>
-                  <div className="ocurh">
-                    <div className="subc" role="group" aria-label="담당 그룹">
-                      {groups.map((g) => {
-                        const list = people[g.name] ?? []
-                        return (
-                          <button key={g.id} type="button" className={`chip${g.name === grp ? ' on' : ''}`} aria-pressed={g.name === grp} onClick={() => setChip(g.name)}>
-                            {g.name} <em>{`${list.filter((c) => c.avail).length}/${list.length}`}</em>
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <button type="button" className="tgc" aria-expanded={curOpen} aria-controls="ocur-b" aria-label={`${grp} 담당자 ${curOpen ? '접기' : '펼치기'}`} title={curOpen ? '접기' : `${members.length}명 보기`} onClick={() => setCurOpen((v) => !v)}>
-                      <Icon name="chevron" />
-                    </button>
-                  </div>
-                  <Collapse open={curOpen}>
-                  <div className="tw" id="ocur-b">
-                    <table className="tbl ptbl">
-                      <colgroup>
-                        <col style={{ width: '14%' }} />
-                        <col style={{ width: '13%' }} />
-                        <col style={{ width: '11%' }} />
-                        <col style={{ width: '11%' }} />
-                        <col style={{ width: '22%' }} />
-                        <col style={{ width: '12%' }} />
-                        <col style={{ width: '17%' }} />
-                      </colgroup>
-                      <thead>
-                        <tr>
-                          <th>이름</th>
-                          <th>오늘 상태</th>
-                          <th className="c">처리 대기 (RDY)</th>
-                          <th className="c">처리 중 (WIP)</th>
-                          <th>
-                            긴급도 <span className="small muted">(처리 대기 + 처리 중)</span>
-                          </th>
-                          <th>ITSM 계정</th>
-                          <th>비고</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {members.map((c) => {
-                          const notes = [!c.avail && '부재 중 · 자동배정 제외', !c.jira && 'ITSM 배정 반영 불가'].filter(Boolean).join(' · ')
-                          return (
-                            <tr key={c.id}>
-                              <td>
-                                <button type="button" className="lk" title={`${c.name} 담당자의 처리 대기·처리 중 티켓 보기`} onClick={() => navigate(`/tickets?staff=${encodeURIComponent(c.name)}&st=open`)}>
-                                  {c.name}
-                                </button>
-                              </td>
-                              <td>
-                                <span className={`stt ${c.avail ? 'on' : 'off'}`}>
-                                  <i />
-                                  {c.avail ? '근무' : `부재 (${c.leave ?? '연차'})`}
-                                </span>
-                              </td>
-                              <td className="c">{c.rdy}건</td>
-                              <td className="c">{c.wip}건</td>
-                              <td>
-                                <span className="pcs">
-                                  {URGS.map((p) => (
-                                    <span key={p} className={`pcn ${c.pri[p] ? `pri-${p.toLowerCase()}` : 'z'}`} title={URGENCY_LABEL[p]}>
-                                      {p} <b>{c.pri[p]}</b>
-                                    </span>
-                                  ))}
-                                </span>
-                              </td>
-                              <td>{c.jira ? '연결됨' : <span className="od">⚠ 미연결</span>}</td>
-                              <td className="small muted">{notes || '-'}</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  </Collapse>
-                </>
-              ),
-            )}
           </div>
         </div>
       </main>
 
+      {openId !== null && <TicketDetailPanel key={openId} id={openId} tick={tick} slide={slide} onSlideEnd={() => setSlide(false)} onClose={() => setOpenId(null)} />}
       {check && (
         <CheckDialog
           t={check}

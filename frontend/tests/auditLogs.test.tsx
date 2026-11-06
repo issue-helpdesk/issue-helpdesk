@@ -117,6 +117,22 @@ describe('운영 기록 화면', () => {
     expect(screen.getAllByRole('complementary', { name: '티켓 상세' })).toHaveLength(1)
   })
 
+  it('사용자 대상 기록(로그인 차단 등)은 계정 목록에서 찾은 이름·사번을 구분 칸 둘째 줄에 보인다', async () => {
+    const { MOCK_ACCOUNTS } = await import('../src/api/mock/accounts')
+    const who = MOCK_ACCOUNTS.find((u) => u.id === 6)
+    expect(who).toBeTruthy()
+    renderAs('EMP-1178', '/audit')
+    expect((await screen.findAllByRole('button', { name: `${who!.name} 계정 관리에서 보기` }, SLOW)).length).toBeGreaterThan(0)
+  })
+
+  it('사용자 이름을 누르면 계정 관리가 그 사번으로 검색된 채 열린다', async () => {
+    const { MOCK_ACCOUNTS } = await import('../src/api/mock/accounts')
+    const who = MOCK_ACCOUNTS.find((u) => u.id === 6)!
+    renderAs('EMP-1178', '/audit')
+    await userEvent.click((await screen.findAllByRole('button', { name: `${who.name} 계정 관리에서 보기` }, SLOW))[0])
+    expect(await screen.findByRole('textbox', { name: '계정 검색' }, SLOW)).toHaveValue(who.employeeNo)
+  })
+
   it('담당자는 들어올 수 없다', async () => {
     renderAs('EMP-1004', '/audit')
     await screen.findByRole('navigation', { name: '주 메뉴' }, SLOW)

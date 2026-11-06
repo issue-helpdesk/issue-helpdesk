@@ -24,6 +24,7 @@ import { PendingChatView } from '../views/inquiry/PendingChatView'
 import { LoginView } from '../views/login/LoginView'
 import { StatsView } from '../views/staff/StatsView'
 import { MyDashView } from '../views/staff/MyDashView'
+import { CalendarView } from '../views/staff/CalendarView'
 import { QueueView } from '../views/staff/QueueView'
 import { HOME_BY_ROLE } from './roles'
 import { useAuth } from './session'
@@ -72,6 +73,7 @@ export function AppRoutes() {
           <Route path="/stats" element={<StatsEntry />} />
           <Route path="/queue" element={<QueueView />} />
           <Route path="/queue/:ticketId" element={<QueueView />} />
+          <Route path="/calendar" element={<CalendarView />} />
           <Route path="/dash" element={<DashView />} />
           <Route path="/accounts" element={<AccountsView />} />
           <Route path="/ops" element={<OpsView />} />

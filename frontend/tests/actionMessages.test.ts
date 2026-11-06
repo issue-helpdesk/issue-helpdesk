@@ -77,7 +77,7 @@ describe('선택·카드를 서버가 메시지로 저장할 때 (R-29)', () => 
     const i = toInquiry(inquiry({ status: 'IN_PROGRESS', ticket: null, resolutionResult: 'UNRESOLVED', displayStatus: 'in_progress' }), list, ['DECIDE_HANDOFF'])
     expect(i.step).toBe('offer')
     expect(i.messages.some((x) => x.typing)).toBe(false)
-    expect(JSON.stringify(i.messages)).not.toContain('지금은 답변을 만들지 못했어요')
+    expect(JSON.stringify(i.messages)).not.toContain('지금은 AI 답변을 만들지 못했어요')
     // 담당자 연결 제안 버튼은 마지막 안내에 붙는다
     expect(i.messages[i.messages.length - 1].replies?.map((r) => r.action)).toEqual(['connect-yes', 'connect-no'])
   })

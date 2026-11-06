@@ -1,7 +1,7 @@
 import { act, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastHost } from '../src/ui/Toast'
-import { MAX_SHOWN, OUT_MS, resetToasts, showToast, toastMs } from '../src/ui/toastStore'
+import { MAX_SHOWN, OUT_MS, resetToasts, showError, showToast, toastMs } from '../src/ui/toastStore'
 
 const texts = () => [...document.body.querySelectorAll('.toast:not(.out)')].map((e) => e.textContent)
 
@@ -60,5 +60,25 @@ describe('토스트 쌓기', () => {
     act(() => showToast('짧아요.'))
     act(() => vi.advanceTimersByTime(toastMs('짧아요.') + OUT_MS + 10))
     expect(document.body.querySelector('.toasts')).toBeNull()
+  })
+})
+
+describe('실패 안내 토스트', () => {
+  it('시간이 지나도 사라지지 않고, 닫기(×)를 누르면 내려간다', () => {
+    render(<ToastHost />)
+    act(() => showError('저장하지 못했어요.'))
+    act(() => vi.advanceTimersByTime(60000))
+    const t = document.body.querySelector('.toast.err')!
+    expect(t).toHaveTextContent('저장하지 못했어요.')
+    expect(t).toHaveAttribute('role', 'alert')
+    act(() => (t.querySelector('.toast-x') as HTMLButtonElement).click())
+    act(() => vi.advanceTimersByTime(OUT_MS + 10))
+    expect(document.body.querySelector('.toasts')).toBeNull()
+  })
+
+  it('일반 토스트는 닫기 버튼이 없고 그대로 사라진다', () => {
+    render(<ToastHost />)
+    act(() => showToast('저장했어요.'))
+    expect(document.body.querySelector('.toast-x')).toBeNull()
   })
 })

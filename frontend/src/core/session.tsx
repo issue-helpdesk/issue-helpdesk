@@ -8,7 +8,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { authApi } from '../api/auth'
 import { bindSessionUser } from '../api/tickets'
 import type { ApiResult, LoginData, LoginRequest, PasswordChangeRequest, User } from '../api/types'
-import { setAuthLostHandler } from './apiClient'
+import { setAuthLostHandler, setPasswordRequiredHandler } from './apiClient'
 import { tokenStore } from './tokenStore'
 
 /** 로그인 화면 맨 위에 한 번 보여 주는 안내: 비밀번호를 바꾼 뒤 / 로그인이 만료돼 돌아온 뒤 */
@@ -54,6 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoginNote('expired')
     })
     return () => setAuthLostHandler(null)
+  }, [])
+
+  // 로그인 직후가 아니어도 서버가 비밀번호 변경을 요구하면(AUTH_PASSWORD_CHANGE_REQUIRED) 변경 창이 뜨도록 사용자 표시를 바꾼다
+  useEffect(() => {
+    setPasswordRequiredHandler(() => setUser((u) => (u && !u.passwordChangeRequired ? { ...u, passwordChangeRequired: true } : u)))
+    return () => setPasswordRequiredHandler(null)
   }, [])
 
   // 새로고침 후 저장된 토큰이 아직 유효한지 서버에 확인한다 (만료됐으면 요청 클라이언트가 재발급을 먼저 시도한다)

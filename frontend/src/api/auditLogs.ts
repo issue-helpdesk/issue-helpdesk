@@ -68,7 +68,7 @@ export const EVENT_LABEL: Record<string, { label: string; tone: string }> = {
 }
 
 const ACCOUNT_STATUS: Record<string, string> = { ACTIVE: '정상', LOCKED: '잠김', INACTIVE: '이용 제한' } // 계정 관리 화면과 같은 말
-const SCOPE_LABEL: Record<string, string> = { ALL: '전 직원', AGENT: '담당자', ADMIN: '관리자 전용' }
+const SCOPE_LABEL: Record<string, string> = { ALL: '전 직원', AGENT: '담당자 이상', ADMIN: '관리자만' }
 const POLICY_LABEL: Record<string, string> = { ALLOWED: '허용', MASKED: '마스킹 후 허용', BLOCKED: '금지' }
 const SENSITIVE_LABEL: Record<string, string> = { PASSWORD: '비밀번호', OTP: '인증번호', API_KEY: 'API 키', PRIVATE_KEY: '비공개 키', RRN: '주민등록번호', CARD: '카드번호', ACCOUNT: '계좌번호' }
 
@@ -180,12 +180,12 @@ const MOCK: AuditLog[] = [
   row(11, ago(1, 3, 6), 'DOCUMENT_VERSION_ACTIVATE', 'document', 12, ADMIN, 'v1 → v2'),
   row(10, ago(1, 3, 21), 'DOCUMENT_VERSION_RETRY', 'document', 12, ADMIN, 'v3 파일 교체'),
   row(9, ago(1, 3, 36), 'DOCUMENT_POLICY_CHANGE', 'document', 7, ADMIN, 'v2 ALL/ALLOWED → ADMIN/BLOCKED', '민감 문서로 분류'),
-  row(8, ago(2, 3, 5), 'USER_CREATE', 'user', 88, ADMIN, 'EMPLOYEE'),
-  row(7, ago(2, 3, 23), 'USER_ROLE_CHANGE', 'user', 88, ADMIN, 'AGENT', '팀 이동'),
-  row(6, ago(3, 3, 45), 'USER_STATUS_CHANGE', 'user', 31, ADMIN, 'INACTIVE', '퇴사'),
-  row(5, ago(3, 4, 4), 'PASSWORD_RESET', 'user', 29, ADMIN, 'ACTIVE', '분실 신고'),
-  row(4, ago(4, 4, 27), 'LOGIN_BLOCKED', 'user', 31, null, 'INACTIVE'),
-  row(3, ago(4, 4, 58), 'ACCOUNT_LOCKED', 'user', 40, null, 'LOCKED'),
+  row(8, ago(2, 3, 5), 'USER_CREATE', 'user', 10, ADMIN, 'EMPLOYEE'),
+  row(7, ago(2, 3, 23), 'USER_ROLE_CHANGE', 'user', 10, ADMIN, 'AGENT', '팀 이동'),
+  row(6, ago(3, 3, 45), 'USER_STATUS_CHANGE', 'user', 6, ADMIN, 'INACTIVE', '퇴사'),
+  row(5, ago(3, 4, 4), 'PASSWORD_RESET', 'user', 7, ADMIN, 'ACTIVE', '분실 신고'),
+  row(4, ago(4, 4, 27), 'LOGIN_BLOCKED', 'user', 6, null, 'INACTIVE'),
+  row(3, ago(4, 4, 58), 'ACCOUNT_LOCKED', 'user', 5, null, 'LOCKED'),
   row(2, ago(5, 5, 20), 'FAQ_DELETE', 'faq', 7, ADMIN, 'FAQ-007'),
   row(1, ago(5, 5, 42), 'FAQ_AUTO_UNPUBLISH', 'faq', 12, ADMIN, 'FAQ-012', '문서 12 변경으로 공개 출처 없음'),
 ]

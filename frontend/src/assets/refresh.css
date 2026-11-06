@@ -493,8 +493,7 @@
 .gvt .tbl th:last-child,.gvt .tbl td:last-child{width:auto}
 .gvt .tbl th:nth-child(3),.gvt .tbl td:nth-child(3){min-width:150px}
 .gvt .tbl th:nth-child(5),.gvt .tbl td:nth-child(5){min-width:250px}
-/* 모의 모드의 메모 열은 길면 줄을 바꾼다 */
-.gvt .tbl .memo{white-space:normal;width:auto;min-width:150px}
+
 .gvt .tbl td .rfail{display:inline-flex;flex-direction:column;align-items:center;gap:2px;background:none;border:0;padding:2px 4px;border-radius:10px;cursor:pointer;font:inherit}
 .gvt .tbl td .rfail:hover{background:var(--osoft)}.gvt .tbl td .rfail:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px}
 .rfm{font-size:12px;color:var(--link);text-decoration:underline;text-underline-offset:2px}

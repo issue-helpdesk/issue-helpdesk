@@ -8,7 +8,7 @@
  * 이벤트·결과의 화면 말은 api/auditLogs.ts 의 사전과 describeAudit() 이다.
  */
 import { useEffect, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { EVENT_LABEL, TARGET_KINDS, TARGET_LABEL, describeAudit, listAuditLogs, type AuditLog } from '../../api/auditLogs'
 import type { Page } from '../../api/inquiries'
 import titleOps from '../../assets/mascot/title-ops.webp'
@@ -16,6 +16,7 @@ import { formatDateTime } from '../../core/format'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
 import { watchTickets } from '../../api/tickets'
+import { listUsers } from '../../api/users'
 import { Pager } from '../../ui/Pager'
 import { SelectBox } from '../../ui/SelectBox'
 import { StateBadge } from '../../ui/StateBadge'
@@ -32,6 +33,7 @@ const PAGE_SIZE = 50
 
 export function AuditLogView() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [target, setTarget] = useState('')
   const [event, setEvent] = useState('')
   const [period, setPeriod] = useState<Period>('')
@@ -48,6 +50,27 @@ export function AuditLogView() {
     if (openId === null) setSlide(true)
     setOpenId(id)
   }
+
+  // 서버는 사용자 대상 기록에 내부 번호만 주므로, 계정 목록에서 이름·사번을 찾아 보여 준다 (R-42 가 반영되면 필요 없다)
+  const [names, setNames] = useState<Record<number, { name: string; employeeNo: string }>>({})
+  const needUsers = !!data?.items.some((x) => x.targetType === 'user' && x.targetId !== null && !(x.targetId in names))
+  useEffect(() => {
+    if (!user || !admin || !needUsers) return
+    let alive = true
+    ;(async () => {
+      const found: Record<number, { name: string; employeeNo: string }> = {}
+      for (let pg = 1; pg <= 10; pg++) {
+        const r = await listUsers(user, { page: pg, size: 100, sort: 'employeeNo,asc' })
+        if (!r.ok) break
+        r.data.items.forEach((u) => (found[u.id] = { name: u.name, employeeNo: u.employeeNo }))
+        if (pg >= r.data.totalPages) break
+      }
+      if (alive) setNames((cur) => ({ ...cur, ...found }))
+    })()
+    return () => {
+      alive = false
+    }
+  }, [user, admin, needUsers])
 
   useEffect(() => {
     if (!user || !admin) return
@@ -161,7 +184,13 @@ export function AuditLogView() {
                                 {x.receiptNo}
                               </button>
                             ) : (
-                              text.name && <div className="aunm mono">{text.name}</div>
+                              x.targetType === 'user' && x.targetId !== null && names[x.targetId] ? (
+                                <button type="button" className="aulink mono" aria-label={`${names[x.targetId].name} 계정 관리에서 보기`} onClick={() => navigate(`/accounts?q=${encodeURIComponent(names[x.targetId as number].employeeNo)}`)}>
+                                  {names[x.targetId].name} · {names[x.targetId].employeeNo}
+                                </button>
+                              ) : (
+                                text.name && <div className="aunm mono">{text.name}</div>
+                              )
                             )}
                           </td>
                           <td>

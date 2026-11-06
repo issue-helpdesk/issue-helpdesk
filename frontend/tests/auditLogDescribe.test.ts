@@ -68,8 +68,8 @@ describe('describeAudit', () => {
     expect(d('DOCUMENT_VERSION_ACTIVATE', 'v1 → v2').out).toBe('현행 v1 → v2')
     expect(d('DOCUMENT_VERSION_RETRY', 'v3 파일 교체').out).toBe('v3 — 파일을 바꿔 재처리')
     expect(d('DOCUMENT_VERSION_RETRY', 'v3 같은 파일').out).toBe('v3 — 같은 파일로 재처리')
-    expect(d('DOCUMENT_POLICY_CHANGE', 'v2 ALL/ALLOWED → ADMIN/BLOCKED').out).toBe('v2 · 열람 전 직원 → 관리자 전용 / 외부 전송 허용 → 금지')
-    expect(d('DOCUMENT_POLICY_CHANGE', 'v1 AGENT/MASKED → ALL/ALLOWED').out).toBe('v1 · 열람 담당자 → 전 직원 / 외부 전송 마스킹 후 허용 → 허용')
+    expect(d('DOCUMENT_POLICY_CHANGE', 'v2 ALL/ALLOWED → ADMIN/BLOCKED').out).toBe('v2 · 열람 전 직원 → 관리자만 / 외부 전송 허용 → 금지')
+    expect(d('DOCUMENT_POLICY_CHANGE', 'v1 AGENT/MASKED → ALL/ALLOWED').out).toBe('v1 · 열람 담당자 이상 → 전 직원 / 외부 전송 마스킹 후 허용 → 허용')
     expect(d('DOCUMENT_POLICY_CHANGE', '형식이 다른 값').out).toBe('형식이 다른 값') // 모르는 모양은 그대로
   })
 

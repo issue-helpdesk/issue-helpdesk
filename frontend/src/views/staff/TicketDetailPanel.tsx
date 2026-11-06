@@ -404,7 +404,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                   {mine && t.workStatus === 'FIN' && (
                     <div className="alert info">
                       <Icon name="clock" />
-                      <div>문의자의 해결 확인을 기다리고 있어요. 미응답만으로 종료(CLS)하지 않아요.</div>
+                      <div>문의자의 해결 확인을 기다리고 있어요. 미응답만으로 종료하지 않아요.</div>
                     </div>
                   )}
                   {admin && t.needsAdmin && t.workStatus !== 'CLS' && (
