@@ -95,19 +95,23 @@ describe('처리할 문의 화면', () => {
     await waitFor(() => expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(2), SLOW)
   })
 
-  it('접수를 열면 상세 패널이 붙고, 상태를 바꾸는 버튼 없이 ITSM 에서 받아 온다는 안내만 있다', async () => {
+  it('내 접수의 상세 패널에서 처리 시작을 요청할 수 있다', async () => {
     renderAs('EMP-1004', '/queue/5004')
     const panel = await screen.findByRole('complementary', { name: '티켓 상세' }, SLOW)
     expect(await within(panel).findByRole('heading', { name: '재택 VPN 인증 오류' }, SLOW)).toBeInTheDocument()
-    expect(await within(panel).findByText(/처리 상태와 처리 결과는 ITSM에서 입력해요/, undefined, SLOW)).toBeInTheDocument()
-    expect(within(panel).queryByRole('button', { name: /처리 시작|처리 결과 등록/ })).toBeNull()
+    expect(await within(panel).findByRole('button', { name: '처리 시작' }, SLOW)).toBeEnabled()
+    await userEvent.click(within(panel).getByRole('button', { name: '처리 시작' }))
+    expect(await within(panel).findByLabelText(/처리 결과/, undefined, SLOW)).toBeInTheDocument()
   })
 
-  it('처리 중인 내 접수에도 처리 결과 등록 버튼은 없다 (처리 결과는 ITSM 에서 받아온다)', async () => {
+  it('처리 중인 내 접수는 결과를 입력하고 처리 완료를 요청한다', async () => {
     renderAs('EMP-1004', '/queue/5002')
     const panel = await screen.findByRole('complementary', { name: '티켓 상세' }, SLOW)
-    expect(await within(panel).findByText(/처리 상태와 처리 결과는 ITSM에서 입력해요/, undefined, SLOW)).toBeInTheDocument()
-    expect(within(panel).queryByRole('button', { name: /처리 결과 등록/ })).toBeNull()
+    await userEvent.click(await within(panel).findByRole('button', { name: '처리 완료' }, SLOW))
+    expect(within(panel).getByRole('alert')).toHaveTextContent('처리 결과를')
+    await userEvent.type(within(panel).getByLabelText(/처리 결과/), '인증서를 갱신하고 접속을 확인했습니다.')
+    await userEvent.click(within(panel).getByRole('button', { name: '처리 완료' }))
+    expect(await within(panel).findByText('문의자의 해결 확인을 기다리고 있어요. 미응답만으로 종료(CLS)하지 않아요.', undefined, SLOW)).toBeInTheDocument()
   })
 
   it('다른 담당자의 접수는 열 수 없고, 닫기 버튼으로 패널이 닫힌다', async () => {
