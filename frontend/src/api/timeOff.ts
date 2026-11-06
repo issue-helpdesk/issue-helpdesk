@@ -72,10 +72,14 @@ export async function deleteTimeOff(id: number): Promise<ApiResult<null>> {
 }
 
 // ───── 모의 데이터 ─────
+// 팀 구성원(모의 담당 그룹 표)과 같은 사람들이라서 관리자 캘린더에서 [팀] 표시가 붙는다
 const MATES = [
-  { id: 9001, employeeNo: 'EMP-2001', name: '박도윤' },
-  { id: 9002, employeeNo: 'EMP-2002', name: '이하준' },
-  { id: 9003, employeeNo: 'EMP-2003', name: '최지안' },
+  { id: 302, employeeNo: 'EMP-1049', name: '정서현' },
+  { id: 441, employeeNo: 'EMP-1241', name: '한지민' },
+  { id: 450, employeeNo: 'EMP-1130', name: '권다은' },
+  { id: 410, employeeNo: 'EMP-1321', name: '박서연' },
+  { id: 420, employeeNo: 'EMP-1064', name: '강지호' },
+  { id: 460, employeeNo: 'EMP-1408', name: '황민석' },
 ]
 let store: TimeOff[] | null = null
 let seq = 100
@@ -87,7 +91,9 @@ const shift = (days: number) => {
 function seed(user: User): TimeOff[] {
   const me = { id: user.id, employeeNo: user.employeeNo, name: user.name }
   const mk = (id: number, u: TimeOff['user'], t: TimeOffType, a: number, b: number, note: string | null): TimeOff => ({ id, userId: u.id, user: u, timeOffType: t, startDate: shift(a), endDate: shift(b), note, createdBy: { id: u.id, name: u.name }, createdAt: new Date().toISOString() })
-  return [mk(1, me, 'ANNUAL', 4, 6, '가족 행사'), mk(2, MATES[0], 'HALF_AM', 1, 1, '병원 진료'), mk(3, MATES[0], 'HALF_PM', 1, 1, null), mk(4, MATES[1], 'ANNUAL', 9, 10, null), mk(5, MATES[2], 'ANNUAL', -2, -1, '리프레시')]
+  return [mk(1, me, 'ANNUAL', 4, 6, '가족 행사'), mk(2, MATES[0], 'HALF_AM', 1, 1, '병원 진료'), mk(3, MATES[0], 'HALF_PM', 1, 1, null), mk(4, MATES[1], 'ANNUAL', 9, 10, null), mk(5, MATES[2], 'ANNUAL', -2, -1, '리프레시'),
+    // 하루에 일정이 몰린 날("+N개 더 보기" 확인용)
+    mk(6, MATES[3], 'ANNUAL', 1, 1, null), mk(7, MATES[4], 'HALF_AM', 1, 1, null), mk(8, MATES[5], 'ANNUAL', 1, 1, null)]
 }
 function data(user: User): TimeOff[] {
   if (!store) store = seed(user)

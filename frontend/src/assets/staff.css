@@ -306,3 +306,14 @@ svg.hv{animation:hvrise 1.1s cubic-bezier(.16,1,.3,1) backwards}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(max-width:700px){.cal .cd{min-height:64px;padding:3px}.ev{font-size:10.5px;padding:1px 3px}.row2{grid-template-columns:1fr}}
 .cd .ev.mine{cursor:pointer;font:inherit;font-size:inherit;border:0;text-align:left;outline:1.5px solid currentColor;outline-offset:-1px}.cd .ev.mine:hover{filter:brightness(1.1)}
+/* 캘린더: 이동 버튼은 페이지네이션처럼 말 없는 버튼, 칸은 눌러서 그날 목록을 연다 */
+.nav1{display:inline-flex;align-items:center;gap:2px}
+.nav1 button{min-width:32px;height:32px;padding:0 6px;border-radius:6px;border:0;background:transparent;font-weight:500;font-size:18px;line-height:1;color:var(--ink2);cursor:pointer;transition:none}
+.nav1 button:hover{background:var(--hvg);color:var(--ink)}
+.nav1 button:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px}
+.nav1 button.today{font-size:13.5px;font-weight:700;padding:0 12px;color:var(--btn-t);background:color-mix(in srgb,var(--btn-l) 14%,var(--white));margin-left:6px}
+.nav1 .calttl{margin:0 8px}
+.cal .cd.clk{cursor:pointer}.cal .cd.clk:hover{background:var(--osoft)}.cal .cd.clk:focus-visible{outline:2px solid var(--btn-l);outline-offset:-2px}
+.cal .more{font-size:11.5px;font-weight:700;color:var(--link);padding:0 7px}
+.dayl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow:auto}
+.dayl li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.dayl li .ev{white-space:normal}
