@@ -101,17 +101,20 @@ describe('처리할 문의 화면', () => {
     expect(await within(panel).findByRole('heading', { name: '재택 VPN 인증 오류' }, SLOW)).toBeInTheDocument()
     expect(await within(panel).findByRole('button', { name: '처리 시작' }, SLOW)).toBeEnabled()
     await userEvent.click(within(panel).getByRole('button', { name: '처리 시작' }))
-    expect(await within(panel).findByLabelText(/처리 결과/, undefined, SLOW)).toBeInTheDocument()
+    expect(await within(panel).findByRole('button', { name: '처리 완료' }, SLOW)).toBeInTheDocument()
   })
 
   it('처리 중인 내 접수는 결과를 입력하고 처리 완료를 요청한다', async () => {
     renderAs('EMP-1004', '/queue/5002')
     const panel = await screen.findByRole('complementary', { name: '티켓 상세' }, SLOW)
     await userEvent.click(await within(panel).findByRole('button', { name: '처리 완료' }, SLOW))
-    expect(within(panel).getByRole('alert')).toHaveTextContent('처리 결과를')
-    await userEvent.type(within(panel).getByLabelText(/처리 결과/), '인증서를 갱신하고 접속을 확인했습니다.')
-    await userEvent.click(within(panel).getByRole('button', { name: '처리 완료' }))
-    expect(await within(panel).findByText('문의자의 해결 확인을 기다리고 있어요. 미응답만으로 종료(CLS)하지 않아요.', undefined, SLOW)).toBeInTheDocument()
+    // 처리 완료는 창을 열어 처리 결과를 적게 한다 (비우면 등록되지 않는다)
+    const dlg = await screen.findByRole('dialog', { name: '처리 결과 등록' })
+    await userEvent.click(within(dlg).getByRole('button', { name: '등록하고 해결 확인 요청' }))
+    expect(within(dlg).getByRole('alert')).toHaveTextContent('처리 결과를')
+    await userEvent.type(within(dlg).getByLabelText(/처리 결과/), '인증서를 갱신하고 접속을 확인했습니다.')
+    await userEvent.click(within(dlg).getByRole('button', { name: '등록하고 해결 확인 요청' }))
+    expect(await within(panel).findByText('문의자의 해결 확인을 기다리고 있어요. 미응답만으로 종료하지 않아요.', undefined, SLOW)).toBeInTheDocument()
   })
 
   it('다른 담당자의 접수는 열 수 없고, 닫기 버튼으로 패널이 닫힌다', async () => {
