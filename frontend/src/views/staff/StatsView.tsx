@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CATEGORIES } from '../../api/catalog'
+import { CATEGORIES, URGENCY_LABEL } from '../../api/catalog'
 import type { CategoryCode, Urgency, WorkStatus } from '../../api/chatTypes'
 import { getStatsSource, watchTickets } from '../../api/tickets'
 import type { ApiResult, User } from '../../api/types'
@@ -32,10 +32,10 @@ export const UNITS: Record<Per, Unit[]> = { d: [], m: ['d', 'w'], y: ['w', 'mo']
 export const UDEF: Record<Per, Unit> = { d: 'd', m: 'd', y: 'mo' }
 
 export const STATES: { k: WorkStatus; short: string; label: string; color: string }[] = [
-  { k: 'RDY', short: '처리 대기', label: '처리 대기 (RDY)', color: 'var(--g-w)' },
-  { k: 'WIP', short: '처리 중', label: '처리 중 (WIP)', color: 'var(--g-p)' },
-  { k: 'FIN', short: '해결 확인 대기', label: '해결 확인 대기 (FIN)', color: 'var(--g-n)' },
-  { k: 'CLS', short: '해결 완료', label: '해결 완료 (CLS)', color: 'var(--g-c)' },
+  { k: 'RDY', short: '처리 대기', label: '처리 대기', color: 'var(--g-w)' },
+  { k: 'WIP', short: '처리 중', label: '처리 중', color: 'var(--g-p)' },
+  { k: 'FIN', short: '해결 확인 대기', label: '해결 확인 대기', color: 'var(--g-n)' },
+  { k: 'CLS', short: '해결 완료', label: '해결 완료', color: 'var(--g-c)' },
 ]
 const QS: Record<WorkStatus, string> = { RDY: '?tab=open&sub=RDY', WIP: '?tab=open&sub=WIP', FIN: '?tab=fin', CLS: '?tab=cls' }
 export const URGS: Urgency[] = ['P1', 'P2', 'P3', 'P4']
@@ -45,7 +45,7 @@ export const PRI_RULE: Record<Urgency, string> = {
   P3: '개인 업무 일부에 지장이 있으나 허용된 대체 방법으로 진행 가능',
   P4: '현재 업무 지장이 없는 단순 문의·사전 신청',
 }
-export const TREND_NOTE = '해결 완료 선은 그날 접수된 티켓 중 지금 해결 완료(CLS)인 건수(접수일 기준)예요. 해결한 날짜 기준이 아니고, AI 해결은 해결 완료와 합산하지 않아요.'
+export const TREND_NOTE = '해결 완료 선은 그날 접수된 티켓 중 지금 해결 완료인 건수(접수일 기준)예요. 해결한 날짜 기준이 아니고, AI 해결은 해결 완료와 합산하지 않아요.'
 export const CATC: Record<CategoryCode, string> = { ACC: '#0EA5E9', ACS: '#8A64F2', NET: '#5B7CF0', SW: '#14B8A6', HW: '#D9A21B', SYS: '#E0457F', SEC: '#D92D20' }
 export const DAY = 86_400_000
 
@@ -730,7 +730,7 @@ export function StatsView() {
           <Section title="긴급도 분포" sec={pri} note="선택 기간에 접수된 티켓 기준이에요.">
             <div className="pdist">
               {URGS.map((p, i) => (
-                <button key={p} type="button" className="pd" onClick={() => navigate(`/queue?pri=${p}&per=${per}`)} aria-label={`${p} ${urgN[i]}건. 이 긴급도의 문의 목록 보기`}>
+                <button key={p} type="button" className="pd" onClick={() => navigate(`/queue?pri=${p}&per=${per}`)} aria-label={`${URGENCY_LABEL[p]} ${urgN[i]}건. 이 긴급도의 문의 목록 보기`}>
                   <span className="pl">
                     <UrgencyChip u={p} />
                   </span>

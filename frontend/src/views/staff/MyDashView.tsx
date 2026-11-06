@@ -5,7 +5,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CATEGORIES } from '../../api/catalog'
+import { CATEGORIES, urgencyText } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { listTickets, watchTickets } from '../../api/tickets'
 import type { TicketSummary } from '../../api/ticketTypes'
@@ -37,7 +37,7 @@ function Row({ t, onOpen }: { t: TicketSummary; onOpen: () => void }) {
       type="button"
       className="dtr"
       onClick={onOpen}
-      aria-label={`${t.summary}. 긴급도 ${t.urgency ?? '-'}. 접수 후 경과 ${formatElapsed(t.createdAt)}. 접수번호 ${t.receiptNo}${t.jiraKey ? `, ITSM ${t.jiraKey}` : ''}. 문의자 ${t.requester.name}`}
+      aria-label={`${t.summary}. 긴급도 ${urgencyText(t.urgency)}. 접수 후 경과 ${formatElapsed(t.createdAt)}. 접수번호 ${t.receiptNo}${t.jiraKey ? `, ITSM ${t.jiraKey}` : ''}. 문의자 ${t.requester.name}`}
     >
       <span className="c-p">
         <UrgencyChip u={t.urgency} />
@@ -191,10 +191,10 @@ export function MyDashView() {
             ) : (
               <>
                 <div className="dgrid c4">
-                  {tile('var(--g-w)', '처리 대기 (RDY)', n('RDY'), '?tab=open&sub=RDY', oldest('RDY'))}
-                  {tile('var(--g-p)', '처리 중 (WIP)', n('WIP'), '?tab=open&sub=WIP', oldest('WIP'))}
-                  {tile('var(--g-n)', '해결 확인 대기 (FIN)', n('FIN'), '?tab=fin', '문의자 확인을 기다려요')}
-                  {tile('var(--g-c)', '해결 완료 (CLS)', n('CLS'), '?tab=cls', '해결 완료된 문의 보기')}
+                  {tile('var(--g-w)', '처리 대기', n('RDY'), '?tab=open&sub=RDY', oldest('RDY'))}
+                  {tile('var(--g-p)', '처리 중', n('WIP'), '?tab=open&sub=WIP', oldest('WIP'))}
+                  {tile('var(--g-n)', '해결 확인 대기', n('FIN'), '?tab=fin', '문의자 확인을 기다려요')}
+                  {tile('var(--g-c)', '해결 완료', n('CLS'), '?tab=cls', '해결 완료된 문의 보기')}
                 </div>
 
 

@@ -53,8 +53,8 @@ const daysAgo = (n: number) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-/** 긴급도 칩 (P2 높음) */
-export const UrgencyChip = ({ u }: { u: Urgency | null }) => (u ? <span className={`pri-${u.toLowerCase()}`}>{`${u} ${URGENCY_LABEL[u]}`}</span> : <span className="muted small">-</span>)
+/** 긴급도 칩 (높음) */
+export const UrgencyChip = ({ u }: { u: Urgency | null }) => (u ? <span className={`pri-${u.toLowerCase()}`}>{URGENCY_LABEL[u]}</span> : <span className="muted small">-</span>)
 
 /** 담당자 화면의 상태 배지 (상태 변경을 ITSM에 요청한 중에는 안내를 함께 보인다) */
 export function StaffStatus({ t }: { t: Pick<TicketSummary, 'workStatus' | 'transitionStatus' | 'requestedWorkStatus' | 'needsAdmin'> }) {
@@ -206,7 +206,7 @@ export function QueueView() {
               <span className="small muted" role="status" aria-live="polite">
                 {data?.totalCount ?? 0}건
               </span>
-              <FilterPill label="긴급도" value={pri} options={URGENCIES.map((p) => ({ value: p, label: `${p} · ${URGENCY_LABEL[p]}` }))} onChange={reset(setPri)} />
+              <FilterPill label="긴급도" value={pri} options={URGENCIES.map((p) => ({ value: p, label: URGENCY_LABEL[p] }))} onChange={reset(setPri)} />
               <FilterPill label="접수 기간" value={per} options={PERIODS.map((p) => ({ value: p.value, label: p.label }))} onChange={reset(setPer)} />
             </div>
 

@@ -463,7 +463,7 @@ export function OpsView() {
                 <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P12&unres=1')}>
                   모두 보기
                 </button>,
-                wait(list('X', exc, rowU, '접수 당일 안에 끝나지 않은 P1·P2 건이 없어요.')),
+                wait(list('X', exc, rowU, '접수 당일 안에 끝나지 않은 긴급·높음 건이 없어요.')),
               )}
             </div>
 
@@ -534,8 +534,8 @@ export function OpsView() {
                         <tr>
                           <th>이름</th>
                           <th>오늘 상태</th>
-                          <th className="c">처리 대기 (RDY)</th>
-                          <th className="c">처리 중 (WIP)</th>
+                          <th className="c">처리 대기</th>
+                          <th className="c">처리 중</th>
                           <th>
                             긴급도 <span className="small muted">(처리 대기 + 처리 중)</span>
                           </th>
@@ -565,7 +565,7 @@ export function OpsView() {
                                 <span className="pcs">
                                   {URGS.map((p) => (
                                     <span key={p} className={`pcn ${c.pri[p] ? `pri-${p.toLowerCase()}` : 'z'}`} title={URGENCY_LABEL[p]}>
-                                      {p} <b>{c.pri[p]}</b>
+                                      {URGENCY_LABEL[p]} <b>{c.pri[p]}</b>
                                     </span>
                                   ))}
                                 </span>

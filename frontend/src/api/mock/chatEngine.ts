@@ -612,9 +612,9 @@ export function saveDraft(rec: StoreRecord, edit: DraftEdit) {
   if (d.urgency !== beforeP) rejudged.push('urgency')
   if (d.groupName !== beforeGroup) rejudged.push('group')
   d.rejudged = rejudged
-  const changed = beforeP !== d.urgency || beforeCat !== d.categoryCode
+  const changed = beforeCat !== d.categoryCode
   inquiry.draftNote = changed
-    ? `수정한 내용을 반영해 ${beforeP !== d.urgency ? `긴급도를 ${beforeP}에서 ${d.urgency}(으)로` : ''}${beforeCat !== d.categoryCode ? ` 분류를 ${d.categoryCode ?? ''}(으)로` : ''} 다시 판단했어요. 변경된 내용으로 다시 확인해 주세요.`
+    ? `수정한 내용을 반영해${beforeCat !== d.categoryCode ? ` 분류를 ${d.categoryCode ?? ''}(으)로` : ''} 다시 판단했어요. 변경된 내용으로 다시 확인해 주세요.`
     : '수정 내용을 반영했어요. 최종 접수 전에 한 번 더 확인해 주세요.'
   // 고친 글에서 민감정보를 가렸다면 초안 화면에서도 알린다 (docs/10 6.1)
   if (maskNotices(found).length) inquiry.draftNote = `${MASK_NOTICE_DRAFT} ${inquiry.draftNote}`

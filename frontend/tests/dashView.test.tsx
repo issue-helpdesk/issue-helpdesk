@@ -58,7 +58,7 @@ describe('대시보드 화면', () => {
     const { unmount } = renderAs('EMP-1178', '/dash')
     expect(await screen.findByRole('heading', { name: '대시보드', level: 1 }, SLOW)).toBeInTheDocument()
     const pipe = await screen.findByRole('group', { name: '처리 현황' })
-    await waitFor(() => expect(within(pipe).getByRole('button', { name: /^처리 대기 \(RDY\) [1-9]/ })).toBeInTheDocument(), SLOW)
+    await waitFor(() => expect(within(pipe).getByRole('button', { name: /^처리 대기 [1-9]/ })).toBeInTheDocument(), SLOW)
     expect(within(pipe).getByRole('button', { name: /^연동·배정 확인 [1-9]/ })).toHaveClass('al')
     expect(await screen.findByRole('region', { name: '연동·배정 확인 필요' }, SLOW)).toBeInTheDocument()
     // ITSM 댓글·멘션 알림은 이번 기능에서 제외했다

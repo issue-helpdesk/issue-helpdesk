@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { CATEGORIES } from '../../api/catalog'
+import { CATEGORIES, urgencyText } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { getDashSnapshot, searchTickets, type DashSnapshot } from '../../api/dash'
 import { countSecurityAlerts, watchSecurity, type SecCounts } from '../../api/security'
@@ -44,7 +44,7 @@ function Row({ t, onOpen }: { t: TicketSummary; onOpen: () => void }) {
       type="button"
       className="dtr"
       onClick={onOpen}
-      aria-label={`${t.summary}. 긴급도 ${t.urgency ?? '-'}. 접수 후 경과 ${formatElapsed(t.createdAt)}. 담당 ${who}, ${t.group?.name ?? '-'}. 접수번호 ${t.receiptNo}${t.jiraKey ? `, ITSM ${t.jiraKey}` : ''}. 문의자 ${t.requester.name}`}
+      aria-label={`${t.summary}. 긴급도 ${urgencyText(t.urgency)}. 접수 후 경과 ${formatElapsed(t.createdAt)}. 담당 ${who}, ${t.group?.name ?? '-'}. 접수번호 ${t.receiptNo}${t.jiraKey ? `, ITSM ${t.jiraKey}` : ''}. 문의자 ${t.requester.name}`}
     >
       <span className="c-p">
         <UrgencyChip u={t.urgency} />
@@ -147,9 +147,9 @@ export function DashView() {
   const un = snap?.unresolved
 
   const pipe = [
-    { label: '처리 대기 (RDY)', n: snap?.rdy ?? 0, to: '/tickets?st=RDY', hint: '전체 문의에서 처리 대기 보기', cls: '' },
-    { label: '처리 중 (WIP)', n: snap?.wip ?? 0, to: '/tickets?st=WIP', hint: '전체 문의에서 처리 중 보기', cls: '' },
-    { label: '해결 확인 대기 (FIN)', n: snap?.fin ?? 0, to: '/tickets?st=FIN', hint: '전체 문의에서 해결 확인 대기 보기', cls: '' },
+    { label: '처리 대기', n: snap?.rdy ?? 0, to: '/tickets?st=RDY', hint: '전체 문의에서 처리 대기 보기', cls: '' },
+    { label: '처리 중', n: snap?.wip ?? 0, to: '/tickets?st=WIP', hint: '전체 문의에서 처리 중 보기', cls: '' },
+    { label: '해결 확인 대기', n: snap?.fin ?? 0, to: '/tickets?st=FIN', hint: '전체 문의에서 해결 확인 대기 보기', cls: '' },
     { label: '연동·배정 확인', n: ex?.total ?? 0, to: '/ops', hint: '운영 현황 화면으로 가기', cls: ex?.total ? 'al' : 'z' },
   ]
 

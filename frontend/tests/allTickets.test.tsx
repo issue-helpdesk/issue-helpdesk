@@ -143,7 +143,7 @@ describe('전체 문의 화면', () => {
     expect(rows().every((r) => within(r).queryByText('곽지민'))).toBe(true)
     expect(screen.queryByRole('button', { name: /필터 해제/ })).toBeNull() // 검색어만으로는 조건 칩이 없다
     await userEvent.click(screen.getByRole('button', { name: /^긴급도\s*전체/ }))
-    await userEvent.click(await screen.findByRole('option', { name: 'P1·P2 · 긴급·높음' }))
+    await userEvent.click(await screen.findByRole('option', { name: '긴급·높음' }))
     expect(await screen.findByRole('button', { name: '✕ 필터 해제' })).toBeInTheDocument()
   })
 

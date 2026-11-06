@@ -61,7 +61,7 @@ describe('관리자 통계 화면', () => {
     expect(await within(prog).findByRole('button', { name: /티켓 목록/ })).toBeInTheDocument()
     expect(within(prog).getByText(/전체 \d+건 · 완료 \d+%/)).toBeInTheDocument()
     expect(within(prog).queryByRole('button', { name: '분류별' })).toBeNull()
-    await waitFor(() => expect(within(sec('긴급도 분포 (P1~P4)')).getByRole('button', { name: /^P1 [0-9]+건/ })).toBeInTheDocument(), SLOW)
+    await waitFor(() => expect(within(sec('긴급도 분포')).getByRole('button', { name: /^긴급 [0-9]+건/ })).toBeInTheDocument(), SLOW)
   })
 
   it('오늘을 고르면 추이 그래프 대신 오늘 접수·AI 해결 건수만 보인다', async () => {

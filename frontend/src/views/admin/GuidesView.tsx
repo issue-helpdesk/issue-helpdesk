@@ -172,7 +172,7 @@ export function GuidesView() {
     return visiblePoll(() => setTick((n) => n + 1), 10_000)
   }, [vers])
 
-  // 해결 사례 묶음: 해결 완료(CLS) 접수를 읽는다 (탭 건수에도 쓴다)
+  // 해결 사례 묶음: 해결 완료 접수를 읽는다 (탭 건수에도 쓴다)
   useEffect(() => {
     if (!user || !admin) return
     let alive = true
@@ -244,7 +244,7 @@ export function GuidesView() {
               {!g.isActive && ' · 검색·답변에 쓰이지 않아요'}
             </div>
           </span>
-          <span className="gbs">{g.current?.tx === '금지' ? <StateBadge tone="urg" label="외부 전송 금지" /> : g.current?.tx === '마스킹 후 허용' ? <StateBadge tone="warn" label="마스킹 후 전송" /> : null}</span>
+          <span className="gbs">{g.current?.scope && <StateBadge tone="info" label={g.current.scope} />}{g.current?.tx === '금지' ? <StateBadge tone="urg" label="외부 전송 금지" /> : g.current?.tx === '마스킹 후 허용' ? <StateBadge tone="warn" label="마스킹 후 전송" /> : null}</span>
         </button>
         {/* 문서 전체를 켜고 끄는 버튼: 제목과 같은 줄, 펼쳤을 때만 보인다 */}
         {open && (
@@ -399,7 +399,7 @@ export function GuidesView() {
       <div className="alert info">
         <Icon name="file" />
         <div>
-          매일 자정에 AI가 해결 완료(CLS)된 티켓의 유사도를 분석해요 <span className="tag gray">제안</span>. 비슷한 주제로 들어온 건을 묶어 보여 주고, 골라서 가이드 초안으로 만들 수 있어요. 초안은 관리자 검토와 검색 준비가 끝난 뒤에만 현행이 될 수 있어요.
+          매일 자정에 AI가 해결 완료된 티켓의 유사도를 분석해요 <span className="tag gray">제안</span>. 비슷한 주제로 들어온 건을 묶어 보여 주고, 골라서 가이드 초안으로 만들 수 있어요. 초안은 관리자 검토와 검색 준비가 끝난 뒤에만 현행이 될 수 있어요.
         </div>
       </div>
       <div className="row" style={{ justifyContent: 'space-between', margin: '14px 0 10px' }}>

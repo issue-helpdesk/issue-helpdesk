@@ -27,6 +27,8 @@ export const CATEGORIES: Record<CategoryCode, CategoryInfo> = {
 /** 분류를 확정하지 못했을 때 보내는 곳 */
 export const FALLBACK_GROUP = '서비스데스크'
 
+/** 긴급도 화면 말 (코드 P1~P4 는 화면에 쓰지 않는다) */
+export const urgencyText = (u: string | null | undefined) => (u && (URGENCY_LABEL as Record<string, string>)[u]) || '-'
 export const URGENCY_LABEL: Record<Urgency, string> = { P1: '긴급', P2: '높음', P3: '보통', P4: '낮음' }
 
 /**

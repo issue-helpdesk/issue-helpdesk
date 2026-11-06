@@ -49,7 +49,7 @@ describe('접수 목록·상세 API (모의)', () => {
   it('상태 변경은 202 처럼 PENDING 으로 답하고, 규칙에 어긋나면 막는다', async () => {
     mockConfig.pipelineScale = 1 // ITSM 반영 확인 구간(1.2초)을 실제로 거친다
     const u = staff()
-    const bad = await changeTicketStatus(u, 5004, { workStatus: 'FIN', resolutionNote: 'x' }) // RDY → FIN
+    const bad = await changeTicketStatus(u, 5004, { workStatus: 'FIN', resolutionNote: 'x' }) // →
     expect(!bad.ok && bad.error.code).toBe('TICKET_INVALID_TRANSITION')
     const noNote = await changeTicketStatus(u, 5002, { workStatus: 'FIN' })
     expect(!noNote.ok && noNote.error.code).toBe('TICKET_RESOLUTION_NOTE_REQUIRED')
@@ -142,8 +142,8 @@ describe('문의자 접수 상세 (문의 대화)', () => {
 describe('담당자 내 대시보드', () => {
   it('상태별 건수와 먼저 볼 문의가 보이고, 서버 API 가 없는 "우리 팀 현황"은 없다', async () => {
     renderAs('EMP-1004', '/my')
-    expect(await screen.findByRole('button', { name: /^처리 중 \(WIP\) 7건/ }, SLOW)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^해결 확인 대기 \(FIN\) 3건/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^처리 중 7건/ }, SLOW)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^해결 확인 대기 3건/ })).toBeInTheDocument()
     const first = await screen.findByRole('region', { name: '먼저 볼 문의' })
     expect(await within(first).findByText('악성 첨부파일 의심 메일 수신', undefined, SLOW)).toBeInTheDocument() // P1 이 맨 위
     // 팀 현황 카드는 서버에 API 가 없어 모의 숫자만 나왔기 때문에 뺐다 (팀 업무량은 통계 화면의 팀 보기)
@@ -153,13 +153,13 @@ describe('담당자 내 대시보드', () => {
 
   it('ITSM 댓글·멘션 알림 띠는 없다 (이번 기능에서 제외)', async () => {
     renderAs('EMP-1004', '/my')
-    await screen.findByRole('button', { name: /^처리 대기 \(RDY\)/ }, SLOW)
+    await screen.findByRole('button', { name: /^처리 대기/ }, SLOW)
     expect(screen.queryByRole('button', { name: /확인할 ITSM 알림/ })).toBeNull()
   })
 
   it('건수 칸을 누르면 그 상태의 목록으로 이어지고, 검색하면 검색 결과만 나온다', async () => {
     renderAs('EMP-1004', '/my')
-    await userEvent.click(await screen.findByRole('button', { name: /^처리 대기 \(RDY\)/ }, SLOW))
+    await userEvent.click(await screen.findByRole('button', { name: /^처리 대기/ }, SLOW))
     expect(await screen.findByRole('button', { name: /처리 대기 1/ }, SLOW)).toHaveAttribute('aria-pressed', 'true')
   })
 
@@ -175,7 +175,7 @@ describe('담당자 통계', () => {
   it('내 통계에는 상태별 현황·접수 추이·긴급도 분포가 있고 팀원별 진행도는 없다', async () => {
     renderAs('EMP-1004', '/stats')
     const sum = await screen.findByRole('region', { name: '상태별 현황' }, SLOW)
-    expect(await within(sum).findByRole('button', { name: /^처리 중 \(WIP\) 7건/ }, SLOW)).toBeInTheDocument()
+    expect(await within(sum).findByRole('button', { name: /^처리 중 7건/ }, SLOW)).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: /접수 추이 곡선 그래프/ }, SLOW)).toBeInTheDocument()
     expect(screen.getByRole('region', { name: '긴급도 분포' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: '팀원별 진행도' })).toBeNull()
@@ -227,7 +227,7 @@ describe('담당자 통계', () => {
 
   it('긴급도 줄을 누르면 처리할 문의가 그 긴급도로 걸러진다', async () => {
     renderAs('EMP-1004', '/stats')
-    await userEvent.click(await screen.findByRole('button', { name: /^P1 \d+건/ }, SLOW))
+    await userEvent.click(await screen.findByRole('button', { name: /^긴급 \d+건/ }, SLOW))
     expect(await screen.findByRole('tab', { name: /전체 상태/ }, SLOW)).toBeInTheDocument()
   })
 })

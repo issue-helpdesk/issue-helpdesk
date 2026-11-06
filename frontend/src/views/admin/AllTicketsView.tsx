@@ -433,7 +433,7 @@ export function AllTicketsView() {
                 {data?.totalCount ?? 0}건
               </span>
               <FilterPill label="분류" value={cat} options={Object.keys(CATEGORIES).map((c) => ({ value: c, label: CATEGORIES[c as CategoryCode].name }))} onChange={reset(setCat)} />
-              <FilterPill label="긴급도" value={pri} options={[{ value: 'P12', label: 'P1·P2 · 긴급·높음' }, ...URGENCIES.map((p) => ({ value: p, label: `${p} · ${URGENCY_LABEL[p]}` }))]} onChange={reset(setPri)} />
+              <FilterPill label="긴급도" value={pri} options={[{ value: 'P12', label: '긴급·높음' }, ...URGENCIES.map((p) => ({ value: p, label: URGENCY_LABEL[p] }))]} onChange={reset(setPri)} />
               <FilterPill label="팀" value={team} options={groups.map((g) => ({ value: g.name, label: g.name }))} onChange={reset(setTeam)} />
               <FilterPill label="담당자" value={staff} options={staffList.map((s) => ({ value: s.name, label: `${s.name} · ${s.group}` }))} onChange={reset(setStaff)} />
               {perChip}

@@ -16,6 +16,7 @@ import { formatDateTime } from '../../core/format'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
 import { watchTickets } from '../../api/tickets'
+import { listUsers } from '../../api/users'
 import { Pager } from '../../ui/Pager'
 import { SelectBox } from '../../ui/SelectBox'
 import { StateBadge } from '../../ui/StateBadge'
@@ -48,6 +49,27 @@ export function AuditLogView() {
     if (openId === null) setSlide(true)
     setOpenId(id)
   }
+
+  // 서버는 사용자 대상 기록에 내부 번호만 주므로, 계정 목록에서 이름·사번을 찾아 보여 준다 (R-42 가 반영되면 필요 없다)
+  const [names, setNames] = useState<Record<number, string>>({})
+  const needUsers = !!data?.items.some((x) => x.targetType === 'user' && x.targetId !== null && !(x.targetId in names))
+  useEffect(() => {
+    if (!user || !admin || !needUsers) return
+    let alive = true
+    ;(async () => {
+      const found: Record<number, string> = {}
+      for (let pg = 1; pg <= 10; pg++) {
+        const r = await listUsers(user, { page: pg, size: 100, sort: 'employeeNo,asc' })
+        if (!r.ok) break
+        r.data.items.forEach((u) => (found[u.id] = `${u.name} · ${u.employeeNo}`))
+        if (pg >= r.data.totalPages) break
+      }
+      if (alive) setNames((cur) => ({ ...cur, ...found }))
+    })()
+    return () => {
+      alive = false
+    }
+  }, [user, admin, needUsers])
 
   useEffect(() => {
     if (!user || !admin) return
@@ -161,7 +183,7 @@ export function AuditLogView() {
                                 {x.receiptNo}
                               </button>
                             ) : (
-                              text.name && <div className="aunm mono">{text.name}</div>
+                              (text.name || (x.targetType === 'user' && x.targetId !== null && names[x.targetId])) && <div className="aunm mono">{text.name || names[x.targetId as number]}</div>
                             )}
                           </td>
                           <td>

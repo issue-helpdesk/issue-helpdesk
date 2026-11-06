@@ -319,7 +319,7 @@ describe('접수 흐름 (API)', () => {
     const d = await toDraft()
     const edited = await data(editDraft(d.id, USER.employeeNo, { summary: d.draft!.summary, businessImpact: '전 직원 50명이 접속 불가예요', triedActions: d.draft!.triedActions }))
     expect(edited.draft?.urgency).toBe('P1')
-    expect(edited.draftNote).toContain('P3에서 P1')
+    expect(edited.draftNote).not.toContain('P1')
   })
 
   it('접수하지 않고 종료하면 미해결 종료로 남고 Ticket 은 만들지 않는다', async () => {
@@ -567,7 +567,7 @@ describe('대화 화면', () => {
     await user.clear(impact)
     await user.type(impact, '전 직원 50명이 접속 불가예요')
     await user.click(screen.getByRole('button', { name: '수정 저장' }))
-    expect(await screen.findByText(/긴급도를 P3에서 P1\(으\)로/, {}, SLOW)).toBeInTheDocument()
+    expect(await screen.findByText(/수정 내용을 반영했어요/, {}, SLOW)).toBeInTheDocument()
   })
 
   it('접수된 문의(시연 데이터)를 열면 진행 카드가 보이고 새 답변 표시가 지워진다', async () => {
