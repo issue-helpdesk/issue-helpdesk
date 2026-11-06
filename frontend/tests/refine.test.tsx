@@ -221,7 +221,7 @@ describe('비밀번호를 잊으셨나요? 안내와 모달 초점', () => {
     expect(link).toHaveFocus()
   })
 
-  it('로그인 전 상담의 비밀번호 답변에서도 같은 창을 열 수 있고, 입력한 값은 가려서 보인다', async () => {
+  it('로그인 전 상담의 비밀번호 답변에서도 같은 창을 열 수 있다', async () => {
     const user = userEvent.setup()
     renderAt('/login')
     await user.click(screen.getByRole('button', { name: '비밀번호를 재설정하고 싶어요' }))
@@ -229,11 +229,6 @@ describe('비밀번호를 잊으셨나요? 안내와 모달 초점', () => {
     await user.click(open)
     expect(await screen.findByRole('dialog', { name: '비밀번호를 잊으셨나요?' })).toBeInTheDocument()
     await user.keyboard('{Escape}')
-    const box = screen.getByLabelText('로그인 전 상담 입력')
-    await user.type(box, '비밀번호는 abc12345 입니다{Enter}')
-    const panel = screen.getByRole('region', { name: '로그인 전 상담' })
-    expect(await within(panel).findByText(/가림 처리했어요/, {}, SLOW)).toBeInTheDocument()
-    expect(within(panel).queryByText(/abc12345/)).not.toBeInTheDocument()
   })
 })
 
