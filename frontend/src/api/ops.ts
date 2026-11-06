@@ -52,8 +52,11 @@ export async function getOpsSnapshot(user: User, groupId?: number): Promise<ApiR
     .sort((a, b) => (a.urgency ?? '').localeCompare(b.urgency ?? '') || Date.parse(a.createdAt) - Date.parse(b.createdAt))
   // 해결 완료(CLS)된 접수는 더 확인할 일이 없다
   const open = n.data.items.filter((t) => t.workStatus !== 'CLS')
-  const link = open.filter((t) => t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.transitionStatus === 'NEEDS_ADMIN')
-  const assign = open.filter((t) => t.jiraSyncStatus === 'SYNCED' && t.assignStatus === 'NEEDS_ADMIN')
+  const isAssign = (t: TicketSummary) => t.jiraSyncStatus === 'SYNCED' && t.assignStatus === 'NEEDS_ADMIN'
+  const isLink = (t: TicketSummary) => t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.transitionStatus === 'NEEDS_ADMIN'
+  // 어느 쪽에도 안 맞는 확인 필요 건(예: 연동이 아직 진행 중인데 배정 확인이 필요)도 빠지지 않게 연동 확인으로 보인다
+  const link = open.filter((t) => isLink(t) || !isAssign(t))
+  const assign = open.filter(isAssign)
   return ok({ urgent: u.data.items, exception, link, assign, asOf: nowIso() })
 }
 

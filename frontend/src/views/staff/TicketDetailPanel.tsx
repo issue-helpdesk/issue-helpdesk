@@ -146,7 +146,7 @@ function assignTitle(a: AssignmentLog): string {
   }
 }
 
-export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose }: { id: number; tick: number; slide?: boolean; onSlideEnd?: () => void; onClose: () => void }) {
+export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose, ops }: { id: number; tick: number; slide?: boolean; onSlideEnd?: () => void; onClose: () => void; /** 운영 현황에서만: ITSM 확인·재시도 창을 여는 동작 (다른 화면에서는 운영 현황으로 안내한다) */ ops?: { onCheck: (t: TicketDetail) => void } }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [t, setT] = useState<TicketDetail | null>(null)
@@ -157,7 +157,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
   // 담당자 배정 이력(재배정 포함). 못 읽으면(권한 등) 조용히 비워 두고 상태 이력만 보인다
   const [assigns, setAssigns] = useState<AssignmentLog[]>([])
   // 담당자 재배정 (관리자)
-  const [reassign, setReassign] = useState(false)
+  const [reassign, setReassign] = useState<false | 'assign' | 'reassign'>(false)
   const { say } = useToast()
   const [error, setError] = useState('')
   // 열릴 때 밀려 들어오고, 닫을 때 밀려 나간 뒤에 실제로 닫는다 (움직임 줄이기 설정이면 바로 닫는다)
@@ -407,14 +407,15 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
                       <div>문의자의 해결 확인을 기다리고 있어요. 미응답만으로 종료하지 않아요.</div>
                     </div>
                   )}
-                  {admin && t.needsAdmin && t.workStatus !== 'CLS' && (
-                    <button type="button" className="btn pri block" onClick={() => navigate('/ops')}>
-                      연동·배정 확인 화면으로
+                  {/* 확인이 필요한 건은 이 건에서 바로 할 수 있는 일을 단추로 둔다 (운영 현황으로 보내지 않는다) */}
+                  {admin && t.workStatus !== 'CLS' && (t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.transitionStatus === 'NEEDS_ADMIN') && (
+                    <button type="button" className="btn pri block" style={{ marginBottom: 8 }} onClick={() => (ops ? ops.onCheck(t) : navigate('/ops'))}>
+                      {ops ? 'ITSM 확인·재시도' : 'ITSM 확인은 운영 현황에서'}
                     </button>
                   )}
                   {admin && (t.workStatus === 'RDY' || t.workStatus === 'WIP') && (
-                    <button type="button" className="btn sec block" style={{ marginTop: 8 }} onClick={() => setReassign(true)}>
-                      담당자 재배정
+                    <button type="button" className={`btn ${t.assignStatus === 'NEEDS_ADMIN' && !t.assignee ? 'pri' : 'sec'} block`} onClick={() => setReassign(t.assignee ? 'reassign' : 'assign')}>
+                      {t.assignee ? '담당자 재배정' : '담당자 지정'}
                     </button>
                   )}
                   {!mine && !admin && <div className="small muted">다른 담당자가 맡은 접수예요. 상태는 맡은 담당자만 바꿀 수 있어요.</div>}
@@ -482,6 +483,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
         {reassign && t && (
           <ReassignDialog
             t={t}
+            mode={reassign}
             onClose={() => setReassign(false)}
             onDone={(registered) => {
               setReassign(false)

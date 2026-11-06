@@ -216,7 +216,7 @@ export function OpsView() {
   const rowU = (t: TicketSummary) => <UrgentRow key={t.id} t={t} onOpen={() => open(t.id)} />
   const rowC = (mode: 'link' | 'asg') => (t: TicketSummary) => (
     <div key={t.id} className="orow l">
-      <div className="o-main">
+      <button type="button" className="o-main" title="상세 보기" aria-label={`${t.summary} 상세 보기`} onClick={() => open(t.id)}>
         <span className="o-p">
           <UrgencyChip u={t.urgency} />
         </span>
@@ -226,7 +226,7 @@ export function OpsView() {
             {sub(t)} · {mode === 'link' ? linkWhy(t) : '개인 배정을 확인해야 해요'}
           </small>
         </span>
-      </div>
+      </button>
       <Dots t={t} mode={mode} />
       <span className="o-e">
         <b>{formatElapsed(t.createdAt)}</b> 경과
@@ -457,7 +457,7 @@ export function OpsView() {
         </div>
       </main>
 
-      {openId !== null && <TicketDetailPanel key={openId} id={openId} tick={tick} slide={slide} onSlideEnd={() => setSlide(false)} onClose={() => setOpenId(null)} />}
+      {openId !== null && <TicketDetailPanel key={openId} id={openId} tick={tick} slide={slide} onSlideEnd={() => setSlide(false)} onClose={() => setOpenId(null)} ops={{ onCheck: (t) => { setCheckErr(''); setCheck(t) } }} />}
       {check && (
         <CheckDialog
           t={check}
