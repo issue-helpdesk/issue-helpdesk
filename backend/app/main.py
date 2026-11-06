@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from app import __version__
 from app.api import (
     audit_logs,
+    security_alerts,
     auth,
     dashboard,
     documents,
@@ -68,3 +69,5 @@ app.include_router(jira_webhook.router, prefix=API_VERSION_V1)
 app.include_router(notifications.router, prefix=API_VERSION_V1)
 app.include_router(dashboard.router, prefix=API_VERSION_V1)
 app.include_router(audit_logs.router, prefix=API_VERSION_V1)
+
+app.include_router(security_alerts.router, prefix=API_VERSION_V1)

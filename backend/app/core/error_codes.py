@@ -68,6 +68,10 @@ class ErrorCode(Enum):
     DOCUMENT_FILE_DUPLICATE = (409, "같은 파일이 이미 등록되어 있습니다.")
     DOCUMENT_VERSION_NOT_RETRYABLE = (409, "적재에 실패한 버전만 다시 시도할 수 있습니다.")
 
+    SECURITY_ALERT_NOT_FOUND = (404, "보안 알림을 찾을 수 없습니다.")
+    SECURITY_ALERT_NO_ORIGINAL = (409, "열람할 문의 내용이 없는 알림입니다.")
+    SECURITY_ALERT_INVALID_STATE = (409, "현재 알림 상태에서는 처리할 수 없습니다.")
+
     # 화면 알림
     NOTIFICATION_NOT_FOUND = (404, "알림을 찾을 수 없습니다.")
 

@@ -13,6 +13,9 @@ class AuditLogRepository:
         self.db = db
 
     def add(self, event_type: str, target_type: str, target_id: int, result: str | None = None, actor_id: int | None = None, reason: str | None = None) -> None:
+        from app.repositories.security_alert import record_security_event
+
+        record_security_event(self.db, event_type, target_type, target_id, result, actor_id)
         self.db.add(AuditLog(event_type=event_type, target_type=target_type, target_id=target_id, actor_id=actor_id, result=result, reason=reason))
 
     def search(

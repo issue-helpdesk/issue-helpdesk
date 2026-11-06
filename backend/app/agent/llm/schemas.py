@@ -102,10 +102,14 @@ class Question(_Strict):
         return v
 
 
+SecurityRule = Literal['S01', 'S02', 'S03', 'S04', 'S05', 'S06', 'S07']
+
+
 class AIOutput(_Strict):
     schema_version: Annotated[str, _enum(SUPPORTED_SCHEMA_VERSIONS)]
     action: Action
     urgent_signal: bool
+    security_rule_ids: list[SecurityRule] = Field(max_length=7)
     title: str
     category_code: CategoryCode
     inquiry_type_code: str | None
@@ -123,19 +127,20 @@ class AIOutput(_Strict):
     @model_validator(mode='before')
     @classmethod
     def _old_output(cls, v):
-        """questions 가 생기기 전 모양도 읽는다 (평가 도구·Mock). 출력 형식에서는 필수 칸이다."""
-        if isinstance(v, dict) and 'questions' not in v:
-            return {**v, 'questions': []}
+        """추가 질문·보안 코드가 없던 저장 출력도 읽는다. 모델 출력 스키마에서는 필수다."""
+        if isinstance(v, dict):
+            return {'questions': [], 'security_rule_ids': [], **v}
         return v
 
 
 # ── 2차 판단 출력 (08 2.6) ─────────────────────────────────
 # 2차(검색 뒤)는 검색 결과로 정해지는 칸만 받고, 나머지 칸은 같은 메시지의 1차 판단 값을 쓴다.
 # 1차와 같은 칸을 다시 쓰지 않아 출력이 줄고 빨라진다 (2026-11-03 시험: 2차 출력 약 1,300 → 640토큰)
-SECOND_FIELDS = ('action', 'reply', 'questions', 'evidence', 'missing_items', 'escalation_reason', 'confidence')
+SECOND_FIELDS = ('action', 'reply', 'questions', 'evidence', 'missing_items', 'escalation_reason', 'confidence', 'security_rule_ids')
 
 
 class SecondOutput(_Strict):
+    security_rule_ids: list[SecurityRule] = Field(max_length=7)
     action: Action
     reply: str
     questions: list[Question]
@@ -145,11 +150,17 @@ class SecondOutput(_Strict):
     confidence: float | None = Field(ge=0, le=1)
     action_reason: str                      # 처리 방향 근거. rationale.action 에 넣는다
 
+    @model_validator(mode='before')
+    @classmethod
+    def _old_security(cls, v):
+        return {'security_rule_ids': [], **v} if isinstance(v, dict) else v
+
 
 def merge_second(first: AIOutput, part: SecondOutput) -> AIOutput:
     """1차 판단에 2차 칸을 덮어 2장 출력 모양으로 만든다."""
     return first.model_copy(update={k: getattr(part, k) for k in SECOND_FIELDS}
-                            | {'rationale': first.rationale.model_copy(update={'action': part.action_reason})})
+                            | {'security_rule_ids': list(dict.fromkeys([*first.security_rule_ids, *part.security_rule_ids])),
+                               'rationale': first.rationale.model_copy(update={'action': part.action_reason})})
 
 
 def _clean(node):
@@ -180,7 +191,7 @@ def second_output_json_schema() -> dict:
 def safe_default(escalation_reason: str = '전문판단', reason: str = 'AI 판단 실패') -> AIOutput:
     """AI 출력을 쓸 수 없을 때 쓰는 값 (08 3.3). ALL_BLOCKED 는 escalation_reason='전송제한'."""
     return AIOutput(
-        schema_version=SCHEMA_VERSION, action='ESCALATE', urgent_signal=False,
+        schema_version=SCHEMA_VERSION, action='ESCALATE', urgent_signal=False, security_rule_ids=[],
         title='IT 문의 (자동 분류 실패)', category_code=None, inquiry_type_code=None, request_kind=None,
         urgency_suggested=None,
         facts=Facts(summary='', target_system=None, symptom=None, situation=None, occurred_at=None, impact_scope=None,
