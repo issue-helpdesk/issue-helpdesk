@@ -22,6 +22,11 @@ class SecurityAlertService:
 
     def find(self, alert_id: int, lock=False) -> SecurityAlert:
         q = select(SecurityAlert).where(SecurityAlert.id == alert_id)
+        if lock:
+            subject_id = self.db.scalar(select(SecurityAlert.subject_user_id).where(SecurityAlert.id == alert_id))
+            if subject_id is not None:
+                # Match event ingestion's user → alert lock order, including an admin reviewing their own alert.
+                self.db.execute(select(User.id).where(User.id == subject_id).with_for_update())
         row = self.db.scalar(q.with_for_update() if lock else q)
         if row is None:
             raise AppError(ErrorCode.SECURITY_ALERT_NOT_FOUND)
