@@ -12,10 +12,20 @@ import { uniqueSources } from '../../ui/sourceGroups'
 import type { Pose } from '../../ui/poseImages'
 import { RichText } from '../../ui/RichText'
 import { DraftCard } from './DraftCard'
+import { QuestionForm } from './QuestionForm'
+import type { QAnswer } from './questionAnswers'
 import { TicketCard } from './TicketCard'
 
 /** 해결·미해결은 한 쌍이라 둘 다 같은 기본 버튼 모양이다 (한쪽만 분홍 상자면 선택된 것처럼 보인다) */
 export const PAIR = new Set(['resolved', 'unresolved'])
+
+/** 지금 답할 수 있는 추가 질문의 답 상태와 동작 (대화 화면이 들고 있다) */
+export interface QuestionAnswers {
+  answers: (QAnswer | undefined)[]
+  error: string
+  onChange: (index: number, answer: QAnswer) => void
+  onSubmit: () => void
+}
 
 /** 대화 화면이 메시지 안의 버튼에 연결해 주는 동작 */
 export interface ChatActions {
@@ -87,10 +97,13 @@ interface Props {
   replyLock?: boolean
   /** 이어가기 뒤 대화 맨 아래에 다시 보이는 버튼이 있으면 이 메시지의 버튼은 감춘다 */
   hideReplies?: boolean
+  /** 지금 답할 수 있는 추가 질문의 답 (questionsOpen 인 메시지에만 온다) */
+  qa?: QuestionAnswers
 }
 
-export function MessageItem({ inquiry, message: m, busy, actions, fresh = false, pose = 'base', poseText = '', replyLock = false, hideReplies = false }: Props) {
-  if (m.role === 'user') return <div className={`msg u${fresh ? ' rise-u' : ''}`}>{m.text}</div>
+export function MessageItem({ inquiry, message: m, busy, actions, fresh = false, pose = 'base', poseText = '', replyLock = false, hideReplies = false, qa }: Props) {
+  // 질문 답변은 "이름: 답" 줄로 묶여 있어서 줄바꿈을 그대로 보인다
+  if (m.role === 'user') return <div className={`msg u${fresh ? ' rise-u' : ''}`} style={{ whiteSpace: 'pre-line' }}>{m.text}</div>
   if (m.role === 'sys') {
     // 안내 문구는 첫 줄이 제목, 나머지가 설명이다 (민감정보 가림 안내, 보안 사고 안내 등). tone 으로 색을 구분한다.
     const [head, ...rest] = (m.text ?? '').split('\n')
@@ -167,6 +180,18 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false,
               <SourceButton key={`${s.docCode}|${s.version}|${s.section}|${i}`} source={s} onOpen={actions.showSource} />
             ))}
           </div>
+        )}
+
+        {m.questions && m.questions.length > 0 && (
+          <QuestionForm
+            questions={m.questions}
+            open={!!m.questionsOpen && !!qa}
+            answers={qa?.answers ?? []}
+            disabled={busy || replyLock}
+            error={qa?.error ?? ''}
+            onChange={qa?.onChange ?? (() => {})}
+            onSubmit={qa?.onSubmit ?? (() => {})}
+          />
         )}
 
         {m.card === 'draft' &&

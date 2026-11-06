@@ -11,7 +11,7 @@ import { listMyInquiries } from '../src/api/inquiries'
 import { advanceChat, isStaleInquiry, cancelChatDraft, confirmChatDraft, editDraft, getChat, reopenChat, rejectChat, replyChat, resolveChat, sendChat, startChat, idleBackChat, idleDeleteChat, idleWarnChat, resumeChat } from '../src/api/chat'
 import type { Inquiry } from '../src/api/chatTypes'
 import { MOCK_ACCOUNTS } from '../src/api/mock/accounts'
-import { calcUrgency, detectCategory } from '../src/api/mock/chatEngine'
+import { calcUrgency, detectCategory, parseAnswerLines } from '../src/api/mock/chatEngine'
 import { ticketIdOfInquiry } from '../src/api/mock/staffTickets'
 import { changeTicketStatus, getTicketHistory } from '../src/api/tickets'
 import { mockConfig } from '../src/api/mock/chatStore'
@@ -78,15 +78,34 @@ describe('분류와 긴급도 규칙', () => {
 })
 
 describe('대화 흐름 (API)', () => {
-  it('정보가 부족하면 하나씩 되묻고, 답하면 다음 질문으로 넘어간다', async () => {
+  it('정보가 부족하면 질문(선택칩·입력)으로 되묻고, 묶어 보낸 답을 항목별로 받아 다음 질문으로 넘어간다', async () => {
     const a = await data(startChat(USER, 'VPN이 끊겨요'))
     const q1 = last(a)
     expect(q1.blocks?.map((b) => (b.type === 'p' ? b.text : '')).join(' ')).toContain('몇 가지만 확인')
-    expect(q1.replies?.every((r) => r.action === 'quick')).toBe(true)
+    // 질문은 한 번에 최대 3개이고, 이름(label)·질문·선택지·직접 입력 여부가 있으며, 지금 답할 수 있다
+    expect(q1.questions?.length).toBeGreaterThan(0)
+    expect(q1.questions!.length).toBeLessThanOrEqual(3)
+    expect(q1.questions![0]).toMatchObject({ label: expect.any(String), text: expect.any(String), allowText: true })
+    expect(q1.questions![0].options.length).toBeGreaterThan(0)
+    expect(q1.questionsOpen).toBe(true)
+    expect(q1.replies).toBeUndefined() // 누르는 즉시 보내는 칩은 없다
 
-    const b = await data(replyChat(a.id, USER.employeeNo, { messageId: q1.id, action: 'quick', arg: q1.replies![0].arg }))
+    const answer = q1.questions!.map((q) => `${q.label}: ${q.options[0]}`).join('\n') + '\n추가 내용: 어제부터 심해요'
+    const b = await data(sendChat(a.id, USER.employeeNo, answer))
     await settle()
-    expect(b.messages.filter((m) => m.role === 'user')).toHaveLength(2)
+    const users = b.messages.filter((m) => m.role === 'user')
+    expect(users).toHaveLength(2)
+    expect(users[1].text?.split(/\r?\n/).length).toBeGreaterThan(1) // 이름: 값 줄로 묶여 한 번에 갔다
+    // 보낸 뒤 지난 질문은 더 이상 답할 수 있는 질문이 아니다
+    const prev = b.messages.find((m) => m.id === q1.id)!
+    expect(b.messages[b.messages.length - 1].id).not.toBe(q1.id)
+    expect(prev.questions?.length).toBeGreaterThan(0)
+  })
+
+  it('묶인 답(parseAnswerLines)은 이름별로 나누고 모르는 이름은 건너뛴다', () => {
+    const r = parseAnswerLines(['상황: 접속할 때 인증 오류가 나요', '영향 범위: 저만 그래요', '엉뚱한 이름: 무시', '추가 내용: 어제부터요'].join(String.fromCharCode(10)))
+    expect(r.fields).toEqual({ summary: '접속할 때 인증 오류가 나요', businessImpact: '저만 그래요' })
+    expect(r.extra).toBe('어제부터요')
   })
 
   it('정보가 모두 모이면 Guide 출처와 함께 안내한다 (Guide 우선)', async () => {

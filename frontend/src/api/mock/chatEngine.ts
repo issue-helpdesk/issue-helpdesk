@@ -306,21 +306,40 @@ function absorb(rec: StoreRecord, text: string, initial: boolean) {
 
 const missing = (rec: StoreRecord) => ORDER.filter((k) => !rec.internal.intake[k])
 
+/** 모의 질문의 이름 (서버 Question.label 에 해당). 답은 "이름: 값" 줄로 묶여 온다 */
+const QLABEL: Record<IntakeKey, string> = { targetSystem: '대상 시스템', summary: '상황', onset: '발생 시점', businessImpact: '영향 범위', triedActions: '시도한 조치' }
+
+/** "이름: 값" 줄로 묶여 온 질문 답을 항목별로 나눈다 (모르는 이름은 건너뛴다) */
+export function parseAnswerLines(text: string): { fields: Partial<Record<IntakeKey, string>>; extra: string } {
+  const fields: Partial<Record<IntakeKey, string>> = {}
+  let extra = ''
+  const byLabel = new Map((Object.entries(QLABEL) as [IntakeKey, string][]).map(([k, v]) => [v, k]))
+  for (const line of text.split('\n')) {
+    const m = /^([^:]{1,20}):\s*(.+)$/.exec(line.trim())
+    if (!m) continue
+    if (m[1] === '추가 내용') extra = m[2].trim()
+    else if (byLabel.has(m[1])) fields[byLabel.get(m[1])!] = m[2].trim()
+  }
+  return { fields, extra }
+}
+
+/** 아직 모르는 항목을 한 번에 최대 3개까지 질문(선택칩·입력)으로 묻는다 */
 function askNext(rec: StoreRecord) {
   const miss = missing(rec)
   if (!miss.length) {
     doAnswer(rec)
     return
   }
-  const k = miss[0]
   const { inquiry, internal } = rec
-  internal.pending = k
+  internal.pending = null
   inquiry.step = 'collect'
-  const chips = k === 'targetSystem' && inquiry.categoryCode ? [CATEGORIES[inquiry.categoryCode].targetSystem] : QUESTIONS[k].chips
-  const blocks: ChatBlock[] = []
-  if (!internal.intake.asked) blocks.push(p('정확히 안내해 드리려고 몇 가지만 확인할게요.'))
-  blocks.push(p(QUESTIONS[k].ask))
-  push(inquiry, { role: 'assistant', blocks, replies: chips.map((c) => ({ label: c, action: 'quick', arg: c })) })
+  const questions = miss.slice(0, 3).map((k) => ({
+    label: QLABEL[k],
+    text: QUESTIONS[k].ask,
+    options: k === 'targetSystem' && inquiry.categoryCode ? [CATEGORIES[inquiry.categoryCode].targetSystem] : QUESTIONS[k].chips,
+    allowText: true,
+  }))
+  push(inquiry, { role: 'assistant', blocks: [p(internal.intake.asked ? '조금 더 확인할게요.' : '정확히 안내해 드리려고 몇 가지만 확인할게요.')], questions, questionsOpen: true })
   internal.intake.asked = true
 }
 
@@ -464,6 +483,10 @@ export function handle(rec: StoreRecord, raw: string, initial: boolean) {
   if (c && !inquiry.categoryCode) inquiry.categoryCode = c
   if (RE.sec.test(text) && inquiry.categoryCode !== 'SEC') inquiry.categoryCode = 'SEC'
   absorb(rec, text, initial)
+  // 질문(선택칩·입력)의 답은 "이름: 값" 줄로 묶여 온다: 항목별로 그대로 받아 둔다
+  const answered = parseAnswerLines(text)
+  Object.assign(internal.intake, answered.fields)
+  if (answered.extra) internal.intake.extra = (internal.intake.extra ? internal.intake.extra + ' ' : '') + answered.extra
   internal.pending = null
   lockReplies(inquiry)
   const all = allText(rec)

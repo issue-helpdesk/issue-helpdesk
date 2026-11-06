@@ -38,7 +38,7 @@ export interface Assessment {
 
 export const ACTION_LABEL: Record<string, string> = { ANSWER: 'AI 답변', ASK_MORE: '추가 질문', ESCALATE: '담당자 연결', OUT_OF_SCOPE: '지원 범위 밖' }
 /** AI 가 추가 질문으로 더 물어본 항목 (missing_items). 모르는 항목은 서버가 준 이름 그대로 */
-export const MISSING_LABEL: Record<string, string> = { target_system: '대상 시스템', symptom: '증상', occurred_at: '발생 시점', impact: '영향 범위', tried_actions: '시도한 조치' }
+export const MISSING_LABEL: Record<string, string> = { situation: '상황', target_system: '대상 시스템', symptom: '증상', occurred_at: '발생 시점', impact: '영향 범위', tried_actions: '시도한 조치' }
 /** 규칙이 바꾼 항목 이름 (모르는 항목은 서버가 준 이름 그대로) */
 export const FIELD_LABEL: Record<string, string> = {
   urgency: '긴급도',

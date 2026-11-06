@@ -32,6 +32,7 @@ import { ticketIdOfInquiry } from '../../api/mock/staffTickets'
 import { TicketDetailPanel } from '../staff/TicketDetailPanel'
 import { MessageItem, PAIR, type ChatActions } from './MessageItem'
 import { latestPose, poseLabel, poseOf } from './pose'
+import { allAnswered, buildAnswerText, unansweredCount, type QAnswer } from './questionAnswers'
 import { ENTRY_POPUP, endedMessage, entryKindOf, type EntryKind } from './resume'
 
 const NOTE = '비밀번호·인증번호·API 키는 입력하지 마세요. 상담 기록은 처리·운영 목적으로 활용될 수 있어요.'
@@ -61,6 +62,9 @@ export function ChatView() {
   const [reloadKey, setReloadKey] = useState(0)
   const seen = useRef(false) // 이 화면에서 문의를 한 번이라도 읽었는지
   const [text, setText] = useState('')
+  // 추가 질문 답: 메시지마다 따로 들고(선택·입력은 새로 받아도 지워지지 않는다), 보내기에 성공하면 비운다
+  const [qAnswers, setQAnswers] = useState<Record<number, (QAnswer | undefined)[]>>({})
+  const [qError, setQError] = useState('')
   const [detail, setDetail] = useState(false) // 접수 상세 패널
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -329,7 +333,11 @@ export function ChatView() {
   const askAnswer = ask && !paused && !gated && (wait === 'answered' || wait === 'fin') ? wait : null
   const askTarget = askAnswer === 'answered' ? [...inquiry.messages].reverse().find((m) => !m.locked && m.replies?.some((r) => r.action === 'resolved')) : undefined
   const lock = paused ? { ph: '아래에서 이어갈 방법을 골라 주세요', why: '' } : wait ? LOCK[wait] : null
-  const placeholder = endMsg ?? (lock ? lock.ph : t ? '담당자에게 추가로 전달할 내용을 입력해 주세요.' : '메시지를 입력해 주세요.')
+  /** 지금 답할 수 있는 추가 질문: 마지막 메시지가 그 질문이고 아직 답하지 않았을 때 (서버는 status·action 으로 정해 questionsOpen 을 붙인다) */
+  const lastMsg2 = inquiry.messages[inquiry.messages.length - 1]
+  const openQ = lastMsg2?.questionsOpen && lastMsg2.questions?.length && !endMsg ? lastMsg2 : undefined
+  const openAnswers = openQ ? (qAnswers[openQ.id] ?? []) : []
+  const placeholder = endMsg ?? (lock ? lock.ph : openQ ? '추가로 알려 줄 내용이 있으면 적어 주세요 (선택)' : t ? '담당자에게 추가로 전달할 내용을 입력해 주세요.' : '메시지를 입력해 주세요.')
   // 시연: 응답 없음 삭제 안내 · 삭제 · 돌아옴. 질문·연결 제안·초안 단계에서만 쓴다 (접수된 건·끝난 문의·미확인은 대상이 아니다).
   const demoIdle = USE_MOCK_INQUIRY && !!employeeNo && !t && !closed && inquiry.step !== 'answered'
   // 이어가기 뒤 담당자 연결 버튼이 대화 위쪽에 멀리 있으면, 버튼을 맨 아래에 다시 보여 준다 (저장되는 메시지가 아니라 화면 표시)
@@ -339,7 +347,26 @@ export function ChatView() {
   // 접수 상세 패널을 다시 읽게 하는 값: 새 메시지뿐 아니라 접수 상태가 바뀌거나(미해결로 처리 중으로 되돌아감 등) ITSM 반영 중 표시가 바뀔 때도 바뀐다
   const detailTick = inquiry.messages.length * 10 + ({ RDY: 1, WIP: 2, FIN: 3, CLS: 4 }[t?.workStatus ?? 'RDY'] ?? 0) + (t?.transitionPending ? 5 : 0)
 
+  /** 질문 답과 입력창의 글(추가 내용)을 한 번에 보낸다. 모든 질문에 답하지 않았으면 보내지 않는다 (Enter·전송 버튼으로도 우회하지 못한다) */
+  async function sendAnswers() {
+    if (!openQ?.questions || busy || !employeeNo) return
+    if (!allAnswered(openQ.questions, openAnswers)) {
+      setQError(`아직 답하지 않은 질문이 ${unansweredCount(openQ.questions, openAnswers)}개 있어요. 모든 질문에 답한 뒤 보낼 수 있어요.`)
+      return
+    }
+    setQError('')
+    const ok = await apply(sendChat(id, employeeNo, buildAnswerText(openQ.questions, openAnswers, text)))
+    if (ok) {
+      setText('')
+      setQAnswers((m) => {
+        const { [openQ.id]: _gone, ...rest } = m
+        return rest
+      })
+    } // 실패하면 고른 것·직접 입력·추가 내용을 그대로 둔다
+  }
+
   async function send() {
+    if (openQ) return sendAnswers()
     const v = text.trim()
     if (!v || busy || !employeeNo) return
     setText('')
@@ -370,7 +397,7 @@ export function ChatView() {
         <div className="thread" role="log" aria-live="polite" aria-label="문의 대화">
           {inquiry.messages.map((m, idx) => {
             const pose = poseOf(inquiry, idx)
-            return <MessageItem key={m.id} inquiry={inquiry} message={m} busy={busy} actions={actions} fresh={fresh.has(m.id)} pose={pose} poseText={poseLabel(inquiry, idx, pose)} replyLock={replyBlocked} hideReplies={showTail && m.id === tailMsg?.id} />
+            return <MessageItem key={m.id} inquiry={inquiry} message={m} busy={busy} qa={openQ && openQ.id === m.id ? { answers: openAnswers, error: qError, onChange: (k, a) => { setQError(''); setQAnswers((all) => { const cur = [...(all[m.id] ?? [])]; cur[k] = a; return { ...all, [m.id]: cur } }) }, onSubmit: () => void sendAnswers() } : undefined} actions={actions} fresh={fresh.has(m.id)} pose={pose} poseText={poseLabel(inquiry, idx, pose)} replyLock={replyBlocked} hideReplies={showTail && m.id === tailMsg?.id} />
           })}
           {showTail && tailMsg && (
             <div className="msg a">

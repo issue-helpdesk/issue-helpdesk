@@ -11,7 +11,7 @@
 import { request } from '../core/apiClient'
 import { SERVER_INTAKE } from '../core/config'
 import { uuid } from '../core/uuid'
-import type { ChatBlock, ChatMessage, ChatReply, ChatStep, CategoryCode, Draft, DraftEdit, DraftState, Inquiry, InquiryStatus, LegacyCase, RejudgedField, Ticket, Urgency, WorkStatus } from './chatTypes'
+import type { ChatBlock, ChatMessage, ChatQuestion, ChatReply, ChatStep, CategoryCode, Draft, DraftEdit, DraftState, Inquiry, InquiryStatus, LegacyCase, RejudgedField, Ticket, Urgency, WorkStatus } from './chatTypes'
 import type { Page } from './inquiries'
 import type { TicketDetail } from './ticketTypes'
 import { fail, ok, type ApiResult, type DisplayStatus, type InquirySummary, type InquiryStateKind } from './types'
@@ -26,6 +26,12 @@ interface SSource {
   excerpt: string | null
   images?: { key: string; caption: string }[]
 }
+interface SQuestion {
+  label?: string | null
+  text: string
+  options?: string[]
+  allowText?: boolean
+}
 interface SMessage {
   id: number
   sessionId: number
@@ -38,6 +44,8 @@ interface SMessage {
   content: string | null
   /** DRAFT_CARD 의 초안 (IQ-07 에서만) */
   draft?: SDraft | null
+  /** 이 AI 메시지가 물은 추가 질문 (ASK_MORE 메시지에만 값이 있다). 옛 응답에는 없다 */
+  questions?: SQuestion[]
   sources: SSource[]
   createdAt: string
 }
@@ -263,6 +271,12 @@ const draftNotes = new Map<number, { updatedAt: string | null; note: string; rej
 
 const REJUDGED: Record<string, RejudgedField> = { categoryCode: 'category', inquiryTypeId: 'inquiryType', urgency: 'urgency', recommendedGroupId: 'group' }
 
+/** 서버 추가 질문을 화면 질문으로: 빠진 값은 옛 질문으로 보고 채운다 (선택지가 없으면 입력칸으로 답한다) */
+export function toQuestions(list?: SQuestion[]): ChatQuestion[] | undefined {
+  const qs = (list ?? []).filter((q) => q && typeof q.text === 'string')
+  return qs.length ? qs.map((q) => ({ label: q.label ?? null, text: q.text, options: q.options ?? [], allowText: q.allowText ?? false })) : undefined
+}
+
 /** 글(말풍선)인 메시지. kind 가 없는 이전 서버의 메시지도 글로 본다 */
 export const isText = (m: SMessage) => !m.kind || m.kind === 'TEXT'
 /** 서버가 선택·카드를 메시지로 저장하는지 (R-29). 이전 서버는 kind 를 주지 않아서 아래 옛 방식(상태로 다시 만들기)을 쓴다 */
@@ -306,7 +320,7 @@ function toMessagesFromKinds(list: SMessage[], i: SInquiry): ChatMessage[] {
       else {
         const legacy = m.sources?.find((s) => s.sourceKind === 'LEGACY')
         const legacyCase: LegacyCase | undefined = legacy ? { no: '', title: '과거 처리 사례 참고', symptom: '', solution: legacy.excerpt ?? '' } : undefined
-        out.push({ id: m.id, role: 'assistant', blocks: toBlocks(content), sources: (m.sources ?? []).filter((s) => s.sourceKind === 'DOCUMENT').map(GUIDE), legacy: legacyCase, createdAt: m.createdAt })
+        out.push({ id: m.id, role: 'assistant', blocks: toBlocks(content), sources: (m.sources ?? []).filter((s) => s.sourceKind === 'DOCUMENT').map(GUIDE), legacy: legacyCase, questions: toQuestions(m.questions), createdAt: m.createdAt })
       }
       return
     }
@@ -351,8 +365,15 @@ function toMessages(list: SMessage[], step: ChatStep, i: SInquiry, answering = f
     if (m.sender === 'SYSTEM') return { id: m.id, role: 'sys', text: content, createdAt: m.createdAt, tone: /민감정보|개인정보가 감지|가림|가려|가렸|마스킹/.test(content) ? 'sens' : undefined }
     const legacy = m.sources.find((s) => s.sourceKind === 'LEGACY')
     const legacyCase: LegacyCase | undefined = legacy ? { no: '', title: '과거 처리 사례 참고', symptom: '', solution: legacy.excerpt ?? '' } : undefined
-    return { id: m.id, role: 'assistant', blocks: toBlocks(content), sources: m.sources.filter((s) => s.sourceKind === 'DOCUMENT').map(GUIDE), legacy: legacyCase, createdAt: m.createdAt }
+    return { id: m.id, role: 'assistant', blocks: toBlocks(content), sources: m.sources.filter((s) => s.sourceKind === 'DOCUMENT').map(GUIDE), legacy: legacyCase, questions: toQuestions(m.questions), createdAt: m.createdAt }
   })
+  // 지금 답할 수 있는 질문: 서버가 준 마지막 메시지가 질문이 있는 AI 메시지이고, 문의가 진행 중(IN_PROGRESS)·추가 질문(ASK_MORE)일 때만이다.
+  // 지난 질문(그 뒤에 내 답이 이어진 것)과 다른 상태의 문의는 읽기 전용으로 남는다 (docs/api/02 Question)
+  const lastRaw = list[list.length - 1]
+  if (lastRaw?.sender === 'AI' && lastRaw.questions?.length && i.status === 'IN_PROGRESS' && i.action === 'ASK_MORE' && !answering) {
+    const at = out.findIndex((x) => x.id === lastRaw.id)
+    if (at >= 0) out[at] = { ...out[at], questionsOpen: true }
+  }
   // 아직 답하는 중이면 준비 중 표시를 붙인다 ("답하지 못함"으로 단정하지 않는다)
   if (answering) out.push({ id: -3, role: 'assistant', typing: { label: '답변을 준비하고 있어요' } })
   // 서버가 선택·카드를 저장하지 않던 때(kind 가 없는 응답)의 옛 방식: 문의 상태에서 말풍선과 카드를 다시 만들어 붙인다.
