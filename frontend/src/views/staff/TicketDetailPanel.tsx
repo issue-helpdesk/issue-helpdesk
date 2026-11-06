@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { CATEGORIES, STAFF_STATUS } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { markTicketRead, refreshUnread } from '../../api/notifications'
-import { isRuleUrgencyReason } from '../../api/urgencyReason'
+import { urgencyReasonText } from '../../api/urgencyReason'
 import { friendlyAssignReason } from '../../api/assignReason'
 import { getAssignmentLogs, getTicket, getTicketHistory, refreshTickets, syncTicket } from '../../api/tickets'
 import type { AssignmentLog, StatusHistory, TicketDetail } from '../../api/ticketTypes'
@@ -281,12 +281,16 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
           </dd>
         </>
       )}
-      <dt>긴급도</dt>
-      <dd>
-        <UrgencyChip u={t.urgency} />
-        {/* "세부 유형 NET-04 기본 긴급도" 는 서버 규칙의 내부 사유라 문의자에게는 보이지 않는다 (담당자·관리자는 근거로 본다) */}
-        {t.urgencyReason && !(requester && isRuleUrgencyReason(t.urgencyReason)) && <div className="small muted">{t.urgencyReason}</div>}
-      </dd>
+      {/* 긴급도는 담당자·관리자가 처리 순서를 정하는 내부 기준이라 문의자에게는 보이지 않는다 */}
+      {!requester && (
+        <>
+          <dt>긴급도</dt>
+          <dd>
+            <UrgencyChip u={t.urgency} />
+            {t.urgencyReason && <div className="small muted">{urgencyReasonText(t.urgencyReason)}</div>}
+          </dd>
+        </>
+      )}
       <dt>담당 그룹</dt>
       <dd>{t.group?.name ?? '-'}</dd>
       <dt>담당자</dt>

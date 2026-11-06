@@ -8,13 +8,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { watchMyInquiries } from '../api/inquiries'
+import { markInquirySeen } from '../api/inquirySeen'
 import { watchUnread } from '../api/notifications'
 import { getIngestFailures, watchIngest } from '../api/guideWatch'
 import { countOpsAttention } from '../api/ops'
 import { countSecurityAlerts, watchSecurity } from '../api/security'
 import { listTickets, watchTickets } from '../api/tickets'
 import type { InquirySummary, ServiceRole } from '../api/types'
-import { USE_MOCK_NOTIFY } from '../core/config'
+import { USE_MOCK_INQUIRY, USE_MOCK_NOTIFY } from '../core/config'
 import { formatRelative } from '../core/format'
 import { refreshInquiryList } from '../core/poll'
 import { HOME_BY_ROLE, ROLE_LABEL } from '../core/roles'
@@ -157,8 +158,17 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
     return () => window.removeEventListener('resize', back)
   }, [shortRecent])
 
+  // 지금 보고 있는 문의에는 새 답변 표시를 두지 않는다 (내가 방금 보낸 글·진행 중인 답변 때문에 점이 켜지지 않게).
+  // 서버 모드에서는 보고 있는 문의의 최신 변경 시각까지 봤다고 기록해, 다른 화면으로 옮겨도 점이 남지 않게 한다
+  const openId = /^\/chat\/(\d+)$/.exec(pathname)?.[1]
+  useEffect(() => {
+    if (USE_MOCK_INQUIRY || !employeeNo || !openId) return
+    const cur = recent.find((i) => String(i.id) === openId)
+    if (cur) markInquirySeen(employeeNo, cur.id, cur.updatedAt)
+  }, [recent, openId, employeeNo])
   if (!user) return null
-  const unread = recent.reduce((sum, i) => sum + i.unread, 0)
+  const shown = recent.map((i) => (String(i.id) === openId ? { ...i, unread: 0 } : i))
+  const unread = shown.reduce((sum, i) => sum + i.unread, 0)
 
   const go = (to: string) => {
     navigate(to)
@@ -229,7 +239,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
             </button>
           </div>
           <div className="recent">
-            {recent.slice(0, shortRecent ? 2 : 5).map((i) => {
+            {shown.slice(0, shortRecent ? 2 : 5).map((i) => {
               const sv = stateView(i)
               const tone = sv.tone
               return (

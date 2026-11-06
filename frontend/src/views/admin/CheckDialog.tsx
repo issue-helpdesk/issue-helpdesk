@@ -7,9 +7,7 @@ import type { TicketSummary } from '../../api/ticketTypes'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { UrgencyChip } from '../staff/QueueView'
-
-/** 확인이 필요한 이유 한 줄 */
-export const linkWhy = (t: TicketSummary) => (t.transitionStatus === 'NEEDS_ADMIN' ? 'ITSM 동기화 확인 필요' : t.jiraSyncStatus === 'NEEDS_ADMIN' ? 'ITSM 생성 요청 응답 시간 초과 · 생성 여부 확인 필요' : 'ITSM 생성 결과 확인 중')
+import { linkWhy } from './checkText'
 
 const WORK_LABEL = { RDY: '처리 대기', WIP: '처리 중', FIN: '해결 확인 대기', CLS: '해결 완료' } as const
 

@@ -38,6 +38,8 @@ import { ENTRY_POPUP, endedMessage, entryKindOf, type EntryKind } from './resume
 
 const NOTE = '비밀번호·인증번호·API 키는 입력하지 마세요. 상담 기록은 처리·운영 목적으로 활용될 수 있어요.'
 const NO_MESSAGES: ReadonlySet<number> = new Set()
+/** 이 시간 안에 문의를 못 불러오면 빈 화면 대신 오류 안내를 보인다(ms) */
+const LOAD_SLOW_MS = 12_000
 
 /** 버튼으로만 고르는 단계의 입력창 자리표시자와 안내 (docs/09: 입력창을 끄는 단계). 자리표시자와 겹치는 안내는 줄여 쓴다. */
 const PICK = '위의 버튼을 선택해 주세요.'
@@ -113,6 +115,14 @@ export function ChatView() {
   }, [id, employeeNo, navigate, reloadKey])
 
   const inquiry = loaded?.id === id ? loaded.data : undefined // undefined=불러오는 중, null=없음
+  // 불러오는 데 너무 오래 걸리면(서버가 막 켜졌거나 응답이 늦을 때) 빈 화면으로 두지 않고 안내와 다시 불러오기를 보인다
+  const [slowFor, setSlowFor] = useState<{ id: number; key: number } | null>(null)
+  useEffect(() => {
+    if (inquiry !== undefined) return
+    const t = setTimeout(() => setSlowFor({ id, key: reloadKey }), LOAD_SLOW_MS)
+    return () => clearTimeout(t)
+  }, [inquiry, id, reloadKey])
+  const slow = inquiry === undefined && slowFor?.id === id && slowFor.key === reloadKey
 
   // 접수가 있는 문의를 열면: 그 접수의 내 알림을 읽음으로 바꾸고(NT-04), 서버 모드에서는 ITSM 의 최신 상태를 한 번 읽어 오게 한다(TK-14)
   const ticketId = inquiry?.ticket?.id
@@ -274,16 +284,20 @@ export function ChatView() {
 
   if (!user || !actions) return null
 
-  if (inquiry === undefined) {
+  if (inquiry === undefined && !slow) {
     return (
       <main className="main">
         <Topbar title="문의 대화" quiet />
-        <div className="scroll" />
+        <div className="scroll">
+          <div className="empty" role="status">
+            불러오는 중이에요…
+          </div>
+        </div>
       </main>
     )
   }
-  if (inquiry === null) {
-    const failed = loaded?.failed
+  if (inquiry === null || inquiry === undefined) {
+    const failed = loaded?.failed || inquiry === undefined
     return (
       <main className="main">
         <Topbar title="문의 대화" quiet />

@@ -24,6 +24,16 @@ export const setPasswordRequiredHandler = (fn: (() => void) | null) => {
   pwRequired = fn
 }
 
+/**
+ * 임시 비밀번호 상태에서는 서버가 비밀번호 변경 말고는 모두 403 으로 막는다. 변경 창이 떠 있는 동안 목록·알림 조회가
+ * 계속 403 을 받아 서버 로그만 쌓이므로, 이 상태에서는 그런 요청을 아예 보내지 않고 같은 실패로 바로 답한다.
+ */
+let pwGate = false
+export const setPasswordGate = (on: boolean) => {
+  pwGate = on
+}
+const GATE_OPEN = (path: string) => path.startsWith('/auth/') || path === '/users/me' || path.startsWith('/users/me/password')
+
 export const setTokenRefresher = (fn: (() => Promise<boolean>) | null) => {
   refresher = fn
 }
@@ -80,6 +90,7 @@ async function send<T>(path: string, init: RequestInit): Promise<ApiResult<T>> {
 }
 
 export async function request<T>(path: string, init: RequestInit = {}): Promise<ApiResult<T>> {
+  if (pwGate && !GATE_OPEN(path)) return fail('AUTH_PASSWORD_CHANGE_REQUIRED', displayMessage('AUTH_PASSWORD_CHANGE_REQUIRED', '', undefined))
   const r = await send<T>(path, init)
   // 로그인·재발급·로그아웃 자체의 401 은 아래 처리 대상이 아니다
   if (r.ok || path.startsWith('/auth/')) return r

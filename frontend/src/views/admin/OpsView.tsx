@@ -21,7 +21,8 @@ import { Icon } from '../../ui/Icon'
 import { useToast } from '../../ui/useToast'
 import { Topbar } from '../../ui/Topbar'
 import { UrgencyChip } from '../staff/QueueView'
-import { CheckDialog, linkWhy } from './CheckDialog'
+import { CheckDialog } from './CheckDialog'
+import { linkWhy } from './checkText'
 import { ReassignDialog } from './ReassignDialog'
 import { TicketDetailPanel } from '../staff/TicketDetailPanel'
 
@@ -407,7 +408,7 @@ export function OpsView() {
                   티켓 연동 확인 <span className="ocnt">{linkL.length}건</span>
                 </>,
                 'ITSM 이슈가 안 만들어졌거나 상태를 가져오지 못한 건',
-                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?st=none')}>
+                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?needs=1')}>
                   모두 보기
                 </button>,
                 wait(list('L', linkL, rowC('link'), '연동 확인이 필요한 건이 없어요.')),
@@ -418,7 +419,7 @@ export function OpsView() {
                   담당자 배정 확인 <span className="ocnt">{asgL.length}건</span>
                 </>,
                 'ITSM 이슈는 만들어졌지만 담당자가 비어 있는 건',
-                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?st=none')}>
+                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?needs=1')}>
                   모두 보기
                 </button>,
                 wait(list('A', asgL, rowC('asg'), '배정 확인이 필요한 건이 없어요.')),
