@@ -11,7 +11,7 @@
 import { request } from '../core/apiClient'
 import { SERVER_INTAKE } from '../core/config'
 import { uuid } from '../core/uuid'
-import type { ChatBlock, ChatMessage, ChatReply, ChatStep, CategoryCode, Draft, DraftEdit, Inquiry, InquiryStatus, LegacyCase, RejudgedField, Ticket, Urgency, WorkStatus } from './chatTypes'
+import type { ChatBlock, ChatMessage, ChatReply, ChatStep, CategoryCode, Draft, DraftEdit, DraftState, Inquiry, InquiryStatus, LegacyCase, RejudgedField, Ticket, Urgency, WorkStatus } from './chatTypes'
 import type { Page } from './inquiries'
 import type { TicketDetail } from './ticketTypes'
 import { fail, ok, type ApiResult, type DisplayStatus, type InquirySummary, type InquiryStateKind } from './types'
@@ -31,10 +31,17 @@ interface SMessage {
   sessionId: number
   seq: number
   sender: 'USER' | 'AI' | 'SYSTEM'
-  content: string
+  /** R-29: TEXT 글, CHOICE 누른 버튼(code), NOTICE 민감정보 안내, DRAFT_CARD·TICKET_CARD 카드 자리. 이전 서버는 이 값이 없다 */
+  kind?: 'TEXT' | 'CHOICE' | 'NOTICE' | 'DRAFT_CARD' | 'TICKET_CARD'
+  code?: ChoiceCode | null
+  /** TEXT·NOTICE 만 글이 있다. 그 밖에는 null */
+  content: string | null
+  /** DRAFT_CARD 의 초안 (IQ-07 에서만) */
+  draft?: SDraft | null
   sources: SSource[]
   createdAt: string
 }
+type ChoiceCode = 'RESOLVED' | 'UNRESOLVED' | 'CONNECT' | 'NO_CONNECT' | 'CONFIRM' | 'CANCEL' | 'TICKET_RESOLVED' | 'TICKET_UNRESOLVED'
 interface STicketRef {
   id: number
   receiptNo: string
@@ -256,36 +263,121 @@ const draftNotes = new Map<number, { updatedAt: string | null; note: string; rej
 
 const REJUDGED: Record<string, RejudgedField> = { categoryCode: 'category', inquiryTypeId: 'inquiryType', urgency: 'urgency', recommendedGroupId: 'group' }
 
-function toMessages(list: SMessage[], step: ChatStep, i: SInquiry, answering = false, intake = false): ChatMessage[] {
+/** 글(말풍선)인 메시지. kind 가 없는 이전 서버의 메시지도 글로 본다 */
+export const isText = (m: SMessage) => !m.kind || m.kind === 'TEXT'
+/** 서버가 선택·카드를 메시지로 저장하는지 (R-29). 이전 서버는 kind 를 주지 않아서 아래 옛 방식(상태로 다시 만들기)을 쓴다 */
+const hasKinds = (list: SMessage[]) => list.some((m) => !!m.kind)
+
+/** 서버가 저장한 문의자 선택(CHOICE)의 말풍선 글 (모의와 같다) */
+const CHOICE_LABEL: Record<ChoiceCode, string> = {
+  RESOLVED: RESOLVED_LABEL,
+  UNRESOLVED: UNRESOLVED_LABEL,
+  CONNECT: '담당자 연결',
+  NO_CONNECT: NO_CONNECT_LABEL,
+  CONFIRM: '접수하기',
+  CANCEL: '접수 안 함',
+  TICKET_RESOLVED: RESOLVED_LABEL,
+  TICKET_UNRESOLVED: UNRESOLVED_LABEL,
+}
+const DRAFT_STATE: Record<string, DraftState> = { EDITING: 'view', CONFIRMED: 'confirmed', CANCELLED: 'cancel' }
+const REASK_TEXT = '다시 확인을 요청했어요. 담당자가 재확인하고 있어요. 아래 카드에서 새 진행 상황을 볼 수 있어요.'
+/** 서버 메시지 하나에서 만든 화면 메시지끼리 겹치지 않는 id (고정 안내의 -3~-11 과도 겹치지 않는다) */
+const extraId = (m: SMessage, n: number) => -(1000 + m.id * 10 + n)
+
+/**
+ * 서버가 선택·카드를 메시지로 저장할 때의 변환 (R-29). 저장된 순서 그대로 말풍선과 카드를 만들고, 문구는 code 로 화면이 정한다.
+ * - CHOICE: 내 말풍선 + (해결·미해결·미연결·접수 안 함이면) 그 뒤 안내
+ * - DRAFT_CARD: 초안 안내 + 초안 카드 (draft.status 가 EDITING 일 때만 수정·접수·취소가 되고 그 밖에는 읽기 전용)
+ * - TICKET_CARD: 접수·재확인 안내. 진행 카드는 마지막 하나만 보이고(지난 시점의 상태는 저장하지 않는다) 앞의 것은 안내 글만 남는다
+ */
+function toMessagesFromKinds(list: SMessage[], i: SInquiry): ChatMessage[] {
+  const out: ChatMessage[] = []
+  const lastTicketCard = [...list].reverse().find((m) => m.kind === 'TICKET_CARD')?.id
   const resolved = i.status === 'AI_RESOLVED'
-  const out: ChatMessage[] = list.filter((m) => !(resolved && m.sender === 'SYSTEM' && m.content === RESOLVED_NOTICE)).map((m): ChatMessage => {
-    if (m.sender === 'USER') return { id: m.id, role: 'user', text: m.content, createdAt: m.createdAt }
-    if (m.sender === 'SYSTEM') return { id: m.id, role: 'sys', text: m.content, createdAt: m.createdAt, tone: /민감정보|개인정보가 감지|가림|가려|가렸|마스킹/.test(m.content) ? 'sens' : undefined }
+  let lastTextSender: SMessage['sender'] | null = null
+  let prevCode: ChoiceCode | null = null
+  list.forEach((m) => {
+    const kind = m.kind ?? 'TEXT'
+    const content = m.content ?? ''
+    if (kind === 'TEXT') {
+      lastTextSender = m.sender
+      if (m.sender === 'USER') out.push({ id: m.id, role: 'user', text: content, createdAt: m.createdAt })
+      else if (m.sender === 'SYSTEM') out.push({ id: m.id, role: 'sys', text: content, createdAt: m.createdAt })
+      else {
+        const legacy = m.sources?.find((s) => s.sourceKind === 'LEGACY')
+        const legacyCase: LegacyCase | undefined = legacy ? { no: '', title: '과거 처리 사례 참고', symptom: '', solution: legacy.excerpt ?? '' } : undefined
+        out.push({ id: m.id, role: 'assistant', blocks: toBlocks(content), sources: (m.sources ?? []).filter((s) => s.sourceKind === 'DOCUMENT').map(GUIDE), legacy: legacyCase, createdAt: m.createdAt })
+      }
+      return
+    }
+    if (kind === 'NOTICE') {
+      // 이전에 저장한 "해결로 종료되었습니다" 안내는 해결 안내와 겹쳐서 뺀다
+      if (resolved && content === RESOLVED_NOTICE) return
+      out.push({ id: m.id, role: 'sys', text: content, createdAt: m.createdAt, tone: /민감정보|개인정보가 감지|가림|가려|가렸|마스킹/.test(content) ? 'sens' : undefined })
+      return
+    }
+    if (kind === 'CHOICE' && m.code) {
+      // 내 글에 AI 답이 없는 채로 담당자 연결·미연결을 골랐다: "답변을 만들지 못했어요" 안내는 저장되지 않아서 같은 안내를 앞에 남긴다
+      if ((m.code === 'CONNECT' || m.code === 'NO_CONNECT') && lastTextSender === 'USER') out.push({ id: extraId(m, 0), role: 'assistant', blocks: [{ type: 'p', text: NO_ANSWER_TEXT }] })
+      out.push({ id: m.id, role: 'user', text: CHOICE_LABEL[m.code] ?? m.code, createdAt: m.createdAt })
+      if (m.code === 'RESOLVED') out.push({ ...RESOLVED_REPLY, id: extraId(m, 1) })
+      else if (m.code === 'UNRESOLVED') out.push({ ...UNRESOLVED_REPLY, id: extraId(m, 1) })
+      else if (m.code === 'NO_CONNECT' || m.code === 'CANCEL') NO_TICKET_CLOSED.forEach((x, n) => out.push({ ...x, id: extraId(m, 2 + n) }))
+      prevCode = m.code
+      return
+    }
+    if (kind === 'DRAFT_CARD') {
+      out.push({ id: m.id, role: 'assistant', blocks: [{ type: 'p', text: DRAFT_INTRO }], card: 'draft', draft: m.draft ? toDraft(m.draft) : undefined, draftState: DRAFT_STATE[m.draft?.status ?? 'EDITING'] ?? 'view', createdAt: m.createdAt })
+      return
+    }
+    if (kind === 'TICKET_CARD') {
+      const first = prevCode === 'CONFIRM'
+      const text = first && i.ticket ? `접수되었어요. 접수번호는 **${i.ticket.receiptNo}** 입니다. 담당자 연결을 진행하고 있어요. 진행 상황은 아래 카드에서 바로 볼 수 있어요.` : REASK_TEXT
+      out.push({ id: m.id, role: 'assistant', blocks: [{ type: 'p', text }], card: m.id === lastTicketCard && i.ticket ? 'ticket' : undefined, createdAt: m.createdAt })
+    }
+  })
+  return out
+}
+
+function toMessages(list: SMessage[], step: ChatStep, i: SInquiry, answering = false, intake = false): ChatMessage[] {
+  const kinds = hasKinds(list)
+  // 선택·카드 메시지(USER 로 저장되는 CHOICE 등)는 "마지막 말이 누구의 것인지" 판단에서 뺀다
+  const texts = list.filter(isText)
+  const lastTextSender = texts[texts.length - 1]?.sender
+  const resolved = i.status === 'AI_RESOLVED'
+  const out: ChatMessage[] = kinds ? toMessagesFromKinds(list, i) : list.filter((m) => !(resolved && m.sender === 'SYSTEM' && m.content === RESOLVED_NOTICE)).map((m): ChatMessage => {
+    const content = m.content ?? ''
+    if (m.sender === 'USER') return { id: m.id, role: 'user', text: content, createdAt: m.createdAt }
+    if (m.sender === 'SYSTEM') return { id: m.id, role: 'sys', text: content, createdAt: m.createdAt, tone: /민감정보|개인정보가 감지|가림|가려|가렸|마스킹/.test(content) ? 'sens' : undefined }
     const legacy = m.sources.find((s) => s.sourceKind === 'LEGACY')
     const legacyCase: LegacyCase | undefined = legacy ? { no: '', title: '과거 처리 사례 참고', symptom: '', solution: legacy.excerpt ?? '' } : undefined
-    return { id: m.id, role: 'assistant', blocks: toBlocks(m.content), sources: m.sources.filter((s) => s.sourceKind === 'DOCUMENT').map(GUIDE), legacy: legacyCase, createdAt: m.createdAt }
+    return { id: m.id, role: 'assistant', blocks: toBlocks(content), sources: m.sources.filter((s) => s.sourceKind === 'DOCUMENT').map(GUIDE), legacy: legacyCase, createdAt: m.createdAt }
   })
   // 아직 답하는 중이면 준비 중 표시를 붙인다 ("답하지 못함"으로 단정하지 않는다)
   if (answering) out.push({ id: -3, role: 'assistant', typing: { label: '답변을 준비하고 있어요' } })
-  // 내 글에 AI 답이 없는 채로 담당자 연결을 거절했거나 접수 초안으로 넘어간 문의: "답변을 만들지 못했어요" 안내도 서버가 저장하지 않아서
-  // (연결 제안 단계에서만 화면이 만들어 붙인다) 버튼을 누르는 순간 사라진다. 누른 버튼·종료 안내 앞에 같은 안내를 버튼 없이 남겨 대화 흐름을 지킨다
-  if (!answering && !resolved && list[list.length - 1]?.sender === 'USER' && ((i.status === 'CLOSED_UNRESOLVED' && !i.ticket) || step === 'draft')) {
-    out.push({ id: -3, role: 'assistant', blocks: [{ type: 'p', text: NO_ANSWER_TEXT }] })
-  }
-  // 내가 누른 "해결"·"미해결"과 그 뒤 안내 (서버는 저장하지 않는다)
-  if (resolved) out.push({ id: -8, role: 'user', text: RESOLVED_LABEL }, RESOLVED_REPLY)
-  else if (i.resolutionResult === 'UNRESOLVED') out.push({ id: -9, role: 'user', text: UNRESOLVED_LABEL }, UNRESOLVED_REPLY)
-  // 접수 없이 끝난 문의(담당자 연결 거절): 서버는 종료만 저장하고 안내 글은 저장하지 않아서, 모의와 같은 종료 안내를 화면에서 붙인다
-  if (i.status === 'CLOSED_UNRESOLVED' && !i.ticket) out.push({ id: -5, role: 'user', text: NO_CONNECT_LABEL }, ...NO_TICKET_CLOSED)
-  // 접수 초안·접수 카드: 서버는 카드를 메시지로 저장하지 않아서 상태에서 만들어 붙인다
-  if (intake && step === 'draft') out.push({ id: DRAFT_CARD_ID, role: 'assistant', blocks: [{ type: 'p', text: DRAFT_INTRO }], card: 'draft' })
-  if (intake && i.ticket) {
-    out.push({ id: TICKET_CARD_ID, role: 'assistant', blocks: [{ type: 'p', text: `접수되었어요. 접수번호는 **${i.ticket.receiptNo}** 입니다. 담당자 연결을 진행하고 있어요. 진행 상황은 아래 카드에서 바로 볼 수 있어요.` }], card: 'ticket' })
+  // 서버가 선택·카드를 저장하지 않던 때(kind 가 없는 응답)의 옛 방식: 문의 상태에서 말풍선과 카드를 다시 만들어 붙인다.
+  // 서버가 R-29 를 반영한 뒤에는 쓰이지 않는다 (모든 서버가 반영되면 이 블록을 걷어낸다)
+  if (!kinds) {
+    // 내 글에 AI 답이 없는 채로 담당자 연결을 거절했거나 접수 초안으로 넘어간 문의: "답변을 만들지 못했어요" 안내도 서버가 저장하지 않아서
+    // (연결 제안 단계에서만 화면이 만들어 붙인다) 버튼을 누르는 순간 사라진다. 누른 버튼·종료 안내 앞에 같은 안내를 버튼 없이 남겨 대화 흐름을 지킨다
+    if (!answering && !resolved && lastTextSender === 'USER' && ((i.status === 'CLOSED_UNRESOLVED' && !i.ticket) || step === 'draft')) {
+      out.push({ id: -3, role: 'assistant', blocks: [{ type: 'p', text: NO_ANSWER_TEXT }] })
+    }
+    // 내가 누른 "해결"·"미해결"과 그 뒤 안내 (서버는 저장하지 않는다)
+    if (resolved) out.push({ id: -8, role: 'user', text: RESOLVED_LABEL }, RESOLVED_REPLY)
+    else if (i.resolutionResult === 'UNRESOLVED') out.push({ id: -9, role: 'user', text: UNRESOLVED_LABEL }, UNRESOLVED_REPLY)
+    // 접수 없이 끝난 문의(담당자 연결 거절): 서버는 종료만 저장하고 안내 글은 저장하지 않아서, 모의와 같은 종료 안내를 화면에서 붙인다
+    if (i.status === 'CLOSED_UNRESOLVED' && !i.ticket) out.push({ id: -5, role: 'user', text: NO_CONNECT_LABEL }, ...NO_TICKET_CLOSED)
+    // 접수 초안·접수 카드: 서버는 카드를 메시지로 저장하지 않아서 상태에서 만들어 붙인다
+    if (intake && step === 'draft') out.push({ id: DRAFT_CARD_ID, role: 'assistant', blocks: [{ type: 'p', text: DRAFT_INTRO }], card: 'draft' })
+    if (intake && i.ticket) {
+      out.push({ id: TICKET_CARD_ID, role: 'assistant', blocks: [{ type: 'p', text: `접수되었어요. 접수번호는 **${i.ticket.receiptNo}** 입니다. 담당자 연결을 진행하고 있어요. 진행 상황은 아래 카드에서 바로 볼 수 있어요.` }], card: 'ticket' })
+    }
   }
   // 버튼은 마지막 AI 메시지에만 붙는다. 내 글에 AI 답이 없으면(답하지 못함) 안내 메시지를 만들어 붙인다
   const replies = REPLIES[step]
   if (replies) {
-    if (list[list.length - 1]?.sender === 'USER' && step === 'offer') {
+    if (lastTextSender === 'USER' && step === 'offer') {
       out.push({ id: -3, role: 'assistant', blocks: [{ type: 'p', text: NO_ANSWER_TEXT }], replies })
     } else {
       for (let k = out.length - 1; k >= 0; k--) {
@@ -353,9 +445,11 @@ const refTicket = (i: SInquiry): Ticket => ({
 const madeTitles = new Map<number, string>()
 
 export function toInquiry(i: SInquiry, messages: SMessage[], next?: string[], ticket?: Ticket | null, draft?: Draft | null, draftNote = '', intake = false): Inquiry {
-  const answering = isAnswering(i, messages)
-  const step: ChatStep = answering ? 'answering' : stepOf(i, next, messages[messages.length - 1]?.sender, intake)
-  const firstUser = messages.find((m) => m.sender === 'USER')?.content
+  // 말(TEXT)만 본다: 서버가 선택·카드를 메시지로 저장하면 마지막 메시지가 내 "선택"일 수 있다 (R-29)
+  const texts = messages.filter(isText)
+  const answering = isAnswering(i, texts)
+  const step: ChatStep = answering ? 'answering' : stepOf(i, next, texts[texts.length - 1]?.sender, intake)
+  const firstUser = texts.find((m) => m.sender === 'USER')?.content ?? undefined
   const title = i.title ?? (firstUser ? firstUser.slice(0, 30).trim() : '새 문의')
   if (!i.title && firstUser) madeTitles.set(i.id, title)
   return {

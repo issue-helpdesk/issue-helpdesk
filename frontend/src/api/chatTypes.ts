@@ -114,6 +114,9 @@ export interface ChatMessage {
   kind?: string
   /** 메시지 시각 (ISO 8601) */
   createdAt?: string
+  /** 서버가 저장한 접수 초안 카드의 초안과 상태 (R-29). 접수·취소 뒤에도 카드가 남아 읽기 전용으로 보인다 */
+  draft?: Draft
+  draftState?: DraftState
   /** sys 메시지의 색: sens=민감정보 가림 안내(분홍), warn=보안 사고 안내(노랑). 없으면 기본 안내 */
   tone?: 'sens' | 'warn'
 }
