@@ -5,7 +5,6 @@
  * 끝난 줄은 회색 한 줄이고, 지금 단계만 카드로 올라온다. 담당자는 패널에서도 상태 변경과 처리 결과를 요청할 수 있고, ITSM 반영 확인 뒤 확정한다. ITSM 댓글·멘션은 알림만 전달하고 내용은 ITSM 에서 읽는다.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { CATEGORIES, STAFF_STATUS } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { markTicketRead, refreshUnread } from '../../api/notifications'
@@ -18,7 +17,9 @@ import { formatDateTime } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { AssessmentHistory } from './AssessmentHistory'
 import { Icon } from '../../ui/Icon'
+import { CheckDialog } from '../admin/CheckDialog'
 import { ReassignDialog } from '../admin/ReassignDialog'
+import { recheckTransition, retryJiraCreate } from '../../api/ops'
 import { useToast } from '../../ui/useToast'
 import { UrgencyChip } from './QueueView'
 import { TicketWorkActions } from './TicketWorkActions'
@@ -146,9 +147,8 @@ function assignTitle(a: AssignmentLog): string {
   }
 }
 
-export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose, ops }: { id: number; tick: number; slide?: boolean; onSlideEnd?: () => void; onClose: () => void; /** 운영 현황에서만: ITSM 확인·재시도 창을 여는 동작 (다른 화면에서는 운영 현황으로 안내한다) */ ops?: { onCheck: (t: TicketDetail) => void } }) {
+export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose }: { id: number; tick: number; slide?: boolean; onSlideEnd?: () => void; onClose: () => void }) {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const [t, setT] = useState<TicketDetail | null>(null)
   const pending = t?.transitionStatus === 'PENDING'
   const mutationVersion = useRef(0)
@@ -158,6 +158,10 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
   const [assigns, setAssigns] = useState<AssignmentLog[]>([])
   // 담당자 재배정 (관리자)
   const [reassign, setReassign] = useState<false | 'assign' | 'reassign'>(false)
+  // ITSM 확인·재시도 (연동 실패·상태 동기화 확인 필요). 어느 화면에서 열어도 같은 단추와 창을 쓴다
+  const [check, setCheck] = useState(false)
+  const [checkBusy, setCheckBusy] = useState(false)
+  const [checkErr, setCheckErr] = useState('')
   const { say } = useToast()
   const [error, setError] = useState('')
   // 열릴 때 밀려 들어오고, 닫을 때 밀려 나간 뒤에 실제로 닫는다 (움직임 줄이기 설정이면 바로 닫는다)
@@ -409,8 +413,8 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
                   )}
                   {/* 확인이 필요한 건은 이 건에서 바로 할 수 있는 일을 단추로 둔다 (운영 현황으로 보내지 않는다) */}
                   {admin && t.workStatus !== 'CLS' && (t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.transitionStatus === 'NEEDS_ADMIN') && (
-                    <button type="button" className="btn pri block" style={{ marginBottom: 8 }} onClick={() => (ops ? ops.onCheck(t) : navigate('/ops'))}>
-                      {ops ? 'ITSM 확인·재시도' : 'ITSM 확인은 운영 현황에서'}
+                    <button type="button" className="btn pri block" style={{ marginBottom: 8 }} onClick={() => { setCheckErr(''); setCheck(true) }}>
+                      ITSM 확인·재시도
                     </button>
                   )}
                   {admin && (t.workStatus === 'RDY' || t.workStatus === 'WIP') && (
@@ -480,6 +484,25 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
           )}
         </div>
 
+        {check && t && (
+          <CheckDialog
+            t={t}
+            busy={checkBusy}
+            err={checkErr}
+            onClose={() => setCheck(false)}
+            onGo={async (kind, reason) => {
+              setCheckBusy(true)
+              setCheckErr('')
+              const r = kind === 'trn' ? await recheckTransition(user, id, reason) : await retryJiraCreate(user, id, reason)
+              setCheckBusy(false)
+              if (!r.ok) return setCheckErr(r.error.message)
+              setCheck(false)
+              say(r.data.outcome === 'REGISTERED' ? '재처리를 등록했어요. 실행기가 처리하면 상태가 바뀌어요.' : '재처리를 등록했어요. 잠시 뒤 반영돼요.')
+              refreshTickets()
+              setReload((n) => n + 1)
+            }}
+          />
+        )}
         {reassign && t && (
           <ReassignDialog
             t={t}

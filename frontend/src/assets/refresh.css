@@ -486,12 +486,12 @@
 /* 가이드 적재 실패 표시: 점(사이드바·분류·가이드), 버전 표의 준비 실패 배지 단추, 알림 창 목록. 버전 칸은 줄바꿈 없이 넓게 */
 .count.dot{min-width:8px;width:8px;height:8px;padding:0;font-size:0;line-height:0;border-radius:50%;background:var(--s-urg-dot);color:transparent}
 .fdot{display:inline-block;width:8px;height:8px;margin-left:8px;border-radius:50%;background:var(--s-urg-dot);vertical-align:middle;box-shadow:0 0 0 3px color-mix(in srgb,var(--s-urg-dot) 22%,transparent)}
-/* 버전 표: 열은 내용 폭에 넉넉한 좌우 여백(22px)을 더해 쓰고, 남는 폭은 맨 끝 "올린 시각" 열이 받는다.
+/* 버전 표: 열은 내용 폭에 넉넉한 좌우 여백(22px)을 더해 쓰고, 남는 폭은 맨 끝 열이 받는다.
    (열 폭을 늘려 칸을 벌리면 외부 AI 전송 버튼 양옆이 휑해 보여서, 이 열은 버튼 폭에 가깝게만 둔다) */
 .gvt .tbl th,.gvt .tbl td{white-space:nowrap;width:1%;padding-left:22px;padding-right:22px}
 .gvt .tbl th:first-child,.gvt .tbl td:first-child{padding-left:24px}
-.gvt .tbl th:nth-last-child(2),.gvt .tbl td:nth-last-child(2){width:auto}
-.gvt .tbl th:last-child,.gvt .tbl td:last-child{width:1%;padding-right:24px}
+/* 남는 폭은 맨 끝 "본문 보기" 열이 받고, 단추는 "올린 시각" 바로 옆(왼쪽 정렬)에 붙는다 */
+.gvt .tbl th:last-child,.gvt .tbl td:last-child{width:auto;padding-right:24px}
 .gvt-bar{display:flex;justify-content:space-between;align-items:center;margin:10px 4px 0}
 .gvt-wrap .gvt{margin-top:6px}
 .gvt .tbl th:nth-child(3),.gvt .tbl td:nth-child(3){min-width:150px}

@@ -182,4 +182,16 @@ describe('운영 현황 화면', () => {
     await userEvent.click(await within(panel2).findByRole('button', { name: 'ITSM 확인·재시도' }, SLOW))
     expect(await screen.findByRole('dialog', {}, SLOW)).toBeInTheDocument()
   })
+  it('전체 문의에서 연 상세 패널도 운영 현황과 같은 "ITSM 확인·재시도" 단추와 창을 쓴다', async () => {
+    renderAs('EMP-1178', '/tickets?st=none')
+    const row = (await screen.findAllByRole('row', undefined, SLOW)).find((r) => r.closest('tbody') && within(r).queryByText(/ITSM 생성 확인 필요/))!
+    await userEvent.click(within(row).getAllByRole('button')[0])
+    const panel = await screen.findByRole('complementary', { name: '티켓 상세' }, SLOW)
+    expect(within(panel).queryByRole('button', { name: /운영 현황에서/ })).toBeNull()
+    await userEvent.click(await within(panel).findByRole('button', { name: 'ITSM 확인·재시도' }, SLOW))
+    const dlg = await screen.findByRole('dialog', {}, SLOW)
+    expect(within(dlg).getByText('재처리 사유')).toBeInTheDocument()
+    // 이미 상세를 보고 있으니 창에 "상세" 단추는 없다
+    expect(within(dlg).queryByRole('button', { name: '상세' })).toBeNull()
+  })
 })
