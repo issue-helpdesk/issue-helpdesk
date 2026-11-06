@@ -37,6 +37,7 @@ BULLET_RE = re.compile(r'^\s*([•·▪◦‣\-–]|[①-⑳]|\d{1,2}[.)](?=\s))
 NUM_RE = re.compile(r'(?:^|·\s*)(\d{1,2}(?:\.\d{1,2})*)(\.)?\s+\S')
 CHAPTER_RE = re.compile(r'^(?:0(\d)\s+|(\d{1,2})\.?\s+(?=\D))(.+)$')   # '04 7개 분류…'처럼 0 붙은 번호는 늘 장 번호
 CAPTION_RE = re.compile(r'^그림\s*[\d.-]+')
+FIGURE_NO_RE = re.compile(r'^그림\s*(\d+(?:\.\d+)*-\d+)(?=[.\s]|$)')   # 그림 설명의 그림 번호 ('그림 3.1-1. …' → 3.1-1)
 IMAGE_EXTS = ('png', 'jpg')                        # 그림 이름표로 쓰는 형식 (그림 API DC-11 이 받는 형식)
 
 

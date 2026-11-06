@@ -2,6 +2,7 @@
 
 해결된 티켓(CLS, 문의자가 해결을 확인함) 하나를 그 문의 유형을 다루는 **기존 가이드의 다음 버전 초안**으로 만든다.
 현행 md 를 복사해 3장 끝에 새 항목 3.N, 목차 한 줄, 개정 이력 한 줄을 더하고 버전을 올린다 (v2.0 → v2.1).
+현행이 docx·pptx·pdf 면 파싱 결과를 가이드 md 로 바꿔 기준으로 쓴다 (parser/to_md.py). 새 버전은 늘 md 다.
 관리자가 고친 가이드를 새 버전으로 업로드한 것과 같은 모양이라, 그 뒤는 업로드 적재(M2-3-1)와 같다.
 
     d = draft(conn, ticket_id)                      # 초안 md + 경고. DB 에 쓰지 않는다
@@ -32,7 +33,7 @@ from pathlib import Path
 
 from app.rag.chunker import chunk_document, validate
 from app.rag.ingest import ROOT, _audit, _lock_document
-from app.rag.ingest.upload import resolve_file
+from app.rag.ingest.upload import resolve_file, to_checked_md
 from app.rag.parser import ParseError, parse
 
 CASE_DIR = Path('storage') / 'case_guides'                 # files_root 아래. file_path 에는 이 상대 경로만 넣는다
@@ -143,9 +144,7 @@ def draft(conn, ticket_id: int, doc_code: str | None = None, files_root: Path = 
         versions = [v for (v,) in conn.execute('select version from document_versions where document_id = %s', (doc_id,))]
         version = next_version(versions)
     base_file = resolve_file(base_path or cur[2], files_root)
-    if base_file.suffix.lower() != '.md':
-        raise CaseGuideError([f'{doc_code}의 기준 파일이 md 가 아닙니다 ({base_file.suffix}). md 버전을 올린 뒤 다시 하세요'])
-    base_md = base_file.read_text(encoding='utf-8')
+    base_md = _base_md(base_file, doc_code, warnings)
     if t['receipt_no'] in receipts(base_md):
         raise CaseGuideError([f"{t['receipt_no']}는 이미 {doc_code}에 반영되어 있습니다"])
 
@@ -164,6 +163,23 @@ def draft(conn, ticket_id: int, doc_code: str | None = None, files_root: Path = 
     return Draft(ticket_id=ticket_id, receipt_no=t['receipt_no'], document_id=doc_id, doc_code=doc_code,
                  version=version, section_no=section_no, base_md=base_md, md=md, current_version_id=cur[0],
                  draft_version_id=draft_id, base_file_path=base_path, warnings=warnings)
+
+
+def _base_md(path: Path, doc_code: str, warnings: list[str]) -> str:
+    """기준 md. 현행이 md 가 아니면(docx·pptx·pdf·txt) 파싱 결과를 가이드 md 로 바꿔 쓴다 (ingest/upload.py to_checked_md).
+    새 버전은 늘 md 다. 바꾼 md 를 다시 읽으면 원래 파일과 청크가 같지만 쪽 번호·문서 안 그림 내용 해시는 빠진다.
+    그림은 바꾸기 전에 배포 그림과 맞춰 보고, 없거나 내용이 다른 그림은 이름표 없이 본문 설명만 남긴다 (경고)."""
+    if path.suffix.lower() == '.md':
+        return path.read_text(encoding='utf-8')
+    try:
+        doc = parse(str(path))
+    except ParseError as e:
+        raise CaseGuideError([f'{doc_code}의 현행 파일({path.suffix})을 읽지 못했습니다: {e.message}']) from e
+    warnings.append(f'{doc_code}의 현행 파일이 {path.suffix.lstrip(".")} 라 md 로 바꿔 기준으로 썼습니다. '
+                    '새 버전은 md 로 저장·적재되고, 쪽 번호와 문서 안 그림의 내용 확인 값은 넣지 않습니다')
+    md, image_warnings = to_checked_md(doc)
+    warnings += image_warnings
+    return md
 
 
 def _read_ticket(conn, ticket_id: int) -> dict:

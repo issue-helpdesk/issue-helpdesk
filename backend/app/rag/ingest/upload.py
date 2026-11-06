@@ -17,12 +17,14 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import timedelta
 from pathlib import Path
 
 from app.rag.chunker import Chunk, chunk_document, chunk_row, document_row, validate, version_row, view_scope
 from app.rag.parser import ParseError, parse
+from app.rag.parser.models import ParsedDocument
+from app.rag.parser.to_md import to_guide_md
 
 from . import (ERROR_MAX, ROOT, SCOPE_RANK, IngestError, Prepared, Report, _drop_stale, _insert_chunks,
                _lock_document, _put_embeddings, _relabel, activate, check_vectors, read_vectors)
@@ -179,6 +181,26 @@ def check_images(chunks: list[Chunk], image_dir: Path = GUIDE_IMAGES) -> list[st
         out.append(f'파일 안 그림이 배포 그림과 달라 그림 {len(changed)}개는 본문 설명으로만 넣었습니다 '
                    f'(옛 그림이 보이지 않게): {", ".join(changed[:5])}' + (' …' if len(changed) > 5 else ''))
     return out
+
+
+def to_checked_md(doc: ParsedDocument, image_dir: Path = GUIDE_IMAGES) -> tuple[str, list[str]]:
+    """파싱 결과 → 가이드 md (parser/to_md.py) + 그림 경고. 가이드화 기준(현행이 md 가 아닐 때)·업로드 md 변환에서 부른다.
+
+    md 에는 문서 안 그림의 내용 해시가 없어, md 를 적재할 때 check_images 는 배포 그림이 있는지만 본다.
+    그래서 변환 **전에** 원래 파싱 결과로 check_images 를 돌려 빠질 그림(배포 그림 없음·내용 다름)을 고르고,
+    그 그림은 형식 없는 링크로 써 이름표가 생기지 않게 한다 (본문 '[그림] 설명' 은 남는다. 업로드 적재와 같은 결과).
+    md 링크는 이름표로만 그림을 가리키므로, 같은 이름표(같은 그림 번호)를 쓰는 그림 중 하나라도 빠지면 그 이름표 그림은
+    모두 뺀다 (어느 쪽이 옛 그림인지 md 에서는 가릴 수 없다). 이때는 경고를 하나 더한다."""
+    chunks = chunk_document(doc)
+    before = Counter(im['key'] for c in chunks for im in c.images)
+    warnings = check_images(chunks, image_dir)
+    kept = Counter(im['key'] for c in chunks for im in c.images)
+    drop = {k for k, n in before.items() if kept[k] < n}
+    if also := sorted(k for k in drop if kept[k]):
+        warnings.append(f'같은 그림 번호를 쓰는 그림 중 일부가 빠져, 그 번호의 다른 그림 {sum(kept[k] for k in also)}개도 '
+                        f'본문 설명으로만 넣었습니다 (md 에서는 구분할 수 없음): {", ".join(also[:5])}'
+                        + (' …' if len(also) > 5 else ''))
+    return to_guide_md(doc, drop), warnings
 
 
 def unknown_inquiry_types(chunks: list[Chunk], codes: set[str]) -> dict[str, list[str]]:

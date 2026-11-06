@@ -51,10 +51,10 @@ def _inline(s: str) -> str:
 
 def _table_rows(lines: list[str]) -> list[list[str]]:
     rows = []
-    for ln in lines:
+    for i, ln in enumerate(lines):
         cells = [_inline(c) for c in re.split(r'(?<!\\)\|', ln.strip().strip('|'))]
-        if any(cells) and all(re.fullmatch(r':?-{3,}:?', c.replace(' ', '')) for c in cells if c):
-            continue          # 구분 줄
+        if i == 1 and any(cells) and all(re.fullmatch(r':?-{3,}:?', c.replace(' ', '')) for c in cells if c):
+            continue          # 구분 줄 (둘째 줄만. 그 아래 '---' 만 든 행은 데이터)
         rows.append(cells)
     if rows and not any(rows[0]):
         rows = rows[1:]       # 머리 없는 표(빈 머리 줄)
@@ -116,7 +116,10 @@ def parse_md(path: str, safe: bool = False) -> ParsedDocument:
         elif in_toc or not s:
             i += 1
         elif s.startswith('```'):
-            block, j = _take(lines, i + 1, lambda x: not x.startswith('```'))
+            # 여는 줄의 백틱 수 이상으로 시작하는 줄에서 닫는다 (뒤 글자는 봐주던 예전 그대로). 그보다 짧은 '```' 줄은
+            # 코드 내용이다: to_md.py 는 코드 안에 '```' 줄이 있으면 더 긴 울타리('````')로 연다
+            fence = '`' * (len(s) - len(s.lstrip('`')))
+            block, j = _take(lines, i + 1, lambda x: not x.startswith(fence))
             if any(x.strip() for x in block):
                 out.append(Element('paragraph', '\n'.join(block).strip(), meta={'code': True}))
             i = j + 1
