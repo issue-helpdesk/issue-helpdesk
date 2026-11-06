@@ -5,7 +5,7 @@
  * 시안과 서버가 다른 곳(검색 범위, 부서·역할·상태 정렬, 이력 패널)은 api/users.ts 와 PR 본문에 적어 두었다.
  */
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { accountHistory, createUser, issueTempPassword, listAccountHistory, listDepartments, listUsers, recordAccountHistory, updateUser } from '../../api/users'
 import type { Page } from '../../api/inquiries'
 import type { AccountStatus, ApiFail, ServiceRole } from '../../api/types'
@@ -82,7 +82,9 @@ type Dialog =
 
 export function AccountsView() {
   const { user } = useAuth()
-  const [q, setQ] = useState('')
+  // 운영 기록에서 사용자를 눌러 오면 주소의 ?q= 값으로 검색을 채운다
+  const [params] = useSearchParams()
+  const [q, setQ] = useState(() => params.get('q') ?? '')
   const [dept, setDept] = useState('')
   const [role, setRole] = useState<ServiceRole | ''>('')
   const [tab, setTab] = useState<'' | AccountStatus>('')

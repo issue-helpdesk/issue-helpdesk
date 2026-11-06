@@ -122,7 +122,15 @@ describe('운영 기록 화면', () => {
     const who = MOCK_ACCOUNTS.find((u) => u.id === 6)
     expect(who).toBeTruthy()
     renderAs('EMP-1178', '/audit')
-    expect((await screen.findAllByText(`${who!.name} · ${who!.employeeNo}`, undefined, SLOW)).length).toBeGreaterThan(0)
+    expect((await screen.findAllByRole('button', { name: `${who!.name} 계정 관리에서 보기` }, SLOW)).length).toBeGreaterThan(0)
+  })
+
+  it('사용자 이름을 누르면 계정 관리가 그 사번으로 검색된 채 열린다', async () => {
+    const { MOCK_ACCOUNTS } = await import('../src/api/mock/accounts')
+    const who = MOCK_ACCOUNTS.find((u) => u.id === 6)!
+    renderAs('EMP-1178', '/audit')
+    await userEvent.click((await screen.findAllByRole('button', { name: `${who.name} 계정 관리에서 보기` }, SLOW))[0])
+    expect(await screen.findByRole('textbox', { name: '계정 검색' }, SLOW)).toHaveValue(who.employeeNo)
   })
 
   it('담당자는 들어올 수 없다', async () => {

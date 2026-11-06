@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CATEGORIES, URGENCY_LABEL } from '../../api/catalog'
+import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode, Urgency, WorkStatus } from '../../api/chatTypes'
 import { getStatsSource, watchTickets } from '../../api/tickets'
 import type { ApiResult, User } from '../../api/types'
@@ -19,7 +19,6 @@ import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
 import { MemberCards } from '../admin/MemberCards'
 import { loadMine } from './myOverview'
-import { UrgencyChip } from './QueueView'
 import type { MyOverview } from '../../api/myStats'
 
 export type Per = 'd' | 'm' | 'y'
@@ -593,11 +592,9 @@ export function StatsView() {
   const loadMineCb = useCallback((u: User) => loadMine(u, per), [per])
   const mine = useSection('ovme', per, tick, loadMineCb)
   const trend = useSection('trend', `${per}|${scope}|${unitNow}`, tick)
-  const pri = useSection('pri', `${per}|${scope}`, tick)
   const uid = user?.id ?? 0
 
   const trendWin = useMemo(() => windowOf(trend, per, team, uid), [trend, per, team, uid])
-  const priWin = useMemo(() => windowOf(pri, per, team, uid), [pri, per, team, uid])
 
   if (!user) return null
   const groupName = user.departmentName ?? ''
@@ -606,8 +603,6 @@ export function StatsView() {
   const total = sumOf(v)
   const none = ovm?.none
   const b = per === 'd' ? null : bucket(trendWin, per, unitNow, trend.ts)
-  const urgN = URGS.map((p) => priWin.filter((t) => t.urgency === p).length)
-  const urgMx = Math.max(1, ...urgN)
   const pickPer = (p: Per) => {
     setPer(p)
     setUnit(UDEF[p])
@@ -724,34 +719,6 @@ export function StatsView() {
                 </div>
                 <p className="small muted secnote">오늘은 하루치라서 추이 그래프는 보여주지 않아요. 기간을 ‘최근 30일’ 이상으로 바꾸면 추이를 볼 수 있어요.</p>
               </>
-            )}
-          </Section>
-
-          <Section title="긴급도 분포" sec={pri} note="선택 기간에 접수된 티켓 기준이에요.">
-            <div className="pdist">
-              {URGS.map((p, i) => (
-                <button key={p} type="button" className="pd" onClick={() => navigate(`/queue?pri=${p}&per=${per}`)} aria-label={`${URGENCY_LABEL[p]} ${urgN[i]}건. 이 긴급도의 문의 목록 보기`}>
-                  <span className="pl">
-                    <UrgencyChip u={p} />
-                  </span>
-                  <span className="bar" aria-hidden="true">
-                    <i className={`pb-${p.toLowerCase()}`} style={{ width: `${Math.max(urgN[i] ? 3 : 0, (urgN[i] / urgMx) * 100)}%` }} />
-                  </span>
-                  <b>
-                    {urgN[i]}
-                    <small>건</small>
-                  </b>
-                  <Icon name="chevron" className="go" />
-                  <span className="small muted pr">
-                    {PRI_RULE[p]}
-                  </span>
-                </button>
-              ))}
-            </div>
-            {team && (
-              <p className="small muted secnote" style={{ marginTop: 8 }}>
-                건수는 팀 전체예요. 줄을 누르면 내 문의 중 해당 긴급도만 목록으로 보여줘요.
-              </p>
             )}
           </Section>
 

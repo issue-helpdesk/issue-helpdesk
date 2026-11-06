@@ -2,7 +2,7 @@
  * 캘린더 (담당자·관리자): 연차·반차 일정을 달력으로 보고, 내 일정을 등록·삭제한다. (docs/api/05 TO-01~04)
  *
  * - 보이는 범위는 서버가 정한다: 관리자는 전체, 팀장은 자기 그룹, 일반 담당자는 지금은 본인만(팀 일정은 서버에 요청 중).
- * - 관리자에게만 "내 일정 / 전체" 보기 전환이 있다. 담당자는 서버가 주는 범위를 그대로 보여 준다.
+ * - "내 일정 / 전체(관리자) · 팀 일정(담당자)" 보기 전환이 있다. 담당자의 팀 일정은 서버가 허용해 주는 범위만큼 보인다(요청 R-43, 지금은 본인 일정만).
  * - 등록·삭제는 본인 일정만 한다. 부재 중인 사람은 자동 배정에서 빠진다는 안내를 머리말에 둔다.
  * - 달력과 같은 내용을 목록으로도 보여 준다 (달력만으로는 읽기 어려운 사용자와 좁은 화면을 위해).
  */
@@ -96,7 +96,7 @@ export function CalendarView() {
   const items = (all ?? []).filter((t) => (scope === 'all' || t.userId === user.id) && (!teamIds || teamIds.has(t.userId)))
   const onDay = (d: string) => items.filter((t) => t.startDate <= d && t.endDate >= d)
   const move = (delta: number) => setYm((c) => { const d = new Date(c.y, c.m + delta, 1); return { y: d.getFullYear(), m: d.getMonth() } })
-  const showAllLabel = admin ? '전체' : '보이는 일정'
+  const showAllLabel = admin ? '전체' : '팀 일정'
 
   async function remove(t: TimeOff) {
     const r = await deleteTimeOff(t.id)
@@ -139,16 +139,14 @@ export function CalendarView() {
                 {admin && Object.keys(board).length > 0 && (
                   <FilterPill label="팀" value={team} options={Object.keys(board).map((g) => ({ value: g, label: g }))} onChange={setTeam} />
                 )}
-                {admin && (
-                  <div className="seg" role="group" aria-label="보기 범위">
-                    <button type="button" className={scope === 'mine' ? 'on' : ''} aria-pressed={scope === 'mine'} onClick={() => setScope('mine')}>
-                      내 일정
-                    </button>
-                    <button type="button" className={scope === 'all' ? 'on' : ''} aria-pressed={scope === 'all'} onClick={() => setScope('all')}>
-                      {showAllLabel}
-                    </button>
+                <div className="seg" role="group" aria-label="보기 범위">
+                  <button type="button" className={scope === 'mine' ? 'on' : ''} aria-pressed={scope === 'mine'} onClick={() => setScope('mine')}>
+                    내 일정
+                  </button>
+                  <button type="button" className={scope === 'all' ? 'on' : ''} aria-pressed={scope === 'all'} onClick={() => setScope('all')}>
+                    {showAllLabel}
+                  </button>
                   </div>
-                )}
                 <button type="button" className="btn pri" onClick={() => setAdding(true)}>
                   <Icon name="plus" /> 일정 등록
                 </button>

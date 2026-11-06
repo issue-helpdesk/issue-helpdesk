@@ -28,11 +28,13 @@ function renderAt(path: string, employeeNo: string) {
 beforeEach(() => resetMockTimeOff())
 
 describe('캘린더 화면', () => {
-  it('담당자는 달력과 목록을 보고, "내 일정/전체" 전환은 없다', async () => {
+  it('담당자는 달력을 보고, "내 일정 / 팀 일정" 전환이 있다', async () => {
     renderAt('/calendar', 'EMP-1004')
     expect((await screen.findAllByRole('heading', { name: '캘린더' }, SLOW)).length).toBeGreaterThan(0)
     expect(screen.getByRole('grid')).toBeInTheDocument()
-    expect(screen.queryByRole('group', { name: '보기 범위' })).not.toBeInTheDocument()
+    const g = screen.getByRole('group', { name: '보기 범위' })
+    expect(within(g).getByRole('button', { name: '팀 일정' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(g).queryByRole('button', { name: '전체' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '일정 등록' })).toBeInTheDocument()
   })
 

@@ -112,7 +112,7 @@ button.gcb{width:100%;display:flex;align-items:center;gap:14px;background:none;b
 .grtl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .gprow.off .grb,.gprow.off .gvt{opacity:.55;filter:grayscale(1)}
 .gcp{margin:0 10px 10px;background:var(--side);border-radius:12px;padding:2px 14px}.gprow{padding:11px 0;border-bottom:1px solid var(--line2)}.gprow:last-child{border-bottom:0}
-button.grb{width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;background:none;border:0;padding:0;min-height:40px;cursor:pointer;color:var(--ink);font:inherit;text-align:left}.grb b{font-size:15px;line-height:22px}.grt{min-width:0;flex:1}.grb .gbs{display:flex;align-items:center;gap:8px}
+button.grb{width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;background:none;border:0;padding:0;min-height:40px;cursor:pointer;color:var(--ink);font:inherit;text-align:left}.grb b{font-size:15px;line-height:22px}.grt{min-width:0;flex:1}.grb .gbs{display:grid;grid-template-columns:104px 124px;gap:8px;align-items:center;justify-items:start}
 .gc-tw{margin-top:12px;padding-top:4px;border-top:1px solid var(--line)}
 .fr{margin-left:auto}.tabs .btn.fr{margin-bottom:6px}
 .tag.gcbar{background:var(--cd)!important}.tag.gcbar::before{display:none}
