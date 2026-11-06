@@ -51,6 +51,9 @@ describe('describeAudit', () => {
     expect(d('BLOCK', 'ALL_BLOCKED').out).toBe('근거 전체 차단, 담당자 연결 제안')
     expect(d('FAIL', 'FILTER_FAILED').out).toBe('민감정보 필터 실패')
     expect(d('FAIL', 'AI_FAILED', 'TIMEOUT')).toMatchObject({ out: 'AI 답변 실패', reason: 'TIMEOUT' })
+    // 사유 앞의 서버 내부 번호(④)는 떼고 보인다
+    expect(d('FAIL', 'FILTER_FAILED', '④ 검색 근거 IT-SEC-003').reason).toBe('검색 근거 IT-SEC-003')
+    expect(d('FAIL', 'FILTER_FAILED', '④ 외부 모델 호출 직전').reason).toBe('외부 모델 호출 직전')
   })
 
   it('서버가 결과에 담아 준 접수번호·문서 코드·FAQ 번호만 식별 이름(name)으로 올린다', () => {
