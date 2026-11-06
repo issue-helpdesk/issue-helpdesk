@@ -33,11 +33,10 @@ import re
 from dataclasses import asdict, dataclass, field
 
 from ..parser import PARSER_VERSION
-from ..parser.common import CIRCLED, NUM_RE
+from ..parser.common import CIRCLED, FIGURE_NO_RE, NUM_RE
 from ..parser.models import Element, ParsedDocument
 
 CHUNKER_VERSION = '1.2'  # 청크 경계·글이 바뀌는 수정을 하면 올린다 (chunk_key 는 같은 버전 안에서만 안정적)
-FIGURE_NO_RE = re.compile(r'^그림\s*(\d+(?:\.\d+)*-\d+)(?=[.\s]|$)')   # 그림 설명의 그림 번호 ('그림 3.1-1. …' → 3.1-1)
 TRANSFER_POLICIES = ('ALLOWED', 'MASKED', 'BLOCKED')    # document_versions.transfer_policy
 VIEW_SCOPES = {'사내 일반': 'ALL', '사내 제한': 'AGENT'}   # 문서 열람 등급 → document_versions.view_scope
 DOC_TYPES = {'guide': 'GUIDE', 'manual': 'MANUAL', 'standard': 'STANDARD', 'policy': 'POLICY'}   # → knowledge_documents.doc_type

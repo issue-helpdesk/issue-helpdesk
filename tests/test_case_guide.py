@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from app.rag.case_guide import (CASE_DIR, CaseGuideError, Draft, _added_lines, _parse_text, add_case, candidates, check,
-                                draft, next_version, receipts, register, sensitive_warnings)
+from app.rag.case_guide import (CASE_DIR, CaseGuideError, Draft, _added_lines, _base_md, _parse_text, add_case, candidates,
+                                check, draft, next_version, receipts, register, sensitive_warnings)
 from app.rag.ingest import GUIDES, activate, connect
 from app.rag.ingest.upload import ingest_version
 from test_ingest_upload import EMB, REPO, guide_file, needs_db, url, version  # noqa: F401  (url 은 fixture)
@@ -133,7 +133,7 @@ def test_no_chapter3_refused():
 
 # ── DB ───────────────────────────────────────────────────────
 
-def _current_guide(url, code='IT-SW-001'):
+def _current_guide(url, code='IT-SW-001', fmt='md'):
     """현행 가이드 하나 (file_path 는 절대 경로: 사례 파일은 tmp 저장 루트에, 기준 파일은 저장소에)."""
     with connect(url) as conn:
         doc = conn.execute("insert into knowledge_documents (doc_code, doc_type, title, category_code) "
@@ -144,7 +144,7 @@ def _current_guide(url, code='IT-SW-001'):
             return have[0]
         vid = conn.execute("insert into document_versions (document_id, version, file_path, view_scope, transfer_policy, "
                            "is_current, ingest_status) values (%s, 'v2.0', %s, 'ALL', 'ALLOWED', false, 'PENDING') returning id",
-                           (doc, str(REPO / guide_file(code)))).fetchone()[0]
+                           (doc, str(REPO / guide_file(code, fmt)))).fetchone()[0]
         conn.commit()
         assert ingest_version(conn, vid, EMB)['status'] == 'DONE'
         activate(conn, vid)
@@ -456,6 +456,42 @@ def test_markdown_in_ticket_text_stays_inside_item():
     d, _ = make(symptom=payload, resolution_note=payload)
     assert len(items(d.md)) == len(items(BASE)) + 1 and items(d.md)[-1].inquiry_type_codes == ['SW-01']
     assert check(d, d.md, [])[0] == []
+
+
+@pytest.mark.parametrize('fmt', ['docx', 'pptx', 'pdf'])
+def test_non_md_current_is_converted(fmt):
+    """현행이 md 가 아니면 가이드 md 로 바꿔 기준으로 쓴다 (경고 한 줄). 사례를 넣으면 항목이 하나 늘고 원래 항목은 그대로."""
+    warnings = []
+    base = _base_md(REPO / guide_file('IT-SW-001', fmt), 'IT-SW-001', warnings)
+    assert len(warnings) == 1 and f'현행 파일이 {fmt} 라 md 로' in warnings[0]
+    md, section = add_case(base, ticket_row(), 'v2.1', TODAY, [])
+    assert section == '3.8' and [c.text for c in items(base)] == [c.text for c in items(md)][:-1]
+    assert [c.section_no for c in items(base)] == [c.section_no for c in items(BASE)]
+
+
+def test_unreadable_current_refused(tmp_path):
+    bad = tmp_path / 'x.pdf'
+    bad.write_bytes(b'not a pdf')
+    with pytest.raises(CaseGuideError, match='읽지 못했습니다'):
+        _base_md(bad, 'IT-SW-001', [])
+
+
+@needs_db
+@pytest.mark.parametrize('code, fmt', [('IT-NET-002', 'docx'), ('IT-SEC-001', 'pptx'), ('IT-SYS-001', 'pdf')])
+def test_non_md_current_end_to_end(url, tmp_path, code, fmt):
+    """현행이 docx·pptx·pdf 인 가이드: 초안(md) → 등록(md 파일) → 적재 DONE, 새 항목이 청크에 있다.
+    가이드는 이 파일의 다른 시험이 초안을 만들지 않는 것 (같은 DB 에 승인 전 초안이 있으면 그 초안에 이어 쓴다)."""
+    _current_guide(url, code, fmt)
+    tid = _ticket(url, f'TK-FMT-{fmt}')
+    with connect(url) as conn:
+        d = draft(conn, tid, doc_code=code, files_root=tmp_path)
+        assert any(f'현행 파일이 {fmt} 라' in w for w in d.warnings)
+        out = register(conn, d, d.md, None, tmp_path, **POLICY)
+        assert out['file_path'].endswith('.md')
+        assert ingest_version(conn, out['version_id'], EMB, tmp_path)['status'] == 'DONE'
+        keys = [k for (k,) in conn.execute("select unit_key from document_chunks where version_id = %s "
+                                           "and chunk_type = 'ITEM'", (out['version_id'],))]
+    assert f'{code}@{d.version}/item:{d.section_no}' in keys
 
 
 def test_draft_save_load(tmp_path):
