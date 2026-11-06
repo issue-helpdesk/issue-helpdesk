@@ -14,15 +14,15 @@ interface Props {
   answers: (QAnswer | undefined)[]
   /** 요청 중이거나 이어가기 창이 떠 있을 때 */
   disabled: boolean
-  /** 전송하려다 막혔을 때의 안내 (모든 질문에 답해야 한다) */
-  error: string
+  /** 이미 보낸 질문에서 고른 답 (읽기 전용 표시용). 고른 칸은 색 있는 선으로 보인다 */
+  picked?: (QAnswer | undefined)[]
   onChange: (index: number, answer: QAnswer) => void
   onSubmit: () => void
 }
 
 const blank: QAnswer = { mode: 'option', option: '', text: '' }
 
-export function QuestionForm({ questions, open, answers, disabled, error, onChange, onSubmit }: Props) {
+export function QuestionForm({ questions, open, answers, disabled, picked, onChange, onSubmit }: Props) {
   const uid = useId()
   const lock = !open || disabled
   const left = unansweredCount(questions, answers)
@@ -31,6 +31,7 @@ export function QuestionForm({ questions, open, answers, disabled, error, onChan
       {questions.map((q, k) => {
         const a = answers[k]
         const input = open && showsInput(q, a)
+        const p = open ? undefined : picked?.[k] // 지난 질문에서 내가 고른 답
         return (
           <fieldset key={k} className="qf-q" disabled={lock}>
             <legend id={`${uid}-${k}`}>{q.text}</legend>
@@ -38,19 +39,21 @@ export function QuestionForm({ questions, open, answers, disabled, error, onChan
               <div className="qf-opts" role="radiogroup" aria-labelledby={`${uid}-${k}`}>
                 {q.options.map((o) => {
                   const on = open && a?.mode !== 'text' && a?.option === o
+                  const was = !open && p?.mode === 'option' && p.option === o
                   return (
-                    <button key={o} type="button" role="radio" aria-checked={on} className={`chip${on ? ' on' : ''}`} onClick={() => onChange(k, { ...(a ?? blank), mode: 'option', option: o })}>
+                    <button key={o} type="button" role="radio" aria-checked={on || was} className={`chip${on ? ' on' : ''}${was ? ' picked' : ''}`} onClick={() => onChange(k, { ...(a ?? blank), mode: 'option', option: o })}>
                       {o}
                     </button>
                   )
                 })}
-                {open && canType(q) && (
-                  <button type="button" role="radio" aria-checked={a?.mode === 'text'} className={`chip${a?.mode === 'text' ? ' on' : ''}`} onClick={() => onChange(k, { ...(a ?? blank), mode: 'text' })}>
+                {canType(q) && (open || p?.mode === 'text') && (
+                  <button type="button" role="radio" aria-checked={open ? a?.mode === 'text' : true} className={`chip${open && a?.mode === 'text' ? ' on' : ''}${!open && p?.mode === 'text' ? ' picked' : ''}`} onClick={() => onChange(k, { ...(a ?? blank), mode: 'text' })}>
                     {directLabel(q)}
                   </button>
                 )}
               </div>
             )}
+            {!open && p?.mode === 'text' && p.text && <div className="qf-was small">{p.text}</div>}
             {input && (
               <input
                 className="inp qf-in"
@@ -72,11 +75,6 @@ export function QuestionForm({ questions, open, answers, disabled, error, onChan
           <button type="button" className="btn pri sm" disabled={lock || !allAnswered(questions, answers)} aria-describedby={`${uid}-hint`} onClick={onSubmit}>
             답변 보내기
           </button>
-        </div>
-      )}
-      {open && error && (
-        <div className="errtx" role="alert">
-          {error}
         </div>
       )}
     </div>

@@ -32,6 +32,7 @@ import { ticketIdOfInquiry } from '../../api/mock/staffTickets'
 import { TicketDetailPanel } from '../staff/TicketDetailPanel'
 import { MessageItem, PAIR, type ChatActions } from './MessageItem'
 import { latestPose, poseLabel, poseOf } from './pose'
+import { nextKnown, type KnownMessages } from './messageKeys'
 import { allAnswered, buildAnswerText, unansweredCount, type QAnswer } from './questionAnswers'
 import { ENTRY_POPUP, endedMessage, entryKindOf, type EntryKind } from './resume'
 
@@ -64,7 +65,19 @@ export function ChatView() {
   const [text, setText] = useState('')
   // 추가 질문 답: 메시지마다 따로 들고(선택·입력은 새로 받아도 지워지지 않는다), 보내기에 성공하면 비운다
   const [qAnswers, setQAnswers] = useState<Record<number, (QAnswer | undefined)[]>>({})
-  const [qError, setQError] = useState('')
+  // 질문에 다 답하지 않고 입력창으로 보내려 할 때: 입력창이 빨갛게 바뀌고 안내가 잠깐 보였다 사라진다
+  const [composeError, setComposeError] = useState('')
+  const composeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => () => clearTimeout(composeTimer.current), [])
+  const flashComposeError = useCallback((m: string) => {
+    clearTimeout(composeTimer.current)
+    setComposeError(m)
+    composeTimer.current = setTimeout(() => setComposeError(''), 4000)
+  }, [])
+  const clearComposeError = useCallback(() => {
+    clearTimeout(composeTimer.current)
+    setComposeError('')
+  }, [])
   const [detail, setDetail] = useState(false) // 접수 상세 패널
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -139,13 +152,14 @@ export function ChatView() {
   const count = inquiry?.messages.length ?? 0
 
   // 새로 생긴 AI 답변만 한 번 움직인다. 처음 불러온 메시지와 단순한 다시 그리기에서는 움직이지 않는다.
-  const [known, setKnown] = useState<{ id: number; ids: Set<number>; fresh: Set<number> } | null>(null)
+  // 내가 보낸 글은 먼저 임시 글로 보였다가 진짜 글로 바뀌는데, 같은 글은 같은 키를 이어 써서 지워졌다 다시 생기지 않게 한다 (messageKeys.ts)
+  const [known, setKnown] = useState<KnownMessages | null>(null)
   if (inquiry) {
-    const ids = inquiry.messages.map((m) => m.id)
-    if (!known || known.id !== id) setKnown({ id, ids: new Set(ids), fresh: new Set() })
-    else if (ids.some((x) => !known.ids.has(x))) setKnown({ id, ids: new Set(ids), fresh: new Set(ids.filter((x) => !known.ids.has(x))) })
+    const next = nextKnown(known, id, inquiry.messages)
+    if (next !== known) setKnown(next)
   }
   const fresh = known?.id === id ? known.fresh : NO_MESSAGES
+  const alias = known?.id === id ? known.alias : undefined
   if (inquiry && (!entry || entry.id !== id)) {
     const kind = fromNew ? null : entryKindOf(inquiry)
     setEntry({ id, kind, popup: kind !== null, done: false })
@@ -351,10 +365,10 @@ export function ChatView() {
   async function sendAnswers() {
     if (!openQ?.questions || busy || !employeeNo) return
     if (!allAnswered(openQ.questions, openAnswers)) {
-      setQError(`아직 답하지 않은 질문이 ${unansweredCount(openQ.questions, openAnswers)}개 있어요. 모든 질문에 답한 뒤 보낼 수 있어요.`)
+      flashComposeError(`아직 답하지 않은 질문이 ${unansweredCount(openQ.questions, openAnswers)}개 있어요. 모든 질문에 답한 뒤 보낼 수 있어요.`)
       return
     }
-    setQError('')
+    clearComposeError()
     const ok = await apply(sendChat(id, employeeNo, buildAnswerText(openQ.questions, openAnswers, text)))
     if (ok) {
       setText('')
@@ -397,7 +411,7 @@ export function ChatView() {
         <div className="thread" role="log" aria-live="polite" aria-label="문의 대화">
           {inquiry.messages.map((m, idx) => {
             const pose = poseOf(inquiry, idx)
-            return <MessageItem key={m.id} inquiry={inquiry} message={m} busy={busy} qa={openQ && openQ.id === m.id ? { answers: openAnswers, error: qError, onChange: (k, a) => { setQError(''); setQAnswers((all) => { const cur = [...(all[m.id] ?? [])]; cur[k] = a; return { ...all, [m.id]: cur } }) }, onSubmit: () => void sendAnswers() } : undefined} actions={actions} fresh={fresh.has(m.id)} pose={pose} poseText={poseLabel(inquiry, idx, pose)} replyLock={replyBlocked} hideReplies={showTail && m.id === tailMsg?.id} />
+            return <MessageItem key={alias?.get(m.id) ?? m.id} inquiry={inquiry} message={m} busy={busy} qa={openQ && openQ.id === m.id ? { answers: openAnswers, onChange: (k, a) => { clearComposeError(); setQAnswers((all) => { const cur = [...(all[m.id] ?? [])]; cur[k] = a; return { ...all, [m.id]: cur } }) }, onSubmit: () => void sendAnswers() } : undefined} actions={actions} fresh={fresh.has(m.id)} pose={pose} poseText={poseLabel(inquiry, idx, pose)} replyLock={replyBlocked} hideReplies={showTail && m.id === tailMsg?.id} />
           })}
           {showTail && tailMsg && (
             <div className="msg a">
@@ -437,7 +451,7 @@ export function ChatView() {
           </div>
         )}
         <div className="cmpw">
-          <Composer value={text} onChange={setText} onSend={send} placeholder={placeholder} disabled={busy || typing} locked={!!lock || !!endMsg} />
+          <Composer value={text} onChange={setText} error={composeError} onSend={send} placeholder={placeholder} disabled={busy || typing} locked={!!lock || !!endMsg} />
           {gated && <button type="button" className="cmp-hit" aria-label="이어가기 선택 열기" onClick={() => setEntry((e) => (e ? { ...e, popup: true } : e))} />}
         </div>
         {!endMsg && (

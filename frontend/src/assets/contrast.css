@@ -125,3 +125,6 @@
 /* ---- 움직임: 고대비에서는 번쩍이는 장식 끔 ---- */
 :root[data-contrast="high"] .hband h2 .pulse{animation:none}
 :root[data-contrast="high"] .nwb,:root[data-contrast="high"] .endbar{box-shadow:inset 0 0 0 2px currentColor;font-weight:700}
+:root[data-contrast="high"] .qf.past{opacity:1}
+:root[data-contrast="high"] .qf.past .chip.picked{background:var(--hc-accent);color:#000;box-shadow:inset 0 0 0 2px var(--hc-ring);font-weight:700}
+:root[data-contrast="high"] .composer.err{box-shadow:inset 0 0 0 3px var(--s-urg-dot)}

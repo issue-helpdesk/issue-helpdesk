@@ -49,3 +49,20 @@ export function buildAnswerText(qs: ChatQuestion[], answers: (QAnswer | undefine
   if (more) lines.push(`추가 내용: ${more}`)
   return lines.join('\n')
 }
+
+/**
+ * 이미 보낸 질문의 답을 내 말풍선 글("이름: 답" 줄)에서 읽어 온다. 지난 질문에서 고른 칸을 표시하는 데 쓴다.
+ * 선택지와 같은 글이면 선택, 아니면 직접 입력으로 본다. 찾지 못한 질문은 undefined.
+ */
+export function answersFromText(qs: ChatQuestion[], text: string): (QAnswer | undefined)[] {
+  const byLabel = new Map<string, string>()
+  for (const line of text.split(/\r?\n/)) {
+    const m = /^([^:]{1,60}):\s*(.*\S)\s*$/.exec(line.trim())
+    if (m) byLabel.set(m[1].trim(), m[2].trim())
+  }
+  return qs.map((q) => {
+    const v = byLabel.get(labelOf(q))
+    if (v === undefined) return undefined
+    return q.options.includes(v) ? { mode: 'option', option: v, text: '' } : { mode: 'text', option: '', text: v }
+  })
+}

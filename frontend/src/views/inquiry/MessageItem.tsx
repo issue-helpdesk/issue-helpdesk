@@ -13,7 +13,7 @@ import type { Pose } from '../../ui/poseImages'
 import { RichText } from '../../ui/RichText'
 import { DraftCard } from './DraftCard'
 import { QuestionForm } from './QuestionForm'
-import type { QAnswer } from './questionAnswers'
+import { answersFromText, type QAnswer } from './questionAnswers'
 import { TicketCard } from './TicketCard'
 
 /** 해결·미해결은 한 쌍이라 둘 다 같은 기본 버튼 모양이다 (한쪽만 분홍 상자면 선택된 것처럼 보인다) */
@@ -22,7 +22,6 @@ export const PAIR = new Set(['resolved', 'unresolved'])
 /** 지금 답할 수 있는 추가 질문의 답 상태와 동작 (대화 화면이 들고 있다) */
 export interface QuestionAnswers {
   answers: (QAnswer | undefined)[]
-  error: string
   onChange: (index: number, answer: QAnswer) => void
   onSubmit: () => void
 }
@@ -99,6 +98,13 @@ interface Props {
   hideReplies?: boolean
   /** 지금 답할 수 있는 추가 질문의 답 (questionsOpen 인 메시지에만 온다) */
   qa?: QuestionAnswers
+}
+
+/** 지난 질문에서 고른 답: 이 메시지 다음에 이어진 내 말풍선("이름: 답" 줄)에서 읽는다 */
+function pastAnswers(inquiry: Inquiry, m: ChatMessage) {
+  const at = inquiry.messages.findIndex((x) => x.id === m.id)
+  const next = at >= 0 ? inquiry.messages.slice(at + 1).find((x) => x.role === 'user') : undefined
+  return m.questions && next?.text ? answersFromText(m.questions, next.text) : undefined
 }
 
 export function MessageItem({ inquiry, message: m, busy, actions, fresh = false, pose = 'base', poseText = '', replyLock = false, hideReplies = false, qa }: Props) {
@@ -188,7 +194,7 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false,
             open={!!m.questionsOpen && !!qa}
             answers={qa?.answers ?? []}
             disabled={busy || replyLock}
-            error={qa?.error ?? ''}
+            picked={m.questionsOpen && qa ? undefined : pastAnswers(inquiry, m)}
             onChange={qa?.onChange ?? (() => {})}
             onSubmit={qa?.onSubmit ?? (() => {})}
           />
