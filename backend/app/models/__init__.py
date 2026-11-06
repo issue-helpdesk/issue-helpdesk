@@ -8,7 +8,7 @@ from app.models.ticket import (AssignmentLog, IntegrationJob, JiraWebhookEvent, 
                                TicketStatusHistory)
 from app.models.knowledge import DocumentChunk, DocumentVersion, Faq, FaqSourceDocument, KnowledgeDocument, LegacyInquiry
 from app.models.embedding import DocumentChunkEmbedding, LegacyInquiryEmbedding
-from app.models.ops import AuditLog, LlmCall
+from app.models.ops import AuditLog, LlmCall, SecurityAlert
 from app.models.time_off import TimeOff
 
 __all__ = [
@@ -45,4 +45,5 @@ __all__ = [
     "AuditLog",
     "TimeOff",
     "LlmCall",
+    "SecurityAlert",
 ]
