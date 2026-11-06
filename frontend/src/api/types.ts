@@ -25,7 +25,6 @@ export interface User {
   /** 임시 비밀번호로 로그인한 상태. true 이면 새 비밀번호를 정하기 전에는 다른 기능을 쓸 수 없다. (AU-01 passwordChangeRequired) */
   passwordChangeRequired?: boolean
   /** 비밀번호를 마지막으로 바꾼 뒤 지난 날수. 서버가 주는 값이 문서(AU-03)에 없어 제안이다. */
-  passwordChangedDaysAgo?: number
 }
 
 /** 성공 응답 */

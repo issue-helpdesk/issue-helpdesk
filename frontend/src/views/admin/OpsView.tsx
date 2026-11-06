@@ -310,7 +310,6 @@ export function OpsView() {
               <span className="small muted">
                 {monthDay(asOf)} {hm(asOf)} 기준
               </span>
-              <span className="tag gray">제안</span>
               <span className="small muted dsy">
                 <span>마지막 조회 {hm(asOf)}</span>
                 <button
@@ -420,7 +419,7 @@ export function OpsView() {
               )}
               {sec(
                 <>
-                  당일 미종결 예외 <span className="ocnt">{exc.length}건</span> <span className="tag gray">제안</span>
+                  당일 미종결 예외 <span className="ocnt">{exc.length}건</span>
                 </>,
                 '접수 당일 안에 끝나지 않은 긴급·높음 건',
                 <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P12&unres=1')}>

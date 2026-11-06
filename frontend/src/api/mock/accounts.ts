@@ -102,7 +102,7 @@ export function setPassword(id: string, pw: string) {
 
 /** 로그인 응답에 담아 줄 사용자: 임시 비밀번호 상태와 비밀번호 변경 후 날수를 붙인 사본 (저장된 계정은 건드리지 않는다) */
 export function sessionUser(acc: User): User {
-  return { ...acc, passwordChangeRequired: tempPw.has(acc.employeeNo), passwordChangedDaysAgo: tempPw.has(acc.employeeNo) ? 0 : 38 }
+  return { ...acc, passwordChangeRequired: tempPw.has(acc.employeeNo) }
 }
 
 /** 연속 실패를 한 번 기록하고 누적 횟수를 돌려준다. */

@@ -172,11 +172,9 @@ export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: T
       </div>
       <p className="small muted" style={{ margin: 0 }}>
         {assign ? (
-          <>
-            지정하면 처리 이력에 남고 담당자·문의자에게 알림이 가요. <span className="tag gray">제안</span>
-          </>
+          '지정하면 처리 이력에 남고 지정된 담당자에게 알림이 가요.'
         ) : (
-          '재배정하면 처리 이력에 남고 새 담당자·문의자에게 알림이 가요. 진행 상태는 그대로 유지돼요.'
+          '재배정하면 처리 이력에 남고 새 담당자에게 알림이 가요. 진행 상태는 그대로 유지돼요.'
         )}
       </p>
       {err && (

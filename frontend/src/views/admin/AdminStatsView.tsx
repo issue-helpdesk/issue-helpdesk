@@ -27,19 +27,13 @@ type Counts = AiPage['counts']
 
 const ZERO: StatCounts = { RDY: 0, WIP: 0, FIN: 0, CLS: 0 }
 
-function Kpi({ label, n, to, dot, cls, hint, sug, aria }: { label: string; n: number; to?: string; dot?: string; cls?: string; hint?: string; sug?: boolean; aria?: string }) {
+function Kpi({ label, n, to, dot, cls, hint, aria }: { label: string; n: number; to?: string; dot?: string; cls?: string; hint?: string; aria?: string }) {
   const navigate = useNavigate()
   const body = (
     <>
       <div className="l">
         {dot && <i className="dt" style={{ background: dot }} />}
         {label}
-        {sug && (
-          <>
-            {' '}
-            <span className="tag gray">제안</span>
-          </>
-        )}
       </div>
       <div className="v">
         <b>
@@ -213,8 +207,8 @@ export function AdminStatsView() {
             <Section title="AI 상담 결과" kind="ai" sec={ai} note="티켓이 만들어지지 않은 문의 · 문의를 시작한 날 기준이에요.">
               <div className="sk" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))' }}>
                 <Kpi label="AI 해결" n={counts?.ok ?? 0} to={`/tickets?mode=ai&aik=ok&${q}`} aria={`AI 해결 ${counts?.ok ?? 0}건. AI 해결 목록 보기`} hint="AI 답변으로 해결된 문의" />
-                <Kpi label="해결 확인 대기 (AI 답변 후)" n={counts?.pend ?? 0} sug to={`/tickets?mode=ai&aik=pend&${q}`} aria={`해결 확인 대기 ${counts?.pend ?? 0}건. 해당 목록 보기`} hint="미확인 · 해결·미해결을 아직 고르지 않았어요" />
-                <Kpi label="미연결 종료" n={counts?.unr ?? 0} sug to={`/tickets?mode=ai&aik=unr&${q}`} aria={`미연결 종료 ${counts?.unr ?? 0}건. 해당 목록 보기`} hint="해결되지 않고 끝난 문의 (접수하지 않고 끝낸 문의 포함)" />
+                <Kpi label="해결 확인 대기 (AI 답변 후)" n={counts?.pend ?? 0} to={`/tickets?mode=ai&aik=pend&${q}`} aria={`해결 확인 대기 ${counts?.pend ?? 0}건. 해당 목록 보기`} hint="미확인 · 해결·미해결을 아직 고르지 않았어요" />
+                <Kpi label="미연결 종료" n={counts?.unr ?? 0} to={`/tickets?mode=ai&aik=unr&${q}`} aria={`미연결 종료 ${counts?.unr ?? 0}건. 해당 목록 보기`} hint="해결되지 않고 끝난 문의 (접수하지 않고 끝낸 문의 포함)" />
               </div>
               <p className="small muted secnote">담당자 처리(티켓)와는 따로 세요. AI 해결과 해결 완료는 합치지 않아요.</p>
             </Section>
@@ -227,7 +221,7 @@ export function AdminStatsView() {
                 접수 후 현재 상태
               </div>
               <div className="sk" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))' }}>
-                <Kpi label="배정 전" n={none} dot="var(--s-urg-dot)" cls="urg" sug to={`/tickets?st=none&${q}`} aria={`배정 전 ${none}건. 해당 문의 목록 보기`} hint="담당자가 아직 정해지지 않았어요" />
+                <Kpi label="배정 전" n={none} dot="var(--s-urg-dot)" cls="urg" to={`/tickets?st=none&${q}`} aria={`배정 전 ${none}건. 해당 문의 목록 보기`} hint="담당자가 아직 정해지지 않았어요" />
                 {STATES.map((s) => (
                   <Kpi key={s.k} label={s.label} n={v[s.k]} dot={s.color} to={`/tickets?st=${s.k}&${q}`} aria={`${s.label} ${v[s.k]}건. 해당 문의 목록 보기`} hint={s.k === 'FIN' ? '담당자 처리 후' : undefined} />
                 ))}
