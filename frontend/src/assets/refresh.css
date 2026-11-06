@@ -490,7 +490,10 @@
    (열 폭을 늘려 칸을 벌리면 외부 AI 전송 버튼 양옆이 휑해 보여서, 이 열은 버튼 폭에 가깝게만 둔다) */
 .gvt .tbl th,.gvt .tbl td{white-space:nowrap;width:1%;padding-left:22px;padding-right:22px}
 .gvt .tbl th:first-child,.gvt .tbl td:first-child{padding-left:24px}
-.gvt .tbl th:last-child,.gvt .tbl td:last-child{width:auto}
+.gvt .tbl th:nth-last-child(2),.gvt .tbl td:nth-last-child(2){width:auto}
+.gvt .tbl th:last-child,.gvt .tbl td:last-child{width:1%;padding-right:24px}
+.gvt-bar{display:flex;justify-content:space-between;align-items:center;margin:10px 4px 0}
+.gvt-wrap .gvt{margin-top:6px}
 .gvt .tbl th:nth-child(3),.gvt .tbl td:nth-child(3){min-width:150px}
 .gvt .tbl th:nth-child(5),.gvt .tbl td:nth-child(5){min-width:250px}
 
@@ -586,3 +589,9 @@ input[type=checkbox]:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
 /* 올린 지 하루 안인 가이드 버전 */
 .nwb{display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;background:var(--s-info-bg);color:var(--s-info-fg);font-size:11px;font-weight:700;line-height:18px;vertical-align:1px}
 td.nw{white-space:nowrap;font-size:13px;color:var(--ink2)}
+/* 가이드 본문 읽기 패널: 평소에는 상세 패널 폭, "크게 보기"를 누르면 화면 전체 너비로 넓어진다 */
+.app .detail.gread{width:min(560px,100vw);transition:width .28s cubic-bezier(.2,.8,.2,1)}
+.app .detail.gread.wide{width:100vw}
+.gread-body{max-width:860px;margin:0 auto}
+.detail.gread.wide .gread-body{padding:8px 24px 32px}
+@media (prefers-reduced-motion:reduce){.app .detail.gread{transition:none}}

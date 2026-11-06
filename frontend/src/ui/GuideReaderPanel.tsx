@@ -1,0 +1,88 @@
+/**
+ * 가이드 본문 읽기 패널. 오른쪽에 상세 패널로 열리고, "크게 보기"로 화면 전체 너비로 넓힐 수 있다 (그림·표가 많은 가이드용).
+ * 가이드 관리의 "보기"와 문의자·담당자용 가이드 열람 화면이 함께 쓴다. 본문 API 는 docs/api/06 R-48 로 요청 중이라
+ * 서버에 없으면 그 사실을 안내한다.
+ */
+import { useEffect, useRef, useState } from 'react'
+import { getGuideContent, type GuideContent } from '../api/guides'
+import { useAuth } from '../core/session'
+import { Icon } from './Icon'
+import { Markdown } from './Markdown'
+
+export interface ReaderTarget {
+  id: number
+  docCode: string
+  title: string
+  /** 특정 버전을 볼 때(관리자). 없으면 현행 버전 */
+  versionId?: number
+  version?: string
+}
+
+export function GuideReaderPanel({ target, onClose }: { target: ReaderTarget; onClose: () => void }) {
+  const { user } = useAuth()
+  const [wide, setWide] = useState(false)
+  const [res, setRes] = useState<{ key: string; data: GuideContent | null; error: string } | null>(null)
+  const closeBtn = useRef<HTMLButtonElement>(null)
+  const key = `${target.id}:${target.versionId ?? 'cur'}`
+
+  useEffect(() => {
+    closeBtn.current?.focus({ preventScroll: true })
+  }, [])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !document.querySelector('[role="dialog"]')) onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  useEffect(() => {
+    if (!user) return
+    let alive = true
+    getGuideContent(user, target, target.versionId, target.version).then((r) => {
+      if (alive) setRes({ key, data: r.ok ? r.data : null, error: r.ok ? '' : r.error.message })
+    })
+    return () => {
+      alive = false
+    }
+  }, [user, key, target])
+
+  const cur = res && res.key === key ? res : null
+  return (
+    <aside className={`detail gread${wide ? ' wide' : ''}`} role="complementary" aria-label="가이드 본문">
+      <div className="dh">
+        <div className="row" style={{ flexWrap: 'nowrap' }}>
+          <div style={{ minWidth: 0 }}>
+            <div className="mono small muted">
+              {target.docCode}
+              {(cur?.data?.version || target.version) && ` · ${cur?.data?.version || target.version}`}
+            </div>
+            <h3>{target.title}</h3>
+          </div>
+          <span style={{ flex: 1 }} />
+          <button type="button" className="btn sec sm ico" aria-label={wide ? '패널 크기로 줄이기' : '크게 보기'} aria-pressed={wide} title={wide ? '패널 크기로 줄이기' : '화면 전체로 크게 보기'} onClick={() => setWide((w) => !w)}>
+            <Icon name={wide ? 'minimize' : 'expand'} />
+          </button>
+          <button type="button" ref={closeBtn} className="btn sec sm ico" aria-label="닫기" onClick={onClose}>
+            <Icon name="x" />
+          </button>
+        </div>
+      </div>
+      <div className="db">
+        {!cur ? (
+          <div className="empty" role="status">
+            불러오는 중이에요…
+          </div>
+        ) : cur.data && cur.data.text.trim() ? (
+          <div className="gread-body">
+            <Markdown text={cur.data.text} images={cur.data.images} />
+          </div>
+        ) : (
+          <div className="alert info" role="status">
+            <Icon name="alert" />
+            <div>{cur.error || '이 가이드에는 보여 줄 본문이 없어요.'}</div>
+          </div>
+        )}
+      </div>
+    </aside>
+  )
+}

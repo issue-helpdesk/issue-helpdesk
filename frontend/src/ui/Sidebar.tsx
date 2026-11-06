@@ -39,6 +39,9 @@ const INQUIRY_MENU: NavItem[] = [
   { to: '/faq', label: 'FAQ', icon: 'help' },
 ]
 
+/** 가이드 열람: 관리자는 가이드 관리를 쓰므로 문의자·담당자에게만 보인다 */
+const DOCS_MENU: NavItem = { to: '/docs', label: '가이드', icon: 'folder' }
+
 /** 역할별로 더해지는 메뉴 (문의자는 없음) */
 const EXTRA_MENU: Partial<Record<ServiceRole, { group: string; items: NavItem[] }>> = {
   AGENT: {
@@ -207,7 +210,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
 
       <nav className="nav" aria-label="주 메뉴">
         <div className="grp">문의</div>
-        {INQUIRY_MENU.map(renderItem)}
+        {(user?.serviceRole === 'ADMIN' ? INQUIRY_MENU : [...INQUIRY_MENU, DOCS_MENU]).map(renderItem)}
         {extra && (
           <>
             <div className="grp">{extra.group}</div>
