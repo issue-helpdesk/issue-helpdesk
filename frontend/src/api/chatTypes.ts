@@ -90,6 +90,17 @@ export interface ChatReply {
 /** 메시지에 붙는 카드 종류 */
 export type ChatCard = 'draft' | 'ticket' | 'savefail'
 
+/** AI 가 되묻는 추가 질문 한 개 (docs/api/02 Question) */
+export interface ChatQuestion {
+  /** 답을 글로 묶을 때 붙이는 이름 (예: 상황). 이 칸이 생기기 전에 저장된 질문은 null */
+  label: string | null
+  text: string
+  /** 선택지. 비어 있으면 입력칸으로만 답한다 */
+  options: string[]
+  /** 선택지와 함께 직접 입력도 받는지. 옛 질문은 false 지만 선택지가 없으면 입력칸을 막지 않는다 */
+  allowText: boolean
+}
+
 export interface ChatMessage {
   id: number
   /** user=문의자, assistant=AI, staff=담당자, sys=시스템 안내 */
@@ -114,6 +125,10 @@ export interface ChatMessage {
   kind?: string
   /** 메시지 시각 (ISO 8601) */
   createdAt?: string
+  /** AI 추가 질문 (선택칩·입력). 없거나 비어 있으면 일반 답변 */
+  questions?: ChatQuestion[]
+  /** 지금 답할 수 있는 질문인지: 마지막 메시지가 이 AI 메시지이고 문의가 진행 중(IN_PROGRESS)·추가 질문(ASK_MORE)일 때. 아니면 읽기 전용 */
+  questionsOpen?: boolean
   /** 서버가 저장한 접수 초안 카드의 초안과 상태 (R-29). 접수·취소 뒤에도 카드가 남아 읽기 전용으로 보인다 */
   draft?: Draft
   draftState?: DraftState
