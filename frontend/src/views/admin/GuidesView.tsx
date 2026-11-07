@@ -39,6 +39,7 @@ import {
 } from '../../api/guides'
 import { breakSentences, getIngestFailures, recordVersions, setFailureListOpen, trackIngest, watchIngest } from '../../api/guideWatch'
 import titleOps from '../../assets/mascot/title-ops.webp'
+import { USE_MOCK_GUIDE } from '../../core/config'
 import { formatDateTime } from '../../core/format'
 import { GuideReaderPanel, type ReaderTarget } from '../../ui/GuideReaderPanel'
 import { ScopeBadge } from '../../ui/ScopeBadge'
@@ -53,8 +54,9 @@ import { useToast } from '../../ui/useToast'
 import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
 import { CaseGuideTab } from './CaseGuideTab'
-import { CaseReviewPanel, type CaseFocus } from './CaseReviewPanel'
+import { CaseReviewPanel } from './CaseReviewPanel'
 import { useReviewCount } from './useReviewCount'
+import { ensureCaseVersions, registeredText, type CaseItem } from '../../api/mock/caseGuides'
 
 const TX_CLS: Record<GuideTx, string> = { 허용: 'ok', '마스킹 후 허용': 'warn', 금지: 'urg' }
 type Tab = 'list' | 'case'
@@ -73,7 +75,7 @@ export function GuidesView() {
   // 가이드 본문을 오른쪽 패널로 읽는다 (관리자는 버전마다)
   const [reader, setReader] = useState<ReaderTarget | null>(null)
   // 해결 사례 탭의 검토 패널
-  const [casePanel, setCasePanel] = useState<{ id: string; focus: CaseFocus } | null>(null)
+  const [casePanel, setCasePanel] = useState<string | null>(null)
   // 적재에 실패한 버전 (가이드·분류 옆 점). 추적 기록은 api/guideWatch.ts 가 관리한다
   const failures = useSyncExternalStore(watchIngest, getIngestFailures)
   const failDocs = useMemo(() => new Set(failures.map((f) => f.docId)), [failures])
@@ -138,6 +140,22 @@ export function GuidesView() {
   }, [vers])
 
   const reviewN = useReviewCount()
+  // 해결 사례로 승인해 둔 시연 이력의 버전을 가이드 목록(모의)에 한 번 등록한다
+  useEffect(() => {
+    if (USE_MOCK_GUIDE) ensureCaseVersions()
+  }, [])
+  // 해결 사례 → 현행으로 전환: 바로 바꾸지 않고 가이드 목록의 그 문서를 펼쳐 열람 범위를 눈으로 확인한 뒤 거기서 전환하게 한다
+  const goLive = (c: CaseItem) => {
+    if (!c.registered) return
+    // 서버 연결 환경에서는 이 탭이 시연 화면이라 서버의 가이드 목록에는 해당 버전이 없다
+    if (!USE_MOCK_GUIDE) return say('서버에 연결된 환경에서는 이 탭이 시연 화면이라 가이드 목록에 반영되지 않아요.')
+    setCasePanel(null)
+    setReader(null)
+    setTab('list')
+    setCatOpen((m) => ({ ...m, [c.cat]: true }))
+    setOpenId(c.registered.docId)
+    say(`${c.registered.docCode} ${c.registered.version}의 열람 범위를 확인하고 현행으로 전환해 주세요.`)
+  }
 
   if (user && !admin) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
   if (!user) return null
@@ -386,10 +404,12 @@ export function GuidesView() {
                   해결 사례 → 가이드 초안 <span className="count">{reviewN}</span>
                 </button>
               </div>
-              <button type="button" className="btn pri sm" onClick={() => setDlg({ kind: 'upload' })}>
-                <Icon name="plus" />
-                가이드 파일 업로드
-              </button>
+              {tab === 'list' && (
+                <button type="button" className="btn pri sm" onClick={() => setDlg({ kind: 'upload' })}>
+                  <Icon name="plus" />
+                  가이드 파일 업로드
+                </button>
+              )}
             </div>
 
             {error && (
@@ -413,13 +433,23 @@ export function GuidesView() {
                 </div>
               )
             ) : (
-              <CaseGuideTab onOpen={(id, focus) => setCasePanel({ id, focus })} />
+              <CaseGuideTab
+                onReview={(c) => {
+                  setReader(null)
+                  setCasePanel(c.id)
+                }}
+                onVersion={(c) => {
+                  setCasePanel(null)
+                  if (c.registered) setReader({ id: c.registered.docId, docCode: c.registered.docCode, title: c.target?.title ?? c.title ?? c.topic, version: c.registered.version, text: registeredText(c) })
+                }}
+                onGoLive={goLive}
+              />
             )}
           </div>
         </div>
       </main>
       {reader && <GuideReaderPanel target={reader} onClose={() => setReader(null)} />}
-      {casePanel && <CaseReviewPanel key={casePanel.id} id={casePanel.id} focus={casePanel.focus} onClose={() => setCasePanel(null)} />}
+      {casePanel && <CaseReviewPanel key={casePanel} id={casePanel} onClose={() => setCasePanel(null)} onGoLive={goLive} />}
       {dlg?.kind === 'upload' && (
         <UploadDialog
           guides={guides ?? []}

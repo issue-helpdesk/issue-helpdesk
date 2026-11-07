@@ -1,23 +1,22 @@
 /**
  * 해결 사례 → 가이드 초안 검토 패널 (관리자). 근거 티켓·AI 판단 이유·경고를 확인하고, 기존 가이드 보강이면 기존 내용과 AI 수정 제안문을
  * 비교해 편집하고, 신규 가이드면 제목·분류·본문을 확인·편집한다. 열람 범위·외부 AI 전송 정책을 골라 승인하면
- * 현행이 아닌 초안 버전으로 등록되고 검색 준비가 시작된다 (현행 전환은 준비가 끝난 뒤 따로). 서버 없이 모의 상태로만 바뀐다.
+ * 현행이 아닌 초안 버전으로 가이드 목록에 등록되고 검색 준비가 시작된다 (현행 전환은 준비가 끝난 뒤 가이드 목록에서). 서버 없이 모의 상태로만 바뀐다.
+ * 열람 범위·외부 AI 전송은 검토 중에는 보이지 않고, "승인하고 초안 등록"을 누르면 뜨는 창에서 한 번 더 확인하며 고른다.
  * 열고 닫는 모션과 크게 보기는 접수 상세·가이드 본문 패널과 같다.
  */
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { GUIDE_SCOPES, GUIDE_TXS, type GuideScope, type GuideTx } from '../../api/guides'
-import { CASE_KIND_LABEL, CASE_STATE_LABEL, CASE_STATE_TONE, approveCase, baseChanged, dropCase, getCases, goLiveCase, rebaseCase, retryCase, saveCase, subscribeCases } from '../../api/mock/caseGuides'
+import { CASE_KIND_LABEL, CASE_STATE_LABEL, CASE_STATE_TONE, approveCase, baseChanged, dropCase, getCases, rebaseCase, retryCase, saveCase, subscribeCases, type CaseItem } from '../../api/mock/caseGuides'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
 import { SelectBox } from '../../ui/SelectBox'
 import { StateBadge } from '../../ui/StateBadge'
 import { useToast } from '../../ui/useToast'
 
-export type CaseFocus = 'review' | 'tickets' | 'content'
-
-export function CaseReviewPanel({ id, focus, onClose }: { id: string; focus: CaseFocus; onClose: () => void }) {
+export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose: () => void; onGoLive: (c: CaseItem) => void }) {
   const cases = useSyncExternalStore(subscribeCases, getCases)
   const c = cases.find((x) => x.id === id)
   const { say, fail } = useToast()
@@ -64,6 +63,7 @@ export function CaseReviewPanel({ id, focus, onClose }: { id: string; focus: Cas
   const [tx, setTx] = useState<GuideTx>(c?.tx ?? '허용')
   const [compare, setCompare] = useState(false)
   const [dropOpen, setDropOpen] = useState(false)
+  const [setOpen, setSetOpen] = useState(false)
   const [why, setWhy] = useState('')
   const [whyErr, setWhyErr] = useState('')
   const [err, setErr] = useState('')
@@ -74,26 +74,21 @@ export function CaseReviewPanel({ id, focus, onClose }: { id: string; focus: Cas
     setAfter(c.after)
   }
 
-  const ticketsRef = useRef<HTMLElement>(null)
-  const contentRef = useRef<HTMLElement>(null)
-  useEffect(() => {
-    const el = focus === 'tickets' ? ticketsRef.current : focus === 'content' ? contentRef.current : null
-    el?.scrollIntoView?.({ block: 'start' })
-  }, [focus, id])
-
   if (!c) return null
   const review = c.state === 'review'
-  const changed = baseChanged(c) && (c.state === 'review' || c.state === 'ready')
+  const changed = baseChanged(c) && c.state === 'review'
   const edit = { title: c.kind === 'new' ? title : undefined, cat: c.kind === 'new' ? cat : undefined, after, scope, tx }
+  const draft = { title: edit.title, cat: edit.cat, after }
   const nm = c.kind === 'new' ? (title.trim() || c.topic) : c.topic
 
   const save = () => {
-    saveCase(id, edit)
+    saveCase(id, draft)
     say('임시 저장했어요.')
   }
   const approve = () => {
     setErr('')
     const r = approveCase(id, edit)
+    setSetOpen(false)
     if (!r.ok) return setErr(r.message)
     say('초안으로 등록했어요. 검색 준비를 시작해요.')
   }
@@ -108,11 +103,6 @@ export function CaseReviewPanel({ id, focus, onClose }: { id: string; focus: Cas
     const r = retryCase(id)
     if (!r.ok) return fail(r.message)
     say('같은 버전으로 검색 준비를 다시 시작해요.')
-  }
-  const live = () => {
-    const r = goLiveCase(id)
-    if (!r.ok) return fail(r.message)
-    say('현행으로 바꿨어요. 이제 사용자 답변에 쓰여요.')
   }
   const rebase = () => {
     const r = rebaseCase(id)
@@ -156,7 +146,7 @@ export function CaseReviewPanel({ id, focus, onClose }: { id: string; focus: Cas
             <div className="alert warn" role="alert">
               <Icon name="alert" />
               <div>
-                기준 가이드가 {c.target.baseVersion}에서 {c.target.latestVersion}로 변경됐어요. 최신 내용과 비교한 뒤 다시 검토해 주세요. 그전에는 {c.state === 'ready' ? '현행 전환' : '등록'}을 할 수 없어요.{' '}
+                기준 가이드가 {c.target.baseVersion}에서 {c.target.latestVersion}로 변경됐어요. 최신 내용과 비교한 뒤 다시 검토해 주세요. 그전에는 등록을 할 수 없어요.{' '}
                 <button type="button" className="btn ghost sm" aria-expanded={compare} onClick={() => setCompare((v) => !v)}>
                   최신 버전과 비교
                 </button>
@@ -204,7 +194,7 @@ export function CaseReviewPanel({ id, focus, onClose }: { id: string; focus: Cas
             <div className="alert info" role="status">
               <Icon name="check" />
               <div>
-                <b>{c.registered.docCode} {c.registered.version}</b>가 검색 준비를 마쳤어요. 아직 현행이 아니라서 사용자 답변에는 쓰이지 않아요. 확인한 뒤 현행으로 바꿔 주세요.
+                <b>{c.registered.docCode} {c.registered.version}</b>가 검색 준비를 마쳤어요. 아직 현행이 아니라서 사용자 답변에는 쓰이지 않아요. 가이드 목록에서 열람 범위를 확인하고 현행으로 바꿔 주세요.
               </div>
             </div>
           )}
@@ -225,7 +215,7 @@ export function CaseReviewPanel({ id, focus, onClose }: { id: string; focus: Cas
             </div>
           )}
 
-          <section className="cgs" ref={ticketsRef} aria-label="근거 티켓">
+          <section className="cgs" aria-label="근거 티켓">
             <h4>
               근거 티켓 <span className="count">{c.tickets.length}</span>
             </h4>
@@ -265,7 +255,7 @@ export function CaseReviewPanel({ id, focus, onClose }: { id: string; focus: Cas
             )}
           </section>
 
-          <section className="cgs" ref={contentRef} aria-label="가이드 내용">
+          <section className="cgs" aria-label="가이드 내용">
             <h4>{c.kind === 'amend' ? '기존 내용과 AI 수정 제안' : '신규 가이드 초안'}</h4>
             {c.kind === 'amend' && c.target ? (
               <>
@@ -313,36 +303,17 @@ export function CaseReviewPanel({ id, focus, onClose }: { id: string; focus: Cas
             )}
           </section>
 
-          <section className="cgs" aria-label="등록 설정">
-            <h4>등록 설정</h4>
-            <div className="cgset">
-              <div>
-                <div className="asl">열람 범위</div>
-                <div className="seg" role="group" aria-label="열람 범위">
-                  {GUIDE_SCOPES.slice()
-                    .reverse()
-                    .map((k) => (
-                      <button key={k} type="button" disabled={!review} className={scope === k ? 'on' : ''} aria-pressed={scope === k} onClick={() => setScope(k)}>
-                        {k}
-                      </button>
-                    ))}
-                </div>
-              </div>
-              <div>
-                <div className="asl">외부 AI 전송</div>
-                <div className="seg" role="group" aria-label="외부 AI 전송">
-                  {GUIDE_TXS.slice()
-                    .reverse()
-                    .map((k) => (
-                      <button key={k} type="button" disabled={!review} className={tx === k ? 'on' : ''} aria-pressed={tx === k} onClick={() => setTx(k)}>
-                        {k}
-                      </button>
-                    ))}
-                </div>
-              </div>
-            </div>
-            {review && <p className="small muted" style={{ margin: '10px 0 0' }}>초안으로 등록하고 검색 준비를 시작합니다. 현행 전환 전에는 사용자 답변에 사용되지 않습니다.</p>}
-          </section>
+          {!review && c.state !== 'dropped' && (
+            <section className="cgs" aria-label="등록 설정">
+              <h4>등록 설정</h4>
+              <dl className="dl" style={{ margin: 0 }}>
+                <dt>열람 범위</dt>
+                <dd>{c.scope}</dd>
+                <dt>외부 AI 전송</dt>
+                <dd>{c.tx}</dd>
+              </dl>
+            </section>
+          )}
 
           {err && (
             <div className="ferr" role="alert">
@@ -361,7 +332,7 @@ export function CaseReviewPanel({ id, focus, onClose }: { id: string; focus: Cas
                 비가이드화
               </button>
               <span style={{ flex: 1 }} />
-              <button type="button" className="btn pri" disabled={changed} title={changed ? '기준 가이드가 바뀌어서 등록할 수 없어요. 최신 내용과 비교해 주세요.' : undefined} onClick={approve}>
+              <button type="button" className="btn pri" disabled={changed} title={changed ? '기준 가이드가 바뀌어서 등록할 수 없어요. 최신 내용과 비교해 주세요.' : undefined} onClick={() => { setErr(''); setSetOpen(true) }}>
                 승인하고 초안 등록
               </button>
             </>
@@ -377,7 +348,7 @@ export function CaseReviewPanel({ id, focus, onClose }: { id: string; focus: Cas
           {c.state === 'ready' && (
             <>
               <span style={{ flex: 1 }} />
-              <button type="button" className="btn pri" disabled={changed} title={changed ? '기준 가이드가 바뀌어서 현행으로 바꿀 수 없어요.' : undefined} onClick={live}>
+              <button type="button" className="btn pri" onClick={() => onGoLive(c)}>
                 현행으로 전환
               </button>
             </>
@@ -393,6 +364,50 @@ export function CaseReviewPanel({ id, focus, onClose }: { id: string; focus: Cas
         </div>
       </aside>
 
+      {setOpen && (
+        <Modal title="등록 설정을 확인해 주세요" variant="form" onClose={() => setSetOpen(false)}>
+          <p className="small muted" style={{ margin: 0 }}>
+            열람 범위와 외부 AI 전송 정책을 정해야 초안으로 등록할 수 있어요. 가이드 목록의 새 버전에 그대로 적용돼요.
+          </p>
+          <div className="cgset" style={{ flexDirection: 'column', gap: 14 }}>
+            <div>
+              <div className="asl">열람 범위</div>
+              <div className="seg" role="group" aria-label="열람 범위">
+                {GUIDE_SCOPES.slice()
+                  .reverse()
+                  .map((k) => (
+                    <button key={k} type="button" className={scope === k ? 'on' : ''} aria-pressed={scope === k} onClick={() => setScope(k)}>
+                      {k}
+                    </button>
+                  ))}
+              </div>
+            </div>
+            <div>
+              <div className="asl">외부 AI 전송</div>
+              <div className="seg" role="group" aria-label="외부 AI 전송">
+                {GUIDE_TXS.slice()
+                  .reverse()
+                  .map((k) => (
+                    <button key={k} type="button" className={tx === k ? 'on' : ''} aria-pressed={tx === k} onClick={() => setTx(k)}>
+                      {k}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          </div>
+          <p className="small muted" style={{ margin: 0 }}>
+            초안으로 등록하고 검색 준비를 시작합니다. 현행 전환 전에는 사용자 답변에 사용되지 않습니다.
+          </p>
+          <div className="acts">
+            <button type="button" className="btn sec" onClick={() => setSetOpen(false)}>
+              취소
+            </button>
+            <button type="button" className="btn pri" onClick={approve}>
+              초안으로 등록
+            </button>
+          </div>
+        </Modal>
+      )}
       {dropOpen && (
         <Modal title="가이드화하지 않을까요?" variant="form" onClose={() => setDropOpen(false)}>
           <p className="small muted" style={{ margin: 0 }}>

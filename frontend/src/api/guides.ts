@@ -511,3 +511,44 @@ export async function listReadableGuides(user: User): Promise<ApiResult<Guide[]>
   }
   return ok(out)
 }
+
+/* ------------------------------------------------------------------ 해결 사례 → 가이드 초안 연결 (모의 전용) */
+/**
+ * 해결 사례를 승인하면(모의) 가이드 목록의 문서에 현행이 아닌 초안 버전이 등록된다. 문서가 없으면 새 문서를 만든다.
+ * ready 를 '준비 중'으로 주면 몇 초 뒤 준비 완료가 된다. current 이면 그 버전이 현행이다(시연 이력용).
+ */
+export function mockRegisterCaseDraft(a: { docCode?: string; title: string; cat: CategoryCode; scope: GuideScope; tx: GuideTx; ready: GuideReady; error?: string; current?: boolean; version?: string }): { docId: number; versionId: number; docCode: string; version: string } {
+  let g = a.docCode ? store.find((x) => x.docCode === a.docCode) : undefined
+  if (!g) {
+    g = { id: ++seq.doc, docCode: a.docCode ?? nextDocCode(store, a.cat), title: a.title, cat: a.cat, versions: [] }
+    store.push(g)
+  }
+  const version = a.version ?? (g.versions.length ? nextVersion(g.versions) : FIRST_VERSION)
+  const x = vNew(++seq.ver, version, a.current ? '현행' : '초안', a.scope, a.tx, a.ready)
+  if (a.error) x.error = a.error
+  if (a.current) g.versions.forEach((y) => y.state === '현행' && (y.state = '만료'))
+  g.versions.unshift(x)
+  notify()
+  if (a.ready === '준비 중') {
+    const doc = g
+    timers.push(setTimeout(() => finishMockIngest(x, doc.docCode), 2800))
+  }
+  return { docId: g.id, versionId: x.id, docCode: g.docCode, version }
+}
+/** 등록한 버전의 지금 상태 (없으면 null) */
+export function mockVersionState(docId: number, versionId: number): { state: GuideState; ready: GuideReady; error?: string } | null {
+  const x = store.find((g) => g.id === docId)?.versions.find((y) => y.id === versionId)
+  return x ? { state: x.state, ready: x.ready, error: x.error } : null
+}
+/** 검색 준비에 실패한 같은 버전을 다시 준비한다 */
+export function mockRetryCaseDraft(docId: number, versionId: number): boolean {
+  const g = store.find((x) => x.id === docId)
+  const x = g?.versions.find((y) => y.id === versionId)
+  if (!g || !x || x.ready !== '준비 실패') return false
+  x.ready = '준비 중'
+  x.error = undefined
+  notify()
+  timers.push(setTimeout(() => finishMockIngest(x, g.docCode), 2800))
+  return true
+}
+
