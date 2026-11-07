@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.integrations.jira import Member, pick_assignee
 from app.models import AssignmentLog, InquiryType, IntegrationJob, Ticket
 from app.repositories.assignment import AssignmentRepository
-from app.services.jira_assign import enqueue_jira_assign
+from app.services.jira_assign import enqueue_jira_assign, supersede_assign_failures
 from app.services.time_off import current_absentees
 from app.utils import datetime_utils
 
@@ -51,6 +51,7 @@ def reserve_assignment(
     - 없으면 자동 선정: pick_assignee (업무량 → 마지막 배정 → 사번). now 시점의 부재자를 뺀다
     - 후보가 없거나 미분류면 담당자를 비우고 NEEDS_ADMIN, 배정 이력 FAIL (docs/11 2.5)
     - assignment_revision 을 올려 이전 판단으로 만든 작업이 새 배정을 덮어쓰지 못하게 한다
+    - 열려 있던 배정 실패 작업은 superseded:assign 으로 닫는다
     """
     repo = AssignmentRepository(db)
     repo.lock_group(group_id)
@@ -68,6 +69,9 @@ def reserve_assignment(
         chosen = members[decision.user_id] if decision.selected else None
         log_reason = f"{reason} (자동배정: {decision.reason})" if chosen else f"{reason} ({decision.reason})"
 
+    now = now or datetime_utils.now()
+    # revision 이 올라가면 이전 배정의 실패 작업은 재처리해도 거절된다. 열어 두면 Jira 직접 변경까지 막는다 (06 R-49)
+    supersede_assign_failures(db, ticket.id, "assign", now)
     previous = ticket.assignee_id
     ticket.assignment_revision += 1
     ticket.group_id = group_id
@@ -80,8 +84,7 @@ def reserve_assignment(
     job = None
     # Jira 이슈가 아직 없으면 생성 뒤에 배정한다. 생성 실행기가 이 함수를 다시 부른다
     if chosen is not None and ticket.jira_key:
-        now = now or datetime_utils.now()
-        job = enqueue_jira_assign(db, ticket, {
+        job =enqueue_jira_assign(db, ticket, {
             "ticketId": ticket.id,
             "receiptNo": ticket.receipt_no,
             "jiraKey": ticket.jira_key,

@@ -34,6 +34,7 @@ from app.models import (
 )
 from app.repositories.assignment import AssignmentRepository
 from app.services.assignment import manual_problem
+from app.services.jira_assign import supersede_assign_failures
 from app.utils import datetime_utils
 
 logger = logging.getLogger(__name__)
@@ -227,7 +228,7 @@ def has_active_job(db: Session, ticket_id: int) -> bool:
 
 
 def has_open_failure(db: Session, ticket_id: int, job_type: str) -> bool:
-    """재처리(TK-12)를 기다리는 실패 작업이 있나. 있으면 관리자 판단을 웹훅이 덮어쓰지 않는다."""
+    """재처리(TK-12)를 기다리는 실패 작업이 있나. 상태 변경은 있으면 반영하지 않는다. 배정은 sync_assignee 가 따로 판단한다."""
     retried = select(IntegrationJob.retry_of_job_id).where(IntegrationJob.retry_of_job_id.is_not(None))
     return db.scalar(select(IntegrationJob.id).where(
         IntegrationJob.ticket_id == ticket_id, IntegrationJob.job_type == job_type,
@@ -277,12 +278,17 @@ def sync_work_status(db: Session, ticket: Ticket, latest: dict, changed_at: date
 
 
 def sync_assignee(db: Session, ticket: Ticket, account_id: str | None, now: datetime) -> None:
-    """Jira 담당자를 현재 배정 그룹 구성원과 대조한다. 그룹을 추론하지 않는다."""
-    if ticket.work_status == "CLS" or ticket.group_id is None or has_open_failure(db, ticket.id, "JIRA_ASSIGN"):
+    """Jira 담당자를 현재 배정 그룹 구성원과 대조한다. 그룹을 추론하지 않는다.
+
+    배정 실패 작업이 열려 있어도 Jira 담당자가 배정 자격을 갖춘 구성원이면 받아들이고 그 실패를 닫는다 (06 R-49).
+    자격이 없거나 비어 있으면 실패 작업과 접수를 그대로 두어 관리자 확인(TK-09·TK-12)에 맡긴다.
+    """
+    if ticket.work_status == "CLS" or ticket.group_id is None:
         return
+    open_failure = has_open_failure(db, ticket.id, "JIRA_ASSIGN")
     members = AssignmentRepository(db).members(ticket.group_id, exclude_ticket_id=ticket.id)
     if account_id is None:
-        if ticket.assign_status == "ASSIGNED":      # 배정 전 접수는 Jira 담당자가 비어 있는 게 정상이다
+        if ticket.assign_status == "ASSIGNED" and not open_failure:     # 배정 전 접수는 Jira 담당자가 비어 있는 게 정상이다
             release_assignee(db, ticket, "Jira 에서 담당자 해제")
         return
     member = next((m for m in members if (m.jira_account_id or "").strip() == account_id.strip()), None)
@@ -292,8 +298,12 @@ def sync_assignee(db: Session, ticket: Ticket, account_id: str | None, now: date
     inquiry_type = db.get(InquiryType, ticket.inquiry_type_id) if ticket.inquiry_type_id else None
     problem = manual_problem(member, inquiry_type.code if inquiry_type else None)
     if problem:
-        release_assignee(db, ticket, f"Jira 담당자 확인 필요: {problem}")
+        if not open_failure:        # 열린 실패가 있으면 revision 을 올리지 않아 TK-12 재처리를 살려 둔다
+            release_assignee(db, ticket, f"Jira 담당자 확인 필요: {problem}")
         return
+
+    if open_failure:
+        supersede_assign_failures(db, ticket.id, "jira", now)
 
     if member.user_id != ticket.assignee_id:
         event = "REASSIGN" if ticket.assignee_id is not None else "ASSIGN"

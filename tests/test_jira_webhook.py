@@ -379,13 +379,69 @@ def test_empty_jira_assignee_before_assignment_is_normal(db, ticket):
     assert logs(db, ticket) == []
 
 
-def test_failed_assign_job_is_left_to_retry_api(db, ticket):
-    ticket.assign_status, ticket.assignee_id = "NEEDS_ADMIN", None
-    add_job(db, ticket, job_type="JIRA_ASSIGN", status="NEEDS_ADMIN")
+def failed_assign(db, ticket, *, assignee=None, key="assign:failed", last_error="invalid_fields"):
+    """배정 작업이 실패해 관리자 확인이 된 접수 (06 R-49, 예: RCPT-0332)."""
+    ticket.assign_status, ticket.assignee_id = "NEEDS_ADMIN", assignee
+    add_job(db, ticket, job_type="JIRA_ASSIGN", status="NEEDS_ADMIN", key=key, last_error=last_error)
+    return db.scalar(select(IntegrationJob).where(IntegrationJob.idempotency_key == key))
+
+
+def test_jira_assignee_is_accepted_after_failed_assign_job(db, ticket, team):
+    db.get(Inquiry, ticket.inquiry_id).status = "RECEIVED"
+    job = failed_assign(db, ticket)
 
     process(db, FakeJira(account=FREE_ACCOUNT), add_event(db, ticket.id))
 
-    assert (ticket.assign_status, ticket.assignee_id) == ("NEEDS_ADMIN", None)
+    assert (ticket.assign_status, ticket.assignee_id, ticket.assignment_revision) == ("ASSIGNED", team["free"].id, 1)
+    assert (job.status, job.last_error) == ("DONE", "superseded:jira (invalid_fields)")
+    (log,) = logs(db, ticket)
+    assert (log.event, log.assignee_id, log.actor_id) == ("ASSIGN", team["free"].id, None)
+    assert db.get(Inquiry, ticket.inquiry_id).status == "HANDED_OFF"
+    assert db.scalar(select(Notification.recipient_id).where(Notification.kind == "ASSIGNED")) == team["free"].id
+
+
+def test_uncertain_failure_is_closed_when_jira_has_the_reserved_assignee(db, ticket, team):
+    job = failed_assign(db, ticket, assignee=team["busy"].id, last_error="verify_only:result_unknown")
+
+    process(db, FakeJira(account=BUSY_ACCOUNT), add_event(db, ticket.id))
+
+    assert (ticket.assign_status, ticket.assignee_id, ticket.assignment_revision) == ("ASSIGNED", team["busy"].id, 0)
+    assert job.status == "DONE"
+    assert logs(db, ticket) == []           # 담당자가 그대로라 이력은 남기지 않는다
+
+
+@pytest.mark.parametrize("account", ["unknown-account", None])
+def test_failed_assign_job_stays_for_admin_when_jira_assignee_is_not_eligible(db, ticket, team, account):
+    job = failed_assign(db, ticket, assignee=team["busy"].id)
+
+    process(db, FakeJira(account=account), add_event(db, ticket.id))
+
+    # 접수·revision 을 바꾸지 않아야 TK-12 재처리가 그대로 가능하다
+    assert (ticket.assign_status, ticket.assignee_id, ticket.assignment_revision) == ("NEEDS_ADMIN", team["busy"].id, 0)
+    assert job.status == "NEEDS_ADMIN"
+    assert logs(db, ticket) == []
+
+
+def test_retried_failure_does_not_block_and_only_open_ones_are_closed(db, ticket, team):
+    old = failed_assign(db, ticket, key="assign:old")
+    add_job(db, ticket, job_type="JIRA_ASSIGN", status="NEEDS_ADMIN", key="assign:old:retry", retry_of_job_id=old.id)
+
+    process(db, FakeJira(account=FREE_ACCOUNT), add_event(db, ticket.id))
+
+    retry = db.scalar(select(IntegrationJob).where(IntegrationJob.idempotency_key == "assign:old:retry"))
+    assert (old.status, old.last_error) == ("NEEDS_ADMIN", "invalid_fields")     # 이미 재처리된 원본은 손대지 않는다
+    assert (retry.status, ticket.assign_status) == ("DONE", "ASSIGNED")
+
+
+def test_failed_assign_is_accepted_by_periodic_sync_too(db, ticket, team):
+    job = failed_assign(db, ticket)
+
+    results = run_due_ticket_syncs(db, FakeJira(account=FREE_ACCOUNT), now=NOW)
+
+    db.refresh(ticket)
+    db.refresh(job)
+    assert [(r.ticket_id, r.outcome) for r in results] == [(ticket.id, "SYNCED")]
+    assert (ticket.assign_status, ticket.assignee_id, job.status) == ("ASSIGNED", team["free"].id, "DONE")
 
 
 # ------------------------------------------------------------------ 연결·재시도·포기

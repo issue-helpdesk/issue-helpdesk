@@ -36,6 +36,30 @@ def enqueue_jira_assign(db: Session, ticket: Ticket, payload: dict[str, Any]) ->
 
 
 VERIFY_ONLY = "verify_only:"
+SUPERSEDED = "superseded:"
+OPEN_FAILURE = ("FAILED", "NEEDS_ADMIN")
+
+
+def open_assign_failures(db: Session, ticket_id: int) -> list[IntegrationJob]:
+    """재처리(TK-12)를 기다리는 배정 실패 작업. 다른 작업이 retry_of_job_id 로 이어받은 것은 빼고 고른다."""
+    retried = select(IntegrationJob.retry_of_job_id).where(IntegrationJob.retry_of_job_id.is_not(None))
+    return list(db.scalars(select(IntegrationJob).where(
+        IntegrationJob.ticket_id == ticket_id, IntegrationJob.job_type == JOB_TYPE,
+        IntegrationJob.status.in_(OPEN_FAILURE), IntegrationJob.id.not_in(retried),
+    )).all())
+
+
+def supersede_assign_failures(db: Session, ticket_id: int, by: str, now: datetime) -> int:
+    """새 배정이 정해져 쓸모없어진 배정 실패 작업을 DONE 으로 닫는다. 커밋은 호출자가 한다.
+
+    by 는 무엇이 대체했는지(assign: TK-09·자동배정, jira: Jira 직접 변경)다. 원래 오류는 뒤에 남긴다.
+    닫지 않으면 TK-12 대상으로 남고, 웹훅이 이후의 Jira 담당자 변경을 계속 덮어쓰지 않는다.
+    """
+    jobs = open_assign_failures(db, ticket_id)
+    for job in jobs:
+        job.status, job.next_retry_at, job.updated_at = "DONE", None, now
+        job.last_error = f"{SUPERSEDED}{by}" + (f" ({job.last_error})" if job.last_error else "")
+    return len(jobs)
 
 
 @dataclass(frozen=True)

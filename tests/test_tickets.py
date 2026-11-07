@@ -1005,6 +1005,23 @@ def test_assign_closed_ticket(client, db, admin, team):
     assert error_code(res) == "TICKET_INVALID_TRANSITION"
 
 
+def test_reassign_closes_open_assign_failure(client, db, team):
+    """TK-09 로 새로 정하면 이전 배정 실패는 대체됨으로 닫혀, 이후 Jira 직접 변경을 막지 않는다 (06 R-49)."""
+    ticket = team["mine"]
+    ticket.assign_status, ticket.assignee_id = "NEEDS_ADMIN", None
+    failed = IntegrationJob(ticket_id=ticket.id, job_type="JIRA_ASSIGN", status="NEEDS_ADMIN", attempts=3,
+                            idempotency_key="assign:failed", payload={}, last_error="invalid_fields")
+    db.add(failed)
+    db.commit()
+
+    res = assign(client, as_user(client, "E0004"), ticket.id, team["net"].id, team["busy"].id)
+
+    assert res.status_code == 200
+    db.refresh(failed)
+    assert (failed.status, failed.last_error, failed.next_retry_at) == ("DONE", "superseded:assign (invalid_fields)", None)
+    assert [job.status for job in jobs(db) if job.id != failed.id] == ["PENDING"]
+
+
 def test_assign_while_assign_job_active(client, db, team):
     manager = as_user(client, "E0004")
     assign(client, manager, team["mine"].id, team["net"].id, team["busy"].id)
