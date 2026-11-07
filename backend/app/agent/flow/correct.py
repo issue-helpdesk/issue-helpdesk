@@ -158,6 +158,14 @@ def correct(out: AIOutput, inp: AIInput, *, second: bool, sent: Filtered | None,
     texts = _sent_texts(sent)
     d['evidence'] = [e for e in d['evidence'] if e['quote'] and e['quote'] in texts.get((e['kind'], e['source_id']), '')]
 
+    # 기존 사고 의심 판단도 S01 이벤트로 통일한다. 검토 요청만으로 긴급도를 올리지는 않는다.
+    d['security_rule_ids'] = list(dict.fromkeys(d['security_rule_ids']))
+    if f['security_suspected'] and 'S01' not in d['security_rule_ids']:
+        d['security_rule_ids'].append('S01')
+    if 'S01' in d['security_rule_ids']:
+        f['security_suspected'] = True
+        d['urgent_signal'] = True
+
     # 처리 방향 보정 (08 3.2 표 순서)
     def escalate(reason: str, rule: str, why: str):
         o.append(override('action', d['action'], 'ESCALATE', rule, why))
@@ -183,6 +191,11 @@ def correct(out: AIOutput, inp: AIInput, *, second: bool, sent: Filtered | None,
         d['urgent_signal'] = True
     if d['urgent_signal'] and d['action'] != 'ESCALATE':
         escalate('긴급대응', 'URGENT_SIGNAL', '긴급 징후는 담당자 연결')
+    if d['security_rule_ids']:
+        escalate('긴급대응' if d['urgent_signal'] else '전문판단', 'SECURITY_REVIEW', '보안 검토 기준 해당')
+        d['reply'] = ('보안 사고가 의심되어 담당자의 빠른 확인이 필요해요. 담당자에게 연결해 드릴까요?'
+                      if d['urgent_signal'] else '해당 요청은 보안 정책과 승인 여부를 담당자가 확인해야 해요. 담당자에게 연결해 드릴까요?')
+        d['questions'] = []
     if d['action'] != 'ESCALATE' and d['escalation_reason'] is not None:    # 08 2.5: ESCALATE 가 아니면 null
         o.append(override('escalation_reason', d['escalation_reason'], None, 'INVALID_VALUE', '담당자 연결이 아님'))
         d['escalation_reason'] = None

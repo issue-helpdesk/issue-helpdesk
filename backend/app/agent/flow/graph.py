@@ -36,7 +36,8 @@ def build_flow(port: LLMPort, taxonomy: Taxonomy, staff_names: Iterable[str], se
         inp = state['inp'].model_copy(update={'search': state['search'] if second else None})
         r = call_judge(inp, port, taxonomy, staff, 'ANSWER' if second else 'CLASSIFY',
                        state['first'] if second else None)
-        update = {'judge': r, 'second': second, 'calls': list(r.calls)}
+        update = {'judge': r, 'second': second, 'calls': list(r.calls),
+                  'security_rules': list(r.output.security_rule_ids) + (['S01'] if r.output.facts.security_suspected else [])}
         if not second:
             update['first'] = r.output          # 다시 생성했으면 마지막 1차 값. 1차가 실패하면 2차로 가지 않는다
         return update
@@ -46,6 +47,8 @@ def build_flow(port: LLMPort, taxonomy: Taxonomy, staff_names: Iterable[str], se
 
         def settle(out: AIOutput, failure: str | None, code: str | None):
             o = [override('action', None, 'ESCALATE', failure, code or FAILURE_REASON[failure])] if failure else []
+            out = out.model_copy(update={'security_rule_ids': list(dict.fromkeys(
+                [*state.get('security_rules', []), *out.security_rule_ids]))})
             c = correct(out, state['inp'], second=second, sent=r.evidence, search=state.get('search'),
                         taxonomy=taxonomy, limits=limits)
             o += c.overrides
@@ -133,7 +136,7 @@ def next_step(out: AIOutput, overrides: list[dict], second: bool, failure: str |
         return 'collect'
     if second:
         return 'answered' if out.action == 'ANSWER' else 'offer'
-    # 1차: 긴급 징후·추가 질문 상한(T04)·호출 실패(T11)만 여기서 끝낸다. 그 밖의 ESCALATE·ANSWER·OUT_OF_SCOPE 는 검색으로
-    if failure or out.urgent_signal or any(o['rule'] in LIMIT_RULES for o in overrides):
+    # 1차: 보안 검토·긴급 징후·추가 질문 상한(T04)·호출 실패(T11)는 여기서 끝낸다. 그 밖의 ESCALATE·ANSWER·OUT_OF_SCOPE 는 검색으로
+    if failure or out.urgent_signal or out.security_rule_ids or any(o['rule'] in LIMIT_RULES for o in overrides):
         return 'offer'
     return None

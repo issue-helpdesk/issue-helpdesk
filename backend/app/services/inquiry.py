@@ -29,6 +29,7 @@ from app.models import (
 from app.repositories.audit_log import AuditLogRepository, AuditLogRepositoryDep
 from app.repositories.inquiry import InquiryRepository, InquiryRepositoryDep
 from app.repositories.reference import ReferenceRepositoryDep
+from app.repositories.security_alert import record_query_volume, record_sensitive_counts
 from app.schemas.common import ItemList, Page, parse_sort
 from app.schemas.inquiry import (
     AiTurn,
@@ -318,6 +319,7 @@ class InquiryService:
         messages = [self.inquiries.add_message(session.id, "USER", masked.text)]
         messages += [self.inquiries.add_notice(session.id, notice) for notice in mask_notices(masked)]
         record_sensitive_input(self.audit_logs, inquiry.id, user, masked.counts)
+        record_query_volume(self.db, user.id)
         return messages
 
     def record_ai_run(self, inquiry_id: int, message: Message, result: FlowResult) -> None:
@@ -462,13 +464,16 @@ def urgency_reason(result: FlowResult) -> str | None:
 
 def record_sensitive_input(audit_logs: AuditLogRepository, inquiry_id: int, actor: User, counts: dict[str, int]) -> None:
     """가린 유형마다 한 줄 (docs/10 5.2). 값과 원문은 남기지 않고 개수만 남긴다."""
+    record_sensitive_counts(audit_logs.db, inquiry_id, actor.id, counts)
     for kind, count in counts.items():
         audit_logs.add("SENSITIVE_INPUT", "inquiry", inquiry_id, result=kind, actor_id=actor.id, reason=f"{count}건")
 
 
 def ai_audit_events(result: FlowResult) -> list[tuple[str, str, str | None]]:
     """(event_type, result, reason) 목록. 시스템이 한 일이라 actor 는 비운다 (docs/10 5.2, 09 3.3)."""
-    events = []
+    events = [("SECURITY_REVIEW", rule, None) for rule in result.output.security_rule_ids]
+    if result.error_code == "UNSAFE_REPLY":
+        events.append(("UNSAFE_REPLY", "BLOCKED", None))
     if result.evidence is not None:
         events += [("BLOCK", "DOC_BLOCKED", code) for code in result.evidence.blocked]
         events += [("FAIL", "FILTER_FAILED", f"④ 검색 근거 {code}") for code in result.evidence.failed]
