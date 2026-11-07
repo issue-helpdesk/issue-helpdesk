@@ -77,6 +77,27 @@ class GuideClusterService:
         )
 
 
+    def save_draft(self, cluster_id: int, draft_md: str, draft_revision: int) -> GuideClusterDetail:
+        """GC-05. 초안 글 저장. 보낸 draft_revision 이 지금 값과 같을 때만 저장하고 1 올린다 (다른 관리자 변경 확인).
+
+        검토 중이고 등록하지 않은 묶음만 된다: 등록한 뒤 고치면 등록한 파일과 초안이 달라진다.
+        넣을 문서 변경은 초안을 다시 만들어야 해서 여기서 하지 않는다. 운영 기록은 남기지 않는다 (상태 변경이 아님).
+        """
+        c = self.lock_reviewing(cluster_id)
+        if c.registered_version_id is not None:
+            raise AppError(ErrorCode.GUIDE_CLUSTER_DRAFT_LOCKED, [
+                {"reason": "REGISTERED", "message": "등록한 버전", "value": c.registered_version_id},
+            ])
+        if c.judgment == "MANUAL_CANDIDATE":
+            raise AppError(ErrorCode.GUIDE_CLUSTER_NO_DRAFT)
+        if draft_revision != c.draft_revision:
+            raise AppError(ErrorCode.GUIDE_CLUSTER_DRAFT_CONFLICT, [
+                {"field": "draftRevision", "reason": "STALE", "message": "지금 초안 번호", "value": c.draft_revision},
+            ])
+        c.draft_md, c.draft_revision, c.updated_at = draft_md, c.draft_revision + 1, datetime_utils.now()
+        self.db.commit()
+        return self.get_cluster(c.id)
+
     def reject(self, cluster_id: int, reason: str, user: User) -> GuideClusterDetail:
         """GC-03. 검토 중인 묶음을 거절한다. 등록한 뒤라도 현행 전환 전이면 된다.
 
@@ -108,7 +129,8 @@ class GuideClusterService:
         return self.get_cluster(c.id)
 
     def lock_reviewing(self, cluster_id: int) -> GuideCluster:
-        """넣을 문서 → 묶음 순으로 잠그고 검토 중인지 본다. DC-09(문서 → 버전 → 묶음)와 순서가 같아 교착되지 않는다."""
+        """넣을 문서 → 묶음 순으로 잠그고 검토 중인지 본다. DC-09(문서 → 버전 → 묶음)와 순서가 같아 교착되지 않는다.
+        묶음 행을 잠그므로 같은 묶음에 대한 저장·거절·반영 표시가 한 번에 하나씩 된다."""
         c = self.clusters.get(cluster_id)
         if c is None:
             raise AppError(ErrorCode.GUIDE_CLUSTER_NOT_FOUND)

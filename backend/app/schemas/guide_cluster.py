@@ -1,5 +1,7 @@
 from typing import Literal
 
+from pydantic import Field
+
 from app.schemas.common import CamelModel, KstDatetime, PageQuery, trimmed_str
 from app.schemas.inquiry import CategoryRef, UserRef
 
@@ -64,6 +66,14 @@ class GuideClusterDetail(GuideClusterSummary):
     reviewed_by: UserRef | None
     reviewed_at: KstDatetime | None
     tickets: list[GuideClusterTicket]
+
+
+MD_MAX_LENGTH = 1_000_000                       # 가이드 md 는 수십 KB 다. 비정상적으로 큰 본문만 막는다
+
+
+class GuideClusterDraftUpdateRequest(CamelModel):
+    draft_md: str = Field(min_length=1, max_length=MD_MAX_LENGTH)
+    draft_revision: int = Field(ge=0)           # GC-02 에서 받은 값. 다르면 다른 관리자가 먼저 고친 것
 
 
 class GuideClusterRejectRequest(CamelModel):

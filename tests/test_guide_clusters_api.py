@@ -1,4 +1,4 @@
-"""해결 사례 가이드화 묶음 API (GC-01~04). SQLite 메모리 DB 만 쓴다."""
+"""해결 사례 가이드화 묶음 API (GC-01~05). SQLite 메모리 DB 만 쓴다."""
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -84,6 +84,8 @@ def test_admin_only(client, users, db, who):
     assert error_code(client.get(f"{API}/{cluster.id}", headers=users[who])) == "FORBIDDEN"
     assert error_code(client.post(f"{API}/{cluster.id}/reject", headers=users[who], json={"reason": "x"})) == "FORBIDDEN"
     assert error_code(client.post(f"{API}/{cluster.id}/apply", headers=users[who])) == "FORBIDDEN"
+    assert error_code(client.patch(f"{API}/{cluster.id}", headers=users[who],
+                                   json={"draftMd": "# x", "draftRevision": 0})) == "FORBIDDEN"
     db.expire_all()
     assert cluster.status == "REVIEWING"
 
@@ -283,3 +285,74 @@ def test_apply_registered_cluster_refused(client, users, db, guide):
 def test_reject_and_apply_not_found(client, users):
     assert error_code(client.post(f"{API}/999/reject", headers=users["admin"], json={"reason": "x"})) == "GUIDE_CLUSTER_NOT_FOUND"
     assert error_code(client.post(f"{API}/999/apply", headers=users["admin"])) == "GUIDE_CLUSTER_NOT_FOUND"
+
+
+# ------------------------------------------------------------------ GC-05 초안 수정 저장
+
+
+def save(client, users, cluster, md="### 3.8 고친 초안", revision=0):
+    return client.patch(f"{API}/{cluster.id}", headers=users["admin"], json={"draftMd": md, "draftRevision": revision})
+
+
+def test_save_draft_increments_revision(client, users, db):
+    cluster, _ = add_cluster(db, draft_md="### 3.8 AI 초안")
+
+    first = save(client, users, cluster, "### 3.8 한 번 고침", 0)
+    second = save(client, users, cluster, "### 3.8 두 번 고침", 1)
+
+    assert first.status_code == 200 and first.json()["draftRevision"] == 1
+    assert (second.json()["draftMd"], second.json()["draftRevision"]) == ("### 3.8 두 번 고침", 2)
+    assert second.json()["updatedAt"] is not None
+    assert audits(db) == []                                 # 상태 변경이 아니라 기록하지 않는다
+
+
+def test_save_draft_conflict(client, users, db):
+    """두 관리자가 같은 번호(0)로 열었다. 먼저 저장한 쪽만 들어가고 나중 쪽은 지금 번호를 받는다."""
+    cluster, _ = add_cluster(db, draft_md="### 3.8 AI 초안")
+    assert save(client, users, cluster, "### 3.8 관리자 A", 0).status_code == 200
+
+    res = save(client, users, cluster, "### 3.8 관리자 B", 0)
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_DRAFT_CONFLICT")
+    assert res.json()["error"]["details"][0] == {"field": "draftRevision", "reason": "STALE",
+                                                 "message": "지금 초안 번호", "value": 1}
+    db.expire_all()
+    assert (cluster.draft_md, cluster.draft_revision) == ("### 3.8 관리자 A", 1)
+
+
+def test_save_draft_refused_after_registration(client, users, db, guide):
+    document, current, draft = guide
+    cluster, _ = add_cluster(db, draft_md="### 3.8 등록한 초안", target_document_id=document.id,
+                             base_version_id=current.id, registered_version_id=draft.id)
+
+    res = save(client, users, cluster)
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_DRAFT_LOCKED")
+    assert res.json()["error"]["details"][0]["value"] == draft.id
+    db.expire_all()
+    assert (cluster.draft_md, cluster.draft_revision) == ("### 3.8 등록한 초안", 0)
+
+
+def test_save_draft_refused_for_manual_candidate(client, users, db):
+    cluster, _ = add_cluster(db, judgment="MANUAL_CANDIDATE")
+    assert error_code(save(client, users, cluster)) == "GUIDE_CLUSTER_NO_DRAFT"
+
+
+@pytest.mark.parametrize("status", ["APPLIED", "REJECTED"])
+def test_save_draft_only_reviewing(client, users, db, status):
+    cluster, _ = add_cluster(db, status=status, draft_md="### 3.8")
+    assert error_code(save(client, users, cluster)) == "GUIDE_CLUSTER_NOT_REVIEWING"
+
+
+@pytest.mark.parametrize("body", [{"draftMd": "# x"}, {"draftRevision": 0}, {"draftMd": "", "draftRevision": 0},
+                                  {"draftMd": "# x", "draftRevision": -1},
+                                  {"draftMd": "# x", "draftRevision": 0, "targetDocumentId": 3}])
+def test_save_draft_validation(client, users, db, body):
+    """넣을 문서 변경(targetDocumentId)은 아직 받지 않는다."""
+    cluster, _ = add_cluster(db, draft_md="### 3.8")
+    assert client.patch(f"{API}/{cluster.id}", headers=users["admin"], json=body).status_code == 422
+
+
+def test_save_draft_not_found(client, users):
+    res = client.patch(f"{API}/999", headers=users["admin"], json={"draftMd": "# x", "draftRevision": 0})
+    assert error_code(res) == "GUIDE_CLUSTER_NOT_FOUND"
