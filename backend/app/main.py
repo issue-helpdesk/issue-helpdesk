@@ -10,6 +10,7 @@ from app.api import (
     dashboard,
     documents,
     faqs,
+    guide_clusters,
     guide_images,
     health,
     inquiries,
@@ -62,6 +63,7 @@ app.include_router(reference.router, prefix=API_VERSION_V1)
 app.include_router(tickets.router, prefix=API_VERSION_V1)
 app.include_router(documents.router, prefix=API_VERSION_V1)
 app.include_router(guide_images.router, prefix=API_VERSION_V1)
+app.include_router(guide_clusters.router, prefix=API_VERSION_V1)
 app.include_router(faqs.router, prefix=API_VERSION_V1)
 app.include_router(time_off.router, prefix=API_VERSION_V1)
 app.include_router(jira_webhook.router, prefix=API_VERSION_V1)
