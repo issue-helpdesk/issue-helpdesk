@@ -64,3 +64,7 @@ class GuideClusterDetail(GuideClusterSummary):
     reviewed_by: UserRef | None
     reviewed_at: KstDatetime | None
     tickets: list[GuideClusterTicket]
+
+
+class GuideClusterRejectRequest(CamelModel):
+    reason: trimmed_str(1, 500)

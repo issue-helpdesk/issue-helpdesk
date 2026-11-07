@@ -1,12 +1,12 @@
-"""해결 사례 가이드화 묶음 조회 API (GC-01·02). SQLite 메모리 DB 만 쓴다."""
+"""해결 사례 가이드화 묶음 API (GC-01~04). SQLite 메모리 DB 만 쓴다."""
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from app.models import Category, DocumentVersion, GuideCluster, KnowledgeDocument, TicketGuideState, User
+from app.models import AuditLog, Category, DocumentVersion, GuideCluster, KnowledgeDocument, TicketGuideState, User
 from test_auth import TABLES, add_user, bearer, client, error_code, login  # noqa: F401
 from test_dashboard import add_ticket
 from test_inquiries import create_sqlite_tables
@@ -19,7 +19,8 @@ DAY = datetime(2026, 11, 14, 0, 0, tzinfo=timezone.utc)
 def db():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     create_sqlite_tables(engine, TABLES + ["categories", "inquiries", "tickets", "knowledge_documents",
-                                           "document_versions", "guide_clusters", "ticket_guide_states"])
+                                           "document_versions", "document_chunks", "faqs", "faq_source_documents",
+                                           "guide_clusters", "ticket_guide_states"])
     with Session(engine) as session:
         yield session
     engine.dispose()
@@ -81,6 +82,10 @@ def test_admin_only(client, users, db, who):
     cluster, _ = add_cluster(db)
     assert error_code(client.get(API, headers=users[who])) == "FORBIDDEN"
     assert error_code(client.get(f"{API}/{cluster.id}", headers=users[who])) == "FORBIDDEN"
+    assert error_code(client.post(f"{API}/{cluster.id}/reject", headers=users[who], json={"reason": "x"})) == "FORBIDDEN"
+    assert error_code(client.post(f"{API}/{cluster.id}/apply", headers=users[who])) == "FORBIDDEN"
+    db.expire_all()
+    assert cluster.status == "REVIEWING"
 
 
 # ------------------------------------------------------------------ GC-01 목록
@@ -191,3 +196,90 @@ def test_detail_rejected_and_new_guide(client, users, db):
 def test_detail_not_found(client, users):
     res = client.get(f"{API}/999", headers=users["admin"])
     assert (res.status_code, error_code(res)) == (404, "GUIDE_CLUSTER_NOT_FOUND")
+
+
+# ------------------------------------------------------------------ GC-03 거절 · GC-04 반영 표시
+
+
+def guide_states(db):
+    return {s.ticket_id: s.status for s in db.scalars(select(TicketGuideState))}
+
+
+def audits(db):
+    return [(a.event_type, a.target_id, a.result, a.reason) for a in db.scalars(
+        select(AuditLog).where(AuditLog.event_type.like("GUIDE_CLUSTER%")).order_by(AuditLog.id))]
+
+
+def reject(client, users, cluster, reason="이미 매뉴얼 3.2에 있는 절차"):
+    return client.post(f"{API}/{cluster.id}/reject", headers=users["admin"], json={"reason": reason})
+
+
+def test_reject(client, users, db):
+    cluster, tickets = add_cluster(db, tickets=2)
+    _, (untouched,) = add_cluster(db, tickets=1)          # 다른 묶음의 티켓은 그대로
+
+    res = reject(client, users, cluster, "  이미 매뉴얼 3.2에 있는 절차  ")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert (body["status"], body["rejectReason"]) == ("REJECTED", "이미 매뉴얼 3.2에 있는 절차")
+    assert body["reviewedBy"]["employeeNo"] == "E0009" and body["reviewedAt"] is not None
+    assert guide_states(db) == {tickets[0].id: "REJECTED", tickets[1].id: "REJECTED", untouched.id: "REVIEWING"}
+    assert audits(db) == [("GUIDE_CLUSTER_REJECT", cluster.id, "ADD_ITEM REVIEWING → REJECTED", "이미 매뉴얼 3.2에 있는 절차")]
+
+
+def test_reject_registered_cluster_blocks_activation(client, users, db, guide):
+    """등록한 뒤에도 현행 전환 전이면 거절할 수 있고, 거절하면 그 버전의 현행 전환이 막힌다."""
+    document, current, draft = guide
+    draft.ingest_status = "DONE"
+    cluster, _ = add_cluster(db, tickets=1, target_document_id=document.id, base_version_id=current.id,
+                             registered_version_id=draft.id)
+
+    assert reject(client, users, cluster).json()["registeredVersion"]["id"] == draft.id   # 등록 버전은 남긴다
+    res = client.patch(f"/api/v1/documents/{document.id}/versions/{draft.id}", headers=users["admin"],
+                       json={"isCurrent": True})
+    assert (res.status_code, error_code(res)) == (409, "DOCUMENT_VERSION_HAS_REJECTED_CLUSTER")
+
+
+def test_reject_requires_reason(client, users, db):
+    cluster, _ = add_cluster(db)
+    for body in ({}, {"reason": "   "}, {"reason": "x" * 501}):
+        assert client.post(f"{API}/{cluster.id}/reject", headers=users["admin"], json=body).status_code == 422
+
+
+@pytest.mark.parametrize("status", ["APPLIED", "REJECTED"])
+def test_reject_and_apply_only_reviewing(client, users, db, status):
+    cluster, _ = add_cluster(db, status=status)
+    for res in (reject(client, users, cluster), client.post(f"{API}/{cluster.id}/apply", headers=users["admin"])):
+        assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_NOT_REVIEWING")
+        assert res.json()["error"]["details"][0]["value"] == status
+    assert audits(db) == []
+
+
+def test_apply_manual_candidate(client, users, db):
+    cluster, tickets = add_cluster(db, tickets=2, judgment="MANUAL_CANDIDATE")
+
+    res = client.post(f"{API}/{cluster.id}/apply", headers=users["admin"])
+
+    assert res.status_code == 200
+    assert (res.json()["status"], res.json()["reviewedBy"]["employeeNo"]) == ("APPLIED", "E0009")
+    assert guide_states(db) == {t.id: "APPLIED" for t in tickets}
+    assert audits(db) == [("GUIDE_CLUSTER_APPLY", cluster.id, "MANUAL_CANDIDATE REVIEWING → APPLIED", None)]
+
+
+def test_apply_registered_cluster_refused(client, users, db, guide):
+    """등록한 묶음은 현행 전환으로만 반영한다 (거절·기준 버전 검사를 건너뛰지 않게)."""
+    document, current, draft = guide
+    cluster, _ = add_cluster(db, target_document_id=document.id, base_version_id=current.id,
+                             registered_version_id=draft.id)
+
+    res = client.post(f"{API}/{cluster.id}/apply", headers=users["admin"])
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_REGISTERED")
+    db.expire_all()
+    assert cluster.status == "REVIEWING"
+
+
+def test_reject_and_apply_not_found(client, users):
+    assert error_code(client.post(f"{API}/999/reject", headers=users["admin"], json={"reason": "x"})) == "GUIDE_CLUSTER_NOT_FOUND"
+    assert error_code(client.post(f"{API}/999/apply", headers=users["admin"])) == "GUIDE_CLUSTER_NOT_FOUND"
