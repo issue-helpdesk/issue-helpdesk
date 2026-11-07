@@ -6,6 +6,7 @@ from app.api.deps import AdminAuth
 from app.schemas.common import Page
 from app.schemas.guide_cluster import (
     GuideClusterDetail,
+    GuideClusterDraftUpdateRequest,
     GuideClusterListQuery,
     GuideClusterRejectRequest,
     GuideClusterSummary,
@@ -25,6 +26,14 @@ def list_clusters(
 @router.get("/{cluster_id}", response_model=GuideClusterDetail)
 def get_cluster(cluster_id: int, _: AdminAuth, service: GuideClusterServiceDep) -> GuideClusterDetail:
     return service.get_cluster(cluster_id)
+
+
+@router.patch("/{cluster_id}", response_model=GuideClusterDetail)
+def save_draft(
+    cluster_id: int, body: GuideClusterDraftUpdateRequest, _: AdminAuth, service: GuideClusterServiceDep,
+) -> GuideClusterDetail:
+    """초안 글 저장. draftRevision 이 다르면 409 (다른 관리자가 먼저 고침)."""
+    return service.save_draft(cluster_id, body.draft_md, body.draft_revision)
 
 
 @router.post("/{cluster_id}/reject", response_model=GuideClusterDetail)
