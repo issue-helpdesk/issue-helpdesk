@@ -29,6 +29,7 @@ from app.models import (
 from app.repositories.audit_log import AuditLogRepository, AuditLogRepositoryDep
 from app.repositories.inquiry import InquiryRepository, InquiryRepositoryDep
 from app.repositories.reference import ReferenceRepositoryDep
+from app.repositories.security_alert import SecurityAlertRepository, SecurityAlertRepositoryDep
 from app.schemas.common import ItemList, Page, parse_sort
 from app.schemas.inquiry import (
     AiTurn,
@@ -52,6 +53,7 @@ from app.schemas.inquiry import (
 from app.services.ai_responder import AiResponderDep
 from app.services.guide_image import images_of
 from app.services.inquiry_status import CLOSED_STATUSES, display_status, next_actions, resume_actions
+from app.services.security_alert import detect
 from app.utils import datetime_utils
 from app.utils.text_utils import first_line_summary
 from app.utils.dict_utils import camel_keys
@@ -68,12 +70,14 @@ class InquiryService:
         inquiries: InquiryRepositoryDep,
         references: ReferenceRepositoryDep,
         audit_logs: AuditLogRepositoryDep,
+        alerts: SecurityAlertRepositoryDep,
         ai: AiResponderDep,
     ) -> None:
         self.db = db
         self.inquiries = inquiries
         self.references = references
         self.audit_logs = audit_logs
+        self.alerts = alerts
         self.ai = ai
 
     def start(self, content: str, user: User) -> AiTurn:
@@ -135,7 +139,7 @@ class InquiryService:
             override_reasons=list(result.override_reasons),
         ))
         message = self.inquiries.add_message(session.id, "AI", BLOCKED_NOTICE if result.failure == "ALL_BLOCKED" else out.reply)
-        self.record_ai_run(inquiry.id, message, result)
+        self.record_ai_run(inquiry, message, result)
         inquiry.category_code = assessment.category_code
         inquiry.inquiry_type_id = assessment.inquiry_type_id
         inquiry.urgency = assessment.urgency
@@ -157,7 +161,7 @@ class InquiryService:
         if inquiry.status != "IN_PROGRESS":
             raise invalid_state(inquiry)
 
-        close_unresolved(self.inquiries, self.audit_logs, inquiry, user, "NO_CONNECT")
+        close_unresolved(self.inquiries, self.audit_logs, self.alerts, inquiry, user, "NO_CONNECT")
         self.db.commit()
         return self.to_detail(inquiry)
 
@@ -317,17 +321,23 @@ class InquiryService:
         masked = mask_secrets(content)
         messages = [self.inquiries.add_message(session.id, "USER", masked.text)]
         messages += [self.inquiries.add_notice(session.id, notice) for notice in mask_notices(masked)]
-        record_sensitive_input(self.audit_logs, inquiry.id, user, masked.counts)
+        record_sensitive_input(self.audit_logs, self.alerts, inquiry.id, user, masked.counts)
         return messages
 
-    def record_ai_run(self, inquiry_id: int, message: Message, result: FlowResult) -> None:
-        """모델 호출·답변 출처·차단·실패를 남긴다 (06 G장, docs/10 5.2, 09 3.3). 원문은 남기지 않는다."""
+    def record_ai_run(self, inquiry: Inquiry, message: Message, result: FlowResult) -> None:
+        """모델 호출·답변 출처·차단·실패를 남긴다 (06 G장, docs/10 5.2, 09 3.3). 원문은 남기지 않는다.
+
+        근거가 모두 전송 금지라 답변을 막았으면 보안 알림도 만든다 (06 security_alerts BLOCKED_DOC_QUERY).
+        """
+        inquiry_id = inquiry.id
         for call in result.llm_calls:
             self.inquiries.add(LlmCall(inquiry_id=inquiry_id, **asdict(call)))
         for row in result.sources:
             self.inquiries.add(MessageSource(message_id=message.id, **row))
         for event_type, outcome, reason in ai_audit_events(result):
             self.audit_logs.add(event_type, "inquiry", inquiry_id, result=outcome, reason=reason)
+        if result.failure == "ALL_BLOCKED":
+            detect(self.alerts, "BLOCKED_DOC_QUERY", inquiry.user_id, "inquiry", inquiry_id)
 
     def find_viewable(self, inquiry_id: int, viewer: User) -> Inquiry:
         inquiry = self.inquiries.get(inquiry_id)
@@ -460,10 +470,17 @@ def urgency_reason(result: FlowResult) -> str | None:
     return " ".join(rules or result.output.rationale.urgency_reasons) or None
 
 
-def record_sensitive_input(audit_logs: AuditLogRepository, inquiry_id: int, actor: User, counts: dict[str, int]) -> None:
-    """가린 유형마다 한 줄 (docs/10 5.2). 값과 원문은 남기지 않고 개수만 남긴다."""
+def record_sensitive_input(
+    audit_logs: AuditLogRepository, alerts: SecurityAlertRepository, inquiry_id: int, actor: User, counts: dict[str, int],
+) -> None:
+    """가린 유형마다 한 줄 (docs/10 5.2). 값과 원문은 남기지 않고 개수만 남긴다.
+
+    가린 게 있으면 입력한 사람 기준으로 보안 알림 하나를 만들거나 합친다 (06 security_alerts SENSITIVE_INPUT).
+    """
     for kind, count in counts.items():
         audit_logs.add("SENSITIVE_INPUT", "inquiry", inquiry_id, result=kind, actor_id=actor.id, reason=f"{count}건")
+    if counts:
+        detect(alerts, "SENSITIVE_INPUT", actor.id, "inquiry", inquiry_id, counts)
 
 
 def ai_audit_events(result: FlowResult) -> list[tuple[str, str, str | None]]:
@@ -491,7 +508,8 @@ def can_view_inquiry(inquiries: InquiryRepository, inquiry: Inquiry, ticket: Tic
 
 
 def close_unresolved(
-    inquiries: InquiryRepository, audit_logs: AuditLogRepository, inquiry: Inquiry, actor: User, choice: str,
+    inquiries: InquiryRepository, audit_logs: AuditLogRepository, alerts: SecurityAlertRepository,
+    inquiry: Inquiry, actor: User, choice: str,
 ) -> None:
     """접수 없이 미해결로 닫는다 (IQ-04 종료, TK-03 초안 취소). choice 는 누른 버튼의 code. 커밋은 호출자가 한다."""
     now = datetime_utils.now()
@@ -505,6 +523,7 @@ def close_unresolved(
         draft.status, draft.updated_at = "CANCELLED", now
     if any(a.urgent_signal for a in inquiries.assessments(inquiry.id)):
         audit_logs.add("URGENT_CLOSED", "inquiry", inquiry.id, result=inquiry.status, actor_id=actor.id)
+        detect(alerts, "URGENT_CLOSED", inquiry.user_id, "inquiry", inquiry.id)    # 대상은 문의자 (AUDIT-04)
 
 
 def end_session(session: ChatSession | None, now: datetime, reason: str = "USER_END") -> None:

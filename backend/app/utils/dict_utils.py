@@ -10,3 +10,12 @@ def camel_keys(value: Any) -> Any:
     if isinstance(value, list):
         return [camel_keys(v) for v in value]
     return value
+
+
+def add_counts(*counts: dict[str, int]) -> dict[str, int]:
+    """키별 개수를 더한 새 dict. 입력은 바꾸지 않는다."""
+    total: dict[str, int] = {}
+    for c in counts:
+        for k, v in c.items():
+            total[k] = total.get(k, 0) + v
+    return total

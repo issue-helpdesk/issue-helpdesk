@@ -16,7 +16,8 @@ from app.models import AuditLog, AuthSession, Base, Department, SupportGroup, Su
 
 PASSWORD = "Init!Pass123"
 NEW_PASSWORD = "New!Passw0rd"
-TABLES = ["departments", "users", "support_groups", "support_group_members", "audit_logs", "auth_sessions"]
+TABLES = ["departments", "users", "support_groups", "support_group_members", "audit_logs", "auth_sessions",
+          "security_alerts"]
 
 
 @compiles(BigInteger, "sqlite")
