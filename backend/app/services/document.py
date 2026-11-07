@@ -13,10 +13,11 @@ from app.core.error_codes import ErrorCode
 from app.core.errors import AppError, field_error
 from app.core.permissions import visible_scopes
 from app.db.session import DbSession
-from app.models import Category, DocumentVersion, KnowledgeDocument, SupportGroup, User
+from app.models import Category, DocumentVersion, GuideCluster, KnowledgeDocument, SupportGroup, User
 from app.repositories.audit_log import AuditLogRepositoryDep
 from app.repositories.document import DocumentRepositoryDep
 from app.repositories.faq import FaqRepositoryDep
+from app.repositories.guide_cluster import GuideClusterRepositoryDep
 from app.schemas.common import ItemList, Page, parse_sort
 from app.schemas.document import (
     CurrentVersion,
@@ -44,12 +45,14 @@ class DocumentService:
         faqs: FaqRepositoryDep,
         audit_logs: AuditLogRepositoryDep,
         submit_ingest: IngestSubmitterDep,
+        guide_clusters: GuideClusterRepositoryDep,
     ) -> None:
         self.db = db
         self.documents = documents
         self.faqs = faqs
         self.audit_logs = audit_logs
         self.submit_ingest = submit_ingest
+        self.guide_clusters = guide_clusters
 
     def list_documents(self, query: DocumentListQuery, viewer: User) -> Page[Document]:
         """DC-01. ADMIN 이 아니면 활성이고 현행 버전이 열람 범위 안인 문서만."""
@@ -248,14 +251,38 @@ class DocumentService:
             raise AppError(ErrorCode.DOCUMENT_VERSION_NOT_READY, [
                 {"reason": "INGEST_STATUS", "message": "적재 상태", "value": row.ingest_status},
             ])
+        clusters = self.check_guide_clusters(row) if activating else []
 
         scope_changed = self.change_policy(row, body, user)
         if activating:
             self.activate(row, user)
+            self.guide_clusters.mark_applied([c for c in clusters if c.status == "REVIEWING"])
         if activating or (scope_changed and row.is_current):
             self.recheck_faqs(document_id, user)
         self.db.commit()
         return self.version_views([row])[0]
+
+    def check_guide_clusters(self, row: DocumentVersion) -> list[GuideCluster]:
+        """해결 사례 묶음을 등록한 버전이면 전환 전에 본다 (기획_해결사례_가이드화 6단계). 일반 업로드 버전은 묶음이 없다.
+
+        거절한 묶음이 있거나, 묶음을 만든 기준 버전이 지금 현행과 다르면 막는다. 현행 전환은 가이드 전체를 바꾸므로
+        그사이 현행에 들어간 수정이 사라지지 않게 한다. 기준 버전은 검토 중인 묶음만 본다: 이미 반영된 버전으로
+        되돌리는 것은 관리자의 되돌리기라 막지 않는다. 새 가이드 묶음은 기준 버전이 없어 건너뛴다.
+        잠금 순서는 문서 → 버전 → 묶음이다. 묶음을 거절·수정하는 쪽도 같은 순서로 잠근다.
+        """
+        clusters = self.guide_clusters.registered_to(row.id)
+        if rejected := [c.id for c in clusters if c.status == "REJECTED"]:
+            raise AppError(ErrorCode.DOCUMENT_VERSION_HAS_REJECTED_CLUSTER, [
+                {"reason": "REJECTED_CLUSTER", "message": "거절한 묶음", "value": rejected},
+            ])
+        current = self.documents.current_version(row.document_id)
+        current_id = current.id if current else None
+        if stale := [c.id for c in clusters if c.status == "REVIEWING" and c.base_version_id is not None
+                      and c.base_version_id != current_id]:
+            raise AppError(ErrorCode.DOCUMENT_VERSION_BASE_CHANGED, [
+                {"reason": "BASE_VERSION_CHANGED", "message": "기준 버전이 현행과 다른 묶음", "value": stale},
+            ])
+        return clusters
 
     def change_policy(self, row: DocumentVersion, body: DocumentVersionUpdateRequest, user: User) -> bool:
         """정책을 바꾸고 운영 기록을 남긴다. 돌려주는 값은 열람 범위가 바뀌었는지."""

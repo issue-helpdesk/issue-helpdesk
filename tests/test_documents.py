@@ -22,8 +22,10 @@ from app.models import (
     DocumentVersion,
     Faq,
     FaqSourceDocument,
+    GuideCluster,
     KnowledgeDocument,
     SupportGroup,
+    TicketGuideState,
 )
 from app.services import document_file
 from app.services.document_ingest import ingest_submitter
@@ -37,7 +39,8 @@ DOCS = "/api/v1/documents"
 def db():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     create_sqlite_tables(engine, TABLES + ["categories", "faqs", "knowledge_documents", "document_versions",
-                                           "document_chunks", "faq_source_documents"])
+                                           "document_chunks", "faq_source_documents", "guide_clusters",
+                                           "ticket_guide_states"])
     with Session(engine) as session:
         yield session
     engine.dispose()
@@ -821,6 +824,97 @@ def test_relaxing_with_other_field_needs_reason(client, db, users):
     db.expire_all()
     assert (new.is_current, new.view_scope, new.transfer_policy) == (False, "ALL", "BLOCKED")
 
+
+
+# ------------------------------------------------------------------ DC-09 해결 사례 묶음
+
+
+def add_cluster(db, registered, base, status="REVIEWING", tickets=(), **fields):
+    """registered 버전에 등록한 묶음과 소속 티켓 상태. tickets: 티켓 id."""
+    values = {"category_code": "NET", "judgment": "ADD_ITEM", "title": "VPN 끊김",
+              "reject_reason": "이미 매뉴얼에 있음" if status == "REJECTED" else None, **fields}
+    cluster = GuideCluster(status=status, registered_version_id=registered.id,
+                           base_version_id=base.id if base else None, **values)
+    db.add(cluster)
+    db.flush()
+    for ticket_id in tickets:
+        db.add(TicketGuideState(ticket_id=ticket_id, status=status, cluster_id=cluster.id))
+    db.commit()
+    return cluster
+
+
+def guide_states(db):
+    return {s.ticket_id: s.status for s in db.scalars(select(TicketGuideState))}
+
+
+def test_activate_applies_registered_clusters(client, db, users):
+    document, (old, new) = add_doc(db, versions=(("v1", "ALL", True), ("v2", "ALL", False)))
+    first = add_cluster(db, new, old, tickets=(1, 2))
+    second = add_cluster(db, new, old, tickets=(3,))         # 이어 쓴 초안: 묶음 둘이 한 버전
+    db.add(TicketGuideState(ticket_id=9, status="WAITING"))  # 다른 티켓은 그대로
+    db.commit()
+
+    res = patch_version(client, users["admin"], document, new, {"isCurrent": True})
+
+    assert res.status_code == 200
+    db.expire_all()
+    assert (first.status, second.status) == ("APPLIED", "APPLIED")
+    assert first.updated_at is not None
+    assert guide_states(db) == {1: "APPLIED", 2: "APPLIED", 3: "APPLIED", 9: "WAITING"}
+
+
+def test_activate_blocked_by_rejected_cluster(client, db, users):
+    document, (old, new) = add_doc(db, versions=(("v1", "ALL", True), ("v2", "ALL", False)))
+    kept = add_cluster(db, new, old, tickets=(1,))
+    rejected = add_cluster(db, new, old, status="REJECTED", tickets=(2,))
+
+    res = patch_version(client, users["admin"], document, new, {"isCurrent": True, "viewScope": "AGENT"})
+
+    assert (res.status_code, error_code(res)) == (409, "DOCUMENT_VERSION_HAS_REJECTED_CLUSTER")
+    assert res.json()["error"]["details"][0]["value"] == [rejected.id]
+    db.expire_all()
+    assert (old.is_current, new.is_current, new.view_scope) == (True, False, "ALL")   # 정책도 바꾸지 않는다
+    assert kept.status == "REVIEWING" and guide_states(db) == {1: "REVIEWING", 2: "REJECTED"}
+
+
+def test_activate_blocked_when_base_changed(client, db, users):
+    """초안을 v1 기준으로 만들었는데 그사이 v2 가 현행이 됐다. v3 로 바꾸면 v2 의 수정이 사라진다."""
+    document, (v1, v2, v3) = add_doc(db, versions=(("v1", "ALL", False), ("v2", "ALL", True), ("v3", "ALL", False)))
+    cluster = add_cluster(db, v3, v1, tickets=(1,))
+
+    res = patch_version(client, users["admin"], document, v3, {"isCurrent": True})
+
+    assert (res.status_code, error_code(res)) == (409, "DOCUMENT_VERSION_BASE_CHANGED")
+    assert res.json()["error"]["details"][0]["value"] == [cluster.id]
+    db.expire_all()
+    assert (v2.is_current, v3.is_current, cluster.status) == (True, False, "REVIEWING")
+
+
+def test_activate_new_guide_cluster_without_base(client, db, users):
+    document, (first,) = add_doc(db, versions=(("v1", "ALL", False),))
+    cluster = add_cluster(db, first, None, judgment="NEW_GUIDE", tickets=(1,))
+
+    assert patch_version(client, users["admin"], document, first, {"isCurrent": True}).status_code == 200
+    db.expire_all()
+    assert cluster.status == "APPLIED" and guide_states(db) == {1: "APPLIED"}
+
+
+def test_rolling_back_to_applied_version_is_allowed(client, db, users):
+    """이미 반영된 v2 로 되돌릴 때는 기준 버전(v1)이 현행(v3)과 달라도 막지 않는다."""
+    document, (v1, v2, v3) = add_doc(db, versions=(("v1", "ALL", False), ("v2", "ALL", False), ("v3", "ALL", True)))
+    cluster = add_cluster(db, v2, v1, status="APPLIED", tickets=(1,))
+
+    assert patch_version(client, users["admin"], document, v2, {"isCurrent": True}).status_code == 200
+    db.expire_all()
+    assert (v2.is_current, cluster.status) == (True, "APPLIED")
+
+
+def test_policy_change_without_activation_ignores_clusters(client, db, users):
+    """막는 것은 현행 전환뿐이다. 거절한 묶음이 있는 초안 버전도 정책은 바꿀 수 있다."""
+    document, (old, new) = add_doc(db, versions=(("v1", "ALL", True), ("v2", "ALL", False)))
+    add_cluster(db, new, old, status="REJECTED")
+
+    assert patch_version(client, users["admin"], document, new, {"viewScope": "AGENT"}).status_code == 200
 
 @pytest.mark.parametrize("old, body", [
     ("ALLOWED", {"transferPolicy": "MASKED"}),
