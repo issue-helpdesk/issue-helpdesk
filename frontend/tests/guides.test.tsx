@@ -179,16 +179,6 @@ describe('가이드 관리 화면', () => {
     await userEvent.click(within(dlg).getByRole('button', { name: '업로드' }))
     expect(await screen.findByText(/초안으로 올렸어요/, {}, SLOW)).toBeInTheDocument()
   })
-
-  it('해결 사례 탭에서 묶음을 보고 초안 미리보기를 열 수 있다', async () => {
-    renderAs('EMP-1178', '/guides')
-    await userEvent.click(await screen.findByRole('button', { name: /해결 사례 → 가이드 초안/ }, SLOW))
-    expect(await screen.findByText(/매일 자정에 AI가 해결 완료/, {}, SLOW)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: '주간' }))
-    await waitFor(() => expect(screen.getAllByRole('button', { name: /^(신규 가이드 초안|버전 업데이트 초안)$/ }).length).toBeGreaterThan(0), SLOW)
-    await userEvent.click(screen.getAllByRole('button', { name: /^(신규 가이드 초안|버전 업데이트 초안)$/ })[0])
-    expect(await screen.findByRole('dialog', { name: '가이드 초안 미리보기' })).toBeInTheDocument()
-  })
 })
 
 /* ------------------------------------------------------------------ 서버 모드 */

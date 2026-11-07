@@ -595,3 +595,28 @@ td.nw{white-space:nowrap;font-size:13px;color:var(--ink2)}
 .gread-body{max-width:860px;margin:0 auto}
 .detail.gread.wide .gread-body{padding:8px 24px 32px}
 @media (prefers-reduced-motion:reduce){.app .detail.gread{transition:none}}
+
+/* 해결 사례 → 가이드 초안: 제안 카드 목록과 검토 패널 */
+.cgl{display:flex;flex-direction:column;gap:12px}
+.cgc{padding:18px 22px;display:flex;flex-direction:column;gap:8px}
+.cgh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cgt{flex:1;min-width:0;font-size:16px}
+.cgm{display:flex;gap:4px 14px;flex-wrap:wrap;align-items:center}
+.cgk{font-weight:700;color:var(--link)}
+.cgx{line-height:1.6}
+.cga{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:4px}
+.app .detail.crev{width:min(920px,100vw);transition:width .28s cubic-bezier(.2,.8,.2,1)}
+.app .detail.crev.wide{width:100vw}
+.detail.crev .db.crb{flex:1}
+.detail.crev .cgs>h4{margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.detail.crev .cgcmp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:8px}
+.detail.crev .cgpre{margin:6px 0 0;padding:12px 14px;border-radius:12px;background:var(--shell);white-space:pre-wrap;font:inherit;font-size:13.5px;line-height:1.7;color:var(--ink2)}
+.detail.crev .cgpre.new{background:var(--osoft)}
+.detail.crev .cgta{width:100%;min-height:210px;margin-top:6px;font-size:13.5px;line-height:1.7}
+.detail.crev .cgta.tall{min-height:280px}
+.detail.crev .cgw{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.detail.crev .cgw li{display:flex;gap:8px;align-items:flex-start;color:var(--s-warn-fg);background:var(--s-warn-bg);border-radius:10px;padding:8px 12px;font-size:13.5px}
+.detail.crev .cgset{display:flex;gap:24px;flex-wrap:wrap}
+.detail.crev .crf{flex:none;display:flex;gap:8px;align-items:center;padding:14px 24px;border-top:1px solid var(--divider);background:color-mix(in srgb,var(--white) 90%,transparent)}
+@media (max-width:800px){.detail.crev .cgcmp{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.app .detail.crev{transition:none}}
