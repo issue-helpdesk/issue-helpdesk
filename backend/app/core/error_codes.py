@@ -73,6 +73,8 @@ class ErrorCode(Enum):
 
     # 해결 사례 가이드화 (GC)
     GUIDE_CLUSTER_NOT_FOUND = (404, "해결 사례 묶음을 찾을 수 없습니다.")
+    GUIDE_CLUSTER_NOT_REVIEWING = (409, "검토 중인 묶음만 거절하거나 반영 표시할 수 있습니다.")
+    GUIDE_CLUSTER_REGISTERED = (409, "등록한 묶음은 현행 전환으로 반영됩니다. 가이드 관리에서 현행으로 바꿔 주세요.")
 
     # 화면 알림
     NOTIFICATION_NOT_FOUND = (404, "알림을 찾을 수 없습니다.")
