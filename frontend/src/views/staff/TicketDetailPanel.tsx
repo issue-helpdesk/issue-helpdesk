@@ -17,6 +17,7 @@ import { formatDateTime } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { AssessmentHistory } from './AssessmentHistory'
 import { Icon } from '../../ui/Icon'
+import { useOutsideClose } from '../../ui/useOutsideClose'
 import { CheckDialog } from '../admin/CheckDialog'
 import { ReassignDialog } from '../admin/ReassignDialog'
 import { recheckTransition, retryJiraCreate } from '../../api/ops'
@@ -185,6 +186,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) finish()
     else setLeaving(true)
   }
+  useOutsideClose(close)
   // 애니메이션 종료 알림이 오지 않는 환경(백그라운드 탭 등)에서도 닫히도록 안전장치를 둔다
   useEffect(() => {
     if (!leaving) return

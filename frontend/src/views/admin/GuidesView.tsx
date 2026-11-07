@@ -11,7 +11,6 @@ import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import {
   FIRST_VERSION,
-  GUIDE_SCOPES,
   GUIDE_TXS,
   MAX_UPLOAD_BYTES,
   MAX_UPLOAD_MESSAGE,
@@ -42,6 +41,7 @@ import titleOps from '../../assets/mascot/title-ops.webp'
 import { USE_MOCK_GUIDE } from '../../core/config'
 import { formatDateTime } from '../../core/format'
 import { GuideReaderPanel, type ReaderTarget } from '../../ui/GuideReaderPanel'
+import { PolicyModal } from '../../ui/PolicyModal'
 import { ScopeBadge } from '../../ui/ScopeBadge'
 import { visiblePoll } from '../../core/poll'
 import { HOME_BY_ROLE } from '../../core/roles'
@@ -401,7 +401,7 @@ export function GuidesView() {
                   가이드 목록 <span className="count">{guides?.length ?? 0}</span>
                 </button>
                 <button type="button" className={tab === 'case' ? 'on' : ''} aria-pressed={tab === 'case'} onClick={() => setTab('case')}>
-                  해결 사례 → 가이드 초안 <span className="count">{reviewN}</span>
+                  AI 가이드 제안 <span className="count">{reviewN}</span>
                 </button>
               </div>
               {tab === 'list' && (
@@ -620,6 +620,8 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
   const [docVers, setDocVers] = useState<GuideVersion[] | null>(null)
   const [title, setTitle] = useState('')
   const [ver, setVer] = useState('')
+  const [policyOpen, setPolicyOpen] = useState(false)
+  const pending = useRef<{ version: string } | null>(null)
   const [scope, setScope] = useState<GuideScope>('관리자만')
   const [tx, setTx] = useState<GuideTx>('금지')
   // 파일 머리의 version: 값 (md·txt 만 읽는다). 서버는 이 값과 입력한 버전이 다르면 적재를 실패 처리한다
@@ -728,6 +730,17 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
     setErrs(e)
     setErr('')
     if (Object.keys(e).length || !file || !cat || !version) return
+    // 검증이 끝나면 열람 범위·외부 AI 전송을 정하는 창을 한 번 더 열고, 거기서 확인해야 올린다
+    pending.current = { version }
+    setPolicyOpen(true)
+  }
+
+  const upload = async (scope: GuideScope, tx: GuideTx) => {
+    if (!user || !file || !cat || !pending.current) return
+    const { version } = pending.current
+    setScope(scope)
+    setTx(tx)
+    setPolicyOpen(false)
     setBusy(true)
     let made = madeDoc
     const r = mode === 'ver' && doc ? await uploadGuideVersion(user, doc.id, { file, version, scope, tx }) : await uploadGuide(user, { file, docCode: newCode, title, cat, scope, tx, version, docId: madeDoc ?? undefined }, (id) => { made = id; setMadeDoc(id) })
@@ -917,18 +930,6 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
         </>
       )}
       {field('ver', '버전', <input id={`${uid}-ver`} className={`inp${errs.ver ? ' err' : ''}`} value={ver} placeholder="예) v4.0" autoComplete="off" style={{ maxWidth: 160 }} aria-invalid={!!errs.ver} onChange={(e) => { setVer(e.target.value); clr('ver') }} />)}
-      <div className="gu2">
-        {field(
-          'scope',
-          '열람 범위',
-          <SelectBox id={`${uid}-scope`} value={scope} options={GUIDE_SCOPES.map((s) => ({ value: s, label: s }))} onChange={(v) => setScope(v as GuideScope)} />,
-        )}
-        {field(
-          'tx',
-          '외부 모델 전송',
-          <SelectBox id={`${uid}-tx`} value={tx} options={GUIDE_TXS.map((s) => ({ value: s, label: s }))} onChange={(v) => setTx(v as GuideTx)} />,
-        )}
-      </div>
       <div className="hint">업로드한 버전은 초안으로 올라가요. 검색 준비가 끝나면 내용을 확인한 뒤 목록에서 "현행 전환"을 눌러 주세요. 현행으로 바꾸기 전에는 검색·답변에 쓰이지 않아요.</div>
       {dupDoc && (
         <div className="alert warn" role="alert">
@@ -943,9 +944,7 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
           </div>
         </div>
       )}
-      <div className="hint">
-        {mode === 'ver' && doc ? '앞 버전의 열람 범위·외부 전송 값을 채워 두었어요. 필요하면 바꿔 주세요. ' : ''}정하지 않으면 가장 제한적인 값(관리자만·금지)이 적용돼요.
-      </div>
+      <div className="hint">업로드를 누르면 열람 범위와 외부 AI 전송 정책을 정하는 창이 한 번 더 열려요.{mode === 'ver' && doc ? ' 앞 버전의 값을 채워 둘게요.' : ''}</div>
       {err && (
         <div className="ferr" role="alert">
           {err}
@@ -959,6 +958,17 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
           업로드
         </button>
       </div>
+      {policyOpen && (
+        <PolicyModal
+          initialScope={scope}
+          initialTx={tx}
+          intro={mode === 'ver' && doc ? '올릴 버전의 열람 범위와 외부 AI 전송 정책을 확인해 주세요. 앞 버전의 값을 채워 두었어요.' : '올릴 가이드의 열람 범위와 외부 AI 전송 정책을 정해 주세요. 정하지 않으면 가장 제한적인 값(관리자만·금지)이에요.'}
+          confirmLabel="올리기"
+          busy={busy}
+          onClose={() => setPolicyOpen(false)}
+          onConfirm={(sc, t2) => void upload(sc, t2)}
+        />
+      )}
     </Modal>
   )
 }

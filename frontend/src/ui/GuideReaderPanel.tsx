@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getGuideContent, type GuideContent } from '../api/guides'
 import { useAuth } from '../core/session'
 import { Icon } from './Icon'
+import { useOutsideClose } from './useOutsideClose'
 import { Markdown } from './Markdown'
 
 export interface ReaderTarget {
@@ -45,6 +46,7 @@ export function GuideReaderPanel({ target, onClose }: { target: ReaderTarget; on
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) finish()
     else setLeaving(true)
   }
+  useOutsideClose(close)
   useEffect(() => {
     if (!leaving) return
     const t = setTimeout(finish, 400)

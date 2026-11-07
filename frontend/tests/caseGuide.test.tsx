@@ -130,7 +130,7 @@ function renderAdmin() {
 }
 const cardsOf = () => screen.getAllByRole('region').filter((r) => r.classList.contains('cgc'))
 const openTab = async () => {
-  await userEvent.click(await screen.findByRole('button', { name: /^해결 사례/ }, SLOW))
+  await userEvent.click(await screen.findByRole('button', { name: /^AI 가이드 제안/ }, SLOW))
   await screen.findByText(/주 1회/, undefined, SLOW)
 }
 
@@ -147,6 +147,8 @@ describe('해결 사례 탭 화면', () => {
     const cards = cardsOf()
     expect(cards.map((c) => /근거 티켓\s*(\d+)건/.exec(c.textContent ?? '')![1])).toEqual(['7', '5', '4'])
     expect(within(cards[0]).getByText('검토 필요')).toBeInTheDocument()
+    // 검토 필요 라벨은 분홍 단추와 겹치지 않는 색이다
+    expect(within(cards[0]).getByText('검토 필요').closest('.badge')).toHaveClass('b-asg')
     expect(within(cards[0]).getByText('기존 가이드 보강')).toBeInTheDocument()
     expect(within(cards[1]).getByText('신규 가이드')).toBeInTheDocument()
     // 검토 필요인 카드에는 검토하기만 있다 (같은 화면을 여는 근거 티켓 보기는 없다)
@@ -181,12 +183,17 @@ describe('해결 사례 탭 화면', () => {
     expect(within(dlg).getByText(/초안으로 등록하고 검색 준비를 시작합니다/)).toBeInTheDocument()
     await userEvent.click(within(dlg).getByRole('button', { name: '담당자 이상' }))
     await userEvent.click(within(dlg).getByRole('button', { name: '금지' }))
+    // 버튼마다 색이 있다 (가이드 목록의 외부 AI 전송 버튼과 같다)
+    expect(within(dlg).getByRole('button', { name: '담당자 이상' })).toHaveClass('on', 'prog')
+    expect(within(dlg).getByRole('button', { name: '금지' })).toHaveClass('on', 'urg')
     expect(get('c1').state).toBe('review') // 창에서 확인하기 전에는 등록되지 않는다
     await userEvent.click(within(dlg).getByRole('button', { name: '초안으로 등록' }))
     await waitFor(() => expect(get('c1').state).toBe('preparing'), SLOW)
     expect(get('c1')).toMatchObject({ scope: '담당자 이상', tx: '금지' })
     expect(get('c1').after).toMatch(/추가 확인/)
     expect(await within(panel).findByText(/검색 준비 중이에요/, undefined, SLOW)).toBeInTheDocument()
+    // 위의 X 로 닫으니 아래쪽 닫기 단추는 없다
+    expect(within(panel).getAllByRole('button', { name: '닫기' })).toHaveLength(1)
   })
 
   it('현행으로 전환을 누르면 바로 바뀌지 않고 가이드 목록에서 그 문서가 펼쳐진다', async () => {
@@ -247,5 +254,19 @@ describe('해결 사례 탭 화면', () => {
     await userEvent.type(within(dlg).getByLabelText(/사유/), '일회성이에요')
     await userEvent.click(within(dlg).getByRole('button', { name: '가이드화 안 함' }))
     await waitFor(() => expect(get('c1').state).toBe('dropped'), SLOW)
+  })
+
+  it('처리한 건의 상세에서는 아래쪽 닫기 단추가 없고, 패널 밖 빈 곳을 눌러도 닫힌다. 비가이드화 안내는 두 줄이다', async () => {
+    renderAdmin()
+    await openTab()
+    await userEvent.click(screen.getByRole('button', { name: /^비가이드화/ }))
+    await userEvent.click(within(cardsOf()[0]).getByRole('button', { name: '처리 이력 상세 보기' }))
+    const panel = await screen.findByRole('complementary', { name: '가이드 초안 검토' })
+    expect(within(panel).getByText('가이드화하지 않기로 한 제안이에요.')).toBeInTheDocument()
+    expect(within(panel).getByText(/^사유: /)).toBeInTheDocument()
+    expect(within(panel).getAllByRole('button', { name: '닫기' })).toHaveLength(1)
+    // 패널 밖 빈 곳(제목 글자)을 누르면 닫힌다
+    await userEvent.click(screen.getByRole('heading', { name: 'AI 답변의 근거를 관리해요', level: 1 }))
+    await waitFor(() => expect(screen.queryByRole('complementary', { name: '가이드 초안 검토' })).toBeNull(), SLOW)
   })
 })

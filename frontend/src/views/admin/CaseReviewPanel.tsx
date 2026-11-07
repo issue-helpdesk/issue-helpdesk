@@ -8,10 +8,12 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
-import { GUIDE_SCOPES, GUIDE_TXS, type GuideScope, type GuideTx } from '../../api/guides'
+import type { GuideScope, GuideTx } from '../../api/guides'
 import { CASE_KIND_LABEL, CASE_STATE_LABEL, CASE_STATE_TONE, approveCase, baseChanged, dropCase, getCases, rebaseCase, retryCase, saveCase, subscribeCases, type CaseItem } from '../../api/mock/caseGuides'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
+import { PolicyModal } from '../../ui/PolicyModal'
+import { useOutsideClose } from '../../ui/useOutsideClose'
 import { SelectBox } from '../../ui/SelectBox'
 import { StateBadge } from '../../ui/StateBadge'
 import { useToast } from '../../ui/useToast'
@@ -42,6 +44,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) finish()
     else setLeaving(true)
   }
+  useOutsideClose(close)
   useEffect(() => {
     if (!leaving) return
     const t = setTimeout(finish, 400)
@@ -59,8 +62,6 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
   const [after, setAfter] = useState(c?.after ?? '')
   const [title, setTitle] = useState(c?.title ?? '')
   const [cat, setCat] = useState<CategoryCode>(c?.cat ?? 'ACC')
-  const [scope, setScope] = useState<GuideScope>(c?.scope ?? '전 직원')
-  const [tx, setTx] = useState<GuideTx>(c?.tx ?? '허용')
   const [compare, setCompare] = useState(false)
   const [dropOpen, setDropOpen] = useState(false)
   const [setOpen, setSetOpen] = useState(false)
@@ -77,17 +78,17 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
   if (!c) return null
   const review = c.state === 'review'
   const changed = baseChanged(c) && c.state === 'review'
-  const edit = { title: c.kind === 'new' ? title : undefined, cat: c.kind === 'new' ? cat : undefined, after, scope, tx }
-  const draft = { title: edit.title, cat: edit.cat, after }
+  const draft = { title: c.kind === 'new' ? title : undefined, cat: c.kind === 'new' ? cat : undefined, after }
+  const edit = { ...draft, scope: c.scope, tx: c.tx }
   const nm = c.kind === 'new' ? (title.trim() || c.topic) : c.topic
 
   const save = () => {
     saveCase(id, draft)
     say('임시 저장했어요.')
   }
-  const approve = () => {
+  const approve = (sc: GuideScope, t2: GuideTx) => {
     setErr('')
-    const r = approveCase(id, edit)
+    const r = approveCase(id, { ...edit, scope: sc, tx: t2 })
     setSetOpen(false)
     if (!r.ok) return setErr(r.message)
     say('초안으로 등록했어요. 검색 준비를 시작해요.')
@@ -210,7 +211,8 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
             <div className="alert info" role="status">
               <Icon name="file" />
               <div>
-                가이드화하지 않기로 한 제안이에요. 사유: {c.dropReason}
+                <div>가이드화하지 않기로 한 제안이에요.</div>
+                <div style={{ marginTop: 4 }}>사유: {c.dropReason}</div>
               </div>
             </div>
           )}
@@ -322,6 +324,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           )}
         </div>
 
+        {(review || c.state === 'failed' || c.state === 'ready') && (
         <div className="crf">
           {review && (
             <>
@@ -353,60 +356,19 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
               </button>
             </>
           )}
-          {(c.state === 'preparing' || c.state === 'live' || c.state === 'dropped') && (
-            <>
-              <span style={{ flex: 1 }} />
-              <button type="button" className="btn sec" onClick={close}>
-                닫기
-              </button>
-            </>
-          )}
         </div>
+        )}
       </aside>
 
       {setOpen && (
-        <Modal title="등록 설정을 확인해 주세요" variant="form" onClose={() => setSetOpen(false)}>
-          <p className="small muted" style={{ margin: 0 }}>
-            열람 범위와 외부 AI 전송 정책을 정해야 초안으로 등록할 수 있어요. 가이드 목록의 새 버전에 그대로 적용돼요.
-          </p>
-          <div className="cgset" style={{ flexDirection: 'column', gap: 14 }}>
-            <div>
-              <div className="asl">열람 범위</div>
-              <div className="seg" role="group" aria-label="열람 범위">
-                {GUIDE_SCOPES.slice()
-                  .reverse()
-                  .map((k) => (
-                    <button key={k} type="button" className={scope === k ? 'on' : ''} aria-pressed={scope === k} onClick={() => setScope(k)}>
-                      {k}
-                    </button>
-                  ))}
-              </div>
-            </div>
-            <div>
-              <div className="asl">외부 AI 전송</div>
-              <div className="seg" role="group" aria-label="외부 AI 전송">
-                {GUIDE_TXS.slice()
-                  .reverse()
-                  .map((k) => (
-                    <button key={k} type="button" className={tx === k ? 'on' : ''} aria-pressed={tx === k} onClick={() => setTx(k)}>
-                      {k}
-                    </button>
-                  ))}
-              </div>
-            </div>
-          </div>
-          <p className="small muted" style={{ margin: 0 }}>
-            초안으로 등록하고 검색 준비를 시작합니다. 현행 전환 전에는 사용자 답변에 사용되지 않습니다.
-          </p>
-          <div className="acts">
-            <button type="button" className="btn sec" onClick={() => setSetOpen(false)}>
-              취소
-            </button>
-            <button type="button" className="btn pri" onClick={approve}>
-              초안으로 등록
-            </button>
-          </div>
-        </Modal>
+        <PolicyModal
+          initialScope={c.scope}
+          initialTx={c.tx}
+          intro="열람 범위와 외부 AI 전송 정책을 정해야 초안으로 등록할 수 있어요. 가이드 목록의 새 버전에 그대로 적용돼요."
+          confirmLabel="초안으로 등록"
+          onClose={() => setSetOpen(false)}
+          onConfirm={(sc, t2) => approve(sc, t2)}
+        />
       )}
       {dropOpen && (
         <Modal title="가이드화하지 않을까요?" variant="form" onClose={() => setDropOpen(false)}>

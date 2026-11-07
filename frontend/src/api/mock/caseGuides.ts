@@ -25,7 +25,7 @@ export const CASE_STATE_LABEL: Record<CaseState, string> = {
   dropped: '가이드화 안 함',
 }
 /** 상태 배지 색 (StateBadge 의 tone) */
-export const CASE_STATE_TONE: Record<CaseState, string> = { review: 'need', preparing: 'warn', failed: 'urg', ready: 'ok', live: 'info', dropped: 'recv' }
+export const CASE_STATE_TONE: Record<CaseState, string> = { review: 'asg', preparing: 'warn', failed: 'urg', ready: 'ok', live: 'info', dropped: 'recv' }
 
 export interface CaseTicket {
   no: string

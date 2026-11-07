@@ -620,3 +620,11 @@ td.nw{white-space:nowrap;font-size:13px;color:var(--ink2)}
 .detail.crev .crf{flex:none;display:flex;gap:8px;align-items:center;padding:14px 24px;border-top:1px solid var(--divider);background:color-mix(in srgb,var(--white) 90%,transparent)}
 @media (max-width:800px){.detail.crev .cgcmp{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){.app .detail.crev{transition:none}}
+/* 해결 사례 검토 패널·등록 설정 창 다듬기 */
+.detail.crev .crb>.alert{margin-top:16px}
+.detail.crev .crb>.alert+.cgs{border-top:0}
+.polg{display:flex;flex-direction:column;gap:22px;margin:6px 0 4px}
+.polg .asl{margin-bottom:8px}
+.seg.tx button.on.info{background:var(--s-info-bg);color:var(--s-info-fg)}
+.seg.tx button.on.prog{background:var(--s-prog-bg);color:var(--s-prog-fg)}
+.seg.tx button.on.adm{background:var(--ink2);color:var(--canvas)}
