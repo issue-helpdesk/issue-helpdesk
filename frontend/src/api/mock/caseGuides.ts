@@ -24,6 +24,8 @@ export const CASE_STATE_LABEL: Record<CaseState, string> = {
   live: '현행',
   dropped: '가이드화 안 함',
 }
+/** 구분 배지 색 (StateBadge 의 tone): 기존 가이드 보강=보라, 신규 가이드=하늘 */
+export const CASE_KIND_TONE: Record<CaseKind, string> = { amend: 'prog', new: 'info' }
 /** 상태 배지 색 (StateBadge 의 tone) */
 export const CASE_STATE_TONE: Record<CaseState, string> = { review: 'asg', preparing: 'warn', failed: 'urg', ready: 'ok', live: 'info', dropped: 'recv' }
 

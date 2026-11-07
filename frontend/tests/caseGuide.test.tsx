@@ -151,6 +151,9 @@ describe('해결 사례 탭 화면', () => {
     expect(within(cards[0]).getByText('검토 필요').closest('.badge')).toHaveClass('b-asg')
     expect(within(cards[0]).getByText('기존 가이드 보강')).toBeInTheDocument()
     expect(within(cards[1]).getByText('신규 가이드')).toBeInTheDocument()
+    // 구분은 색이 다른 배지다: 기존 가이드 보강=보라, 신규 가이드=하늘
+    expect(within(cards[0]).getByText('기존 가이드 보강').closest('.badge')).toHaveClass('b-prog')
+    expect(within(cards[1]).getByText('신규 가이드').closest('.badge')).toHaveClass('b-info')
     // 검토 필요인 카드에는 검토하기만 있다 (같은 화면을 여는 근거 티켓 보기는 없다)
     expect(within(cards[0]).getAllByRole('button').map((b) => b.textContent)).toEqual(['검토하기'])
     expect(document.body.textContent).not.toMatch(/CLS|WAITING|guide_status|APPLIED|REVIEWING|검토 중/)
@@ -268,5 +271,23 @@ describe('해결 사례 탭 화면', () => {
     // 패널 밖 빈 곳(제목 글자)을 누르면 닫힌다
     await userEvent.click(screen.getByRole('heading', { name: 'AI 답변의 근거를 관리해요', level: 1 }))
     await waitFor(() => expect(screen.queryByRole('complementary', { name: '가이드 초안 검토' })).toBeNull(), SLOW)
+  })
+
+  it('신규 가이드의 본문은 편집과 미리보기를 바꿔 볼 수 있다', async () => {
+    renderAdmin()
+    await openTab()
+    const card = cardsOf().find((c) => /메신저 알림/.test(c.textContent ?? ''))!
+    await userEvent.click(within(card).getByRole('button', { name: '검토하기' }))
+    const panel = await screen.findByRole('complementary', { name: '가이드 초안 검토' })
+    const edit = within(panel).getByLabelText('본문') as HTMLTextAreaElement
+    expect(edit.value).toMatch(/#### 조치 방법/)
+    await userEvent.click(within(panel).getByRole('button', { name: '미리보기' }))
+    const view = within(panel).getByRole('region', { name: '본문 미리보기' })
+    // 마크다운이 풀려서 보인다: 제목 줄의 #### 기호는 보이지 않고 번호 목록이 목록으로 나온다
+    expect(within(view).getByText('조치 방법')).toBeInTheDocument()
+    expect(view.textContent).not.toMatch(/####/)
+    expect(within(view).getAllByRole('listitem').length).toBeGreaterThanOrEqual(3)
+    await userEvent.click(within(panel).getByRole('button', { name: '편집' }))
+    expect(within(panel).getByLabelText('본문')).toBeInTheDocument()
   })
 })

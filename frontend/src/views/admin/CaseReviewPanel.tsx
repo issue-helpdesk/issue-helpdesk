@@ -9,8 +9,9 @@ import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import type { GuideScope, GuideTx } from '../../api/guides'
-import { CASE_KIND_LABEL, CASE_STATE_LABEL, CASE_STATE_TONE, approveCase, baseChanged, dropCase, getCases, rebaseCase, retryCase, saveCase, subscribeCases, type CaseItem } from '../../api/mock/caseGuides'
+import { CASE_KIND_LABEL, CASE_KIND_TONE, CASE_STATE_LABEL, CASE_STATE_TONE, approveCase, baseChanged, dropCase, getCases, rebaseCase, retryCase, saveCase, subscribeCases, type CaseItem } from '../../api/mock/caseGuides'
 import { Icon } from '../../ui/Icon'
+import { MarkdownField } from '../../ui/MarkdownField'
 import { Modal } from '../../ui/Modal'
 import { PolicyModal } from '../../ui/PolicyModal'
 import { useOutsideClose } from '../../ui/useOutsideClose'
@@ -127,7 +128,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           <div className="row" style={{ flexWrap: 'nowrap' }}>
             <div style={{ minWidth: 0 }}>
               <div className="small muted">
-                <span className={`tag c-${c.cat}`}>{CATEGORIES[c.cat].name}</span> · {CASE_KIND_LABEL[c.kind]} · 근거 {c.tickets.length}건
+                <span className={`tag c-${c.cat}`}>{CATEGORIES[c.cat].name}</span> <StateBadge tone={CASE_KIND_TONE[c.kind]} label={CASE_KIND_LABEL[c.kind]} /> 근거 {c.tickets.length}건
               </div>
               <h3>{nm}</h3>
             </div>
@@ -273,7 +274,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
                     <label className="asl" htmlFor={`${uid}-after`}>
                       AI 수정 제안문 {review && <span className="muted">(고쳐서 쓸 수 있어요)</span>}
                     </label>
-                    <textarea id={`${uid}-after`} className="ta cgta" value={after} readOnly={!review} onChange={(e) => setAfter(e.target.value)} />
+                    <MarkdownField id={`${uid}-after`} label="AI 수정 제안문" value={after} readOnly={!review} onChange={setAfter} />
                   </div>
                 </div>
               </>
@@ -299,7 +300,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
                   <label htmlFor={`${uid}-body`}>
                     본문 {review && <span className="small muted">(이런 경우 · 조치 방법 · 해결 확인 순서의 가이드 작성 기준에 맞춰 썼어요)</span>}
                   </label>
-                  <textarea id={`${uid}-body`} className="ta cgta tall" value={after} readOnly={!review} onChange={(e) => setAfter(e.target.value)} />
+                  <MarkdownField id={`${uid}-body`} label="본문" value={after} readOnly={!review} tall onChange={setAfter} />
                 </div>
               </>
             )}

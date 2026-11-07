@@ -33,7 +33,11 @@ const read = (el: HTMLElement): Look => {
 const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 function slide(seg: HTMLElement, from: DOMRect, fromLook: Look, to: HTMLElement) {
-  seg.querySelectorAll('.seg-ghost').forEach((g) => g.remove())
+  // 이동 중에 다시 눌렀을 때 이전 조각은 끝 처리 없이 치운다 (끝 처리가 새 이동의 표시(seg-moving)를 지워 버리면 도착 버튼의 칠이 바로 켜져서 움직임이 안 보인다)
+  seg.querySelectorAll<HTMLElement>('.seg-ghost').forEach((g) => {
+    g.dataset.stale = '1'
+    g.remove()
+  })
   const sr = seg.getBoundingClientRect()
   const tr = to.getBoundingClientRect()
   if (!tr.width || !from.width) return
@@ -77,6 +81,7 @@ function slide(seg: HTMLElement, from: DOMRect, fromLook: Look, to: HTMLElement)
     { duration: DURATION, fill: 'both' },
   )
   const done = () => {
+    if (g.dataset.stale) return
     seg.classList.remove('seg-moving')
     requestAnimationFrame(() => g.remove())
   }
@@ -99,8 +104,10 @@ export function enableSegSlide() {
       const seg = btn.closest<HTMLElement>(GROUPS.join(','))
       const prev = seg?.querySelector<HTMLElement>('button.on')
       if (!seg || !prev || prev === btn) return
-      const from = prev.getBoundingClientRect()
-      const fromLook = read(prev)
+      // 이동 중에 다시 누르면 선택 버튼이 아니라 지금 움직이는 조각의 자리·색에서 이어서 출발한다
+      const moving = seg.querySelector<HTMLElement>('.seg-ghost')
+      const from = (moving ?? prev).getBoundingClientRect()
+      const fromLook = read(moving ?? prev)
       let frames = 0
       const wait = () => {
         const now = seg.isConnected ? seg.querySelector<HTMLElement>('button.on') : null

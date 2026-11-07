@@ -8,7 +8,7 @@
 import { useState, useSyncExternalStore } from 'react'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
-import { CASE_KIND_LABEL, CASE_STATE_LABEL, CASE_STATE_TONE, baseChanged, getCases, retryCase, subscribeCases, type CaseItem } from '../../api/mock/caseGuides'
+import { CASE_KIND_LABEL, CASE_KIND_TONE, CASE_STATE_LABEL, CASE_STATE_TONE, baseChanged, getCases, retryCase, subscribeCases, type CaseItem } from '../../api/mock/caseGuides'
 import { FilterPill } from '../../ui/FilterPill'
 import { Icon } from '../../ui/Icon'
 import { StateBadge } from '../../ui/StateBadge'
@@ -94,7 +94,7 @@ export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: 
                   <span>
                     근거 티켓 <b>{c.tickets.length}건</b>
                   </span>
-                  <span className="cgk">{CASE_KIND_LABEL[c.kind]}</span>
+                  <StateBadge tone={CASE_KIND_TONE[c.kind]} label={CASE_KIND_LABEL[c.kind]} />
                   {c.target && (
                     <span className="muted">
                       {c.target.docCode} {c.target.title} · 기준 {c.target.baseVersion} · {c.target.section}
