@@ -71,6 +71,9 @@ class ErrorCode(Enum):
                                                   "거절한 항목을 빼고 다시 등록해 주세요.")
     DOCUMENT_VERSION_BASE_CHANGED = (409, "초안을 만든 뒤 현행 버전이 바뀌었습니다. 바뀐 현행과 비교해 다시 등록해 주세요.")
 
+    # 해결 사례 가이드화 (GC)
+    GUIDE_CLUSTER_NOT_FOUND = (404, "해결 사례 묶음을 찾을 수 없습니다.")
+
     # 화면 알림
     NOTIFICATION_NOT_FOUND = (404, "알림을 찾을 수 없습니다.")
 
