@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getGuideContent, type GuideContent } from '../api/guides'
 import { useAuth } from '../core/session'
 import { Icon } from './Icon'
+import { useOutsideClose } from './useOutsideClose'
 import { Markdown } from './Markdown'
 
 export interface ReaderTarget {
@@ -16,6 +17,8 @@ export interface ReaderTarget {
   /** 특정 버전을 볼 때(관리자). 없으면 현행 버전 */
   versionId?: number
   version?: string
+  /** 서버에서 받지 않고 이 본문(마크다운)을 그대로 보여 줄 때 (해결 사례로 등록한 버전의 내용) */
+  text?: string
 }
 
 export function GuideReaderPanel({ target, onClose }: { target: ReaderTarget; onClose: () => void }) {
@@ -27,7 +30,7 @@ export function GuideReaderPanel({ target, onClose }: { target: ReaderTarget; on
   const opener = useRef<HTMLElement | null>(null)
   const [res, setRes] = useState<{ key: string; data: GuideContent | null; error: string } | null>(null)
   const closeBtn = useRef<HTMLButtonElement>(null)
-  const key = `${target.id}:${target.versionId ?? 'cur'}`
+  const key = `${target.id}:${target.versionId ?? 'cur'}:${target.version ?? ''}`
 
   useEffect(() => {
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -43,6 +46,7 @@ export function GuideReaderPanel({ target, onClose }: { target: ReaderTarget; on
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) finish()
     else setLeaving(true)
   }
+  useOutsideClose(close)
   useEffect(() => {
     if (!leaving) return
     const t = setTimeout(finish, 400)
@@ -57,6 +61,7 @@ export function GuideReaderPanel({ target, onClose }: { target: ReaderTarget; on
   })
   useEffect(() => {
     if (!user) return
+    if (target.text !== undefined) return // 미리 만든 본문은 서버에서 받지 않는다
     let alive = true
     getGuideContent(user, target, target.versionId, target.version).then((r) => {
       if (alive) setRes({ key, data: r.ok ? r.data : null, error: r.ok ? '' : r.error.message })
@@ -66,7 +71,8 @@ export function GuideReaderPanel({ target, onClose }: { target: ReaderTarget; on
     }
   }, [user, key, target])
 
-  const cur = res && res.key === key ? res : null
+  const local = target.text !== undefined ? { key, data: { docCode: target.docCode, title: target.title, version: target.version ?? '', text: target.text } as GuideContent, error: '' } : null
+  const cur = local ?? (res && res.key === key ? res : null)
   return (
     <aside
       className={`detail gread${wide ? ' wide' : ''}${!slid && !leaving ? ' slide' : ''}${leaving ? ' leave' : ''}`}

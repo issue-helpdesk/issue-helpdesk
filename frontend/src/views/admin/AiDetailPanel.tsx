@@ -12,6 +12,7 @@ import type { GuideSource } from '../../api/chatTypes'
 import type { AiRow } from '../../api/inquiries'
 import { mockJudgments } from '../../api/mock/aiRows'
 import { Icon } from '../../ui/Icon'
+import { useOutsideClose } from '../../ui/useOutsideClose'
 import { SourcePreview } from '../../ui/SourcePreview'
 import { StateBadge } from '../../ui/StateBadge'
 import { AssessmentHistory } from '../staff/AssessmentHistory'
@@ -43,6 +44,7 @@ export function AiDetailPanel({ row, slide, onSlideEnd, onClose }: { row: AiRow;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) finish()
     else setLeaving(true)
   }
+  useOutsideClose(close)
   useEffect(() => {
     if (!leaving) return
     const t = setTimeout(finish, 400)

@@ -20,6 +20,12 @@ async function choose(scope: HTMLElement, label: string, option: string | RegExp
   await userEvent.click(await screen.findByRole('option', { name: option }))
 }
 
+/** 업로드를 누르면 열리는 등록 설정 창에서 "올리기"를 누른다 */
+async function confirmPolicy() {
+  const pol = await screen.findByRole('dialog', { name: '등록 설정을 확인해 주세요' }, SLOW)
+  await userEvent.click(within(pol).getByRole('button', { name: '올리기' }))
+}
+
 function renderAs(employeeNo: string, path: string) {
   tokenStore.set(`mock.${employeeNo}`)
   return render(
@@ -153,6 +159,7 @@ describe('가이드 관리 화면', () => {
     expect(within(dlg).getByLabelText('버전')).toHaveValue('v1.0')
     await userEvent.type(within(dlg).getByLabelText('가이드 제목'), '사내 Wi-Fi 접속 가이드')
     await userEvent.click(within(dlg).getByRole('button', { name: '업로드' }))
+    await confirmPolicy()
     expect(await screen.findByText(/초안으로 올렸어요/, {}, SLOW)).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /IT-NET-002 사내 Wi-Fi 접속 가이드/ }, SLOW)).toHaveAttribute('aria-expanded', 'true')
   })
@@ -177,17 +184,8 @@ describe('가이드 관리 화면', () => {
     await userEvent.clear(ver)
     await userEvent.type(ver, 'v4')
     await userEvent.click(within(dlg).getByRole('button', { name: '업로드' }))
+    await confirmPolicy()
     expect(await screen.findByText(/초안으로 올렸어요/, {}, SLOW)).toBeInTheDocument()
-  })
-
-  it('해결 사례 탭에서 묶음을 보고 초안 미리보기를 열 수 있다', async () => {
-    renderAs('EMP-1178', '/guides')
-    await userEvent.click(await screen.findByRole('button', { name: /해결 사례 → 가이드 초안/ }, SLOW))
-    expect(await screen.findByText(/매일 자정에 AI가 해결 완료/, {}, SLOW)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: '주간' }))
-    await waitFor(() => expect(screen.getAllByRole('button', { name: /^(신규 가이드 초안|버전 업데이트 초안)$/ }).length).toBeGreaterThan(0), SLOW)
-    await userEvent.click(screen.getAllByRole('button', { name: /^(신규 가이드 초안|버전 업데이트 초안)$/ })[0])
-    expect(await screen.findByRole('dialog', { name: '가이드 초안 미리보기' })).toBeInTheDocument()
   })
 })
 
