@@ -66,7 +66,8 @@ class SecurityAlert(Base):
     subject_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))      # 신호를 일으킨 사람
     target_type: Mapped[str]                                                  # inquiry / user
     target_id: Mapped[int]
-    detail: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))   # 값·원문은 넣지 않는다
+    # 값·원문은 넣지 않는다. 기본값은 PostgreSQL 이 '{}'::jsonb 로 저장한다 (SQLite 테스트도 만들 수 있게 캐스트 없이 씀)
+    detail: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'"))
     occurrence_count: Mapped[int] = mapped_column(Integer, server_default=text("1"))
     first_detected_at: Mapped[datetime] = mapped_column(server_default=func.now())
     last_detected_at: Mapped[datetime] = mapped_column(server_default=func.now())
