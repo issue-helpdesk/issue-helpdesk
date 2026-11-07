@@ -14,6 +14,9 @@ from app.rag.case_guide import (CASE_DIR, CaseGuideError, Draft, _added_lines, _
                                 check, draft, next_version, receipts, register, sensitive_warnings)
 from app.rag.ingest import GUIDES, activate, connect
 from app.rag.ingest.upload import ingest_version
+from app.rag.parser import parse
+from app.rag.parser.models import Element
+from app.rag.parser.to_md import to_guide_md
 from test_ingest_upload import EMB, REPO, guide_file, needs_db, url, version  # noqa: F401  (url 은 fixture)
 
 BASE = (REPO / guide_file('IT-SW-001')).read_text(encoding='utf-8')
@@ -467,6 +470,20 @@ def test_non_md_current_is_converted(fmt):
     md, section = add_case(base, ticket_row(), 'v2.1', TODAY, [])
     assert section == '3.8' and [c.text for c in items(base)] == [c.text for c in items(md)][:-1]
     assert [c.section_no for c in items(base)] == [c.section_no for c in items(BASE)]
+
+
+def test_non_md_current_with_preface_keeps_it():
+    """첫 장 앞에 서문(덧붙인 표)이 있는 비md 현행: 바꾼 기준 md 에 서문이 남고, 사례를 넣어도 서문·목차·새 항목이 맞다."""
+    doc = parse(str(REPO / guide_file('IT-SW-001', 'docx')))
+    first = next(i for i, e in enumerate(doc.elements) if e.kind == 'heading' and e.level == 1)
+    doc.elements.insert(first, Element('table', rows=[['안내', '서문 시험 PREFACE-777']]))
+    base = to_guide_md(doc)
+    md, section = add_case(base, ticket_row(), 'v2.1', TODAY, [])
+    chunks = _parse_text(md)[1]
+    assert chunks[0].chunk_type == 'preface' and 'PREFACE-777' in chunks[0].body
+    assert md.index('PREFACE-777') < md.index('## 목차')
+    assert section == '3.8' and re.search(r'^  - 3\.7 .*\n  - 3\.8 설치가', md, re.M)
+    assert [c.text for c in items(base)] == [c.text for c in items(md)][:-1]
 
 
 def test_unreadable_current_refused(tmp_path):
