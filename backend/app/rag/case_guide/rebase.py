@@ -4,8 +4,13 @@
 API(`POST /guide-clusters/{id}/rebase`)가 이 함수를 불러 **새 현행 기준의 `draft_basis`** 를 받는다.
 **DB 쓰기·commit·파일 없음.** 저장·`draft_revision` 올리기·`conflicts.revision` 채우기·등록 연결 풀기는 API 가 한다.
 
-    out = rebase(conn, document_id, {'judgment': …, 'draft_md': …, 'draft_basis': …, 'receipts': [...]})
+    out = rebase(conn, document_id, {'judgment': …, 'draft_md': …, 'draft_basis': …, 'receipts': [...],
+                                     'draft_revision': 지금 묶음의 draft_revision})
     # out = {'draft_basis': 새 기준, 'conflicts': [...], 'warnings': [...]}
+
+- **아직 안 풀린 충돌** (예전 `conflicts.revision` == 지금 `draft_revision` — 관리자가 조각을 저장하지 않음) 이 있으면
+  비교 기준을 그 충돌의 `old_md` (관리자 조각이 만들어진 원문) 로 둔다. 다시 맞추기를 거듭해도 충돌이 사라지지 않게
+  (rebase 검수 1). 풀린 뒤면 직전 기준(`target_md`)과 비교한다. 예전 충돌이 있는데 `draft_revision` 이 없으면 거부.
 
 - 항목 추가·SEC: 새 현행의 버전 id·원문, `section_no` 는 비운다 (새 현행에 그 번호가 이미 있을 수 있어 다음 등록에서 새로).
 - 변경: `target_md` 도 새 현행의 그 항목으로. 만들 때 원문과 다르면 **충돌** (TARGET_CHANGED, 예전·새 원문을 함께) —
@@ -14,6 +19,7 @@ API(`POST /guide-clusters/{id}/rebase`)가 이 함수를 불러 **새 현행 기
 """
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 
 from app.rag.ingest import ROOT
@@ -53,7 +59,8 @@ def rebase(conn, document_id: int, cluster: dict, files_root: Path = ROOT) -> di
         new_md = item_text(base_md, target) if target else None
         if new_md is None:
             raise CaseGuideError([f'바꿀 항목 {target}이 새 현행에 없습니다. 이 묶음은 거절하고 필요하면 새 묶음으로 만들어 주세요'])
-        old_md = (old.get('target_md') or '').strip('\n')
+        pending = _unresolved(old, cluster.get('draft_revision'))
+        old_md = (pending.get(target) or old.get('target_md') or '').strip('\n')   # 안 풀린 충돌이면 조각이 만들어진 원문
         if new_md.rstrip() != old_md.rstrip():
             conflicts.append({'section': target, 'kind': 'TARGET_CHANGED',
                               'message': f'{target} 이 새 현행에서 바뀌었습니다. 조각을 새 내용과 비교해 다시 저장해 주세요',
@@ -61,6 +68,19 @@ def rebase(conn, document_id: int, cluster: dict, files_root: Path = ROOT) -> di
         basis |= {'target_section': target, 'target_md': new_md}
     else:
         basis['section_no'] = None                         # 새 현행에서 다음 등록 때 다시 정한다 (구조 초안 2장)
-    if conflicts:
-        basis['conflicts'] = {'revision': None, 'items': conflicts}   # revision: API 가 올린 draft_revision 으로 채움
+    if conflicts:                                          # revision: API 가 올린 draft_revision 으로 채움
+        basis['conflicts'] = {'revision': None, 'items': copy.deepcopy(conflicts)}   # 결과 목록과 따로 (한쪽을 고쳐도 안 번지게)
     return {'draft_basis': basis, 'conflicts': conflicts, 'warnings': warnings}
+
+
+def _unresolved(old: dict, draft_revision) -> dict[str, str]:
+    """예전 기준의 아직 안 풀린 충돌 {항목 번호: 조각이 만들어진 원문 old_md}. 풀림 = 충돌을 기록한 뒤 관리자가 조각을
+    저장해 draft_revision 이 올라감 (등록 API 의 차단 규칙과 같은 기준)."""
+    c = old.get('conflicts')
+    if not c:
+        return {}
+    if draft_revision is None:
+        raise CaseGuideError(['예전 충돌이 있어 지금 draft_revision 이 필요합니다 (풀렸는지 알아야 함)'])
+    if c.get('revision') is None or c['revision'] != draft_revision:
+        return {}                                          # 풀림 (또는 API 가 번호를 채우지 않은 예전 값)
+    return {i['section']: i['old_md'] for i in c.get('items') or [] if i.get('section') and i.get('old_md') is not None}

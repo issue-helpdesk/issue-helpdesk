@@ -119,3 +119,73 @@ def test_same_base_refused_and_receipt_warning(url, monkeypatch):
     monkeypatch.setattr(rb, 'receipts', lambda md: {'RB-6'})
     out, _ = _run(url, {'judgment': 'ADD_ITEM', 'draft_basis': old_basis(), 'receipts': ['RB-6', 'RB-7']})
     assert out['warnings'] == ['이미 IT-SW-001 새 현행에 반영된 접수 번호입니다: RB-6 (등록 때 거부됩니다)']
+
+
+def _after_first_rebase(revision=4):
+    """첫 다시 맞추기 뒤의 기준: 조각은 예전 3.3(A) 으로 만들었고, 첫 다시 맞추기에서 현행 3.3(B) 과 충돌해
+    target_md 는 B, 충돌(old_md A·new_md B)은 API 가 revision 을 채워 저장. 그 뒤 현행이 또 바뀜 (3.3 은 B 그대로)."""
+    now = current_md()
+    b_md = item_text(now, '3.3')
+    a_md = b_md.replace('\n', '\n- 예전 현행에만 있던 줄\n', 1)
+    return {'schema': 1, 'judgment': 'CHANGE', 'base_version_id': -1, 'base_md': '…', 'target_section': '3.3',
+            'target_md': b_md, 'conflicts': {'revision': revision, 'items': [
+                {'section': '3.3', 'kind': 'TARGET_CHANGED', 'message': '…', 'old_md': a_md, 'new_md': b_md}]}}, a_md
+
+
+@needs_db
+def test_unresolved_conflict_survives_second_rebase(url):
+    """rebase 검수 1: 충돌 뒤 관리자가 조각을 저장하지 않은 채 (draft_revision 그대로) 현행이 또 바뀌어 다시 맞추면,
+    대상 항목이 그대로여도 충돌이 남는다 — 조각이 만들어진 원문(A)과 새 현행(B)을 비교."""
+    _current_guide(url)
+    old, a_md = _after_first_rebase()
+    out, _ = _run(url, {'judgment': 'CHANGE', 'draft_md': a_md, 'draft_basis': old, 'receipts': ['RB-8'],
+                        'draft_revision': 4})
+    assert len(out['conflicts']) == 1 and out['conflicts'][0]['old_md'] == a_md
+    assert out['draft_basis']['conflicts']['items'] == out['conflicts']
+    assert out['draft_basis']['conflicts']['items'] is not out['conflicts']        # 따로 (한쪽을 고쳐도 안 번짐)
+
+
+@needs_db
+def test_resolved_conflict_compares_with_last_base(url):
+    """관리자가 조각을 저장해 draft_revision 이 올라간 뒤라면 풀린 것 — 직전 기준(B)과 비교해 그대로면 충돌 없음."""
+    _current_guide(url)
+    old, a_md = _after_first_rebase()
+    out, _ = _run(url, {'judgment': 'CHANGE', 'draft_md': a_md, 'draft_basis': old, 'receipts': ['RB-9'],
+                        'draft_revision': 5})
+    assert out['conflicts'] == [] and 'conflicts' not in out['draft_basis']
+
+
+@needs_db
+def test_old_conflict_needs_draft_revision(url):
+    _current_guide(url)
+    old, a_md = _after_first_rebase()
+    with pytest.raises(CaseGuideError, match='draft_revision 이 필요합니다'):
+        _run(url, {'judgment': 'CHANGE', 'draft_md': a_md, 'draft_basis': old, 'receipts': ['RB-10']})
+
+
+@needs_db
+def test_reads_only(url):
+    """DB 에는 SELECT 만 보낸다 (쓰기·commit·rollback 없음)."""
+    from app.rag.ingest import connect
+    _current_guide(url)
+
+    class SelectOnly:
+        def __init__(self, conn):
+            self.conn = conn
+
+        def execute(self, sql, *a):
+            assert sql.lstrip().lower().startswith('select'), sql
+            return self.conn.execute(sql, *a)
+
+        def commit(self):
+            raise AssertionError('commit')
+
+        def rollback(self):
+            raise AssertionError('rollback')
+
+    with connect(url) as conn:
+        doc = conn.execute("select id from knowledge_documents where doc_code = 'IT-SW-001'").fetchone()[0]
+        old, a_md = _after_first_rebase()
+        rebase(SelectOnly(conn), doc, {'judgment': 'CHANGE', 'draft_md': a_md, 'draft_basis': old, 'receipts': ['RB-11'],
+                                       'draft_revision': 4})
+        conn.rollback()
