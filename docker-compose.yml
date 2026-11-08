@@ -9,6 +9,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
     env_file: .env
     environment:
       EMBEDDING_MODEL_DIR: /models
@@ -37,7 +39,10 @@ services:
       replicas: 2
     stop_grace_period: 60s
 
+  # 프론트를 Vercel 이 맡아 기본은 꺼 둔다. 켜려면 .env 에 COMPOSE_PROFILES=web (한 번만: docker compose --profile web up -d)
+  # 이미 떠 있던 web 은 저절로 내려가지 않는다. 끌 때는 docker compose rm -sf web
   web:
+    profiles: ["web"]
     build:
       context: frontend
     ports:
