@@ -102,6 +102,50 @@ def test_item_table_unknown_shape_left_alone():
     assert check(d, d.md, [])[0] == []
 
 
+TABLE_HEAD = '| 번호 | 제목 | 문의 유형 | 처리 구분 | 담당 부서 |'
+
+
+def _first_table_end(md):
+    """BASE 의 3장 항목 표 마지막 줄 (그 뒤에 무엇을 끼워 넣는 시험용)."""
+    return re.search(r'^\| 번호 \|.*\n(?:\|.*\n)*', md, re.M).end()
+
+
+@pytest.mark.parametrize('gap', ['\n', '\n   \n'])
+def test_item_table_ends_at_blank_line(gap):
+    """PR #349 검수: 빈 줄(공백만 든 빈 줄도) 뒤의 다른 표는 다른 표다 (md 파서도 따로 읽는다). 항목 표에만 한 줄."""
+    at = _first_table_end(BASE)
+    base = BASE[:at] + gap + '| 참고 | 설명 |\n| --- | --- |\n| a | b |\n' + BASE[at:]
+    d, warnings = make(md_base=base)
+    assert warnings == []
+    assert re.search(r'^\| 3\.7 \|.*\|\n\| 3\.8 \| 설치가', d.md, re.M) and '| a | b |\n\n' in d.md + '\n'
+    assert not re.search(r'^\| a \| b \|\n\| 3\.8', d.md, re.M)
+
+
+def test_item_table_skips_code_block():
+    """PR #349 검수: 3장 앞 코드 블록 안의 같은 모양 표 예시는 건너뛰고 실제 항목 표에 한 줄."""
+    chapter = re.search(r'^## 3\. .*\n', BASE, re.M).end()
+    example = f'\n```\n{TABLE_HEAD}\n| --- | --- | --- | --- | --- |\n```\n'
+    d, warnings = make(md_base=BASE[:chapter] + example + BASE[chapter:])
+    assert warnings == [] and example in d.md                       # 예시는 그대로
+    assert re.search(r'^\| 3\.7 \|.*\|\n\| 3\.8 \| 설치가', d.md, re.M)
+
+
+def test_item_table_crlf():
+    """줄 끝이 CRLF 인 md 도 표를 찾고 같은 줄 끝으로 한 줄을 넣는다."""
+    d, warnings = make(md_base=BASE.replace('\n', '\r\n'))
+    assert not [w for w in warnings if '항목 표' in w]
+    assert re.search(r'^\| 3\.7 \|.*\|\r\n\| 3\.8 \| 설치가 .*\|\r\n', d.md, re.M)
+
+
+def test_item_table_mismatch_warned_for_old_draft():
+    """이 기능 전에 만든 초안(표에 3.8 줄 없음)에 이어 쓰면 3.9 줄만 더하고, 빠진 번호를 경고한다 (지난 줄은 채우지 않음)."""
+    first, _ = make()
+    old = re.sub(r'^\| 3\.8 \|.*\n', '', first.md, flags=re.M)
+    second, warnings = make(md_base=old, receipt_no='TK-0043', summary='설치 후 바로 꺼짐')
+    assert warnings == ['3장 항목 표와 항목 번호가 다릅니다 (표에 없음 3.8). 표를 확인해 주세요']
+    assert re.search(r'^\| 3\.7 \|.*\|\n\| 3\.9 \| 설치 후 바로 꺼짐', second.md, re.M)
+
+
 def test_item_table_row_escapes_pipe_and_empty_cells():
     """표 줄도 세로줄을 이스케이프해 5칸 그대로. 문의 유형·담당 부서가 없으면 빈칸."""
     d, _ = make(summary='프로세스 A | B 전환 오류', code=None, group=None)

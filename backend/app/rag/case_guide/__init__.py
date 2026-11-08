@@ -233,7 +233,6 @@ def next_version(versions: list[str]) -> str:
 
 ITEM_HEAD = re.compile(r'^### (3\.(\d+)) ', re.M)
 ITEM_TABLE_HEAD = ['번호', '제목', '문의 유형', '처리 구분', '담당 부서']   # 3장 앞 항목 표 (가이드 27종 모두 이 5열)
-TABLE_LINE = re.compile(r'^\|.*\|[ \t]*$', re.M)
 
 
 def add_case(md: str, t: dict, version: str, today: date, warnings: list[str]) -> tuple[str, str]:
@@ -287,24 +286,46 @@ def add_case(md: str, t: dict, version: str, today: date, warnings: list[str]) -
 
 
 def _add_table_row(md: str, start: int, cells: list[str], warnings: list[str]) -> str:
-    """3장 제목(start)과 첫 항목 사이의 항목 표 끝에 한 줄. 표가 없거나 머리줄이 ITEM_TABLE_HEAD 가 아니면
-    고치지 않고 경고한다 (모르는 표를 조용히 고치지 않게). 새 항목 본문은 표와 상관없이 검색된다."""
+    """3장 제목(start)과 첫 항목 사이의 **첫 표** 끝에 한 줄. 표는 빈 줄이나 표 아닌 줄에서 끝나고 (md 파서도 따로 읽는다),
+    코드 블록(``` 울타리, md 파서와 같은 규칙) 안의 줄은 보지 않는다. 표가 없거나 머리줄이 ITEM_TABLE_HEAD 가 아니면
+    고치지 않고 경고한다 (모르는 표를 조용히 고치지 않게). 새 항목 본문은 표와 상관없이 검색된다.
+    지난 행을 채우지는 않는다: 표의 번호와 3장 항목 번호가 다르면 (예: 이 기능 전에 만든 초안에 이어 쓰기) 경고만."""
     first = ITEM_HEAD.search(md, start)
-    lines = list(TABLE_LINE.finditer(md, start, first.start() if first else len(md)))
-    block = []                                             # 첫 표 (이어진 표 줄)
-    for m in lines:
-        if block and md[block[-1].end():m.start()].strip('\r\n'):
+    stop = first.start() if first else len(md)
+    block, fence, pos = [], '', start                     # block: 첫 표 줄들의 (시작, 줄 끝 문자 앞) 위치
+    for line in md[start:stop].splitlines(keepends=True):
+        s, at = line.strip(), pos
+        pos += len(line)
+        if fence:
+            fence = '' if s.startswith(fence) else fence
+        elif s.startswith('```'):
+            fence = '`' * (len(s) - len(s.lstrip('`')))
+        elif s.startswith('|') and s.endswith('|'):
+            block.append((at, at + len(line.rstrip('\r\n'))))
+            continue
+        if block:                                          # 표 다음 줄이 표가 아니면 (빈 줄 포함) 첫 표 끝
             break
-        block.append(m)
     if not block:
         warnings.append('3장 항목 표를 찾지 못해 표는 고치지 않았습니다')
         return md
-    head = [c.strip() for c in re.split(r'(?<!\\)\|', block[0].group(0).strip())[1:-1]]
+    cut = lambda b: [c.strip() for c in re.split(r'(?<!\\)\|', md[b[0]:b[1]].strip())[1:-1]]   # noqa: E731
+    head = cut(block[0])
     if head != ITEM_TABLE_HEAD:
         warnings.append(f"3장 항목 표 머리줄({' | '.join(head)})이 예상과 달라 표는 고치지 않았습니다")
         return md
-    row = '| ' + ' | '.join(_cell(c) for c in cells) + ' |'
-    return md[:block[-1].end()] + '\n' + row + md[block[-1].end():]
+    end = block[-1][1]
+    newline = '\r\n' if md[end:end + 2] == '\r\n' else '\n'
+    md = md[:end] + newline + '| ' + ' | '.join(_cell(c) for c in cells) + ' |' + md[end:]
+
+    chapter_end = re.search(r'^## ', md[start:], re.M)
+    chapter_end = start + chapter_end.start() if chapter_end else len(md)
+    in_table = {cut(b)[0] for b in block[2:]} | {cells[0]}
+    in_items = {m.group(1) for m in ITEM_HEAD.finditer(md, start, chapter_end)}
+    if in_table != in_items:
+        gaps = [f"표에 없음 {', '.join(sorted(in_items - in_table))}" if in_items - in_table else '',
+                f"항목에 없음 {', '.join(sorted(in_table - in_items))}" if in_table - in_items else '']
+        warnings.append(f"3장 항목 표와 항목 번호가 다릅니다 ({'; '.join(g for g in gaps if g)}). 표를 확인해 주세요")
+    return md
 
 
 def _item(section_no: str, title: str, t: dict) -> str:
