@@ -145,7 +145,7 @@ if event.is_comment_created:
 
 ### 2026-11-02 · FIN→WIP 재처리 실행
 
-- `services/jira_transition.py`가 FIN→WIP를 실행합니다. Jira 상태를 WIP로 되돌린 뒤 남은 증상을 댓글로 남기고, 이전 처리 결과·완료 시각은 지우지 않습니다. 남은 증상은 필수, 처리 결과는 받지 않습니다.
+- `services/jira_transition.py`가 FIN→WIP를 실행합니다. Jira 상태를 WIP로 되돌린 뒤 남은 증상을 댓글로 남기고, 이전 처리 결과는 DB에 유지하고 남은 증상은 이력·댓글에 남깁니다. 완료마다의 결과는 상태 이력에 보존합니다. 현재 실행기는 이전 `finished_at`을 유지하지만 API 명세·웹훅 경로는 WIP 복귀 후 NULL이므로 정합성 확인이 남아 있습니다([STATUS_TRANSITION.md](../../../../docs/integrations/jira/STATUS_TRANSITION.md)). 남은 증상은 필수, 처리 결과는 받지 않습니다.
 - `JiraClient.add_comment`·`find_comment`를 추가했습니다. 댓글은 접수번호·요청 시각으로 만든 식별 문구로 이미 달렸는지 먼저 확인해, 시간 초과 뒤 재시도나 TK-12 재처리에서도 두 번 달지 않습니다.
 - worker의 FIN→WIP 보류 처리를 없앴습니다. 아래 과거 기록의 "DEFERRED"·"보류"는 당시 범위입니다.
 - 확인 필요: 이전 결과를 따로 보존할지(이력 칼럼 또는 별도 테이블)는 미정입니다.
