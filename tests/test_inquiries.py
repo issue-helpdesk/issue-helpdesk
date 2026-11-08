@@ -923,6 +923,59 @@ def test_list_messages_source_fields(client, headers, answered):
     assert (source["location"], source["excerpt"], source["rank"]) == ("3.2", "업데이트 후 접속 불가", 1)
 
 
+def add_source(db, **fields):
+    source = MessageSource(message_id=db.scalar(select(Message.id).where(Message.seq == 2)), **fields)
+    db.add(source)
+    db.commit()
+    return source
+
+
+def add_piece(db, **fields):
+    return add_source(db, source_kind="DOCUMENT", doc_code="IT-NET-001", version="v1.0", **fields)
+
+
+def ai_sources(client, headers, inquiry_id):
+    res = client.get(f"{INQUIRIES}/{inquiry_id}/messages", headers=headers)
+    return next(m for m in res.json()["items"] if m["sender"] == "AI")["sources"]
+
+
+def guide_sources(sources):
+    return [s for s in sources if s["docCode"] == "IT-NET-001"]
+
+
+def test_sources_merge_pieces_of_same_location(client, db, headers, answered):
+    """R-44: 조각마다 저장돼 있어도 본문이 같으면 한 항목, 본문은 한 번만."""
+    add_piece(db, location="3.2", excerpt="업데이트 후 접속 불가", rank=1)
+    add_piece(db, location="3.2", excerpt="업데이트 후 접속 불가", rank=1)
+
+    merged = guide_sources(ai_sources(client, headers, answered))
+
+    assert [(s["location"], s["excerpt"], s["rank"]) for s in merged] == [("3.2", "업데이트 후 접속 불가", 1)]
+
+
+def test_sources_keep_every_different_excerpt_of_same_location(client, db, headers, answered):
+    """같은 위치에 다른 본문이 있으면 앞선 순위부터 이어 붙이고, 순위는 가장 앞선 값을 쓴다."""
+    add_piece(db, location="3.2", excerpt="다른 단위의 본문", rank=5)
+
+    merged = guide_sources(ai_sources(client, headers, answered))
+
+    assert [(s["excerpt"], s["rank"]) for s in merged] == [("업데이트 후 접속 불가\n\n다른 단위의 본문", 1)]
+
+
+def test_sources_of_different_location_stay_apart(client, db, headers, answered):
+    add_piece(db, location="3.3", excerpt="다음 항목", rank=5)
+
+    assert [s["location"] for s in guide_sources(ai_sources(client, headers, answered))] == ["3.2", "3.3"]
+
+
+def test_sources_do_not_merge_legacy_cases(client, db, headers, answered):
+    legacy = db.scalar(select(LegacyInquiry))
+    add_source(db, source_kind="LEGACY", legacy_inquiry_id=legacy.id, excerpt="재설치 후 정상", rank=5)
+
+    assert [s["excerpt"] for s in ai_sources(client, headers, answered) if s["sourceKind"] == "LEGACY"] == [
+        "재설치 후 정상", "재설치 후 정상"]
+
+
 def test_list_messages_of_other_user_is_not_found(client, db, headers):
     inquiry_id = start(client, headers).json()["inquiry"]["id"]
     add_user(db, "E0002")
