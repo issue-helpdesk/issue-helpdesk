@@ -98,8 +98,9 @@ SECTION_KEY_RE = re.compile(r'^3\.\d+$')
 def load(path: Path = ALLOWLIST) -> tuple[dict[tuple[str, str], tuple[str | None, str]], list[str]]:
     """목록 → {(문서 번호, 항목 번호): (content, 지문)}, 경고. 믿을 수 없으면 그 부분은 비운다 (= 차단), 예외로 멈추지 않는다:
     - 파일 없음·읽기 실패·JSON 문법 오류·최상위가 객체 아님·계산법 버전 다름·`items` 가 배열 아님(없음 포함) → 전부
-    - 항목이 객체 아님·`doc_no` 가 글자 아님·`section` 이 '3.N' 아님·지문이 'sha256:' 64자 아님 → 그 항목 (경고)
-    - 같은 키가 둘 이상 → 그 키, 모르는 content 값 → 그 항목 (PR #364 검수 2)."""
+    - 항목이 객체 아님·`doc_no` 가 글자 아님·`section` 이 '3.N' 아님 → 어느 항목인지 몰라 뺌 (경고)
+    - 같은 키가 둘 이상 (지문이 틀린 행도 센다) → 그 키, 지문이 'sha256:' 64자 아님·모르는 content 값 → 그 항목
+    (PR #364 검수 2·재검수 1)."""
     try:
         data = json.loads(Path(path).read_text(encoding='utf-8'))
     except (OSError, ValueError) as e:
