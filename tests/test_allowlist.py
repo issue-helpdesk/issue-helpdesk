@@ -4,7 +4,7 @@ import json
 import pytest
 
 from app.rag.ingest import GUIDES, load_manifest
-from app.rag.ingest.allowlist import FINGERPRINT_VERSION, fingerprint, items, main, skeleton
+from app.rag.ingest.allowlist import FINGERPRINT_VERSION, fingerprint, item_text, items, main, skeleton
 from app.rag.parser import parse
 from app.rag.parser.models import Element
 
@@ -44,30 +44,74 @@ def test_items_match_chunk_units():
         assert {i['section'] for i in items(doc)} == {u for u in units if u.startswith('3.')}, e['doc_no']
 
 
-def test_docx_same_fingerprint_as_md():
-    """같은 매뉴얼의 docx 도 정리본 md 와 지문이 같다 (★·이모지는 md 파서만 지워서 지문 계산 때 지운다)."""
+def test_docx_differs_only_by_symbols():
+    """같은 매뉴얼의 docx: 대부분 md 와 지문이 같고, 다른 항목은 docx 에만 남는 기호(★·이모지, md 파서가 지움) 때문이다.
+    그 기호는 docx 로 적재하면 청크 글에도 들어가므로 지문이 달라 차단되는 것이 맞다 (PR #355 검수 1)."""
+    from app.rag.parser.md_parser import EMOJI_RE
+    from app.rag.chunker import SECTION_NO_RE, _units
+
+    def texts(path):
+        return {SECTION_NO_RE.match(item.text).group(1): item_text(item.text, item.meta.get('props'), pieces)
+                for kind, chapter, item, pieces in _units(parse(str(path)))
+                if kind == 'item' and item and SECTION_NO_RE.match(chapter or '') and
+                SECTION_NO_RE.match(chapter).group(1) == '3'}
+    def plain(t):
+        return '\n'.join(' '.join(line.split()) for line in EMOJI_RE.sub('', t).split('\n'))
+
+    same = 0
     for e in MANUALS:
-        md = {i['section']: i['fingerprint'] for i in items(parse(str(GUIDES / e['files']['md'])))}
-        docx = {i['section']: i['fingerprint'] for i in items(parse(str(GUIDES / e['files']['docx'])))}
-        assert md == docx, e['doc_no']
+        md, docx = texts(GUIDES / e['files']['md']), texts(GUIDES / e['files']['docx'])
+        assert md.keys() == docx.keys(), e['doc_no']
+        for s in md:
+            if md[s] == docx[s]:
+                same += 1
+            else:
+                assert plain(docx[s]) == plain(md[s]), (e['doc_no'], s)           # 기호만 빼면 같다
+    assert same == 130                                       # 2026-11-08 (README 와 같은 수)
 
 
-def test_fingerprint_sees_content_not_layout():
-    """내용(글·표 칸·머리 정보·제목)이 바뀌면 지문이 바뀌고, 쪽 번호·줄 끝·줄 앞뒤 공백·꾸밈 기호는 상관없다."""
-    body = [Element('heading', '접수 시 확인 질문', level=3), Element('paragraph', '사번과 증상을 묻는다'),
-            Element('table', rows=[['상황', '조치'], ['잠김', '해제']])]
-    base = fingerprint('3.1 계정 잠김', [('1차 처리', '서비스데스크')], body)
-    same = [Element('heading', ' 접수 시 확인 질문 ', level=3, page=3), Element('paragraph', '★ 사번과 증상을 묻는다\r\n', page=4),
-            Element('table', rows=[['상황', '조치'], ['', ''], ['잠김 ', '해제']], page=4)]
-    assert fingerprint('3.1 계정 잠김', [('1차 처리', '서비스데스크')], same) == base
-    changed = [
-        ('3.1 계정 잠김', [('1차 처리', '서비스데스크')], body[:1] + [Element('paragraph', '사번만 묻는다')] + body[2:]),
-        ('3.1 계정 잠김', [('1차 처리', '서비스데스크')], body[:2] + [Element('table', rows=[['상황', '조치'], ['잠김', '초기화']])]),
-        ('3.1 계정 잠김', [('1차 처리', '보안팀')], body),
-        ('3.1 계정 잠김 해제', [('1차 처리', '서비스데스크')], body),
-        ('3.1 계정 잠김', [('1차 처리', '서비스데스크')], body + [Element('list_item', '해제 후 알린다')]),
-    ]
-    assert all(fingerprint(*c) != base for c in changed)
+def _fp(*elements, title='3.1 확인', props=()):
+    return fingerprint(title, list(props), list(elements))
+
+
+@pytest.mark.parametrize('a, b', [
+    (Element('paragraph', '결과: ✓'), Element('paragraph', '결과: ✗')),                       # 뜻 있는 기호
+    (Element('table', rows=[['a | b', 'c']]), Element('table', rows=[['a', 'b | c']])),       # 표 칸 경계
+    (Element('paragraph', 'if ok:\n    allow()\ndeny()', meta={'code': True}),
+     Element('paragraph', 'if ok:\n    allow()\n    deny()', meta={'code': True})),          # 코드 들여쓰기
+    (Element('paragraph', '조치'), Element('list_item', '조치')),                              # 요소 종류
+    (Element('heading', '확인', level=3), Element('heading', '확인', level=4)),                 # 제목 수준
+])
+def test_fingerprint_keeps_meaningful_differences(a, b):
+    """PR #355 검수 1~3: 기호·표 칸 경계·코드 들여쓰기·요소 종류가 다르면 지문이 다르다."""
+    assert _fp(a) != _fp(b)
+
+
+def test_fingerprint_ignores_layout():
+    """쪽 번호·줄 끝(CRLF)·줄 끝 공백·빈 표 행은 지문에 들어가지 않는다 (청커가 나눈 경계도 입력이 아니다)."""
+    a = [Element('heading', '접수 시 확인 질문', level=3), Element('paragraph', '사번과 증상을 묻는다'),
+         Element('table', rows=[['상황', '조치'], ['잠김', '해제']])]
+    b = [Element('heading', '접수 시 확인 질문  ', level=3, page=3), Element('paragraph', '사번과 증상을 묻는다\r\n', page=4),
+         Element('table', rows=[['상황', '조치'], ['', ''], ['잠김 ', '해제']], page=4)]
+    assert _fp(*a) == _fp(*b)
+
+
+def test_only_items_in_chapter3():
+    """PR #355 검수 4: 장 번호가 3 인 장 안의 '3.x' 항목만. 다른 장(FAQ 등)의 '3.x' 제목은 목록에 넣지 않는다."""
+    from app.rag.parser.models import ParsedDocument
+    def doc(chapter):
+        return ParsedDocument(path='x.md', format='md', elements=[
+            Element('heading', chapter, level=1), Element('heading', '3.1 확인', level=2), Element('paragraph', '내용')])
+    assert [i['section'] for i in items(doc('3. 처리'))] == ['3.1']
+    assert items(doc('5. 자주 묻는 질문')) == [] and items(doc('부록 · 관련 문서')) == []
+
+
+def test_skeleton_refuses_duplicate_section(tmp_path, monkeypatch):
+    """같은 문서에 3장 항목 번호가 겹치면 목록을 만들지 않는다 (어느 쪽을 허용할지 모호)."""
+    import app.rag.ingest.allowlist as al
+    monkeypatch.setattr(al, 'items', lambda doc: [{'section': '3.1', 'title': 'a', 'fingerprint': 'x'}] * 2)
+    with pytest.raises(ValueError, match='3.1'):
+        al.skeleton()
 
 
 def test_cli_refuses_overwrite(tmp_path, capsys):
