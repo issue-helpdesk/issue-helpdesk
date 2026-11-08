@@ -492,6 +492,32 @@ def test_list_filters(client, admin, staff, params, expected):
     assert ids(listed(client, admin, **params)) == [staff[name].id for name in expected]
 
 
+NO_STATUS = {"RDY": 0, "WIP": 0, "FIN": 0, "CLS": 0}
+
+
+def test_list_status_counts_ignore_work_status_filter(client, admin, staff):
+    """R-46: 탭 하나로 걸러도 다른 탭의 숫자가 그대로 나온다. Jira 생성 전(null)은 세지 않는다."""
+    body = listed(client, admin, workStatus="RDY").json()
+
+    assert body["totalCount"] == 1
+    assert body["statusCounts"] == {**NO_STATUS, "RDY": 1, "WIP": 1}
+
+
+@pytest.mark.parametrize("params, expected", [
+    ({"q": "도용"}, {"RDY": 1}),
+    ({"assignStatus": "PENDING"}, {}),
+    ({"needsAdmin": "false"}, {"RDY": 1, "WIP": 1}),
+])
+def test_list_status_counts_apply_other_filters(client, admin, staff, params, expected):
+    assert listed(client, admin, **params).json()["statusCounts"] == {**NO_STATUS, **expected}
+
+
+def test_list_status_counts_stay_in_view(client, headers, staff):
+    assert listed(client, headers).json()["statusCounts"] == {**NO_STATUS, "RDY": 1, "WIP": 1}      # 본인 문의
+    assert listed(client, as_user(client, "E0002")).json()["statusCounts"] == {**NO_STATUS, "WIP": 1}  # 소속 그룹
+    assert listed(client, as_user(client, "E0003")).json()["statusCounts"] == NO_STATUS             # 본인 접수는 생성 전
+
+
 def test_failed_transition_needs_admin(client, db, admin, staff):
     staff["mine"].transition_status = "NEEDS_ADMIN"
     db.commit()

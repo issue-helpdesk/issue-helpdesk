@@ -1086,6 +1086,40 @@ def test_list_filters_by_display_status(client, headers, every_state, shown):
     assert ids(listed(client, headers, displayStatus=shown)) == [every_state[shown]]
 
 
+ONE_OF_EACH = {"in_progress": 1, "unconfirmed": 1, "ai_resolved": 1, "unresolved": 1, "received": 1, "assigned": 1,
+               "progress": 1, "awaiting_confirm": 1, "resolved": 1}
+
+
+def test_list_status_counts_ignore_display_status_filter(client, headers, every_state):
+    """R-46: 탭 하나로 걸러도 다른 탭의 숫자가 그대로 나온다."""
+    body = listed(client, headers, displayStatus="received").json()
+
+    assert body["totalCount"] == 1
+    assert body["statusCounts"] == ONE_OF_EACH
+
+
+def test_list_status_counts_apply_other_filters(client, headers, every_state):
+    body = listed(client, headers, status="RECEIVED").json()
+
+    assert body["statusCounts"] == {**dict.fromkeys(ONE_OF_EACH, 0), "received": 1}
+
+
+def test_list_status_counts_are_own_inquiries_only(client, db, headers, every_state):
+    add_inquiry(db, add_user(db, "E0002"), status="RECEIVED")
+
+    assert listed(client, headers).json()["statusCounts"] == ONE_OF_EACH
+
+
+def test_list_status_counts_follow_assignment_for_ready_ticket(client, db, owner, headers):
+    """배정 전 RDY 는 목록 표시와 같이 received 로 센다."""
+    waiting = add_inquiry(db, owner, status="HANDED_OFF")
+    add_ticket(db, waiting.id, work_status="RDY", assign_status="PENDING")
+
+    counts = listed(client, headers).json()["statusCounts"]
+
+    assert (counts["received"], counts["assigned"]) == (1, 0)
+
+
 def test_list_and_filter_follow_assignment_for_ready_ticket(client, db, owner, headers):
     """R-34. 같은 RDY 접수라도 배정 전·후가 목록 값과 필터에서 상세와 똑같이 갈린다."""
     waiting = add_inquiry(db, owner, status="HANDED_OFF")
