@@ -84,6 +84,13 @@ const TEXT: Record<string, string | Make> = {
   },
   DOCUMENT_VERSION_NOT_RETRYABLE: '검색 준비에 실패한 버전만 다시 시도할 수 있어요.',
   GUIDE_IMAGE_NOT_FOUND: '이미지를 불러올 수 없어요.',
+  // AI 가이드 제안(해결 사례 묶음)
+  GUIDE_CLUSTER_NOT_FOUND: '제안을 찾을 수 없어요. 목록을 다시 불러와 주세요.',
+  GUIDE_CLUSTER_NOT_REVIEWING: '이미 반영했거나 거절한 제안이에요. 최신 상태를 확인해 주세요.',
+  GUIDE_CLUSTER_REGISTERED: '이미 초안으로 등록한 제안이에요. 가이드 목록에서 현행으로 전환해 반영해 주세요.',
+  GUIDE_CLUSTER_DRAFT_LOCKED: '초안으로 등록한 제안은 내용을 고칠 수 없어요.',
+  GUIDE_CLUSTER_NO_DRAFT: '이 제안에는 AI가 만든 초안이 없어서 저장할 수 없어요.',
+  GUIDE_CLUSTER_DRAFT_CONFLICT: '다른 관리자가 먼저 초안을 고쳤어요. 최신 초안으로 바꿔 보여 드려요. 내용을 확인한 뒤 다시 고쳐 주세요.',
   // FAQ·알림·일정
   FAQ_NOT_FOUND: 'FAQ를 찾을 수 없어요. 목록을 다시 불러와 주세요.',
   FAQ_CODE_DUPLICATE: '이미 등록된 FAQ 번호예요.',

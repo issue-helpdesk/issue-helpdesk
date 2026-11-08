@@ -53,6 +53,7 @@ import { SelectBox } from '../../ui/SelectBox'
 import { useToast } from '../../ui/useToast'
 import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
+import { CASES_FROM_SERVER } from '../../api/caseClusters'
 import { CaseGuideTab } from './CaseGuideTab'
 import { CaseReviewPanel } from './CaseReviewPanel'
 import { useReviewCount } from './useReviewCount'
@@ -147,8 +148,6 @@ export function GuidesView() {
   // 해결 사례 → 현행으로 전환: 바로 바꾸지 않고 가이드 목록의 그 문서를 펼쳐 열람 범위를 눈으로 확인한 뒤 거기서 전환하게 한다
   const goLive = (c: CaseItem) => {
     if (!c.registered) return
-    // 서버 연결 환경에서는 이 탭이 시연 화면이라 서버의 가이드 목록에는 해당 버전이 없다
-    if (!USE_MOCK_GUIDE) return say('서버에 연결된 환경에서는 이 탭이 시연 화면이라 가이드 목록에 반영되지 않아요.')
     setCasePanel(null)
     setReader(null)
     setTab('list')
@@ -440,7 +439,10 @@ export function GuidesView() {
                 }}
                 onVersion={(c) => {
                   setCasePanel(null)
-                  if (c.registered) setReader({ id: c.registered.docId, docCode: c.registered.docCode, title: c.target?.title ?? c.title ?? c.topic, version: c.registered.version, text: registeredText(c) })
+                  if (!c.registered) return
+                  const t = { id: c.registered.docId, docCode: c.registered.docCode, title: c.target?.title ?? c.title ?? c.topic, version: c.registered.version }
+                  // 서버 연결 환경에서는 등록한 버전의 본문을 서버에서 읽고, 모의에서는 제안 내용을 보여 준다
+                  setReader(CASES_FROM_SERVER ? { ...t, versionId: c.registered.versionId } : { ...t, text: registeredText(c) })
                 }}
                 onGoLive={goLive}
               />
