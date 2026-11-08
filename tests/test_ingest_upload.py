@@ -442,6 +442,25 @@ def test_reload_restores_dropped_code(url, tmp_path):
     assert not [w for w in ingest(url, vid, reload=True)['warnings'] if '이름표' in w]   # 다시 하면 바뀐 것 없음
 
 
+@needs_db
+def test_reload_fixes_transfer_policy_only(url):
+    """업로드 적재도 매뉴얼 항목별 내용 전송 칸을 나른다: 새 적재는 빈칸 (규칙 없음), reload 는 그 칸만 다르면
+    같은 청크 id 에 고쳐 쓰고 경고한다 (일괄 적재 _relabel 과 같은 길)."""
+    vid = register(url, 'IT-NET-002')
+    assert ingest(url, vid, activate_version=True)['status'] == 'DONE'
+    sql = 'select id, content_transfer_policy from document_chunks where version_id = %s order by seq'
+    with connect(url) as conn:
+        before = conn.execute(sql, (vid,)).fetchall()
+        assert before and all(p is None for _, p in before)
+        conn.execute("update document_chunks set content_transfer_policy = 'BLOCKED' where id = %s", (before[0][0],))
+        conn.commit()
+    out = ingest(url, vid, reload=True)
+    assert out['status'] == 'DONE', out
+    assert [w for w in out['warnings'] if '이름표 바뀜' in w and 'content_transfer_policy "BLOCKED" → null' in w]
+    with connect(url) as conn:
+        assert conn.execute(sql, (vid,)).fetchall() == before          # id 그대로, 값은 다시 빈칸
+
+
 CHANGED = '### 원인\n- 바뀐 본문 한 줄'                         # 첫 '### 원인' 자리에 넣어 본문을 바꾼다
 
 

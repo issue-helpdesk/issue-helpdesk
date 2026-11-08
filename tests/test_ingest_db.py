@@ -469,3 +469,23 @@ def test_label_only_change_keeps_chunk_ids(url):
     assert q(url, chunks) == before                                     # id·이름표 모두 원래대로
     assert versions(url, 'IT-ACC-002')['v2.0'][1:3] == (True, 'DONE')
     assert run(url, embs, docs=['IT-ACC-002']).results[0]['action'] == 'unchanged'
+
+
+def test_transfer_policy_only_change_keeps_chunk_ids(url):
+    """매뉴얼 항목별 내용 전송 칸만 DB 와 다르면 (예: 허용 목록을 고친 뒤 다시 적재) 같은 id 에 그 칸만 고쳐 쓴다.
+    전체 적재는 빈칸으로 넣는다 (규칙 없음). 벡터는 다시 만들지 않는다."""
+    chunks = '''select c.id, c.content_transfer_policy from document_chunks c join document_versions v on v.id = c.version_id
+                join knowledge_documents d on d.id = v.document_id where d.doc_code = 'IT-SW-001-M' order by c.seq'''
+    before = q(url, chunks)
+    assert before and all(p is None for _, p in before)
+    item = q(url, '''select c.unit_key from document_chunks c join document_versions v on v.id = c.version_id
+                     join knowledge_documents d on d.id = v.document_id
+                     where d.doc_code = 'IT-SW-001-M' and c.unit_key like '%%/item:%%' order by c.seq limit 1''')[0][0]
+    with psycopg.connect(url) as conn:                                  # 예전 목록으로 허용됐던 것처럼
+        conn.execute("update document_chunks set content_transfer_policy = 'ALLOWED' where unit_key = %s", (item,))
+    embs = [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')]
+    r = run(url, embs, docs=['IT-SW-001-M']).results[0]
+    assert r['action'] == 'relabeled' and not r['dropped'] and [e.calls for e in embs] == [0, 0]
+    assert r['changed'] and all('content_transfer_policy "ALLOWED" → null' in c for c in r['changed'])
+    assert q(url, chunks) == before                                     # id 그대로, 값은 다시 빈칸
+    assert run(url, embs, docs=['IT-SW-001-M']).results[0]['action'] == 'unchanged'
