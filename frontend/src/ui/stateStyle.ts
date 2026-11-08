@@ -4,7 +4,7 @@
  */
 import type { DisplayStatus, InquiryStateKind } from '../api/types'
 
-export const STATE_TONE: Record<InquiryStateKind, string> = {
+const STATE_TONE: Record<InquiryStateKind, string> = {
   progress: 'prog', // 처리 중
   assigned: 'asg', // 담당자 배정
   received: 'recv', // 접수

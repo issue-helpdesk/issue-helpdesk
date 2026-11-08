@@ -8,7 +8,7 @@
 /** 새 비밀번호 칸 아래에 항상 보여 주는 규칙 안내 */
 export const PASSWORD_RULE = '8~64자, 영문 대·소문자·숫자·특수문자 중 3종류 이상을 섞어 주세요. 현재 비밀번호나 사번과 달라야 해요.'
 
-export interface PasswordViolation {
+interface PasswordViolation {
   field: 'newPassword'
   reason: 'TOO_SHORT' | 'TOO_LONG' | 'INVALID_VALUE' | 'DUPLICATE'
   message: string

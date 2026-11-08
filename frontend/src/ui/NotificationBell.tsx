@@ -14,7 +14,7 @@ import { Icon } from './Icon'
 
 const TITLE: Record<AppNotification['kind'], string> = { ASSIGNED: '새 티켓이 배정됐어요', FIN: '문의가 처리 완료됐어요' }
 /** 알림은 최근 며칠 것만 보여 준다 */
-export const NOTICE_DAYS = 10
+const NOTICE_DAYS = 10
 const newestFirst = (a: AppNotification, b: AppNotification) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : b.id - a.id)
 const LOAD_FAIL = '알림을 불러오지 못했어요. 연결 상태를 확인한 뒤 다시 불러와 주세요.'
 

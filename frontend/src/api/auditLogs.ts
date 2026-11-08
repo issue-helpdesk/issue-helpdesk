@@ -73,7 +73,7 @@ const POLICY_LABEL: Record<string, string> = { ALLOWED: '허용', MASKED: '마�
 const SENSITIVE_LABEL: Record<string, string> = { PASSWORD: '비밀번호', OTP: '인증번호', API_KEY: 'API 키', PRIVATE_KEY: '비공개 키', RRN: '주민등록번호', CARD: '카드번호', ACCOUNT: '계좌번호' }
 
 /** 화면에 보일 말: name 은 구분 칸 둘째 줄의 식별 이름(서버가 결과에 담아 준 접수번호·문서 코드·FAQ 번호), out 은 결과, reason 은 사유 */
-export interface AuditText {
+interface AuditText {
   name: string
   out: string
   reason: string
@@ -139,7 +139,7 @@ export function describeAudit(x: Pick<AuditLog, 'eventType' | 'result' | 'reason
   }
 }
 
-export interface AuditQuery {
+interface AuditQuery {
   page?: number
   size?: number
   eventType?: string

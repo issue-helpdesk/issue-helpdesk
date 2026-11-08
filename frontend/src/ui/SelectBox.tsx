@@ -9,7 +9,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
 
-export interface SelectOption {
+interface SelectOption {
   value: string
   label: string
   /** 분류 코드(ACC·NET …). 있으면 항목 앞에 그 분류의 포인트 색 막대를 그린다 (가이드 관리의 분류 막대와 같은 색) */
