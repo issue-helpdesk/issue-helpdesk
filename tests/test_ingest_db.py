@@ -429,6 +429,40 @@ def test_document_info_kept_unless_applied(url, tmp_path):
     assert title == load_manifest(docs=[code])[0]['title']
 
 
+def test_document_type_mismatch_stops_unless_applied(url):
+    """PR #364 검수 1: 매뉴얼 내용 전송 판정은 파일 종류로 한다. DB 종류가 다르면 (DB 를 두면 판정과 어긋나) 멈추고,
+    --apply-document 면 파일 종류로 맞춰 판정과 같아진다. 반대 방향(DB MANUAL·파일 GUIDE)도 같다."""
+    for code, other in (('IT-ACS-002-M', 'GUIDE'), ('IT-ACS-002', 'MANUAL')):
+        with psycopg.connect(url) as conn:
+            conn.execute('update knowledge_documents set doc_type = %s where doc_code = %s', (other, code))
+        before = snapshot(url)
+        with pytest.raises(IngestError) as e:                          # 검증 실패 → DB 에 아무것도 쓰지 않음
+            run(url, [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')], docs=[code])
+        assert any(f'{code}: 문서 종류가 DB({other})와 파일' in p for p in e.value.problems) and snapshot(url) == before
+        report = run(url, [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')], docs=[code], apply_document=True)
+        assert not report.problems and report.results[0]['error'] is None
+        file_type = 'MANUAL' if code.endswith('-M') else 'GUIDE'
+        assert q(url, 'select doc_type from knowledge_documents where doc_code = %s', code) == [(file_type,)]
+        got = {p for (p,) in q(url, '''select c.content_transfer_policy from document_chunks c join document_versions v
+                                       on v.id = c.version_id and v.is_current join knowledge_documents d
+                                       on d.id = v.document_id where d.doc_code = %s''', code)}
+        assert got == ({'BLOCKED'} if file_type == 'MANUAL' else {None})
+
+
+def test_document_type_changed_before_lock(url, monkeypatch):
+    """검증 뒤 잠그기 전에 관리자가 문서 종류를 바꾸면 그 문서는 실패 (판정과 어긋난 값을 쓰지 않음)."""
+    import app.rag.ingest as ingest
+    code, real = 'IT-HW-003-M', ingest._lock_document
+
+    def change_then_lock(conn, doc_id):
+        with psycopg.connect(url) as other:
+            other.execute("update knowledge_documents set doc_type = 'GUIDE' where id = %s", (doc_id,))
+        real(conn, doc_id)
+    monkeypatch.setattr(ingest, '_lock_document', change_then_lock)
+    r = run(url, [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')], docs=[code]).results[0]
+    assert r['action'] == 'failed' and '검증 뒤 문서 종류가 바뀜: DB GUIDE, 파일 MANUAL' in r['error']
+
+
 def test_new_version_policy_widened_before_lock(url, tmp_path, monkeypatch):
     """새 버전 PENDING 행을 커밋한 뒤 문서를 잠그기 전에 정책이 넓어지면 그 버전은 FAILED, 현행 그대로 (PR #96 리뷰 P2)."""
     import app.rag.ingest as ingest

@@ -284,6 +284,11 @@ def check_documents(conn, prepared: list[Prepared], groups: dict[str, int], appl
         if row is None or tuple(row) == want:
             continue
         diff = ', '.join(f'{k} {a!r} → {b!r}' for k, a, b in zip(DOCUMENT_COLUMNS, row, want) if a != b)
+        if not apply and row[0] != want[0]:               # 매뉴얼 내용 전송 판정은 파일 종류로 했다 (prepare) — DB 종류를
+            report.problems.append(                       # 두면 판정과 어긋난다 (PR #364 검수 1)
+                f'{p.doc_code}: 문서 종류가 DB({row[0]})와 파일({want[0]})에서 다릅니다. 매뉴얼 내용 전송 판정이 어긋나 '
+                '멈춥니다. 파일 값으로 맞추려면 --apply-document, 아니면 파일 머리말 doc_type 을 고치세요')
+            continue
         if apply:
             p.apply_document = True
             report.warnings.append(f'{p.doc_code}: 문서 정보를 파일 값으로 바꿈 ({diff})')
@@ -422,6 +427,10 @@ def write_document(conn, p: Prepared, groups: dict[str, int], cache: dict, activ
         status = conn.execute('select ingest_status from document_versions where id = %s', (vid,)).fetchone()[0]
         if p.apply_document:
             _update_document(conn, doc_id, p, groups)
+        kind = conn.execute('select doc_type from knowledge_documents where id = %s', (doc_id,)).fetchone()[0]
+        if kind != p.document['doc_type']:                 # 잠근 뒤 다시: 검증 뒤 관리자가 종류를 바꿨을 수 있다.
+            raise IngestError([f"검증 뒤 문서 종류가 바뀜: DB {kind}, 파일 {p.document['doc_type']}. "   # 내용 전송 판정은
+                               '확인 후 --apply-document'])                                          # 파일 종류로 했다
         if p.apply_policy:
             _apply_policy(conn, doc_id, vid, p)
         else:                                              # 잠근 뒤 지금 정책으로 다시 비교. 검증 뒤나 새 버전 행을

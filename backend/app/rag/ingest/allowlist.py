@@ -1,7 +1,8 @@
 """매뉴얼 항목별 내용 전송 허용 목록 (해결 사례 가이드화 기획 v4 "선행 작업", 질문지 답 Q10~Q13).
 
 허용 목록 JSON 은 매뉴얼 3.x 항목마다 한 줄: 문서 번호·항목 번호·제목·지문·내용 전송(ALLOWED·BLOCKED, M4 가 채움).
-적재는 목록에 있고 지문이 같으면 ALLOWED, 아니면 BLOCKED 로 청크에 적는다 (판정 연결은 다음 작업).
+적재(일괄·업로드·다시 적재)는 매뉴얼이면 모든 청크에, 목록에 ALLOWED 이고 지문이 같으면 ALLOWED, 아니면 BLOCKED 를
+적는다 (load·policies, 아래 "적재 판정").
 
 지문 = 3장(장 번호 3) 안 3.x 항목 **하나 전체**(조각으로 나누기 전)를 **파서가 읽은 그대로** 정해진 JSON 으로 만들어 sha256.
 넣는 것: 항목 제목·머리 정보(순서대로)·요소마다 [종류, 제목 수준, 글, 표 칸 배열, 코드 여부]. 표는 칸 배열 그대로라 칸 경계가
@@ -18,6 +19,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 import unicodedata
 from pathlib import Path
@@ -89,30 +91,52 @@ def items(doc: ParsedDocument) -> list[dict]:
 
 # ── 적재 판정 (질문지 답 Q10·Q13) ─────────────────────────────
 
+FP_RE = re.compile(r'^sha256:[0-9a-f]{64}$')
+SECTION_KEY_RE = re.compile(r'^3\.\d+$')
+
+
 def load(path: Path = ALLOWLIST) -> tuple[dict[tuple[str, str], tuple[str | None, str]], list[str]]:
-    """목록 → {(문서 번호, 항목 번호): (content, 지문)}, 경고. 믿을 수 없으면 그 부분은 비운다 (= 차단):
-    파일 없음·읽기 실패·계산법 버전 다름 → 전부, 같은 키가 둘 이상 → 그 키, 모르는 content 값 → 그 항목."""
+    """목록 → {(문서 번호, 항목 번호): (content, 지문)}, 경고. 믿을 수 없으면 그 부분은 비운다 (= 차단), 예외로 멈추지 않는다:
+    - 파일 없음·읽기 실패·JSON 문법 오류·최상위가 객체 아님·계산법 버전 다름·`items` 가 배열 아님(없음 포함) → 전부
+    - 항목이 객체 아님·`doc_no` 가 글자 아님·`section` 이 '3.N' 아님·지문이 'sha256:' 64자 아님 → 그 항목 (경고)
+    - 같은 키가 둘 이상 → 그 키, 모르는 content 값 → 그 항목 (PR #364 검수 2)."""
     try:
         data = json.loads(Path(path).read_text(encoding='utf-8'))
     except (OSError, ValueError) as e:
         return {}, [f'허용 목록을 읽지 못해 매뉴얼 내용을 모두 차단합니다 ({type(e).__name__})']
-    if data.get('fingerprint_version') != FINGERPRINT_VERSION:
-        return {}, [f"허용 목록의 지문 계산법 버전({data.get('fingerprint_version')})이 지금({FINGERPRINT_VERSION})과 달라 "
+    if not isinstance(data, dict):
+        return {}, [f'허용 목록의 모양이 틀려(맨 위가 {type(data).__name__}) 매뉴얼 내용을 모두 차단합니다']
+    version = data.get('fingerprint_version')
+    if type(version) is not int or version != FINGERPRINT_VERSION:
+        return {}, [f'허용 목록의 지문 계산법 버전({version!r})이 지금({FINGERPRINT_VERSION})과 달라 '
                     '매뉴얼 내용을 모두 차단합니다. 목록을 다시 만들어 M4 가 확인해 주세요']
-    rows, warnings = data.get('items') or [], []
-    keys = [(r.get('doc_no'), r.get('section')) for r in rows]
+    rows = data.get('items')
+    if not isinstance(rows, list):
+        return {}, [f"허용 목록에 항목 배열(items)이 없어({type(rows).__name__}) 매뉴얼 내용을 모두 차단합니다"]
+    warnings, good = [], []
+    for n, r in enumerate(rows, 1):
+        bad = ('객체가 아님' if not isinstance(r, dict)
+               else 'doc_no 가 글자가 아님' if not isinstance(r.get('doc_no'), str) or not r['doc_no']
+               else "section 이 '3.N' 이 아님" if not isinstance(r.get('section'), str) or not SECTION_KEY_RE.match(r['section'])
+               else "fingerprint 가 'sha256:…' 가 아님" if not isinstance(r.get('fingerprint'), str)
+               or not FP_RE.match(r['fingerprint']) else '')
+        if bad:
+            warnings.append(f'허용 목록 {n}번째 항목: {bad} → 차단')
+        else:
+            good.append(r)
+    keys = [(r['doc_no'], r['section']) for r in good]
     dup = {k for k in keys if keys.count(k) > 1}
     if dup:
         warnings.append(f"허용 목록에 같은 항목이 여럿이라 차단합니다: {', '.join(f'{d} {s}' for d, s in sorted(dup))}")
     out = {}
-    for r, k in zip(rows, keys):
+    for r, k in zip(good, keys):
         if k in dup:
             continue
         content = r.get('content')
         if content not in (*CONTENT_VALUES, None):
             warnings.append(f'허용 목록 {k[0]} {k[1]}: 모르는 값 {content!r} → 차단')
             content = None
-        out[k] = (content, r.get('fingerprint'))
+        out[k] = (content, r['fingerprint'])
     return out, warnings
 
 
