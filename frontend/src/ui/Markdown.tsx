@@ -12,12 +12,22 @@ import type { GuideImageRef } from '../api/chatTypes'
 import { GuideFigure } from './GuideFigure'
 import { restoreBreaks } from './markdownText'
 
+/** 글 속의 <br> 는 줄바꿈으로 보인다 (서버는 표가 깨지지 않도록 표 칸 안의 줄바꿈을 <br> 로 남겨 둔다) */
+function lines(text: string): ReactNode {
+  return text.split(/<br\s*\/?>/i).map((t, i) => (
+    <Fragment key={i}>
+      {i > 0 && <br />}
+      {t}
+    </Fragment>
+  ))
+}
+
 /** **굵게** 와 `코드` 를 인라인으로 처리한다 */
 function inline(text: string): ReactNode {
   return text.split(/(\*\*.+?\*\*|`[^`]+`)/g).map((p, i) => {
-    if (p.startsWith('**') && p.endsWith('**') && p.length > 4) return <b key={i}>{p.slice(2, -2)}</b>
+    if (p.startsWith('**') && p.endsWith('**') && p.length > 4) return <b key={i}>{lines(p.slice(2, -2))}</b>
     if (p.startsWith('`') && p.endsWith('`') && p.length > 2) return <code key={i}>{p.slice(1, -1)}</code>
-    return <Fragment key={i}>{p}</Fragment>
+    return <Fragment key={i}>{lines(p)}</Fragment>
   })
 }
 

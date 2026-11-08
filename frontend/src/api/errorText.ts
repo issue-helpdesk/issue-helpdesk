@@ -83,6 +83,11 @@ const TEXT: Record<string, string | Make> = {
     return `같은 파일이 이미 등록되어 있어요.${where}`
   },
   DOCUMENT_VERSION_NOT_RETRYABLE: '검색 준비에 실패한 버전만 다시 시도할 수 있어요.',
+  // 해결 사례 제안(AI 가이드 제안)이 들어 있는 버전을 현행으로 바꿀 때
+  DOCUMENT_VERSION_HAS_REJECTED_CLUSTER: '거절한 제안이 포함된 버전은 현행으로 전환할 수 없어요. 거절한 항목을 뺀 새 버전을 올려 주세요.',
+  DOCUMENT_VERSION_BASE_CHANGED: '제안을 만든 뒤 기준 가이드가 바뀌어서 현행으로 전환할 수 없어요. 최신 내용과 비교한 뒤 다시 등록해 주세요.',
+  // 가이드 본문을 읽을 파일이 서버에 없거나 읽지 못한 경우 (관리자에게는 getGuideContent 가 파일 확인 안내로 바꾼다)
+  DOCUMENT_CONTENT_UNAVAILABLE: `가이드 본문을 읽을 수 없어요. 문제가 계속되면 ${HELPDESK}로 문의해 주세요.`,
   GUIDE_IMAGE_NOT_FOUND: '이미지를 불러올 수 없어요.',
   // FAQ·알림·일정
   FAQ_NOT_FOUND: 'FAQ를 찾을 수 없어요. 목록을 다시 불러와 주세요.',
