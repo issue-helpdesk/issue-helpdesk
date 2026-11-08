@@ -84,6 +84,7 @@ class Prepared:
     vectors: dict[str, list[list[float]]] = field(default_factory=dict)   # model_id → 청크 순서대로
     apply_policy: bool = False                             # 이미 있는 버전의 정책을 manifest 값으로 바꿀지 (check_policies)
     apply_document: bool = False                           # 이미 있는 문서의 제목·분류·관리 부서를 파일 값으로 바꿀지 (check_documents)
+    policy_warnings: list[str] = field(default_factory=list)   # 매뉴얼 항목별 내용 전송 판정 경고 (막지 않음)
 
     @property
     def doc_code(self) -> str:
@@ -117,8 +118,9 @@ def load_manifest(guides: Path = GUIDES, docs: list[str] | None = None) -> list[
 
 
 def prepare(entries: list[dict], guides: Path = GUIDES) -> list[Prepared]:
-    """md 를 파싱해 청크·행을 만든다. 정리본은 문서마다 md 하나만 등록한다."""
-    out = []
+    """md 를 파싱해 청크·행을 만든다. 정리본은 문서마다 md 하나만 등록한다.
+    매뉴얼(문서 종류 MANUAL)은 허용 목록으로 청크마다 내용 전송 값을 넣는다 (manual_policies)."""
+    out, allow = [], None
     for e in entries:
         path = (Path(guides) / e['files']['md']).resolve()
         doc = parse(str(path))
@@ -128,18 +130,38 @@ def prepare(entries: list[dict], guides: Path = GUIDES) -> list[Prepared]:
         except ValueError:
             shown = path.as_posix()
         v = version_row(doc, shown, e)
-        out.append(Prepared(entry=e, chunks=chunks, document=document_row(doc),
-                            version={k: v[k] for k in VERSION_COLUMNS}, rows=chunk_rows(chunks),
-                            parse_warnings=list(doc.warnings)))
+        d = document_row(doc)
+        policies, warns = {}, []
+        if d['doc_type'] == 'MANUAL':
+            if allow is None:
+                allow = load_allowlist()
+                warns += allow[1]
+            policies, more = manual_policies(d['doc_code'], doc, chunks, allow[0])
+            warns += more
+        out.append(Prepared(entry=e, chunks=chunks, document=d, version={k: v[k] for k in VERSION_COLUMNS},
+                            rows=chunk_rows(chunks, policies), parse_warnings=list(doc.warnings),
+                            policy_warnings=warns))
     return out
+
+
+def load_allowlist():
+    """허용 목록 (allowlist.load). 순환 import 를 피해 여기서 부른다."""
+    from .allowlist import load
+    return load()
+
+
+def manual_policies(doc_no: str, doc, chunks: list[Chunk], allow: dict) -> tuple[dict[str, str], list[str]]:
+    """매뉴얼 청크별 내용 전송 (allowlist.policies): 목록에 ALLOWED·지문 같음인 3장 3.x 항목만 ALLOWED, 나머지 BLOCKED."""
+    from .allowlist import policies
+    return policies(doc_no, doc, chunks, allow)
 
 
 def chunk_rows(chunks: list[Chunk], policies: dict[str, str] | None = None) -> list[dict]:
     """document_chunks 행들: chunker.chunk_row + 적재가 정하는 content_transfer_policy (매뉴얼 3.x 항목별 내용 전송).
 
     policies: unit_key → 'ALLOWED'·'BLOCKED'. 한 항목이 여러 조각으로 나뉘어도 unit_key 가 같아 모든 조각이 같은 값이다.
-    없는 청크는 빈칸 = 버전의 transfer_policy 를 따른다 (가이드 등 매뉴얼이 아닌 문서는 늘 빈칸, 지금 동작 그대로).
-    값을 정하는 규칙(허용 목록)은 아직 없다 — 지금은 모두 빈칸.
+    없는 청크는 빈칸 = 버전의 transfer_policy 를 따른다. 매뉴얼은 manual_policies 가 모든 청크에 값을 주고 (M4 Q10),
+    가이드 등 매뉴얼이 아닌 문서는 늘 빈칸 (지금 동작 그대로).
     값은 허용 목록이 기준이라, DB 에서 직접 고친 값은 다음 적재 때 이 값으로 덮인다 (_relabel).
     """
     policies = policies or {}
@@ -164,6 +186,8 @@ def check_files(prepared: list[Prepared], base: dict[str, dict] | None, report: 
         if p.version['version'] != p.entry.get('version'):
             report.problems.append(f'{p.doc_code}: 버전이 manifest({p.entry.get("version")})와 문서({p.version["version"]})에서 다름')
         report.problems += [f'{p.doc_code}: 파서 경고 {w}' for w in p.parse_warnings]
+        report.warnings += [w if w.startswith(p.doc_code) or w.startswith('허용 목록') else f'{p.doc_code}: {w}'
+                            for w in p.policy_warnings]
         report.problems += [f'{p.doc_code}: {x}' for x in validate(p.chunks)]
         if not p.chunks:
             report.problems.append(f'{p.doc_code}: 청크 0개')
@@ -260,6 +284,11 @@ def check_documents(conn, prepared: list[Prepared], groups: dict[str, int], appl
         if row is None or tuple(row) == want:
             continue
         diff = ', '.join(f'{k} {a!r} → {b!r}' for k, a, b in zip(DOCUMENT_COLUMNS, row, want) if a != b)
+        if not apply and row[0] != want[0]:               # 매뉴얼 내용 전송 판정은 파일 종류로 했다 (prepare) — DB 종류를
+            report.problems.append(                       # 두면 판정과 어긋난다 (PR #364 검수 1)
+                f'{p.doc_code}: 문서 종류가 DB({row[0]})와 파일({want[0]})에서 다릅니다. 매뉴얼 내용 전송 판정이 어긋나 '
+                '멈춥니다. 파일 값으로 맞추려면 --apply-document, 아니면 파일 머리말 doc_type 을 고치세요')
+            continue
         if apply:
             p.apply_document = True
             report.warnings.append(f'{p.doc_code}: 문서 정보를 파일 값으로 바꿈 ({diff})')
@@ -398,6 +427,10 @@ def write_document(conn, p: Prepared, groups: dict[str, int], cache: dict, activ
         status = conn.execute('select ingest_status from document_versions where id = %s', (vid,)).fetchone()[0]
         if p.apply_document:
             _update_document(conn, doc_id, p, groups)
+        kind = conn.execute('select doc_type from knowledge_documents where id = %s', (doc_id,)).fetchone()[0]
+        if kind != p.document['doc_type']:                 # 잠근 뒤 다시: 검증 뒤 관리자가 종류를 바꿨을 수 있다.
+            raise IngestError([f"검증 뒤 문서 종류가 바뀜: DB {kind}, 파일 {p.document['doc_type']}. "   # 내용 전송 판정은
+                               '확인 후 --apply-document'])                                          # 파일 종류로 했다
         if p.apply_policy:
             _apply_policy(conn, doc_id, vid, p)
         else:                                              # 잠근 뒤 지금 정책으로 다시 비교. 검증 뒤나 새 버전 행을

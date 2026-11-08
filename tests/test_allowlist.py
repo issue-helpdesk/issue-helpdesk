@@ -9,7 +9,7 @@ from app.rag.parser import parse
 from app.rag.parser.models import Element
 
 MANUALS = [e for e in load_manifest() if e.get('doc_type') == 'manual']
-FILE = GUIDES / 'transfer_allowlist.json'
+from app.rag.ingest.allowlist import ALLOWLIST as FILE
 
 
 @pytest.fixture(scope='module')
@@ -121,3 +121,114 @@ def test_cli_refuses_overwrite(tmp_path, capsys):
     assert main(['skeleton', '--out', str(out)]) == 2 and out.read_text(encoding='utf-8') == '{"items": []}'
     assert main(['skeleton', '--out', str(out), '--force']) == 0
     assert len(json.loads(out.read_text(encoding='utf-8'))['items']) == 143
+
+
+# ── 적재 판정 (load·policies) ─────────────────────────────────
+
+def _write(tmp_path, data):
+    f = tmp_path / 'allow.json'
+    f.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
+    return f
+
+
+def test_load_distrusts_bad_lists(tmp_path):
+    """믿을 수 없는 목록은 비운다 (= 차단): 파일 없음·계산법 버전 다름 → 전부, 같은 키 → 그 키, 모르는 값 → 그 항목."""
+    from app.rag.ingest.allowlist import load
+    allow, w = load(tmp_path / 'none.json')
+    assert allow == {} and '읽지 못해' in w[0]
+    allow, w = load(_write(tmp_path, {'fingerprint_version': 99, 'items': [{'doc_no': 'A', 'section': '3.1', 'content': 'ALLOWED'}]}))
+    assert allow == {} and '계산법 버전(99)' in w[0]
+    fx, fy, fz = ('sha256:' + c * 64 for c in 'abc')
+    rows = [{'doc_no': 'A', 'section': '3.1', 'content': 'ALLOWED', 'fingerprint': fx},
+            {'doc_no': 'A', 'section': '3.1', 'content': 'BLOCKED', 'fingerprint': fx},
+            {'doc_no': 'A', 'section': '3.2', 'content': 'MASKED', 'fingerprint': fy},
+            {'doc_no': 'A', 'section': '3.3', 'content': None, 'fingerprint': fz}]
+    allow, w = load(_write(tmp_path, {'fingerprint_version': FINGERPRINT_VERSION, 'items': rows}))
+    assert allow == {('A', '3.2'): (None, fy), ('A', '3.3'): (None, fz)}
+    assert any('같은 항목이 여럿' in x for x in w) and any("모르는 값 'MASKED'" in x for x in w)
+
+
+def _manual(code='IT-SEC-003-M'):
+    from app.rag.chunker import chunk_document
+    doc = parse(str(GUIDES / next(e for e in MANUALS if e['doc_no'] == code)['files']['md']))
+    return doc, chunk_document(doc)
+
+
+def test_policies_allow_only_listed_same_fingerprint():
+    """목록 ALLOWED·지문 같음 → 그 항목의 모든 조각 ALLOWED (여러 조각 항목 3.5 포함). 나머지(목록 BLOCKED·빈 값·
+    목록 밖·3장 밖 장·서문)는 BLOCKED. 모든 청크에 값이 있다."""
+    from app.rag.ingest.allowlist import policies
+    doc, chunks = _manual()
+    found = {i['section']: i['fingerprint'] for i in items(doc)}
+    allow = {('IT-SEC-003-M', '3.5'): ('ALLOWED', found['3.5']), ('IT-SEC-003-M', '3.1'): ('BLOCKED', found['3.1']),
+             ('IT-SEC-003-M', '3.2'): (None, found['3.2'])}
+    pol, w = policies('IT-SEC-003-M', doc, chunks, allow)
+    assert w == [] and set(pol) == {c.unit_key for c in chunks}
+    pieces = [c for c in chunks if c.unit_key.endswith('/item:3.5')]
+    assert len(pieces) > 1 and {pol[c.unit_key] for c in pieces} == {'ALLOWED'}
+    assert {p for u, p in pol.items() if not u.endswith('/item:3.5')} == {'BLOCKED'}
+
+
+def test_policies_block_changed_content_and_duplicates(monkeypatch):
+    """지문이 다르면 차단 + 경고. 문서 안 3장 항목 번호가 겹치면 그 번호는 차단 + 경고."""
+    import app.rag.ingest.allowlist as al
+    doc, chunks = _manual()
+    found = {i['section']: i['fingerprint'] for i in items(doc)}
+    pol, w = al.policies('IT-SEC-003-M', doc, chunks, {('IT-SEC-003-M', '3.1'): ('ALLOWED', 'sha256:old')})
+    assert set(pol.values()) == {'BLOCKED'} and w == ['IT-SEC-003-M 3.1: 허용 목록 이후 내용이 바뀌어 차단합니다 (M4 확인 뒤 목록을 고쳐 주세요)']
+    real = al.items
+    monkeypatch.setattr(al, 'items', lambda d: real(d) + [{'section': '3.1', 'title': 'x', 'fingerprint': found['3.1']}])
+    pol, w = al.policies('IT-SEC-003-M', doc, chunks, {('IT-SEC-003-M', '3.1'): ('ALLOWED', found['3.1'])})
+    assert set(pol.values()) == {'BLOCKED'} and w == ['IT-SEC-003-M: 3장 항목 번호가 겹쳐 차단합니다 (3.1)']
+
+
+def test_allowlist_file_ships_with_backend():
+    """목록은 백엔드 코드 옆 — 서버 이미지(backend/Dockerfile 은 backend 폴더만 복사, dataset/guides 는 안 함)에 들어가야
+    업로드 적재가 읽는다 (없으면 매뉴얼 내용을 모두 차단)."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    assert FILE.exists() and FILE.resolve().is_relative_to(root / 'backend')
+    docker = (root / 'backend' / 'Dockerfile').read_text(encoding='utf-8')
+    assert 'COPY backend ./backend' in docker
+
+
+@pytest.mark.parametrize('data, msg', [
+    ([], '맨 위가 list'),
+    ({'fingerprint_version': '1', 'items': []}, "계산법 버전('1')"),
+    ({'fingerprint_version': True, 'items': []}, '계산법 버전(True)'),
+    ({'fingerprint_version': FINGERPRINT_VERSION}, '항목 배열(items)이 없어(NoneType)'),
+    ({'fingerprint_version': FINGERPRINT_VERSION, 'items': {'a': 1}}, '항목 배열(items)이 없어(dict)'),
+])
+def test_load_bad_shape_blocks_all(tmp_path, data, msg):
+    """PR #364 검수 2: JSON 문법은 맞아도 모양이 틀리면 예외로 멈추지 않고 전부 차단 + 경고."""
+    from app.rag.ingest.allowlist import load
+    allow, w = load(_write(tmp_path, data))
+    assert allow == {} and len(w) == 1 and msg in w[0]
+
+
+def test_load_bad_rows_block_only_that_row(tmp_path):
+    """항목 하나의 모양이 틀리면 그 항목만 차단 + 경고 (예외 없음). 어느 항목인지 모르는 행(객체 아님·doc_no·section
+    틀림)은 빼고, 지문만 틀린 행은 그 키를 차단한다."""
+    from app.rag.ingest.allowlist import load
+    fp = 'sha256:' + 'a' * 64
+    ok = {'doc_no': 'A', 'section': '3.1', 'content': 'ALLOWED', 'fingerprint': fp}
+    rows = ['bad', {**ok, 'doc_no': ['A']}, {**ok, 'section': 3.1}, {**ok, 'section': '4.1'},
+            {**ok, 'section': '3.2', 'fingerprint': 'x'}, {**ok, 'section': '3.3', 'fingerprint': None}, ok]
+    allow, w = load(_write(tmp_path, {'fingerprint_version': FINGERPRINT_VERSION, 'items': rows}))
+    assert allow == {('A', '3.1'): ('ALLOWED', fp)} and len(w) == 6
+    assert ['객체가 아님' in w[0], 'doc_no' in w[1], 'section' in w[2], 'section' in w[3]] == [True] * 4
+    assert w[4] == "허용 목록 A 3.2: fingerprint 가 'sha256:…' 가 아님 → 차단" and 'A 3.3: fingerprint' in w[5]
+
+
+def test_load_duplicate_with_bad_row_blocks_key(tmp_path):
+    """PR #364 재검수 1: 같은 항목에 정상 ALLOWED 행과 지문이 틀린 행이 함께 있으면 겹침으로 보고 그 항목을 차단
+    (틀린 행을 먼저 빼서 정상 행이 혼자 허용되던 문제). 실제 매뉴얼 판정까지 BLOCKED."""
+    from app.rag.ingest.allowlist import load, policies
+    doc, chunks = _manual()
+    fp = next(i['fingerprint'] for i in items(doc) if i['section'] == '3.5')
+    rows = [{'doc_no': 'IT-SEC-003-M', 'section': '3.5', 'content': 'ALLOWED', 'fingerprint': fp},
+            {'doc_no': 'IT-SEC-003-M', 'section': '3.5', 'content': 'BLOCKED', 'fingerprint': 'broken'}]
+    allow, w = load(_write(tmp_path, {'fingerprint_version': FINGERPRINT_VERSION, 'items': rows}))
+    assert allow == {} and w == ['허용 목록에 같은 항목이 여럿이라 차단합니다: IT-SEC-003-M 3.5']
+    pol, _ = policies('IT-SEC-003-M', doc, chunks, allow)
+    assert set(pol.values()) == {'BLOCKED'}

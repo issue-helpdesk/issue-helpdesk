@@ -429,6 +429,40 @@ def test_document_info_kept_unless_applied(url, tmp_path):
     assert title == load_manifest(docs=[code])[0]['title']
 
 
+def test_document_type_mismatch_stops_unless_applied(url):
+    """PR #364 검수 1: 매뉴얼 내용 전송 판정은 파일 종류로 한다. DB 종류가 다르면 (DB 를 두면 판정과 어긋나) 멈추고,
+    --apply-document 면 파일 종류로 맞춰 판정과 같아진다. 반대 방향(DB MANUAL·파일 GUIDE)도 같다."""
+    for code, other in (('IT-ACS-002-M', 'GUIDE'), ('IT-ACS-002', 'MANUAL')):
+        with psycopg.connect(url) as conn:
+            conn.execute('update knowledge_documents set doc_type = %s where doc_code = %s', (other, code))
+        before = snapshot(url)
+        with pytest.raises(IngestError) as e:                          # 검증 실패 → DB 에 아무것도 쓰지 않음
+            run(url, [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')], docs=[code])
+        assert any(f'{code}: 문서 종류가 DB({other})와 파일' in p for p in e.value.problems) and snapshot(url) == before
+        report = run(url, [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')], docs=[code], apply_document=True)
+        assert not report.problems and report.results[0]['error'] is None
+        file_type = 'MANUAL' if code.endswith('-M') else 'GUIDE'
+        assert q(url, 'select doc_type from knowledge_documents where doc_code = %s', code) == [(file_type,)]
+        got = {p for (p,) in q(url, '''select c.content_transfer_policy from document_chunks c join document_versions v
+                                       on v.id = c.version_id and v.is_current join knowledge_documents d
+                                       on d.id = v.document_id where d.doc_code = %s''', code)}
+        assert got == ({'BLOCKED'} if file_type == 'MANUAL' else {None})
+
+
+def test_document_type_changed_before_lock(url, monkeypatch):
+    """검증 뒤 잠그기 전에 관리자가 문서 종류를 바꾸면 그 문서는 실패 (판정과 어긋난 값을 쓰지 않음)."""
+    import app.rag.ingest as ingest
+    code, real = 'IT-HW-003-M', ingest._lock_document
+
+    def change_then_lock(conn, doc_id):
+        with psycopg.connect(url) as other:
+            other.execute("update knowledge_documents set doc_type = 'GUIDE' where id = %s", (doc_id,))
+        real(conn, doc_id)
+    monkeypatch.setattr(ingest, '_lock_document', change_then_lock)
+    r = run(url, [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')], docs=[code]).results[0]
+    assert r['action'] == 'failed' and '검증 뒤 문서 종류가 바뀜: DB GUIDE, 파일 MANUAL' in r['error']
+
+
 def test_new_version_policy_widened_before_lock(url, tmp_path, monkeypatch):
     """새 버전 PENDING 행을 커밋한 뒤 문서를 잠그기 전에 정책이 넓어지면 그 버전은 FAILED, 현행 그대로 (PR #96 리뷰 P2)."""
     import app.rag.ingest as ingest
@@ -473,11 +507,11 @@ def test_label_only_change_keeps_chunk_ids(url):
 
 def test_transfer_policy_only_change_keeps_chunk_ids(url):
     """매뉴얼 항목별 내용 전송 칸만 DB 와 다르면 (예: 허용 목록을 고친 뒤 다시 적재) 같은 id 에 그 칸만 고쳐 쓴다.
-    전체 적재는 빈칸으로 넣는다 (규칙 없음). 벡터는 다시 만들지 않는다."""
+    전체 적재는 목록대로 넣는다 (지금 목록은 값이 비어 매뉴얼은 모두 BLOCKED). 벡터는 다시 만들지 않는다."""
     chunks = '''select c.id, c.content_transfer_policy from document_chunks c join document_versions v on v.id = c.version_id
                 join knowledge_documents d on d.id = v.document_id where d.doc_code = 'IT-SW-001-M' order by c.seq'''
     before = q(url, chunks)
-    assert before and all(p is None for _, p in before)
+    assert before and all(p == 'BLOCKED' for _, p in before)
     item = q(url, '''select c.unit_key from document_chunks c join document_versions v on v.id = c.version_id
                      join knowledge_documents d on d.id = v.document_id
                      where d.doc_code = 'IT-SW-001-M' and c.unit_key like '%%/item:%%' order by c.seq limit 1''')[0][0]
@@ -486,6 +520,36 @@ def test_transfer_policy_only_change_keeps_chunk_ids(url):
     embs = [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')]
     r = run(url, embs, docs=['IT-SW-001-M']).results[0]
     assert r['action'] == 'relabeled' and not r['dropped'] and [e.calls for e in embs] == [0, 0]
-    assert r['changed'] and all('content_transfer_policy "ALLOWED" → null' in c for c in r['changed'])
-    assert q(url, chunks) == before                                     # id 그대로, 값은 다시 빈칸
+    assert r['changed'] and all('content_transfer_policy "ALLOWED" → "BLOCKED"' in c for c in r['changed'])
+    assert q(url, chunks) == before                                     # id 그대로, 값은 목록대로 다시 BLOCKED
     assert run(url, embs, docs=['IT-SW-001-M']).results[0]['action'] == 'unchanged'
+
+
+def test_allowlist_change_relabels_manual(url, tmp_path, monkeypatch):
+    """허용 목록에서 한 항목을 ALLOWED 로 채우고 다시 적재하면 그 항목 조각만 ALLOWED (같은 id·벡터 그대로).
+    목록 지문과 지금 내용이 다르면 차단하고 경고한다."""
+    import json
+    from app.rag.ingest import allowlist as al
+    data = json.loads(al.ALLOWLIST.read_text(encoding='utf-8'))
+    row = next(r for r in data['items'] if r['doc_no'] == 'IT-SW-002-M')
+    row['content'] = 'ALLOWED'
+    f = tmp_path / 'allow.json'
+    f.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
+    monkeypatch.setattr(al, 'ALLOWLIST', f)
+    monkeypatch.setattr(al.load, '__defaults__', (f,))
+    pol = '''select c.unit_key, c.content_transfer_policy from document_chunks c join document_versions v on v.id = c.version_id
+             join knowledge_documents d on d.id = v.document_id where d.doc_code = 'IT-SW-002-M' order by c.seq'''
+    ids = '''select c.id from document_chunks c join document_versions v on v.id = c.version_id
+             join knowledge_documents d on d.id = v.document_id where d.doc_code = 'IT-SW-002-M' order by c.seq'''
+    before = q(url, ids)
+    embs = [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')]
+    report = run(url, embs, docs=['IT-SW-002-M'])
+    assert report.results[0]['action'] == 'relabeled' and [e.calls for e in embs] == [0, 0] and q(url, ids) == before
+    got = {u.rsplit(':', 1)[-1]: p for u, p in q(url, pol)}
+    assert got[row['section']] == 'ALLOWED' and {p for s, p in got.items() if s != row['section']} == {'BLOCKED'}
+
+    row['fingerprint'] = 'sha256:' + '0' * 64                          # 목록 이후 내용이 바뀐 것처럼
+    f.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
+    report = run(url, embs, docs=['IT-SW-002-M'])
+    assert {p for _, p in q(url, pol)} == {'BLOCKED'}
+    assert any(f"IT-SW-002-M {row['section']}: 허용 목록 이후 내용이 바뀌어 차단" in w for w in report.warnings)

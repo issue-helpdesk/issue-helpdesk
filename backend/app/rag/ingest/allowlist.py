@@ -1,7 +1,8 @@
 """매뉴얼 항목별 내용 전송 허용 목록 (해결 사례 가이드화 기획 v4 "선행 작업", 질문지 답 Q10~Q13).
 
 허용 목록 JSON 은 매뉴얼 3.x 항목마다 한 줄: 문서 번호·항목 번호·제목·지문·내용 전송(ALLOWED·BLOCKED, M4 가 채움).
-적재는 목록에 있고 지문이 같으면 ALLOWED, 아니면 BLOCKED 로 청크에 적는다 (판정 연결은 다음 작업).
+적재(일괄·업로드·다시 적재)는 매뉴얼이면 모든 청크에, 목록에 ALLOWED 이고 지문이 같으면 ALLOWED, 아니면 BLOCKED 를
+적는다 (load·policies, 아래 "적재 판정").
 
 지문 = 3장(장 번호 3) 안 3.x 항목 **하나 전체**(조각으로 나누기 전)를 **파서가 읽은 그대로** 정해진 JSON 으로 만들어 sha256.
 넣는 것: 항목 제목·머리 정보(순서대로)·요소마다 [종류, 제목 수준, 글, 표 칸 배열, 코드 여부]. 표는 칸 배열 그대로라 칸 경계가
@@ -11,13 +12,14 @@
 같은 내용이라도 파서가 다르게 읽으면 지문이 달라져 **차단**된다 (안전한 쪽). 그때는 목록을 다시 만들어 M4 가 확인한다.
 형식별 일치 수는 README "매뉴얼 항목별 내용 전송 허용 목록".
 
-    python -m app.rag.ingest.allowlist skeleton --out ../dataset/guides/transfer_allowlist.json   # backend 폴더에서
+    python -m app.rag.ingest.allowlist skeleton --out app/rag/ingest/transfer_allowlist.json   # backend 폴더에서
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import re
 import sys
 import unicodedata
 from pathlib import Path
@@ -29,6 +31,8 @@ from app.rag.parser.models import Element, ParsedDocument
 
 FINGERPRINT_VERSION = 1                                    # 지문 계산법이 바뀌면 올린다 (목록의 값과 다르면 모두 차단)
 CONTENT_VALUES = ('ALLOWED', 'BLOCKED')
+ALLOWLIST = Path(__file__).with_name('transfer_allowlist.json')   # 일괄·업로드 적재 모두 이 파일. 백엔드 코드 옆에 둬야
+#   서버 이미지에 들어간다 (backend/Dockerfile 은 dataset/guides 를 복사하지 않는다 — 없으면 매뉴얼 내용을 모두 차단)
 
 
 def _norm(text: str) -> str:
@@ -83,6 +87,91 @@ def items(doc: ParsedDocument) -> list[dict]:
         out.append({'section': m.group(1), 'title': SECTION_NO_RE.sub('', item.text, count=1).strip(),
                     'fingerprint': fingerprint(item.text, props, pieces)})
     return out
+
+
+# ── 적재 판정 (질문지 답 Q10·Q13) ─────────────────────────────
+
+FP_RE = re.compile(r'^sha256:[0-9a-f]{64}$')
+SECTION_KEY_RE = re.compile(r'^3\.\d+$')
+
+
+def load(path: Path = ALLOWLIST) -> tuple[dict[tuple[str, str], tuple[str | None, str]], list[str]]:
+    """목록 → {(문서 번호, 항목 번호): (content, 지문)}, 경고. 믿을 수 없으면 그 부분은 비운다 (= 차단), 예외로 멈추지 않는다:
+    - 파일 없음·읽기 실패·JSON 문법 오류·최상위가 객체 아님·계산법 버전 다름·`items` 가 배열 아님(없음 포함) → 전부
+    - 항목이 객체 아님·`doc_no` 가 글자 아님·`section` 이 '3.N' 아님 → 어느 항목인지 몰라 뺌 (경고)
+    - 같은 키가 둘 이상 (지문이 틀린 행도 센다) → 그 키, 지문이 'sha256:' 64자 아님·모르는 content 값 → 그 항목
+    (PR #364 검수 2·재검수 1)."""
+    try:
+        data = json.loads(Path(path).read_text(encoding='utf-8'))
+    except (OSError, ValueError) as e:
+        return {}, [f'허용 목록을 읽지 못해 매뉴얼 내용을 모두 차단합니다 ({type(e).__name__})']
+    if not isinstance(data, dict):
+        return {}, [f'허용 목록의 모양이 틀려(맨 위가 {type(data).__name__}) 매뉴얼 내용을 모두 차단합니다']
+    version = data.get('fingerprint_version')
+    if type(version) is not int or version != FINGERPRINT_VERSION:
+        return {}, [f'허용 목록의 지문 계산법 버전({version!r})이 지금({FINGERPRINT_VERSION})과 달라 '
+                    '매뉴얼 내용을 모두 차단합니다. 목록을 다시 만들어 M4 가 확인해 주세요']
+    rows = data.get('items')
+    if not isinstance(rows, list):
+        return {}, [f"허용 목록에 항목 배열(items)이 없어({type(rows).__name__}) 매뉴얼 내용을 모두 차단합니다"]
+    # 1단계: 어느 항목인지 알 수 있는 행(객체·doc_no·section 이 맞음)을 모두 모아 겹침부터 센다 — 지문이 틀린 행도
+    # 센다. 틀린 행을 먼저 빼면 같은 키의 다른 행이 혼자 남아 허용될 수 있다 (PR #364 재검수 1)
+    warnings, keyed = [], []
+    for n, r in enumerate(rows, 1):
+        bad = ('객체가 아님' if not isinstance(r, dict)
+               else 'doc_no 가 글자가 아님' if not isinstance(r.get('doc_no'), str) or not r['doc_no']
+               else "section 이 '3.N' 이 아님" if not isinstance(r.get('section'), str) or not SECTION_KEY_RE.match(r['section'])
+               else '')
+        if bad:
+            warnings.append(f'허용 목록 {n}번째 항목: {bad} → 어느 항목인지 몰라 뺌')
+        else:
+            keyed.append((n, (r['doc_no'], r['section']), r))
+    keys = [k for _, k, _ in keyed]
+    dup = {k for k in keys if keys.count(k) > 1}
+    if dup:
+        warnings.append(f"허용 목록에 같은 항목이 여럿이라 차단합니다: {', '.join(f'{d} {s}' for d, s in sorted(dup))}")
+    # 2단계: 겹치지 않는 키만 지문·값 검사. 지문이 틀리거나 값을 모르면 그 키는 차단 (목록에서 뺀다)
+    out = {}
+    for n, k, r in keyed:
+        if k in dup:
+            continue
+        if not isinstance(r.get('fingerprint'), str) or not FP_RE.match(r['fingerprint']):
+            warnings.append(f"허용 목록 {k[0]} {k[1]}: fingerprint 가 'sha256:…' 가 아님 → 차단")
+            continue
+        content = r.get('content')
+        if content not in (*CONTENT_VALUES, None):
+            warnings.append(f'허용 목록 {k[0]} {k[1]}: 모르는 값 {content!r} → 차단')
+            content = None
+        out[k] = (content, r['fingerprint'])
+    return out, warnings
+
+
+def policies(doc_no: str, doc: ParsedDocument, chunks: list, allow: dict) -> tuple[dict[str, str], list[str]]:
+    """매뉴얼 한 문서의 청크별 내용 전송 {unit_key: ALLOWED·BLOCKED} (모든 청크에 값, M4 Q10). 경고.
+
+    3장 안 3.x 항목이 목록에 ALLOWED 로 있고 지금 내용의 지문이 목록 지문과 같을 때만 ALLOWED. 나머지(목록 밖 항목·
+    목록 BLOCKED·빈 값·지문 다름·3장 밖 장·서문·FAQ·번호가 겹치는 항목)는 BLOCKED. 판정은 항목 하나 전체로 한 번
+    (조각마다 다시 계산하지 않는다) — 같은 항목의 조각은 모두 같은 값이다."""
+    found = items(doc)
+    sections = [i['section'] for i in found]
+    dup = {s for s in sections if sections.count(s) > 1}
+    allowed, warnings = set(), []
+    for i in found:
+        content, fp = allow.get((doc_no, i['section']), (None, None))
+        if content != 'ALLOWED' or i['section'] in dup:
+            continue
+        if fp != i['fingerprint']:
+            warnings.append(f"{doc_no} {i['section']}: 허용 목록 이후 내용이 바뀌어 차단합니다 (M4 확인 뒤 목록을 고쳐 주세요)")
+            continue
+        allowed.add(i['section'])
+    if dup:
+        warnings.append(f"{doc_no}: 3장 항목 번호가 겹쳐 차단합니다 ({', '.join(sorted(dup))})")
+    out = {}
+    for c in chunks:
+        chapter = SECTION_NO_RE.match(c.heading_path[0] if c.heading_path else '')
+        in_ch3 = c.chunk_type == 'item' and chapter is not None and chapter.group(1) == '3'
+        out[c.unit_key] = 'ALLOWED' if in_ch3 and c.section_no in allowed else 'BLOCKED'
+    return out, warnings
 
 
 def skeleton(guides: Path = GUIDES) -> dict:
