@@ -49,6 +49,8 @@ export interface Guide {
   docType?: string
   /** 서버 모드에서는 가이드를 펼칠 때 읽는다 */
   versions: GuideVersion[] | null
+  /** 적재 실패·진행 중인 버전 수와 마지막 실패 사유 (서버 DC-01 ingestSummary). 모의·구버전 서버에는 없다 */
+  ingest?: { failed: number; pending: number; lastError: string | null }
 }
 
 const SCOPE_FROM = { ALL: '전 직원', AGENT: '담당자 이상', ADMIN: '관리자만' } as const
@@ -134,6 +136,8 @@ interface SDoc {
   categoryCode: CategoryCode | null
   isActive?: boolean
   currentVersion: { version: string; viewScope: keyof typeof SCOPE_FROM | null; transferPolicy: keyof typeof TX_FROM | null } | null
+  /** 버전 적재 요약 (R-47, ADMIN 응답만). 구버전 서버에는 없다 */
+  ingestSummary?: { failed: number; pending: number; lastIngestError: string | null } | null
 }
 interface SVer {
   id: number
@@ -165,7 +169,7 @@ export async function listGuides(user: User): Promise<ApiResult<Guide[]>> {
     r.data.items.forEach((d) => {
       if (!d.categoryCode) return
       const c = d.currentVersion
-      out.push({ id: d.id, docCode: d.docCode, title: d.title, cat: d.categoryCode, isActive: d.isActive !== false, docType: d.docType, current: c ? { version: c.version, tx: c.transferPolicy ? TX_FROM[c.transferPolicy] : '금지', scope: c.viewScope ? SCOPE_FROM[c.viewScope] : undefined } : null, versions: null })
+      out.push({ id: d.id, docCode: d.docCode, title: d.title, cat: d.categoryCode, isActive: d.isActive !== false, docType: d.docType, current: c ? { version: c.version, tx: c.transferPolicy ? TX_FROM[c.transferPolicy] : '금지', scope: c.viewScope ? SCOPE_FROM[c.viewScope] : undefined } : null, versions: null, ingest: d.ingestSummary ? { failed: d.ingestSummary.failed, pending: d.ingestSummary.pending, lastError: d.ingestSummary.lastIngestError } : undefined })
     })
     if (page >= r.data.totalPages) break
   }

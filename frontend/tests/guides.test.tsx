@@ -222,6 +222,13 @@ describe('서버 모드 가이드 (VITE_USE_MOCK_GUIDE=false)', () => {
     expect(urls()[0]).toBe('GET /api/v1/documents?size=100&page=1&docType=GUIDE&docType=MANUAL&includeInactive=true&sort=docCode,asc')
   })
 
+  it('문서 목록의 적재 요약(ingestSummary)을 가이드의 ingest 로 옮기고, 없으면 비워 둔다 (R-47)', async () => {
+    const api = await load()
+    fetchMock.mockResolvedValueOnce(json(200, { items: [doc(3, 'IT-NET-001', { ingestSummary: { failed: 1, pending: 0, lastIngestError: '본문을 추출하지 못했습니다' } }), doc(5, 'IT-ACC-001', { categoryCode: 'ACC' })], page: 1, size: 100, totalCount: 2, totalPages: 1 }))
+    const r = await api.listGuides(admin())
+    expect(r.ok && r.data.map((g) => g.ingest)).toEqual([{ failed: 1, pending: 0, lastError: '본문을 추출하지 못했습니다' }, undefined])
+  })
+
   it('버전 목록의 상태·적재 상태·정책을 화면 말로 바꾼다', async () => {
     const api = await load()
     fetchMock.mockResolvedValueOnce(json(200, { items: [ver(31, { version: 'v1.3', ingestStatus: 'PENDING' }), ver(12, { isCurrent: true, versionState: 'CURRENT', viewScope: 'ADMIN', transferPolicy: 'BLOCKED' }), ver(9, { versionState: 'EXPIRED', ingestStatus: 'FAILED', ingestError: '본문을 추출하지 못했습니다' })] }))

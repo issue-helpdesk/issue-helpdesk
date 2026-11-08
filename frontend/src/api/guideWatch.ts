@@ -2,15 +2,17 @@
  * 가이드 적재(검색 준비) 결과 추적. 관리자가 업로드·다시 시도한 버전이 "준비 완료"가 됐는지 "준비 실패"가 됐는지를
  * 어느 화면에 있든 알려 주기 위한 화면 쪽 장치다.
  *
- * 서버 목록(DC-01)은 버전의 적재 상태를 주지 않아서, 이 브라우저에서 올리거나 다시 시도하거나 열어 본 버전만 추적한다.
+ * 서버 목록(DC-01)이 문서마다 적재 요약(ingestSummary: 실패·진행 중 버전 수)을 준다 (R-47). 그래서 실패 표시의 기준은 서버 요약이고,
+ * 요약에 실패·진행 중이 있는 문서만 버전을 읽어 어느 버전인지 확인한다 (syncIngestSummary). 다른 관리자가 올린 버전의 실패도 알 수 있다.
+ * 이 브라우저에서 올리거나 다시 시도한 버전은 결과가 나올 때까지 따로 추적해 알림 창으로 알려 준다.
  * - pending: 아직 적재 중인 버전. 몇 초마다 DC-06 으로 다시 읽어 결과를 확인한다.
  * - failed : 적재에 실패한 버전. 같은 버전이 "준비 완료"가 되면 사라진다. 새로 실패하면 seen=false 라서 알림 창이 뜬다.
  * 두 목록은 이 브라우저(localStorage)에 기억해 새로고침해도 이어진다. 저장소를 못 쓰면 이번 화면에서만 동작한다.
- * 다른 관리자가 올린 버전의 실패나, 이 브라우저가 열어 본 적 없는 버전의 실패는 알 수 없다 (서버가 목록에서 알려 줘야 한다).
+ * 구버전 서버처럼 요약이 없으면 예전처럼 이 브라우저가 열어 본 버전만 추적한다.
  */
 import { visiblePoll } from '../core/poll'
 import type { CategoryCode } from './chatTypes'
-import { listGuideVersions, type GuideVersion } from './guides'
+import { listGuideVersions, listGuides, type Guide, type GuideVersion } from './guides'
 import type { User } from './types'
 
 interface IngestWatch {
@@ -127,6 +129,42 @@ export function recordVersions(meta: Omit<IngestWatch, 'versionId' | 'version'>,
   if (JSON.stringify([pending, failed]) !== before) commit()
 }
 
+/** 방금 시작한 추적은 서버 요약에 아직 안 잡힐 수 있어서, 이 시간 안에는 요약만 보고 지우지 않는다 */
+const FRESH_MS = 20_000
+
+/**
+ * 문서 목록의 적재 요약(ingestSummary)을 실패·진행 중 표시에 반영한다 (R-47).
+ * - 요약이 실패 0건인 문서의 실패 기록, 목록에 없는 문서의 기록은 지운다 (이미 해결됐거나 사라진 실패의 점이 남지 않게).
+ * - 요약에 실패·진행 중이 있는데 이 브라우저가 모르는 버전이면 그 문서의 버전을 읽어 기록한다 (알림 창은 띄우지 않고 점만 켠다).
+ * 요약이 없는 문서(구버전 서버·모의)는 건드리지 않는다.
+ */
+export async function syncIngestSummary(user: User, guides: Guide[]): Promise<void> {
+  if (user.serviceRole !== 'ADMIN' || !guides.some((g) => g.ingest)) return
+  const before = JSON.stringify([pending, failed])
+  const ids = new Set(guides.map((g) => g.id))
+  const now = Date.now()
+  failed = failed.filter((f) => ids.has(f.docId))
+  pending = pending.filter((p) => ids.has(p.docId))
+  const need: Guide[] = []
+  for (const g of guides) {
+    if (!g.ingest) continue
+    if (g.ingest.failed === 0) failed = failed.filter((f) => f.docId !== g.id)
+    if (g.ingest.pending === 0) pending = pending.filter((p) => p.docId !== g.id || now - (p.since ?? now) < FRESH_MS)
+    if ((g.ingest.failed > 0 && !failed.some((f) => f.docId === g.id)) || (g.ingest.pending > 0 && !pending.some((p) => p.docId === g.id))) need.push(g)
+  }
+  if (JSON.stringify([pending, failed]) !== before) commit()
+  for (const g of need) {
+    const r = await listGuideVersions(user, g.id)
+    if (r.ok) recordVersions({ docId: g.id, docCode: g.docCode, title: g.title, cat: g.cat }, r.data)
+  }
+}
+
+/** 서버의 문서 목록을 읽어 적재 요약을 반영한다 (사이드바 점이 가이드 관리 화면을 열지 않아도 맞게) */
+async function refreshIngestSummary(user: User): Promise<void> {
+  const r = await listGuides(user)
+  if (r.ok) await syncIngestSummary(user, r.data)
+}
+
 /** 추적 중인 버전들의 결과를 서버에서 다시 읽는다 */
 export async function pollIngest(user: User): Promise<void> {
   if (user.serviceRole !== 'ADMIN' || !pending.length) return
@@ -155,7 +193,13 @@ export async function pollIngest(user: User): Promise<void> {
 /** 관리자일 때만 몇 초마다 추적 중인 버전의 결과를 확인한다 (화면이 보일 때만) */
 export function startIngestPolling(user: User): () => void {
   if (user.serviceRole !== 'ADMIN') return () => {}
-  return visiblePoll(() => void pollIngest(user), 3000)
+  const stopTracking = visiblePoll(() => void pollIngest(user), 3000)
+  // 서버의 적재 요약은 천천히(1분) 읽는다. 탭이 다시 보이면 곧바로 한 번 읽는다
+  const stopSummary = visiblePoll(() => void refreshIngestSummary(user), 60_000)
+  return () => {
+    stopTracking()
+    stopSummary()
+  }
 }
 
 /** 실패 목록 창(관리자가 점을 보고 직접 여는 창)이 열려 있는지 */
