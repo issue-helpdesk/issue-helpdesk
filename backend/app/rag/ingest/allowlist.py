@@ -113,24 +113,29 @@ def load(path: Path = ALLOWLIST) -> tuple[dict[tuple[str, str], tuple[str | None
     rows = data.get('items')
     if not isinstance(rows, list):
         return {}, [f"허용 목록에 항목 배열(items)이 없어({type(rows).__name__}) 매뉴얼 내용을 모두 차단합니다"]
-    warnings, good = [], []
+    # 1단계: 어느 항목인지 알 수 있는 행(객체·doc_no·section 이 맞음)을 모두 모아 겹침부터 센다 — 지문이 틀린 행도
+    # 센다. 틀린 행을 먼저 빼면 같은 키의 다른 행이 혼자 남아 허용될 수 있다 (PR #364 재검수 1)
+    warnings, keyed = [], []
     for n, r in enumerate(rows, 1):
         bad = ('객체가 아님' if not isinstance(r, dict)
                else 'doc_no 가 글자가 아님' if not isinstance(r.get('doc_no'), str) or not r['doc_no']
                else "section 이 '3.N' 이 아님" if not isinstance(r.get('section'), str) or not SECTION_KEY_RE.match(r['section'])
-               else "fingerprint 가 'sha256:…' 가 아님" if not isinstance(r.get('fingerprint'), str)
-               or not FP_RE.match(r['fingerprint']) else '')
+               else '')
         if bad:
-            warnings.append(f'허용 목록 {n}번째 항목: {bad} → 차단')
+            warnings.append(f'허용 목록 {n}번째 항목: {bad} → 어느 항목인지 몰라 뺌')
         else:
-            good.append(r)
-    keys = [(r['doc_no'], r['section']) for r in good]
+            keyed.append((n, (r['doc_no'], r['section']), r))
+    keys = [k for _, k, _ in keyed]
     dup = {k for k in keys if keys.count(k) > 1}
     if dup:
         warnings.append(f"허용 목록에 같은 항목이 여럿이라 차단합니다: {', '.join(f'{d} {s}' for d, s in sorted(dup))}")
+    # 2단계: 겹치지 않는 키만 지문·값 검사. 지문이 틀리거나 값을 모르면 그 키는 차단 (목록에서 뺀다)
     out = {}
-    for r, k in zip(good, keys):
+    for n, k, r in keyed:
         if k in dup:
+            continue
+        if not isinstance(r.get('fingerprint'), str) or not FP_RE.match(r['fingerprint']):
+            warnings.append(f"허용 목록 {k[0]} {k[1]}: fingerprint 가 'sha256:…' 가 아님 → 차단")
             continue
         content = r.get('content')
         if content not in (*CONTENT_VALUES, None):

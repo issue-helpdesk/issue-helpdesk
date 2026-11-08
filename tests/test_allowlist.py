@@ -207,12 +207,28 @@ def test_load_bad_shape_blocks_all(tmp_path, data, msg):
 
 
 def test_load_bad_rows_block_only_that_row(tmp_path):
-    """항목 하나의 모양이 틀리면 그 항목만 차단 + 경고 (예외 없음)."""
+    """항목 하나의 모양이 틀리면 그 항목만 차단 + 경고 (예외 없음). 어느 항목인지 모르는 행(객체 아님·doc_no·section
+    틀림)은 빼고, 지문만 틀린 행은 그 키를 차단한다."""
     from app.rag.ingest.allowlist import load
     fp = 'sha256:' + 'a' * 64
     ok = {'doc_no': 'A', 'section': '3.1', 'content': 'ALLOWED', 'fingerprint': fp}
     rows = ['bad', {**ok, 'doc_no': ['A']}, {**ok, 'section': 3.1}, {**ok, 'section': '4.1'},
-            {**ok, 'fingerprint': 'x'}, {**ok, 'fingerprint': None}, ok]
+            {**ok, 'section': '3.2', 'fingerprint': 'x'}, {**ok, 'section': '3.3', 'fingerprint': None}, ok]
     allow, w = load(_write(tmp_path, {'fingerprint_version': FINGERPRINT_VERSION, 'items': rows}))
     assert allow == {('A', '3.1'): ('ALLOWED', fp)} and len(w) == 6
-    assert ['객체가 아님' in w[0], 'doc_no' in w[1], 'section' in w[2], 'section' in w[3], 'fingerprint' in w[4]] == [True] * 5
+    assert ['객체가 아님' in w[0], 'doc_no' in w[1], 'section' in w[2], 'section' in w[3]] == [True] * 4
+    assert w[4] == "허용 목록 A 3.2: fingerprint 가 'sha256:…' 가 아님 → 차단" and 'A 3.3: fingerprint' in w[5]
+
+
+def test_load_duplicate_with_bad_row_blocks_key(tmp_path):
+    """PR #364 재검수 1: 같은 항목에 정상 ALLOWED 행과 지문이 틀린 행이 함께 있으면 겹침으로 보고 그 항목을 차단
+    (틀린 행을 먼저 빼서 정상 행이 혼자 허용되던 문제). 실제 매뉴얼 판정까지 BLOCKED."""
+    from app.rag.ingest.allowlist import load, policies
+    doc, chunks = _manual()
+    fp = next(i['fingerprint'] for i in items(doc) if i['section'] == '3.5')
+    rows = [{'doc_no': 'IT-SEC-003-M', 'section': '3.5', 'content': 'ALLOWED', 'fingerprint': fp},
+            {'doc_no': 'IT-SEC-003-M', 'section': '3.5', 'content': 'BLOCKED', 'fingerprint': 'broken'}]
+    allow, w = load(_write(tmp_path, {'fingerprint_version': FINGERPRINT_VERSION, 'items': rows}))
+    assert allow == {} and w == ['허용 목록에 같은 항목이 여럿이라 차단합니다: IT-SEC-003-M 3.5']
+    pol, _ = policies('IT-SEC-003-M', doc, chunks, allow)
+    assert set(pol.values()) == {'BLOCKED'}
