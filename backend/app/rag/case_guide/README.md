@@ -124,7 +124,26 @@ out = assemble(conn, document_id, clusters, draft_version_id, view_scope='ALL', 
 | 트랜잭션 | **commit·rollback 안 함**. 파일은 배타적 생성(같은 이름이 있으면 덮어쓰지 않고 오류). 돌려주기 전 실패(쓰다 만 파일 포함)는 이번에 만든 파일만 지우고 오류를 다시 던짐. 돌려준 뒤 API 쪽 실패는 API 가 `file_path` 를 지운다. 문서 잠금은 API 와 같이 문서부터 |
 | 버전 행 | 새 버전 insert 또는 이어 쓸 버전 update: `PENDING`·비현행·`file_format = MD`·열람 범위·전송 정책·`registered_by` |
 
-아직: 새 가이드 조립(뼈대는 아래 ③ 에 있음), 다시 맞추기 ②.
+아직: 새 가이드 조립(뼈대는 아래 ③ 에 있음).
+
+## 다시 맞추기 `rebase()` (`rebase.py`, 박민경 Q5)
+
+초안을 만든 뒤 현행이 바뀌어 등록·전환이 막힌 묶음을 관리자가 "다시 맞추기"(`POST /guide-clusters/{id}/rebase`)하면 API 가 부른다. **DB 쓰기·commit·파일 없음.**
+
+```python
+out = rebase(conn, document_id, {'judgment', 'draft_md', 'draft_basis', 'receipts'})
+# → {'draft_basis': 새 기준, 'conflicts': [...], 'warnings': [...]}
+# API: 같은 트랜잭션에서 draft_basis 교체, draft_revision + 1, 충돌이 있으면 draft_basis.conflicts.revision = 올린 번호,
+#      등록된 묶음이면 registered_version_id 비움, 운영 기록
+```
+
+| 판단 | 새 기준 |
+|---|---|
+| 항목 추가·SEC | 새 현행의 `base_version_id`·`base_md`, `section_no: null` (다음 등록에서 새로) |
+| 변경 | 위 + `target_md` 를 새 현행의 그 항목으로. 만들 때 원문과 다르면 **충돌** `TARGET_CHANGED` (`old_md`·`new_md`), `conflicts: {revision: null, items}` — 관리자가 조각을 고쳐 저장해야 등록 |
+| 거부 | 새 가이드·매뉴얼 후보, `draft_basis` 판단·schema 불일치, 가이드 아님·현행 없음, **기준이 이미 현행과 같음**, **바꿀 항목이 새 현행에 없음** (충돌이 아님 — 거절하고 새 묶음) |
+
+같은 접수 번호 표식이 새 현행에 이미 있으면 경고 (등록 때 `assemble` 이 거부).
 
 ## 초안 기준 `open_basis()` · `ticket_fragment()` (`open_basis.py`, 기획 v4)
 

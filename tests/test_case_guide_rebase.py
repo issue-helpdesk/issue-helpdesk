@@ -1,0 +1,121 @@
+"""다시 맞추기 (app.rag.case_guide.rebase). 구조 초안 6장 ②, 박민경 Q5."""
+import inspect
+
+import pytest
+
+import app.rag.case_guide.rebase as rb
+from app.rag.case_guide import CaseGuideError, _item
+from app.rag.case_guide.assemble import assemble, item_text
+from app.rag.case_guide.rebase import rebase
+from test_case_guide import _current_guide, ticket_row
+from test_ingest_upload import REPO, guide_file, needs_db, url  # noqa: F401  (url 은 fixture)
+
+
+def current_md():
+    return (REPO / guide_file('IT-SW-001')).read_text(encoding='utf-8')
+
+
+def old_basis(judgment='ADD_ITEM', **kw):
+    """예전 현행(가짜 버전 id -1)을 보고 만든 기준. 예전 원문은 지금 현행에서 3.3 한 줄만 다르다."""
+    now = current_md()
+    old_md = now.replace(item_text(now, '3.3'), item_text(now, '3.3').replace('\n', '\n- 예전 현행에만 있던 줄\n', 1), 1)
+    b = {'schema': 1, 'judgment': judgment, 'base_version_id': -1, 'base_md': old_md}
+    if judgment == 'CHANGE':
+        b |= {'target_section': '3.3', 'target_md': item_text(old_md, '3.3')}
+    else:
+        b['section_no'] = '3.8'
+    return b | kw
+
+
+def frag(title='설치 후 꺼짐'):
+    return _item('3.N', title, ticket_row(summary=title))
+
+
+def test_never_writes():
+    src = inspect.getsource(rb)
+    assert '.commit(' not in src and '.rollback(' not in src and 'insert ' not in src and 'update ' not in src
+
+
+@pytest.mark.parametrize('judgment', ['NEW_GUIDE', 'MANUAL_CANDIDATE', None])
+def test_unsupported_judgment(judgment):
+    with pytest.raises(CaseGuideError, match='다시 맞추지 않습니다'):
+        rebase(None, 1, {'judgment': judgment, 'draft_basis': {}})
+
+
+def test_basis_mismatch_refused():
+    with pytest.raises(CaseGuideError, match='맞지 않습니다'):
+        rebase(None, 1, {'judgment': 'CHANGE', 'draft_basis': old_basis('ADD_ITEM')})
+
+
+# ── DB ────────────────────────────────────────────────────────
+
+def _run(url, cluster):
+    from app.rag.ingest import connect
+    with connect(url) as conn:
+        doc = conn.execute("select id from knowledge_documents where doc_code = 'IT-SW-001'").fetchone()[0]
+        try:
+            return rebase(conn, doc, cluster), doc
+        finally:
+            conn.rollback()
+
+
+@needs_db
+def test_add_item_gets_new_base_and_number_cleared(url, tmp_path):
+    """항목 추가: 새 현행의 버전 id·원문, section_no 는 비움. 충돌 없음. 이 기준으로 assemble 이 등록한다."""
+    cur = _current_guide(url)
+    out, doc = _run(url, {'judgment': 'ADD_ITEM', 'draft_md': frag(), 'draft_basis': old_basis(), 'receipts': ['RB-1']})
+    assert out['conflicts'] == [] and out['warnings'] == []
+    assert out['draft_basis'] == {'schema': 1, 'judgment': 'ADD_ITEM', 'base_version_id': cur, 'base_md': current_md(),
+                                  'section_no': None}
+    from app.rag.ingest import connect
+    with connect(url) as conn:
+        res = assemble(conn, doc, [{'id': 1, 'judgment': 'ADD_ITEM', 'draft_md': frag(), 'draft_basis': out['draft_basis'],
+                                    'receipts': ['RB-1']}], None, view_scope='ALL', transfer_policy='ALLOWED',
+                       actor_id=None, files_root=tmp_path, staff_names=[])
+        conn.rollback()
+    assert res['sections'] == {1: '3.8'}
+
+
+@needs_db
+def test_change_target_changed_is_conflict(url):
+    """변경: 새 현행의 3.3 이 만들 때와 다르면 충돌 (예전·새 원문). target_md 는 새 현행 것으로 (base_md 와 같은 버전).
+    conflicts.revision 은 비워 둔다 (API 가 올린 draft_revision 으로 채움)."""
+    cur = _current_guide(url)
+    old = old_basis('CHANGE')
+    out, _ = _run(url, {'judgment': 'CHANGE', 'draft_md': old['target_md'], 'draft_basis': old, 'receipts': ['RB-2']})
+    b = out['draft_basis']
+    assert b['base_version_id'] == cur and b['target_md'] == item_text(current_md(), '3.3')
+    assert out['conflicts'] == b['conflicts']['items'] and b['conflicts']['revision'] is None
+    c = out['conflicts'][0]
+    assert (c['section'], c['kind']) == ('3.3', 'TARGET_CHANGED')
+    assert '예전 현행에만 있던 줄' in c['old_md'] and c['new_md'] == b['target_md']
+
+
+@needs_db
+def test_change_target_same_no_conflict(url):
+    """새 현행에서 그 항목이 그대로면 충돌 없음 (다른 곳만 바뀐 경우)."""
+    _current_guide(url)
+    now = current_md()
+    old = old_basis('CHANGE', target_md=item_text(now, '3.3'))
+    out, _ = _run(url, {'judgment': 'CHANGE', 'draft_md': old['target_md'], 'draft_basis': old, 'receipts': ['RB-3']})
+    assert out['conflicts'] == [] and 'conflicts' not in out['draft_basis']
+
+
+@needs_db
+def test_change_target_missing_refused(url):
+    """바꿀 항목이 새 현행에 없으면 충돌이 아니라 거부 (조각 저장으로 풀 수 없으므로)."""
+    _current_guide(url)
+    old = old_basis('CHANGE', target_section='3.99')
+    with pytest.raises(CaseGuideError, match='3.99이 새 현행에 없습니다'):
+        _run(url, {'judgment': 'CHANGE', 'draft_md': '', 'draft_basis': old, 'receipts': ['RB-4']})
+
+
+@needs_db
+def test_same_base_refused_and_receipt_warning(url, monkeypatch):
+    """기준 버전이 이미 현행이면 다시 맞출 것이 없다. 새 현행에 같은 접수 번호 표식이 있으면 경고."""
+    cur = _current_guide(url)
+    with pytest.raises(CaseGuideError, match='같아 다시 맞출 것이 없습니다'):
+        _run(url, {'judgment': 'ADD_ITEM', 'draft_basis': old_basis(base_version_id=cur), 'receipts': ['RB-5']})
+    monkeypatch.setattr(rb, 'receipts', lambda md: {'RB-6'})
+    out, _ = _run(url, {'judgment': 'ADD_ITEM', 'draft_basis': old_basis(), 'receipts': ['RB-6', 'RB-7']})
+    assert out['warnings'] == ['이미 IT-SW-001 새 현행에 반영된 접수 번호입니다: RB-6 (등록 때 거부됩니다)']
