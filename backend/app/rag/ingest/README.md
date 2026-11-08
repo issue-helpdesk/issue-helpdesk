@@ -77,6 +77,26 @@
 - 모델은 한 번 열어 두고 같이 쓴다 (여는 데 10초·메모리 2~3GB). 호출 쪽(API)이 프로세스에 하나만 만들어 넘긴다.
 - `ingest_error`에는 내부 경로를 넣지 않는다. 예상 못 한 오류는 `적재 중 오류가 났습니다 (종류)`만 남기고 자세한 내용은 로그로.
 
+## 매뉴얼 항목별 내용 전송 허용 목록 (`allowlist.py`)
+
+해결 사례 가이드화 기획 v4 "선행 작업". 매뉴얼 3.x 항목마다 내용을 외부 모델에 보낼지(`ALLOWED`) 제목만 보낼지(`BLOCKED`)를 적은 목록 `dataset/guides/transfer_allowlist.json` (매뉴얼 27종 143 항목). **값(`content`)은 M4 가 채우고, 항목·제목·지문은 이 모듈이 만든다.**
+
+| 칸 | 뜻 |
+|---|---|
+| `doc_no` · `section` · `title` | 매뉴얼 문서 번호 · 항목 번호(3.x) · 항목 제목 |
+| `content` | `ALLOWED`(내용 전송) · `BLOCKED`(제목만) · 빈칸(= `BLOCKED`) |
+| `fingerprint` | 항목 하나 전체(조각으로 나누기 전)의 내용 지문 `sha256:…`. 적재 때 지금 내용의 지문과 같아야 허용이 유지된다 |
+| `fingerprint_version` (맨 위) | 지문 계산법 버전. 계산법이 바뀌면 올리고 목록을 다시 만든다 |
+
+- 지문: 항목 제목 · 머리 정보 · 요소(소제목·문단·목록·표 칸·그림 설명). 쪽 번호·조각 경계·줄 끝·줄 앞뒤 공백·꾸밈 기호(★·이모지, md 파서가 지우는 범위)는 넣지 않는다. 낱말·숫자·표 칸이 하나라도 바뀌면 달라진다.
+- 같은 매뉴얼의 docx 는 md 와 지문이 같다 (143/143). pptx·pdf 는 그림 설명 자리 등 읽는 차이로 일부 다르다 → 그 항목은 차단 (안전한 쪽).
+- 적재 판정 연결(목록 → 청크 `content_transfer_policy`)과 "정책만 다시 반영" 명령은 다음 작업.
+
+```bash
+uv run python -m app.rag.ingest.allowlist skeleton                                       # 화면에 뼈대
+uv run python -m app.rag.ingest.allowlist skeleton --out ../dataset/guides/transfer_allowlist.json   # 있으면 멈춤 (--force 로 덮어씀, 채운 값이 지워진다)
+```
+
 ## 명령 (backend 폴더에서)
 
 ```bash
