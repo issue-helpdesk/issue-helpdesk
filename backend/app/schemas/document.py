@@ -20,6 +20,13 @@ class CurrentVersion(CamelModel):
     registered_at: KstDatetime
 
 
+class IngestSummary(CamelModel):
+    """DC-01 문서별 적재 요약. 모든 버전을 센다."""
+    failed: int
+    pending: int
+    last_ingest_error: str | None    # 가장 최근에 올린 실패 버전의 사유
+
+
 class Document(CamelModel):
     id: int
     doc_code: str
@@ -31,6 +38,7 @@ class Document(CamelModel):
     owner_group: GroupRef | None
     is_active: bool
     current_version: CurrentVersion | None
+    ingest_summary: IngestSummary | None = None     # DC-01 의 ADMIN 응답에만 값을 준다
     created_at: KstDatetime
 
 
