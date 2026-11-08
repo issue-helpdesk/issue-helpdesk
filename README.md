@@ -28,7 +28,7 @@
 - IT FAQ·장애 대응 매뉴얼 기반 답변 (RAG)
 - 문의 유형 및 긴급도 자동 분류
 - 과거 유사 장애 이력 검색 및 조치 방법 제안
-- 해결 불가 시 티켓 자동 생성 및 담당자 배정 (모의 티켓 시스템)
+- 사용자 접수 확인 후 Jira 티켓 생성·담당자 배정 및 상태 동기화
 - 문의·장애 처리 현황 대시보드
 
 ## 기술 스택
@@ -36,9 +36,11 @@
 | 구분 | 기술 |
 |---|---|
 | Backend | Python 3.12, FastAPI |
-| Frontend | Streamlit |
-| Database | PostgreSQL (Supabase), pgvector |
-| LLM | Claude |
+| Frontend | React 19, TypeScript, Vite, React Router |
+| Database | PostgreSQL + pgvector (로컬 Supabase / EC2 Docker 구성) |
+| AI 흐름·모델 | LangGraph, Claude API (LLMPort·Adapter) |
+| 검색 | 로컬 BGE-M3 (1024차원), pgvector |
+| 실행 구성 | Docker Compose, Nginx, 별도 Jira worker |
 
 ## 개발 환경 설정
 
