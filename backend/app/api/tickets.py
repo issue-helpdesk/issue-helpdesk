@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query, Response, status
 
 from app.api.deps import AdminAuth, CurrentAuth
-from app.schemas.common import ItemList, Page
+from app.schemas.common import CountedPage, ItemList
 from app.schemas.ticket import (
     AssignmentLog,
     AssignmentRequest,
@@ -51,10 +51,10 @@ def confirm_ticket(body: TicketCreateRequest, response: Response, auth: CurrentA
     return ticket
 
 
-@router.get("/tickets", response_model=Page[TicketSummary])
+@router.get("/tickets", response_model=CountedPage[TicketSummary])
 def list_tickets(
     query: Annotated[TicketListQuery, Query()], auth: CurrentAuth, service: TicketServiceDep,
-) -> Page[TicketSummary]:
+) -> CountedPage[TicketSummary]:
     return service.list_tickets(query, auth.user)
 
 

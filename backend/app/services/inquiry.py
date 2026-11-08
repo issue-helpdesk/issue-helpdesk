@@ -1,7 +1,7 @@
 import logging
 from dataclasses import asdict
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import Annotated, get_args
 
 from fastapi import Depends
 
@@ -30,12 +30,13 @@ from app.repositories.audit_log import AuditLogRepository, AuditLogRepositoryDep
 from app.repositories.inquiry import InquiryRepository, InquiryRepositoryDep
 from app.repositories.reference import ReferenceRepositoryDep
 from app.repositories.security_alert import SecurityAlertRepository, SecurityAlertRepositoryDep
-from app.schemas.common import ItemList, Page, parse_sort
+from app.schemas.common import CountedPage, ItemList, parse_sort
 from app.schemas.inquiry import (
     AiTurn,
     Assessment as AssessmentHistory,
     AssessmentView,
     CategoryRef,
+    DisplayStatus,
     GroupRef,
     Inquiry as InquiryDetail,
     InquiryListQuery,
@@ -205,13 +206,13 @@ class InquiryService:
         return SessionResume(session=SessionView.model_validate(session), inquiry=self.to_detail(inquiry),
                              next_actions=actions)
 
-    def list_inquiries(self, query: InquiryListQuery, viewer: User) -> Page[InquirySummary]:
+    def list_inquiries(self, query: InquiryListQuery, viewer: User) -> CountedPage[InquirySummary]:
         if query.user_id is not None and viewer.service_role != "ADMIN":
             raise AppError(ErrorCode.FORBIDDEN)
         if query.created_from and query.created_to and query.created_from > query.created_to:
             raise AppError(ErrorCode.INVALID_REQUEST)
 
-        rows, total = self.inquiries.search(
+        rows, total, status_counts = self.inquiries.search(
             user_id=query.user_id if viewer.service_role == "ADMIN" else viewer.id,
             display_statuses=query.display_status,
             statuses=query.status,
@@ -241,7 +242,7 @@ class InquiryService:
             )
             for inquiry, user, category, receipt_no, shown in rows
         ]
-        return Page.of(items, query.page, query.size, total)
+        return CountedPage.counted(items, query.page, query.size, total, status_counts, get_args(DisplayStatus))
 
     def get_inquiry(self, inquiry_id: int, viewer: User) -> InquiryDetail:
         return self.to_detail(self.find_viewable(inquiry_id, viewer))

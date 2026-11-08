@@ -50,7 +50,8 @@ class UserRepository:
         sort: list[tuple[str, bool]],
         offset: int,
         limit: int,
-    ) -> tuple[list[tuple[User, Department | None]], int]:
+    ) -> tuple[list[tuple[User, Department | None]], int, dict[str, int]]:
+        """세 번째 값은 계정 상태 조건만 뺀 계정 상태별 건수."""
         conditions = []
         if q:
             conditions.append(or_(
@@ -62,6 +63,10 @@ class UserRepository:
             conditions.append(User.department_id == department_id)
         if service_roles:
             conditions.append(User.service_role.in_(service_roles))
+
+        status_counts = dict(self.db.execute(
+            select(User.account_status, func.count()).where(*conditions).group_by(User.account_status)
+        ).all())
         if account_statuses:
             conditions.append(User.account_status.in_(account_statuses))
 
@@ -78,7 +83,7 @@ class UserRepository:
             .offset(offset)
             .limit(limit)
         )
-        return [tuple(row) for row in rows], total
+        return [tuple(row) for row in rows], total, status_counts
 
     def all_names(self) -> list[str]:
         """직원 이름 전체. AI 에 보내기 전 이름을 치환할 때 쓴다 (docs/10 3.1)."""
