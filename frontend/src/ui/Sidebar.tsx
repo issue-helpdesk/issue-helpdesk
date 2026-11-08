@@ -164,7 +164,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   useEffect(() => {
     if (USE_MOCK_INQUIRY || !employeeNo || !openId) return
     const cur = recent.find((i) => String(i.id) === openId)
-    if (cur) markInquirySeen(employeeNo, cur.id, cur.updatedAt)
+    if (cur) markInquirySeen(employeeNo, cur.id, cur.lastAiMessageId)
   }, [recent, openId, employeeNo])
   if (!user) return null
   const shown = recent.map((i) => (String(i.id) === openId ? { ...i, unread: 0 } : i))

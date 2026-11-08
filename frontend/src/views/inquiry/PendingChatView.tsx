@@ -6,6 +6,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { beginChat, clearPending, getPending } from '../../api/chat'
+import { markInquiryUnseen } from '../../api/inquirySeen'
+import { refreshInquiryList } from '../../core/poll'
 import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
 import { Icon } from '../../ui/Icon'
@@ -23,6 +25,7 @@ export function PendingChatView() {
   const pending = getPending()
   const text = pending?.text ?? prefill ?? ''
   const live = useRef(true)
+  const employeeNo = user?.employeeNo
 
   // 답이 오면 그 문의의 대화 화면으로 (뒤로 가기로 이 화면에 돌아오지 않도록 바꿔 끼운다)
   useEffect(() => {
@@ -31,7 +34,14 @@ export function PendingChatView() {
     if (!p) return
     p.promise
       .then((r) => {
-        if (!live.current) return
+        if (!live.current) {
+          // 대기 화면을 떠나 있는 동안 답이 왔다: 그 문의에 새 답변 점을 켠다
+          if (r.ok && employeeNo) {
+            markInquiryUnseen(employeeNo, r.data.id)
+            refreshInquiryList()
+          }
+          return
+        }
         if (r.ok) {
           clearPending()
           navigate(`/chat/${r.data.id}`, { replace: true, state: { fresh: true } })
@@ -44,7 +54,7 @@ export function PendingChatView() {
     return () => {
       live.current = false
     }
-  }, [navigate, run])
+  }, [navigate, run, employeeNo])
 
   // 기다린 시간을 센다
   useEffect(() => {

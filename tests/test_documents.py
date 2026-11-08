@@ -1081,6 +1081,54 @@ def test_list_include_inactive_admin_only(client, users, scoped, who):
     assert client.get(DOCS, headers=users[who], params={"includeInactive": "true"}).status_code == 403
 
 
+# ------------------------------------------------------------------ DC-01 적재 요약 (R-47)
+
+
+def set_ingest(db, row, status, error=None):
+    row.ingest_status, row.ingest_error = status, error
+    db.commit()
+
+
+def summaries(client, headers):
+    return {d["docCode"]: d["ingestSummary"] for d in client.get(DOCS, headers=headers).json()["items"]}
+
+
+def test_list_ingest_summary_counts_failed_and_pending(client, db, users):
+    _, rows = add_doc(db, "IT-NET-010", versions=(("v1", "ALL", True), ("v2", "ALL", False), ("v3", "ALL", False),
+                                                  ("v4", "ALL", False)))
+    set_ingest(db, rows[1], "FAILED", "이전 실패")
+    set_ingest(db, rows[2], "FAILED", "마지막 실패")
+    set_ingest(db, rows[3], "PENDING")
+
+    assert summaries(client, users["admin"]) == {
+        "IT-NET-010": {"failed": 2, "pending": 1, "lastIngestError": "마지막 실패"}}
+
+
+def test_list_ingest_summary_is_per_document_and_zero_without_problem(client, db, users):
+    _, rows = add_doc(db, "IT-NET-010", versions=(("v1", "ALL", True), ("v2", "ALL", False)))
+    add_doc(db, "IT-NET-011")
+    set_ingest(db, rows[1], "PENDING")
+
+    assert summaries(client, users["admin"]) == {
+        "IT-NET-010": {"failed": 0, "pending": 1, "lastIngestError": None},
+        "IT-NET-011": {"failed": 0, "pending": 0, "lastIngestError": None},
+    }
+
+
+@pytest.mark.parametrize("who", ["employee", "agent"])
+def test_list_ingest_summary_is_admin_only(client, db, users, who):
+    _, rows = add_doc(db, "IT-NET-010", versions=(("v1", "ALL", True), ("v2", "ALL", False)))
+    set_ingest(db, rows[1], "FAILED", "실패")
+
+    assert summaries(client, users[who]) == {"IT-NET-010": None}
+
+
+def test_ingest_summary_only_in_list(client, db, users):
+    document, _ = add_doc(db, "IT-NET-010")
+
+    assert client.get(f"{DOCS}/{document.id}", headers=users["admin"]).json()["ingestSummary"] is None
+
+
 # ------------------------------------------------------------------ FAQ 재검사
 
 

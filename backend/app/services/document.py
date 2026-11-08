@@ -33,6 +33,7 @@ from app.schemas.document import (
     DocumentUpdateRequest,
     DocumentVersion as DocumentVersionView,
     DocumentVersionUpdateRequest,
+    IngestSummary,
 )
 from app.schemas.inquiry import CategoryRef, GroupRef, UserRef
 from app.services.document_file import remove_stored, stage_file, stored_file, to_stored_path
@@ -83,8 +84,21 @@ class DocumentService:
             offset=query.offset,
             limit=query.size,
         )
-        items = [to_document(d, v, c, g, is_admin) for d, v, c, g in rows]
+        summaries = self.ingest_summaries([d.id for d, *_ in rows]) if is_admin else {}
+        items = [to_document(d, v, c, g, is_admin, summaries.get(d.id)) for d, v, c, g in rows]
         return Page.of(items, query.page, query.size, total)
+
+    def ingest_summaries(self, document_ids: list[int]) -> dict[int, IngestSummary]:
+        summaries = {i: IngestSummary(failed=0, pending=0, last_ingest_error=None) for i in document_ids}
+        for document_id, status, error in self.documents.unfinished_ingests(document_ids):
+            summary = summaries[document_id]
+            if status == "PENDING":
+                summary.pending += 1
+                continue
+            if summary.failed == 0:      # 최근 버전부터 오므로 처음 만난 실패가 마지막 실패다
+                summary.last_ingest_error = error
+            summary.failed += 1
+        return summaries
 
     def create(self, body: DocumentCreateRequest) -> Document:
         """DC-02. 메타정보만 만든다. 파일은 DC-07 로 올린다."""
@@ -426,7 +440,7 @@ def file_format_of(filename: str | None) -> tuple[str, str]:
 
 
 def to_document(document: KnowledgeDocument, current: DocumentVersion | None, category: Category | None,
-                group: SupportGroup | None, is_admin: bool) -> Document:
+                group: SupportGroup | None, is_admin: bool, ingest_summary: IngestSummary | None = None) -> Document:
     return Document(
         id=document.id,
         doc_code=document.doc_code,
@@ -445,6 +459,7 @@ def to_document(document: KnowledgeDocument, current: DocumentVersion | None, ca
             transfer_policy=current.transfer_policy if is_admin else None,
             registered_at=current.registered_at,
         ) if current else None,
+        ingest_summary=ingest_summary,
         created_at=document.created_at,
     )
 

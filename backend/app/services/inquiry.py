@@ -1,7 +1,7 @@
 import logging
 from dataclasses import asdict
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import Annotated, get_args
 
 from fastapi import Depends
 
@@ -30,12 +30,13 @@ from app.repositories.audit_log import AuditLogRepository, AuditLogRepositoryDep
 from app.repositories.inquiry import InquiryRepository, InquiryRepositoryDep
 from app.repositories.reference import ReferenceRepositoryDep
 from app.repositories.security_alert import SecurityAlertRepository, SecurityAlertRepositoryDep
-from app.schemas.common import ItemList, Page, parse_sort
+from app.schemas.common import CountedPage, ItemList, parse_sort
 from app.schemas.inquiry import (
     AiTurn,
     Assessment as AssessmentHistory,
     AssessmentView,
     CategoryRef,
+    DisplayStatus,
     GroupRef,
     Inquiry as InquiryDetail,
     InquiryListQuery,
@@ -205,13 +206,13 @@ class InquiryService:
         return SessionResume(session=SessionView.model_validate(session), inquiry=self.to_detail(inquiry),
                              next_actions=actions)
 
-    def list_inquiries(self, query: InquiryListQuery, viewer: User) -> Page[InquirySummary]:
+    def list_inquiries(self, query: InquiryListQuery, viewer: User) -> CountedPage[InquirySummary]:
         if query.user_id is not None and viewer.service_role != "ADMIN":
             raise AppError(ErrorCode.FORBIDDEN)
         if query.created_from and query.created_to and query.created_from > query.created_to:
             raise AppError(ErrorCode.INVALID_REQUEST)
 
-        rows, total = self.inquiries.search(
+        rows, total, status_counts = self.inquiries.search(
             user_id=query.user_id if viewer.service_role == "ADMIN" else viewer.id,
             display_statuses=query.display_status,
             statuses=query.status,
@@ -241,7 +242,7 @@ class InquiryService:
             )
             for inquiry, user, category, receipt_no, shown in rows
         ]
-        return Page.of(items, query.page, query.size, total)
+        return CountedPage.counted(items, query.page, query.size, total, status_counts, get_args(DisplayStatus))
 
     def get_inquiry(self, inquiry_id: int, viewer: User) -> InquiryDetail:
         return self.to_detail(self.find_viewable(inquiry_id, viewer))
@@ -291,22 +292,30 @@ class InquiryService:
     def visible_sources(self, messages: list[Message], viewer: User) -> dict[int, list[MessageSourceView]]:
         """메시지별 출처. 보는 사람의 역할로 열람 범위 밖 출처는 뺀다 (청크_메타데이터.md 4장).
 
-        문서 출처는 조각마다 한 줄이고 본문(excerpt)은 단위 전체라, 그림도 같은 위치의 조각들을 합쳐 준다.
+        문서 출처는 조각마다 한 줄로 저장되므로 같은 문서·버전·위치를 한 항목으로 합친다. 값은 순위가 가장 앞선 줄을
+        따르고, 본문은 서로 다른 것만 이어 붙이며 그림은 모은다. 과거 사례는 문서 번호·위치가 없어 합치지 않는다.
         """
         allowed = visible_scopes(viewer.service_role)
         rows = [source for source, scope in self.inquiries.sources_with_scope([m.id for m in messages]) if scope in allowed]
         metas = self.inquiries.chunk_metas([s.chunk_id for s in rows if s.chunk_id is not None])
 
         def unit(s: MessageSource) -> tuple:
-            return s.message_id, s.doc_code, s.version, s.location
+            if s.source_kind == "DOCUMENT":
+                return s.message_id, s.doc_code, s.version, s.location
+            return s.message_id, s.id
 
-        unit_metas: dict[tuple, list[dict | None]] = {}
+        units: dict[tuple, list[MessageSource]] = {}
         for source in rows:
-            unit_metas.setdefault(unit(source), []).append(metas.get(source.chunk_id))
+            units.setdefault(unit(source), []).append(source)
         sources: dict[int, list[MessageSourceView]] = {}
-        for source in rows:
-            view = MessageSourceView.model_validate(source).model_copy(update={"images": images_of(unit_metas[unit(source)])})
-            sources.setdefault(source.message_id, []).append(view)
+        for pieces in units.values():
+            first = pieces[0]
+            excerpts = dict.fromkeys(p.excerpt for p in pieces if p.excerpt)
+            view = MessageSourceView.model_validate(first).model_copy(update={
+                "excerpt": "\n\n".join(excerpts) or first.excerpt,
+                "images": images_of(metas.get(p.chunk_id) for p in pieces),
+            })
+            sources.setdefault(first.message_id, []).append(view)
         return sources
 
     def find_own(self, inquiry_id: int, user: User, for_update: bool = False) -> Inquiry:

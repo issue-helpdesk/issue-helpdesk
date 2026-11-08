@@ -200,7 +200,7 @@ def message_sources(client, inquiry, headers):
 
 
 def test_chat_source_gives_images_of_whole_unit(client, db, employee, ai_message):
-    """화면은 같은 위치의 조각을 하나로 합치므로, 어느 줄을 골라도 단위 전체의 그림이 있어야 한다."""
+    """같은 위치의 조각은 한 항목으로 합쳐지고 단위 전체의 그림을 준다 (R-44). 다른 위치의 그림은 섞지 않는다."""
     inquiry, message = ai_message
     other = image("SW/sw001_other.jpg", "그림 2. 목록")
     add_source(db, message, add_chunk(db, images=[image()], seq=1))
@@ -209,8 +209,7 @@ def test_chat_source_gives_images_of_whole_unit(client, db, employee, ai_message
 
     sources = message_sources(client, inquiry, employee)
 
-    assert [s["images"] for s in sources[:2]] == [[image(), other], [image(), other]]
-    assert sources[2]["images"] == [image("SW/unused.png")]
+    assert [s["images"] for s in sources] == [[image(), other], [image("SW/unused.png")]]
 
 
 def test_chat_source_without_chunk_has_no_images(client, db, employee, ai_message):

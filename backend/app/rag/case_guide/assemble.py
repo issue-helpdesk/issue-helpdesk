@@ -25,9 +25,10 @@ from app.rag.chunker import validate
 from app.rag.ingest import ROOT, _lock_document
 from app.rag.ingest.upload import resolve_file
 
-from . import (CASE_DIR, HANDLING, ITEM_HEAD, MARK, TRANSFER_POLICIES, VIEW_SCOPES, CaseGuideError, _add_history,
-               _add_table_row, _add_toc, _added_lines, _append_item, _base_md, _chapter3, _chapter3_end, _item_numbers,
-               _one_line, _parse_text, _set_version, _staff_names, next_version, receipts, sensitive_warnings)
+from . import (CASE_DIR, HANDLING, MARK, TRANSFER_POLICIES, VIEW_SCOPES, CaseGuideError, _add_history, _add_table_row,
+               _add_toc, _added_lines, _append_item, _base_md, _chapter3, _chapter3_end, _item_heads, _item_numbers,
+               _one_line, _parse_text, _set_table_row, _set_toc, _set_version, _staff_names, next_version, receipts,
+               sensitive_warnings)
 
 SCHEMA = 1                                                 # draft_basis.schema
 ADD_KINDS = ('ADD_ITEM', 'SEC_MANUAL')                     # 3장 끝에 항목 하나 더함
@@ -35,6 +36,7 @@ SUPPORTED = (*ADD_KINDS, 'CHANGE')
 HEAD_RE = re.compile(r'^### (3\.(?:\d+|N))[ \t]+(\S.*)$')   # 조각 첫 줄. 번호는 아무거나 (조립 때 바꾼다)
 FENCE_RE = re.compile(r'^\s*(`{3,})')
 PROP_RE = {k: re.compile(rf'\*\*{k}\*\*\s*([^·\n*]+)') for k in ('문의 유형', '처리 구분', '담당 부서')}
+SECTION_RE = re.compile(r'^3\.\d+$')
 
 
 def assemble(conn, document_id: int, clusters: list[dict], draft_version_id: int | None, *, view_scope: str,
@@ -70,15 +72,18 @@ def assemble(conn, document_id: int, clusters: list[dict], draft_version_id: int
         raise CaseGuideError(problems)
 
     md, sections = _build(base_md, clusters, version, today, warnings)
-    _check_result(base_md, md, doc_code, version, clusters)
+    _check_result(base_md, md, doc_code, version, clusters, sections)
     warnings += sensitive_warnings(md, _added_lines(base_md, md),
                                    staff_names if staff_names is not None else _staff_names(conn))
 
     rel = (CASE_DIR / doc_code / f'{version}_{secrets.token_hex(3)}.md').as_posix()   # 쓸 때마다 다른 경로
     path = Path(files_root) / rel
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(md, encoding='utf-8')
+    created = False
     try:
+        with open(path, 'x', encoding='utf-8', newline='') as f:     # 'x': 같은 이름이 있으면 덮어쓰지 않고 오류
+            created = True
+            f.write(md)
         if draft_version_id is not None:
             conn.execute("update document_versions set file_path = %s, file_format = 'MD', view_scope = %s, "
                          "transfer_policy = %s, ingest_status = 'PENDING', ingest_error = null, registered_by = %s, "
@@ -92,7 +97,8 @@ def assemble(conn, document_id: int, clusters: list[dict], draft_version_id: int
                 "values (%s, %s, %s, 'MD', %s, %s, false, 'PENDING', %s, now()) returning id",
                 (document_id, version, rel, view_scope, transfer_policy, actor_id)).fetchone()[0]
     except Exception:
-        path.unlink(missing_ok=True)                       # 이번에 만든 파일만. DB 는 API 가 되돌린다
+        if created:                                        # 이번에 만든 파일만 (쓰다 실패한 것 포함). DB 는 API 가 되돌린다
+            path.unlink(missing_ok=True)
         raise
     return {'version_id': vid, 'version': version, 'file_path': rel, 'sections': sections, 'warnings': warnings}
 
@@ -122,6 +128,16 @@ def _check_inputs(clusters: list[dict], view_scope: str, transfer_policy: str) -
         if c['judgment'] == 'CHANGE' and not b.get('target_section'):
             problems.append(f'묶음 {cid}: 바꿀 항목(target_section)이 없습니다')
         problems += [f'묶음 {cid}: {p}' for p in _fragment_problems(c.get('draft_md') or '')]
+    ids = [c.get('id') for c in clusters]
+    if dup := sorted({str(i) for i in ids if ids.count(i) > 1}):
+        problems.append(f"묶음 id 가 겹칩니다: {', '.join(dup)}")
+    every = [r for c in clusters for r in c.get('receipts') or []]
+    if dup := sorted({r for r in every if every.count(r) > 1}):
+        problems.append(f"접수 번호가 두 번 이상 들어 있습니다: {', '.join(dup)}")
+    for c in clusters:
+        s_no = (c.get('draft_basis') or {}).get('section_no')
+        if c.get('judgment') in ADD_KINDS and s_no is not None and not (isinstance(s_no, str) and SECTION_RE.match(s_no)):
+            problems.append(f"묶음 {c.get('id')}: section_no {s_no!r} 가 '3.N' 모양이 아닙니다")
     targets: dict[str, list] = {}
     for c in clusters:
         if c.get('judgment') == 'CHANGE' and (t := (c.get('draft_basis') or {}).get('target_section')):
@@ -133,20 +149,31 @@ def _check_inputs(clusters: list[dict], view_scope: str, transfer_policy: str) -
 
 
 def _fragment_problems(md: str) -> list[str]:
-    """조각 약속: 첫 줄이 '### 3.x 제목' (번호는 아무거나), 그 아래에 다른 '###'·'##'·'#' 제목 없음 (코드 블록 안은 괜찮음)."""
+    """조각 약속: 첫 줄이 '### 3.x 제목' (번호는 아무거나), 그 아래에 본문이 있고 (PR #357 검수 2), 다른 '###'·'##'·'#'
+    제목 없음 (코드 블록 안은 괜찮음), 코드 울타리는 닫힘, 반영 표식 '해결 사례 반영 (' 은 쓰지 않음 (표식은 조립기가
+    개정 이력에만 쓴다, 검수 4)."""
     lines = md.strip('\n').splitlines()
     if not lines or not HEAD_RE.match(lines[0].strip()):
         return ["조각 첫 줄이 '### 3.N 제목' 이 아닙니다"]
-    fence = ''
+    problems, fence, body = [], '', False
     for line in lines[1:]:
         s = line.strip()
         if fence:
             fence = '' if s.startswith(fence) else fence
+            body = True
         elif m := FENCE_RE.match(line):
             fence = m.group(1)
         elif re.match(r'^#{1,3}\s', s):
-            return [f'조각 안에 다른 제목 줄이 있습니다: {s[:40]}']
-    return []
+            problems.append(f'조각 안에 다른 제목 줄이 있습니다: {s[:40]}')
+        elif s and not re.match(r'^#{4,}\s', s):
+            body = True
+    if fence:
+        problems.append('조각의 코드 블록(```)이 닫히지 않았습니다')
+    if not body:
+        problems.append('조각에 본문이 없습니다 (제목·소제목만 있음)')
+    if f'{MARK} (' in md:
+        problems.append(f"조각에 반영 표식 '{MARK} (…)' 을 쓰지 않습니다 (등록 때 개정 이력에 자동으로 들어갑니다)")
+    return problems
 
 
 # ── 버전·번호 ─────────────────────────────────────────────────
@@ -193,7 +220,7 @@ def _assign(base_md: str, clusters: list[dict]) -> dict:
 def _item_block(md: str, section_no: str) -> tuple[int, int] | None:
     """3장에서 '### <번호> ' 항목의 (시작, 끝). 끝 = 다음 '### 3.' 항목 또는 3장 끝."""
     end = _chapter3_end(md)
-    heads = [m for m in ITEM_HEAD.finditer(md, _chapter3(md).end(), end)]
+    heads = _item_heads(md)                                  # 코드 블록 안의 '### 3.' 은 항목이 아니다 (검수 1)
     for i, m in enumerate(heads):
         if m.group(1) == section_no:
             return m.start(), heads[i + 1].start() if i + 1 < len(heads) else end
@@ -229,8 +256,16 @@ def _build(base_md: str, clusters: list[dict], version: str, today: date, warnin
         if now.rstrip() != (c['draft_basis'].get('target_md') or '').strip('\n').rstrip():
             raise CaseGuideError([f"묶음 {c['id']}: 바꿀 항목 {target}이 초안을 만든 뒤 바뀌었습니다. 다시 맞춰 주세요"])
         fragment, title = _renumber(c['draft_md'], target)
+        old_title, old_props = _renumber(now, target)[1], _props(now)
         start, end = _item_block(md, target)
         md = md[:start] + fragment.strip('\n') + '\n\n' + md[end:].lstrip('\n')
+        p = _props(fragment)
+        if _one_line(title) != _one_line(old_title):                    # 검수 3: 앞쪽 안내도 같은 값으로
+            md = _set_toc(md, target, _one_line(title), warnings)
+        if _one_line(title) != _one_line(old_title) or p != old_props:
+            md = _set_table_row(md, _chapter3(md).end(),
+                                [target, _one_line(title), p['문의 유형'], p['처리 구분'] or HANDLING, p['담당 부서']],
+                                warnings)
         notes += [f'{MARK} ({r}): {target} {_one_line(title)} 변경' for r in c['receipts']]
         groups.append(_props(fragment)['담당 부서'])
     sections = _assign(base_md, clusters)
@@ -252,7 +287,7 @@ def _build(base_md: str, clusters: list[dict], version: str, today: date, warnin
     return md, sections
 
 
-def _check_result(base_md: str, md: str, doc_code: str, version: str, clusters: list[dict]) -> None:
+def _check_result(base_md: str, md: str, doc_code: str, version: str, clusters: list[dict], sections: dict) -> None:
     """조립한 md 를 파서·청커로 다시 읽어 검사: 읽힘·문서 번호·버전·청크 검증·현행 항목 그대로·접수 번호 표식."""
     meta, chunks = _parse_text(md)
     problems = []
@@ -265,7 +300,13 @@ def _check_result(base_md: str, md: str, doc_code: str, version: str, clusters: 
     if missing := sorted(base - {c.section_no for c in chunks if c.chunk_type == 'item'}):
         problems.append(f"현행 항목이 빠졌습니다: {', '.join(missing)}")
     have = receipts(md)
-    if lost := sorted(r for c in clusters for r in c['receipts'] if r not in have):
+    want = {r for c in clusters for r in c['receipts']}
+    if lost := sorted(want - have):
         problems.append(f"접수 번호 표식이 없습니다: {', '.join(lost)}")
+    if extra := sorted(have - want - receipts(base_md)):
+        problems.append(f"요청하지 않은 반영 표식이 생겼습니다: {', '.join(extra)}")
+    bodies = {c.section_no: c.body for c in chunks if c.chunk_type == 'item'}
+    if empty := sorted(s for s in sections.values() if not (bodies.get(s) or '').strip()):
+        problems.append(f"새 항목이 항목으로 읽히지 않거나 본문이 없습니다: {', '.join(empty)}")
     if problems:
         raise CaseGuideError(problems)

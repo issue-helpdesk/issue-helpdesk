@@ -277,6 +277,8 @@ def _save_confirmed(db, job_id, attempt, request, latest, changed_at, now) -> Tr
         if request.target == "FIN":
             ticket.finished_at = changed_at
             db.add(Notification(ticket_id=ticket.id, recipient_id=db.get(Inquiry, ticket.inquiry_id).user_id, kind="FIN"))
+        if (request.source, request.target) == REOPEN:     # 지난 완료 시각은 상태 이력에 남는다
+            ticket.finished_at = None
         if request.target == "CLS":
             inquiry = db.get(Inquiry, ticket.inquiry_id, with_for_update=True, populate_existing=True)
             inquiry.resolution_result = "RESOLVED"

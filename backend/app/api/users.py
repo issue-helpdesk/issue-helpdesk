@@ -5,7 +5,7 @@ from fastapi import APIRouter, Query, Response, status
 from app.api.auth import clear_refresh_cookie
 from app.api.deps import AdminAuth, CurrentAuthAllowTempPassword
 from app.schemas.auth import Me, PasswordChangeRequest
-from app.schemas.common import Page
+from app.schemas.common import CountedPage
 from app.schemas.user import (
     TemporaryPasswordRequest,
     TemporaryPasswordResponse,
@@ -35,8 +35,8 @@ def change_password(
     clear_refresh_cookie(response)
 
 
-@router.get("", response_model=Page[UserSummary])
-def list_users(query: Annotated[UserListQuery, Query()], _: AdminAuth, service: UserServiceDep) -> Page[UserSummary]:
+@router.get("", response_model=CountedPage[UserSummary])
+def list_users(query: Annotated[UserListQuery, Query()], _: AdminAuth, service: UserServiceDep) -> CountedPage[UserSummary]:
     return service.list_users(query)
 
 
