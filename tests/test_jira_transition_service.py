@@ -298,8 +298,8 @@ def test_reopen_runs_leaves_reason_comment_and_keeps_previous_result(transition_
     assert service.reason_comment_marker(ticket.receipt_no, T0) in jira.comments[0]
     saved = reload(db, Ticket, ticket.id)
     assert (saved.work_status, saved.transition_status, saved.requested_work_status) == ("WIP", "IDLE", None)
-    assert saved.resolution_note == "기존 결과"          # 이전 처리 결과·완료 시각은 지우지 않는다
-    assert saved.finished_at is not None
+    assert saved.resolution_note == "기존 결과"          # 이전 처리 결과는 지우지 않는다
+    assert saved.finished_at is None                    # 완료 시각은 비운다 (TK-07, 웹훅 경로와 같다)
     history = db.scalars(select(TicketStatusHistory).where(TicketStatusHistory.ticket_id == ticket.id)).all()
     assert [(h.from_status, h.to_status, h.source, h.reason) for h in history] == [
         ("FIN", "WIP", "ITSSUE", "남은 증상: 접속이 다시 끊겨요")]
@@ -323,6 +323,7 @@ def test_reopen_already_applied_only_adds_the_missing_comment(transition_db):
                            "items": [{"field": "status", "from": IDS["FIN"], "to": IDS["WIP"]}]})
     assert service.run_jira_transition_job(db, jira.client(), job.id, now=NOW).outcome == "CONFIRMED"
     assert (jira.transitions, jira.comment_posts) == (0, 1)
+    assert reload(db, Ticket, ticket.id).finished_at is None
 
 
 def test_reopen_comment_is_not_duplicated_after_lost_response(transition_db):
@@ -378,6 +379,32 @@ def test_reopen_then_refinish_overwrites_result_and_requires_new_one(transition_
     # 재완료는 새 처리 결과가 필요하다(이전 값으로 통과시키지 않음)
     assert service.run_jira_transition_job(db, jira.client(), refinish.id, now=NOW).outcome == "NEEDS_ADMIN"
     assert jira.status == "WIP"
+
+
+def test_reopen_then_refinish_sets_new_finished_time_and_keeps_earlier_history(transition_db):
+    db = transition_db
+    ticket, job = make_transition(db, "FIN", "WIP")
+    db.add(TicketStatusHistory(ticket_id=ticket.id, from_status="WIP", to_status="FIN", source="ITSSUE",
+                               resolution_note="기존 결과", changed_at=T0 - timedelta(days=1)))
+    db.commit()
+    jira = Workflow("FIN", "기존 결과")
+    assert service.run_jira_transition_job(db, jira.client(), job.id, now=NOW).outcome == "CONFIRMED"
+    t = reload(db, Ticket, ticket.id)
+    assert t.finished_at is None
+    t.requested_work_status, t.transition_status = "FIN", "PENDING"
+    payload = {**job.payload, "fromStatus": "WIP", "toStatus": "FIN", "resolutionNote": "재조치 후 정상", "reason": None}
+    refinish = service.enqueue_jira_transition(db, t, payload)
+    db.commit()
+
+    assert service.run_jira_transition_job(db, jira.client(), refinish.id, now=NOW).outcome == "CONFIRMED"
+
+    t = reload(db, Ticket, ticket.id)
+    assert (t.work_status, t.resolution_note) == ("FIN", "재조치 후 정상")
+    assert datetime_utils.as_utc(t.finished_at) == EVENT_AT
+    finishes = db.scalars(select(TicketStatusHistory.resolution_note).where(
+        TicketStatusHistory.ticket_id == ticket.id, TicketStatusHistory.to_status == "FIN",
+    ).order_by(TicketStatusHistory.changed_at)).all()
+    assert finishes == ["기존 결과", "재조치 후 정상"]
 
 
 def test_reopen_history_has_no_resolution_note(transition_db):
