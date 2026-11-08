@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from app.schemas.common import CamelModel, KstDatetime, PageQuery, sort_param, trimmed_str
+from app.schemas.common import CamelModel, GuideImage, KstDatetime, PageQuery, sort_param, trimmed_str
 from app.schemas.inquiry import CategoryRef, GroupRef, UserRef
 
 DocType = Literal["GUIDE", "MANUAL", "STANDARD"]
@@ -32,6 +32,15 @@ class Document(CamelModel):
     is_active: bool
     current_version: CurrentVersion | None
     created_at: KstDatetime
+
+
+class DocumentContent(CamelModel):
+    """DC-12·13 가이드 본문. content 의 '[그림] 설명' 줄은 images 의 caption 과 짝지어 DC-11 로 받는다."""
+    document_id: int
+    version_id: int
+    version: str
+    content: str
+    images: list[GuideImage]
 
 
 class DocumentVersion(CamelModel):

@@ -2,6 +2,7 @@
 
 파일을 읽어 청크·임베딩으로 만드는 일은 app.rag.ingest.upload 가 하고, 여기서는 저장과 등록까지만 한다.
 """
+import logging
 from pathlib import Path
 from typing import Annotated, BinaryIO
 
@@ -14,6 +15,10 @@ from app.core.errors import AppError, field_error
 from app.core.permissions import visible_scopes
 from app.db.session import DbSession
 from app.models import Category, DocumentVersion, GuideCluster, KnowledgeDocument, SupportGroup, User
+from app.rag.ingest import IngestError
+from app.rag.ingest.upload import read_guide_md
+from app.rag.parser import ParseError
+from app.rag.parser.md_parser import display_md
 from app.repositories.audit_log import AuditLogRepositoryDep
 from app.repositories.document import DocumentRepositoryDep
 from app.repositories.faq import FaqRepositoryDep
@@ -22,6 +27,7 @@ from app.schemas.common import ItemList, Page, parse_sort
 from app.schemas.document import (
     CurrentVersion,
     Document,
+    DocumentContent,
     DocumentCreateRequest,
     DocumentListQuery,
     DocumentUpdateRequest,
@@ -29,11 +35,13 @@ from app.schemas.document import (
     DocumentVersionUpdateRequest,
 )
 from app.schemas.inquiry import CategoryRef, GroupRef, UserRef
-from app.services.document_file import remove_stored, stage_file, to_stored_path
+from app.services.document_file import remove_stored, stage_file, stored_file, to_stored_path
 from app.services.document_ingest import IngestSubmitterDep
 from app.services.faq import publishable_codes
+from app.services.guide_image import images_of
 from app.utils import datetime_utils
 
+logger = logging.getLogger(__name__)
 TRANSFER_RANK = {"BLOCKED": 0, "MASKED": 1, "ALLOWED": 2}     # 클수록 외부 모델에 넓게 전달된다
 
 
@@ -94,15 +102,41 @@ class DocumentService:
 
     def get_document(self, document_id: int, viewer: User) -> Document:
         """DC-03. 범위 밖은 제목·번호도 드러내지 않게 없는 것처럼 404."""
-        is_admin = viewer.service_role == "ADMIN"
+        document, _ = self.find_visible(document_id, viewer)
+        return self.view(document, viewer.service_role == "ADMIN")
+
+    def get_content(self, document_id: int, viewer: User) -> DocumentContent:
+        """DC-12. 현행 버전 본문. 열람 범위는 DC-03 과 같다. ADMIN 이 현행 없는 문서를 부르면 버전 없음."""
+        _, current = self.find_visible(document_id, viewer)
+        if current is None:
+            raise AppError(ErrorCode.DOCUMENT_VERSION_NOT_FOUND)
+        return self.content_of(current)
+
+    def get_version_content(self, document_id: int, version_id: int) -> DocumentContent:
+        """DC-13 (ADMIN). 현행이 아닌 버전·적재 실패 버전도 파일이 남아 있으면 준다."""
+        return self.content_of(self.find_version(document_id, version_id))
+
+    def find_visible(self, document_id: int, viewer: User) -> tuple[KnowledgeDocument, DocumentVersion | None]:
+        """ADMIN 이 아니면 활성 문서이고 현행 버전이 열람 범위 안이어야 한다. 아니면 없는 것처럼 404."""
         document = self.documents.get(document_id)
         if document is None:
             raise AppError(ErrorCode.DOCUMENT_NOT_FOUND)
         current = self.documents.current_version(document.id)
-        if not is_admin and (not document.is_active or current is None
-                             or current.view_scope not in visible_scopes(viewer.service_role)):
+        if viewer.service_role != "ADMIN" and (not document.is_active or current is None
+                                                or current.view_scope not in visible_scopes(viewer.service_role)):
             raise AppError(ErrorCode.DOCUMENT_NOT_FOUND)
-        return self.view(document, is_admin)
+        return document, current
+
+    def content_of(self, row: DocumentVersion) -> DocumentContent:
+        """버전 파일을 가이드 md 로 읽어 화면 본문으로 바꾼다. 요청마다 읽고 저장하지 않는다 (06 R-48).
+        그림은 그 버전 청크의 이름표라 적재 전·실패 버전은 비어 있다 (본문에는 '[그림] 설명' 줄만 남는다)."""
+        try:
+            md, _ = read_guide_md(stored_file(row.file_path))
+        except (IngestError, ParseError, OSError, UnicodeDecodeError) as error:
+            logger.warning("document version %s content unavailable (%s)", row.id, type(error).__name__)
+            raise AppError(ErrorCode.DOCUMENT_CONTENT_UNAVAILABLE) from error
+        return DocumentContent(document_id=row.document_id, version_id=row.id, version=row.version,
+                               content=display_md(md), images=images_of(self.documents.chunk_metas(row.id)))
 
     def update(self, document_id: int, body: DocumentUpdateRequest, user: User) -> Document:
         """DC-04. 보낸 필드만 바꾼다. 활성·비활성 전환도 여기서 한다."""

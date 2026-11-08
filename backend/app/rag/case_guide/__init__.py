@@ -33,7 +33,7 @@ from pathlib import Path
 
 from app.rag.chunker import chunk_document, validate
 from app.rag.ingest import ROOT, _audit, _lock_document
-from app.rag.ingest.upload import resolve_file, to_checked_md
+from app.rag.ingest.upload import read_guide_md, resolve_file
 from app.rag.parser import ParseError, parse
 
 CASE_DIR = Path('storage') / 'case_guides'                 # files_root 아래. file_path 에는 이 상대 경로만 넣는다
@@ -166,18 +166,16 @@ def draft(conn, ticket_id: int, doc_code: str | None = None, files_root: Path = 
 
 
 def _base_md(path: Path, doc_code: str, warnings: list[str]) -> str:
-    """기준 md. 현행이 md 가 아니면(docx·pptx·pdf·txt) 파싱 결과를 가이드 md 로 바꿔 쓴다 (ingest/upload.py to_checked_md).
+    """기준 md. 현행이 md 가 아니면(docx·pptx·pdf·txt) 파싱 결과를 가이드 md 로 바꿔 쓴다 (ingest/upload.py read_guide_md).
     새 버전은 늘 md 다. 바꾼 md 를 다시 읽으면 원래 파일과 청크가 같지만 쪽 번호·문서 안 그림 내용 해시는 빠진다.
     그림은 바꾸기 전에 배포 그림과 맞춰 보고, 없거나 내용이 다른 그림은 이름표 없이 본문 설명만 남긴다 (경고)."""
-    if path.suffix.lower() == '.md':
-        return path.read_text(encoding='utf-8')
     try:
-        doc = parse(str(path))
+        md, image_warnings = read_guide_md(path)
     except ParseError as e:
         raise CaseGuideError([f'{doc_code}의 현행 파일({path.suffix})을 읽지 못했습니다: {e.message}']) from e
-    warnings.append(f'{doc_code}의 현행 파일이 {path.suffix.lstrip(".")} 라 md 로 바꿔 기준으로 썼습니다. '
-                    '새 버전은 md 로 저장·적재되고, 쪽 번호와 문서 안 그림의 내용 확인 값은 넣지 않습니다')
-    md, image_warnings = to_checked_md(doc)
+    if path.suffix.lower() != '.md':
+        warnings.append(f'{doc_code}의 현행 파일이 {path.suffix.lstrip(".")} 라 md 로 바꿔 기준으로 썼습니다. '
+                        '새 버전은 md 로 저장·적재되고, 쪽 번호와 문서 안 그림의 내용 확인 값은 넣지 않습니다')
     warnings += image_warnings
     return md
 

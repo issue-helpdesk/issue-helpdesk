@@ -1277,3 +1277,125 @@ def test_upload_rejects_password_pdf(client, db, users, submitted, storage):
 
     assert error_code(res) == "DOCUMENT_FILE_FORMAT_UNSUPPORTED"
     assert "암호" in res.json()["error"]["details"][0]["message"]
+
+
+# ------------------------------------------------------------------ DC-12·13 본문
+
+
+GUIDE_MD = """---
+doc_no: "IT-NET-001"
+title: "VPN 접속 안내"
+category: "NET"
+---
+# VPN 접속 안내
+
+첫 줄<br>둘째 줄
+
+![그림 3.1-1. **접속** 화면](../images/IT-NET-001_3.1-1.png)
+
+| 항목 | 설명 |
+| --- | --- |
+| 계정 | 사번<br>비밀번호 |
+"""
+IMAGE = {"key": "NET/IT-NET-001_3.1-1.png", "caption": "그림 3.1-1. 접속 화면"}
+
+
+def with_file(db, row, storage, name="guide.md", content=GUIDE_MD.encode()):
+    """버전에 업로드 파일을 붙인다. 위치는 업로드와 같은 storage/documents/{문서 ID}/."""
+    path = storage / str(row.document_id) / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content)
+    row.file_path = document_file.to_stored_path(path)
+    db.commit()
+    return path
+
+
+def content(client, headers, document, row=None):
+    path = f"{DOCS}/{document.id}/content" if row is None else f"{DOCS}/{document.id}/versions/{row.id}/content"
+    return client.get(path, headers=headers)
+
+
+def test_current_content_is_display_markdown_with_images(client, db, users, storage):
+    document, (row,) = add_doc(db)
+    with_file(db, row, storage)
+    db.add(DocumentChunk(version_id=row.id, content="[그림] 그림 3.1-1. 접속 화면", seq=1, unit_key="u1",
+                         chunk_type="ITEM", meta={"images": [IMAGE]}))
+    db.commit()
+
+    res = content(client, users["employee"], document)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert (body["documentId"], body["versionId"], body["version"]) == (document.id, row.id, "v1")
+    assert body["content"] == ("# VPN 접속 안내\n\n첫 줄\n둘째 줄\n\n[그림] 그림 3.1-1. 접속 화면\n\n"
+                               "| 항목 | 설명 |\n| --- | --- |\n| 계정 | 사번<br>비밀번호 |\n")
+    assert body["images"] == [IMAGE]          # '[그림]' 줄의 설명과 caption 이 같아 화면이 짝지을 수 있다
+
+
+def test_non_markdown_file_is_converted(client, db, users, storage):
+    document, (row,) = add_doc(db)
+    row.file_format = "TEXT"
+    with_file(db, row, storage, name="guide.txt", content="VPN 접속 방법\n\n재부팅 후 다시 시도하세요".encode())
+
+    res = content(client, users["employee"], document)
+
+    assert res.status_code == 200
+    assert "재부팅 후 다시 시도하세요" in res.json()["content"]
+    assert res.json()["images"] == []
+
+
+@pytest.mark.parametrize("who, doc, expected", [
+    ("employee", "agent", "DOCUMENT_NOT_FOUND"), ("employee", "no_current", "DOCUMENT_NOT_FOUND"),
+    ("employee", "inactive", "DOCUMENT_NOT_FOUND"), ("agent", "admin", "DOCUMENT_NOT_FOUND"),
+    ("admin", "no_current", "DOCUMENT_VERSION_NOT_FOUND"),
+])
+def test_content_scope(client, users, scoped, who, doc, expected):
+    res = content(client, users[who], scoped[doc])
+
+    assert res.status_code == 404
+    assert error_code(res) == expected
+
+
+def test_content_scope_allows_wider_roles(client, db, users, scoped, storage):
+    for key in ("agent", "admin", "inactive"):
+        with_file(db, db.scalar(select(DocumentVersion).where(DocumentVersion.document_id == scoped[key].id)), storage)
+
+    assert content(client, users["agent"], scoped["agent"]).status_code == 200
+    assert content(client, users["admin"], scoped["admin"]).status_code == 200
+    assert content(client, users["admin"], scoped["inactive"]).status_code == 200
+
+
+def test_admin_reads_any_version_content(client, db, users, storage):
+    document, (old, failed) = add_doc(db, versions=(("v1", "ALL", True), ("v2", "ADMIN", False)))
+    failed.ingest_status, failed.ingest_error = "FAILED", "청크 없음"
+    with_file(db, old, storage, name="v1.md", content="# v1 본문\n".encode())
+    with_file(db, failed, storage, name="v2.md", content="# v2 본문\n".encode())
+
+    res = content(client, users["admin"], document, failed)
+
+    assert res.status_code == 200
+    assert (res.json()["version"], res.json()["content"]) == ("v2", "# v2 본문\n")
+    assert content(client, users["admin"], document, old).json()["content"] == "# v1 본문\n"
+
+
+def test_version_content_is_admin_only(client, db, users, storage):
+    document, (row,) = add_doc(db)
+    with_file(db, row, storage)
+
+    assert content(client, users["agent"], document, row).status_code == 403
+    assert error_code(content(client, users["admin"], document, type("Row", (), {"id": 999})())) == "DOCUMENT_VERSION_NOT_FOUND"
+
+
+@pytest.mark.parametrize("case", ["no_path", "missing_file", "broken_file"])
+def test_unreadable_file_is_content_unavailable(client, db, users, storage, case):
+    document, (row,) = add_doc(db)
+    if case == "missing_file":
+        with_file(db, row, storage).unlink()
+    elif case == "broken_file":
+        row.file_format = "DOCX"
+        with_file(db, row, storage, name="guide.docx", content=b"not a zip")
+
+    res = content(client, users["employee"], document)
+
+    assert res.status_code == 409
+    assert error_code(res) == "DOCUMENT_CONTENT_UNAVAILABLE"
