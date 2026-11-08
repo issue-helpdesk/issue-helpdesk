@@ -10,7 +10,7 @@ import type { AccountHistoryItem, Department, UserCreateRequest, UserCreateResul
 import { MOCK_ACCOUNTS, setTempPassword, unlockAccount } from './accounts'
 
 /** 시연 부서 목록 (RF-05): 서버 시드의 사업부(상위)와 팀 21개. ID 는 모의용 임의 값이다 */
-export const DEPARTMENTS: Department[] = [
+const DEPARTMENTS: Department[] = [
   { id: 1, name: 'SI·솔루션사업', parentId: null, isActive: true },
   { id: 2, name: 'IT운영·보안', parentId: null, isActive: true },
   { id: 3, name: '사업·영업', parentId: null, isActive: true },

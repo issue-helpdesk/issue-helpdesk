@@ -12,7 +12,7 @@ import { setAuthLostHandler, setPasswordGate, setPasswordRequiredHandler } from 
 import { tokenStore } from './tokenStore'
 
 /** 로그인 화면 맨 위에 한 번 보여 주는 안내: 비밀번호를 바꾼 뒤 / 로그인이 만료돼 돌아온 뒤 */
-export type LoginNote = 'pw-changed' | 'expired'
+type LoginNote = 'pw-changed' | 'expired'
 
 interface AuthState {
   /** 로그인한 사용자. 로그인 전이면 null */

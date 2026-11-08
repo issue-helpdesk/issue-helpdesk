@@ -70,7 +70,7 @@ export function AppRoutes() {
           <Route path="/chat/:id" element={<ChatView />} />
           <Route path="/faq" element={<FaqView />} />
           <Route path="/docs" element={<GuideLibraryView />} />
-          {/* 담당자·관리자. 화면을 만들면 HomePlaceholder 를 실제 화면으로 바꾼다 */}
+          {/* 담당자·관리자 */}
           <Route path="/my" element={<MyDashView />} />
           <Route path="/stats" element={<StatsEntry />} />
           <Route path="/queue" element={<QueueView />} />

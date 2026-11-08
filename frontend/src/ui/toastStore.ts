@@ -5,7 +5,7 @@
  * - 보이는 시간은 문구 길이에 따라 3.5~7초 (toastMs).
  * - 실패 안내(showError)는 저절로 사라지지 않고, 닫기(×)를 누르거나 같은 일이 성공해 새로 알릴 때까지 남는다.
  */
-export interface ToastItem {
+interface ToastItem {
   id: number
   text: string
   /** true 면 사라지는 모션 중 */

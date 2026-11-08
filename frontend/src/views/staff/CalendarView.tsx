@@ -243,7 +243,8 @@ export function CalendarView() {
               {onDay(day).map((t) => (
                 <li key={t.id}>
                   <span className={`ev ${KIND_CLS[t.timeOffType]}`}>{label(t)}</span>
-                  <span className="small muted">{period(t)}{t.note ? ` · ${t.note}` : ''}</span>
+                  <span className="small muted nw">{period(t)}</span>
+                  <span className="small muted">{t.note ?? ''}</span>
                   {t.userId === user.id && (
                     <button type="button" className="btn ghost sm" aria-label={`${period(t)} ${TIME_OFF_LABEL[t.timeOffType]} 삭제`} onClick={() => { setDay(null); setRemoving(t) }}>
                       삭제

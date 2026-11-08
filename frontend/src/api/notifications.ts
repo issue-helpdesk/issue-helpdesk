@@ -13,7 +13,7 @@ import { USE_MOCK_NOTIFY } from '../core/config'
 import { visiblePoll } from '../core/poll'
 import { ok, type ApiResult } from './types'
 
-export interface UnreadCount {
+interface UnreadCount {
   count: number
   ticketIds: number[]
 }

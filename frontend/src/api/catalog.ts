@@ -5,7 +5,7 @@
  */
 import type { CategoryCode, InquiryStatus, Urgency, WorkStatus } from './chatTypes'
 
-export interface CategoryInfo {
+interface CategoryInfo {
   /** 화면에 보일 이름 */
   name: string
   /** 기본 담당 그룹 이름 (시연용. 실제 화면은 API 의 groupName 을 표시한다) */

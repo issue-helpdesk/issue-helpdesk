@@ -7,7 +7,7 @@ import { request } from '../core/apiClient'
 import type { OverviewGroup, StatCounts } from './adminStats'
 import { ok, type ApiResult, type User } from './types'
 
-export type MyPer = 'd' | 'm' | 'y'
+type MyPer = 'd' | 'm' | 'y'
 
 export interface MyOverview {
   me: StatCounts

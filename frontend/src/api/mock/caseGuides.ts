@@ -331,7 +331,7 @@ const patch = (id: string, f: (c: Rec) => Rec) => {
 }
 const find = (id: string) => snapshot.find((c) => c.id === id)
 
-export interface CaseEdit {
+interface CaseEdit {
   title?: string
   cat?: CategoryCode
   after: string

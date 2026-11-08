@@ -13,12 +13,12 @@ import type { TicketSummary } from './ticketTypes'
 import { ok, type ApiResult, type User } from './types'
 
 export type AdminStatKey = 'ai'
-export type Per = 'd' | 'm' | 'y'
-export type Unit = 'd' | 'w' | 'mo'
+type Per = 'd' | 'm' | 'y'
+type Unit = 'd' | 'w' | 'mo'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-export interface AdminStatsSource {
+interface AdminStatsSource {
   items: TicketSummary[]
   names: string[]
   extra?: AiPage['counts'] | StatsOverview

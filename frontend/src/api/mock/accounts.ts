@@ -91,9 +91,6 @@ export function setTempPassword(id: string, pw: string) {
 /** 사번의 현재 비밀번호 */
 export const passwordOf = (id: string) => passwords.get(id) ?? MOCK_PASSWORD
 
-/** 임시 비밀번호 상태인지 */
-export const isTempPassword = (id: string) => tempPw.has(id)
-
 /** 비밀번호를 바꾸면 임시 비밀번호 상태도 끝난다. */
 export function setPassword(id: string, pw: string) {
   passwords.set(id, pw)

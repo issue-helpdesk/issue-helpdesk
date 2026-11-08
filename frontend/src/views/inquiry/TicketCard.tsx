@@ -20,7 +20,7 @@ type StepState = 'done' | 'cur' | 'todo'
 const LABELS = ['접수', '담당자 배정', '처리 중', '해결 완료']
 
 /** 진행 단계를 그리는 데 필요한 값 (문의 대화의 Ticket 과 접수 상세가 모두 맞춘다) */
-export interface StepsInput {
+interface StepsInput {
   createdAt: string
   assigneeName: string | null
   assignStatus: Ticket['assignStatus']

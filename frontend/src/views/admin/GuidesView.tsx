@@ -53,7 +53,7 @@ import { SelectBox } from '../../ui/SelectBox'
 import { useToast } from '../../ui/useToast'
 import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
-import { CASES_FROM_SERVER } from '../../api/caseClusters'
+import { CASES_FROM_SERVER, getAllCases, loadCases } from '../../api/caseClusters'
 import { CaseGuideTab } from './CaseGuideTab'
 import { CaseReviewPanel } from './CaseReviewPanel'
 import { useReviewCount } from './useReviewCount'
@@ -83,7 +83,7 @@ export function GuidesView() {
   const failCats = useMemo(() => new Set(failures.map((f) => f.cat)), [failures])
   const guidesRef = useRef<Guide[] | null>(null)
   const { say, fail } = useToast()
-  const [dlg, setDlg] = useState<null | { kind: 'upload' } | { kind: 'ingest'; g: Guide; v: GuideVersion } | { kind: 'active'; g: Guide; to: boolean } | { kind: 'tx'; g: Guide; v: GuideVersion; to: GuideTx }>(null)
+  const [dlg, setDlg] = useState<null | { kind: 'upload' } | { kind: 'ingest'; g: Guide; v: GuideVersion } | { kind: 'active'; g: Guide; to: boolean } | { kind: 'tx'; g: Guide; v: GuideVersion; to: GuideTx } | { kind: 'blocked'; g: Guide; n: number }>(null)
   const admin = user?.serviceRole === 'ADMIN'
   useEffect(() => {
     guidesRef.current = guides
@@ -190,6 +190,10 @@ export function GuidesView() {
     reload()
   }
   const makeCurrent = async (g: Guide, v: GuideVersion) => {
+    // 이 가이드에 아직 검토하지 않은 AI 가이드 제안이 있으면 현행을 바꾸지 못하게 막는다 (바뀌면 그 제안은 기준 가이드가 달라져 등록할 수 없게 된다)
+    if (CASES_FROM_SERVER) await loadCases()
+    const n = getAllCases().filter((c) => c.state === 'review' && c.target?.docCode === g.docCode).length
+    if (n > 0) return setDlg({ kind: 'blocked', g, n })
     const r = await setGuideCurrent(user, g.id, v.id)
     if (!r.ok) return fail(r.error.message)
     say(v.state === '만료' ? `${v.version}을(를) 다시 현행으로 되돌렸어요.` : '현행 버전을 바꿨어요.')
@@ -480,6 +484,31 @@ export function GuidesView() {
             void retryIngest(d.g, d.v, file)
           }}
         />
+      )}
+      {dlg?.kind === 'blocked' && (
+        <Modal title="현행을 바꿀 수 없어요" variant="form" onClose={() => setDlg(null)}>
+          <p style={{ margin: 0 }}>
+            <b>{dlg.g.docCode} {dlg.g.title}</b>에 검토할 AI 가이드 제안이 <b>{dlg.n}건</b> 있어요. 제안을 먼저 확인한 뒤 현행을 변경해 주세요.
+          </p>
+          <p className="small muted" style={{ margin: 0 }}>
+            현행을 바꾸면 이 제안들의 기준 가이드가 달라져서 그대로 등록할 수 없게 돼요.
+          </p>
+          <div className="acts">
+            <button type="button" className="btn sec" onClick={() => setDlg(null)}>
+              닫기
+            </button>
+            <button
+              type="button"
+              className="btn pri"
+              onClick={() => {
+                setDlg(null)
+                setTab('case')
+              }}
+            >
+              AI 가이드 제안 보기
+            </button>
+          </div>
+        </Modal>
       )}
       {dlg?.kind === 'active' && (
         <ActiveDialog

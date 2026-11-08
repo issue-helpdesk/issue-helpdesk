@@ -20,7 +20,7 @@ import { notify, allRecords, type StoreRecord } from './chatStore'
 export const GROUP_ID: Record<string, number> = { 서비스데스크: 1, 엔드포인트지원팀: 2, 네트워크팀: 3, 시스템인프라팀: 4, 업무시스템팀: 5, 정보보안팀: 6 }
 
 /** 담당 그룹 구성원 (모의). 이름·사번은 서버 시드의 같은 팀 직원이다 (tests/mockAccounts.test.ts 가 확인한다) */
-export interface StaffMember {
+interface StaffMember {
   id: number
   employeeNo: string
   name: string
@@ -40,7 +40,6 @@ export const GROUP_STAFF: Record<string, StaffMember[]> = {
   업무시스템팀: [sm(450, 'EMP-1130', '권다은'), sm(451, 'EMP-1146', '서준호'), sm(452, 'EMP-1278', '신유나', { avail: false, leave: '오후 반차' }), sm(453, 'EMP-1036', '정수호')],
   정보보안팀: [sm(460, 'EMP-1408', '황민석'), sm(461, 'EMP-1462', '송예린'), sm(462, 'EMP-1109', '이가영'), sm(463, 'EMP-1288', '소시후')],
 }
-export const GROUP_NAMES = Object.keys(GROUP_STAFF)
 const member = (group: string, i: number): UserRef => {
   const m = GROUP_STAFF[group][i]
   return { id: m.id, employeeNo: m.employeeNo, name: m.name }
