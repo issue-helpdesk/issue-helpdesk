@@ -319,7 +319,7 @@ def _add_table_row(md: str, start: int, cells: list[str], warnings: list[str]) -
 
     chapter_end = re.search(r'^## ', md[start:], re.M)
     chapter_end = start + chapter_end.start() if chapter_end else len(md)
-    in_table = {cut(b)[0] for b in block[2:]} | {cells[0]}
+    in_table = {(cut(b) or [''])[0] for b in block[2:]} | {cells[0]}   # 2: 머리줄·구분 줄 다음부터
     in_items = {m.group(1) for m in ITEM_HEAD.finditer(md, start, chapter_end)}
     if in_table != in_items:
         gaps = [f"표에 없음 {', '.join(sorted(in_items - in_table))}" if in_items - in_table else '',

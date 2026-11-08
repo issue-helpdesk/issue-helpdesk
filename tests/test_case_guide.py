@@ -146,6 +146,13 @@ def test_item_table_mismatch_warned_for_old_draft():
     assert re.search(r'^\| 3\.7 \|.*\|\n\| 3\.9 \| 설치 후 바로 꺼짐', second.md, re.M)
 
 
+def test_item_table_odd_row_does_not_crash():
+    """표 안에 세로줄 하나뿐인 줄이 있어도 멈추지 않고 한 줄을 더한다 (번호가 맞지 않으니 경고)."""
+    at = _first_table_end(BASE)
+    d, warnings = make(md_base=BASE[:at] + '|\n' + BASE[at:])
+    assert re.search(r'^\|\n\| 3\.8 \| 설치가', d.md, re.M) and len(warnings) == 1 and '항목에 없음' in warnings[0]
+
+
 def test_item_table_row_escapes_pipe_and_empty_cells():
     """표 줄도 세로줄을 이스케이프해 5칸 그대로. 문의 유형·담당 부서가 없으면 빈칸."""
     d, _ = make(summary='프로세스 A | B 전환 오류', code=None, group=None)
