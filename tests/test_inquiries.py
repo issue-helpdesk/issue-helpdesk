@@ -968,9 +968,59 @@ def test_list_shows_only_own_inquiries(client, db, owner, headers):
     assert ids(res) == [mine.id]
     item = res.json()["items"][0]
     assert set(item) == {"id", "user", "title", "status", "displayStatus", "category", "urgency", "receiptNo",
-                         "createdAt", "updatedAt"}
+                         "lastAiMessageId", "createdAt", "updatedAt"}
     assert item["user"] == {"id": owner.id, "employeeNo": "E0001", "name": "김민지"}
     assert res.json()["totalCount"] == 1
+
+
+def ai_ids(db, inquiry_id):
+    return list(db.scalars(select(Message.id).join(ChatSession, ChatSession.id == Message.session_id)
+                           .where(ChatSession.inquiry_id == inquiry_id, Message.sender == "AI").order_by(Message.id)))
+
+
+def test_list_last_ai_message_id_follows_new_answer(client, db, headers):
+    """R-45: 새 AI 답변이 저장되면 값이 바뀐다."""
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    first = listed(client, headers).json()["items"][0]["lastAiMessageId"]
+    assert first == ai_ids(db, inquiry_id)[-1]
+
+    assert send(client, headers, inquiry_id, content="접속 오류", key="k-2").status_code == 201
+
+    latest = listed(client, headers).json()["items"][0]["lastAiMessageId"]
+    assert latest == ai_ids(db, inquiry_id)[-1] and latest != first
+
+
+def test_list_last_ai_message_id_ignores_failed_answer(client, db, headers, ai):
+    """R-45: 사용자 글만 저장되고 AI 가 실패하면 값이 그대로다."""
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    before = listed(client, headers).json()["items"][0]["lastAiMessageId"]
+    ai.broken = True
+
+    send(client, headers, inquiry_id, content="접속 오류", key="k-2")
+
+    assert listed(client, headers).json()["items"][0]["lastAiMessageId"] == before
+
+
+def test_list_last_ai_message_id_is_null_without_answer(client, db, owner, headers):
+    add_inquiry(db, owner)
+
+    assert listed(client, headers).json()["items"][0]["lastAiMessageId"] is None
+
+
+def test_list_last_ai_message_id_is_per_inquiry_across_sessions(client, db, owner, headers):
+    """문의마다 따로 보고, 이전 세션의 답변만 있어도 값이 나온다."""
+    older, newer = add_inquiry(db, owner), add_inquiry(db, owner)
+    session_of = {row.inquiry_id: row.id for row in db.scalars(select(ChatSession))}
+    db.add(Message(session_id=session_of[older.id], seq=1, sender="AI", content="이전 세션 답변"))
+    db.commit()
+    db.scalars(select(ChatSession).where(ChatSession.inquiry_id == older.id)).one().ended_at = datetime_utils.now()
+    db.add(ChatSession(inquiry_id=older.id))
+    db.add(Message(session_id=session_of[newer.id], seq=1, sender="USER", content="사용자 글"))
+    db.commit()
+
+    found = {item["id"]: item["lastAiMessageId"] for item in listed(client, headers).json()["items"]}
+
+    assert found == {older.id: ai_ids(db, older.id)[-1], newer.id: None}
 
 
 def test_admin_lists_all_and_filters_by_user(client, db, owner):
