@@ -66,7 +66,8 @@ class ErrorCode(Enum):
     DOCUMENT_FILE_FORMAT_UNSUPPORTED = (415, "PDF·DOCX·PPTX·MD·TXT 파일만 등록할 수 있습니다.")
     DOCUMENT_FILE_TOO_LARGE = (413, "파일 크기가 너무 큽니다.")
     DOCUMENT_FILE_DUPLICATE = (409, "같은 파일이 이미 등록되어 있습니다.")
-    DOCUMENT_VERSION_NOT_RETRYABLE = (409, "적재에 실패한 버전만 다시 시도할 수 있습니다.")
+    DOCUMENT_CONTENT_UNAVAILABLE = (409, "가이드 본문을 읽을 수 없습니다. 파일을 다시 올려 주세요.")
+    DOCUMENT_VERSION_NOT_RETRYABLE =(409, "적재에 실패한 버전만 다시 시도할 수 있습니다.")
     DOCUMENT_VERSION_HAS_REJECTED_CLUSTER = (409, "거절한 해결 사례가 들어 있는 버전은 현행으로 바꿀 수 없습니다. "
                                                   "거절한 항목을 빼고 다시 등록해 주세요.")
     DOCUMENT_VERSION_BASE_CHANGED = (409, "초안을 만든 뒤 현행 버전이 바뀌었습니다. 바뀐 현행과 비교해 다시 등록해 주세요.")

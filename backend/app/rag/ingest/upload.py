@@ -183,6 +183,14 @@ def check_images(chunks: list[Chunk], image_dir: Path = GUIDE_IMAGES) -> list[st
     return out
 
 
+def read_guide_md(path: Path) -> tuple[str, list[str]]:
+    """버전 파일 → 가이드 md + 그림 경고. md 는 그대로 읽고, docx·pptx·pdf·txt 는 to_checked_md 로 바꾼다.
+    가이드화의 기준 md 와 본문 조회(DC-12·13)가 쓴다. 파일은 쓰지 않는다. 읽지 못하면 ParseError·OSError."""
+    if path.suffix.lower() == '.md':
+        return path.read_text(encoding='utf-8'), []
+    return to_checked_md(parse(str(path)))
+
+
 def to_checked_md(doc: ParsedDocument, image_dir: Path = GUIDE_IMAGES) -> tuple[str, list[str]]:
     """파싱 결과 → 가이드 md (parser/to_md.py) + 그림 경고. 가이드화 기준(현행이 md 가 아닐 때)·업로드 md 변환에서 부른다.
 

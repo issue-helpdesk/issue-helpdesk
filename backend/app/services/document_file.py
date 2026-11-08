@@ -11,6 +11,7 @@ from app.constants import file as file_constants
 from app.core.error_codes import ErrorCode
 from app.core.errors import AppError, field_error
 from app.rag.ingest import ROOT
+from app.rag.ingest.upload import resolve_file
 from app.rag.parser import ParseError, check_file
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,11 @@ def check_text(path: Path) -> None:
 def to_stored_path(path: Path) -> str:
     """DB 의 file_path. 저장소 루트 기준 상대 경로라 적재가 루트 밖 경로를 거부할 수 있다."""
     return path.relative_to(ROOT).as_posix()
+
+
+def stored_file(file_path: str | None) -> Path:
+    """DB 의 file_path → 실제 파일 위치. 저장소 루트 밖이거나 비어 있으면 IngestError (적재와 같은 규칙)."""
+    return resolve_file(file_path, ROOT)
 
 
 def remove_stored(file_path: str | None) -> None:
