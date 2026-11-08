@@ -196,6 +196,13 @@ describe('담당자 통계', () => {
     expect(screen.queryByRole('region', { name: '팀원별 진행도' })).toBeNull()
   })
 
+  it('팀 통계의 상태별 현황은 숫자만 보여 주고, 누를 수 있는 단추가 아니다', async () => {
+    renderAs('EMP-1004', '/stats?scope=team')
+    const sum = await screen.findByRole('region', { name: '상태별 현황' }, SLOW)
+    expect(await within(sum).findByRole('group', { name: /^처리 중 \d+건/ }, SLOW)).toBeInTheDocument()
+    expect(within(sum).queryByRole('button', { name: /해당 문의 목록 보기/ })).toBeNull()
+  })
+
   it('구역은 따로 불러오는 중으로 먼저 보인다', async () => {
     renderAs('EMP-1004', '/stats')
     const sec = await screen.findByRole('region', { name: '상태별 현황' })

@@ -670,21 +670,33 @@ export function StatsView() {
 
           <Section title="상태별 현황" sec={mine} note="선택 기간에 접수된 티켓의 현재 상태예요. 선택 기간에 처리가 끝난 건수가 아니에요.">
             <div className="sk">
-              {STATES.map((s) => (
-                <button key={s.k} type="button" className="kpi kl" onClick={() => navigate(`/queue${QS[s.k]}`)} aria-label={`${s.label} ${v[s.k]}건. 해당 문의 목록 보기`}>
-                  <div className="l">
-                    <i className="dt" style={{ background: s.color }} />
-                    {s.label}
+              {STATES.map((s) => {
+                const inner = (
+                  <>
+                    <div className="l">
+                      <i className="dt" style={{ background: s.color }} />
+                      {s.label}
+                    </div>
+                    <div className="v">
+                      <b>
+                        <CountUp value={v[s.k]} />
+                      </b>
+                      <span>건</span>
+                    </div>
+                  </>
+                )
+                // 팀 통계는 팀 전체 숫자라서, 내 티켓만 보이는 처리할 문의 목록으로 보내면 숫자와 목록이 맞지 않는다. 숫자만 보여 준다
+                return team ? (
+                  <div key={s.k} className="kpi" role="group" aria-label={`${s.label} ${v[s.k]}건`}>
+                    {inner}
                   </div>
-                  <div className="v">
-                    <b>
-                      <CountUp value={v[s.k]} />
-                    </b>
-                    <span>건</span>
-                  </div>
-                  <Icon name="chevron" className="go" />
-                </button>
-              ))}
+                ) : (
+                  <button key={s.k} type="button" className="kpi kl" onClick={() => navigate(`/queue${QS[s.k]}`)} aria-label={`${s.label} ${v[s.k]}건. 해당 문의 목록 보기`}>
+                    {inner}
+                    <Icon name="chevron" className="go" />
+                  </button>
+                )
+              })}
             </div>
             {team && none !== undefined && <p className="small muted secnote">배정 전 {none}건은 위 네 상태에 넣지 않고 따로 세요.</p>}
             <p className="small muted secnote">

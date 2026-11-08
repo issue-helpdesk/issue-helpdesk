@@ -214,6 +214,24 @@ describe('해결 사례 탭 화면', () => {
     await waitFor(() => expect(get('c6').state).toBe('live'), SLOW)
   })
 
+  it('검토할 제안이 있는 가이드는 현행을 바꾸지 못하게 막고, 제안을 보러 갈 수 있다', async () => {
+    renderAdmin()
+    // IT-NET-001 에는 검토 필요인 제안(c1)이 있다
+    await userEvent.click(await screen.findByRole('button', { name: /^VPN·네트워크/ }, SLOW))
+    await userEvent.click(await screen.findByRole('button', { name: /^IT-NET-001 VPN 접속 장애 대응 가이드/ }, SLOW))
+    const rows = await screen.findAllByRole('row', undefined, SLOW)
+    const old = rows.find((r) => within(r).queryByText('v1'))!
+    await userEvent.click(within(old).getByRole('button', { name: '현행 전환' }))
+    const dlg = await screen.findByRole('dialog', { name: '현행을 바꿀 수 없어요' }, SLOW)
+    expect(dlg).toHaveTextContent(/검토할 AI 가이드 제안이 1건 있어요/)
+    expect(dlg).toHaveTextContent(/제안을 먼저 확인한 뒤 현행을 변경해 주세요/)
+    // 현행은 그대로다
+    const v = await listGuideVersions(admin(), 1)
+    expect(v.ok && v.data.find((x) => x.version === 'v2')?.state).toBe('현행')
+    await userEvent.click(within(dlg).getByRole('button', { name: 'AI 가이드 제안 보기' }))
+    expect(await screen.findByRole('button', { name: /^검토 대상/ }, SLOW)).toBeInTheDocument()
+  })
+
   it('등록 버전 보기는 등록한 본문을, 처리 이력 상세 보기는 근거 티켓과 판단을 보여 준다', async () => {
     renderAdmin()
     await openTab()

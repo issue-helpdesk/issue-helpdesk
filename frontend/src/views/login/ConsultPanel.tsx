@@ -18,7 +18,7 @@ import { RichText } from '../../ui/RichText'
 type Msg = { id: number; role: 'user'; text: string } | { id: number; role: 'ai'; reply: ConsultReply } | { id: number; role: 'typing' }
 
 /** 빠르게 고를 수 있는 질문 */
-const CHIPS = ['계정이 잠겼어요', '비밀번호를 재설정하고 싶어요', 'SSO·MFA 인증이 안 돼요']
+const CHIPS = ['계정이 잠겼어요', '비밀번호를 재설정하고 싶어요', '비밀번호가 만료됐다고 나와요', '아이디 또는 비밀번호가 일치하지 않는다고 나와요', '휴대폰을 바꿔서 인증을 못 해요']
 
 /** 처음 화면에 보여 줄 인사 대화 */
 const INTRO: Msg[] = [
