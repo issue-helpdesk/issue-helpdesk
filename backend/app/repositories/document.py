@@ -62,6 +62,16 @@ class DocumentRepository:
             .group_by(DocumentChunk.version_id)
         ).all())
 
+    def unfinished_ingests(self, document_ids: list[int]) -> list[tuple[int, str, str | None]]:
+        """적재 실패·대기 버전의 (문서 ID, 상태, 실패 사유). 최근에 올린 버전부터."""
+        if not document_ids:
+            return []
+        return [tuple(row) for row in self.db.execute(
+            select(DocumentVersion.document_id, DocumentVersion.ingest_status, DocumentVersion.ingest_error)
+            .where(DocumentVersion.document_id.in_(document_ids), DocumentVersion.ingest_status.in_(("FAILED", "PENDING")))
+            .order_by(DocumentVersion.registered_at.desc(), DocumentVersion.id.desc())
+        )]
+
     def users(self, user_ids: set[int]) -> dict[int, User]:
         return {u.id: u for u in self.db.scalars(select(User).where(User.id.in_(user_ids)))} if user_ids else {}
 
