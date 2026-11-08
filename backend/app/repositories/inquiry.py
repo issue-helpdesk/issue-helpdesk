@@ -113,6 +113,17 @@ class InquiryRepository:
         )
         return [tuple(row) for row in rows], total
 
+    def last_ai_message_ids(self, inquiry_ids: list[int]) -> dict[int, int]:
+        """문의별 마지막 AI 답변의 메시지 ID. 세션을 가리지 않고 보며, AI 답변이 없는 문의는 결과에 없다."""
+        if not inquiry_ids:
+            return {}
+        return dict(self.db.execute(
+            select(ChatSession.inquiry_id, func.max(Message.id))
+            .join(Message, Message.session_id == ChatSession.id)
+            .where(ChatSession.inquiry_id.in_(inquiry_ids), Message.sender == "AI")
+            .group_by(ChatSession.inquiry_id)
+        ).all())
+
     def current_session(self, inquiry_id: int) -> ChatSession | None:
         return self.db.scalars(
             select(ChatSession)

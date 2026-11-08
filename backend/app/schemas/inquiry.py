@@ -75,6 +75,7 @@ class InquirySummary(CamelModel):
     category: CategoryRef | None
     urgency: str | None
     receipt_no: str | None
+    last_ai_message_id: int | None
     created_at: KstDatetime
     updated_at: KstDatetime | None
 

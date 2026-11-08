@@ -224,6 +224,7 @@ class InquiryService:
             offset=query.offset,
             limit=query.size,
         )
+        last_ai = self.inquiries.last_ai_message_ids([row[0].id for row in rows])
         items = [
             InquirySummary(
                 id=inquiry.id,
@@ -234,6 +235,7 @@ class InquiryService:
                 category=CategoryRef.model_validate(category) if category else None,
                 urgency=inquiry.urgency,
                 receipt_no=receipt_no,
+                last_ai_message_id=last_ai.get(inquiry.id),
                 created_at=inquiry.created_at,
                 updated_at=inquiry.updated_at,
             )
