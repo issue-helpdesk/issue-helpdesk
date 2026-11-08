@@ -28,9 +28,13 @@ def test_transfer_policy_from_manifest(prepared):
         assert p.version['transfer_policy'] == ('BLOCKED' if p.entry['doc_type'] == 'manual' else 'ALLOWED')
 
 
-def test_content_transfer_policy_empty_without_rule(prepared):
-    """매뉴얼 항목별 내용 전송 칸: 규칙(허용 목록)이 아직 없어 모든 청크가 빈칸 = 버전 정책을 따른다 (지금 동작 그대로)."""
-    assert all('content_transfer_policy' in r and r['content_transfer_policy'] is None for p in prepared for r in p.rows)
+def test_content_transfer_policy_by_document_type(prepared):
+    """매뉴얼 항목별 내용 전송 칸 (M4 Q10): 매뉴얼은 모든 청크에 값 — 지금 목록은 값이 비어 있어 모두 BLOCKED.
+    가이드·공통 기준은 빈칸 = 버전 정책 (지금 동작 그대로)."""
+    for p in prepared:
+        want = {'BLOCKED'} if p.document['doc_type'] == 'MANUAL' else {None}
+        assert {r['content_transfer_policy'] for r in p.rows} == want, p.doc_code
+    assert sum(p.document['doc_type'] == 'MANUAL' for p in prepared) == 27
 
 
 def test_chunk_rows_policy_same_for_all_pieces(prepared):

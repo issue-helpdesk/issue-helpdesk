@@ -9,7 +9,7 @@ from app.rag.parser import parse
 from app.rag.parser.models import Element
 
 MANUALS = [e for e in load_manifest() if e.get('doc_type') == 'manual']
-FILE = GUIDES / 'transfer_allowlist.json'
+from app.rag.ingest.allowlist import ALLOWLIST as FILE
 
 
 @pytest.fixture(scope='module')
@@ -121,3 +121,71 @@ def test_cli_refuses_overwrite(tmp_path, capsys):
     assert main(['skeleton', '--out', str(out)]) == 2 and out.read_text(encoding='utf-8') == '{"items": []}'
     assert main(['skeleton', '--out', str(out), '--force']) == 0
     assert len(json.loads(out.read_text(encoding='utf-8'))['items']) == 143
+
+
+# ── 적재 판정 (load·policies) ─────────────────────────────────
+
+def _write(tmp_path, data):
+    f = tmp_path / 'allow.json'
+    f.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
+    return f
+
+
+def test_load_distrusts_bad_lists(tmp_path):
+    """믿을 수 없는 목록은 비운다 (= 차단): 파일 없음·계산법 버전 다름 → 전부, 같은 키 → 그 키, 모르는 값 → 그 항목."""
+    from app.rag.ingest.allowlist import load
+    allow, w = load(tmp_path / 'none.json')
+    assert allow == {} and '읽지 못해' in w[0]
+    allow, w = load(_write(tmp_path, {'fingerprint_version': 99, 'items': [{'doc_no': 'A', 'section': '3.1', 'content': 'ALLOWED'}]}))
+    assert allow == {} and '계산법 버전(99)' in w[0]
+    rows = [{'doc_no': 'A', 'section': '3.1', 'content': 'ALLOWED', 'fingerprint': 'x'},
+            {'doc_no': 'A', 'section': '3.1', 'content': 'BLOCKED', 'fingerprint': 'x'},
+            {'doc_no': 'A', 'section': '3.2', 'content': 'MASKED', 'fingerprint': 'y'},
+            {'doc_no': 'A', 'section': '3.3', 'content': None, 'fingerprint': 'z'}]
+    allow, w = load(_write(tmp_path, {'fingerprint_version': FINGERPRINT_VERSION, 'items': rows}))
+    assert allow == {('A', '3.2'): (None, 'y'), ('A', '3.3'): (None, 'z')}
+    assert any('같은 항목이 여럿' in x for x in w) and any("모르는 값 'MASKED'" in x for x in w)
+
+
+def _manual(code='IT-SEC-003-M'):
+    from app.rag.chunker import chunk_document
+    doc = parse(str(GUIDES / next(e for e in MANUALS if e['doc_no'] == code)['files']['md']))
+    return doc, chunk_document(doc)
+
+
+def test_policies_allow_only_listed_same_fingerprint():
+    """목록 ALLOWED·지문 같음 → 그 항목의 모든 조각 ALLOWED (여러 조각 항목 3.5 포함). 나머지(목록 BLOCKED·빈 값·
+    목록 밖·3장 밖 장·서문)는 BLOCKED. 모든 청크에 값이 있다."""
+    from app.rag.ingest.allowlist import policies
+    doc, chunks = _manual()
+    found = {i['section']: i['fingerprint'] for i in items(doc)}
+    allow = {('IT-SEC-003-M', '3.5'): ('ALLOWED', found['3.5']), ('IT-SEC-003-M', '3.1'): ('BLOCKED', found['3.1']),
+             ('IT-SEC-003-M', '3.2'): (None, found['3.2'])}
+    pol, w = policies('IT-SEC-003-M', doc, chunks, allow)
+    assert w == [] and set(pol) == {c.unit_key for c in chunks}
+    pieces = [c for c in chunks if c.unit_key.endswith('/item:3.5')]
+    assert len(pieces) > 1 and {pol[c.unit_key] for c in pieces} == {'ALLOWED'}
+    assert {p for u, p in pol.items() if not u.endswith('/item:3.5')} == {'BLOCKED'}
+
+
+def test_policies_block_changed_content_and_duplicates(monkeypatch):
+    """지문이 다르면 차단 + 경고. 문서 안 3장 항목 번호가 겹치면 그 번호는 차단 + 경고."""
+    import app.rag.ingest.allowlist as al
+    doc, chunks = _manual()
+    found = {i['section']: i['fingerprint'] for i in items(doc)}
+    pol, w = al.policies('IT-SEC-003-M', doc, chunks, {('IT-SEC-003-M', '3.1'): ('ALLOWED', 'sha256:old')})
+    assert set(pol.values()) == {'BLOCKED'} and w == ['IT-SEC-003-M 3.1: 허용 목록 이후 내용이 바뀌어 차단합니다 (M4 확인 뒤 목록을 고쳐 주세요)']
+    real = al.items
+    monkeypatch.setattr(al, 'items', lambda d: real(d) + [{'section': '3.1', 'title': 'x', 'fingerprint': found['3.1']}])
+    pol, w = al.policies('IT-SEC-003-M', doc, chunks, {('IT-SEC-003-M', '3.1'): ('ALLOWED', found['3.1'])})
+    assert set(pol.values()) == {'BLOCKED'} and w == ['IT-SEC-003-M: 3장 항목 번호가 겹쳐 차단합니다 (3.1)']
+
+
+def test_allowlist_file_ships_with_backend():
+    """목록은 백엔드 코드 옆 — 서버 이미지(backend/Dockerfile 은 backend 폴더만 복사, dataset/guides 는 안 함)에 들어가야
+    업로드 적재가 읽는다 (없으면 매뉴얼 내용을 모두 차단)."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    assert FILE.exists() and FILE.resolve().is_relative_to(root / 'backend')
+    docker = (root / 'backend' / 'Dockerfile').read_text(encoding='utf-8')
+    assert 'COPY backend ./backend' in docker

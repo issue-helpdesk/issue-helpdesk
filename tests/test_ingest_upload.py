@@ -617,3 +617,27 @@ def test_cli_reload(url, capsys):
     assert main(['--embedder', 'fake', '--database-url', url, '--version-id', str(vid), '--reload']) == 0
     assert f'버전 {vid}: DONE' in capsys.readouterr().out
     assert main(['--embedder', 'fake', '--database-url', url, '--reload']) == 2
+
+
+@needs_db
+def test_upload_manual_gets_policy_from_registered_type(url):
+    """업로드 적재: 매뉴얼인지는 **등록된 문서 행**(doc_type)으로 본다. 매뉴얼이면 모든 청크에 값 (지금 목록은 비어 BLOCKED),
+    같은 매뉴얼 파일이라도 문서 행이 GUIDE 면 빈칸."""
+    with connect(url) as conn:
+        doc_id = conn.execute(
+            "insert into knowledge_documents (doc_code, doc_type, title, category_code) values ('IT-HW-002-M', 'MANUAL', "
+            "'매뉴얼', 'HW') returning id").fetchone()[0]
+        vid = conn.execute(
+            "insert into document_versions (document_id, version, file_path, view_scope, transfer_policy, is_current, "
+            "ingest_status) values (%s, 'v2.0', %s, 'AGENT', 'BLOCKED', false, 'PENDING') returning id",
+            (doc_id, guide_file('IT-HW-002-M'))).fetchone()[0]
+        conn.commit()
+    assert ingest(url, vid)['status'] == 'DONE'
+    with connect(url) as conn:
+        got = {p for (p,) in conn.execute('select content_transfer_policy from document_chunks where version_id = %s',
+                                          (vid,))}
+        conn.execute("update knowledge_documents set doc_type = 'GUIDE' where id = %s", (doc_id,))
+        conn.commit()
+    assert got == {'BLOCKED'}
+    out = ingest(url, vid, reload=True)
+    assert out['status'] == 'DONE' and any('"BLOCKED" → null' in w for w in out['warnings'])

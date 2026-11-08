@@ -27,7 +27,8 @@ from app.rag.parser.models import ParsedDocument
 from app.rag.parser.to_md import to_guide_md
 
 from . import (ERROR_MAX, ROOT, SCOPE_RANK, IngestError, Prepared, Report, _drop_stale, _insert_chunks,
-               _lock_document, _put_embeddings, _relabel, activate, check_vectors, chunk_rows, read_vectors)
+               _lock_document, _put_embeddings, _relabel, activate, check_vectors, chunk_rows, load_allowlist,
+               manual_policies, read_vectors)
 
 log = logging.getLogger('app.rag.ingest')
 GUIDE_IMAGES = ROOT / 'dataset' / 'guide_images'          # 그림 API(DC-11)가 내려 주는 배포 그림 (청크_메타데이터.md 5장 그림)
@@ -141,9 +142,14 @@ def prepare_version(v: dict, files_root: Path, codes: set[str], warnings: list[s
                         '문서 분류는 그대로 둡니다')
     warnings += [f'파서 경고: {w}' for w in doc.warnings]
 
+    policies = {}
+    if v.get('doc_type') == 'MANUAL':                      # 매뉴얼인지는 등록된 문서 행으로 (파일 자칭 값 아님)
+        allow, notes = load_allowlist()
+        policies, more = manual_policies(v['doc_code'], doc, chunks, allow)
+        warnings += notes + more
     return Prepared(entry={}, chunks=chunks, document={'doc_code': v['doc_code']},
                     version={'version': v['version'], 'file_format': version_row(doc, v['file_path'])['file_format']},
-                    rows=chunk_rows(chunks), parse_warnings=list(doc.warnings))
+                    rows=chunk_rows(chunks, policies), parse_warnings=list(doc.warnings))
 
 
 def check_images(chunks: list[Chunk], image_dir: Path = GUIDE_IMAGES) -> list[str]:
@@ -246,12 +252,12 @@ def resolve_file(file_path: str | None, files_root: Path = ROOT) -> Path:
 def _read_version(conn, version_id: int) -> dict:
     row = conn.execute(
         'select v.id, v.document_id, v.version, v.file_path, v.ingest_status, v.is_current, v.view_scope, '
-        'd.doc_code, d.title, d.category_code from document_versions v '
+        'd.doc_code, d.title, d.category_code, d.doc_type from document_versions v '
         'join knowledge_documents d on d.id = v.document_id where v.id = %s', (version_id,)).fetchone()
     if row is None:
         raise ValueError(f'없는 버전 id {version_id}')
     keys = ('id', 'document_id', 'version', 'file_path', 'status', 'is_current', 'view_scope',
-            'doc_code', 'title', 'category_code')
+            'doc_code', 'title', 'category_code', 'doc_type')
     return dict(zip(keys, row))
 
 
