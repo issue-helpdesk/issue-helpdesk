@@ -12,9 +12,9 @@ export interface QAnswer {
 }
 
 /** 서버가 상황 질문에 붙이는 이름 */
-export const SITUATION_LABEL = '상황'
+const SITUATION_LABEL = '상황'
 /** 상황 질문의 직접 입력 버튼 이름은 고정이다 */
-export const OTHER_SITUATION = '그 밖의 상황'
+const OTHER_SITUATION = '그 밖의 상황'
 
 /** 선택지가 있고 직접 입력도 받는 질문의 "직접 입력으로 바꾸기" 버튼 이름 */
 export const directLabel = (q: ChatQuestion) => (q.label === SITUATION_LABEL ? OTHER_SITUATION : '직접 입력')

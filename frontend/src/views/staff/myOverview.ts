@@ -13,7 +13,7 @@ import { DAY, PERD, countBy, startOfDay, type Per } from './StatsView'
 type Source = { items: TicketSummary[]; names: string[]; extra: MyOverview }
 
 /** 접수 목록(내 팀 접수)으로 서버 집계와 같은 모양의 값을 만든다 (모의 모드) */
-export function overviewFromTeamItems(items: TicketSummary[], names: string[], user: { id: number; departmentName?: string | null }, per: Per, now: number): MyOverview {
+function overviewFromTeamItems(items: TicketSummary[], names: string[], user: { id: number; departmentName?: string | null }, per: Per, now: number): MyOverview {
   const from = per === 'd' ? startOfDay(now) : now - PERD[per] * DAY
   const win = items.filter((t) => Date.parse(t.createdAt) >= from)
   return {

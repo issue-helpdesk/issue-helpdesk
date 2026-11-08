@@ -19,7 +19,7 @@ import { TicketCard } from './TicketCard'
 export const PAIR = new Set(['resolved', 'unresolved'])
 
 /** 지금 답할 수 있는 추가 질문의 답 상태와 동작 (대화 화면이 들고 있다) */
-export interface QuestionAnswers {
+interface QuestionAnswers {
   answers: (QAnswer | undefined)[]
   onChange: (index: number, answer: QAnswer) => void
   onSubmit: () => void

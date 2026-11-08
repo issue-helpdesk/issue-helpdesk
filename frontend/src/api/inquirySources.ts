@@ -32,7 +32,7 @@ interface SourceItem {
 }
 
 /** 시연 행의 가이드 글("IT-NET-001 VPN 접속 장애 대응 가이드 v2")에서 코드·버전을 뽑는다. '-' 는 없음 */
-export function guideFromText(text: string): UsedGuide[] {
+function guideFromText(text: string): UsedGuide[] {
   if (!text || text === '-') return []
   const m = text.match(/^(\S+)\s.*?(v\d[\w.]*)?$/)
   return m ? [{ docCode: m[1], version: m[2] ?? null, location: null, kind: 'DOCUMENT', excerpt: null }] : []

@@ -31,7 +31,7 @@ export interface TimeOff {
   createdAt: string
 }
 
-export interface TimeOffInput {
+interface TimeOffInput {
   timeOffType: TimeOffType
   startDate: string
   endDate: string

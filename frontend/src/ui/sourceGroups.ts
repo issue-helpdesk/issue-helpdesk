@@ -1,6 +1,6 @@
 import type { GuideSource } from '../api/chatTypes'
 
-export interface Group {
+interface Group {
   key: string
   head: string
   items: GuideSource[]

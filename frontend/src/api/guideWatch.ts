@@ -13,7 +13,7 @@ import type { CategoryCode } from './chatTypes'
 import { listGuideVersions, type GuideVersion } from './guides'
 import type { User } from './types'
 
-export interface IngestWatch {
+interface IngestWatch {
   docId: number
   versionId: number
   docCode: string
@@ -23,7 +23,7 @@ export interface IngestWatch {
   /** 추적을 시작한 시각(ms). 오래 걸릴수록 조회 간격을 늘리고, 너무 오래되면 멈춘 것으로 본다 */
   since?: number
 }
-export interface IngestFailure extends IngestWatch {
+interface IngestFailure extends IngestWatch {
   error: string
   /** false 면 아직 알림 창으로 알리지 않았다 */
   seen: boolean

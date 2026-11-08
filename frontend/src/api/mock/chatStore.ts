@@ -11,7 +11,7 @@ import type { CategoryCode, ChatMessage, Inquiry, Ticket } from '../chatTypes'
 /** 문의 수집 단계에서 모으는 항목 (순서대로 묻는다) */
 export type IntakeKey = 'targetSystem' | 'summary' | 'onset' | 'businessImpact' | 'triedActions'
 
-export interface Intake {
+interface Intake {
   targetSystem?: string
   summary?: string
   onset?: string
@@ -26,7 +26,7 @@ export interface Intake {
 }
 
 /** 응답에 포함되지 않는 엔진 내부 상태 */
-export interface Internal {
+interface Internal {
   /** 문의자 사번 (users.employee_no) */
   owner: string
   ownerName: string
