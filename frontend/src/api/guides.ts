@@ -469,7 +469,7 @@ function mockContent(g: { docCode: string; title: string }, version: string): Gu
 
 /**
  * 가이드 본문. versionId 를 주면 그 버전(관리자만), 없으면 현행 버전이다. 현행 본문은 열람 범위 안에서만 받는다.
- * 서버에 본문 API 가 없으면(R-48) 안내만 하고, 있으면 본문과 그림 목록을 그대로 쓴다.
+ * 서버 API(DC-12·13, R-48)의 본문과 그림 목록을 그대로 쓴다. 실패하면 오류 사전의 문구를 보인다.
  */
 export async function getGuideContent(user: User, doc: { id: number; docCode: string; title: string }, versionId?: number, version = ''): Promise<ApiResult<GuideContent>> {
   if (USE_MOCK_GUIDE) {
@@ -479,8 +479,8 @@ export async function getGuideContent(user: User, doc: { id: number; docCode: st
   const path = versionId !== undefined && user.serviceRole === 'ADMIN' ? `/documents/${doc.id}/versions/${versionId}/content` : `/documents/${doc.id}/content`
   const r = await request<SContent>(path)
   if (!r.ok) {
-    // 서버에 이 API 가 없으면 404·405 가 온다. 문서가 없는 경우(DOCUMENT_NOT_FOUND)와 구분해서 안내한다
-    if (r.error.code !== 'DOCUMENT_NOT_FOUND' && r.error.code !== 'FORBIDDEN') return fail('NOT_READY', '가이드 본문을 보는 기능은 서버가 준비 중이에요. (요청 R-48)')
+    // 파일이 서버에 없거나 읽지 못한 경우: 관리자는 파일을 확인할 수 있으니 그 안내를, 그 밖의 사용자는 문의 안내를 본다
+    if (r.error.code === 'DOCUMENT_CONTENT_UNAVAILABLE' && user.serviceRole === 'ADMIN') return fail(r.error.code, '서버에 가이드 파일이 없거나 읽지 못했어요. 파일을 확인해 주세요.')
     return r
   }
   const text = r.data.content ?? r.data.text ?? r.data.markdown ?? ''

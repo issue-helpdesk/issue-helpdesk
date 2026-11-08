@@ -12,22 +12,24 @@ import type { CategoryCode } from '../chatTypes'
 import { mockRegisterCaseDraft, mockRetryCaseDraft, mockVersionState, type GuideReady, type GuideScope, type GuideTx } from '../guides'
 import { subscribe as subscribeStore } from './chatStore'
 
-export type CaseKind = 'amend' | 'new'
-export type CaseState = 'review' | 'preparing' | 'failed' | 'ready' | 'live' | 'dropped'
+/** amend=기존 가이드 보강, new=신규 가이드. manual·sec 는 서버 연결 화면에만 있다 (매뉴얼 후보·SEC 직접 검토: 초안을 등록하지 않고 직접 반영한다) */
+export type CaseKind = 'amend' | 'new' | 'manual' | 'sec'
+export type CaseState = 'review' | 'preparing' | 'failed' | 'ready' | 'live' | 'applied' | 'dropped'
 
-export const CASE_KIND_LABEL: Record<CaseKind, string> = { amend: '기존 가이드 보강', new: '신규 가이드' }
+export const CASE_KIND_LABEL: Record<CaseKind, string> = { amend: '기존 가이드 보강', new: '신규 가이드', manual: '매뉴얼 후보', sec: 'SEC 직접 검토' }
 export const CASE_STATE_LABEL: Record<CaseState, string> = {
   review: '검토 필요',
   preparing: '검색 준비 중',
   failed: '검색 준비 실패',
   ready: '검색 준비 완료',
   live: '현행',
+  applied: '반영 완료',
   dropped: '가이드화 안 함',
 }
 /** 구분 배지 색 (StateBadge 의 tone): 기존 가이드 보강=보라, 신규 가이드=하늘 */
-export const CASE_KIND_TONE: Record<CaseKind, string> = { amend: 'prog', new: 'info' }
+export const CASE_KIND_TONE: Record<CaseKind, string> = { amend: 'prog', new: 'info', manual: 'recv', sec: 'urg' }
 /** 상태 배지 색 (StateBadge 의 tone) */
-export const CASE_STATE_TONE: Record<CaseState, string> = { review: 'asg', preparing: 'warn', failed: 'urg', ready: 'ok', live: 'info', dropped: 'recv' }
+export const CASE_STATE_TONE: Record<CaseState, string> = { review: 'asg', preparing: 'warn', failed: 'urg', ready: 'ok', live: 'info', applied: 'ok', dropped: 'recv' }
 
 export interface CaseTicket {
   no: string
@@ -44,6 +46,8 @@ export interface CaseItem {
   /** 표시용 상태. 승인한 제안은 가이드 목록의 버전 상태에서 정해진다 */
   state: CaseState
   tickets: CaseTicket[]
+  /** 근거 티켓 수 (서버 목록은 티켓 내용 없이 수만 준다) */
+  ticketCount: number
   /** 기존 가이드 보강일 때: 대상 문서와 AI가 초안을 만든 기준 버전, 반영할 위치 */
   target?: { docCode: string; title: string; baseVersion: string; latestVersion: string; section: string }
   /** 기존 가이드 보강일 때: 반영 위치의 기존 내용 */
@@ -67,6 +71,25 @@ export interface CaseItem {
   dropReason?: string
   /** 마지막으로 임시 저장한 시각 */
   savedAt?: string
+  /** 서버 연결 화면에서만 쓴다 */
+  server?: ServerCaseInfo
+}
+
+/** 서버(GC) 묶음에서 온 값 */
+export interface ServerCaseInfo {
+  /** 서버가 판단한 종류 이름 (항목 추가·변경·새 가이드·매뉴얼 후보·SEC 직접 검토) */
+  judgmentLabel: string
+  /** 기준 버전이 지금 현행과 다른지 (서버 판단) */
+  baseChanged: boolean
+  /** 초안 수정 저장 때 함께 보내는 번호 */
+  draftRevision: number
+  /** 초안이 있는지 (매뉴얼 후보는 없다) */
+  hasDraft: boolean
+  /** 상세(근거 티켓·초안)를 불러왔는지 */
+  detail: boolean
+  rejectReason?: string
+  reviewedBy?: string
+  reviewedAt?: string
 }
 
 /** 시연 이력: 이미 승인해서 가이드 목록에 등록돼 있는 것처럼 보이게 할 버전 */
@@ -76,7 +99,7 @@ interface SeedRegister {
   current?: boolean
   error?: string
 }
-type Rec = Omit<CaseItem, 'state' | 'failReason'> & { seed?: SeedRegister }
+type Rec = Omit<CaseItem, 'state' | 'failReason' | 'ticketCount'> & { seed?: SeedRegister }
 
 const t = (no: string, summary: string, result: string): CaseTicket => ({ no, summary, result })
 
@@ -253,8 +276,9 @@ const FAIL_TEXT = '문서 변환 중 오류가 나서 검색 준비를 마치지
 
 /** 표시용 상태: 승인한 제안은 가이드 목록의 그 버전 상태에서 읽는다 */
 function derive(r: Rec): CaseItem {
-  const { seed: _seed, ...rest } = r
+  const { seed: _seed, ...base } = r
   void _seed
+  const rest = { ...base, ticketCount: r.tickets.length }
   if (r.dropReason !== undefined) return { ...rest, state: 'dropped' }
   if (!r.registered) return { ...rest, state: 'review' }
   const v = mockVersionState(r.registered.docId, r.registered.versionId)
@@ -319,7 +343,7 @@ type Result = { ok: true } | { ok: false; message: string }
 const defined = (e: CaseEdit): Partial<CaseItem> => Object.fromEntries(Object.entries(e).filter(([, v]) => v !== undefined)) as Partial<CaseItem>
 
 /** 기준 버전이 현재 현행 버전과 다른지 (달라지면 등록을 막는다) */
-export const baseChanged = (c: CaseItem) => !!c.target && c.target.baseVersion !== c.target.latestVersion
+export const baseChanged = (c: CaseItem) => (c.server ? c.server.baseChanged : !!c.target && c.target.baseVersion !== c.target.latestVersion)
 
 /** 임시 저장: 상태는 그대로 검토 필요다 */
 export function saveCase(id: string, e: Pick<CaseEdit, 'title' | 'cat' | 'after'>): void {
