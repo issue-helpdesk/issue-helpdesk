@@ -21,6 +21,7 @@ frontend/
 dataset/
 !dataset/guide_images/
 dataset/guide_images/index.csv
+!dataset/guides/**/*.md
 design/
 docs/
 tests/
