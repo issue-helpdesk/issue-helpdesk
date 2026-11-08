@@ -81,13 +81,26 @@ DOCS = [
     ('IT-NET-001', 'NET', 'GUIDE', 'ALL', 'ALLOWED', True, True, [
         ('IT-NET-001@v2.0/item:3.1', 'ITEM', '3.1', ['VPN 연결 시 서버에 연결할 수 없습니다 오류가 나면 재접속합니다.']),
         ('IT-NET-001@v2.0/item:3.9', 'ITEM', '3.9', ['인쇄를 보냈는데 대기열에만 있고 출력되지 않는다. 인쇄 대기열을 비웁니다.\nPC를 재부팅한 뒤 다시 인쇄합니다.'])]),
+    ('IT-ACC-001-M', 'ACC', 'MANUAL', 'AGENT', 'BLOCKED', True, True, [      # 매뉴얼 항목별 내용 전송 (ITEM_POLICY)
+        ('IT-ACC-001-M@v2.0/item:3.2', 'ITEM', '3.2', ['계정이 잠기면 잠금 해제 요청을 받아 계정 잠금을 풀어 준다.',
+                                                     '잠금이 반복되면 저장된 비밀번호를 지우게 안내한다.']),
+        ('IT-ACC-001-M@v2.0/item:3.5', 'ITEM', '3.5', ['계정 잠금 해제 전에 본인 확인 질문으로 신원을 확인한다.']),
+        ('IT-ACC-001-M@v2.0/item:3.6', 'ITEM', '3.6', ['계정 잠금 기록은 보안 로그에서 확인한다.']),
+        ('IT-ACC-001-M@v2.0/item:3.8', 'ITEM', '3.8', ['계정 잠금이 풀리지 않으면 계정 담당자에게 넘긴다.']),
+        ('IT-ACC-001-M@v2.0/item:3.9', 'ITEM', '3.9', ['계정 잠금이 풀리지 않으면 계정 담당자에게 넘긴다.'])]),
 ]
+# document_chunks.content_transfer_policy (적재가 허용 목록으로 넣는 값). 없는 단위는 비워 둔다 → 버전 값
+ITEM_POLICY = {
+    'IT-ACC-001-M@v2.0/item:3.2': 'ALLOWED',     # 조각 2개 모두 ALLOWED
+    'IT-ACC-001-M@v2.0/item:3.5': 'BLOCKED',
+    'IT-ACC-001-M@v2.0/item:3.8': 'ALLOWED',     # 3.9 와 본문이 같지만 3.9 는 비어 있어 BLOCKED (버전 값)
+}
 
 
 def seed(s):
     emb = FakeEmbedder()
     s.execute(text("insert into categories (code, name) values ('HW','HW·업무 PC'),('NET','VPN·네트워크'),"
-                   "('SEC','정보보안')"))
+                   "('SEC','정보보안'),('ACC','계정·인증')"))
     gid = s.execute(text("insert into support_groups (name) values ('서비스데스크') returning id")).scalar()
     s.execute(text("insert into inquiry_types (code, category_code, name, request_kind, default_urgency, "
                    "default_group_id) values ('HW-07','HW','프린터','INCIDENT','P3', :g),"
@@ -105,10 +118,11 @@ def seed(s):
                 seq += 1
                 cid = s.execute(text(
                     "insert into document_chunks (version_id, heading_path, location, content, seq, unit_key, "
-                    "chunk_type, part, meta) values (:v, :hp, :loc, :body, :seq, :uk, :ct, :part, "
-                    "cast(:meta as jsonb)) returning id"),
+                    "chunk_type, part, meta, content_transfer_policy) values (:v, :hp, :loc, :body, :seq, :uk, :ct, "
+                    ":part, cast(:meta as jsonb), :ctp) returning id"),
                     {'v': vid, 'hp': f'3. 증상별 조치 방법 > {loc}', 'loc': loc, 'body': body, 'seq': seq, 'uk': uk,
-                     'ct': ctype, 'part': part, 'meta': '{"inquiry_type_codes": ["HW-07"], "handling": "사용자 직접 조치"}'}
+                     'ct': ctype, 'part': part, 'meta': '{"inquiry_type_codes": ["HW-07"], "handling": "사용자 직접 조치"}',
+                     'ctp': ITEM_POLICY.get(uk)}
                 ).scalar()
                 s.execute(text("insert into document_chunk_embeddings (chunk_id, model, embedding, source_text) "
                                "values (:c, :m, cast(:e as vector), :src)"),
@@ -172,6 +186,38 @@ def test_duplicate_body_merged(engine):
     assert same[0].also_in == (other,)                      # 나머지는 also_in
     hw = run(engine, top_k=5, category_code='HW').documents[0]
     assert hw.unit_key == 'IT-HW-003@v2.0/item:3.1'          # 분류를 주면 같은 분류 문서가 대표
+
+
+def test_manual_item_policy_overrides_version(engine):
+    """매뉴얼 항목 값(content_transfer_policy)이 있으면 그 값, 비어 있으면 버전 값 (해결 사례 가이드화 선행 작업)."""
+    resp = run(engine, 'AGENT', top_k=10, category_code='ACC', query='계정이 잠기면 잠금 해제')
+    got = {d.unit_key: d.transfer_policy for d in resp.documents if d.doc_code == 'IT-ACC-001-M'}
+    assert got['IT-ACC-001-M@v2.0/item:3.2'] == 'ALLOWED'      # 버전은 BLOCKED 지만 항목 값이 이긴다
+    assert got['IT-ACC-001-M@v2.0/item:3.5'] == 'BLOCKED'
+    assert got['IT-ACC-001-M@v2.0/item:3.6'] == 'BLOCKED'      # 비어 있으면 버전 값
+    item = next(d for d in resp.documents if d.unit_key == 'IT-ACC-001-M@v2.0/item:3.2')
+    assert [c.part for c in item.chunks] == [1, 2]              # 조각을 모두 붙여도 값은 하나
+    other = {d.doc_code: d.transfer_policy for d in run(engine, 'AGENT', top_k=10).documents}
+    assert other['IT-HW-003'] == 'ALLOWED' and other['IT-HW-003-M'] == 'MASKED'   # 항목 값이 없는 문서는 그대로
+
+
+def test_same_body_different_item_policy_not_merged(engine):
+    """본문이 같아도 항목 전송 값이 다르면 묶지 않는다 (허용 단위와 차단 단위가 하나로 섞이지 않게)."""
+    resp = run(engine, 'AGENT', top_k=10, category_code='ACC', query='계정 잠금이 풀리지 않으면')
+    pair = {d.unit_key: d for d in resp.documents if d.unit_key.endswith(('item:3.8', 'item:3.9'))}
+    assert {k: d.transfer_policy for k, d in pair.items()} == {
+        'IT-ACC-001-M@v2.0/item:3.8': 'ALLOWED', 'IT-ACC-001-M@v2.0/item:3.9': 'BLOCKED'}
+    assert all(d.also_in == () for d in pair.values())
+
+
+def test_evaluation_dup_key_uses_item_policy(engine):
+    """평가의 DB 묶기 키도 검색과 같은 전송 정책(항목 값 우선)을 쓴다."""
+    from app.rag.evaluation import db_vector_rows
+    url = engine.url.render_as_string(hide_password=False).replace('postgresql+psycopg://', 'postgresql://', 1)
+    _, dup_key = db_vector_rows(url, FakeEmbedder.model_id, 'AGENT')
+    a, b = dup_key['IT-ACC-001-M/item:3.8'], dup_key['IT-ACC-001-M/item:3.9']
+    assert a[0] == b[0] and (a[1], b[1]) == ('ALLOWED', 'BLOCKED')          # 본문은 같고 정책만 다르다
+    assert dup_key['IT-ACC-001-M/item:3.2'][1] == 'ALLOWED'
 
 
 def test_category_filter_keeps_common_standard(engine):
