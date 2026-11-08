@@ -232,10 +232,13 @@ def next_version(versions: list[str]) -> str:
 # ── md 고치기 ─────────────────────────────────────────────────
 
 ITEM_HEAD = re.compile(r'^### (3\.(\d+)) ', re.M)
+ITEM_TABLE_HEAD = ['번호', '제목', '문의 유형', '처리 구분', '담당 부서']   # 3장 앞 항목 표 (가이드 27종 모두 이 5열)
+TABLE_LINE = re.compile(r'^\|.*\|[ \t]*$', re.M)
 
 
 def add_case(md: str, t: dict, version: str, today: date, warnings: list[str]) -> tuple[str, str]:
-    """기준 md 에 사례를 더한다: 버전 표기 → 새 항목 3.N (3장 끝) → 목차 한 줄 → 개정 이력 한 줄. (md, 항목 번호)"""
+    """기준 md 에 사례를 더한다: 버전 표기 → 새 항목 3.N (3장 끝) → 3장 항목 표 한 줄 → 목차 한 줄 → 개정 이력 한 줄.
+    (md, 항목 번호)"""
     chapter = re.search(r'^## 3\. .*$', md, re.M)
     if chapter is None:
         raise CaseGuideError(['기준 가이드에 3장(항목별 안내)이 없어 항목을 넣을 수 없습니다'])
@@ -254,6 +257,7 @@ def add_case(md: str, t: dict, version: str, today: date, warnings: list[str]) -
     title = _one_line(t['summary']) or _one_line(t['symptom']) or '해결 사례'
     item = _item(section_no, title, t)
     md = md[:end].rstrip('\n') + '\n\n' + item + '\n\n' + md[end:]
+    md = _add_table_row(md, chapter.end(), [section_no, title, t['code'] or '', HANDLING, t['group'] or ''], warnings)
 
     toc = list(re.finditer(r'^(\s*)- 3\.\d+ .*$', md[:chapter.start()], re.M))
     if toc:
@@ -280,6 +284,27 @@ def add_case(md: str, t: dict, version: str, today: date, warnings: list[str]) -
         at = history.end() + rows[-1].end() if rows else history.end()
         md = md[:at] + f'\n| {version} | {today.isoformat()} | {group} | {note} |' + md[at:]
     return md, section_no
+
+
+def _add_table_row(md: str, start: int, cells: list[str], warnings: list[str]) -> str:
+    """3장 제목(start)과 첫 항목 사이의 항목 표 끝에 한 줄. 표가 없거나 머리줄이 ITEM_TABLE_HEAD 가 아니면
+    고치지 않고 경고한다 (모르는 표를 조용히 고치지 않게). 새 항목 본문은 표와 상관없이 검색된다."""
+    first = ITEM_HEAD.search(md, start)
+    lines = list(TABLE_LINE.finditer(md, start, first.start() if first else len(md)))
+    block = []                                             # 첫 표 (이어진 표 줄)
+    for m in lines:
+        if block and md[block[-1].end():m.start()].strip('\r\n'):
+            break
+        block.append(m)
+    if not block:
+        warnings.append('3장 항목 표를 찾지 못해 표는 고치지 않았습니다')
+        return md
+    head = [c.strip() for c in re.split(r'(?<!\\)\|', block[0].group(0).strip())[1:-1]]
+    if head != ITEM_TABLE_HEAD:
+        warnings.append(f"3장 항목 표 머리줄({' | '.join(head)})이 예상과 달라 표는 고치지 않았습니다")
+        return md
+    row = '| ' + ' | '.join(_cell(c) for c in cells) + ' |'
+    return md[:block[-1].end()] + '\n' + row + md[block[-1].end():]
 
 
 def _item(section_no: str, title: str, t: dict) -> str:

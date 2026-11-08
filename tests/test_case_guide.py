@@ -55,6 +55,8 @@ def test_add_case_shape():
     assert d.md.index('### 3.8 ') < d.md.index('## 4. ') and d.md.index('### 3.7 ') < d.md.index('### 3.8 ')
     assert re.search(r'^  - 3\.7 .*\n  - 3\.8 설치가', d.md, re.M)
     assert re.search(r'^\| v2\.0 \|.*\|\n\| v2\.1 \| 2026-10-29 \| 엔드포인트지원팀 \| 해결 사례 반영 \(TK-0042\)', d.md, re.M)
+    assert re.search(r'^\| 3\.7 \|.*\|\n\| 3\.8 \| 설치가 "대기 중"에서 멈추고 캐시 폴더가 가득 참 \| SW-01 \| 🔵 IT 담당자 처리 \| '
+                     r'엔드포인트지원팀 \|$', d.md, re.M)              # 3장 항목 표 끝에 한 줄
     removed = set(BASE.splitlines()) - set(d.md.splitlines())
     assert all('v2.0' in line for line in removed)          # 바뀐 줄은 버전 표기뿐
 
@@ -83,6 +85,28 @@ def test_continue_draft_appends_to_same_version():
     second, _ = make(md_base=first.md, receipt_no='TK-0043', summary='설치 후 바로 꺼짐')
     assert second.section_no == '3.9' and second.md.count('\n| v2.1 |') == 1
     assert '(TK-0042)' in second.md and '; 해결 사례 반영 (TK-0043): 3.9 설치 후 바로 꺼짐 |' in second.md
+    assert re.search(r'^\| 3\.8 \| 설치가 .*\|\n\| 3\.9 \| 설치 후 바로 꺼짐 \|', second.md, re.M)   # 항목 표도 이어서
+
+
+def test_item_table_unknown_shape_left_alone():
+    """3장 항목 표 머리줄이 가이드 5열과 다르거나 표가 없으면 표는 고치지 않고 경고. 항목·목차·개정 이력은 그대로 더한다."""
+    head = '| 번호 | 제목 | 문의 유형 | 처리 구분 | 담당 부서 |'
+    assert head in BASE
+    other = BASE.replace(head, '| 번호 | 제목 | 문의 유형 | 담당 부서 |', 1)
+    d, warnings = make(md_base=other)
+    assert warnings == ['3장 항목 표 머리줄(번호 | 제목 | 문의 유형 | 담당 부서)이 예상과 달라 표는 고치지 않았습니다']
+    assert not re.search(r'^\| 3\.8 \|', d.md, re.M) and d.section_no == '3.8' and len(items(d.md)) == len(items(BASE)) + 1
+    table = re.search(r'^\| 번호 \|.*\n(?:\|.*\n)*', BASE, re.M).group(0)
+    d, warnings = make(md_base=BASE.replace(table, '', 1))
+    assert warnings == ['3장 항목 표를 찾지 못해 표는 고치지 않았습니다'] and d.section_no == '3.8'
+    assert check(d, d.md, [])[0] == []
+
+
+def test_item_table_row_escapes_pipe_and_empty_cells():
+    """표 줄도 세로줄을 이스케이프해 5칸 그대로. 문의 유형·담당 부서가 없으면 빈칸."""
+    d, _ = make(summary='프로세스 A | B 전환 오류', code=None, group=None)
+    row = next(line for line in d.md.splitlines() if line.startswith('| 3.8 |'))
+    assert len(re.split(r'(?<!\\)\|', row)) - 2 == 5 and 'A \\| B' in row and row.endswith('| 🔵 IT 담당자 처리 |  |')
 
 
 def test_sensitive_only_in_added_lines():
@@ -445,6 +469,7 @@ def test_all_guides_take_a_case():
     """57종 가이드 md 모두: 항목 하나 늘고 새 번호가 맞고, 사라진 줄은 버전 표기뿐 (검수에서 확인한 것을 시험으로)."""
     files = sorted(f for f in GUIDES.rglob('IT-*.md'))
     assert len(files) == 57
+    table_rows = 0
     for f in files:
         base = f.read_text(encoding='utf-8')
         version = re.search(r'^version:\s*"?([^"\n]+)', base, re.M).group(1)
@@ -452,6 +477,8 @@ def test_all_guides_take_a_case():
         before, after = items(base), items(md)
         assert len(after) == len(before) + 1 and after[-1].section_no == section, f.name
         assert all(version in line for line in set(base.splitlines()) - set(md.splitlines())), f.name
+        table_rows += f.parent.name == 'guide' and bool(re.search(rf'^\| {re.escape(section)} \|', md, re.M))
+    assert table_rows == 27                                  # 임직원용 가이드 27종 모두 3장 항목 표에 한 줄
 
 
 def test_markdown_in_ticket_text_stays_inside_item():
