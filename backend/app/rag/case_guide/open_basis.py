@@ -13,19 +13,19 @@
 """
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
 from app.rag.ingest import ROOT
 from app.rag.ingest.upload import resolve_file
 
-from . import HANDLING, SHORT_NOTE, CaseGuideError, _base_md, _item, _one_line, _read_ticket, _reopened, receipts
+from . import (HANDLING, SHORT_NOTE, CaseGuideError, _base_md, _find, _item, _one_line, _read_ticket, _reopened,
+               receipts)
 from .assemble import SCHEMA, _fragment_problems, _props, _renumber, item_text
 
 TODO = '(작성 필요)'                                        # 새 가이드 뼈대의 자리 표시 (줄 하나가 정확히 이것)
 REQUIRED = ['1', '2', '3']                                 # 새 가이드 등록 전에 꼭 채울 장 (김현나 Q9)
-CONTACT_RE = re.compile(r'^## 6\. 문의처[ \t]*\n(.*?)(?=^## |\Z)', re.M | re.S)
+CONTACT_HEAD = re.compile(r'^## 6\. 문의처[ \t]*$', re.M)
 
 
 def open_basis(conn, judgment: str, *, document_id: int | None = None, target_section: str | None = None,
@@ -97,8 +97,7 @@ def new_guide(conn, category_code: str | None, title: str | None, fragments: lis
     name = conn.execute('select name from categories where code = %s', (category_code,)).fetchone() if category_code else None
     if name is None:
         problems.append(f'없는 분류 {category_code}')
-    if not (title or '').strip():
-        problems.append('새 가이드 제목이 없습니다')
+    problems += title_problems(title)
     if not fragments:
         problems.append('3장 항목 조각이 없습니다')
     problems += [f'조각 {i}: {p}' for i, f in enumerate(fragments, 1) for p in _fragment_problems(f)]
@@ -107,8 +106,18 @@ def new_guide(conn, category_code: str | None, title: str | None, fragments: lis
     return skeleton(title.strip(), category_code, name[0], fragments, _contact(conn, category_code, files_root, warnings))
 
 
+def title_problems(title: str | None) -> list[str]:
+    """새 가이드 제목: 한 줄, 줄바꿈·제어 문자 없음 (본문 '# 제목' 아래로 장이 끼어들지 않게, PR #361 검수 2).
+    머리말에는 바깥 따옴표만 붙여 그대로 쓴다 (md 파서가 바깥 따옴표만 벗기므로 다시 읽으면 같은 제목, 검수 1)."""
+    if not (title or '').strip():
+        return ['새 가이드 제목이 없습니다']
+    if re.search(r'[\x00-\x1f\x7f]', title):
+        return ['새 가이드 제목은 한 줄이어야 합니다 (줄바꿈·제어 문자 없이)']
+    return []
+
+
 def skeleton(title: str, category_code: str, category_name: str, fragments: list[str], contact: str) -> str:
-    """뼈대 md (DB 없이). contact: 6장 본문 (비면 자리 표시)."""
+    """뼈대 md (DB 없이). contact: 6장 본문 (비면 자리 표시). title 은 title_problems 를 통과한 한 줄."""
     items, rows, jumps, toc = [], [], [], []
     for n, f in enumerate(fragments, 1):
         section = f'3.{n}'
@@ -118,7 +127,7 @@ def skeleton(title: str, category_code: str, category_name: str, fragments: list
         rows.append([section, _one_line(item_title), p['문의 유형'], p['처리 구분'] or HANDLING, p['담당 부서']])
         jumps.append([_one_line(item_title), section, p['처리 구분'] or HANDLING])
         toc.append(f'  - {section} {_one_line(item_title)}')
-    q = lambda s: json.dumps(s, ensure_ascii=False)       # noqa: E731  머리말 값 (따옴표·역슬래시 이스케이프)
+    q = lambda s: f'"{s}"'                                 # noqa: E731  머리말 값: 바깥 따옴표만 (md 파서가 그것만 벗김)
     table = lambda head, rs: '\n'.join(                   # noqa: E731
         ['| ' + ' | '.join(head) + ' |', '| ' + ' | '.join('---' for _ in head) + ' |',
          *('| ' + ' | '.join(c.replace('|', r'\|') for c in r) + ' |' for r in rs)])
@@ -150,7 +159,17 @@ def _contact(conn, category_code: str, files_root: Path, warnings: list[str]) ->
             md = _base_md(resolve_file(path, files_root), doc_code, [])
         except (CaseGuideError, OSError):
             continue
-        if m := CONTACT_RE.search(md):
-            return m.group(1).strip('\n')
+        body = contact_body(md)
+        if body and body != TODO:                          # 빈 장·자리 표시뿐이면 다음 후보 (PR #361 검수 3)
+            return body
     warnings.append('6장 문의처를 복사할 현행 가이드를 찾지 못했습니다. 관리자가 채워 주세요')
     return ''
+
+
+def contact_body(md: str) -> str:
+    """'## 6. 문의처' 장 본문 (코드 블록 밖 제목만 경계로, PR #361 검수 4). 없으면 ''."""
+    head = _find(CONTACT_HEAD, md)
+    if not head:
+        return ''
+    after = _find(r'^## ', md, head[0].end())
+    return md[head[0].end():after[0].start() if after else len(md)].strip('\n')

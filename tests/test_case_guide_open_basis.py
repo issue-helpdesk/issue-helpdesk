@@ -41,6 +41,46 @@ def test_skeleton_without_contact_leaves_todo():
     assert '## 6. 문의처\n\n' + TODO in md
 
 
+@pytest.mark.parametrize('title', ['회사 "VPN" 가이드', r'C:\경로\가이드', "작은 '따옴표' 가이드", '[긴급] 접속 가이드'])
+def test_skeleton_title_round_trips(title):
+    """PR #361 검수 1: 머리말 제목을 다시 읽으면 원래 제목 그대로 (따옴표·역슬래시·대괄호)."""
+    meta, _ = _parse_text(skeleton(title, 'NET', 'VPN·네트워크', [frag('a')], CONTACT))
+    assert meta.get('title') == title
+
+
+@pytest.mark.parametrize('title', ['첫 줄\n## 9. 추가 장\n주입 본문', '줄\r바꿈', '탭\t문자'])
+def test_multiline_title_refused(title):
+    """PR #361 검수 2: 제목은 한 줄 — 줄바꿈 뒤에 장이 끼어들지 않게 거부."""
+    assert ob.title_problems(title) == ['새 가이드 제목은 한 줄이어야 합니다 (줄바꿈·제어 문자 없이)']
+    assert ob.title_problems('  ') == ['새 가이드 제목이 없습니다'] and ob.title_problems('정상 제목') == []
+
+
+def test_contact_body_ignores_code_block_heading():
+    """PR #361 검수 4: 6장 안 코드 예시의 '## ' 는 다음 장이 아니다. 문서 끝의 6장도 읽는다."""
+    body = '```text\n## 예시\n내용\n```\n\n' + CONTACT
+    md = f'## 5. 주의사항\n\n- a\n\n## 6. 문의처\n\n{body}\n\n## 부록 · 관련 문서\n\n- b\n'
+    assert ob.contact_body(md) == body
+    assert ob.contact_body(f'## 6. 문의처\n\n{CONTACT}\n') == CONTACT and ob.contact_body('## 5. 주의\n') == ''
+
+
+def test_contact_skips_empty_chapter(monkeypatch):
+    """PR #361 검수 3: 첫 후보의 6장이 비었거나 자리 표시뿐이면 다음 후보에서 복사한다. 모두 없으면 경고."""
+    texts = {'A': '## 6. 문의처\n\n## 부록\n', 'B': f'## 6. 문의처\n\n{TODO}\n', 'C': f'## 6. 문의처\n\n{CONTACT}\n'}
+
+    class Conn:
+        def __init__(self, docs):
+            self.docs = docs
+
+        def execute(self, *a):
+            return type('R', (), {'fetchall': lambda _: [(d, d) for d in self.docs]})()
+
+    monkeypatch.setattr(ob, 'resolve_file', lambda path, root: path)
+    monkeypatch.setattr(ob, '_base_md', lambda path, code, w: texts[path])
+    w = []
+    assert ob._contact(Conn(['A', 'B', 'C']), 'NET', None, w) == CONTACT and w == []
+    assert ob._contact(Conn(['A', 'B']), 'NET', None, w) == '' and len(w) == 1
+
+
 def test_manual_candidate_has_no_draft():
     assert open_basis(None, 'MANUAL_CANDIDATE') == {'draft_basis': None, 'draft_md': None, 'warnings': []}
 
