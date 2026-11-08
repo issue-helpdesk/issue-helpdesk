@@ -238,51 +238,84 @@ ITEM_TABLE_HEAD = ['번호', '제목', '문의 유형', '처리 구분', '담당
 def add_case(md: str, t: dict, version: str, today: date, warnings: list[str]) -> tuple[str, str]:
     """기준 md 에 사례를 더한다: 버전 표기 → 새 항목 3.N (3장 끝) → 3장 항목 표 한 줄 → 목차 한 줄 → 개정 이력 한 줄.
     (md, 항목 번호)"""
+    _chapter3(md)
+    md = _set_version(md, version, warnings)
+    section_no = f'3.{max(_item_numbers(md), default=0) + 1}'
+    title = _one_line(t['summary']) or _one_line(t['symptom']) or '해결 사례'
+    md = _append_item(md, _item(section_no, title, t))
+    md = _add_table_row(md, _chapter3(md).end(), [section_no, title, t['code'] or '', HANDLING, t['group'] or ''],
+                        warnings)
+    md = _add_toc(md, [(section_no, title)], warnings)
+    md = _add_history(md, version, today, t['group'] or '서비스데스크',
+                      [f"{MARK} ({t['receipt_no']}): {section_no} {title}"], warnings)
+    return md, section_no
+
+
+def _chapter3(md: str) -> re.Match:
     chapter = re.search(r'^## 3\. .*$', md, re.M)
     if chapter is None:
         raise CaseGuideError(['기준 가이드에 3장(항목별 안내)이 없어 항목을 넣을 수 없습니다'])
+    return chapter
+
+
+def _chapter3_end(md: str) -> int:
+    """3장 끝 (다음 '## ' 장 시작, 없으면 문서 끝)."""
+    chapter = _chapter3(md)
+    end = re.search(r'^## ', md[chapter.end():], re.M)
+    return chapter.end() + end.start() if end else len(md)
+
+
+def _item_numbers(md: str) -> list[int]:
+    """3장 항목 번호 (3.N 의 N)."""
+    return [int(m.group(2)) for m in ITEM_HEAD.finditer(md, _chapter3(md).end(), _chapter3_end(md))]
+
+
+def _set_version(md: str, version: str, warnings: list[str]) -> str:
+    """머리말 version 과 첫머리 '> 문서 번호 | … | vX.Y |' 를 새 버전으로."""
     old = re.search(r'^version:\s*"?([^"\n]+)"?\s*$', md, re.M)
     if old and old.group(1) != version:
         md = md[:old.start()] + f'version: "{version}"' + md[old.end():]
         md = re.sub(rf'^(>.*\| ){re.escape(old.group(1))}( \|)', rf'\g<1>{version}\g<2>', md, count=1, flags=re.M)
     elif not old:
         warnings.append('머리말에 version 이 없습니다. 등록한 버전으로 적재됩니다')
+    return md
 
-    chapter = re.search(r'^## 3\. .*$', md, re.M)
-    end = re.search(r'^## ', md[chapter.end():], re.M)
-    end = chapter.end() + end.start() if end else len(md)
-    numbers = [int(m.group(2)) for m in ITEM_HEAD.finditer(md, chapter.end(), end)]
-    section_no = f'3.{max(numbers, default=0) + 1}'
-    title = _one_line(t['summary']) or _one_line(t['symptom']) or '해결 사례'
-    item = _item(section_no, title, t)
-    md = md[:end].rstrip('\n') + '\n\n' + item + '\n\n' + md[end:]
-    md = _add_table_row(md, chapter.end(), [section_no, title, t['code'] or '', HANDLING, t['group'] or ''], warnings)
 
-    toc = list(re.finditer(r'^(\s*)- 3\.\d+ .*$', md[:chapter.start()], re.M))
-    if toc:
-        last = toc[-1]
-        md = md[:last.end()] + f'\n{last.group(1)}- {section_no} {title}' + md[last.end():]
-    else:
+def _append_item(md: str, item: str) -> str:
+    """3장 끝에 항목 하나 (앞뒤 빈 줄 하나씩)."""
+    end = _chapter3_end(md)
+    return md[:end].rstrip('\n') + '\n\n' + item.strip('\n') + '\n\n' + md[end:]
+
+
+def _add_toc(md: str, entries: list[tuple[str, str]], warnings: list[str]) -> str:
+    """목차의 마지막 '- 3.x …' 줄 뒤에 (번호, 제목) 줄들. 못 찾으면 경고."""
+    if not entries:
+        return md
+    toc = list(re.finditer(r'^(\s*)- 3\.\d+ .*$', md[:_chapter3(md).start()], re.M))
+    if not toc:
         warnings.append('목차에서 3장 항목 줄을 찾지 못해 목차는 고치지 않았습니다')
+        return md
+    last = toc[-1]
+    return md[:last.end()] + ''.join(f'\n{last.group(1)}- {s} {title}' for s, title in entries) + md[last.end():]
 
-    note = _cell(f"{MARK} ({t['receipt_no']}): {section_no} {title}")
-    group = _cell(t['group'] or '서비스데스크')
+
+def _add_history(md: str, version: str, today: date, group: str, notes: list[str], warnings: list[str]) -> str:
+    """개정 이력에 그 버전 줄 (있으면 변경 내용에 '; ' 로 덧붙임). 표가 없으면 끝에 새로 만들고 경고."""
+    note = '; '.join(_cell(n) for n in notes)
+    group = _cell(group)
     history = re.search(r'^## 개정 이력\s*$', md, re.M)
     if history is None:
         warnings.append('개정 이력이 없어 끝에 새로 만들었습니다')
-        md = md.rstrip('\n') + ('\n\n## 개정 이력\n\n| 버전 | 개정일 | 작성자 | 변경 내용 |\n| --- | --- | --- | --- |\n'
-                                f'| {version} | {today.isoformat()} | {group} | {note} |\n')
-        return md, section_no
+        return md.rstrip('\n') + ('\n\n## 개정 이력\n\n| 버전 | 개정일 | 작성자 | 변경 내용 |\n| --- | --- | --- | --- |\n'
+                                  f'| {version} | {today.isoformat()} | {group} | {note} |\n')
     rows = list(re.finditer(r'^\|.*\|[ \t]*$', md[history.end():], re.M))
     same = next((r for r in rows if re.match(rf'^\|\s*{re.escape(version)}\s*\|', r.group(0))), None)
     if same:                                               # 이어 쓰는 초안: 그 버전 줄 변경 내용에 덧붙인다
         at = history.end() + same.end()
         line = same.group(0).rstrip()
-        md = md[:history.end() + same.start()] + line[:-1].rstrip() + f'; {note} |' + md[at:]
-    else:
-        at = history.end() + rows[-1].end() if rows else history.end()
-        md = md[:at] + f'\n| {version} | {today.isoformat()} | {group} | {note} |' + md[at:]
-    return md, section_no
+        return md[:history.end() + same.start()] + line[:-1].rstrip() + f'; {note} |' + md[at:]
+    at = history.end() + rows[-1].end() if rows else history.end()
+    return md[:at] + f'\n| {version} | {today.isoformat()} | {group} | {note} |' + md[at:]
 
 
 def _add_table_row(md: str, start: int, cells: list[str], warnings: list[str]) -> str:
