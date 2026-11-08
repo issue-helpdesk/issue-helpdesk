@@ -21,13 +21,13 @@ from collections import Counter, defaultdict
 from datetime import timedelta
 from pathlib import Path
 
-from app.rag.chunker import Chunk, chunk_document, chunk_row, document_row, validate, version_row, view_scope
+from app.rag.chunker import Chunk, chunk_document, document_row, validate, version_row, view_scope
 from app.rag.parser import ParseError, parse
 from app.rag.parser.models import ParsedDocument
 from app.rag.parser.to_md import to_guide_md
 
 from . import (ERROR_MAX, ROOT, SCOPE_RANK, IngestError, Prepared, Report, _drop_stale, _insert_chunks,
-               _lock_document, _put_embeddings, _relabel, activate, check_vectors, read_vectors)
+               _lock_document, _put_embeddings, _relabel, activate, check_vectors, chunk_rows, read_vectors)
 
 log = logging.getLogger('app.rag.ingest')
 GUIDE_IMAGES = ROOT / 'dataset' / 'guide_images'          # 그림 API(DC-11)가 내려 주는 배포 그림 (청크_메타데이터.md 5장 그림)
@@ -143,7 +143,7 @@ def prepare_version(v: dict, files_root: Path, codes: set[str], warnings: list[s
 
     return Prepared(entry={}, chunks=chunks, document={'doc_code': v['doc_code']},
                     version={'version': v['version'], 'file_format': version_row(doc, v['file_path'])['file_format']},
-                    rows=[chunk_row(c) for c in chunks], parse_warnings=list(doc.warnings))
+                    rows=chunk_rows(chunks), parse_warnings=list(doc.warnings))
 
 
 def check_images(chunks: list[Chunk], image_dir: Path = GUIDE_IMAGES) -> list[str]:
