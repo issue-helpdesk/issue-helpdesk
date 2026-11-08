@@ -36,40 +36,62 @@ def judge_round(session: Session, port: LLMPort, search_fn: SearchFn) -> JudgeRu
     names = collect.staff_names(session)
     guides: dict[str, list[GuideDoc]] = {}
     for t in collect.targets(session):
-        kind, reason = collect.precheck(t)
-        if kind == 'EXCLUDE':
-            store.exclude(session, t.id, reason)
-            run.excluded += 1
-        elif kind == collect.SEC:
-            store.add_sec(session, t)
-            run.sec += 1
+        ticket_id = t.id
+        try:
+            result, forwarded = _one(session, port, search_fn, names, guides, t)
+            session.commit()
+        except Exception as e:                  # 티켓 하나의 오류로 회차를 멈추지 않는다
+            session.rollback()
+            logger.error('가이드화 판단: 티켓 %d 처리 중 오류: %s', ticket_id, type(e).__name__)
+            _fail(session, ticket_id, 'UNEXPECTED', run)
+            continue
+        if forwarded is not None:              # 저장에 성공한 것만 센다
+            run.forwarded.append(forwarded)
         else:
-            _judge_one(session, port, search_fn, names, guides, t, run)
-        session.commit()
+            setattr(run, result, getattr(run, result) + 1)
     logger.info('가이드화 판단: 넘김 %d, 제외 %d, 실패 %d, SEC %d',
                 len(run.forwarded), run.excluded, run.failed, run.sec)
     return run
 
 
-def _judge_one(session, port, search_fn, names, guides, t, run: JudgeRun) -> None:
+def _one(session, port, search_fn, names, guides, t) -> tuple[str, Forwarded | None]:
+    """('excluded' · 'sec' · 'failed' · 'forwarded', 넘길 티켓)."""
+    kind, reason = collect.precheck(t)
+    if kind == 'EXCLUDE':
+        store.exclude(session, t.id, reason)
+        return 'excluded', None
+    if kind == collect.SEC:
+        store.add_sec(session, t)
+        return 'sec', None
+
     text = collect.ticket_text(session, t)
     if text.category_code not in guides:
         guides[text.category_code] = collect.guides_for(session, text.category_code)
     try:
         items = collect.compare_items(session, search_fn, text)
     except Exception as e:                      # 검색·임베딩 모델 오류. 모델을 부르지 않고 다음 회차에 다시
+        session.rollback()
         logger.error('가이드화 판단: 비교 항목 검색 실패: %s', type(e).__name__)
-        store.record_failure(session, t.id, 'SEARCH_FAILED')
-        run.failed += 1
-        return
+        store.record_failure(session, text.ticket_id, 'SEARCH_FAILED')
+        return 'failed', None
     outcome = judge_ticket(text, guides[text.category_code], items, port, names)
     store.add_llm_calls(session, text.inquiry_id, outcome.calls)
     if outcome.judgment is None:
-        store.record_failure(session, t.id, outcome.error_code)
+        store.record_failure(session, text.ticket_id, outcome.error_code)
+        return 'failed', None
+    if outcome.judgment.judgment in EXCLUDED_JUDGMENTS:
+        store.exclude(session, text.ticket_id, store.exclude_reason(outcome))
+        return 'excluded', None
+    store.clear_failure(session, text.ticket_id)
+    return 'forwarded', Forwarded(text, outcome, tuple(items))
+
+
+def _fail(session: Session, ticket_id: int, code: str, run: JudgeRun) -> None:
+    """오류 난 티켓의 실패 기록. 이것마저 실패하면 기록 없이 넘어간다 (다음 회차에 다시 모인다)."""
+    try:
+        store.record_failure(session, ticket_id, code)
+        session.commit()
         run.failed += 1
-    elif outcome.judgment.judgment in EXCLUDED_JUDGMENTS:
-        store.exclude(session, t.id, store.exclude_reason(outcome))
-        run.excluded += 1
-    else:
-        store.clear_failure(session, t.id)
-        run.forwarded.append(Forwarded(text, outcome, tuple(items)))
+    except Exception as e:
+        session.rollback()
+        logger.error('가이드화 판단: 티켓 %d 실패 기록 못 함: %s', ticket_id, type(e).__name__)

@@ -34,6 +34,7 @@
    | `NOT_TARGET`, `EXISTS` | `EXCLUDED`, 이유 앞에 "대상 아님:" 또는 "이미 있음 (문서 항목):" |
    | `ADD_ITEM`, `CHANGE`, `NEW_GUIDE`, `MANUAL_CANDIDATE` | 상태를 쓰지 않고 `forwarded` 로 넘김. 실패 기록만 0 으로 |
    | 실패 | 상태는 그대로, `fail_code`·`fail_count + 1`. 다음 회차에 다시 |
+   | 예상 못 한 오류 | 그 티켓만 되돌리고 `UNEXPECTED` 로 실패 기록. 다음 티켓을 계속 처리한다 |
 
 ## 외부 전송
 
@@ -46,7 +47,7 @@
 | 판단 | `target_doc` | `target_item` |
 | --- | --- | --- |
 | `ADD_ITEM` | 같은 분류 가이드 목록 안 | 비움 |
-| `CHANGE` | 같은 분류 가이드 목록 안 | 보낸 항목 안 (그 가이드의 항목) |
+| `CHANGE` | 같은 분류 가이드 목록 안 | 보낸 항목 중 그 가이드의 3.x 항목 (`ITEM`). 장·FAQ 는 안 됨 |
 | `EXISTS` | 보낸 항목 안 (매뉴얼도 됨) | 보낸 항목 안 |
 | 그 밖 | 비움 | 비움 |
 

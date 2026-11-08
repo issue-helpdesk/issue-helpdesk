@@ -79,7 +79,8 @@ def test_add_item_forwarded_and_sent_text_is_filtered(db):
     assert '김민지' not in port.requests[0][1] and '010-1234-5678' not in port.requests[0][1]
     assert sent['ticket']['summary'] == 'VPN 연결 시 인터넷 끊김 ([직원1] [전화번호1])'
     manual = sent['items'][1]
-    assert manual == {'doc_code': 'IT-NET-001-M', 'doc_type': 'MANUAL', 'location': '3.2', 'title': '3장 > 3.2 제목',
+    assert manual == {'doc_code': 'IT-NET-001-M', 'doc_type': 'MANUAL', 'chunk_type': 'ITEM', 'location': '3.2',
+                      'title': '3장 > 3.2 제목',
                       'content': None, 'content_hidden': True}
     assert sent['items'][0]['content'] == '재시작 안내'
     assert port.thinks == [True]
@@ -180,8 +181,20 @@ def test_search_failure_is_recorded(db):
     assert (state(db, t).fail_code, port.requests) == ('SEARCH_FAILED', [])
 
 
+def test_one_ticket_error_does_not_stop_round(db):
+    """예상 못 한 오류가 난 티켓은 UNEXPECTED 로 기록하고 다음 티켓을 처리한다."""
+    first, second = cls_ticket(db), cls_ticket(db)
+
+    def boom(system, user):
+        raise RuntimeError('sdk')
+    run = judge_round(db, MockAdapter([boom, reply('ADD_ITEM', 'IT-NET-001')]), search_fn)
+    assert (state(db, first).fail_code, state(db, first).fail_count) == ('UNEXPECTED', 1)
+    assert [f.ticket.ticket_id for f in run.forwarded] == [second.id] and run.failed == 1
+
+
 GUIDES = [GuideDoc('IT-NET-001', 'VPN')]
 ITEMS = [CompareItem('IT-NET-001', 'GUIDE', 'v2.0', '3.3', 'ITEM', 'h', 't', 'ALLOWED'),
+         CompareItem('IT-NET-001', 'GUIDE', 'v2.0', 'FAQ-035', 'FAQ', 'h', 't', 'ALLOWED'),
          CompareItem('IT-NET-001-M', 'MANUAL', 'v2.0', '3.2', 'ITEM', 'h', 't', 'BLOCKED')]
 
 
@@ -189,6 +202,8 @@ ITEMS = [CompareItem('IT-NET-001', 'GUIDE', 'v2.0', '3.3', 'ITEM', 'h', 't', 'AL
     ('CHANGE', 'IT-NET-001', '3.3', True),
     ('CHANGE', 'IT-NET-001', '3.9', False),          # 보내지 않은 항목
     ('CHANGE', 'IT-NET-001-M', '3.2', False),        # 변경 대상은 가이드만
+    ('CHANGE', 'IT-NET-001', 'FAQ-035', False),      # 변경 대상은 3.x 항목만 (FAQ·장은 바꿔 끼울 수 없음)
+    ('EXISTS', 'IT-NET-001', 'FAQ-035', True),       # 이미 있음은 FAQ 도 된다
     ('EXISTS', 'IT-NET-001-M', '3.2', True),         # 이미 있음은 매뉴얼도 된다
     ('ADD_ITEM', 'IT-NET-002', None, False),         # 같은 분류 가이드 목록 밖
     ('MANUAL_CANDIDATE', None, None, True),
