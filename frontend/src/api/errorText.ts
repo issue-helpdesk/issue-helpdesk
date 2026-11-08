@@ -86,6 +86,9 @@ const TEXT: Record<string, string | Make> = {
   // 해결 사례 제안(AI 가이드 제안)이 들어 있는 버전을 현행으로 바꿀 때
   DOCUMENT_VERSION_HAS_REJECTED_CLUSTER: '이 버전에는 거절한 해결 사례 제안이 들어 있어서 현행으로 전환할 수 없어요.',
   DOCUMENT_VERSION_BASE_CHANGED: '이 버전을 만든 뒤 현행 가이드가 바뀌어서 현행으로 전환할 수 없어요.',
+  DOCUMENT_VERSION_ORPHANED: '연결된 해결 사례 제안이 없는 초안 버전이라 현행으로 전환할 수 없어요.',
+  DOCUMENT_VERSION_OUTDATED: '이 버전으로 되돌리면 지금 현행에 반영된 해결 사례가 사라져요. 현행을 기준으로 고쳐 새 버전으로 올려 주세요.',
+  DOCUMENT_MANUAL_TRANSFER_FIXED: '담당자용 매뉴얼은 외부 AI 전송을 금지에서 바꿀 수 없어요. 매뉴얼 내용은 항목별 허용 목록으로만 열려요.',
   // 가이드 본문을 읽을 파일이 서버에 없거나 읽지 못한 경우 (관리자에게는 getGuideContent 가 파일 확인 안내로 바꾼다)
   DOCUMENT_CONTENT_UNAVAILABLE: `가이드 본문을 읽을 수 없어요. 문제가 계속되면 ${HELPDESK}로 문의해 주세요.`,
   GUIDE_IMAGE_NOT_FOUND: '이미지를 불러올 수 없어요.',

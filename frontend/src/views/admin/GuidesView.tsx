@@ -36,7 +36,7 @@ import {
   type GuideTx,
   type GuideVersion,
 } from '../../api/guides'
-import { breakSentences, getIngestFailures, recordVersions, setFailureListOpen, trackIngest, watchIngest } from '../../api/guideWatch'
+import { breakSentences, getIngestFailures, recordVersions, setFailureListOpen, syncIngestSummary, trackIngest, watchIngest } from '../../api/guideWatch'
 import titleOps from '../../assets/mascot/title-ops.webp'
 import { USE_MOCK_GUIDE } from '../../core/config'
 import { formatDateTime } from '../../core/format'
@@ -100,6 +100,7 @@ export function GuidesView() {
       if (r.ok) {
         setGuides(r.data)
         setError('')
+        void syncIngestSummary(user, r.data)
       } else setError(r.error.message)
     })
     return () => {
@@ -282,7 +283,15 @@ export function GuidesView() {
                           {GUIDE_TXS.slice()
                             .reverse()
                             .map((k) => (
-                              <button key={k} type="button" className={v.tx === k ? `on ${TX_CLS[k]}` : ''} aria-pressed={v.tx === k} title={v.tx === k ? undefined : `${k}(으)로 바꾸기`} onClick={() => v.tx !== k && changeTx(g, v, k)}>
+                              <button
+                                key={k}
+                                type="button"
+                                className={v.tx === k ? `on ${TX_CLS[k]}` : ''}
+                                aria-pressed={v.tx === k}
+                                disabled={g.docType === 'MANUAL' && v.tx !== k}
+                                title={g.docType === 'MANUAL' ? '담당자용 매뉴얼은 외부 AI 전송이 금지로 고정돼요. 매뉴얼 내용은 항목별 허용 목록으로만 열려요.' : v.tx === k ? undefined : `${k}(으)로 바꾸기`}
+                                onClick={() => v.tx !== k && changeTx(g, v, k)}
+                              >
                                 {k}
                               </button>
                             ))}
@@ -992,7 +1001,8 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
       {policyOpen && (
         <PolicyModal
           initialScope={scope}
-          initialTx={tx}
+          initialTx={doc?.docType === 'MANUAL' ? '금지' : tx}
+          txLockedNote={mode === 'ver' && doc?.docType === 'MANUAL' ? '담당자용 매뉴얼은 외부 AI 전송이 금지로 고정돼요. 매뉴얼 내용은 항목별 허용 목록으로만 열려요.' : undefined}
           intro={mode === 'ver' && doc ? '올릴 버전의 열람 범위와 외부 AI 전송 정책을 확인해 주세요. 앞 버전의 값을 채워 두었어요.' : '올릴 가이드의 열람 범위와 외부 AI 전송 정책을 정해 주세요. 정하지 않으면 가장 제한적인 값(관리자만·금지)이에요.'}
           confirmLabel="올리기"
           busy={busy}

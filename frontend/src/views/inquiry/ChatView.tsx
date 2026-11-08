@@ -134,13 +134,13 @@ export function ChatView() {
     setErrFor({ ticketWork, ticketPending })
     setError('')
   }
-  // 서버 알림이 없는 AI 새 답변 표시용: 이 문의를 여기까지 봤다고 기록하고, 사이드바의 점을 다시 읽는다 (서버 모드)
-  const seenAt = inquiry?.updatedAt
+  // 서버 알림이 없는 AI 새 답변 표시용: 이 문의의 AI 답변을 여기까지 봤다고 기록하고, 사이드바의 점을 다시 읽는다 (서버 모드)
+  const seenAi = inquiry?.lastAiMessageId
   useEffect(() => {
-    if (USE_MOCK_INQUIRY || !employeeNo || !seenAt) return
-    markInquirySeen(employeeNo, id, seenAt)
+    if (USE_MOCK_INQUIRY || !employeeNo || seenAi == null) return
+    markInquirySeen(employeeNo, id, seenAi)
     refreshInquiryList()
-  }, [employeeNo, id, seenAt])
+  }, [employeeNo, id, seenAi])
   const openedTicket = useRef<number | null>(null)
   useEffect(() => {
     if (ticketId === undefined || openedTicket.current === ticketId || !user) return

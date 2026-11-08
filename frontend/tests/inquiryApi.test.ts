@@ -207,4 +207,21 @@ describe('서버 모드 문의 목록', () => {
     expect(sent()[1].url).toContain('displayStatus=received')
     expect(p.ok && p.data.items).toHaveLength(1)
   })
+
+  it('마지막 AI 답변 ID(lastAiMessageId)가 확인한 값과 다를 때만 새 답변 점(unread)을 켠다 (R-45)', async () => {
+    localStorage.clear()
+    const { list } = await load()
+    const mk = (id: number, last: number | null) => ({ id, user: { id: 1 }, title: '문의', status: 'IN_PROGRESS', displayStatus: 'in_progress', category: null, urgency: null, receiptNo: null, lastAiMessageId: last, createdAt: '2026-10-21T10:12:03+09:00', updatedAt: '2026-10-21T10:12:03+09:00' })
+    let items = [mk(1, 500), mk(2, null)]
+    route((u) => (u.includes('/inquiries?') ? json(200, { items, page: 1, size: 5, totalCount: 2, totalPages: 1 }) : undefined))
+    const first = await list.listMyInquiries('EMP-1300') // 이 브라우저에서 처음 보는 문의는 점 없이 기록만
+    expect(first.ok && first.data.map((x) => x.unread)).toEqual([0, 0])
+    expect(first.ok && first.data[0].lastAiMessageId).toBe(500)
+    items = [mk(1, 512), mk(2, null)] // 1번에 새 AI 답변이 저장됨
+    const next = await list.listMyInquiries('EMP-1300')
+    expect(next.ok && next.data.map((x) => x.unread)).toEqual([1, 0])
+    items = [mk(1, 512), mk(2, null)]
+    const same = await list.listMyInquiries('EMP-1300') // 확인하기 전에는 계속 켜져 있다
+    expect(same.ok && same.data[0].unread).toBe(1)
+  })
 })
