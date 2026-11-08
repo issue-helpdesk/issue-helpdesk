@@ -137,6 +137,8 @@ export interface InquirySummary {
   unread: number
   /** 최근 활동 시각 (ISO 8601). '어제' 같은 표시는 화면에서 계산한다. */
   updatedAt: string
+  /** 마지막 AI 답변의 메시지 ID (서버 IQ-02). AI 답변이 없으면 null. 새 답변 점 판단에만 쓰고 크기는 뜻이 없다 */
+  lastAiMessageId?: number | null
 }
 
 /** 성공 응답을 만드는 도우미 */

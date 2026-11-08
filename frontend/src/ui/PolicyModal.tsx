@@ -13,6 +13,7 @@ const TX_CLS: Record<GuideTx, string> = { 허용: 'ok', '마스킹 후 허용': 
 export function PolicyModal({
   initialScope,
   initialTx,
+  txLockedNote,
   intro,
   confirmLabel,
   busy = false,
@@ -21,6 +22,8 @@ export function PolicyModal({
 }: {
   initialScope: GuideScope
   initialTx: GuideTx
+  /** 외부 AI 전송을 고를 수 없게 막는 이유 (있으면 전송 칸이 초기값으로 고정된다. 담당자용 매뉴얼) */
+  txLockedNote?: string
   /** 창 맨 위 설명 */
   intro: string
   confirmLabel: string
@@ -54,11 +57,12 @@ export function PolicyModal({
             {GUIDE_TXS.slice()
               .reverse()
               .map((k) => (
-                <button key={k} type="button" className={tx === k ? `on ${TX_CLS[k]}` : ''} aria-pressed={tx === k} onClick={() => setTx(k)}>
+                <button key={k} type="button" className={tx === k ? `on ${TX_CLS[k]}` : ''} aria-pressed={tx === k} disabled={!!txLockedNote && k !== initialTx} onClick={() => setTx(k)}>
                   {k}
                 </button>
               ))}
           </div>
+          {txLockedNote && <div className="small muted" style={{ marginTop: 4 }}>{txLockedNote}</div>}
         </div>
       </div>
       <p className="small muted" style={{ margin: 0 }}>
