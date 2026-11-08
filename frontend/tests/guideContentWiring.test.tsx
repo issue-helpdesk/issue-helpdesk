@@ -29,8 +29,8 @@ afterEach(() => {
 
 describe('오류 문구', () => {
   it('현행 전환이 막히는 두 경우와 본문을 읽지 못한 경우의 문구가 사전에 있다 (해요체)', () => {
-    expect(displayMessage('DOCUMENT_VERSION_HAS_REJECTED_CLUSTER', '서버 문구')).toBe('거절한 제안이 포함된 버전은 현행으로 전환할 수 없어요. 거절한 항목을 뺀 새 버전을 올려 주세요.')
-    expect(displayMessage('DOCUMENT_VERSION_BASE_CHANGED', '서버 문구')).toBe('제안을 만든 뒤 기준 가이드가 바뀌어서 현행으로 전환할 수 없어요. 최신 내용과 비교한 뒤 다시 등록해 주세요.')
+    expect(displayMessage('DOCUMENT_VERSION_HAS_REJECTED_CLUSTER', '서버 문구')).toBe('거절한 제안이 포함된 버전은 현행으로 전환할 수 없어요.')
+    expect(displayMessage('DOCUMENT_VERSION_BASE_CHANGED', '서버 문구')).toBe('제안을 만든 뒤 기준 가이드가 바뀌어서 현행으로 전환할 수 없어요.')
     expect(displayMessage('DOCUMENT_CONTENT_UNAVAILABLE', '서버 문구')).toMatch(/^가이드 본문을 읽을 수 없어요\. 문제가 계속되면 IT 헬프데스크/)
   })
 })
