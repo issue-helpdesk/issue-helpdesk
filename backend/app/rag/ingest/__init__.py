@@ -27,7 +27,8 @@ ROOT = Path(__file__).resolve().parents[4]                 # 저장소 루트
 GUIDES = ROOT / 'dataset' / 'guides'
 BASELINE = Path(__file__).resolve().parents[1] / 'chunker' / 'baseline.json'
 VERSION_COLUMNS = ('version', 'file_path', 'file_format', 'view_scope', 'transfer_policy')   # version_row 중 표에 있는 칸
-CHUNK_COLUMNS = ('seq', 'unit_key', 'part', 'chunk_type', 'heading_path', 'location', 'content', 'meta')
+CHUNK_COLUMNS = ('seq', 'unit_key', 'part', 'chunk_type', 'heading_path', 'location', 'content', 'meta',
+                 'content_transfer_policy')
 ERROR_MAX = 1000                                           # ingest_error 에 남기는 글자 수
 NORM_TOLERANCE = 1e-3                                      # 임베딩은 길이 1 (두 모델 모두 정규화)
 LOCAL_HOSTS = ('', 'localhost', '127.0.0.1', '::1')       # 이 컴퓨터. 아니면 --allow-remote 가 있어야 쓴다
@@ -127,9 +128,20 @@ def prepare(entries: list[dict], guides: Path = GUIDES) -> list[Prepared]:
             shown = path.as_posix()
         v = version_row(doc, shown, e)
         out.append(Prepared(entry=e, chunks=chunks, document=document_row(doc),
-                            version={k: v[k] for k in VERSION_COLUMNS}, rows=[chunk_row(c) for c in chunks],
+                            version={k: v[k] for k in VERSION_COLUMNS}, rows=chunk_rows(chunks),
                             parse_warnings=list(doc.warnings)))
     return out
+
+
+def chunk_rows(chunks: list[Chunk], policies: dict[str, str] | None = None) -> list[dict]:
+    """document_chunks 행들: chunker.chunk_row + 적재가 정하는 content_transfer_policy (매뉴얼 3.x 항목별 내용 전송).
+
+    policies: unit_key → 'ALLOWED'·'BLOCKED'. 한 항목이 여러 조각으로 나뉘어도 unit_key 가 같아 모든 조각이 같은 값이다.
+    없는 청크는 빈칸 = 버전의 transfer_policy 를 따른다 (가이드 등 매뉴얼이 아닌 문서는 늘 빈칸, 지금 동작 그대로).
+    값을 정하는 규칙(허용 목록)은 아직 없다 — 지금은 모두 빈칸.
+    """
+    policies = policies or {}
+    return [{**chunk_row(c), 'content_transfer_policy': policies.get(c.unit_key)} for c in chunks]
 
 
 def load_baseline(path: Path = BASELINE) -> dict[str, dict]:
@@ -481,22 +493,26 @@ SHOW_CHANGED = 10                                         # 바뀐 칸 경고는
 
 
 def _relabel(conn, vid: int, p: Prepared, warnings: list[str]) -> list[int] | None:
-    """뼈대(seq·unit_key·part·chunk_type)와 본문이 DB 와 같으면 이름표(heading_path·location·meta)만 같은 id 에
-    고쳐 쓰고 청크 id 들을 돌려준다. 조각 식별·본문은 그대로라 겹친 검색이 섞이지 않는다 (순위·이름표는 이전 것을
-    볼 수 있다). 바뀐 칸은 경고 ('item:3.4: inquiry_type_codes [] → ["HW-10"]'). 다르면 아무것도 안 하고 None."""
-    old = conn.execute('select id, seq, unit_key, part, chunk_type, content, heading_path, location, meta '
-                       'from document_chunks where version_id = %s order by seq', (vid,)).fetchall()
+    """뼈대(seq·unit_key·part·chunk_type)와 본문이 DB 와 같으면 이름표(heading_path·location·meta)와 내용 전송
+    (content_transfer_policy)만 같은 id 에 고쳐 쓰고 청크 id 들을 돌려준다. 조각 식별·본문은 그대로라 겹친 검색이
+    섞이지 않는다 (순위·이름표는 이전 것을 볼 수 있다). 바뀐 칸은 경고 ('item:3.4: inquiry_type_codes [] → ["HW-10"]').
+    다르면 아무것도 안 하고 None."""
+    old = conn.execute('select id, seq, unit_key, part, chunk_type, content, heading_path, location, meta, '
+                       'content_transfer_policy from document_chunks where version_id = %s order by seq',
+                       (vid,)).fetchall()
     if [tuple(r[1:6]) for r in old] != [tuple(x[k] for k in ('seq', 'unit_key', 'part', 'chunk_type', 'content'))
                                          for x in p.rows]:
         return None
     from psycopg.types.json import Jsonb
     changed = []
-    for (cid, *_, heading, location, meta), x in zip(old, p.rows):
-        diff = _diff({'heading_path': heading, 'location': location, **(meta or {})},
-                     {'heading_path': x['heading_path'], 'location': x['location'], **x['meta']})
+    for (cid, *_, heading, location, meta, policy), x in zip(old, p.rows):
+        diff = _diff({'heading_path': heading, 'location': location, 'content_transfer_policy': policy, **(meta or {})},
+                     {'heading_path': x['heading_path'], 'location': x['location'],
+                      'content_transfer_policy': x['content_transfer_policy'], **x['meta']})
         if diff:
-            conn.execute('update document_chunks set heading_path = %s, location = %s, meta = %s where id = %s',
-                         (x['heading_path'], x['location'], Jsonb(x['meta']), cid))
+            conn.execute('update document_chunks set heading_path = %s, location = %s, meta = %s, '
+                         'content_transfer_policy = %s where id = %s',
+                         (x['heading_path'], x['location'], Jsonb(x['meta']), x['content_transfer_policy'], cid))
             changed.append(f"{x['unit_key'].split('/', 1)[-1]}: {', '.join(diff)}")
     warnings += [f'이름표 바뀜 {c}' for c in changed[:SHOW_CHANGED]]
     if len(changed) > SHOW_CHANGED:

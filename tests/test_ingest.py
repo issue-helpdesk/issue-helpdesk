@@ -3,8 +3,8 @@ import math
 
 import pytest
 
-from app.rag.ingest import (FakeEmbedder, IngestError, Report, check_files, check_reference, check_vectors, connect,
-                            embed, is_local, load_baseline, load_manifest, prepare, run)
+from app.rag.ingest import (FakeEmbedder, IngestError, Report, check_files, check_reference, check_vectors, chunk_rows,
+                            connect, embed, is_local, load_baseline, load_manifest, prepare, run)
 
 
 @pytest.fixture(scope='module')
@@ -26,6 +26,25 @@ def test_transfer_policy_from_manifest(prepared):
     for p in prepared:
         assert p.version['transfer_policy'] == p.entry['transfer_policy']
         assert p.version['transfer_policy'] == ('BLOCKED' if p.entry['doc_type'] == 'manual' else 'ALLOWED')
+
+
+def test_content_transfer_policy_empty_without_rule(prepared):
+    """매뉴얼 항목별 내용 전송 칸: 규칙(허용 목록)이 아직 없어 모든 청크가 빈칸 = 버전 정책을 따른다 (지금 동작 그대로)."""
+    assert all('content_transfer_policy' in r and r['content_transfer_policy'] is None for p in prepared for r in p.rows)
+
+
+def test_chunk_rows_policy_same_for_all_pieces(prepared):
+    """항목 하나가 여러 조각으로 나뉘어도 unit_key 가 같아 모든 조각이 같은 값. 주지 않은 청크는 빈칸."""
+    p = next(p for p in prepared if p.doc_code == 'IT-SEC-003-M')
+    key = next(c.unit_key for c in p.chunks if c.parts > 1)
+    rows = chunk_rows(p.chunks, {key: 'ALLOWED'})
+    got = {r['unit_key']: set() for r in rows}
+    for r in rows:
+        got[r['unit_key']].add(r['content_transfer_policy'])
+    assert sum(r['unit_key'] == key for r in rows) > 1 and got[key] == {'ALLOWED'}
+    assert all(v == {None} for k, v in got.items() if k != key)
+    assert [{k: v for k, v in r.items() if k != 'content_transfer_policy'} for r in rows] == \
+        [{k: v for k, v in r.items() if k != 'content_transfer_policy'} for r in p.rows]   # 나머지 칸은 그대로
 
 
 def test_missing_transfer_policy_warns_and_blocks():
