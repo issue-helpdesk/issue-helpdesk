@@ -224,7 +224,8 @@ def read_reference(database_url: str) -> Reference:
                    "where d.is_active and v.is_current and v.ingest_status = 'DONE'")
         data = conn.execute(
             "select md5(string_agg(concat_ws('|', c.unit_key, d.title, c.heading_path, c.location, md5(c.content), "
-            "c.meta::text, v.view_scope, v.transfer_policy), '#' order by c.unit_key, c.part)) from document_chunks c "
+            "c.meta::text, v.view_scope, coalesce(c.content_transfer_policy, v.transfer_policy)), '#' "
+            "order by c.unit_key, c.part)) from document_chunks c "
             + current).fetchone()[0] or ''
         vectors = conn.execute(
             "select e.model, count(*), md5(string_agg(c.unit_key || md5(coalesce(e.source_text, '')), '#' "

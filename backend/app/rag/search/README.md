@@ -114,6 +114,14 @@ resp = search(session, SearchRequest(query=build_query(사용자_글_목록),
 
 문서 예시는 8장의 예, 과거 사례 예시는 `history.csv`의 실제 행입니다. 점수·시간은 예시 값입니다.
 
+### 전송 정책 `transfer_policy`
+
+- 문서 결과는 매뉴얼 3.x 항목 값(`document_chunks.content_transfer_policy`)이 있으면 그 값, 비어 있으면 버전 값(`document_versions.transfer_policy`)입니다. 가이드·공통 기준처럼 항목 값이 없는 문서는 지금처럼 버전 값입니다.
+- 매뉴얼 버전은 `BLOCKED`이므로 허용 목록에 있는 항목만 `ALLOWED`로 나옵니다. 차단 항목의 제목만 보내는 처리는 D(`agent/sensitive/evidence.py`)가 합니다.
+- 관리자가 버전 정책을 바꿔도 항목 값이 있는 조각의 전송은 바뀌지 않습니다. 급히 막아야 하면 허용 목록에서 빼고 다시 적재합니다.
+- 같은 본문 묶기(`also_in`)도 이 값을 씁니다. 본문이 같아도 허용 항목과 차단 항목은 따로 나옵니다.
+- 과거 사례는 `legacy_inquiries.transfer_policy` 그대로입니다.
+
 ### 근거 문장 `evidence`
 
 - 단위 본문(`text`)에서 질문과 맞는 문장을 **최대 3개** 고릅니다. 맞는 문장이 없으면 빈 목록입니다.
