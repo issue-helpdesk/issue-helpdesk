@@ -83,7 +83,11 @@ def ticket_fragment(conn, ticket_id: int) -> tuple[str, list[str]]:
     if reopened := _reopened(conn, ticket_id):
         warnings.append(f"{t['receipt_no']}: 다시 처리된 접수입니다 (재처리 {reopened}회). 앞선 처리는 TK-08 이력에서 확인하세요")
     title = _one_line(t['summary']) or _one_line(t['symptom']) or '해결 사례'
-    return _item('3.N', title, t), warnings
+    fragment = _item('3.N', title, t)
+    # 티켓 글을 그대로 옮기므로 등록 때의 조각 약속에 걸릴 수 있다 (예: 처리 글에 '해결 사례 반영 (' 문구). 내용을 조용히
+    # 지우지 않고, 등록 전에 관리자가 고칠 것으로 경고한다 — 고치지 않으면 assemble 이 거부한다 (#363 재검수 3)
+    warnings += [f"{t['receipt_no']}: 등록 전에 고쳐 주세요 — {p}" for p in _fragment_problems(fragment)]
+    return fragment, warnings
 
 
 # ── 새 가이드 뼈대 ─────────────────────────────────────────────
@@ -98,6 +102,8 @@ def new_guide(conn, category_code: str | None, title: str | None, fragments: lis
     if name is None:
         problems.append(f'없는 분류 {category_code}')
     problems += title_problems(title)
+    if name is not None:
+        problems += title_problems(name[0], '분류 이름')                  # DB 값도 머리말·본문 한 줄 (#363 재검수)
     if not fragments:
         problems.append('3장 항목 조각이 없습니다')
     problems += [f'조각 {i}: {p}' for i, f in enumerate(fragments, 1) for p in _fragment_problems(f)]
@@ -106,13 +112,14 @@ def new_guide(conn, category_code: str | None, title: str | None, fragments: lis
     return skeleton(title.strip(), category_code, name[0], fragments, _contact(conn, category_code, files_root, warnings))
 
 
-def title_problems(title: str | None) -> list[str]:
-    """새 가이드 제목: 한 줄, 줄바꿈·제어 문자 없음 (본문 '# 제목' 아래로 장이 끼어들지 않게, PR #361 검수 2).
-    머리말에는 바깥 따옴표만 붙여 그대로 쓴다 (md 파서가 바깥 따옴표만 벗기므로 다시 읽으면 같은 제목, 검수 1)."""
+def title_problems(title: str | None, what: str = '새 가이드 제목') -> list[str]:
+    """머리말·본문에 넣을 한 줄 값: 줄바꿈·제어 문자 없음 (본문 '# 제목' 아래로 장이 끼어들지 않게, PR #361 검수 2).
+    줄 나눔은 md 파서와 같은 str.splitlines 기준 (U+0085·U+2028·U+2029 포함, #363 재검수 1), 제어 문자는 C0·DEL·C1.
+    머리말에는 바깥 따옴표만 붙여 그대로 쓴다 (md 파서가 바깥 따옴표만 벗기므로 다시 읽으면 같은 값, 검수 1)."""
     if not (title or '').strip():
-        return ['새 가이드 제목이 없습니다']
-    if re.search(r'[\x00-\x1f\x7f]', title):
-        return ['새 가이드 제목은 한 줄이어야 합니다 (줄바꿈·제어 문자 없이)']
+        return [f'{what}이 없습니다']
+    if len(title.splitlines()) != 1 or re.search(r'[\x00-\x1f\x7f-\x9f  ]', title):
+        return [f'{what}은 한 줄이어야 합니다 (줄바꿈·제어 문자 없이)']
     return []
 
 
@@ -160,7 +167,7 @@ def _contact(conn, category_code: str, files_root: Path, warnings: list[str]) ->
         except (CaseGuideError, OSError):
             continue
         body = contact_body(md)
-        if body and body != TODO:                          # 빈 장·자리 표시뿐이면 다음 후보 (PR #361 검수 3)
+        if body.strip() and body.strip() != TODO:          # 빈 장·공백·자리 표시뿐이면 다음 후보 (#361 검수 3, #363 재검수 2)
             return body
     warnings.append('6장 문의처를 복사할 현행 가이드를 찾지 못했습니다. 관리자가 채워 주세요')
     return ''

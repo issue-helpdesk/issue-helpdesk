@@ -48,7 +48,9 @@ def test_skeleton_title_round_trips(title):
     assert meta.get('title') == title
 
 
-@pytest.mark.parametrize('title', ['첫 줄\n## 9. 추가 장\n주입 본문', '줄\r바꿈', '탭\t문자'])
+@pytest.mark.parametrize('title', ['첫 줄\n## 9. 추가 장\n주입 본문', '줄\r바꿈', '탭\t문자',
+                                   '제목\u0085## 9. 추가 장', '제목 ## 9. 추가 장', '제목 ## 9. 추가 장',
+                                   '제목\x1c구분', '제목\x85C1'])
 def test_multiline_title_refused(title):
     """PR #361 검수 2: 제목은 한 줄 — 줄바꿈 뒤에 장이 끼어들지 않게 거부."""
     assert ob.title_problems(title) == ['새 가이드 제목은 한 줄이어야 합니다 (줄바꿈·제어 문자 없이)']
@@ -65,7 +67,7 @@ def test_contact_body_ignores_code_block_heading():
 
 def test_contact_skips_empty_chapter(monkeypatch):
     """PR #361 검수 3: 첫 후보의 6장이 비었거나 자리 표시뿐이면 다음 후보에서 복사한다. 모두 없으면 경고."""
-    texts = {'A': '## 6. 문의처\n\n## 부록\n', 'B': f'## 6. 문의처\n\n{TODO}\n', 'C': f'## 6. 문의처\n\n{CONTACT}\n'}
+    texts = {'A': '## 6. 문의처\n\n   \n\t\n## 부록\n', 'B': f'## 6. 문의처\n\n  {TODO}  \n', 'C': f'## 6. 문의처\n\n{CONTACT}\n'}
 
     class Conn:
         def __init__(self, docs):
@@ -206,3 +208,18 @@ def test_ticket_fragment_for_sec(url):
     fin = _ticket(url, 'OB-SEC-2', code='SW-01', status='FIN')
     with _conn(url) as conn, pytest.raises(CaseGuideError, match='CLS'):
         ticket_fragment(conn, fin)
+
+
+@needs_db
+def test_ticket_fragment_warns_when_it_breaks_fragment_rules(url):
+    """#363 재검수 3: 티켓 글이 조각 약속에 걸리면 (처리 글에 반영 표식 문구) 내용은 그대로 두고 '등록 전에 고쳐' 경고."""
+    tid = _ticket(url, 'OB-SEC-3', code='SW-01', note='기존 문서의 해결 사례 반영 (ABC-1) 표식을 확인했습니다')
+    with _conn(url) as conn:
+        fragment, warnings = ticket_fragment(conn, tid)
+        conn.rollback()
+    assert '해결 사례 반영 (ABC-1)' in fragment
+    assert any(w.startswith('OB-SEC-3: 등록 전에 고쳐 주세요') and '반영 표식' in w for w in warnings)
+
+
+def test_category_name_must_be_one_line():
+    assert ob.title_problems('분류\n이름', '분류 이름') == ['분류 이름은 한 줄이어야 합니다 (줄바꿈·제어 문자 없이)']
