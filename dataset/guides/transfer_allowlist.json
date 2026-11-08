@@ -1,0 +1,1007 @@
+{
+  "fingerprint_version": 1,
+  "note": "content: ALLOWED(내용 전송) · BLOCKED(제목만). 비어 있으면 BLOCKED. 지문은 B 가 만든다 (allowlist.py)",
+  "items": [
+    {
+      "doc_no": "IT-ACC-001-M",
+      "section": "3.1",
+      "title": "'아이디 또는 비밀번호가 일치하지 않습니다' (AUTH-101)",
+      "content": null,
+      "fingerprint": "sha256:601f534c8b3912288a75f30305afac5b229a82c03928cf74f5d2802c6cd5f4b6"
+    },
+    {
+      "doc_no": "IT-ACC-001-M",
+      "section": "3.2",
+      "title": "계정이 잠겼을 때 (AUTH-102) · 반복해서 잠길 때",
+      "content": null,
+      "fingerprint": "sha256:a9860148be5f731cfa54435c49ea5ba4d665db9a21b3c2f0e806151ff58e30bc"
+    },
+    {
+      "doc_no": "IT-ACC-001-M",
+      "section": "3.3",
+      "title": "통합 로그인 자체가 안 될 때 (로딩·화면 반복·여러 명 동시)",
+      "content": null,
+      "fingerprint": "sha256:59dd793370d51b69a6fbaed9a66ca43a45be7730a24f88fd3da084ae97b4099e"
+    },
+    {
+      "doc_no": "IT-ACC-001-M",
+      "section": "3.4",
+      "title": "휴면 계정일 때 (AUTH-103)",
+      "content": null,
+      "fingerprint": "sha256:6fdf2b094e33b321b536f3cf2d4f0ff4f709943a2831d83002a0d7aca7adac39"
+    },
+    {
+      "doc_no": "IT-ACC-001-M",
+      "section": "3.5",
+      "title": "사용이 중지된 계정일 때 (AUTH-105)",
+      "content": null,
+      "fingerprint": "sha256:abb70de122af26d2d56b5b7486f67f9d8f4794f5268e1fc4db1de69ffa68f4d7"
+    },
+    {
+      "doc_no": "IT-ACC-001-M",
+      "section": "3.6",
+      "title": "자꾸 로그아웃될 때 · 안전한 로그아웃",
+      "content": null,
+      "fingerprint": "sha256:fbb0f1954d53a27585a901a6846d542e2c9739a70608a65359609b697eadda52"
+    },
+    {
+      "doc_no": "IT-ACC-002-M",
+      "section": "3.1",
+      "title": "비밀번호 규칙 때문에 변경이 안 될 때",
+      "content": null,
+      "fingerprint": "sha256:a5c0f1b1f24676a73d01d1416b8167e36378773974908e7b663337b9982b10f3"
+    },
+    {
+      "doc_no": "IT-ACC-002-M",
+      "section": "3.2",
+      "title": "비밀번호 바꾸기 · 기기 갱신",
+      "content": null,
+      "fingerprint": "sha256:0e84b3edda97d8dff3bc2102a210d7b1609961e34bad559176499a8024b9cdcb"
+    },
+    {
+      "doc_no": "IT-ACC-002-M",
+      "section": "3.3",
+      "title": "'비밀번호가 만료되었습니다' (AUTH-104)",
+      "content": null,
+      "fingerprint": "sha256:567097bb99856ba68fb29a6c4578fdaa83d588a6a2b5b2844ad9fc284e91fd7a"
+    },
+    {
+      "doc_no": "IT-ACC-002-M",
+      "section": "3.4",
+      "title": "비밀번호를 잊었을 때 (셀프 초기화)",
+      "content": null,
+      "fingerprint": "sha256:fa38116070bc206271ec37ac751c77a259230e366c13ba1def3228b8ed6b76e1"
+    },
+    {
+      "doc_no": "IT-ACC-002-M",
+      "section": "3.5",
+      "title": "셀프 초기화를 할 수 없을 때 (본인 인증 불가)",
+      "content": null,
+      "fingerprint": "sha256:e5eb9ee0c43578f9964efae16dbf37b74fa0c86c42dbf89aa8aed3d29d338a3f"
+    },
+    {
+      "doc_no": "IT-ACC-003-M",
+      "section": "3.1",
+      "title": "인증 앱 처음 등록하기",
+      "content": null,
+      "fingerprint": "sha256:c02cdba7647db64a1cea5575d69a9b4b4a7528ae6028c39ff3d38f68bead029a"
+    },
+    {
+      "doc_no": "IT-ACC-003-M",
+      "section": "3.2",
+      "title": "승인 알림이 오지 않을 때",
+      "content": null,
+      "fingerprint": "sha256:98bdb1c0457ab968659d8b7999a0f811d1ebe6e35f25f8fc4e32df9a64f4480f"
+    },
+    {
+      "doc_no": "IT-ACC-003-M",
+      "section": "3.3",
+      "title": "OTP 번호가 맞지 않을 때 ('인증 실패' · 10분 제한)",
+      "content": null,
+      "fingerprint": "sha256:c78c21826f2ecbfe979cf7af3749137b1551945dd72fb31910ae0ad41a2feecd"
+    },
+    {
+      "doc_no": "IT-ACC-003-M",
+      "section": "3.4",
+      "title": "인증 앱 로그인이 계속 반복될 때",
+      "content": null,
+      "fingerprint": "sha256:310cf20e1d21347fd738e29f4c27daa5d435000b6422546d6a8dc1ade876c8d2"
+    },
+    {
+      "doc_no": "IT-ACC-003-M",
+      "section": "3.5",
+      "title": "휴대폰을 바꿀 때 (인증 기기 변경)",
+      "content": null,
+      "fingerprint": "sha256:c6ebdeb06a34030250389b023bfd36e5c1ff71abdcc88b6ba1553d0698344ef6"
+    },
+    {
+      "doc_no": "IT-ACS-001-M",
+      "section": "3.1",
+      "title": "신규·추가 권한 반영",
+      "content": null,
+      "fingerprint": "sha256:c836888ab593fe4d0fc158b476ccb0ca884644567dd261168bb808088d42969a"
+    },
+    {
+      "doc_no": "IT-ACS-001-M",
+      "section": "3.2",
+      "title": "신규 입사자 일괄 신청",
+      "content": null,
+      "fingerprint": "sha256:f9ae1beed153e838e38ca759ac36214680738ed8ad599750f0f052b56ac5bba1"
+    },
+    {
+      "doc_no": "IT-ACS-001-M",
+      "section": "3.3",
+      "title": "승인 후 접근 불가·기존 기능 막힘",
+      "content": null,
+      "fingerprint": "sha256:cc8d2e4d1dc8c06cbfbdc24f4e171bba9d74d5c2e1b6ea59595a866d17cb782e"
+    },
+    {
+      "doc_no": "IT-ACS-001-M",
+      "section": "3.4",
+      "title": "정책에 따른 축소·회수, 임시·고권한 요청",
+      "content": null,
+      "fingerprint": "sha256:e7f778043996747290797853a911fbdbe8c0658b7f15f1245d8dbf59e8f6ea9b"
+    },
+    {
+      "doc_no": "IT-ACS-002-M",
+      "section": "3.1",
+      "title": "서버·DB 권한 신규 반영",
+      "content": null,
+      "fingerprint": "sha256:5bbaff25f076193900c764254e70782859011d7a9e1d59d59f278b407a8b52c6"
+    },
+    {
+      "doc_no": "IT-ACS-002-M",
+      "section": "3.2",
+      "title": "변경·연장·종료",
+      "content": null,
+      "fingerprint": "sha256:8fbc3e683b50b5c8c8c2ce483d6fd7f3f7d3ec189500639a2cdb3d06333173d2"
+    },
+    {
+      "doc_no": "IT-ACS-002-M",
+      "section": "3.3",
+      "title": "승인 후 접속 실패 진단",
+      "content": null,
+      "fingerprint": "sha256:d012906443fd65c6c6965e98e556156923c87210e4cd3a3a32e430cc25ad1418"
+    },
+    {
+      "doc_no": "IT-ACS-003-M",
+      "section": "3.1",
+      "title": "부서이동 자동 반영 누락",
+      "content": null,
+      "fingerprint": "sha256:c635a3f376ffb9f9a6a72eff8942e5ffd5a2d2e0d640e34158ace5e8816944f4"
+    },
+    {
+      "doc_no": "IT-ACS-003-M",
+      "section": "3.2",
+      "title": "부서이동 유지·추가 권한",
+      "content": null,
+      "fingerprint": "sha256:2789119cc43ba67df0c30c80257ca1cc8ccd137b88b930dcfea8bd46c0830758"
+    },
+    {
+      "doc_no": "IT-ACS-003-M",
+      "section": "3.3",
+      "title": "퇴사 계정·권한 회수와 자료 인계",
+      "content": null,
+      "fingerprint": "sha256:3dffab55a342d37b96b45ab79eb74bcaf309a69794a263ca94d62f08bfb393c3"
+    },
+    {
+      "doc_no": "IT-ACS-003-M",
+      "section": "3.4",
+      "title": "일정 변경·휴직·복직·회수 실패",
+      "content": null,
+      "fingerprint": "sha256:ec398780d37c5b3617b1dfeb80bd55682dfad7e128b9c2ec3ddf46396c740144"
+    },
+    {
+      "doc_no": "IT-NET-001-M",
+      "section": "3.1",
+      "title": "VPN 연결 시 '서버에 연결할 수 없습니다' 오류",
+      "content": null,
+      "fingerprint": "sha256:71a8f717724218d175ec8ab6afd547dc1adf2cf55902ea45a120c46f0f90cf64"
+    },
+    {
+      "doc_no": "IT-NET-001-M",
+      "section": "3.2",
+      "title": "VPN 연결 후 사내 시스템 접속 불가·화상회의 느림",
+      "content": null,
+      "fingerprint": "sha256:ebc314cb8105d872ea3710b134faf40ba63bf4e3b115e204ad891c80d5e31966"
+    },
+    {
+      "doc_no": "IT-NET-001-M",
+      "section": "3.3",
+      "title": "집에서 VPN이 자주 끊김",
+      "content": null,
+      "fingerprint": "sha256:9cdc70a75cece243930dfd69fae8a2411f0161347ce4f42ef9fa5b8ebd5847c4"
+    },
+    {
+      "doc_no": "IT-NET-002-M",
+      "section": "3.1",
+      "title": "사내 Wi-Fi가 연결됐다 끊겼다 함",
+      "content": null,
+      "fingerprint": "sha256:e4aba1dfc353359c9f3014d1f08a523ac0534cc459452add06bbba63d098178d"
+    },
+    {
+      "doc_no": "IT-NET-002-M",
+      "section": "3.2",
+      "title": "Wi-Fi 연결 시 '인증서를 확인할 수 없습니다' 오류",
+      "content": null,
+      "fingerprint": "sha256:c76ba60d2a2950c8d844178448e00801f56cc7499d591261c0638fd04e05b890"
+    },
+    {
+      "doc_no": "IT-NET-002-M",
+      "section": "3.3",
+      "title": "사내 Wi-Fi 연결은 되는데 인터넷이 안 됨",
+      "content": null,
+      "fingerprint": "sha256:0dbf2ba79f3d162ea6ebba7773b37b6b4559b9fe242f3f26debfd904f0e1f8b3"
+    },
+    {
+      "doc_no": "IT-NET-002-M",
+      "section": "3.4",
+      "title": "Wi-Fi 목록에 사내 무선망이 보이지 않음",
+      "content": null,
+      "fingerprint": "sha256:3293bbfc3417786915e20e93dcfcdbc8845ef5cbdf982132dc17496ffab9f079"
+    },
+    {
+      "doc_no": "IT-NET-002-M",
+      "section": "3.5",
+      "title": "자리 이동 후 랜선 연결 시 '네트워크 연결 없음'",
+      "content": null,
+      "fingerprint": "sha256:83381df0637959cf05904e1fb769bc924e32922d4a1db8bd75abd9bd14b9ebec"
+    },
+    {
+      "doc_no": "IT-NET-002-M",
+      "section": "3.6",
+      "title": "랜선 연결 시 '식별되지 않은 네트워크' 표시",
+      "content": null,
+      "fingerprint": "sha256:0daa954abeedd7233315c0ea1f5aac38450f0dd8f28f83dda981f6df51a8fc32"
+    },
+    {
+      "doc_no": "IT-NET-002-M",
+      "section": "3.7",
+      "title": "인터넷이 너무 느리거나 화상회의가 계속 끊김",
+      "content": null,
+      "fingerprint": "sha256:1aaecf3c95863850aa21f911d6cdb4e6e2078570540b18e2faae2d5f29c8b4c0"
+    },
+    {
+      "doc_no": "IT-NET-003-M",
+      "section": "3.1",
+      "title": "여러 명이 동시에 VPN에 연결되지 않음",
+      "content": null,
+      "fingerprint": "sha256:545b5658ee938b4ac2ecd64a00c0426fb8f00fcc526d444145ce120398f1fdf5"
+    },
+    {
+      "doc_no": "IT-NET-003-M",
+      "section": "3.2",
+      "title": "여러 부서·층에서 동시에 사내망·인터넷 불가",
+      "content": null,
+      "fingerprint": "sha256:82750ab3b50a9052c13d97cd3e3531614df3be89fc30e076d3c00b844ed61527"
+    },
+    {
+      "doc_no": "IT-SW-001-M",
+      "section": "3.1",
+      "title": "승인 프로그램 설치 문의 (관리자 권한 없음)",
+      "content": null,
+      "fingerprint": "sha256:07e9a9682ab6ed23f56ef8a35268dbf3407630d54a5558f4aa2b80b9d0042d81"
+    },
+    {
+      "doc_no": "IT-SW-001-M",
+      "section": "3.2",
+      "title": "미승인 프로그램 설치 요청 (보안 검토)",
+      "content": null,
+      "fingerprint": "sha256:b13820d84d49939debda70b54021afa3bd236f16b7e2e738b6d26f8156a45ec9"
+    },
+    {
+      "doc_no": "IT-SW-001-M",
+      "section": "3.3",
+      "title": "소프트웨어 센터 설치 실패·대기",
+      "content": null,
+      "fingerprint": "sha256:c0fd34b04bc67bf1170b9f401acb2053b4ad57686e5c221c241eb025452c6841"
+    },
+    {
+      "doc_no": "IT-SW-002-M",
+      "section": "3.1",
+      "title": "라이선스 신청 승인·할당",
+      "content": null,
+      "fingerprint": "sha256:2b6384c303a4b903810abb9c03f925ce1169be8f53cdd82985fcf9530004cc86"
+    },
+    {
+      "doc_no": "IT-SW-002-M",
+      "section": "3.2",
+      "title": "'라이선스가 만료되었습니다' 재할당",
+      "content": null,
+      "fingerprint": "sha256:8f996bcdd99d6e2e5836b4745181c7e4d7640ff2c49aefcb0c3886d2bca0fe17"
+    },
+    {
+      "doc_no": "IT-SW-002-M",
+      "section": "3.3",
+      "title": "잔여 라이선스 부족",
+      "content": null,
+      "fingerprint": "sha256:c3e936d09016d139f3a248348edabeb3d2275df89774e3e3cc83b2fb237ea379"
+    },
+    {
+      "doc_no": "IT-SW-002-M",
+      "section": "3.4",
+      "title": "기기 수 초과·이전 PC 정리, 반납·회수",
+      "content": null,
+      "fingerprint": "sha256:145b0a7bdb92400d9ba8545cba12ebb7ee9d8643cff5b75c8825fd059f0ae471"
+    },
+    {
+      "doc_no": "IT-SW-003-M",
+      "section": "3.1",
+      "title": "Office '응답 없음'·추가 기능 충돌",
+      "content": null,
+      "fingerprint": "sha256:e6bebf8568e75fa2b9056f5f265c20cb4c9176c73e99d9e59d8e671df0d776b4"
+    },
+    {
+      "doc_no": "IT-SW-003-M",
+      "section": "3.2",
+      "title": "보호된 보기·앱 로그인 창 멈춤",
+      "content": null,
+      "fingerprint": "sha256:2c59bf382e26e06ac76a768538bc17a355a87f9a9fd93c96d07b02918de9b905"
+    },
+    {
+      "doc_no": "IT-SW-003-M",
+      "section": "3.3",
+      "title": "비밀번호 관리자",
+      "content": null,
+      "fingerprint": "sha256:6814c638e22e5ba1eff5443b74d90c0c743da54ed8545139894748bec42748ff"
+    },
+    {
+      "doc_no": "IT-SW-003-M",
+      "section": "3.4",
+      "title": "개발도구 SSL 인증서 오류",
+      "content": null,
+      "fingerprint": "sha256:8c7cdd0a4daadf105726d2aabc2ddfdb4f0d42958a0b30ea665dee124204c296"
+    },
+    {
+      "doc_no": "IT-SW-003-M",
+      "section": "3.5",
+      "title": "메일 프로그램 느림·'프로필을 로드하는 중' 멈춤",
+      "content": null,
+      "fingerprint": "sha256:11b1e34102c5395d5623c8f3b475d92d0ff89dbaac2a3556bc87c732804ed13b"
+    },
+    {
+      "doc_no": "IT-HW-001-M",
+      "section": "3.1",
+      "title": "C드라이브가 꽉 찼다는 경고가 뜨고 PC가 느림",
+      "content": null,
+      "fingerprint": "sha256:22918f291d0d632f29341b2d4b9b7b62a21a3a565aa16d2f6e9b373297fe0254"
+    },
+    {
+      "doc_no": "IT-HW-001-M",
+      "section": "3.2",
+      "title": "PC를 켜고 프로그램을 여는 데 몇 분씩 걸림",
+      "content": null,
+      "fingerprint": "sha256:37206c2dbdd47dd6cceb5412c0e42ed464ec237f73246ae9576eb12740c6998d"
+    },
+    {
+      "doc_no": "IT-HW-001-M",
+      "section": "3.3",
+      "title": "기본 조치 후에도 엑셀 여러 개나 분석 프로그램을 켜면 노트북이 멈출 듯 느림",
+      "content": null,
+      "fingerprint": "sha256:5a026639f7f6691a41f210f797a6ee3eff27464b748df60e2d8f4789e59428e6"
+    },
+    {
+      "doc_no": "IT-HW-001-M",
+      "section": "3.4",
+      "title": "전원 버튼을 눌러도 노트북이 켜지지 않음",
+      "content": null,
+      "fingerprint": "sha256:2dce36163bcfd6a7cb59566ade43c3526f1b5ab58ae627a6f4f0bb623739b6e7"
+    },
+    {
+      "doc_no": "IT-HW-001-M",
+      "section": "3.5",
+      "title": "켜면 파란 화면(블루스크린)이 뜨고 재부팅만 반복됨",
+      "content": null,
+      "fingerprint": "sha256:98edaabe839875521944a141d2f200ff573e71488f495eb42143e762297cf144"
+    },
+    {
+      "doc_no": "IT-HW-001-M",
+      "section": "3.6",
+      "title": "로그인 전에 '복구 키를 입력하세요' 화면이 뜸",
+      "content": null,
+      "fingerprint": "sha256:b09e6335eb2e1ca5cd3755266a2adda35cbcc0b5a0cd4ef507ab21b8cf725d88"
+    },
+    {
+      "doc_no": "IT-HW-001-M",
+      "section": "3.7",
+      "title": "로그인하면 화면이 멈추거나 오류가 나서 들어가지지 않음",
+      "content": null,
+      "fingerprint": "sha256:06830327bd3ab61180ab6077c6aeebc5464fae3b991f313fe33e823a668a8bd9"
+    },
+    {
+      "doc_no": "IT-HW-001-M",
+      "section": "3.8",
+      "title": "도킹스테이션에 연결해도 외부 모니터에 화면이 안 나옴",
+      "content": null,
+      "fingerprint": "sha256:9c2471a890435ab941e1ad592b8ad783d6144dbe2f33d1eba156ae289d245545"
+    },
+    {
+      "doc_no": "IT-HW-001-M",
+      "section": "3.9",
+      "title": "듀얼 모니터 중 한 대만 인식됨",
+      "content": null,
+      "fingerprint": "sha256:be537043ffc92d1f8fb80f400bbdd0b27aea536e3575de93c98a2e55a25dec8c"
+    },
+    {
+      "doc_no": "IT-HW-001-M",
+      "section": "3.10",
+      "title": "모니터가 깜빡이다 꺼지거나 화면이 일그러짐",
+      "content": null,
+      "fingerprint": "sha256:b4c620e9e441282a9cfb1ea79384ffc539387c3f94e7e96dc357d1d12b197c43"
+    },
+    {
+      "doc_no": "IT-HW-001-M",
+      "section": "3.11",
+      "title": "무선 마우스가 자꾸 끊김",
+      "content": null,
+      "fingerprint": "sha256:7fec0107092d4606222775100f79899c11a93f720c4ae37ce97216e9b8c4387c"
+    },
+    {
+      "doc_no": "IT-HW-001-M",
+      "section": "3.12",
+      "title": "OS 업데이트가 '재시작 중'에서 오래 멈춰 있음",
+      "content": null,
+      "fingerprint": "sha256:ea5d271bddea7c3a6f42c502f7185c3021bb32774703a5b0bc3061ad37da41f1"
+    },
+    {
+      "doc_no": "IT-HW-001-M",
+      "section": "3.13",
+      "title": "OS 업데이트 후 소리가 나지 않음",
+      "content": null,
+      "fingerprint": "sha256:90116e641f051447f3ed5bbaacacc0f2bba567544a2bde2fecfc8f2302622363"
+    },
+    {
+      "doc_no": "IT-HW-002-M",
+      "section": "3.1",
+      "title": "노트북 침수·파손 수리 신청",
+      "content": null,
+      "fingerprint": "sha256:9ab2ee05c594054d43463678c0c592c3cbdd27caeedbe20e3fb696fab09b2474"
+    },
+    {
+      "doc_no": "IT-HW-002-M",
+      "section": "3.2",
+      "title": "키보드·포트 등 부품 고장 수리 신청",
+      "content": null,
+      "fingerprint": "sha256:5ef9fda06ea7a31e710c7fc502d184ce9cd42a61b5a8458573423b44528beb1f"
+    },
+    {
+      "doc_no": "IT-HW-002-M",
+      "section": "3.3",
+      "title": "교체 주기(3년)가 지난 노트북 교체 신청",
+      "content": null,
+      "fingerprint": "sha256:5190347d67d44c3e8eac858ad94ac9a9c93a2893d36d74ef167ef266d270aeed"
+    },
+    {
+      "doc_no": "IT-HW-002-M",
+      "section": "3.4",
+      "title": "교체 주기 전 고사양 노트북 신청",
+      "content": null,
+      "fingerprint": "sha256:6788a0f1bcb9100e009dba76741ca5d90340282f66654f810646ef245b2b2344"
+    },
+    {
+      "doc_no": "IT-HW-002-M",
+      "section": "3.5",
+      "title": "신규 입사자 PC 준비 요청",
+      "content": null,
+      "fingerprint": "sha256:73cfcecdba6ec296f6987b2caa5a085fdcb4fbaa2000c1bb4fa32ebc4bf20a1a"
+    },
+    {
+      "doc_no": "IT-HW-002-M",
+      "section": "3.6",
+      "title": "마우스·키보드 등 주변기기 교체 신청",
+      "content": null,
+      "fingerprint": "sha256:23b3bf36f40120438636587aca354e1fa79dc039cd26e2d9c41a0a6df493bbba"
+    },
+    {
+      "doc_no": "IT-HW-002-M",
+      "section": "3.7",
+      "title": "퇴사·교체 시 장비 반납",
+      "content": null,
+      "fingerprint": "sha256:5cd6dc01ef7b2c377dbece6f4ee0b2a85fd6bb2784487c9cf0da25f553788fcf"
+    },
+    {
+      "doc_no": "IT-HW-003-M",
+      "section": "3.1",
+      "title": "인쇄를 보냈는데 대기열에만 있고 출력되지 않음",
+      "content": null,
+      "fingerprint": "sha256:15f50a99af02470230cae87d576802ca47db20074faa66aaf3c1a3c14a961e23"
+    },
+    {
+      "doc_no": "IT-HW-003-M",
+      "section": "3.2",
+      "title": "복합기가 프린터 목록에 보이지 않음",
+      "content": null,
+      "fingerprint": "sha256:c9e5ad56e27a01005f0a404d1934fbb71baa25109374bed747ce041431f94abf"
+    },
+    {
+      "doc_no": "IT-HW-003-M",
+      "section": "3.3",
+      "title": "복합기 화면에 '오류 E-xx'가 뜨고 아무도 인쇄할 수 없음",
+      "content": null,
+      "fingerprint": "sha256:8f70ed26ae369b1f9262f9bc0366db36bd6fedcb4bc134992d70edb3b1ce9096"
+    },
+    {
+      "doc_no": "IT-HW-003-M",
+      "section": "3.4",
+      "title": "'메일로 스캔'한 파일이 메일로 오지 않음",
+      "content": null,
+      "fingerprint": "sha256:38b97eca18198b4645b53813eb822b61e7921fe3affc048874494d954bf1c99d"
+    },
+    {
+      "doc_no": "IT-HW-003-M",
+      "section": "3.5",
+      "title": "스캔 후 공유폴더에 저장하면 '경로를 찾을 수 없음'이 나옴",
+      "content": null,
+      "fingerprint": "sha256:bc853adf659aabc36507edb3ba8e8442a2f0901684d04400d82d0d8f73c80958"
+    },
+    {
+      "doc_no": "IT-HW-003-M",
+      "section": "3.6",
+      "title": "소프트웨어 센터에서 층별 복합기 설치하기",
+      "content": null,
+      "fingerprint": "sha256:c233b9c7bb9f4bfc6f500e9a0f164e926c60ee6a2d2eccfb70563f46cd1872c8"
+    },
+    {
+      "doc_no": "IT-HW-003-M",
+      "section": "3.7",
+      "title": "토너 교체·용지 걸림 반복 시 복합기 점검 요청",
+      "content": null,
+      "fingerprint": "sha256:92e31d68aa33849b25c121d6f7d81748d2316a89c65f766b237599ce9d7fa83f"
+    },
+    {
+      "doc_no": "IT-SYS-001-M",
+      "section": "3.1",
+      "title": "전자결재 상신 시 '처리 중 오류가 발생했습니다'가 뜸",
+      "content": null,
+      "fingerprint": "sha256:99b8e3a0babbde12afc3a5d984dbe108286d16be57ac7317aa62ee723dc6c6c5"
+    },
+    {
+      "doc_no": "IT-SYS-001-M",
+      "section": "3.2",
+      "title": "결재선에 부서를 옮긴 사람이 이전 부서로 표시됨",
+      "content": null,
+      "fingerprint": "sha256:05c99d39333dc206221652978c7a472e1b978e46cb8f63617b3bfa80ecafcede"
+    },
+    {
+      "doc_no": "IT-SYS-001-M",
+      "section": "3.3",
+      "title": "ERP 전표 저장 시 '회계기간이 마감되었습니다'가 뜸",
+      "content": null,
+      "fingerprint": "sha256:51b9a26f3152fe8d81347b47eabc6a9d50dd4652298e3ed3f3ee223aeb4a2c64"
+    },
+    {
+      "doc_no": "IT-SYS-001-M",
+      "section": "3.4",
+      "title": "ERP 거래처 조회 화면이 하얗게만 나옴",
+      "content": null,
+      "fingerprint": "sha256:dd50cb9e8fe879a08f743413c5b05f52e0b30dcbc1ef2b1669839b3d0329c6c2"
+    },
+    {
+      "doc_no": "IT-SYS-001-M",
+      "section": "3.5",
+      "title": "업데이트 이후 ERP 대금 지급 처리가 안 됨",
+      "content": null,
+      "fingerprint": "sha256:baf3d2fa2eb861f7fb5b87b392d5bc6dd915b84396b59cb8ba30cc2caae1867f"
+    },
+    {
+      "doc_no": "IT-SYS-002-M",
+      "section": "3.1",
+      "title": "ERP와 PMS 등 여러 업무 시스템이 나만 느림",
+      "content": null,
+      "fingerprint": "sha256:284e06c513173d7fcc8592961a8956d70660c6fe4db53e24e378ec2b740f7113"
+    },
+    {
+      "doc_no": "IT-SYS-002-M",
+      "section": "3.2",
+      "title": "사람이 많이 쓰는 오후 시간대에 PMS가 느려짐",
+      "content": null,
+      "fingerprint": "sha256:7e65ad3ab2bdd73dc0b55764cea0dadb1cf5dc6430c0793fbb0aea07915c338d"
+    },
+    {
+      "doc_no": "IT-SYS-002-M",
+      "section": "3.3",
+      "title": "업데이트 이후 BI 분석 플랫폼이 크게 느려짐",
+      "content": null,
+      "fingerprint": "sha256:d52599e1a2a2f0f278f276c4dbd0b8773ac7accb305e93c20a1dffe62bc70b9c"
+    },
+    {
+      "doc_no": "IT-SYS-002-M",
+      "section": "3.4",
+      "title": "바쁜 시간대에 PMS 연동이 잠깐씩 끊기거나 저장 중 오류가 남",
+      "content": null,
+      "fingerprint": "sha256:12deec036ca2f07cac97dc57de89f598374e83db0c481046053c0388befa85dd"
+    },
+    {
+      "doc_no": "IT-SYS-002-M",
+      "section": "3.5",
+      "title": "BI 보고서를 만들 때마다 화면이 꺼짐",
+      "content": null,
+      "fingerprint": "sha256:7302064c0c2145e92bba9995226189d6dcdfc0e4135929834d408d2415605c02"
+    },
+    {
+      "doc_no": "IT-SYS-002-M",
+      "section": "3.6",
+      "title": "BI 대시보드의 매출 수치가 실제와 다름",
+      "content": null,
+      "fingerprint": "sha256:159855768f165fc4ba7db1e04724e1edd725dbad2cdafad84ae2123b19ff3de6"
+    },
+    {
+      "doc_no": "IT-SYS-002-M",
+      "section": "3.7",
+      "title": "BI·PMS에 파일을 올리면 실패하거나 화면이 꺼짐",
+      "content": null,
+      "fingerprint": "sha256:3a2791258fafbcbd6feb7e717b086fcd3a72efa74b86d889837adaf42c6bcf6c"
+    },
+    {
+      "doc_no": "IT-SYS-002-M",
+      "section": "3.8",
+      "title": "PMS·메신저 연동 시 'API 호출 한도 초과'가 나며 동기화가 실패함",
+      "content": null,
+      "fingerprint": "sha256:491acf81c8209fb9634d8bd76c362a11a732c03f064aa937dc49bf817d7328ee"
+    },
+    {
+      "doc_no": "IT-SYS-003-M",
+      "section": "3.1",
+      "title": "ERP가 로딩만 되고 열리지 않아 여러 부서 업무가 멈춤",
+      "content": null,
+      "fingerprint": "sha256:e7dfc1134fd003a41862bae7abf8d3cd87ef2b0680886aa9d4c8ed0bd79b762d"
+    },
+    {
+      "doc_no": "IT-SYS-003-M",
+      "section": "3.2",
+      "title": "팀 전체가 업무 협업 플랫폼(PMS·BI·마케팅 툴)에 접속할 수 없음",
+      "content": null,
+      "fingerprint": "sha256:699a1c37ae5627812e45b0c38c825ca4e5793b172cf0954120fb253d29288f7a"
+    },
+    {
+      "doc_no": "IT-SYS-003-M",
+      "section": "3.3",
+      "title": "전 부서에서 메일을 보내지도 받지도 못함",
+      "content": null,
+      "fingerprint": "sha256:1cdc9dec3441c7f79da2db437bdf0380bf3b7066ac43365e524495d9f68acfc0"
+    },
+    {
+      "doc_no": "IT-SYS-003-M",
+      "section": "3.4",
+      "title": "공유 드라이브가 전부 열리지 않고 다른 팀도 같음",
+      "content": null,
+      "fingerprint": "sha256:db835f5c3aead6ea43c4d122120bdda3adcc2f0c0c70237efb5f267de506dc6c"
+    },
+    {
+      "doc_no": "IT-SYS-004-M",
+      "section": "3.1",
+      "title": "거래처에서 보낸 메일이 받은편지함에 없음",
+      "content": null,
+      "fingerprint": "sha256:884361f1cc6ffa12b6ba36f49fd87467765c3252fb6d7864212813a3c23afa52"
+    },
+    {
+      "doc_no": "IT-SYS-004-M",
+      "section": "3.2",
+      "title": "오늘 오후부터 메일이 한 통도 들어오지 않음",
+      "content": null,
+      "fingerprint": "sha256:ac3be68a51458a7491735a364bb3adfa3a5252d7e1f399127ecfc5a9d1120fdf"
+    },
+    {
+      "doc_no": "IT-SYS-004-M",
+      "section": "3.3",
+      "title": "메일함 용량 부족 경고가 계속 뜸",
+      "content": null,
+      "fingerprint": "sha256:b52d38f55ec20168ba99fa98327819c460b9ba8475ce70669fa6359e101f2db8"
+    },
+    {
+      "doc_no": "IT-SYS-004-M",
+      "section": "3.4",
+      "title": "첨부파일이 있는 메일만 반송됨",
+      "content": null,
+      "fingerprint": "sha256:eef621c7bddc9fd74dc5745c4f68297bee284a7b011e1d78c309da657d21893e"
+    },
+    {
+      "doc_no": "IT-SYS-004-M",
+      "section": "3.5",
+      "title": "해외 거래처로 보낸 메일이 팀 전체 반송됨",
+      "content": null,
+      "fingerprint": "sha256:4dd37d846169e529c6edb40733011b7feca8ab06880afd3a0c3be2e64bf087ed"
+    },
+    {
+      "doc_no": "IT-SYS-005-M",
+      "section": "3.1",
+      "title": "화상회의에서 내 목소리가 상대방에게 들리지 않음",
+      "content": null,
+      "fingerprint": "sha256:4ac46fa5a8cdbb99b1e0e69ad8a75ac5f8e5ee1e8a2bccbc99f01f38f248933d"
+    },
+    {
+      "doc_no": "IT-SYS-005-M",
+      "section": "3.2",
+      "title": "화상회의 카메라가 '사용 중인 장치'라며 켜지지 않음",
+      "content": null,
+      "fingerprint": "sha256:b953e5fbfa4d3b5ecd4facc1956cbabcd2caf88355a2abce11a73c0360d4ef5a"
+    },
+    {
+      "doc_no": "IT-SYS-005-M",
+      "section": "3.3",
+      "title": "메신저 메시지 알림이 전혀 뜨지 않음",
+      "content": null,
+      "fingerprint": "sha256:038ffe0c08bb8d28e25def684038853a457a6ade06661499f45a16c9f75b8119"
+    },
+    {
+      "doc_no": "IT-SYS-005-M",
+      "section": "3.4",
+      "title": "회의 중 내 목소리가 늦게 전달됨",
+      "content": null,
+      "fingerprint": "sha256:19fae29543d11fd36667858ea6ddac413a94bc268dc404eeac6a4e55d7b7133e"
+    },
+    {
+      "doc_no": "IT-SYS-005-M",
+      "section": "3.5",
+      "title": "화상회의 화면이 자꾸 멈추고 끊김",
+      "content": null,
+      "fingerprint": "sha256:838255c430f6ac5cadedacc07f56840d85b1e190d44b3ddebb02631a8a4fbcee"
+    },
+    {
+      "doc_no": "IT-SYS-005-M",
+      "section": "3.6",
+      "title": "OS 업데이트 후 화상회의 앱이 계속 꺼짐",
+      "content": null,
+      "fingerprint": "sha256:f650ecc76660e92d2e2d0df34825a858619e8351c967ebdaf59cac8d7c0dd0a8"
+    },
+    {
+      "doc_no": "IT-SYS-005-M",
+      "section": "3.7",
+      "title": "팀 공용 메일(그룹 메일) 생성·멤버 추가 신청",
+      "content": null,
+      "fingerprint": "sha256:4072512fd4f4ae3e04eaa02c32209cc55aa4c4444a4a98b483795ac9a7c911db"
+    },
+    {
+      "doc_no": "IT-SYS-005-M",
+      "section": "3.8",
+      "title": "그룹 메일로 외부 인증 메일이 오지 않을 때 외부 수신 허용 요청",
+      "content": null,
+      "fingerprint": "sha256:81b6d0200b1ba20eac87d63f1988c6ea3a6ab75b6ba1f5a49e278b3cf8c1388e"
+    },
+    {
+      "doc_no": "IT-SYS-005-M",
+      "section": "3.9",
+      "title": "팀 공유 캘린더 편집 권한 요청",
+      "content": null,
+      "fingerprint": "sha256:e22739dced070d2c1a7b241b14b7085f1fc29a2e4831a78844569e12443c9b6d"
+    },
+    {
+      "doc_no": "IT-SYS-005-M",
+      "section": "3.10",
+      "title": "메신저 채널에 외부 협력사 게스트 초대 신청",
+      "content": null,
+      "fingerprint": "sha256:cee37b131f5933629bb6cea3cc92a80300b2f057c31120db59d5680e08493470"
+    },
+    {
+      "doc_no": "IT-SYS-005-M",
+      "section": "3.11",
+      "title": "게스트에게 비공개 채널이 보이지 않을 때 채널 허용 요청",
+      "content": null,
+      "fingerprint": "sha256:cd68393f6eb2edb93b3dd30aab20aadad76f9925d5cdee13284cda812efb3571"
+    },
+    {
+      "doc_no": "IT-SYS-006-M",
+      "section": "3.1",
+      "title": "팀 공유 드라이브에서 '액세스가 거부되었습니다'가 뜨고 팀원 전부 같음",
+      "content": null,
+      "fingerprint": "sha256:90d7c84c5cca49588e91c085fbdbc16b78dd73ecfcebf48365b2668d823b60ac"
+    },
+    {
+      "doc_no": "IT-SYS-006-M",
+      "section": "3.2",
+      "title": "공유 드라이브 연결이 끊겨 다시 연결하려니 '경로를 찾을 수 없음'",
+      "content": null,
+      "fingerprint": "sha256:d5ef12cf3a0f6495dc459fd7daff706059b74a624847c1540db52d6b65a3e5eb"
+    },
+    {
+      "doc_no": "IT-SYS-006-M",
+      "section": "3.3",
+      "title": "지운 파일을 '이전 버전'으로 직접 복원하기",
+      "content": null,
+      "fingerprint": "sha256:ce54eac1725c5c32548bd1ed90c045d438b51d60aba9aace0f9ae3efc9ea9970"
+    },
+    {
+      "doc_no": "IT-SYS-006-M",
+      "section": "3.4",
+      "title": "삭제한 파일 복구 요청",
+      "content": null,
+      "fingerprint": "sha256:1f228897bda50418c92539d45af085e1789a5b6ec1ebab918aef8f5942c6b03c"
+    },
+    {
+      "doc_no": "IT-SYS-007-M",
+      "section": "3.1",
+      "title": "인사시스템에서 연차 잔여일수와 근태 기록 확인하기",
+      "content": null,
+      "fingerprint": "sha256:084537bbdc489a08ca7204758d7a0f337db5ca37572efc4b473a45abb89c2eff"
+    },
+    {
+      "doc_no": "IT-SYS-007-M",
+      "section": "3.2",
+      "title": "출근 기록이 누락됐을 때 근태 정정 요청",
+      "content": null,
+      "fingerprint": "sha256:825440c3c11ba3465e9ab46fd82a014c1827412b0bfff61eb99a2dcd50307486"
+    },
+    {
+      "doc_no": "IT-SYS-007-M",
+      "section": "3.3",
+      "title": "연차 잔여일수가 실제와 다를 때 정정 요청",
+      "content": null,
+      "fingerprint": "sha256:ace98e06800c763b4ae8988fd975f098257904d1ba902c4299dd88e6216774da"
+    },
+    {
+      "doc_no": "IT-SYS-007-M",
+      "section": "3.4",
+      "title": "여러 직원의 근태가 하루 넘게 반영되지 않을 때 확인 요청",
+      "content": null,
+      "fingerprint": "sha256:97ce8c1b4e7c1d58f08d62dac9b3612b452d5a1d62590e1ee144c66ddc17991b"
+    },
+    {
+      "doc_no": "IT-SYS-008-M",
+      "section": "3.1",
+      "title": "개발 서버에 SSH 접속이 안 되고 배포가 막힘",
+      "content": null,
+      "fingerprint": "sha256:612184719e4a4fe67ee2f4232c161562c2e2fd56f0c01b4b0fcd077337440d87"
+    },
+    {
+      "doc_no": "IT-SYS-008-M",
+      "section": "3.2",
+      "title": "업데이트 이후 Git 저장소와 빌드 서버 연동이 실패함",
+      "content": null,
+      "fingerprint": "sha256:978dd35118b8906c162f0e5a5dcfd3844035a85b4a93ab5a0aaaea828610996a"
+    },
+    {
+      "doc_no": "IT-SYS-008-M",
+      "section": "3.3",
+      "title": "업데이트 이후 개발 DB와 검색엔진 동기화가 실패함",
+      "content": null,
+      "fingerprint": "sha256:bc823574370193037461e7f3dcf503e51a57505e2f60ac32bb6a433c12efc72e"
+    },
+    {
+      "doc_no": "IT-SEC-001-M",
+      "section": "3.1",
+      "title": "의심 메일을 받았을 때 (열어 보기만 함)",
+      "content": null,
+      "fingerprint": "sha256:b660fa57948079e01a97a7df07dea0cb33b1315324ca13e17e2c3b66066b30ba"
+    },
+    {
+      "doc_no": "IT-SEC-001-M",
+      "section": "3.2",
+      "title": "임원·거래처를 사칭해 송금·구매·자료를 요청할 때",
+      "content": null,
+      "fingerprint": "sha256:87d9e4ca3139e91d74a52086d5ff830f4e56ce4be4cb95cb12beadbf058c3719"
+    },
+    {
+      "doc_no": "IT-SEC-001-M",
+      "section": "3.3",
+      "title": "링크를 눌렀거나 첨부파일을 열었을 때",
+      "content": null,
+      "fingerprint": "sha256:c99b25f2cc4e4b88b76099ede9b5c38127331556e7fe1932df863d72847f61a8"
+    },
+    {
+      "doc_no": "IT-SEC-001-M",
+      "section": "3.4",
+      "title": "피싱 화면에 아이디·비밀번호를 입력했을 때",
+      "content": null,
+      "fingerprint": "sha256:24f6e5fc38184ae2aae70d05d88a96d0e66e32a30d76afd64854c77fa42a82a6"
+    },
+    {
+      "doc_no": "IT-SEC-001-M",
+      "section": "3.5",
+      "title": "여러 사람이 같은 의심 메일을 받았을 때 (대량 유입)",
+      "content": null,
+      "fingerprint": "sha256:e9e7a6ebc8b67b6911140bf393ace83a223570effbd245994b4bc2c3a938133b"
+    },
+    {
+      "doc_no": "IT-SEC-001-M",
+      "section": "3.6",
+      "title": "문자·메신저·전화로 사칭 연락을 받았을 때",
+      "content": null,
+      "fingerprint": "sha256:990e45b98a369e2b76129f7909b45da1ea5548cd27d2bc8b1ef0ef6f350454eb"
+    },
+    {
+      "doc_no": "IT-SEC-002-M",
+      "section": "3.1",
+      "title": "'위협이 탐지되어 격리되었습니다' 알림이 떴을 때",
+      "content": null,
+      "fingerprint": "sha256:fd985683f621fe8600c1170506213cd84deff82c0503b27a6418cdd9699249b1"
+    },
+    {
+      "doc_no": "IT-SEC-002-M",
+      "section": "3.2",
+      "title": "업무 파일이 격리·삭제될 때 (예외 검토 요청)",
+      "content": null,
+      "fingerprint": "sha256:3d61f78a001fbbb5381a9b81adec6049c9de8205e4306b6e2c22b22f89f18f99"
+    },
+    {
+      "doc_no": "IT-SEC-002-M",
+      "section": "3.3",
+      "title": "보안 에이전트 설치 오류·정상 동작 확인",
+      "content": null,
+      "fingerprint": "sha256:827fc364198b9b9abf774d2c399a30867ae08574d1c424df84164b06fb57c3f6"
+    },
+    {
+      "doc_no": "IT-SEC-002-M",
+      "section": "3.4",
+      "title": "알림 뒤 PC가 이상할 때 (감염 의심)",
+      "content": null,
+      "fingerprint": "sha256:cd1deebdbdccf5c8e25ec11ce85b378451b37c07f51a2dfcb42a2994dc7e08a7"
+    },
+    {
+      "doc_no": "IT-SEC-003-M",
+      "section": "3.1",
+      "title": "내가 하지 않은 로그인 알림을 받았을 때",
+      "content": null,
+      "fingerprint": "sha256:8ab47dbb5fb2c920bc89913daef3f10d6acb259f980e4de2b8d72b29fca78dd8"
+    },
+    {
+      "doc_no": "IT-SEC-003-M",
+      "section": "3.2",
+      "title": "요청하지 않은 인증(MFA) 알림이 오거나 실수로 승인했을 때",
+      "content": null,
+      "fingerprint": "sha256:418bde3888e85d234609c106aa61e79bee20ac7b4db5a3a8653ac41e8b85dd05"
+    },
+    {
+      "doc_no": "IT-SEC-003-M",
+      "section": "3.3",
+      "title": "해외 출장 전 해외 접속 사전 등록",
+      "content": null,
+      "fingerprint": "sha256:fda16c213b5705a1fe2d24eeb4cd290d76e60de59f625fbf12d57eb07720b496"
+    },
+    {
+      "doc_no": "IT-SEC-003-M",
+      "section": "3.4",
+      "title": "계정이 반복해서 잠기거나 비밀번호가 바뀌어 있을 때",
+      "content": null,
+      "fingerprint": "sha256:9a618ebd8b369c4051a58004c341c9a1e947e2c26667ac70250b6aedec8f6305"
+    },
+    {
+      "doc_no": "IT-SEC-003-M",
+      "section": "3.5",
+      "title": "시스템·서버 무단 접근·침해가 의심될 때",
+      "content": null,
+      "fingerprint": "sha256:8fae59d0ca43c4574a414ce6e28cc0b1220fb8fe3cdb58b71e1c0b5a59a5b57e"
+    },
+    {
+      "doc_no": "IT-SEC-003-M",
+      "section": "3.6",
+      "title": "인증 앱·회사 앱이 설치된 휴대폰을 잃어버렸을 때",
+      "content": null,
+      "fingerprint": "sha256:46db2ef9f00f3b4ccbf29a7998367eef1682af27fff798c5ada5a96f85197016"
+    },
+    {
+      "doc_no": "IT-SEC-003-M",
+      "section": "3.7",
+      "title": "업무 노트북 등 회사 장비를 잃어버렸을 때",
+      "content": null,
+      "fingerprint": "sha256:8d0c7185c641a2086e4fd798d4e0f0451a1eb65bb230322c71e61ca421a5042d"
+    },
+    {
+      "doc_no": "IT-SEC-004-M",
+      "section": "3.1",
+      "title": "USB 등 이동식 저장매체 사용 신청",
+      "content": null,
+      "fingerprint": "sha256:1205c586f3c19dc735d593e0d06ffcefbb327632ed6a45a8682a6fe4bbe4583a"
+    },
+    {
+      "doc_no": "IT-SEC-004-M",
+      "section": "3.2",
+      "title": "개인정보가 든 파일을 외부로 보내야 할 때 (마스킹)",
+      "content": null,
+      "fingerprint": "sha256:0de3f9bdef898f64bcb77b181cfcba3321ec66036555225c18812993ee15bf35"
+    },
+    {
+      "doc_no": "IT-SEC-004-M",
+      "section": "3.3",
+      "title": "업무 사이트 차단 해제 요청",
+      "content": null,
+      "fingerprint": "sha256:7cce6f079d189241f6b952c2f939f9abde59d9fbdde49ebbfb5f944dd76abf69"
+    },
+    {
+      "doc_no": "IT-SEC-004-M",
+      "section": "3.4",
+      "title": "생성형 AI를 업무에 쓸 때",
+      "content": null,
+      "fingerprint": "sha256:f803c18e58002a4f59054873be317bf3cc2054d96cc1db93cdf364f2762912c6"
+    }
+  ]
+}
