@@ -136,9 +136,6 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
         ))}
       </div>
 
-      <div className="hint" style={{ marginTop: 12 }}>
-        로그인 전에는 Ticket을 만들지 않아요.
-      </div>
       {preview && <SourcePreview source={preview} demo onClose={() => setPreview(null)} />}
     </section>
   )

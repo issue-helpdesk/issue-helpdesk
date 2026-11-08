@@ -64,12 +64,12 @@ export function TicketWorkActions({ ticket, user, onRequested }: {
   }
 
   return (
-    <section aria-label="문의 처리" style={{ marginTop: 12 }}>
+    <section aria-label="문의 처리">
       {!modal && error && <div className="alert err" role="alert">{error}</div>}
       <button type="button" className="btn pri block" disabled={locked} onClick={finishing ? () => setModal(true) : submit}>
         {sending && !modal ? '요청 중…' : finishing ? '처리 완료' : '처리 시작'}
       </button>
-      <p className="small muted">Jira에 반영된 것을 확인한 뒤 상태가 바뀌어요. 처리 완료 후에는 문의자가 해결 여부를 확인해요.</p>
+      <p className="small muted" style={{ marginTop: 8 }}>Jira에 반영된 것을 확인한 뒤 상태가 바뀌어요. 처리 완료 후에는 문의자가 해결 여부를 확인해요.</p>
       {modal && (
         <Modal title="처리 결과 등록" onClose={close}>
           <p className="small muted">문의자에게 보이는 내용이에요. 비밀번호·인증번호는 적지 마세요.</p>

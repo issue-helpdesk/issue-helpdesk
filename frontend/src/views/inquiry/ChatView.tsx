@@ -287,7 +287,12 @@ export function ChatView() {
   if (inquiry === undefined && !slow) {
     return (
       <main className="main">
-        <Topbar title="문의 대화" quiet />
+        <Topbar
+          title="문의 대화"
+          quiet
+          lead={<span className="tlead" style={{ width: 44, height: 44 }} aria-hidden="true" />}
+          status={<span style={{ display: 'inline-block', height: 20 }} />}
+        />
         <div className="scroll">
           <div className="empty" role="status">
             불러오는 중이에요…
@@ -300,7 +305,12 @@ export function ChatView() {
     const failed = loaded?.failed || inquiry === undefined
     return (
       <main className="main">
-        <Topbar title="문의 대화" quiet />
+        <Topbar
+          title="문의 대화"
+          quiet
+          lead={<span className="tlead" style={{ width: 44, height: 44 }} aria-hidden="true" />}
+          status={<span style={{ display: 'inline-block', height: 20 }} />}
+        />
         <div className="scroll">
           {failed ? (
             <EmptyState
