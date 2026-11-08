@@ -45,6 +45,8 @@ def test_chunk_rows_policy_same_for_all_pieces(prepared):
     assert all(v == {None} for k, v in got.items() if k != key)
     assert [{k: v for k, v in r.items() if k != 'content_transfer_policy'} for r in rows] == \
         [{k: v for k, v in r.items() if k != 'content_transfer_policy'} for r in p.rows]   # 나머지 칸은 그대로
+    with pytest.raises(ValueError, match='MASKED'):                   # DB CHECK 는 ALLOWED·BLOCKED 만 (적재 중 실패 전에 막음)
+        chunk_rows(p.chunks, {key: 'MASKED'})
 
 
 def test_missing_transfer_policy_warns_and_blocks():

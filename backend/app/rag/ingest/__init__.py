@@ -29,7 +29,8 @@ BASELINE = Path(__file__).resolve().parents[1] / 'chunker' / 'baseline.json'
 VERSION_COLUMNS = ('version', 'file_path', 'file_format', 'view_scope', 'transfer_policy')   # version_row 중 표에 있는 칸
 CHUNK_COLUMNS = ('seq', 'unit_key', 'part', 'chunk_type', 'heading_path', 'location', 'content', 'meta',
                  'content_transfer_policy')
-ERROR_MAX = 1000                                           # ingest_error 에 남기는 글자 수
+CONTENT_POLICIES = ('ALLOWED', 'BLOCKED')                 # content_transfer_policy 값 (DB CHECK 와 같다. MASKED 없음)
+ERROR_MAX = 1000                                          # ingest_error 에 남기는 글자 수
 NORM_TOLERANCE = 1e-3                                      # 임베딩은 길이 1 (두 모델 모두 정규화)
 LOCAL_HOSTS = ('', 'localhost', '127.0.0.1', '::1')       # 이 컴퓨터. 아니면 --allow-remote 가 있어야 쓴다
 SCOPE_RANK = {'ALL': 0, 'AGENT': 1, 'ADMIN': 2}            # 클수록 좁다
@@ -78,7 +79,7 @@ class Prepared:
     chunks: list[Chunk]
     document: dict                                         # knowledge_documents 행 (owner_group 은 이름)
     version: dict                                          # document_versions 행 (VERSION_COLUMNS)
-    rows: list[dict]                                       # document_chunks 행들 (chunk_row)
+    rows: list[dict]                                       # document_chunks 행들 (chunk_rows: chunk_row + 내용 전송 칸)
     parse_warnings: list[str]
     vectors: dict[str, list[list[float]]] = field(default_factory=dict)   # model_id → 청크 순서대로
     apply_policy: bool = False                             # 이미 있는 버전의 정책을 manifest 값으로 바꿀지 (check_policies)
@@ -139,8 +140,11 @@ def chunk_rows(chunks: list[Chunk], policies: dict[str, str] | None = None) -> l
     policies: unit_key → 'ALLOWED'·'BLOCKED'. 한 항목이 여러 조각으로 나뉘어도 unit_key 가 같아 모든 조각이 같은 값이다.
     없는 청크는 빈칸 = 버전의 transfer_policy 를 따른다 (가이드 등 매뉴얼이 아닌 문서는 늘 빈칸, 지금 동작 그대로).
     값을 정하는 규칙(허용 목록)은 아직 없다 — 지금은 모두 빈칸.
+    값은 허용 목록이 기준이라, DB 에서 직접 고친 값은 다음 적재 때 이 값으로 덮인다 (_relabel).
     """
     policies = policies or {}
+    if bad := sorted({v for v in policies.values() if v not in CONTENT_POLICIES}):
+        raise ValueError(f'content_transfer_policy 는 {"·".join(CONTENT_POLICIES)} 만 됩니다: {", ".join(map(str, bad))}')
     return [{**chunk_row(c), 'content_transfer_policy': policies.get(c.unit_key)} for c in chunks]
 
 
