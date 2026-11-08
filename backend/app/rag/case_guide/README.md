@@ -124,7 +124,29 @@ out = assemble(conn, document_id, clusters, draft_version_id, view_scope='ALL', 
 | 트랜잭션 | **commit·rollback 안 함**. 파일은 배타적 생성(같은 이름이 있으면 덮어쓰지 않고 오류). 돌려주기 전 실패(쓰다 만 파일 포함)는 이번에 만든 파일만 지우고 오류를 다시 던짐. 돌려준 뒤 API 쪽 실패는 API 가 `file_path` 를 지운다. 문서 잠금은 API 와 같이 문서부터 |
 | 버전 행 | 새 버전 insert 또는 이어 쓸 버전 update: `PENDING`·비현행·`file_format = MD`·열람 범위·전송 정책·`registered_by` |
 
-아직: 새 가이드(뼈대 ③ 와 함께), 다시 맞추기 ②, 초안 기준 ③ (워커용).
+아직: 새 가이드 조립(뼈대는 아래 ③ 에 있음), 다시 맞추기 ②.
+
+## 초안 기준 `open_basis()` · `ticket_fragment()` (`open_basis.py`, 기획 v4)
+
+주간 분석 워커(M4)가 묶음 초안을 만들 때 부른다. 돌려준 값을 워커가 묶음 표(`draft_basis`, 새 가이드면 `draft_md` 도)에 그대로 저장한다. **DB 쓰기·commit 없음.**
+
+```python
+open_basis(conn, 'ADD_ITEM', document_id=7, receipts_=['RCPT-0101'])   # 항목 추가·SEC_MANUAL
+open_basis(conn, 'CHANGE', document_id=7, target_section='3.3')        # 변경
+open_basis(conn, 'NEW_GUIDE', category_code='NET', title='…', fragments=[조각, …])   # 새 가이드 뼈대
+# → {'draft_basis': {...}, 'draft_md': None | 뼈대, 'warnings': [...]}.  MANUAL_CANDIDATE → 모두 None
+fragment, warnings = ticket_fragment(conn, ticket_id)                  # SEC 직접 검토: 티켓 글 → '### 3.N 제목' 조각 (AI 없음)
+```
+
+| 판단 | `draft_basis` |
+|---|---|
+| 항목 추가·SEC | `schema` · `judgment` · `base_version_id`(현행) · `base_md`(현행 원문, 비md 면 바꾼 md) · `section_no: null` |
+| 변경 | 위 + `target_section` · `target_md` (= `assemble.item_text` 와 같은 모양 — 등록 때 그대로 비교) |
+| 새 가이드 | `base_version_id`·`base_md` null · `category_code` · `required: ['1','2','3']` |
+
+- 이미 현행에 반영된 접수 번호는 경고 (등록 때는 `assemble` 이 거부).
+- 새 가이드 뼈대 (김현나 Q9): `version: v1.0`, `doc_no` 빈칸(등록 때 DC-02 문서 번호), 1장·2장 `(작성 필요)` 한 줄, 2장 증상별 바로가기 표, 3장 항목 표 + 조각들(3.1부터), 4·5장·부록 제목만(청커가 원래 빈 장은 청크로 만들지 않는다), **6장 문의처는 같은 분류 현행 가이드의 6장 복사** (6장이 없거나 비었거나 자리 표시뿐이면 다음 후보 → 다른 분류, 그래도 없으면 경고·자리 표시. 장 경계는 코드 블록 밖 `## ` 만. 가이드 27종 6장은 모두 같다), 개정 이력 표 머리.
+- 새 가이드 제목은 한 줄 (줄바꿈·제어 문자 거부). 머리말에는 바깥 따옴표만 붙여 그대로 쓴다 — md 파서가 바깥 따옴표만 벗기므로 다시 읽으면 같은 제목.
 
 ## 아직
 
