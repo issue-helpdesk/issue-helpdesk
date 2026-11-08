@@ -43,6 +43,7 @@ from app.utils import datetime_utils
 
 logger = logging.getLogger(__name__)
 TRANSFER_RANK = {"BLOCKED": 0, "MASKED": 1, "ALLOWED": 2}     # 클수록 외부 모델에 넓게 전달된다
+CASE_DRAFT_PREFIX = "storage/case_guides/"                     # 해결 사례를 등록한 초안 파일 위치 (case_guide.CASE_DIR)
 
 
 class DocumentService:
@@ -174,8 +175,10 @@ class DocumentService:
         transfer_policy: str, user: User,
     ) -> DocumentVersionView:
         """DC-07. 내용 확인·중복 검사 → 파일 저장 → 버전 행(PENDING) 커밋 → 백그라운드 적재. 현행 전환은 자동으로 하지 않는다."""
-        if self.documents.get(document_id) is None:
+        document = self.documents.get(document_id)
+        if document is None:
             raise AppError(ErrorCode.DOCUMENT_NOT_FOUND)
+        self.check_manual_policy(document, transfer_policy)
         suffix, file_format = file_format_of(filename)
         staged = stage_file(file, document_id, suffix)
         path = None
@@ -303,6 +306,10 @@ class DocumentService:
         그사이 현행에 들어간 수정이 사라지지 않게 한다. 기준 버전은 검토 중인 묶음만 본다: 이미 반영된 버전으로
         되돌리는 것은 관리자의 되돌리기라 막지 않는다. 새 가이드 묶음은 기준 버전이 없어 건너뛴다.
         잠금 순서는 문서 → 버전 → 묶음이다. 묶음을 거절·수정하는 쪽도 같은 순서로 잠근다.
+
+        묶음이 없는 버전도 한 번도 현행이 된 적 없으면 본다. 해결 사례 내용이 조용히 사라지는 두 경우를 막는다.
+        - 묶음이 모두 떨어져 나간 사례 초안: 기준이 지난 내용이라 전환하면 그사이 현행에 들어간 수정이 사라진다.
+        - 지금 현행에 묶음이 반영됐는데 현행이 되기 전에 올라온 버전: 반영된 내용이 없다.
         """
         clusters = self.guide_clusters.registered_to(row.id)
         if rejected := [c.id for c in clusters if c.status == "REJECTED"]:
@@ -316,7 +323,25 @@ class DocumentService:
             raise AppError(ErrorCode.DOCUMENT_VERSION_BASE_CHANGED, [
                 {"reason": "BASE_VERSION_CHANGED", "message": "기준 버전이 현행과 다른 묶음", "value": stale},
             ])
+        if not clusters and row.activated_at is None:
+            self.check_unlinked_version(row, current)
         return clusters
+
+    def check_unlinked_version(self, row: DocumentVersion, current: DocumentVersion | None) -> None:
+        if (row.file_path or "").startswith(CASE_DRAFT_PREFIX):
+            raise AppError(ErrorCode.DOCUMENT_VERSION_ORPHANED)
+        if current is None or current.activated_at is None or row.registered_at >= current.activated_at:
+            return                                      # 현행이 된 뒤에 올라온 버전은 현행을 보고 고쳤을 수 있다
+        if applied := [c.id for c in self.guide_clusters.registered_to(current.id) if c.status == "APPLIED"]:
+            raise AppError(ErrorCode.DOCUMENT_VERSION_OUTDATED, [
+                {"reason": "CURRENT_HAS_APPLIED_CLUSTERS", "message": "지금 현행에 반영된 묶음", "value": applied},
+            ])
+
+    def check_manual_policy(self, document: KnowledgeDocument, transfer_policy: str) -> None:
+        """매뉴얼 버전은 BLOCKED 로 둔다. 항목 칸이 비어 있으면 버전 값을 따르므로 (검색의 coalesce) 버전을 열면
+        허용 목록에 없는 항목까지 외부로 나간다. 매뉴얼 내용을 여는 길은 항목별 허용 목록뿐이다."""
+        if document.doc_type == "MANUAL" and transfer_policy != "BLOCKED":
+            raise field_error(ErrorCode.DOCUMENT_MANUAL_TRANSFER_FIXED, "transferPolicy", "NOT_ALLOWED")
 
     def change_policy(self, row: DocumentVersion, body: DocumentVersionUpdateRequest, user: User) -> bool:
         """정책을 바꾸고 운영 기록을 남긴다. 돌려주는 값은 열람 범위가 바뀌었는지."""
@@ -326,6 +351,8 @@ class DocumentService:
         new_policy = body.transfer_policy if "transfer_policy" in sent and body.transfer_policy is not None else old_policy
         if (new_scope, new_policy) == (old_scope, old_policy):
             return False
+        if new_policy != old_policy:
+            self.check_manual_policy(self.documents.get(row.document_id), new_policy)
         if TRANSFER_RANK[new_policy] > TRANSFER_RANK[old_policy] and not body.reason:
             raise field_error(ErrorCode.VALIDATION_ERROR, "reason", "REQUIRED", "외부 전송 정책을 완화하는 사유를 입력해 주세요.")
         row.view_scope, row.transfer_policy = new_scope, new_policy

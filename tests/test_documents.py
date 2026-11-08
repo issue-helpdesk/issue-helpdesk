@@ -1,5 +1,6 @@
 """문서 API (DC-01~09). SQLite 메모리 DB 만 쓰고, 적재는 부르는지만 본다."""
 import asyncio
+from datetime import timedelta
 import importlib.util
 import io
 import os
@@ -908,6 +909,111 @@ def test_rolling_back_to_applied_version_is_allowed(client, db, users):
     assert patch_version(client, users["admin"], document, v2, {"isCurrent": True}).status_code == 200
     db.expire_all()
     assert (v2.is_current, cluster.status) == (True, "APPLIED")
+
+
+def test_activate_refuses_outdated_upload(client, db, users):
+    """묶음 버전 v3 를 먼저 전환했다. 그 전에 올린 v2 를 전환하면 반영된 해결 사례가 사라진다."""
+    document, (v1, v2, v3) = add_doc(db, versions=(("v1", "ALL", False), ("v2", "ALL", False), ("v3", "ALL", True)))
+    cluster = add_cluster(db, v3, v1, status="APPLIED", tickets=(1,))
+    v3.activated_at = v2.registered_at + timedelta(hours=1)
+    db.commit()
+
+    res = patch_version(client, users["admin"], document, v2, {"isCurrent": True})
+
+    assert (res.status_code, error_code(res)) == (409, "DOCUMENT_VERSION_OUTDATED")
+    assert res.json()["error"]["details"][0]["value"] == [cluster.id]
+    db.expire_all()
+    assert (v3.is_current, v2.is_current) == (True, False)
+
+
+def test_activate_upload_after_current_is_allowed(client, db, users):
+    """현행이 된 뒤에 올린 버전은 현행을 보고 고쳤을 수 있다."""
+    document, (v1, v2, v3) = add_doc(db, versions=(("v1", "ALL", False), ("v2", "ALL", True), ("v3", "ALL", False)))
+    add_cluster(db, v2, v1, status="APPLIED")
+    v2.activated_at = v3.registered_at - timedelta(hours=1)
+    db.commit()
+
+    assert patch_version(client, users["admin"], document, v3, {"isCurrent": True}).status_code == 200
+
+
+def test_activate_old_upload_without_applied_clusters_is_allowed(client, db, users):
+    """현행에 반영된 묶음이 없으면 일반 업로드끼리의 전환은 지금과 같다."""
+    document, (v1, v2) = add_doc(db, versions=(("v1", "ALL", False), ("v2", "ALL", True)))
+    v2.activated_at = v1.registered_at + timedelta(hours=1)
+    db.commit()
+
+    assert patch_version(client, users["admin"], document, v1, {"isCurrent": True}).status_code == 200
+
+
+def test_rolling_back_to_previously_current_upload_is_allowed(client, db, users):
+    document, (v1, v2, v3) = add_doc(db, versions=(("v1", "ALL", False), ("v2", "ALL", False), ("v3", "ALL", True)))
+    add_cluster(db, v3, v1, status="APPLIED")
+    v2.activated_at = v2.registered_at
+    v3.activated_at = v2.registered_at + timedelta(hours=1)
+    db.commit()
+
+    assert patch_version(client, users["admin"], document, v2, {"isCurrent": True}).status_code == 200
+
+
+def test_activate_refuses_orphaned_case_draft(client, db, users):
+    """묶음이 모두 다시 맞춰져 떨어져 나간 사례 초안. 지난 기준의 내용이다."""
+    document, (old, new) = add_doc(db, versions=(("v1", "ALL", True), ("v2", "ALL", False)))
+    new.file_path = "storage/case_guides/IT-NET-001/v2_RCPT-1.md"
+    db.commit()
+
+    res = patch_version(client, users["admin"], document, new, {"isCurrent": True})
+
+    assert (res.status_code, error_code(res)) == (409, "DOCUMENT_VERSION_ORPHANED")
+    db.expire_all()
+    assert (old.is_current, new.is_current) == (True, False)
+
+
+# ------------------------------------------------------------------ 매뉴얼 외부 전송 정책
+
+
+@pytest.mark.parametrize("policy", ["ALLOWED", "MASKED"])
+def test_manual_upload_must_stay_blocked(client, db, users, storage, submitted, policy):
+    document, _ = add_doc(db, "IT-NET-001-M", doc_type="MANUAL", versions=())
+
+    res = upload(client, users["admin"], document.id, transferPolicy=policy)
+
+    assert (res.status_code, error_code(res)) == (422, "DOCUMENT_MANUAL_TRANSFER_FIXED")
+    assert res.json()["error"]["details"][0]["field"] == "transferPolicy"
+    assert submitted == [] and not list(storage.rglob("*.md"))
+
+
+def test_manual_upload_blocked_is_accepted(client, db, users, storage, submitted):
+    document, _ = add_doc(db, "IT-NET-001-M", doc_type="MANUAL", versions=())
+    assert upload(client, users["admin"], document.id, transferPolicy="BLOCKED").status_code == 202
+    assert upload(client, users["admin"], document.id, name="b.md", content=b"# b", version="v3").status_code == 202  # 기본값 BLOCKED
+
+
+def test_manual_policy_cannot_be_relaxed(client, db, users):
+    document, (current,) = add_doc(db, "IT-NET-001-M", doc_type="MANUAL")
+    current.transfer_policy = "BLOCKED"
+    db.commit()
+
+    res = patch_version(client, users["admin"], document, current, {"transferPolicy": "ALLOWED", "reason": "필요함"})
+
+    assert (res.status_code, error_code(res)) == (422, "DOCUMENT_MANUAL_TRANSFER_FIXED")
+    db.expire_all()
+    assert current.transfer_policy == "BLOCKED" and policy_logs(db) == []
+
+
+def test_manual_view_scope_can_still_change(client, db, users):
+    document, (current,) = add_doc(db, "IT-NET-001-M", doc_type="MANUAL")
+    current.transfer_policy = "BLOCKED"
+    db.commit()
+
+    assert patch_version(client, users["admin"], document, current, {"viewScope": "AGENT"}).status_code == 200
+
+
+def test_guide_policy_is_not_fixed(client, db, users):
+    document, (current,) = add_doc(db)
+    current.transfer_policy = "BLOCKED"
+    db.commit()
+
+    assert patch_version(client, users["admin"], document, current, {"transferPolicy": "ALLOWED", "reason": "공개 내용"}).status_code == 200
 
 
 def test_policy_change_without_activation_ignores_clusters(client, db, users):
