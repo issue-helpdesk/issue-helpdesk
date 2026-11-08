@@ -27,6 +27,7 @@ from app.models import (
     SupportGroup,
     TicketGuideState,
 )
+from app.rag.parser.md_parser import display_md
 from app.services import document_file
 from app.services.document_ingest import ingest_submitter
 from test_auth import TABLES, add_user, bearer, client, error_code, login  # noqa: F401
@@ -1330,6 +1331,16 @@ def test_current_content_is_display_markdown_with_images(client, db, users, stor
     assert body["content"] == ("# VPN 접속 안내\n\n첫 줄\n둘째 줄\n\n[그림] 그림 3.1-1. 접속 화면\n\n"
                                "| 항목 | 설명 |\n| --- | --- |\n| 계정 | 사번<br>비밀번호 |\n")
     assert body["images"] == [IMAGE]          # '[그림]' 줄의 설명과 caption 이 같아 화면이 짝지을 수 있다
+
+
+@pytest.mark.parametrize("md, expected", [
+    ("```\necho <br> x\n![a](b.png)\n```\n\n앞<br>뒤\n\n![그림 1. c](../images/y.png)\n",
+     "```\necho <br> x\n![a](b.png)\n```\n\n앞\n뒤\n\n[그림] 그림 1. c\n"),
+    ("````\n```\n<br>\n```\n![a](b.png)\n````\n앞<br>뒤\n", "````\n```\n<br>\n```\n![a](b.png)\n````\n앞\n뒤\n"),
+    ("앞<br>뒤\n\n```\n<br>\n![a](b.png)\n", "앞\n뒤\n\n```\n<br>\n![a](b.png)\n"),
+], ids=["block_then_text", "longer_fence_keeps_short_fence_lines", "unclosed_runs_to_end"])
+def test_display_md_leaves_code_blocks_alone(md, expected):
+    assert display_md(md) == expected
 
 
 def test_non_markdown_file_is_converted(client, db, users, storage):
