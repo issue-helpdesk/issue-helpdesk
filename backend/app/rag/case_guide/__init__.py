@@ -77,8 +77,10 @@ class Draft:
 
 
 def receipts(md: str) -> set[str]:
-    """개정 이력 표식에 적힌 접수 번호들 (정확히. 'TK-1' 과 'TK-10' 은 다르다)."""
-    return set(MARK_RE.findall(md))
+    """개정 이력 표식에 적힌 접수 번호들 (정확히. 'TK-1' 과 'TK-10' 은 다르다). **개정 이력 장 안, 코드 블록 밖만**
+    본다 — 본문·조각에 적힌 같은 글이 반영 표시로 읽히지 않게 (PR #357 검수 4)."""
+    span = _history(md)
+    return {m.group(1) for m in _find(MARK_RE, md, *span)} if span else set()
 
 
 # ── 고르기 ────────────────────────────────────────────────────
@@ -235,6 +237,32 @@ ITEM_HEAD = re.compile(r'^### (3\.(\d+)) ', re.M)
 ITEM_TABLE_HEAD = ['번호', '제목', '문의 유형', '처리 구분', '담당 부서']   # 3장 앞 항목 표 (가이드 27종 모두 이 5열)
 
 
+def _code_spans(md: str) -> list[tuple[int, int]]:
+    """``` 코드 블록의 (시작, 끝) 위치들 (md 파서와 같은 규칙: 여는 줄 백틱 수 이상으로 시작하는 줄에서 닫힘,
+    안 닫히면 문서 끝까지). 그 안의 '## '·'### 3.' 줄은 장·항목이 아니다 (PR #357 검수 1)."""
+    spans, fence, start, pos = [], '', 0, 0
+    for line in md.splitlines(keepends=True):
+        s = line.strip()
+        if fence:
+            if s.startswith(fence):
+                spans.append((start, pos + len(line)))
+                fence = ''
+        elif s.startswith('```'):
+            fence, start = '`' * (len(s) - len(s.lstrip('`'))), pos
+        pos += len(line)
+    if fence:
+        spans.append((start, len(md)))
+    return spans
+
+
+def _find(pattern, md: str, pos: int = 0, endpos: int | None = None) -> list[re.Match]:
+    """코드 블록 밖의 일치들 (re.M). pattern 은 문자열 또는 컴파일한 정규식."""
+    spans = _code_spans(md)
+    rx = pattern if isinstance(pattern, re.Pattern) else re.compile(pattern, re.M)
+    return [m for m in rx.finditer(md, pos, len(md) if endpos is None else endpos)
+            if not any(a <= m.start() < b for a, b in spans)]
+
+
 def add_case(md: str, t: dict, version: str, today: date, warnings: list[str]) -> tuple[str, str]:
     """기준 md 에 사례를 더한다: 버전 표기 → 새 항목 3.N (3장 끝) → 3장 항목 표 한 줄 → 목차 한 줄 → 개정 이력 한 줄.
     (md, 항목 번호)"""
@@ -252,22 +280,26 @@ def add_case(md: str, t: dict, version: str, today: date, warnings: list[str]) -
 
 
 def _chapter3(md: str) -> re.Match:
-    chapter = re.search(r'^## 3\. .*$', md, re.M)
-    if chapter is None:
+    found = _find(r'^## 3\. .*$', md)
+    if not found:
         raise CaseGuideError(['기준 가이드에 3장(항목별 안내)이 없어 항목을 넣을 수 없습니다'])
-    return chapter
+    return found[0]
 
 
 def _chapter3_end(md: str) -> int:
-    """3장 끝 (다음 '## ' 장 시작, 없으면 문서 끝)."""
-    chapter = _chapter3(md)
-    end = re.search(r'^## ', md[chapter.end():], re.M)
-    return chapter.end() + end.start() if end else len(md)
+    """3장 끝 (코드 블록 밖 다음 '## ' 장 시작, 없으면 문서 끝)."""
+    after = _find(r'^## ', md, _chapter3(md).end())
+    return after[0].start() if after else len(md)
+
+
+def _item_heads(md: str) -> list[re.Match]:
+    """3장 안, 코드 블록 밖의 '### 3.N ' 항목 제목들."""
+    return _find(ITEM_HEAD, md, _chapter3(md).end(), _chapter3_end(md))
 
 
 def _item_numbers(md: str) -> list[int]:
     """3장 항목 번호 (3.N 의 N)."""
-    return [int(m.group(2)) for m in ITEM_HEAD.finditer(md, _chapter3(md).end(), _chapter3_end(md))]
+    return [int(m.group(2)) for m in _item_heads(md)]
 
 
 def _set_version(md: str, version: str, warnings: list[str]) -> str:
@@ -287,11 +319,14 @@ def _append_item(md: str, item: str) -> str:
     return md[:end].rstrip('\n') + '\n\n' + item.strip('\n') + '\n\n' + md[end:]
 
 
+TOC_LINE = re.compile(r'^(\s*)- (3\.\d+) (.*)$', re.M)
+
+
 def _add_toc(md: str, entries: list[tuple[str, str]], warnings: list[str]) -> str:
     """목차의 마지막 '- 3.x …' 줄 뒤에 (번호, 제목) 줄들. 못 찾으면 경고."""
     if not entries:
         return md
-    toc = list(re.finditer(r'^(\s*)- 3\.\d+ .*$', md[:_chapter3(md).start()], re.M))
+    toc = _find(TOC_LINE, md, 0, _chapter3(md).start())
     if not toc:
         warnings.append('목차에서 3장 항목 줄을 찾지 못해 목차는 고치지 않았습니다')
         return md
@@ -299,33 +334,48 @@ def _add_toc(md: str, entries: list[tuple[str, str]], warnings: list[str]) -> st
     return md[:last.end()] + ''.join(f'\n{last.group(1)}- {s} {title}' for s, title in entries) + md[last.end():]
 
 
+def _set_toc(md: str, section_no: str, title: str, warnings: list[str]) -> str:
+    """목차의 '- <번호> …' 줄 제목을 바꾼다 (변경 초안이 제목을 바꿨을 때). 못 찾으면 경고."""
+    line = next((m for m in _find(TOC_LINE, md, 0, _chapter3(md).start()) if m.group(2) == section_no), None)
+    if line is None:
+        warnings.append(f'목차에서 {section_no} 줄을 찾지 못해 목차는 고치지 않았습니다')
+        return md
+    return md[:line.start(3)] + title + md[line.end(3):]
+
+
+def _history(md: str) -> tuple[int, int] | None:
+    """개정 이력 장의 (본문 시작, 끝). 코드 블록 밖 '## 개정 이력' 부터 다음 '## ' 까지."""
+    head = _find(r'^## 개정 이력\s*$', md)
+    if not head:
+        return None
+    after = _find(r'^## ', md, head[0].end())
+    return head[0].end(), after[0].start() if after else len(md)
+
+
 def _add_history(md: str, version: str, today: date, group: str, notes: list[str], warnings: list[str]) -> str:
     """개정 이력에 그 버전 줄 (있으면 변경 내용에 '; ' 로 덧붙임). 표가 없으면 끝에 새로 만들고 경고."""
     note = '; '.join(_cell(n) for n in notes)
     group = _cell(group)
-    history = re.search(r'^## 개정 이력\s*$', md, re.M)
-    if history is None:
+    span = _history(md)
+    if span is None:
         warnings.append('개정 이력이 없어 끝에 새로 만들었습니다')
         return md.rstrip('\n') + ('\n\n## 개정 이력\n\n| 버전 | 개정일 | 작성자 | 변경 내용 |\n| --- | --- | --- | --- |\n'
                                   f'| {version} | {today.isoformat()} | {group} | {note} |\n')
-    rows = list(re.finditer(r'^\|.*\|[ \t]*$', md[history.end():], re.M))
+    rows = _find(r'^\|.*\|[ \t]*$', md, *span)
     same = next((r for r in rows if re.match(rf'^\|\s*{re.escape(version)}\s*\|', r.group(0))), None)
     if same:                                               # 이어 쓰는 초안: 그 버전 줄 변경 내용에 덧붙인다
-        at = history.end() + same.end()
         line = same.group(0).rstrip()
-        return md[:history.end() + same.start()] + line[:-1].rstrip() + f'; {note} |' + md[at:]
-    at = history.end() + rows[-1].end() if rows else history.end()
+        return md[:same.start()] + line[:-1].rstrip() + f'; {note} |' + md[same.end():]
+    at = rows[-1].end() if rows else span[0]
     return md[:at] + f'\n| {version} | {today.isoformat()} | {group} | {note} |' + md[at:]
 
 
-def _add_table_row(md: str, start: int, cells: list[str], warnings: list[str]) -> str:
-    """3장 제목(start)과 첫 항목 사이의 **첫 표** 끝에 한 줄. 표는 빈 줄이나 표 아닌 줄에서 끝나고 (md 파서도 따로 읽는다),
-    코드 블록(``` 울타리, md 파서와 같은 규칙) 안의 줄은 보지 않는다. 표가 없거나 머리줄이 ITEM_TABLE_HEAD 가 아니면
-    고치지 않고 경고한다 (모르는 표를 조용히 고치지 않게). 새 항목 본문은 표와 상관없이 검색된다.
-    지난 행을 채우지는 않는다: 표의 번호와 3장 항목 번호가 다르면 (예: 이 기능 전에 만든 초안에 이어 쓰기) 경고만."""
-    first = ITEM_HEAD.search(md, start)
-    stop = first.start() if first else len(md)
-    block, fence, pos = [], '', start                     # block: 첫 표 줄들의 (시작, 줄 끝 문자 앞) 위치
+def _item_table(md: str, start: int) -> tuple[list[tuple[int, int]], str | None]:
+    """3장 제목(start)과 첫 항목 사이의 **첫 표** 줄들의 (시작, 줄 끝 문자 앞) 위치와, 쓸 수 없으면 그 이유.
+    표는 빈 줄이나 표 아닌 줄에서 끝나고 (md 파서도 따로 읽는다), 코드 블록 안의 줄은 보지 않는다."""
+    first = _find(ITEM_HEAD, md, start)
+    stop = first[0].start() if first else len(md)
+    block, fence, pos = [], '', start
     for line in md[start:stop].splitlines(keepends=True):
         s, at = line.strip(), pos
         pos += len(line)
@@ -339,26 +389,48 @@ def _add_table_row(md: str, start: int, cells: list[str], warnings: list[str]) -
         if block:                                          # 표 다음 줄이 표가 아니면 (빈 줄 포함) 첫 표 끝
             break
     if not block:
-        warnings.append('3장 항목 표를 찾지 못해 표는 고치지 않았습니다')
-        return md
-    cut = lambda b: [c.strip() for c in re.split(r'(?<!\\)\|', md[b[0]:b[1]].strip())[1:-1]]   # noqa: E731
-    head = cut(block[0])
+        return [], '3장 항목 표를 찾지 못해 표는 고치지 않았습니다'
+    head = _cells(md[block[0][0]:block[0][1]])
     if head != ITEM_TABLE_HEAD:
-        warnings.append(f"3장 항목 표 머리줄({' | '.join(head)})이 예상과 달라 표는 고치지 않았습니다")
+        return [], f"3장 항목 표 머리줄({' | '.join(head)})이 예상과 달라 표는 고치지 않았습니다"
+    return block, None
+
+
+def _cells(line: str) -> list[str]:
+    return [c.strip() for c in re.split(r'(?<!\\)\|', line.strip())[1:-1]]
+
+
+def _add_table_row(md: str, start: int, cells: list[str], warnings: list[str]) -> str:
+    """3장 항목 표 끝에 한 줄 (_item_table). 표가 없거나 머리줄이 ITEM_TABLE_HEAD 가 아니면 고치지 않고 경고한다
+    (모르는 표를 조용히 고치지 않게). 새 항목 본문은 표와 상관없이 검색된다.
+    지난 행을 채우지는 않는다: 표의 번호와 3장 항목 번호가 다르면 (예: 이 기능 전에 만든 초안에 이어 쓰기) 경고만."""
+    block, why = _item_table(md, start)
+    if why:
+        warnings.append(why)
         return md
     end = block[-1][1]
     newline = '\r\n' if md[end:end + 2] == '\r\n' else '\n'
     md = md[:end] + newline + '| ' + ' | '.join(_cell(c) for c in cells) + ' |' + md[end:]
-
-    chapter_end = re.search(r'^## ', md[start:], re.M)
-    chapter_end = start + chapter_end.start() if chapter_end else len(md)
-    in_table = {(cut(b) or [''])[0] for b in block[2:]} | {cells[0]}   # 2: 머리줄·구분 줄 다음부터
-    in_items = {m.group(1) for m in ITEM_HEAD.finditer(md, start, chapter_end)}
+    in_table = {(_cells(md[a:b]) or [''])[0] for a, b in block[2:]} | {cells[0]}   # 2: 머리줄·구분 줄 다음부터
+    in_items = {m.group(1) for m in _item_heads(md)}
     if in_table != in_items:
         gaps = [f"표에 없음 {', '.join(sorted(in_items - in_table))}" if in_items - in_table else '',
                 f"항목에 없음 {', '.join(sorted(in_table - in_items))}" if in_table - in_items else '']
         warnings.append(f"3장 항목 표와 항목 번호가 다릅니다 ({'; '.join(g for g in gaps if g)}). 표를 확인해 주세요")
     return md
+
+
+def _set_table_row(md: str, start: int, cells: list[str], warnings: list[str]) -> str:
+    """3장 항목 표에서 번호가 cells[0] 인 줄을 cells 로 바꾼다 (변경 초안이 제목·머리 정보를 바꿨을 때). 없으면 경고."""
+    block, why = _item_table(md, start)
+    if why:
+        warnings.append(why)
+        return md
+    row = next(((a, b) for a, b in block[2:] if (_cells(md[a:b]) or [''])[0] == cells[0]), None)
+    if row is None:
+        warnings.append(f'3장 항목 표에 {cells[0]} 줄이 없어 표는 고치지 않았습니다')
+        return md
+    return md[:row[0]] + '| ' + ' | '.join(_cell(c) for c in cells) + ' |' + md[row[1]:]
 
 
 def _item(section_no: str, title: str, t: dict) -> str:

@@ -112,10 +112,91 @@ def test_fragment_heading_inside_code_block_ok():
     ([cluster(1, [])], '접수 번호가 없습니다'),
     ([change(1, 'R1'), change(2, 'R2')], '같은 항목 3.3을 바꾸는 묶음이 여럿'),
     ([], '조립할 묶음이 없습니다'),
+    ([cluster(1, ['R1']), cluster(1, ['R2'])], '묶음 id 가 겹칩니다: 1'),                         # 검수 권고
+    ([cluster(1, ['R1', 'R1'])], '접수 번호가 두 번 이상'),
+    ([cluster(1, ['R1']), cluster(2, ['R1'])], '접수 번호가 두 번 이상'),
+    ([cluster(1, ['R1'], section_no='3.x')], "section_no '3.x'"),
+    ([cluster(1, ['R1'], section_no=8)], 'section_no 8'),
 ])
 def test_inputs_refused(clusters, msg):
     with pytest.raises(CaseGuideError, match=msg):
         _check_inputs(clusters, 'ALL', 'ALLOWED')
+
+
+# ── PR #357 검수 ─────────────────────────────────────────────
+
+CODE_EXAMPLE = '```text\n### 3.99 코드 예시\n코드 본문\n```'
+
+
+def _with_code_after_last_item():
+    at = BASE.index('## 4. ')
+    return BASE[:at] + CODE_EXAMPLE + '\n\n' + BASE[at:]
+
+
+def test_code_block_is_not_item_boundary():
+    """검수 1 (높음): 코드 블록 안의 '### 3.99' 는 항목이 아니다 — 마지막 항목 원문은 코드 블록을 통째로 품고,
+    번호 매기기·변경 바꿔 끼우기도 코드를 자르지 않는다."""
+    base = _with_code_after_last_item()
+    assert item_text(base, '3.99') is None and CODE_EXAMPLE in item_text(base, '3.7')
+    md, sections = _build(base, [cluster(1, ['C-1'])], 'v2.1', TODAY, [])   # 번호도 3.8 (3.100 이 아님)
+    assert sections == {1: '3.8'}
+    edited = item_text(base, '3.7').replace('\n', '\n- 고친 줄\n', 1)
+    md, _ = _build(base, [change(2, 'C-2', target='3.7', md=edited, target_md=item_text(base, '3.7'))], 'v2.1', TODAY, [])
+    assert md.count(CODE_EXAMPLE) == 1 and '고친 줄' in item_text(md, '3.7')
+    assert [c.section_no for c in items(md)] == [c.section_no for c in items(BASE)]   # 3.99 가 항목으로 생기지 않음
+
+
+def test_code_block_headings_ignored_by_case_guide_helpers():
+    """3장 찾기·장 끝·목차·개정 이력도 코드 블록 안 '## '·'- 3.x' 를 보지 않는다."""
+    fake = '```\n## 3. 가짜 장\n## 개정 이력\n- 3.50 가짜 목차\n```\n\n'
+    base = BASE.replace('## 목차', fake + '## 목차', 1)
+    md, sections = _build(base, [cluster(1, ['C-3'])], 'v2.1', TODAY, [])
+    assert sections == {1: '3.8'} and fake in md and '### 3.8 사례 1' in md
+    assert receipts(base + '\n```\n해결 사례 반영 (CODE-1)\n```\n') == receipts(base)
+
+
+@pytest.mark.parametrize('md', ['### 3.N 본문 없는 제목\n', '### 3.N 제목\n\n#### 이런 경우\n\n#### 조치 방법\n'])
+def test_fragment_without_body_refused(md):
+    """검수 2: 제목·소제목만 있는 조각은 거부 (표·목차·표식만 생기고 검색 항목은 없게 되므로)."""
+    assert any('본문이 없습니다' in p for p in _fragment_problems(md))
+
+
+def test_result_check_finds_missing_new_item(monkeypatch):
+    """검수 2: 조립 결과에서 새 번호가 실제 항목(본문 있음)으로 읽히지 않으면 거부 (결과 검사가 마지막 방어)."""
+    import app.rag.case_guide.assemble as asm
+    md, sections = _build(BASE, [cluster(1, ['C-4'])], 'v2.1', TODAY, [])
+    broken = md.replace('### 3.8 사례 1', '사례 1', 1)
+    with pytest.raises(CaseGuideError, match='새 항목이 항목으로 읽히지 않거나'):
+        asm._check_result(BASE, broken, 'IT-SW-001', 'v2.1', [cluster(1, ['C-4'])], sections)
+
+
+def test_change_updates_toc_and_table_when_title_or_props_change():
+    """검수 3: 변경 조각이 제목·담당 부서를 바꾸면 목차·3장 항목 표도 같은 값으로. 그대로면 건드리지 않는다."""
+    now = item_text(BASE, '3.3')
+    old_title = now.splitlines()[0][len('### 3.3 '):]
+    group = re.search(r'\*\*담당 부서\*\* ([^·\n*]+)', now).group(1).strip()
+    edited = now.replace(old_title, '새 제목으로 바뀐 항목', 1).replace(f'**담당 부서** {group}', '**담당 부서** 새부서', 1)
+    w = []
+    md, _ = _build(BASE, [change(5, 'C-5', md=edited)], 'v2.1', TODAY, w)
+    assert w == [] and re.search(r'^\s*- 3\.3 새 제목으로 바뀐 항목$', md, re.M)
+    row = next(line for line in md.splitlines() if line.startswith('| 3.3 |'))
+    assert '새 제목으로 바뀐 항목' in row and row.rstrip().endswith('| 새부서 |')
+    same, _ = _build(BASE, [change(6, 'C-6')], 'v2.1', TODAY, [])        # 제목·머리 정보 그대로
+    assert [l for l in same.splitlines() if l.startswith('| 3.3 |')] == [l for l in BASE.splitlines() if l.startswith('| 3.3 |')]
+
+
+@pytest.mark.parametrize('md', [
+    fragment('사례') + '\n\n해결 사례 반영 (R-UNRELATED)',
+    fragment('사례') + '\n\n```\n해결 사례 반영 (R-IN-CODE)\n```',
+])
+def test_marker_in_fragment_refused(md):
+    """검수 4: 조각에 반영 표식을 쓰면 거부 (표식은 조립기가 개정 이력에만 쓴다). receipts() 도 개정 이력 장만 본다."""
+    assert any('반영 표식' in p for p in _fragment_problems(md))
+    assert receipts(BASE.replace('## 1. ', '해결 사례 반영 (R-BODY)\n\n## 1. ', 1)) == receipts(BASE)
+
+
+def test_unclosed_fence_in_fragment_refused():
+    assert any('닫히지 않았습니다' in p for p in _fragment_problems('### 3.N 제목\n\n본문\n\n```\n코드'))
 
 
 # ── DB ────────────────────────────────────────────────────────
@@ -193,6 +274,53 @@ def test_assemble_removes_own_file_on_failure(url, tmp_path):
     with pytest.raises(RuntimeError):
         _call(url, [cluster(31, ['ASM-0310'], base_version_id=cur, base_md=base)], tmp_path, conn_wrap=Failing)
     assert not list(Path(tmp_path).rglob('*.md'))
+
+
+@needs_db
+def test_assemble_removes_partly_written_file(url, tmp_path, monkeypatch):
+    """검수 5: 파일 쓰기 자체가 실패해도 (쓰다 만 파일) 이번에 만든 파일을 지운다."""
+    import builtins
+    cur = _current_guide(url)
+    base = (REPO / guide_file('IT-SW-001')).read_text(encoding='utf-8')
+    real_open = builtins.open
+
+    class Broken:
+        def __init__(self, f):
+            self.f = f
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            self.f.close()
+
+        def write(self, text):
+            self.f.write(text[:10])
+            raise OSError('디스크 오류 흉내')
+
+    def fake_open(path, mode='r', *a, **kw):
+        f = real_open(path, mode, *a, **kw)
+        return Broken(f) if mode == 'x' else f
+
+    monkeypatch.setattr(builtins, 'open', fake_open)
+    with pytest.raises(OSError):
+        _call(url, [cluster(32, ['ASM-0320'], base_version_id=cur, base_md=base)], tmp_path)
+    monkeypatch.undo()
+    assert not list(Path(tmp_path).rglob('*.md'))
+
+
+@needs_db
+def test_assemble_never_overwrites_existing_file(url, tmp_path, monkeypatch):
+    """검수 5: 무작위 이름이 우연히 겹쳐도 있는 파일을 덮어쓰지 않는다 (배타적 생성). 그 파일은 지우지도 않는다."""
+    import app.rag.case_guide.assemble as asm
+    cur = _current_guide(url)
+    base = (REPO / guide_file('IT-SW-001')).read_text(encoding='utf-8')
+    monkeypatch.setattr(asm.secrets, 'token_hex', lambda n: 'same00')
+    first = _call(url, [cluster(33, ['ASM-0330'], base_version_id=cur, base_md=base)], tmp_path, commit=False)
+    before = (tmp_path / first['file_path']).read_text(encoding='utf-8')
+    with pytest.raises(FileExistsError):
+        _call(url, [cluster(34, ['ASM-0340'], base_version_id=cur, base_md=base)], tmp_path, commit=False)
+    assert (tmp_path / first['file_path']).read_text(encoding='utf-8') == before
 
 
 @needs_db
