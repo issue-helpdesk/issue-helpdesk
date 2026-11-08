@@ -235,6 +235,8 @@
 .md .tbl2{overflow-x:auto}.md table{border-collapse:collapse;font-size:13px;line-height:20px;min-width:100%}.md th,.md td{padding:6px 10px;border:1px solid var(--line);text-align:left;vertical-align:top}.md th{background:var(--shell);font-weight:600}
 
 .md code{font-family:var(--mono);font-size:12.5px;background:var(--shell);border-radius:4px;padding:1px 5px}
+.md pre.codeblk{margin:8px 0;padding:12px 14px;border-radius:10px;background:var(--shell);overflow-x:auto;line-height:1.6}
+.md pre.codeblk code{display:block;padding:0;background:none;border-radius:0;white-space:pre;font-size:12.5px}
 
 
 

@@ -79,4 +79,22 @@ describe('Markdown 줄바꿈', () => {
     expect(container.querySelectorAll('br')).toHaveLength(2)
     expect(container.textContent).not.toMatch(/<br/)
   })
+
+  it('코드 블록은 ``` 줄을 글자로 두지 않고, 안쪽 줄을 들여쓰기·빈 줄·<br> 그대로 보여 준다', () => {
+    const md = '설정은 아래와 같아요.\n\n```\nserver {\n    listen 80;<br>\n\n    root /app;\n}\n```\n\n그 다음 재시작해요.'
+    const { container } = render(<Markdown text={md} />)
+    const pre = container.querySelector('pre.codeblk')!
+    expect(pre).not.toBeNull()
+    expect(pre.textContent).toBe('server {\n    listen 80;<br>\n\n    root /app;\n}')
+    expect(pre.querySelectorAll('br')).toHaveLength(0)
+    expect(container.textContent).not.toMatch(/```/)
+    // 코드 블록 앞뒤의 글은 문단으로 이어진다
+    expect(screen.getByText('설정은 아래와 같아요.').tagName).toBe('P')
+    expect(screen.getByText('그 다음 재시작해요.').tagName).toBe('P')
+  })
+
+  it('닫는 ``` 가 없으면 끝까지를 코드 블록으로 보여 준다', () => {
+    const { container } = render(<Markdown text={'```\nnpm run dev\nnpm test'} />)
+    expect(container.querySelector('pre.codeblk')?.textContent).toBe('npm run dev\nnpm test')
+  })
 })
