@@ -1,7 +1,8 @@
 /**
  * 가이드 본문(마크다운)을 읽기 쉽게 보여 주는 가벼운 렌더러 (공통 UI).
  *
- * 지원: 제목(#~######), 글머리표(- · *), 번호 목록(1.), 표(| 로 나뉜 줄), [그림]·[표] 표시, 굵게(**), 코드(`), 빈 줄로 나뉜 문단.
+ * 지원: 제목(#~######), 글머리표(- · *), 번호 목록(1.), 표(| 로 나뉜 줄), [그림]·[표] 표시, 굵게(**), 코드(`), 코드 블록(``` 로 감싼 줄), 빈 줄로 나뉜 문단.
+ * 코드 블록은 안쪽을 손대지 않고 그대로 보여 준다(들여쓰기·빈 줄·<br> 도 글자 그대로).
  * HTML 을 해석하지 않고 React 요소로만 그리므로 서버가 준 문구를 그대로 넣어도 스크립트가 실행되지 않는다.
  *
  * 서버가 가져온 본문은 줄바꿈 없이 한 줄로 이어져 오는 경우가 있어서(### 제목 - 항목 - 항목 …),
@@ -36,14 +37,25 @@ type Block =
   | { kind: 'p'; text: string }
   | { kind: 'fig'; label: string; text: string }
   | { kind: 'table'; rows: string[][] }
+  | { kind: 'code'; text: string }
   | { kind: 'ul' | 'ol'; items: string[] }
 
 const cells = (line: string) => line.replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim())
 
 function parse(text: string): Block[] {
   const blocks: Block[] = []
-  for (const raw of restoreBreaks(text).split('\n')) {
+  const all = restoreBreaks(text).split('\n')
+  for (let n = 0; n < all.length; n++) {
+    const raw = all[n]
     const line = raw.trim()
+    // 코드 블록: 여는 ``` 줄부터 닫는 ``` 줄까지(닫는 줄이 없으면 끝까지)를 그대로 담는다
+    const fence = /^(```|~~~)/.exec(line)
+    if (fence) {
+      const body: string[] = []
+      while (++n < all.length && !all[n].trim().startsWith(fence[1])) body.push(all[n])
+      blocks.push({ kind: 'code', text: body.join('\n') })
+      continue
+    }
     if (!line) continue
     const h = /^(#{1,6})\s+(.+)$/.exec(line)
     if (h) {
@@ -85,6 +97,12 @@ export function Markdown({ text, images }: { text: string; images?: GuideImageRe
       {parse(text).map((b, i) => {
         if (b.kind === 'h') return <h4 key={i}>{inline(b.text)}</h4>
         if (b.kind === 'p') return <p key={i}>{inline(b.text)}</p>
+        if (b.kind === 'code')
+          return (
+            <pre key={i} className="codeblk">
+              <code>{b.text}</code>
+            </pre>
+          )
         if (b.kind === 'fig') {
           const img = b.label === '그림' ? images?.find((x) => x.caption === b.text) : undefined
           if (img) return <GuideFigure key={i} image={img} label={b.label} />
