@@ -17,6 +17,8 @@ export type CaseKind = 'amend' | 'new' | 'manual' | 'sec'
 export type CaseState = 'review' | 'preparing' | 'failed' | 'ready' | 'live' | 'applied' | 'dropped'
 
 export const CASE_KIND_LABEL: Record<CaseKind, string> = { amend: '기존 가이드 보강', new: '신규 가이드', manual: '매뉴얼 후보', sec: 'SEC 직접 검토' }
+/** 카드·패널에 보이는 종류 이름: 서버가 판단한 이름(항목 추가·변경·새 가이드·매뉴얼 후보·SEC 직접 검토)이 있으면 그대로, 모의 화면은 네 가지 이름 */
+export const kindLabel = (c: { kind: CaseKind; server?: { judgmentLabel: string } }) => c.server?.judgmentLabel || CASE_KIND_LABEL[c.kind]
 export const CASE_STATE_LABEL: Record<CaseState, string> = {
   review: '검토 필요',
   preparing: '검색 준비 중',

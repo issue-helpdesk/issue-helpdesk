@@ -8,10 +8,10 @@
  */
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { CATEGORIES } from '../../api/catalog'
-import { CASES_FROM_SERVER, getAllCases, getServerLoad, loadCases, subscribeAllCases, subscribeServerCases } from '../../api/caseClusters'
+import { CASES_FROM_SERVER, getAllCases, getAnalysisStatus, getServerLoad, loadAnalysisStatus, loadCases, subscribeAllCases, subscribeServerCases } from '../../api/caseClusters'
 import type { CategoryCode } from '../../api/chatTypes'
 import { retryGuideIngest } from '../../api/guides'
-import { CASE_KIND_LABEL, CASE_KIND_TONE, CASE_STATE_LABEL, CASE_STATE_TONE, baseChanged, retryCase, type CaseItem } from '../../api/mock/caseGuides'
+import { CASE_KIND_TONE, CASE_STATE_LABEL, CASE_STATE_TONE, baseChanged, kindLabel, retryCase, type CaseItem } from '../../api/mock/caseGuides'
 import { useAuth } from '../../core/session'
 import { FilterPill } from '../../ui/FilterPill'
 import { Icon } from '../../ui/Icon'
@@ -36,10 +36,14 @@ const inView = (v: View, c: CaseItem) => (v === 'review' ? c.state === 'review' 
 export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: CaseItem) => void; onVersion: (c: CaseItem) => void; onGoLive: (c: CaseItem) => void }) {
   const cases = useSyncExternalStore(subscribeAllCases, getAllCases)
   const load = useSyncExternalStore(subscribeServerCases, getServerLoad)
+  const status = useSyncExternalStore(subscribeServerCases, getAnalysisStatus)
   const { user } = useAuth()
   // 서버 연결 환경에서는 탭을 열 때마다 최신 목록을 다시 읽는다
   useEffect(() => {
-    if (CASES_FROM_SERVER) void loadCases()
+    if (CASES_FROM_SERVER) {
+      void loadCases()
+      void loadAnalysisStatus()
+    }
   }, [])
   const [view, setView] = useState<View>('review')
   const [cat, setCat] = useState('')
@@ -91,6 +95,12 @@ export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: 
             이번 분석 결과 · 마지막 분석 {t.last} · 다음 분석 {t.next}
           </span>
         )}
+        {CASES_FROM_SERVER && status && (
+          <span className="small muted">
+            마지막 분석 {status.lastAnalyzedAt ? fmt(new Date(status.lastAnalyzedAt)) : '아직 없음'} · 다음 분석 {fmt(new Date(status.nextAnalysisAt))}
+            {status.lastRunStatus === 'FAILED' && <span style={{ color: 'var(--s-urg-fg)' }}> · 가장 최근 분석이 실패했어요</span>}
+          </span>
+        )}
       </div>
 
       {CASES_FROM_SERVER && load.error && (
@@ -128,8 +138,7 @@ export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: 
                   <span>
                     근거 티켓 <b>{c.ticketCount}건</b>
                   </span>
-                  <StateBadge tone={CASE_KIND_TONE[c.kind]} label={CASE_KIND_LABEL[c.kind]} />
-                  {c.server && c.kind === 'amend' && <span className="muted">{c.server.judgmentLabel}</span>}
+                  <StateBadge tone={CASE_KIND_TONE[c.kind]} label={kindLabel(c)} />
                   {c.target && (
                     <span className="muted">
                       {c.target.docCode} {c.target.title}

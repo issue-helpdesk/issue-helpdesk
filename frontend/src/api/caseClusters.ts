@@ -174,6 +174,21 @@ export const subscribeServerCases = (f: () => void) => {
   }
 }
 export const getServerCases = () => items
+
+/** 주간 분석 일정 (GC-09). 마지막 성공 시각·다음 예정 시각·가장 최근 시도의 상태 */
+export interface AnalysisStatus {
+  lastAnalyzedAt: string | null
+  nextAnalysisAt: string
+  lastRunStatus: 'RUNNING' | 'SUCCEEDED' | 'FAILED' | null
+}
+let analysis: AnalysisStatus | null = null
+export const getAnalysisStatus = () => analysis
+/** 일정을 읽는다. 실패해도 목록 화면은 그대로 쓰므로 일정 표시만 비운다 */
+export async function loadAnalysisStatus(): Promise<void> {
+  const r = await request<AnalysisStatus>('/guide-clusters/analysis-status')
+  analysis = r.ok ? r.data : null
+  emit()
+}
 export const getServerLoad = () => load
 
 /** 목록 전체를 다시 읽는다 (근거 티켓이 많은 순). 이미 열어 본 상세는 유지한다 */

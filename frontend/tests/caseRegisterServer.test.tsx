@@ -270,3 +270,27 @@ describe('검토 패널 (서버 연결)', () => {
     expect(calls().some((x) => x.includes('/target'))).toBe(false)
   })
 })
+
+describe('목록 탭: 종류 이름과 분석 일정', () => {
+  it('서버가 판단한 종류 이름(항목 추가·변경·새 가이드)을 그대로 보이고, 마지막·다음 분석 시각을 보인다', async () => {
+    route = (method, path) => {
+      if (path === '/guide-clusters/analysis-status') return json(200, { lastAnalyzedAt: '2026-11-09T00:00:00+09:00', nextAnalysisAt: '2026-11-16T00:00:00+09:00', lastRunStatus: 'FAILED' })
+      if (method === 'GET' && path.startsWith('/guide-clusters?'))
+        return listOf([sum({ id: 1, title: '추가 건' }), sum({ id: 2, title: '변경 건', judgment: 'CHANGE' }), sum({ id: 3, title: '새 건', judgment: 'NEW_GUIDE', targetDocument: null })])
+    }
+    const { AuthProvider } = await import('../src/core/session')
+    const { CaseGuideTab } = await import('../src/views/admin/CaseGuideTab')
+    render(
+      <AuthProvider>
+        <CaseGuideTab onReview={() => {}} onVersion={() => {}} onGoLive={() => {}} />
+      </AuthProvider>,
+    )
+    await screen.findAllByRole('region')
+    expect(screen.getByText('항목 추가')).toBeInTheDocument()
+    expect(screen.getByText('변경')).toBeInTheDocument()
+    expect(screen.getByText('새 가이드')).toBeInTheDocument()
+    expect(screen.queryByText('기존 가이드 보강')).toBeNull()
+    expect(await screen.findByText(/마지막 분석 \d+월 \d+일/)).toBeInTheDocument()
+    expect(screen.getByText(/가장 최근 분석이 실패했어요/)).toBeInTheDocument()
+  })
+})
