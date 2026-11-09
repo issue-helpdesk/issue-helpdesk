@@ -5,6 +5,7 @@ from fastapi import APIRouter, Query
 from app.api.deps import AdminAuth
 from app.schemas.common import Page
 from app.schemas.guide_cluster import (
+    GuideAnalysisStatus,
     GuideClusterDetail,
     GuideClusterDraftUpdateRequest,
     GuideClusterListQuery,
@@ -25,6 +26,12 @@ def list_clusters(
     query: Annotated[GuideClusterListQuery, Query()], _: AdminAuth, service: GuideClusterServiceDep,
 ) -> Page[GuideClusterSummary]:
     return service.list_clusters(query)
+
+
+@router.get("/analysis-status", response_model=GuideAnalysisStatus)
+def get_analysis_status(_: AdminAuth, service: GuideClusterServiceDep) -> GuideAnalysisStatus:
+    """마지막·다음 주간 분석 시각. /{cluster_id} 보다 먼저 둔다."""
+    return service.analysis_status()
 
 
 @router.get("/{cluster_id}", response_model=GuideClusterDetail)

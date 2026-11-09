@@ -36,6 +36,29 @@ services:
     volumes:
       - ./backend/app/integrations/jira/field_mapping.production.yaml:/app/backend/app/integrations/jira/field_mapping.yaml:ro
 
+  # 해결 사례 가이드화 주간 분석 (월요일 00:00 KST). 로컬 compose 가 공유 DB 에 분석을 돌리지 않도록 서버 파일에만 둔다.
+  # 회차를 한 프로세스가 관리하므로 1개만 띄운다. 모델은 회차 동안만 메모리에 올린다.
+  guide-worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    working_dir: /app/backend
+    environment:
+      EMBEDDING_MODEL_DIR: /models
+    command: ["python", "-m", "app.workers.guide_analysis"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - default
+      - db-net
+    volumes:
+      - ${MODELS_DIR:-/home/ubuntu/models}:/models:ro
+      - ./storage:/app/storage:ro
+    restart: unless-stopped
+    stop_grace_period: 60s
+
 networks:
   db-net:
     external: true
