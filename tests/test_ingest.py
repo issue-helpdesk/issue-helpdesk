@@ -1,10 +1,12 @@
 """가이드 적재(app.rag.ingest)의 준비·검증을 DB 없이 검사한다. DB 교체는 test_ingest_db.py."""
+import json
 import math
 
 import pytest
 
 from app.rag.ingest import (FakeEmbedder, IngestError, Report, check_files, check_reference, check_vectors, chunk_rows,
-                            connect, embed, is_local, load_baseline, load_manifest, prepare, run)
+                            connect, embed, is_local, load_allowlist, load_baseline, load_manifest, prepare, run)
+from app.rag.ingest.allowlist import ALLOWLIST
 
 
 @pytest.fixture(scope='module')
@@ -29,11 +31,24 @@ def test_transfer_policy_from_manifest(prepared):
 
 
 def test_content_transfer_policy_by_document_type(prepared):
-    """매뉴얼 항목별 내용 전송 칸 (M4 Q10): 매뉴얼은 모든 청크에 값 — 지금 목록은 값이 비어 있어 모두 BLOCKED.
-    가이드·공통 기준은 빈칸 = 버전 정책 (지금 동작 그대로)."""
+    """매뉴얼 항목별 내용 전송 칸 (M4 Q10): 매뉴얼은 모든 청크에 값 — 허용 목록 파일에서 ALLOWED 인 3장 3.x 항목의
+    청크만 ALLOWED, 나머지(목록 BLOCKED·빈 값·3장 밖·FAQ 등)는 BLOCKED. 가이드·공통 기준은 빈칸 = 버전 정책.
+    기대값은 목록 파일을 직접 읽어 만든다 — 목록 값을 바꿔도(채움·허용 취소) 시험을 고치지 않는다.
+    지문이 낡았거나 목록에 없는 항목을 가리키면 여기서 걸린다 (목록과 실제 적재가 어긋나지 않게)."""
+    data = json.loads(ALLOWLIST.read_text(encoding='utf-8'))
+    allowed = {(i['doc_no'], i['section']) for i in data['items'] if i.get('content') == 'ALLOWED'}
+    _, notes = load_allowlist()
+    assert notes == []                                               # 목록 모양·지문 형식·키가 모두 정상
+    seen = set()
     for p in prepared:
-        want = {'BLOCKED'} if p.document['doc_type'] == 'MANUAL' else {None}
-        assert {r['content_transfer_policy'] for r in p.rows} == want, p.doc_code
+        if p.document['doc_type'] != 'MANUAL':
+            assert {r['content_transfer_policy'] for r in p.rows} == {None}, p.doc_code
+            continue
+        for c, r in zip(p.chunks, p.rows, strict=True):
+            hit = c.chunk_type == 'item' and (c.section_no or '').startswith('3.') and (p.doc_code, c.section_no) in allowed
+            seen |= {(p.doc_code, c.section_no)} if hit else set()
+            assert r['content_transfer_policy'] == ('ALLOWED' if hit else 'BLOCKED'), (p.doc_code, c.unit_key)
+    assert seen == allowed, sorted(allowed - seen)                   # 허용한 항목이 모두 실제 청크로 허용됨 (지문 같음)
     assert sum(p.document['doc_type'] == 'MANUAL' for p in prepared) == 27
 
 
