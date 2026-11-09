@@ -69,6 +69,12 @@ export function GuidesView() {
   const [vers, setVers] = useState<Record<number, GuideVersion[]>>({})
   const [error, setError] = useState('')
   const [tab, setTab] = useState<Tab>('list')
+  const [caseGuide, setCaseGuide] = useState<{ docCode: string; title: string } | null>(null)
+  // 문서에서 제안으로 이동할 때 문맥을 함께 넘긴다. 전체 제안 탭은 이 조건을 해제한다.
+  const showCases = (g?: Guide) => {
+    setCaseGuide(g ? { docCode: g.docCode, title: g.title } : null)
+    setTab('case')
+  }
   const [catOpen, setCatOpen] = useState<Record<string, boolean>>({})
   const [openId, setOpenId] = useState<number | null>(null)
   const [tick, setTick] = useState(0)
@@ -292,7 +298,7 @@ export function GuidesView() {
                 <i className="gd rv" aria-hidden="true" />
                 <span>
                   검토할 AI 제안이 <b>{ci.review}건</b> 있어요.{' '}
-                  <button type="button" className="lnk" onClick={() => setTab('case')}>
+                  <button type="button" className="lnk" onClick={() => showCases(g)}>
                     제안 보기
                   </button>
                 </span>
@@ -429,7 +435,7 @@ export function GuidesView() {
           {reviewTotal > 0 && (
             <>
               {' · '}
-              <button type="button" className="lnk" onClick={() => setTab('case')}>
+              <button type="button" className="lnk" onClick={() => showCases()}>
                 AI 제안 {reviewTotal}건 보기
               </button>
             </>
@@ -504,7 +510,7 @@ export function GuidesView() {
                 <button type="button" className={tab === 'list' ? 'on' : ''} aria-pressed={tab === 'list'} onClick={() => setTab('list')}>
                   가이드 목록 <span className="count">{guides?.length ?? 0}</span>
                 </button>
-                <button type="button" className={tab === 'case' ? 'on' : ''} aria-pressed={tab === 'case'} onClick={() => setTab('case')}>
+                <button type="button" className={tab === 'case' ? 'on' : ''} aria-pressed={tab === 'case'} onClick={() => showCases()}>
                   AI 가이드 제안 <span className="count">{reviewN}</span>
                 </button>
               </div>
@@ -538,6 +544,9 @@ export function GuidesView() {
               )
             ) : (
               <CaseGuideTab
+                key={caseGuide?.docCode ?? 'all'}
+                guide={caseGuide}
+                onClearGuide={() => setCaseGuide(null)}
                 onReview={(c) => {
                   setReader(null)
                   setCasePanel(c.id)
@@ -603,7 +612,7 @@ export function GuidesView() {
               className="btn pri"
               onClick={() => {
                 setDlg(null)
-                setTab('case')
+                showCases(dlg.g)
               }}
             >
               AI 가이드 제안 보기

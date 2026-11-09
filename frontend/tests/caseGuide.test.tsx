@@ -233,6 +233,19 @@ describe('해결 사례 탭 화면', () => {
     await waitFor(() => expect(get('c6').state).toBe('live'), SLOW)
   })
 
+  it('문서의 제안 보기는 해당 가이드만 표시하고 전체 보기로 해제할 수 있다', async () => {
+    renderAdmin()
+    await userEvent.click(await screen.findByRole('button', { name: /^VPN·네트워크/ }, SLOW))
+    await userEvent.click(await screen.findByRole('button', { name: '제안 보기' }, SLOW))
+    expect(await screen.findByRole('status', { name: '가이드별 제안' })).toHaveTextContent('IT-NET-001 VPN 접속 장애 대응 가이드')
+    expect(cardsOf()).toHaveLength(1)
+    expect(cardsOf()[0]).toHaveTextContent(get('c1').topic)
+    expect(screen.getByRole('button', { name: /^검토 대상/ })).toHaveTextContent('1')
+    await userEvent.click(screen.getByRole('button', { name: '전체 제안 보기' }))
+    expect(cardsOf()).toHaveLength(3)
+    expect(screen.queryByText('이 가이드에 해당하는 제안만 보고 있어요.')).toBeNull()
+  })
+
   it('검토 중인 제안이 걸린 문서에는 제안 건수가 보이고, 그 문서에 새 버전을 올리려 하면 안내가 뜬다', async () => {
     renderAdmin()
     await userEvent.click(await screen.findByRole('button', { name: /^VPN·네트워크/ }, SLOW))
@@ -266,6 +279,9 @@ describe('해결 사례 탭 화면', () => {
     expect(v.ok && v.data.find((x) => x.version === 'v2')?.state).toBe('현행')
     await userEvent.click(within(dlg).getByRole('button', { name: 'AI 가이드 제안 보기' }))
     expect(await screen.findByRole('button', { name: /^검토 대상/ }, SLOW)).toBeInTheDocument()
+    expect(screen.getByText('이 가이드에 해당하는 제안만 보고 있어요.')).toBeInTheDocument()
+    expect(cardsOf()).toHaveLength(1)
+    expect(cardsOf()[0]).toHaveTextContent(get('c1').topic)
   })
 
   it('등록 버전 보기는 등록한 본문을, 처리 이력 상세 보기는 근거 티켓과 판단을 보여 준다', async () => {
