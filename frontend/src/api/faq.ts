@@ -30,8 +30,6 @@ interface ServerFaqDetail extends ServerFaq {
 
 /** 한 번에 읽는 개수 (서버 최대) */
 const PAGE_SIZE = 100
-/** 안전장치: 이 쪽수를 넘게 읽지 않는다 */
-const MAX_PAGES = 5
 
 const toFaq = (f: ServerFaq): Faq => ({ id: f.faqCode, serverId: f.id, categoryCode: f.categoryCode, question: f.question, answer: f.answer, sources: [], active: f.isActive })
 
@@ -54,7 +52,8 @@ export async function listFaqs(admin = false): Promise<ApiResult<Faq[]>> {
     return ok(mockStore.filter((f) => admin || f.active !== false).map((f) => ({ ...f })))
   }
   const out: Faq[] = []
-  for (let page = 1; page <= MAX_PAGES; page++) {
+  // 화면에서 검색·분류하므로 전체 페이지를 받아야 누락이 없다.
+  for (let page = 1; ; page++) {
     const r = await request<Page<ServerFaq>>(`/faqs?page=${page}&size=${PAGE_SIZE}&sort=faqCode,asc`)
     if (!r.ok) return r
     // 서버는 관리자에게 비게시 FAQ 도 준다. 관리자 화면만 그것을 보여 준다

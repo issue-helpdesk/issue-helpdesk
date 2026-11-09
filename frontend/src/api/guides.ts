@@ -163,7 +163,7 @@ export async function listGuides(user: User): Promise<ApiResult<Guide[]>> {
     return ok(store.map(toGuide))
   }
   const out: Guide[] = []
-  for (let page = 1; page <= 10; page++) {
+  for (let page = 1; ; page++) {
     const r = await request<{ items: SDoc[]; totalPages: number }>(`/documents?size=100&page=${page}&docType=GUIDE&docType=MANUAL&includeInactive=true&sort=docCode,asc`)
     if (!r.ok) return r
     r.data.items.forEach((d) => {
@@ -516,7 +516,7 @@ export async function listReadableGuides(user: User): Promise<ApiResult<Guide[]>
     return ok(store.map(toGuide).filter((g) => g.isActive && g.current && rank >= need[g.current.scope ?? '전 직원']))
   }
   const out: Guide[] = []
-  for (let page = 1; page <= 10; page++) {
+  for (let page = 1; ; page++) {
     const r = await request<{ items: SDoc[]; totalPages: number }>(`/documents?size=100&page=${page}&docType=GUIDE&docType=MANUAL&sort=docCode,asc`)
     if (!r.ok) return r
     r.data.items.forEach((d) => {

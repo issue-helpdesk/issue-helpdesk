@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CATEGORIES, URGENCY_LABEL, urgencyText } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
-import { listTickets, watchTickets } from '../../api/tickets'
+import { listAllTickets, watchTickets } from '../../api/tickets'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
 import { formatDateTime, formatElapsed } from '../../core/format'
@@ -93,7 +93,7 @@ export function MyDashView() {
   useEffect(() => {
     if (!user) return
     let alive = true
-    listTickets(user, { view: 'ASSIGNED', assigneeId: user.id, size: 100 }).then((r) => {
+    listAllTickets(user, { view: 'ASSIGNED', assigneeId: user.id, size: 100 }).then((r) => {
       if (!alive) return
       if (r.ok) {
         setMine(r.data.items)

@@ -11,7 +11,7 @@ import { SERVER_INTAKE, USE_MOCK_TICKET } from '../core/config'
 import { nowIso } from '../core/format'
 import { notReady } from './inquiryServer'
 import { GROUP_STAFF, findStaffTicket, mutateSeed, workloadOf } from './mock/staffTickets'
-import { getTicket, listTickets } from './tickets'
+import { getTicket, listAllTickets } from './tickets'
 import type { IntegrationJob, IntegrationJobType, RetryOutcome, TicketDetail, TicketSummary } from './ticketTypes'
 import { fail, ok, type ApiResult, type User } from './types'
 
@@ -26,7 +26,7 @@ export interface OpsSnapshot {
 
 export async function getOpsSnapshot(user: User, groupId?: number): Promise<ApiResult<OpsSnapshot>> {
   const base = { view: 'ALL' as const, size: 100, ...(groupId ? { groupId } : {}) }
-  const n = await listTickets(user, { ...base, needsAdmin: true, sort: 'createdAt,asc' })
+  const n = await listAllTickets(user, { ...base, needsAdmin: true, sort: 'createdAt,asc' })
   if (!n.ok) return n
   // 해결 완료(CLS)된 접수는 더 확인할 일이 없다
   const open = n.data.items.filter((t) => t.workStatus !== 'CLS')
@@ -40,7 +40,7 @@ export async function getOpsSnapshot(user: User, groupId?: number): Promise<ApiR
 
 /** 사이드바 배지용: 연동·배정 확인이 필요한 접수 수 */
 export async function countOpsAttention(user: User): Promise<number> {
-  const r = await listTickets(user, { view: 'ALL', needsAdmin: true, size: 100 })
+  const r = await listAllTickets(user, { view: 'ALL', needsAdmin: true, size: 100 })
   return r.ok ? r.data.items.filter((t) => t.workStatus !== 'CLS').length : 0
 }
 

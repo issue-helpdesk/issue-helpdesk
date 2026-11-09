@@ -54,6 +54,20 @@ const summaryOf = (t: TicketDetail): TicketSummary => {
   return s
 }
 
+/** 목록으로 전체 집계하는 화면 전용. 일반 목록의 페이지 이동에는 listTickets를 쓴다. */
+export async function listAllTickets(user: User, query: TicketListQuery = {}): Promise<ApiResult<Page<TicketSummary>>> {
+  // 전체 항목으로 집계하는 화면만 사용한다. 중간 요청 실패 시 부분 집계를 반환하지 않는다.
+  const first = await listTickets(user, { ...query, page: 1, size: 100, sort: query.sort ?? 'createdAt,asc' })
+  if (!first.ok) return first
+  const items = new Map(first.data.items.map((t) => [t.id, t]))
+  for (let page = 2; page <= first.data.totalPages; page++) {
+    const next = await listTickets(user, { ...query, page, size: 100, sort: query.sort ?? 'createdAt,asc' })
+    if (!next.ok) return next
+    next.data.items.forEach((t) => items.set(t.id, t))
+  }
+  return ok({ ...first.data, items: [...items.values()] })
+}
+
 /** 접수 목록 (TK-05). AGENT 는 view=ASSIGNED 가 기본이다. */
 export async function listTickets(user: User, query: TicketListQuery = {}): Promise<ApiResult<Page<TicketSummary>>> {
   if (!USE_MOCK_TICKET) return request<Page<TicketSummary>>(`/tickets?${toQueryString(query)}`)
@@ -277,7 +291,7 @@ export async function getStatsSource(user: User, section: 'sum' | 'trend' | 'pri
       return fail('STATS_UNAVAILABLE', '이 구역을 불러오지 못했어요.')
     }
   }
-  const r = await listTickets(user, { view: 'ASSIGNED', size: USE_MOCK_TICKET ? 200 : 100 })
+  const r = await listAllTickets(user, { view: 'ASSIGNED' })
   if (!r.ok) return r
   const names = (USE_MOCK_TICKET ? TEAM_MEMBERS[user.departmentName ?? ''] ?? [] : []).map((m) => m.name)
   return ok({ items: r.data.items, names })

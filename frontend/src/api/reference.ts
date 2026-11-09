@@ -116,7 +116,17 @@ export async function listBoard(user: User, groupNames?: string[]): Promise<ApiR
   if (!members.ok) return members
   const today = new Date()
   const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  const [leave, open] = await Promise.all([request<{ items: ServerTimeOff[] }>(`/time-off?dateFrom=${ymd}&dateTo=${ymd}&size=100`), openTickets(user)])
+  const readLeave = async (): Promise<ApiResult<{ items: ServerTimeOff[] }>> => {
+    const items: ServerTimeOff[] = []
+    for (let page = 1; ; page++) {
+      const r = await request<{ items: ServerTimeOff[]; totalPages?: number }>(`/time-off?dateFrom=${ymd}&dateTo=${ymd}&size=100&page=${page}`)
+      if (!r.ok) return r
+      items.push(...r.data.items)
+      if (page >= (r.data.totalPages ?? 1)) break
+    }
+    return ok({ items })
+  }
+  const [leave, open] = await Promise.all([readLeave(), openTickets(user)])
   if (!open.ok) return open
   const why = new Map<number, string>()
   if (leave.ok) leave.data.items.forEach((t) => why.set(t.userId, LEAVE_LABEL[t.timeOffType] ?? '연차'))

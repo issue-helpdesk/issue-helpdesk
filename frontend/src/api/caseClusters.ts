@@ -197,7 +197,7 @@ export async function loadCases(): Promise<ApiResult<CaseItem[]>> {
   load = { ...load, loading: true, error: '' }
   emit()
   const all: SSummary[] = []
-  for (let page = 1; page <= 20; page++) {
+  for (let page = 1; ; page++) {
     const r = await request<{ items: SSummary[]; totalPages: number }>(`/guide-clusters?size=100&page=${page}`)
     if (!r.ok) {
       load = { loaded: load.loaded, loading: false, error: r.error.message }
