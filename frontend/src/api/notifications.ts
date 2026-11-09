@@ -38,8 +38,15 @@ export async function getUnreadCount(): Promise<ApiResult<UnreadCount>> {
 /** 안 읽은 알림 목록 (NT-01). 사이드바는 어느 문의에 새 소식이 있는지 알려고 쓴다 */
 export async function listUnread(): Promise<ApiResult<AppNotification[]>> {
   if (USE_MOCK_NOTIFY) return ok([])
-  const r = await request<{ items: AppNotification[] }>('/notifications?unreadOnly=true&size=100')
-  return r.ok ? ok(r.data.items) : r
+  const items: AppNotification[] = []
+  // 알림이 많아도 최근 문의의 새 답변 표시가 누락되지 않게 마지막 페이지까지 읽는다.
+  for (let page = 1; ; page++) {
+    const r = await request<{ items: AppNotification[]; totalPages?: number }>(`/notifications?unreadOnly=true&size=100&page=${page}`)
+    if (!r.ok) return r
+    items.push(...r.data.items)
+    if (page >= (r.data.totalPages ?? 1)) break
+  }
+  return ok(items)
 }
 
 /** 알림 목록 한 쪽 (NT-01, 최신순). unreadOnly 면 안 읽은 알림만. 모의 모드에서는 알림이 없다 */

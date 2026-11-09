@@ -41,14 +41,13 @@ interface TimeOffInput {
 /** 날짜를 YYYY-MM-DD 로 (사용자 기기의 날짜 기준) */
 export const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-const MAX_PAGES = 5
 const PAGE_SIZE = 100
 
-/** 기간(포함)과 겹치는 일정. 한 번에 100건까지라 넘으면 다음 쪽도 읽는다(최대 5쪽) */
+/** 기간(포함)과 겹치는 일정. 서버가 알려 준 마지막 페이지까지 읽는다. */
 export async function listTimeOff(user: User, from: string, to: string): Promise<ApiResult<TimeOff[]>> {
   if (USE_MOCK_TICKET) return ok(mockList(user, from, to))
   const all: TimeOff[] = []
-  for (let page = 1; page <= MAX_PAGES; page++) {
+  for (let page = 1; ; page++) {
     const r = await request<{ items: TimeOff[]; totalPages?: number }>(`/time-off?dateFrom=${from}&dateTo=${to}&sort=startDate,asc&size=${PAGE_SIZE}&page=${page}`)
     if (!r.ok) return r
     all.push(...r.data.items)

@@ -12,6 +12,7 @@ import { USE_MOCK_TICKET } from '../core/config'
 import type { Urgency } from './chatTypes'
 import { GROUP_ID, GROUP_STAFF, workloadOf } from './mock/staffTickets'
 import { listTickets } from './tickets'
+import type { TicketSummary } from './ticketTypes'
 import { ok, type ApiResult, type User } from './types'
 
 export interface SupportGroupRef {
@@ -88,9 +89,23 @@ export async function listStaff(actor: User): Promise<ApiResult<StaffRef[]>> {
 
 const emptyPri = (): Record<Urgency, number> => ({ P1: 0, P2: 0, P3: 0, P4: 0 })
 
+/** 100은 한 쪽의 크기다. 팀원별 긴급도는 statusCounts로 나눌 수 없어 전체 쪽을 읽는다. */
+async function openTickets(user: User): Promise<ApiResult<TicketSummary[]>> {
+  const query = { view: 'ALL' as const, workStatus: ['RDY', 'WIP'] as ('RDY' | 'WIP')[], size: 100, sort: 'createdAt,asc' }
+  const first = await listTickets(user, { ...query, page: 1 })
+  if (!first.ok) return first
+  const items = new Map(first.data.items.map((t) => [t.id, t]))
+  for (let page = 2; page <= first.data.totalPages; page++) {
+    const next = await listTickets(user, { ...query, page })
+    if (!next.ok) return next // 일부 쪽만 읽은 건수를 전체 업무량으로 표시하지 않는다.
+    next.data.items.forEach((t) => items.set(t.id, t))
+  }
+  return ok([...items.values()])
+}
+
 /**
  * 담당 그룹별 구성원과 업무량 (재배정·지정 후보, 팀별 개인 현황). groupNames 를 생략하면 모든 그룹.
- * 서버: 구성원은 RF-04, 오늘의 부재 사유는 TO-01(없으면 사유 없이 "연차"), 처리 대기·처리 중 건수와 긴급도 분포는 TK-05 처리 대기·처리 중 접수(최대 100건)를 센다.
+ * 서버: 구성원은 RF-04, 오늘의 부재 사유는 TO-01(없으면 사유 없이 "연차"), 업무량과 긴급도는 TK-05의 처리 대기·처리 중 접수를 모든 쪽에서 읽어 센다.
  */
 export async function listBoard(user: User, groupNames?: string[]): Promise<ApiResult<Record<string, Candidate[]>>> {
   if (USE_MOCK_TICKET) {
@@ -101,19 +116,29 @@ export async function listBoard(user: User, groupNames?: string[]): Promise<ApiR
   if (!members.ok) return members
   const today = new Date()
   const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  const [leave, open] = await Promise.all([request<{ items: ServerTimeOff[] }>(`/time-off?dateFrom=${ymd}&dateTo=${ymd}&size=100`), listTickets(user, { view: 'ALL', workStatus: ['RDY', 'WIP'], size: 100 })])
+  const readLeave = async (): Promise<ApiResult<{ items: ServerTimeOff[] }>> => {
+    const items: ServerTimeOff[] = []
+    for (let page = 1; ; page++) {
+      const r = await request<{ items: ServerTimeOff[]; totalPages?: number }>(`/time-off?dateFrom=${ymd}&dateTo=${ymd}&size=100&page=${page}`)
+      if (!r.ok) return r
+      items.push(...r.data.items)
+      if (page >= (r.data.totalPages ?? 1)) break
+    }
+    return ok({ items })
+  }
+  const [leave, open] = await Promise.all([readLeave(), openTickets(user)])
+  if (!open.ok) return open
   const why = new Map<number, string>()
   if (leave.ok) leave.data.items.forEach((t) => why.set(t.userId, LEAVE_LABEL[t.timeOffType] ?? '연차'))
   const load = new Map<number, { rdy: number; wip: number; pri: Record<Urgency, number> }>()
-  if (open.ok)
-    open.data.items.forEach((t) => {
-      if (!t.assignee) return
-      const w = load.get(t.assignee.id) ?? { rdy: 0, wip: 0, pri: emptyPri() }
-      if (t.workStatus === 'RDY') w.rdy++
-      else w.wip++
-      if (t.urgency) w.pri[t.urgency]++
-      load.set(t.assignee.id, w)
-    })
+  open.data.forEach((t) => {
+    if (!t.assignee) return
+    const w = load.get(t.assignee.id) ?? { rdy: 0, wip: 0, pri: emptyPri() }
+    if (t.workStatus === 'RDY') w.rdy++
+    else w.wip++
+    if (t.urgency) w.pri[t.urgency]++
+    load.set(t.assignee.id, w)
+  })
   const out: Record<string, Candidate[]> = {}
   members.data
     .filter((x) => !groupNames || groupNames.includes(x.group.name))

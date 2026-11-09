@@ -45,25 +45,23 @@ describe('캘린더 화면', () => {
     expect(within(g).getByRole('button', { name: '전체' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('관리자는 캘린더 맨 아래에서 팀별 개인 현황을 보고, 담당자에게는 없다', async () => {
+  it('팀별 개인 현황은 운영 현황으로 이동하고 캘린더에는 표시하지 않는다', async () => {
     const { unmount } = renderAt('/calendar', 'EMP-1178')
-    const grp = await screen.findByRole('group', { name: '담당 그룹' }, SLOW)
-    expect(await within(grp).findByRole('button', { name: /^서비스데스크\s*\d+\/\d+/ }, SLOW)).toBeInTheDocument()
+    await screen.findByRole('grid', {}, SLOW)
+    expect(screen.queryByRole('region', { name: '팀별 개인 현황' })).toBeNull()
     unmount()
     renderAt('/calendar', 'EMP-1004')
     await screen.findByRole('grid', {}, SLOW)
     expect(screen.queryByRole('group', { name: '담당 그룹' })).toBeNull()
   })
 
-  it('관리자는 여러 팀의 일정을 이름 앞 팀 두 글자와 함께 보고, 팀별 개인 현황은 접기 버튼 없이 펼쳐져 있다', async () => {
+  it('관리자는 여러 팀의 일정을 이름 앞 팀 두 글자와 함께 본다', async () => {
     renderAt('/calendar', 'EMP-1178')
-    const grp = await screen.findByRole('group', { name: '담당 그룹' }, SLOW)
-    await within(grp).findByRole('button', { name: /^서비스데스크/ }, SLOW)
     // 일정 이름 앞에 [팀 두 글자]가 붙는다
     expect((await screen.findAllByText(/^\[[가-힣]{2}\] /, undefined, SLOW)).length).toBeGreaterThan(0)
     // 접기·펼치기 버튼이 없고 구성원 표가 바로 보인다
     expect(screen.queryByRole('button', { name: /담당자 (접기|펼치기)/ })).toBeNull()
-    expect(screen.getAllByRole('columnheader', { name: '오늘 상태' }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('columnheader', { name: '오늘 상태' })).toBeNull()
   })
 
   it('날짜 칸을 누르면 그날 일정 목록이 열리고, 거기서 그 날짜로 일정을 등록할 수 있다', async () => {

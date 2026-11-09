@@ -5,7 +5,7 @@
  *   연동·배정 확인  needsAdmin=true (원인별 건수는 목록의 jiraSyncStatus·assignStatus·transitionStatus 로 나눈다)
  *   긴급·높음 미해결 urgency=P1,P2 · workStatus=RDY,WIP (처리 대기·처리 중). ITSM 생성 전 접수는 운영 현황의 연동 확인에서 본다
  */
-import { listTickets } from './tickets'
+import { listAllTickets, listTickets } from './tickets'
 import type { TicketSummary } from './ticketTypes'
 import { ok, type ApiResult, type User } from './types'
 
@@ -25,8 +25,8 @@ export async function getDashSnapshot(user: User): Promise<ApiResult<DashSnapsho
   // 상태별 건수는 상태 조건 없는 1건 요청의 statusCounts 로 한 번에 읽는다 (R-46)
   const [counts, need, open] = await Promise.all([
     listTickets(user, { ...base, size: 1 }),
-    listTickets(user, { ...base, needsAdmin: true, size: 100 }),
-    listTickets(user, { ...base, urgency: ['P1', 'P2'], workStatus: ['RDY', 'WIP'], size: 100, sort: 'createdAt,asc' }),
+    listAllTickets(user, { ...base, needsAdmin: true, size: 100 }),
+    listAllTickets(user, { ...base, urgency: ['P1', 'P2'], workStatus: ['RDY', 'WIP'], size: 100, sort: 'createdAt,asc' }),
   ])
   if (!counts.ok) return counts
   if (!need.ok) return need

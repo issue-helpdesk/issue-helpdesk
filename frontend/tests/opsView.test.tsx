@@ -98,8 +98,8 @@ describe('운영 현황 화면', () => {
     expect(within(section(/티켓 연동 확인/)).getByText(/^\d+건$/)).toBeInTheDocument()
     expect(within(section(/담당자 배정 확인/)).getByText(/^\d+건$/)).toBeInTheDocument()
     expect(section(/티켓 연동 확인/)).toHaveClass('need')
-    // 팀별 개인 현황은 캘린더 화면 맨 아래로 옮겼다
-    expect(screen.queryByRole('group', { name: '담당 그룹' })).toBeNull()
+    expect(await screen.findByRole('region', { name: '팀별 개인 현황' }, SLOW)).toBeInTheDocument()
+    expect(await screen.findByRole('group', { name: '담당 그룹' }, SLOW)).toBeInTheDocument()
     unmount()
     renderAs('EMP-1004', '/ops')
     expect(await screen.findByRole('heading', { name: /내 담당 문의/ }, SLOW)).toBeInTheDocument()
@@ -112,8 +112,12 @@ describe('운영 현황 화면', () => {
     expect(asg()).toBe(2)
     await userEvent.click(screen.getByRole('button', { name: /^담당 그룹\s*전체/ }))
     await userEvent.click(await screen.findByRole('option', { name: '정보보안팀' }))
+    const teamTabs = screen.getByRole('group', { name: '담당 그룹' })
+    expect(await within(teamTabs).findByRole('button', { name: /^정보보안팀/ })).toHaveAttribute('aria-pressed', 'true')
     await waitFor(() => expect(within(section(/티켓 연동 확인/)).getByText('0건')).toBeInTheDocument(), SLOW)
     expect(within(section(/티켓 연동 확인/)).getByText('연동 확인이 필요한 건이 없어요.')).toBeInTheDocument()
+    await userEvent.click(within(teamTabs).getByRole('button', { name: /^네트워크팀/ }))
+    expect(screen.getByRole('button', { name: /^담당 그룹\s*네트워크팀/ })).toBeInTheDocument()
   })
 
   it('ITSM 생성 확인·재시도를 누르면 최근 처리 결과에 남는다', async () => {
