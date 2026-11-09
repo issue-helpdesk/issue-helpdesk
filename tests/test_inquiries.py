@@ -919,8 +919,9 @@ def test_list_messages_source_fields(client, headers, answered):
 
     ai = next(m for m in res.json()["items"] if m["sender"] == "AI")
     source = ai["sources"][0]
-    assert set(source) == {"id", "sourceKind", "docCode", "version", "location", "excerpt", "rank", "images"}
+    assert set(source) == {"id", "sourceKind", "docCode", "title", "version", "location", "excerpt", "rank", "images"}
     assert (source["location"], source["excerpt"], source["rank"]) == ("3.2", "업데이트 후 접속 불가", 1)
+    assert [s["title"] for s in ai["sources"]] == ["IT-NET-001", None]      # 과거 사례는 제목이 없다
 
 
 def add_source(db, **fields):

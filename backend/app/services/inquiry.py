@@ -296,7 +296,10 @@ class InquiryService:
         따르고, 본문은 서로 다른 것만 이어 붙이며 그림은 모은다. 과거 사례는 문서 번호·위치가 없어 합치지 않는다.
         """
         allowed = visible_scopes(viewer.service_role)
-        rows = [source for source, scope in self.inquiries.sources_with_scope([m.id for m in messages]) if scope in allowed]
+        visible = [(source, title) for source, scope, title in self.inquiries.sources_with_scope([m.id for m in messages])
+                   if scope in allowed]
+        rows = [source for source, _ in visible]
+        titles = {source.id: title for source, title in visible}
         metas = self.inquiries.chunk_metas([s.chunk_id for s in rows if s.chunk_id is not None])
 
         def unit(s: MessageSource) -> tuple:
@@ -312,6 +315,7 @@ class InquiryService:
             first = pieces[0]
             excerpts = dict.fromkeys(p.excerpt for p in pieces if p.excerpt)
             view = MessageSourceView.model_validate(first).model_copy(update={
+                "title": titles[first.id],
                 "excerpt": "\n\n".join(excerpts) or first.excerpt,
                 "images": images_of(metas.get(p.chunk_id) for p in pieces),
             })
