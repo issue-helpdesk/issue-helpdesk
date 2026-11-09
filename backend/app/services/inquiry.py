@@ -347,14 +347,28 @@ class InquiryService:
             self.inquiries.add(MessageSource(message_id=message.id, **row))
         for event_type, outcome, reason in ai_audit_events(result):
             self.audit_logs.add(event_type, "inquiry", inquiry_id, result=outcome, reason=reason)
+        types = []
         if result.failure == "ALL_BLOCKED":
-            detect(self.alerts, "BLOCKED_DOC_QUERY", inquiry.user_id, "inquiry", inquiry_id)
+            types.append("BLOCKED_DOC_QUERY")
         # AI 가 안전 판단으로 거절하면(REFUSAL) 보안 유형을 못 내고 기본값으로 끝난다. 그 문의를 놓치지 않게 알림을 남긴다
         if result.failure == "AI_FAILED" and result.error_code == "REFUSAL":
-            detect(self.alerts, "AI_REFUSED", inquiry.user_id, "inquiry", inquiry_id)
+            types.append("AI_REFUSED")
         # AI 가 보안 검토 기준(S01~S06)에 해당한다고 판단한 문의. 기준마다 알림 하나로 합쳐진다
-        for rule in dict.fromkeys(result.output.security_rule_ids):
-            detect(self.alerts, rule, inquiry.user_id, "inquiry", inquiry_id)
+        types.extend(dict.fromkeys(result.output.security_rule_ids))
+        for alert_type in types:
+            self.detect_alert(alert_type, inquiry)
+
+    def detect_alert(self, alert_type: str, inquiry: Inquiry) -> None:
+        """알림을 남긴다. 알림을 못 남겨도 사용자의 문의·AI 답변 저장은 그대로 이어간다.
+
+        알림 쪽 오류(예: DB 마이그레이션 미적용으로 새 알림 유형이 거부됨)가 요청 전체를 500 으로 만들어
+        AI 답변까지 롤백되면, 사용자는 답변도 알림도 없는 문의를 보게 된다. 실패는 로그로 남긴다.
+        """
+        try:
+            with self.db.begin_nested():
+                detect(self.alerts, alert_type, inquiry.user_id, "inquiry", inquiry.id)
+        except Exception:
+            logger.exception("보안 알림 생성 실패 type=%s inquiry_id=%s", alert_type, inquiry.id)
 
     def find_viewable(self, inquiry_id: int, viewer: User) -> Inquiry:
         inquiry = self.inquiries.get(inquiry_id)
