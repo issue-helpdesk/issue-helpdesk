@@ -157,10 +157,9 @@ def _clean(text: str | None, p: Pseudonymizer) -> str | None:
     return None if text is None else p.apply(mask_secrets(text).text)
 
 
-def build_user_content(t: TicketText, guides: Iterable[GuideDoc], items: Iterable[CompareItem],
-                       p: Pseudonymizer) -> str:
-    """보낼 글. 티켓 값은 가림+치환, 비교 항목은 전송 정책대로 (모듈 설명 1)."""
-    sent_items = []
+def sent_items(items: Iterable[CompareItem], p: Pseudonymizer) -> list[dict]:
+    """비교 항목을 전송 정책대로 거른 값. 초안 호출(draft.py)도 같은 값을 보낸다 (기획 5단계 "외부 전송")."""
+    rows = []
     for it in items:
         row = {'doc_code': it.doc_code, 'doc_type': it.doc_type, 'chunk_type': it.chunk_type, 'location': it.location,
                'title': _clean(it.heading, p), 'content': None, 'content_hidden': False}
@@ -170,13 +169,24 @@ def build_user_content(t: TicketText, guides: Iterable[GuideDoc], items: Iterabl
             row['content'] = _clean(it.text, p)
         else:                                       # BLOCKED, 모르는 값: 제목만
             row['content_hidden'] = True
-        sent_items.append(row)
+        rows.append(row)
+    return rows
+
+
+def sent_ticket(t: TicketText, p: Pseudonymizer) -> dict:
+    """티켓 값을 가리고(A·B) 치환한(C·D) 값."""
+    return {'category': f'{t.category_code} ({t.category_name})', 'inquiry_type': t.inquiry_type_code,
+            'summary': _clean(t.summary, p), 'symptom': _clean(t.symptom, p),
+            'target_system': _clean(t.target_system, p), 'resolution': _clean(t.resolution_note, p)}
+
+
+def build_user_content(t: TicketText, guides: Iterable[GuideDoc], items: Iterable[CompareItem],
+                       p: Pseudonymizer) -> str:
+    """보낼 글. 티켓 값은 가림+치환, 비교 항목은 전송 정책대로 (모듈 설명 1)."""
     body = {
-        'ticket': {'category': f'{t.category_code} ({t.category_name})', 'inquiry_type': t.inquiry_type_code,
-                   'summary': _clean(t.summary, p), 'symptom': _clean(t.symptom, p),
-                   'target_system': _clean(t.target_system, p), 'resolution': _clean(t.resolution_note, p)},
+        'ticket': sent_ticket(t, p),
         'guides': [{'doc_code': g.doc_code, 'title': g.title} for g in guides],
-        'items': sent_items,
+        'items': sent_items(items, p),
     }
     return json.dumps(body, ensure_ascii=False)
 
