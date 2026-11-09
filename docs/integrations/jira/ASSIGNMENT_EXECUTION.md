@@ -8,7 +8,8 @@
 |---|---|
 | Jira 미배정 | 현재 예약·공통 자격 확인 → 지정 → 상태·담당자 재조회 → ASSIGNED 저장 |
 | 이미 같은 담당자 | PUT 없이 확인·저장 |
-| 다른 담당자가 있음 | 덮어쓰지 않고 NEEDS_ADMIN. 현재 payload에 변경 전 Jira 담당자가 없어 승인 재배정과 외부 변경을 구분할 수 없음 |
+| 변경 전 담당자가 그대로 있음 | 승인된 재배정이므로 새 담당자로 지정 → 재조회 → ASSIGNED 저장 |
+| 그 외 다른 담당자가 있음 | 재배정 요청 뒤 Jira에서 바뀐 값일 수 있으므로 덮어쓰지 않고 NEEDS_ADMIN |
 | 오래된 assignmentRevision | 해당 작업만 DONE/STALE 처리. 최신 접수·예약·이력은 변경하지 않음 |
 | 확실한 실패 | 현재 작업의 예약만 해제(assignee_id=NULL), assign_status=NEEDS_ADMIN, FAIL 이력 1건 |
 | 응답·저장 결과 불명확 | 예약을 유지하고 조회만 수행. 확인 한도 이후 NEEDS_ADMIN이어도 대상 ID는 남겨 관리자 확인에 사용 |
@@ -22,7 +23,7 @@
 | requeue_stale_assign_jobs() | 중단된 RUNNING 배정 작업만 조회 전용 PENDING으로 복구 |
 | client.set_assignee() | 지정 요청만 전송. 기존 assign_issue()의 지정·재조회 반환 형식은 유지 |
 
-기존 payload(ticketId·receiptNo·jiraKey·groupId·assigneeId·jiraAccountId·assignmentRevision·requestedBy·requestedAt)를 그대로 사용합니다. `requestedBy=None`인 시스템 자동배정도 지원합니다. 권한·직접 지정 사유·자동 선정·부재 제외는 TK-09와 공용 예약 함수의 책임입니다.
+payload(ticketId·receiptNo·jiraKey·groupId·assigneeId·jiraAccountId·previousJiraAccountId·assignmentRevision·requestedBy·requestedAt)를 사용합니다. previousJiraAccountId는 예약 시점 기존 담당자의 Jira 계정이고, 기존 담당자가 없으면 `null`입니다. 이 필드가 없는 기존 작업은 `null`과 같게 처리합니다. `requestedBy=None`인 시스템 자동배정도 지원합니다. 권한·직접 지정 사유·자동 선정·부재 제외는 TK-09와 공용 예약 함수의 책임입니다.
 
 실행 전과 저장 전에 접수·그룹·담당자·revision·Jira 계정 연결이 예약과 같은지 다시 확인합니다. 활성 그룹·활성 사용자(AGENT/ADMIN)·활성 구성원·assignable·해당 세부 유형 skill을 검사합니다. 자동/수동을 임의로 추정해 팀장·부재 제외 규칙을 다시 적용하지 않습니다.
 
@@ -39,7 +40,7 @@ Jira의 상태·담당자를 같은 요청으로 읽습니다. CLS·알 수 없�
 ## 남은 연결
 
 - 생성 성공 후 최초 배정 예약은 [CREATE_AUTO_ASSIGNMENT.md](CREATE_AUTO_ASSIGNMENT.md)에 연결했습니다. worker의 배정 실행·서버 배포는 별도이며, 기존 worker가 배정 작업을 소비하지는 않습니다.
-- 다른 Jira 담당자를 바꾸는 승인 재배정은 변경 전 계정 등 비교 기준을 서버가 보존하는 계약부터 맞춰야 합니다. 임의의 추가 payload 필드를 도입하거나 현재 담당자를 예상 이전 값으로 간주하지 않았습니다.
+- 재배정 실패로 담당자가 비워진 접수는 변경 전 계정을 알 수 없어 TK-09를 다시 호출해도 NEEDS_ADMIN입니다. Jira에서 담당자를 직접 바꾸거나 비운 뒤 지정합니다.
 - Jira 조회와 PUT 사이 외부 변경을 원자적으로 막지는 못합니다. 요청 도중 DB revision이 바뀌면 DB 저장은 차단하지만 이미 전송한 Jira 변경을 취소할 수는 없습니다. 최신 배정의 재대조가 필요합니다.
 - 실제 계정·프로젝트 배정 권한, PostgreSQL 잠금·동시 실행은 통합 시험이 필요합니다. time_off DB·API 연결과 후보 선정 규칙은 공용 예약 쪽에서 관리합니다.
 
