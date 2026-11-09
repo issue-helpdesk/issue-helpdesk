@@ -44,7 +44,7 @@ interface Cluster {
   registeredVersion: Ver | null
   draftMd: string | null
   draftRevision: number
-  reviewInfo: { reason: string; warnings: string[] } | null
+  reviewInfo: { reason: string; warnings: string[]; [key: string]: unknown } | null
   baseVersion: Ver | null
   currentVersion: Ver | null
   baseChanged: boolean
@@ -69,7 +69,7 @@ const seedClusters = (): Cluster[] => [
     id: 101, category: { code: 'NET', name: '네트워크' }, judgment: 'ADD_ITEM', status: 'REVIEWING', title: 'VPN 접속 후 사내 시스템이 열리지 않을 때', ticketCount: 4,
     targetDocId: 1, targetSection: null, targetMd: null, registeredVersion: null,
     draftMd: '### 3.5 VPN 연결은 되는데 사내 시스템이 열리지 않을 때\n\n1. VPN 클라이언트를 완전히 종료한 뒤 다시 실행합니다.\n2. 연결 후 DNS 캐시를 비웁니다. (`ipconfig /flushdns`)\n3. 그래도 안 되면 IT 헬프데스크에 접수합니다.',
-    draftRevision: 1, reviewInfo: { reason: '같은 증상의 해결 사례 4건이 현행 가이드에 없는 절차를 공통으로 사용했어요.', warnings: [] },
+    draftRevision: 1, reviewInfo: { reason: '같은 증상의 해결 사례 4건이 현행 가이드에 없는 절차를 공통으로 사용했어요.', warnings: [], form: 'TROUBLESHOOT', guessed: ['원인'], differences: ['REQ-2026-001001·001002는 VPN 재실행으로, 001003은 DNS 초기화만으로 해결했어요. 공통인 DNS 초기화를 먼저 쓰고 재실행은 보조로 넣었어요.'] },
     baseVersion: { id: 12, version: 'v2.0', isCurrent: true, ingestStatus: 'DONE' }, currentVersion: { id: 12, version: 'v2.0', isCurrent: true, ingestStatus: 'DONE' },
     baseChanged: false, conflicts: [], rejectReason: null,
     tickets: [tk(1, 'VPN 연결 후 그룹웨어가 열리지 않아요', 'DNS 캐시 초기화 후 정상'), tk(2, 'VPN 접속은 되는데 ERP 접속 불가', 'VPN 재실행·DNS 초기화로 해결'), tk(3, '재택근무 중 사내 사이트 접속 오류', 'DNS 초기화 안내'), tk(4, 'VPN 연결됨 표시인데 내부망 접속 안 됨', 'VPN 재실행')],
@@ -79,7 +79,7 @@ const seedClusters = (): Cluster[] => [
     targetDocId: 2, targetSection: '3.3', targetMd: '### 3.3 로그인 오류\n\n브라우저를 다시 시작한 뒤 로그인합니다.',
     registeredVersion: null,
     draftMd: '### 3.3 로그인 오류\n\n1. 시크릿 창에서 로그인해 봅니다.\n2. 브라우저 쿠키·캐시를 삭제합니다.\n3. 계정 잠금 여부를 헬프데스크에 확인합니다.',
-    draftRevision: 3, reviewInfo: { reason: '현행 3.3 항목의 안내만으로는 해결되지 않은 사례 6건이 모였어요.', warnings: ['3.3 항목의 기존 안내를 대체해요.'] },
+    draftRevision: 3, reviewInfo: { reason: '현행 3.3 항목의 안내만으로는 해결되지 않은 사례 6건이 모였어요.\n계정 잠금이 원인인 사례가 3건이에요.', warnings: ['3.3 항목의 기존 안내를 대체해요.'], change_note: '브라우저 재시작만 안내하던 항목에 시크릿 창·캐시 삭제·계정 잠금 확인을 순서대로 추가했어요. 재시작만으로는 해결되지 않은 사례가 많았기 때문이에요.' },
     baseVersion: { id: 20, version: 'v2.0', isCurrent: false, ingestStatus: 'DONE' }, currentVersion: { id: 21, version: 'v2.1', isCurrent: true, ingestStatus: 'DONE' },
     baseChanged: true, conflicts: [], rejectReason: null,
     tickets: [tk(5, 'SSO 로그인 계속 실패', '시크릿 창·캐시 삭제로 해결'), tk(6, '로그인 화면이 반복돼요', '쿠키 삭제'), tk(7, 'SSO 오류 코드 E-401', '계정 잠금 해제')],
@@ -87,15 +87,15 @@ const seedClusters = (): Cluster[] => [
   {
     id: 103, category: { code: 'HW', name: '장비' }, judgment: 'NEW_GUIDE', status: 'REVIEWING', title: '노트북 배터리 팽창 신고와 교체 절차', ticketCount: 3,
     targetDocId: null, targetSection: null, targetMd: null, registeredVersion: null,
-    draftMd: '# 노트북 배터리 팽창 신고와 교체 절차\n\n## 1. 증상\n- 본체 바닥이 들뜨거나 트랙패드가 눌리지 않음\n\n## 2. 조치\n1. 즉시 전원을 끄고 충전기를 분리합니다.\n2. IT 헬프데스크에 신고합니다.\n3. 교체 장비를 받으면 데이터를 이전합니다.',
-    draftRevision: 1, reviewInfo: { reason: '관련 가이드가 없고 같은 신고가 3건 있었어요.', warnings: [] },
+    draftMd: '---\ndoc_no: ""\ntitle: "노트북 배터리 팽창 신고와 교체 절차"\ncategory: "HW"\nversion: "v1.0"\n---\n\n# 노트북 배터리 팽창 신고와 교체 절차\n\n## 1. 개요\n\n(작성 필요)\n\n## 2. 먼저 확인할 사항\n\n(작성 필요)\n\n## 3. 증상별 조치 방법\n\n### 3.1 노트북 바닥이 부풀거나 트랙패드가 눌리지 않을 때\n\n1. 즉시 전원을 끄고 충전기를 분리합니다.\n2. IT 헬프데스크에 신고합니다.\n3. 교체 장비를 받으면 데이터를 이전합니다.\n\n## 4. 자주 묻는 질문\n\n## 5. 주의사항\n\n## 6. 문의처\n\nIT 헬프데스크 내선 1000 (평일 09:00~18:00)\n',
+    draftRevision: 1, reviewInfo: { reason: '관련 가이드가 없고 같은 신고가 3건 있었어요.', warnings: ['6장 문의처를 같은 분류 현행 가이드에서 복사했어요.'], form: 'TROUBLESHOOT', guide_title: '노트북 배터리 팽창 신고와 교체 절차', guessed: ['원인'] },
     baseVersion: null, currentVersion: null, baseChanged: false, conflicts: [], rejectReason: null,
     tickets: [tk(8, '노트북 바닥이 부풀었어요', '배터리 팽창, 교체'), tk(9, '트랙패드가 눌리지 않아요', '배터리 팽창 확인, 교체'), tk(10, '노트북이 책상에서 흔들려요', '배터리 팽창')],
   },
   {
     id: 104, category: { code: 'ACS', name: '권한' }, judgment: 'MANUAL_CANDIDATE', status: 'REVIEWING', title: '신규 입사자 계정 일괄 발급 절차', ticketCount: 5,
     targetDocId: null, targetSection: null, targetMd: null, registeredVersion: null, draftMd: null, draftRevision: 0,
-    reviewInfo: { reason: '담당자 내부 절차라 가이드가 아닌 매뉴얼 후보예요.', warnings: [] },
+    reviewInfo: { reason: '담당자 내부 절차라 가이드가 아닌 매뉴얼 후보예요.', warnings: [], manual_note: '- 입사자 명단은 인사팀 전달 파일 기준으로 일괄 등록해요.\n- 초기 비밀번호는 입사일에 맞춰 문자로 보내요.\n- 권한 그룹은 부서 기본값을 먼저 적용한 뒤 개별 신청을 받아요.', manual_items: ['IT-MAN-001 3.2 계정 발급', 'IT-MAN-001 3.4 입사자 일괄 처리'] },
     baseVersion: null, currentVersion: null, baseChanged: false, conflicts: [], rejectReason: null,
     tickets: [tk(11, '신규 입사자 5명 계정 발급', '내부 절차 참고')],
   },
@@ -111,7 +111,7 @@ const seedClusters = (): Cluster[] => [
     id: 106, category: { code: 'SW', name: '소프트웨어' }, judgment: 'ADD_ITEM', status: 'REVIEWING', title: '설치 중 관리자 권한 요청이 뜰 때', ticketCount: 3,
     targetDocId: 3, targetSection: null, targetMd: null, registeredVersion: null,
     draftMd: '### 2.4 설치 중 관리자 권한을 요구할 때\n\n설치 프로그램을 우클릭해 "관리자 권한으로 실행"을 선택합니다. 그래도 안 되면 IT 헬프데스크에 요청합니다.',
-    draftRevision: 2, reviewInfo: { reason: '현행 가이드가 바뀌었는지 확인이 필요해요.', warnings: [] },
+    draftRevision: 2, reviewInfo: { reason: '현행 가이드가 바뀌었는지 확인이 필요해요.\n권한 요청이 뜨는 조건이 설치 프로그램마다 달라요.', warnings: [], differences: ['2건은 우클릭 실행으로, 1건은 IT 헬프데스크 원격 설치로 해결했어요.'] },
     baseVersion: { id: 30, version: 'v0.9', isCurrent: false, ingestStatus: 'DONE' }, currentVersion: { id: 31, version: 'v1.0', isCurrent: true, ingestStatus: 'DONE' },
     baseChanged: true, conflicts: [], rejectReason: null,
     tickets: [tk(13, '설치할 때 권한 요청이 떠요', '관리자 권한 실행'), tk(14, '프로그램 설치 불가', '관리자 권한')],
@@ -180,6 +180,9 @@ function clusterCall(c: Cluster, action: string, body: Record<string, unknown>):
     if (c.draftMd === null) return err('GUIDE_CLUSTER_NOT_REGISTRABLE', [{ field: 'cluster', reason: 'NO_DRAFT', message: '' }])
     if (c.targetDocId === null) return err('GUIDE_CLUSTER_NOT_REGISTRABLE', [{ field: 'cluster', reason: 'NO_TARGET', message: '' }])
     if (c.baseChanged) return err('GUIDE_CLUSTER_BASE_CHANGED')
+    if (c.judgment === 'NEW_GUIDE' && c.draftMd.split('\n').some((l) => l.trim() === '(작성 필요)')) {
+      return err('GUIDE_CLUSTER_ASSEMBLE_FAILED', [{ field: 'draftMd', reason: 'ASSEMBLE', message: "'(작성 필요)' 자리가 남아 있습니다: 1장, 2장" }])
+    }
     if (c.conflicts.length) return err('GUIDE_CLUSTER_CONFLICT_UNRESOLVED', [{ field: 'section', reason: 'CONFLICT', message: '', value: c.conflicts[0].section }])
     const d = docs.find((x) => x.id === c.targetDocId)
     const v = c.registeredVersion ?? { id: nextDocId * 10 + 1, version: d?.versions.length ? 'v2.2' : 'v1.0', isCurrent: false, ingestStatus: 'PENDING' as const }

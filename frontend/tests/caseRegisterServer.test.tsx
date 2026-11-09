@@ -208,6 +208,51 @@ describe('검토 패널 (서버 연결)', () => {
     await waitFor(() => expect(within(panel).getByRole('button', { name: '승인하고 초안 등록' })).toBeEnabled())
   })
 
+  it('검토 정보의 추가 항목(변경 이유·추측한 칸·해결 방법 차이)을 AI 판단 구역에 보인다', async () => {
+    route = (m, p) =>
+      m === 'GET' && p === '/guide-clusters/12'
+        ? json(200, detail({ judgment: 'CHANGE', targetSection: '3.3', targetMd: '옛', reviewInfo: { reason: '첫째 이유\n둘째 이유', warnings: [], change_note: '순서를 바꿨어요', guessed: ['원인'], differences: ['한 건은 재시작으로 해결'] } }))
+        : undefined
+    await mountPanel()
+    const panel = await screen.findByRole('complementary', { name: '가이드 초안 검토' })
+    const sec = await within(panel).findByRole('region', { name: 'AI 판단' })
+    expect(within(sec).getByText('첫째 이유')).toBeInTheDocument()
+    expect(within(sec).getByText('둘째 이유')).toBeInTheDocument()
+    expect(sec).toHaveTextContent('변경 이유 · 순서를 바꿨어요')
+    expect(sec).toHaveTextContent('AI가 추측해서 쓴 칸 · 원인')
+    expect(within(sec).getByText('티켓마다 해결 방법이 달라요')).toBeInTheDocument()
+    expect(within(sec).getByText('한 건은 재시작으로 해결')).toBeInTheDocument()
+  })
+
+  it('매뉴얼 후보는 초안이 없어도 AI가 정리한 내용과 가까운 매뉴얼 항목을 보인다', async () => {
+    route = (m, p) =>
+      m === 'GET' && p === '/guide-clusters/12'
+        ? json(200, detail({ judgment: 'MANUAL_CANDIDATE', draftMd: null, targetDocument: null, reviewInfo: { reason: '내부 절차', warnings: [], manual_note: '- 명단은 인사팀 파일 기준', manual_items: ['IT-MAN-001 3.2 계정 발급'] } }))
+        : undefined
+    await mountPanel()
+    const panel = await screen.findByRole('complementary', { name: '가이드 초안 검토' })
+    const sec = await within(panel).findByRole('region', { name: '가이드 내용' })
+    expect(within(sec).getByText('매뉴얼에 넣을 만한 내용')).toBeInTheDocument()
+    expect(within(sec).getByText('- 명단은 인사팀 파일 기준')).toBeInTheDocument()
+    expect(within(sec).getByText('가까운 매뉴얼 항목')).toBeInTheDocument()
+    expect(within(sec).getByText('IT-MAN-001 3.2 계정 발급')).toBeInTheDocument()
+  })
+
+  it('새 가이드는 새 가이드 제목을 보이고, "(작성 필요)"가 남은 장이 있으면 등록을 막고 장을 알려 준다', async () => {
+    route = (m, p) =>
+      m === 'GET' && p === '/guide-clusters/12'
+        ? json(200, detail({ judgment: 'NEW_GUIDE', draftMd: '# 제목\n\n## 1. 개요\n\n(작성 필요)\n\n## 2. 먼저 확인할 사항\n\n(작성 필요)\n\n## 3. 증상별 조치 방법\n\n### 3.1 항목\n', reviewInfo: { reason: 'r', warnings: [], guide_title: '노트북 배터리 신고 절차' } }))
+        : undefined
+    await mountPanel()
+    const panel = await screen.findByRole('complementary', { name: '가이드 초안 검토' })
+    expect(await within(panel).findByDisplayValue('노트북 배터리 신고 절차')).toBeInTheDocument()
+    expect(await within(panel).findByText('아직 채워야 할 장이 있어요.')).toBeInTheDocument()
+    expect(panel).toHaveTextContent('1. 개요, 2. 먼저 확인할 사항')
+    const approve = within(panel).getByRole('button', { name: '승인하고 초안 등록' })
+    expect(approve).toBeDisabled()
+    expect(approve).toHaveAttribute('title', expect.stringContaining('1. 개요'))
+  })
+
   it('변경은 바꿀 항목 번호가 있어야 문서를 바꿀 수 있다', async () => {
     route = (m, p) => {
       if (m === 'GET' && p === '/guide-clusters/12') return json(200, detail({ judgment: 'CHANGE', targetSection: '3.3', targetMd: '옛 3.3 원문' }))
