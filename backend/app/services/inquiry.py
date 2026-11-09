@@ -54,7 +54,7 @@ from app.schemas.inquiry import (
 from app.services.ai_responder import AiResponderDep
 from app.services.guide_image import images_of
 from app.services.inquiry_status import CLOSED_STATUSES, display_status, next_actions, resume_actions
-from app.services.security_alert import detect, record_ai_security_rules, record_query_volume
+from app.services.security_alert import detect
 from app.utils import datetime_utils
 from app.utils.text_utils import first_line_summary
 from app.utils.dict_utils import camel_keys
@@ -332,7 +332,6 @@ class InquiryService:
         masked = mask_secrets(content)
         messages = [self.inquiries.add_message(session.id, "USER", masked.text)]
         messages += [self.inquiries.add_notice(session.id, notice) for notice in mask_notices(masked)]
-        record_query_volume(self.alerts, user.id)
         record_sensitive_input(self.audit_logs, self.alerts, inquiry.id, user, masked.counts)
         return messages
 
@@ -346,17 +345,10 @@ class InquiryService:
             self.inquiries.add(LlmCall(inquiry_id=inquiry_id, **asdict(call)))
         for row in result.sources:
             self.inquiries.add(MessageSource(message_id=message.id, **row))
-        events = ai_audit_events(result)
-        for event_type, outcome, reason in events:
+        for event_type, outcome, reason in ai_audit_events(result):
             self.audit_logs.add(event_type, "inquiry", inquiry_id, result=outcome, reason=reason)
-        record_ai_security_rules(self.alerts, inquiry, result.output.security_rule_ids)
-        for event_type, outcome in {(kind, outcome) for kind, outcome, _ in events}:
-            if (event_type, outcome) == ("BLOCK", "ALL_BLOCKED"):
-                detect(self.alerts, "BLOCKED_DOC_QUERY", inquiry.user_id, "inquiry", inquiry_id)
-            elif (event_type, outcome) == ("FAIL", "FILTER_FAILED"):
-                detect(self.alerts, "FILTER_FAILED", inquiry.user_id, "inquiry", inquiry_id)
-            elif event_type == "UNSAFE_REPLY":
-                detect(self.alerts, "UNSAFE_REPLY", inquiry.user_id, "inquiry", inquiry_id)
+        if result.failure == "ALL_BLOCKED":
+            detect(self.alerts, "BLOCKED_DOC_QUERY", inquiry.user_id, "inquiry", inquiry_id)
 
     def find_viewable(self, inquiry_id: int, viewer: User) -> Inquiry:
         inquiry = self.inquiries.get(inquiry_id)
@@ -504,9 +496,7 @@ def record_sensitive_input(
 
 def ai_audit_events(result: FlowResult) -> list[tuple[str, str, str | None]]:
     """(event_type, result, reason) 목록. 시스템이 한 일이라 actor 는 비운다 (docs/10 5.2, 09 3.3)."""
-    events = [("SECURITY_REVIEW", rule, None) for rule in result.output.security_rule_ids]
-    if result.error_code == "UNSAFE_REPLY":
-        events.append(("UNSAFE_REPLY", "BLOCKED", None))
+    events = []
     if result.evidence is not None:
         events += [("BLOCK", "DOC_BLOCKED", code) for code in result.evidence.blocked]
         events += [("FAIL", "FILTER_FAILED", f"④ 검색 근거 {code}") for code in result.evidence.failed]

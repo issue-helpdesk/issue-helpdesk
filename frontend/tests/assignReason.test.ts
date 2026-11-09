@@ -9,11 +9,12 @@ describe('배정 실패 사유 표시', () => {
     expect(r).toContain('이미 다른 담당자')
     expect(r).not.toMatch(/Jira|assignment_source_unconfirmed/)
   })
-  it('이미 처리 중인 접수면 "이미 담당자가 처리 중이라 재배정할 수 없어요"를 먼저 알린다', () => {
-    const r = friendlyAssignReason('Jira 배정 실행 실패: assignment_source_unconfirmed', 'WIP')
-    expect(r).toContain('이미 담당자가 처리 중이라 재배정할 수 없어요')
+  it('재배정이 반영되지 않은 원인을 접수 상태와 무관하게 안내한다 (백엔드가 다른 담당자를 덮어쓰지 않음)', () => {
+    const r = friendlyAssignReason('Jira 배정 실행 실패: assignment_source_unconfirmed')
+    expect(r).toContain('재배정이 반영되지 않았어요')
+    expect(r).toContain('접수 상태(대기·처리 중)와 관계없이')
     expect(r).toContain('ITSM에서 담당자를 비운 뒤')
-    expect(friendlyAssignReason('Jira 배정 실행 실패: assignment_source_unconfirmed', 'RDY')).not.toContain('처리 중이라')
+    expect(r).not.toContain('처리 중이라')
   })
   it('모르는 코드는 코드를 그대로 두고, 다른 문구의 Jira 만 ITSM 으로 바꾼다', () => {
     expect(friendlyAssignReason('Jira 배정 실행 실패: brand_new_code')).toBe('ITSM 배정 실행 실패: brand_new_code')

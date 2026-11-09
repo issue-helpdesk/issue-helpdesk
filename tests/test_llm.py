@@ -98,7 +98,7 @@ def test_success_returns_output_and_call_record():
     r = call_judge(inp(), mock, TAXONOMY, ['김민지'], 'CLASSIFY')
     assert (r.failure, r.error_code) == (None, None)
     assert r.output.action == 'ANSWER'
-    assert r.ai_output == ANSWER | {"security_rule_ids": []}
+    assert r.ai_output == ANSWER
     (c,) = r.calls
     assert (c.purpose, c.adapter, c.model, c.success, c.error_code) == ('CLASSIFY', 'Mock', 'mock', True, None)
 

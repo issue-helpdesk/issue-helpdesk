@@ -227,3 +227,12 @@ def test_assemble_new_guide_refused_writes_nothing(url, tmp_path):
     with pytest.raises(CaseGuideError, match='자리가 남아 있습니다'):
         _call(url, doc, [new_cluster(filled([(INTRO, TODO)]))], tmp_path)
     assert not list(Path(tmp_path).rglob('*.md'))
+
+
+def test_build_accepts_ai_chapters_without_admin_edit():
+    """1·2장을 AI 초안으로 채운 뼈대는 관리자가 손대지 않아도 등록 검사를 통과한다 (빈 4·5장·부록은 빠짐)."""
+    from test_case_guide_open_basis import OVERVIEW, PRECHECK
+    md = skeleton('재택 프린터 연결 가이드', 'NET', 'VPN·네트워크', [frag('프린터가 안 잡힘')], CONTACT,
+                  overview=OVERVIEW, precheck=PRECHECK)
+    out = _build_new_guide(new_cluster(md), 'IT-NET-010', 'v1.0', TODAY, [])
+    assert OVERVIEW in out and PRECHECK in out and TODO not in out

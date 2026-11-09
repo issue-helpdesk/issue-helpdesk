@@ -24,5 +24,4 @@ class FlowState(TypedDict, total=False):
     next_step: str | None               # None 이면 1차 뒤 검색으로 간다
     calls: Annotated[list[LlmCallRecord], operator.add]     # 호출 기록은 덮어쓰지 않고 이어 붙인다
     urgency: Urgency
-    security_rules: Annotated[list[str], operator.add]
     result: FlowResult
