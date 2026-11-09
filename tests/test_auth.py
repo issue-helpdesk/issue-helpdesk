@@ -1,8 +1,5 @@
 """인증 API (AU-01~05) — SQLite 메모리 DB 로 돌린다. 공용 DB 에는 쓰지 않는다."""
-import os
 from datetime import timedelta
-
-os.environ.setdefault("JWT_SECRET", "test-secret-test-secret-test-secret-0123")
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,7 +16,8 @@ from app.models import AuditLog, AuthSession, Base, Department, SupportGroup, Su
 
 PASSWORD = "Init!Pass123"
 NEW_PASSWORD = "New!Passw0rd"
-TABLES = ["departments", "users", "support_groups", "support_group_members", "audit_logs", "auth_sessions"]
+TABLES = ["departments", "users", "support_groups", "support_group_members", "audit_logs", "auth_sessions",
+          "security_alerts"]
 
 
 @compiles(BigInteger, "sqlite")

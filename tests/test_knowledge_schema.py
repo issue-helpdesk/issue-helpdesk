@@ -35,7 +35,8 @@ def guide_rows():
 
 def test_chunk_row_matches_model_columns():
     """청커가 내는 행의 키 = document_chunks 칸 (DB가 채우는 id·version_id 제외). 한쪽만 바뀌면 걸린다."""
-    cols = {c.name for c in DocumentChunk.__table__.columns} - {'id', 'version_id'}
+    # content_transfer_policy 는 청커가 아니라 매뉴얼 적재가 허용 목록으로 채운다 (가이드는 비워 둔다)
+    cols = {c.name for c in DocumentChunk.__table__.columns} - {'id', 'version_id', 'content_transfer_policy'}
     doc = parse(os.path.join(FINAL, 'SW', 'guide', 'IT-SW-003_업무용 SW 실행·오류 대응 가이드.md'))
     assert set(chunk_row(chunk_document(doc)[0])) == cols
 
@@ -81,3 +82,18 @@ def test_activated_at_migration_sql_offline():
     pos = [out.find(s) for s in steps]
     assert all(i >= 0 for i in pos) and pos == sorted(pos), dict(zip(steps, pos))
     assert 'activated_at' in {c.name for c in DocumentVersion.__table__.columns}
+
+
+def test_content_transfer_policy_migration_sql_offline():
+    """매뉴얼 항목별 내용 전송: 비어 있음 허용 칸 + 값 제약, 백필 없음 (b5d1e8a3c702)."""
+    env = {**os.environ, 'DATABASE_URL': 'postgresql://u:p@localhost/offline', 'PYTHONIOENCODING': 'utf-8'}
+    out = subprocess.run([sys.executable, '-m', 'alembic', 'upgrade', 'f8a2c6d41b97:b5d1e8a3c702', '--sql'],
+                         cwd=os.path.join(ROOT, 'backend'), env=env, capture_output=True, text=True,
+                         encoding='utf-8', check=True).stdout
+    steps = ['ALTER TABLE document_chunks ADD COLUMN content_transfer_policy TEXT',
+             'ck_document_chunks_content_transfer_policy', 'COMMIT']
+    pos = [out.find(s) for s in steps]
+    assert all(i >= 0 for i in pos) and pos == sorted(pos), dict(zip(steps, pos))
+    assert 'update document_chunks' not in out.lower()          # 기존 행은 비워 둔다
+    column = DocumentChunk.__table__.c.content_transfer_policy
+    assert column.nullable and allowed(DocumentChunk.__table__, 'content_transfer_policy') == {'ALLOWED', 'BLOCKED'}

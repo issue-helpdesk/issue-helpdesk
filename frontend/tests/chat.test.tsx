@@ -10,9 +10,12 @@ import App from '../src/App'
 import { listMyInquiries } from '../src/api/inquiries'
 import { advanceChat, isStaleInquiry, cancelChatDraft, confirmChatDraft, editDraft, getChat, reopenChat, rejectChat, replyChat, resolveChat, sendChat, startChat, idleBackChat, idleDeleteChat, idleWarnChat, resumeChat } from '../src/api/chat'
 import type { Inquiry } from '../src/api/chatTypes'
-import { calcUrgency, detectCategory } from '../src/api/mock/chatEngine'
+import { MOCK_ACCOUNTS } from '../src/api/mock/accounts'
+import { calcUrgency, detectCategory, parseAnswerLines } from '../src/api/mock/chatEngine'
+import { ticketIdOfInquiry } from '../src/api/mock/staffTickets'
+import { changeTicketStatus, getTicketHistory } from '../src/api/tickets'
 import { mockConfig } from '../src/api/mock/chatStore'
-import type { ApiResult } from '../src/api/types'
+import type { ApiResult, User } from '../src/api/types'
 import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
 
@@ -75,15 +78,34 @@ describe('분류와 긴급도 규칙', () => {
 })
 
 describe('대화 흐름 (API)', () => {
-  it('정보가 부족하면 하나씩 되묻고, 답하면 다음 질문으로 넘어간다', async () => {
+  it('정보가 부족하면 질문(선택칩·입력)으로 되묻고, 묶어 보낸 답을 항목별로 받아 다음 질문으로 넘어간다', async () => {
     const a = await data(startChat(USER, 'VPN이 끊겨요'))
     const q1 = last(a)
     expect(q1.blocks?.map((b) => (b.type === 'p' ? b.text : '')).join(' ')).toContain('몇 가지만 확인')
-    expect(q1.replies?.every((r) => r.action === 'quick')).toBe(true)
+    // 질문은 한 번에 최대 3개이고, 이름(label)·질문·선택지·직접 입력 여부가 있으며, 지금 답할 수 있다
+    expect(q1.questions?.length).toBeGreaterThan(0)
+    expect(q1.questions!.length).toBeLessThanOrEqual(3)
+    expect(q1.questions![0]).toMatchObject({ label: expect.any(String), text: expect.any(String), allowText: true })
+    expect(q1.questions![0].options.length).toBeGreaterThan(0)
+    expect(q1.questionsOpen).toBe(true)
+    expect(q1.replies).toBeUndefined() // 누르는 즉시 보내는 칩은 없다
 
-    const b = await data(replyChat(a.id, USER.employeeNo, { messageId: q1.id, action: 'quick', arg: q1.replies![0].arg }))
+    const answer = q1.questions!.map((q) => `${q.label}: ${q.options[0]}`).join('\n') + '\n추가 내용: 어제부터 심해요'
+    const b = await data(sendChat(a.id, USER.employeeNo, answer))
     await settle()
-    expect(b.messages.filter((m) => m.role === 'user')).toHaveLength(2)
+    const users = b.messages.filter((m) => m.role === 'user')
+    expect(users).toHaveLength(2)
+    expect(users[1].text?.split(/\r?\n/).length).toBeGreaterThan(1) // 이름: 값 줄로 묶여 한 번에 갔다
+    // 보낸 뒤 지난 질문은 더 이상 답할 수 있는 질문이 아니다
+    const prev = b.messages.find((m) => m.id === q1.id)!
+    expect(b.messages[b.messages.length - 1].id).not.toBe(q1.id)
+    expect(prev.questions?.length).toBeGreaterThan(0)
+  })
+
+  it('묶인 답(parseAnswerLines)은 이름별로 나누고 모르는 이름은 건너뛴다', () => {
+    const r = parseAnswerLines(['상황: 접속할 때 인증 오류가 나요', '영향 범위: 저만 그래요', '엉뚱한 이름: 무시', '추가 내용: 어제부터요'].join(String.fromCharCode(10)))
+    expect(r.fields).toEqual({ summary: '접속할 때 인증 오류가 나요', businessImpact: '저만 그래요' })
+    expect(r.extra).toBe('어제부터요')
   })
 
   it('정보가 모두 모이면 Guide 출처와 함께 안내한다 (Guide 우선)', async () => {
@@ -267,7 +289,7 @@ describe('접수 흐름 (API)', () => {
     expect(last(d).card).toBe('draft')
   })
 
-  it('초안을 확인하면 접수번호가 생기고, Jira 번호 생성 → 담당자 배정이 이어진다', async () => {
+  it('초안을 확인하면 접수번호가 생기고, ITSM 번호 생성 → 담당자 배정이 이어진다', async () => {
     const d = await toDraft()
     const done = await data(confirmChatDraft(d.id, USER.employeeNo))
     expect(done.ticket?.receiptNo).toMatch(/^RCPT-\d+$/)
@@ -297,7 +319,7 @@ describe('접수 흐름 (API)', () => {
     const d = await toDraft()
     const edited = await data(editDraft(d.id, USER.employeeNo, { summary: d.draft!.summary, businessImpact: '전 직원 50명이 접속 불가예요', triedActions: d.draft!.triedActions }))
     expect(edited.draft?.urgency).toBe('P1')
-    expect(edited.draftNote).toContain('P3에서 P1')
+    expect(edited.draftNote).not.toContain('P1')
   })
 
   it('접수하지 않고 종료하면 미해결 종료로 남고 Ticket 은 만들지 않는다', async () => {
@@ -332,6 +354,32 @@ describe('접수 흐름 (API)', () => {
     // 지난 진행 카드는 기록으로 남고, 새 진행 카드가 붙는다
     expect(re.messages.filter((m) => m.card === 'ticket' && m.ticketSnapshot)).toHaveLength(1)
     expect(re.messages.filter((m) => m.card === 'ticket')).toHaveLength(2)
+  })
+
+  it('미해결로 처리 중으로 돌아가도 이전 처리 결과는 남고, 다시 완료하려면 새 처리 결과를 받아야 한다', async () => {
+    const d = await toDraft()
+    await data(confirmChatDraft(d.id, USER.employeeNo))
+    await settle()
+    await data(advanceChat(d.id, USER.employeeNo))
+    const fin = await data(advanceChat(d.id, USER.employeeNo))
+    const first = fin.ticket?.resolutionNote
+    expect(first).toBeTruthy()
+    const re = await data(rejectChat(d.id, USER.employeeNo, '같은 오류가 계속 나요'))
+    expect(re.ticket?.workStatus).toBe('WIP')
+    expect(re.ticket?.resolutionNote).toBe(first) // 비우지 않고 보존 (서버와 같다)
+    // 재완료: 저장된 이전 결과가 있어도 이번 요청에 새 처리 결과가 있어야 한다
+    const a = MOCK_ACCOUNTS.find((u) => u.employeeNo === 'EMP-1178')!
+    const admin = { id: a.id, employeeNo: a.employeeNo, name: a.name, serviceRole: 'ADMIN', departmentName: '' } as User
+    const tid = ticketIdOfInquiry(d.id)
+    const noNote = await changeTicketStatus(admin, tid, { workStatus: 'FIN' })
+    expect(!noNote.ok && noNote.error.code).toBe('TICKET_RESOLUTION_NOTE_REQUIRED')
+    const done = await changeTicketStatus(admin, tid, { workStatus: 'FIN', resolutionNote: '설정을 다시 바로잡았습니다.' })
+    expect(done.ok).toBe(true)
+    await waitFor(async () => expect((await get(d.id)).ticket).toMatchObject({ workStatus: 'FIN', resolutionNote: '설정을 다시 바로잡았습니다.' }), SLOW)
+    // 완료마다의 처리 결과는 이력에 각각 남는다
+    const h = await getTicketHistory(admin, tid)
+    const notes = (h.ok ? h.data.items : []).filter((x) => x.toStatus === 'FIN').map((x) => x.resolutionNote)
+    expect(notes).toEqual([first, '설정을 다시 바로잡았습니다.'])
   })
 
   it('사유 없이는 다시 확인을 요청할 수 없다', async () => {
@@ -519,14 +567,13 @@ describe('대화 화면', () => {
     await user.clear(impact)
     await user.type(impact, '전 직원 50명이 접속 불가예요')
     await user.click(screen.getByRole('button', { name: '수정 저장' }))
-    expect(await screen.findByText(/긴급도를 P3에서 P1\(으\)로/, {}, SLOW)).toBeInTheDocument()
+    expect(await screen.findByText(/수정 내용을 반영했어요/, {}, SLOW)).toBeInTheDocument()
   })
 
-  it('접수된 문의(시연 데이터)를 열면 진행 카드·담당자 메시지가 보이고 새 답변 표시가 지워진다', async () => {
+  it('접수된 문의(시연 데이터)를 열면 진행 카드가 보이고 새 답변 표시가 지워진다', async () => {
     renderAs('EMP-1001', '/chat/101')
     expect(await screen.findByRole('list', { name: '접수 진행 단계' }, SLOW)).toBeInTheDocument()
     expect(screen.getByText(/성민경 담당자가 처리하고 있어요/)).toBeInTheDocument()
-    expect(screen.getByText(/VPN 서버 쪽 인증 정보를 확인하고 있어요/)).toBeInTheDocument()
     expect(screen.getByLabelText('메시지 입력')).toHaveAttribute('placeholder', '담당자에게 추가로 전달할 내용을 입력해 주세요.')
     const list = await screen.findByRole('button', { name: /문의 내역/ }, SLOW)
     expect(within(list).queryByText('1')).not.toBeInTheDocument()
@@ -550,48 +597,74 @@ describe('대화 화면', () => {
     await user.type(screen.getByLabelText('남은 증상'), '같은 오류가 나요')
     await user.click(send)
     expect(await screen.findByText(/다시 확인을 요청했어요/, {}, SLOW)).toBeInTheDocument()
+    // 접수 상세의 처리 이력에 완료(처리 결과)와 미해결(남은 증상)이 모두 남는다 — 서버의 상태 이력과 같다
+    const admin = MOCK_ACCOUNTS.find((u) => u.employeeNo === 'EMP-1178')!
+    const h = await getTicketHistory(admin, ticketIdOfInquiry(101))
+    const items = h.ok ? h.data.items : []
+    const fin = items.find((x) => x.toStatus === 'FIN')
+    expect(fin?.resolutionNote).toBeTruthy()
+    const back = items.find((x) => x.fromStatus === 'FIN' && x.toStatus === 'WIP')
+    expect(back).toMatchObject({ reason: '같은 오류가 나요', source: 'ITSSUE' })
+    expect(back?.actor?.name).toBeTruthy() // 문의자 이름으로 남는다
+    expect(items.indexOf(fin!)).toBeLessThan(items.indexOf(back!))
   })
 
-  it('미확인 문의를 열면 이어가기 창이 뜨고, 고르기 전에는 지난 버튼이 잠겨 있다', async () => {
+  it('미확인 문의를 열면 이어가기 창이 뜨고, 창이 떠 있는 동안은 지난 버튼이 잠겨 있다. 이어서 대화하기를 고르면 풀린다', async () => {
     const user = userEvent.setup()
     renderAs('EMP-1001', '/chat/103')
     const dlg = await screen.findByRole('dialog', { name: '이전 문의를 이어서 진행할까요?' }, SLOW)
     expect(dlg).toHaveTextContent('아직 해결 여부를 확인하지 않은 문의가 있어요')
     const chips = () => screen.getAllByRole('button', { name: /^(해결|미해결)$/ })
     expect(chips().every((b) => (b as HTMLButtonElement).disabled)).toBe(true)
-    // ✕ 는 창만 닫는다. 버튼은 여전히 잠겨 있고, 잠긴 입력창을 누르면 창이 다시 뜬다.
-    await user.click(within(dlg).getByRole('button', { name: '닫기' }))
+    await user.click(within(dlg).getByRole('button', { name: '이어서 대화하기' }))
+    // 이어서 대화하기 뒤에는 해결 여부 선택 창이 뜬다. "나중에"로 닫으면 기존 해결·미해결 버튼이 풀려 있다
+    const ask = await screen.findByRole('dialog', { name: '해결 여부를 선택해 주세요!' }, SLOW)
+    await user.click(within(ask).getByRole('button', { name: '나중에 선택할게요' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(chips().every((b) => (b as HTMLButtonElement).disabled)).toBe(true)
-    await user.click(screen.getByRole('button', { name: '이어가기 선택 열기' }))
-    await user.click(await screen.findByRole('button', { name: '이어서 대화하기' }, SLOW))
-    // 새 버튼을 만들지 않고 기존 해결·미해결 버튼이 풀린다
     await waitFor(() => expect(chips().every((b) => !(b as HTMLButtonElement).disabled)).toBe(true), SLOW)
     expect(chips()).toHaveLength(2)
     await user.click(screen.getByRole('button', { name: '해결' }))
     expect(await screen.findByText(/AI 안내로 문제가 해결되었군요/, {}, SLOW)).toBeInTheDocument()
   })
 
-  it('미해결 종료 문의는 입력창이 잠기고, 이어가면 맨 아래에 담당자 연결 버튼이 다시 나온다', async () => {
+  it('이어가기 창을 ✕로 닫으면 해결·미해결 버튼을 눌러 바로 이어갈 수 있다 (입력창은 계속 잠겨 있다)', async () => {
     const user = userEvent.setup()
-    renderAs('EMP-1001', '/chat/106')
-    const dlg = await screen.findByRole('dialog', { name: '해결되지 않은 문의를 이어갈까요?' }, SLOW)
-    expect(screen.getByLabelText('메시지 입력')).toHaveAttribute('placeholder', '아직 해결되지 않은 문의예요. 대화를 이어갈 수 있어요.')
-    expect(within(dlg).getByRole('button', { name: '새 문의 시작하기' })).toBeInTheDocument()
-    const count = (await get(106, 'EMP-1001')).messages.length
-    await user.click(within(dlg).getByRole('button', { name: '이어서 대화하기' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: '담당자 연결' })).toBeEnabled(), SLOW)
-    expect((await get(106, 'EMP-1001')).messages).toHaveLength(count) // 새 안내 메시지는 없다
-    await user.click(screen.getByRole('button', { name: '담당자 연결' }))
-    expect(await screen.findByText('접수 초안', {}, SLOW)).toBeInTheDocument()
+    renderAs('EMP-1001', '/chat/103')
+    const dlg = await screen.findByRole('dialog', { name: '이전 문의를 이어서 진행할까요?' }, SLOW)
+    const chips = () => screen.getAllByRole('button', { name: /^(해결|미해결)$/ })
+    expect(chips().every((b) => (b as HTMLButtonElement).disabled)).toBe(true)
+    await user.click(within(dlg).getByRole('button', { name: '닫기' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() => expect(chips().every((b) => !(b as HTMLButtonElement).disabled)).toBe(true), SLOW)
+    // 입력창은 잠긴 채이고, 누르면 이어가기 창이 다시 뜬다
+    expect(screen.getByRole('button', { name: '이어가기 선택 열기' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '해결' }))
+    expect(await screen.findByText(/AI 안내로 문제가 해결되었군요/, {}, SLOW)).toBeInTheDocument()
   })
 
-  it('접수하지 않고 종료한 문의는 입력창 문구와 이어가기 창 문구가 따로 있고, 배지는 미해결 종료로 묶인다', async () => {
+  it('이어서 대화하기 뒤 해결 여부 창에서 해결을 고르면 바로 해결로 처리된다(두 버튼은 같은 모양)', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1001', '/chat/103')
+    await user.click(await screen.findByRole('button', { name: '이어서 대화하기' }, SLOW))
+    const ask = await screen.findByRole('dialog', { name: '해결 여부를 선택해 주세요!' }, SLOW)
+    const ok = within(ask).getByRole('button', { name: '해결' })
+    expect(ok.className).toBe(within(ask).getByRole('button', { name: '미해결' }).className)
+    await user.click(ok)
+    expect(await screen.findByText(/AI 안내로 문제가 해결되었군요/, {}, SLOW)).toBeInTheDocument()
+  })
+
+  it('미연결 종료 문의는 이어가기 창 없이 입력창이 잠기고 새 문의로 안내한다', async () => {
+    renderAs('EMP-1001', '/chat/106')
+    expect(await screen.findByLabelText('메시지 입력', {}, SLOW)).toHaveAttribute('placeholder', '담당자 연결 없이 종료한 문의예요. 이어갈 수 없어서 새 문의로 시작해 주세요.')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('미연결 종료')).toBeInTheDocument()
+  })
+
+  it('접수하지 않고 종료한 문의도 이어가기 창 없이 입력창 문구로 안내하고, 배지는 미연결 종료로 묶인다', async () => {
     renderAs('EMP-1001', '/chat/107')
-    const dlg = await screen.findByRole('dialog', { name: '이전 문의를 다시 이어갈까요?' }, SLOW)
-    expect(dlg).toHaveTextContent('티켓을 접수하지 않고 종료한 문의예요')
-    expect(screen.getByLabelText('메시지 입력')).toHaveAttribute('placeholder', '티켓을 접수하지 않고 종료한 문의예요.')
-    expect(screen.getByText('미해결 종료')).toBeInTheDocument()
+    expect(await screen.findByLabelText('메시지 입력', {}, SLOW)).toHaveAttribute('placeholder', '티켓을 접수하지 않고 종료한 문의예요. 새 문의로 시작해 주세요.')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('미연결 종료')).toBeInTheDocument()
     // 취소한 초안 카드의 버튼은 눌 수 없다
     expect(screen.queryByRole('button', { name: '접수하기' })).not.toBeInTheDocument()
   })
@@ -608,6 +681,15 @@ describe('대화 화면', () => {
     expect(box).toBeDisabled()
     expect(box).toHaveAttribute('placeholder', '처리가 완료되어 종료된 문의예요.')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    // 끝난 문의 아래에는 새 문의로 시작하라는 안내와 버튼이 있다
+    expect(screen.getByText(/이 문의는 끝났어요/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '새 문의 시작하기' })).toBeInTheDocument()
+  })
+
+  it('끝나지 않은 문의에는 새 문의 안내가 없다', async () => {
+    renderAs('EMP-1001', '/chat/101')
+    await screen.findByLabelText('메시지 입력', {}, SLOW)
+    expect(screen.queryByText(/이 문의는 끝났어요/)).toBeNull()
   })
 
   it('없는 문의 주소는 찾을 수 없다는 안내와 이동 버튼을 보여 준다', async () => {

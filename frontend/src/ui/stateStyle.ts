@@ -4,7 +4,7 @@
  */
 import type { DisplayStatus, InquiryStateKind } from '../api/types'
 
-export const STATE_TONE: Record<InquiryStateKind, string> = {
+const STATE_TONE: Record<InquiryStateKind, string> = {
   progress: 'prog', // 처리 중
   assigned: 'asg', // 담당자 배정
   received: 'recv', // 접수
@@ -23,7 +23,10 @@ export const STATE_TONE: Record<InquiryStateKind, string> = {
  *   보조 라벨 "AI 안내" / "담당자 처리"로 구분한다. 두 코드와 필터 값은 합치지 않는다.
  * - 서버 이름이 "담당자 배정"(RDY)이면 "담당자 배정 완료" + 보조 라벨 "처리 대기"로 보인다. "담당자 확인 중" 등은 그대로 둔다.
  */
-export function stateView(s: { displayStatus: DisplayStatus; stateLabel: string; stateKind: InquiryStateKind }): { label: string; tone: string; sub: string } {
+export function stateView(s: { displayStatus: DisplayStatus; stateLabel: string; stateKind: InquiryStateKind }): { label: string; tone: string; sub: string; ring?: boolean } {
+  // 접수(진행의 시작)는 하늘색, 미연결 종료(끝난 문의)는 회색 보라에 속이 빈 점으로 나눈다 (색 차이 + 모양 차이: 색만으로 구분하지 않는다)
+  if (s.displayStatus === 'received') return { label: s.stateLabel, tone: 'info', sub: '' }
+  if (s.displayStatus === 'unresolved') return { label: s.stateLabel, tone: 'recv', sub: '', ring: true }
   if (s.displayStatus === 'unconfirmed') return { label: '해결 확인 대기', tone: 'need', sub: 'AI 안내' }
   if (s.displayStatus === 'awaiting_confirm') return { label: '해결 확인 대기', tone: 'need', sub: '담당자 처리' }
   if (s.displayStatus === 'assigned' && s.stateKind === 'assigned' && (s.stateLabel === '담당자 배정' || s.stateLabel === '담당자 배정 완료')) {

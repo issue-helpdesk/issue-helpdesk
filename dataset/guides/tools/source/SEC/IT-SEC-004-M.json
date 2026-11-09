@@ -177,7 +177,7 @@
     },
     {
      "t": "fig",
-     "src": "m004_flow.png",
+     "src": "IT-SEC-004-M_2-1.png",
      "caption": "보안 예외 신청·정책 문의 처리 흐름"
     }
    ],
@@ -252,7 +252,7 @@
       },
       {
        "t": "fig",
-       "src": "m_dlp_exception.png",
+       "src": "IT-SEC-004-M_3.1-1.png",
        "caption": "DLP 관리 콘솔: ① 승인·서약 확인 ② 범위·기간을 정해 예외 등록"
       },
       {
@@ -448,7 +448,7 @@
       },
       {
        "t": "fig",
-       "src": "m_webfilter.png",
+       "src": "IT-SEC-004-M_3.3-1.png",
        "caption": "웹 필터 관리 콘솔: ① 평판·악성 기록 확인 ② URL 예외 등록"
       },
       {

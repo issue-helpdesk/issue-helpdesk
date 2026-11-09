@@ -6,6 +6,8 @@
 3. 호출 → 검사 (08 3.2 1~3단계) : 버전 · JSON · 필수 키와 자료형. JSON·자료형이 틀리면 한 번 다시 부른다
 4. 그래도 안 되면 안전 기본값 (08 3.3)
 
+2차 판단(first 를 줄 때)은 검색 뒤에 정해지는 칸만 thinking 없이 받고, 나머지는 1차 값으로 채운다 (08 2.6).
+
 1·2 에서 오류가 나면 부르지 않고 안전 기본값으로 넘긴다 (docs/10 3.3, 09 T11).
 08 3.2 4~9단계(허용값·근거·처리 방향 보정)와 5.3 긴급도 규칙은 판단 흐름(M4-2-1)이 한다.
 """
@@ -18,16 +20,16 @@ from dataclasses import dataclass, field
 from pydantic import ValidationError
 
 from app.agent.llm.port import LLMError, LLMPort
-from app.agent.llm.prompt import Taxonomy, build_system_prompt, build_user_content
-from app.agent.llm.schemas import (SUPPORTED_SCHEMA_VERSIONS, AIInput, AIOutput, Facts, output_json_schema,
-                                   safe_default)
+from app.agent.llm.prompt import Taxonomy, build_system_prompt, build_user_content, first_judgment
+from app.agent.llm.schemas import (SUPPORTED_SCHEMA_VERSIONS, AIInput, AIOutput, Facts, SecondOutput, merge_second,
+                                   output_json_schema, safe_default, second_output_json_schema)
 from app.agent.sensitive import Filtered, Pseudonymizer, filter_evidence
 
 logger = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 2                                    # 처음 + 다시 한 번 (08 3.2 2·3단계)
 RETRY_CODES = ('INVALID_JSON', 'SCHEMA_INVALID', 'MAX_TOKENS')
-FACT_TEXTS = ('summary', 'target_system', 'symptom', 'occurred_at', 'time_constraint', 'business_impact')
+FACT_TEXTS = ('summary', 'target_system', 'symptom', 'situation', 'occurred_at', 'time_constraint', 'business_impact')
 
 
 @dataclass(frozen=True)
@@ -54,14 +56,18 @@ class JudgeResult:
 
 
 def call_judge(inp: AIInput, port: LLMPort, taxonomy: Taxonomy, staff_names: Iterable[str],
-               purpose: str) -> JudgeResult:
-    """staff_names: 직원 이름 목록 (users.name). purpose: llm_calls.purpose (예: 1차 CLASSIFY, 2차 ANSWER)."""
+               purpose: str, first: AIOutput | None = None) -> JudgeResult:
+    """staff_names: 직원 이름 목록 (users.name). purpose: llm_calls.purpose (예: 1차 CLASSIFY, 2차 ANSWER).
+    first: 같은 메시지의 1차 판단. 주면 2차로 부른다 (08 2.6). 결과의 output·ai_output 은 1차 값을 합친 2장 모양이다.
+    """
     try:
         p = Pseudonymizer(staff_names)
         history = [{'role': m.role, 'content': p.apply(m.content)} for m in inp.history]
         facts = _pseudonymize_facts(inp.collected_facts, p)
         message = p.apply(inp.message)
         evidence = None if inp.search is None else filter_evidence(inp.search.documents, inp.search.legacy, p)
+        # 1차 출력은 치환한 글로 만든 것이지만, 모델이 쓴 글이라 한 번 더 거른다
+        carry = None if first is None else _pseudonymize(first_judgment(first), p)
     except Exception as e:
         # 오류 내용에 글이 섞일 수 있어 종류만 남긴다. 로그 안전망은 전화번호·이름(C·D)을 가리지 않는다 (docs/10 5.3)
         logger.error('민감정보 치환 실패. 모델을 부르지 않습니다: %s', type(e).__name__)
@@ -72,17 +78,19 @@ def call_judge(inp: AIInput, port: LLMPort, taxonomy: Taxonomy, staff_names: Ite
 
     system = build_system_prompt(taxonomy)
     user = build_user_content(message=message, history=history, collected_facts=facts,
-                              ask_more_count=inp.ask_more_count, user_context=inp.user_context, evidence=evidence)
-    schema = output_json_schema()
+                              ask_more_count=inp.ask_more_count, user_context=inp.user_context, evidence=evidence,
+                              first=carry)
+    schema = output_json_schema() if first is None else second_output_json_schema()
 
     calls = []
     for _ in range(MAX_ATTEMPTS):
         started = time.monotonic()
         output, code, reply_model, tokens = None, None, port.model, (None, None)
         try:
-            reply = port.complete(system, user, schema)
+            # 2차는 thinking 을 끈다. 분류는 1차가 정했고, 시험에서 정확도는 같고 2차 시간이 줄었다 (2026-11-03)
+            reply = port.complete(system, user, schema, think=first is None)
             reply_model, tokens = reply.model, (reply.input_tokens, reply.output_tokens)
-            output, code = _parse(reply.text)
+            output, code = _parse(reply.text, first)
         except LLMError as e:
             code = e.code
             reply_model, tokens = e.model or port.model, (e.input_tokens, e.output_tokens)
@@ -96,8 +104,8 @@ def call_judge(inp: AIInput, port: LLMPort, taxonomy: Taxonomy, staff_names: Ite
     return JudgeResult(safe_default(), None, 'AI_FAILED', code, evidence, tuple(calls))
 
 
-def _parse(text: str) -> tuple[AIOutput | None, str | None]:
-    """08 3.2 1~3단계. 성공하면 (출력, None), 실패하면 (None, 사유)."""
+def _parse(text: str, first: AIOutput | None = None) -> tuple[AIOutput | None, str | None]:
+    """08 3.2 1~3단계. 성공하면 (출력, None), 실패하면 (None, 사유). 2차는 받은 칸을 검사한 뒤 1차에 합친다."""
     try:
         data = json.loads(text)
     except ValueError:
@@ -107,10 +115,26 @@ def _parse(text: str) -> tuple[AIOutput | None, str | None]:
     version = data.get('schema_version')
     if version is not None and version not in SUPPORTED_SCHEMA_VERSIONS:
         return None, 'UNSUPPORTED_VERSION'                  # 다시 부르지 않는다 (1단계). 키가 없으면 3단계에서 걸린다
+    if first is not None and 'schema_version' not in data:
+        try:
+            return merge_second(first, SecondOutput.model_validate(data)), None
+        except ValidationError:
+            return None, 'SCHEMA_INVALID'
+    # 2차라도 2장 전체 모양이면 그대로 쓴다. Claude 는 출력 형식대로 줄인 칸을 주고, Mock·평가 도구가 전체 모양을 준다
     try:
         return AIOutput.model_validate(data), None
     except ValidationError:
         return None, 'SCHEMA_INVALID'
+
+
+def _pseudonymize(node, p: Pseudonymizer):
+    if isinstance(node, str):
+        return p.apply(node)
+    if isinstance(node, dict):
+        return {k: _pseudonymize(v, p) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_pseudonymize(v, p) for v in node]
+    return node
 
 
 def _pseudonymize_facts(facts: Facts | None, p: Pseudonymizer) -> Facts | None:

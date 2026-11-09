@@ -1,8 +1,10 @@
 """접수 API (TK-01~06·08) — SQLite 메모리 DB. 문의는 Mock 모델로 판단 흐름을 돌려 만든다."""
-from datetime import datetime, timezone
+import importlib.util
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -22,7 +24,9 @@ from app.models import (
     Ticket,
     TicketDraft,
     TicketStatusHistory,
+    TimeOff,
 )
+from app.services.assignment import reserve_assignment
 from test_auth import add_user, bearer, client, error_code, login  # noqa: F401 (픽스처)
 from test_flow_correct import DOC
 from test_inquiries import ANSWER, INQUIRY_TABLES, ai, ai_reply, create_sqlite_tables, headers, owner, start, taxonomy  # noqa: F401
@@ -35,7 +39,7 @@ TICKETS = "/api/v1/tickets"
 def db():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     create_sqlite_tables(engine, INQUIRY_TABLES + ["integration_jobs", "assignment_logs", "ticket_status_history",
-                                                   "member_skills"])
+                                                   "member_skills", "time_off", "notifications"])
     with Session(engine) as session:
         yield session
     engine.dispose()
@@ -488,6 +492,32 @@ def test_list_filters(client, admin, staff, params, expected):
     assert ids(listed(client, admin, **params)) == [staff[name].id for name in expected]
 
 
+NO_STATUS = {"RDY": 0, "WIP": 0, "FIN": 0, "CLS": 0}
+
+
+def test_list_status_counts_ignore_work_status_filter(client, admin, staff):
+    """R-46: 탭 하나로 걸러도 다른 탭의 숫자가 그대로 나온다. Jira 생성 전(null)은 세지 않는다."""
+    body = listed(client, admin, workStatus="RDY").json()
+
+    assert body["totalCount"] == 1
+    assert body["statusCounts"] == {**NO_STATUS, "RDY": 1, "WIP": 1}
+
+
+@pytest.mark.parametrize("params, expected", [
+    ({"q": "도용"}, {"RDY": 1}),
+    ({"assignStatus": "PENDING"}, {}),
+    ({"needsAdmin": "false"}, {"RDY": 1, "WIP": 1}),
+])
+def test_list_status_counts_apply_other_filters(client, admin, staff, params, expected):
+    assert listed(client, admin, **params).json()["statusCounts"] == {**NO_STATUS, **expected}
+
+
+def test_list_status_counts_stay_in_view(client, headers, staff):
+    assert listed(client, headers).json()["statusCounts"] == {**NO_STATUS, "RDY": 1, "WIP": 1}      # 본인 문의
+    assert listed(client, as_user(client, "E0002")).json()["statusCounts"] == {**NO_STATUS, "WIP": 1}  # 소속 그룹
+    assert listed(client, as_user(client, "E0003")).json()["statusCounts"] == NO_STATUS             # 본인 접수는 생성 전
+
+
 def test_failed_transition_needs_admin(client, db, admin, staff):
     staff["mine"].transition_status = "NEEDS_ADMIN"
     db.commit()
@@ -642,6 +672,80 @@ def test_finish_uses_saved_resolution_note(client, db, staff):
 
     assert res.status_code == 202
     assert jobs(db)[0].payload["resolutionNote"] is None
+
+
+def add_reopen_history(db, ticket, source="ITSSUE"):
+    db.add(TicketStatusHistory(ticket_id=ticket.id, from_status="FIN", to_status="WIP", source=source))
+    db.commit()
+
+
+@pytest.mark.parametrize("source", ["ITSSUE", "JIRA"])
+@pytest.mark.parametrize("body", [{"workStatus": "FIN"}, {"workStatus": "FIN", "resolutionNote": None}])
+def test_refinish_requires_explicit_note_without_enqueuing(client, db, staff, source, body):
+    ticket = staff["mine"]
+    set_work_status(db, ticket, "WIP", resolution_note="기존 결과", finished_at=None)
+    add_reopen_history(db, ticket, source)
+
+    res = transition(client, as_user(client, "E0002"), ticket.id, **body)
+
+    assert res.status_code == 422
+    assert error_code(res) == "TICKET_RESOLUTION_NOTE_REQUIRED"
+    detail = res.json()["error"]["details"][0]
+    assert (detail["field"], detail["reason"]) == ("resolutionNote", "REQUIRED")
+    assert jobs(db) == []
+    db.refresh(ticket)
+    assert (ticket.work_status, ticket.transition_status, ticket.requested_work_status) == ("WIP", "IDLE", None)
+    assert (ticket.resolution_note, ticket.finished_at) == ("기존 결과", None)
+
+
+@pytest.mark.parametrize("note", ["추가 조치 후 정상 확인", "기존 결과"])
+def test_refinish_accepts_explicit_note_even_if_text_matches_previous(client, db, staff, note):
+    ticket = staff["mine"]
+    set_work_status(db, ticket, "WIP", resolution_note="기존 결과")
+    add_reopen_history(db, ticket)
+
+    res = transition(client, as_user(client, "E0002"), ticket.id, workStatus="FIN", resolutionNote=note)
+
+    assert res.status_code == 202
+    assert jobs(db)[0].payload["resolutionNote"] == note
+    db.refresh(ticket)
+    assert ticket.resolution_note == "기존 결과"              # Jira 확인 전에는 덮어쓰지 않는다
+
+
+def test_other_ticket_reopen_and_non_reopen_history_allow_saved_note(client, db, staff):
+    ticket = staff["mine"]
+    set_work_status(db, ticket, "WIP", resolution_note="저장된 결과")
+    add_reopen_history(db, staff["secret"])
+    db.add(TicketStatusHistory(ticket_id=ticket.id, from_status="RDY", to_status="WIP", source="ITSSUE"))
+    db.commit()
+
+    res = transition(client, as_user(client, "E0002"), ticket.id, workStatus="FIN")
+
+    assert res.status_code == 202
+    assert jobs(db)[0].payload["resolutionNote"] is None
+
+
+@pytest.mark.parametrize("status", ["WIP", "FIN"])
+def test_reopen_history_does_not_block_note_only_edit(client, db, staff, status):
+    ticket = staff["mine"]
+    set_work_status(db, ticket, status, resolution_note="기존 결과")
+    add_reopen_history(db, ticket)
+
+    res = transition(client, as_user(client, "E0002"), ticket.id, resolutionNote="수정한 결과")
+
+    assert res.status_code == 202
+    assert (jobs(db)[0].payload["toStatus"], jobs(db)[0].payload["resolutionNote"]) == (None, "수정한 결과")
+
+
+@pytest.mark.parametrize("note", ["", " \n\t "])
+def test_refinish_rejects_blank_note(client, db, staff, note):
+    set_work_status(db, staff["mine"], "WIP", resolution_note="기존 결과")
+    add_reopen_history(db, staff["mine"])
+
+    res = transition(client, as_user(client, "E0002"), staff["mine"].id, workStatus="FIN", resolutionNote=note)
+
+    assert res.status_code == 422
+    assert jobs(db) == []
 
 
 def test_finish_requires_resolution_note(client, staff):
@@ -823,7 +927,7 @@ def test_auto_assign_picks_least_busy(client, db, team):
     res = assign(client, as_user(client, "E0004"), team["mine"].id, team["net"].id, None)
 
     assert res.json()["assigneeId"] == team["free"].id
-    assert db.scalar(select(AssignmentLog.reason)) == "휴가로 재배정 (자동배정: 처리 중 접수 최소 0건)"
+    assert db.scalar(select(AssignmentLog.reason)) == "휴가로 재배정 (자동배정: 업무량 최소 (0건))"
 
 
 def test_manager_moves_ticket_to_other_group_by_auto_assign(client, db, team):
@@ -838,7 +942,9 @@ def test_manager_moves_ticket_to_other_group_by_auto_assign(client, db, team):
 
 
 def test_first_assignment_before_jira_creation(client, db, admin, team):
-    ticket = team["others"]                                 # 미분류, 담당자 없음, Jira 생성 전
+    ticket = team["others"]                                 # 담당자 없음, Jira 생성 전
+    ticket.inquiry_type_id = team["vpn"].id
+    db.commit()
 
     res = assign(client, admin, ticket.id, team["net"].id, team["busy"].id)
 
@@ -888,13 +994,15 @@ def test_assignee_must_be_assignable(client, team, assignee):
     assert res.json()["error"]["details"][0]["field"] == "assigneeId"
 
 
-def test_assignee_needs_skill_for_inquiry_type(client, db, team):
+def test_assignee_does_not_need_skill_for_inquiry_type(client, db, team):
+    """처리 분류(member_skills)는 과거 처리 이력 확인용이라 직접 지정의 조건이 아니다 (11.04 팀 결정)."""
     db.query(MemberSkill).filter_by(user_id=team["busy"].id).delete()
     db.commit()
 
     res = assign(client, as_user(client, "E0004"), team["mine"].id, team["net"].id, team["busy"].id)
 
-    assert error_code(res) == "ASSIGNEE_NOT_ASSIGNABLE"
+    assert res.status_code == 200
+    assert res.json()["assigneeId"] == team["busy"].id
 
 
 @pytest.mark.parametrize("reason", [None, "   "])
@@ -921,6 +1029,23 @@ def test_assign_closed_ticket(client, db, admin, team):
     res = assign(client, admin, team["mine"].id, team["net"].id, None)
 
     assert error_code(res) == "TICKET_INVALID_TRANSITION"
+
+
+def test_reassign_closes_open_assign_failure(client, db, team):
+    """TK-09 로 새로 정하면 이전 배정 실패는 대체됨으로 닫혀, 이후 Jira 직접 변경을 막지 않는다 (06 R-49)."""
+    ticket = team["mine"]
+    ticket.assign_status, ticket.assignee_id = "NEEDS_ADMIN", None
+    failed = IntegrationJob(ticket_id=ticket.id, job_type="JIRA_ASSIGN", status="NEEDS_ADMIN", attempts=3,
+                            idempotency_key="assign:failed", payload={}, last_error="invalid_fields")
+    db.add(failed)
+    db.commit()
+
+    res = assign(client, as_user(client, "E0004"), ticket.id, team["net"].id, team["busy"].id)
+
+    assert res.status_code == 200
+    db.refresh(failed)
+    assert (failed.status, failed.last_error, failed.next_retry_at) == ("DONE", "superseded:assign (invalid_fields)", None)
+    assert [job.status for job in jobs(db) if job.id != failed.id] == ["PENDING"]
 
 
 def test_assign_while_assign_job_active(client, db, team):
@@ -970,3 +1095,134 @@ def test_integration_jobs(client, db, admin, team):
 def test_integration_jobs_admin_only(client, admin, team):
     assert client.get(f"{TICKETS}/{team['mine'].id}/integration-jobs", headers=as_user(client, "E0004")).status_code == 403
     assert error_code(client.get(f"{TICKETS}/999/integration-jobs", headers=admin)) == "TICKET_NOT_FOUND"
+
+
+def test_unclassified_ticket_cannot_be_assigned_directly(client, admin, team):
+    res = assign(client, admin, team["others"].id, team["net"].id, team["busy"].id)          # 미분류
+
+    assert error_code(res) == "ASSIGNEE_NOT_ASSIGNABLE"
+    assert res.json()["error"]["details"][0]["message"] == "미분류 접수는 직접 지정할 수 없음(서비스데스크 확인)"
+
+
+# ---------------------------------------------------------------- 공용 배정 함수 (docs/11 2.4·3장)
+
+def reserve(db, team, **kwargs):
+    ticket = db.get(Ticket, team["mine"].id)
+    return reserve_assignment(db, ticket, team["net"].id, reason="자동배정", actor_id=None, **kwargs)
+
+
+def test_reservation_counts_as_workload(db, team):
+    """예약(PENDING)도 업무량이다. 1건씩 같으면 배정 이력이 없는 사람 → 사번 순."""
+    make_ticket(db, team["busy"], assignee_id=team["free"].id, assign_status="PENDING", work_status=None)
+
+    assert reserve(db, team).assignee_id == team["busy"].id                     # 둘 다 1건, 사번 E0005 먼저
+
+
+def test_tie_goes_to_least_recently_assigned(db, team):
+    make_ticket(db, team["busy"], assignee_id=team["free"].id, assign_status="PENDING", work_status=None)
+    db.add(AssignmentLog(ticket_id=team["secret"].id, event="ASSIGN", assignee_id=team["busy"].id))
+    db.commit()
+
+    reservation = reserve(db, team)
+
+    assert reservation.assignee_id == team["free"].id
+    assert reservation.reason == "자동배정 (자동배정: 업무량 최소 (1건), 동률 2명 중 마지막 배정이 가장 오래된 순)"
+
+
+def test_current_ticket_is_not_counted_for_its_assignee(db, team):
+    ticket = team["mine"]
+    ticket.assignee_id, ticket.assign_status, ticket.work_status = team["free"].id, "ASSIGNED", "WIP"
+    db.commit()
+
+    assert reserve(db, team).assignee_id == team["free"].id                     # 이 접수를 빼면 0건
+
+
+def test_absent_member_is_skipped_only_for_auto(db, team):
+    day = date(2026, 11, 3)
+    db.add(TimeOff(user_id=team["free"].id, time_off_type="ANNUAL", start_date=day, end_date=day))
+    db.commit()
+    on_leave = datetime(2026, 11, 3, 1, 0, tzinfo=timezone.utc)                 # KST 10:00
+    after = datetime(2026, 11, 3, 15, 0, tzinfo=timezone.utc)                   # KST 11/04 00:00
+
+    assert reserve(db, team, now=on_leave).assignee_id == team["busy"].id
+    db.rollback()
+    assert reserve(db, team, now=after).assignee_id == team["free"].id          # 일정이 끝나면 다시 후보
+    db.rollback()
+    assert reserve(db, team, assignee_id=team["free"].id, now=on_leave).assignee_id == team["free"].id
+
+
+def test_auto_assignment_ignores_member_skills(db, team):
+    """처리 분류가 한 건도 없어도 같은 그룹의 후보 중 업무량이 적은 사람이 선정된다 (11.04 팀 결정)."""
+    db.query(MemberSkill).delete()
+    db.commit()
+
+    reservation = reserve(db, team)
+
+    assert reservation.event != "FAIL" and reservation.assignee_id == team["free"].id
+
+
+def test_manager_is_not_auto_assigned(db, team):
+    member = db.get(SupportGroupMember, (team["net"].id, team["manager"].id))
+    member.assignable, member.jira_account_id = True, "acc-E0004"
+    for user in ("busy", "free"):
+        db.get(SupportGroupMember, (team["net"].id, team[user].id)).assignable = False
+    db.commit()
+
+    reservation = reserve(db, team)
+
+    assert (reservation.event, reservation.assignee_id, reservation.reason) == ("FAIL", None, "자동배정 (배정 가능한 후보 없음)")
+
+
+def test_reserve_does_not_commit(db, team):
+    reservation = reserve(db, team)
+    assert reservation.job is not None and reservation.event == "REASSIGN"
+
+    db.rollback()
+
+    assert db.get(Ticket, team["mine"].id).assignment_revision == 0
+    assert db.scalar(select(AssignmentLog)) is None and jobs(db) == []
+
+
+def test_status_history_shows_result_of_each_finish(client, db, headers, staff):
+    ticket_id = staff["mine"].id
+    db.add_all([
+        TicketStatusHistory(ticket_id=ticket_id, from_status="WIP", to_status="FIN", source="JIRA", resolution_note="재설치",
+                            changed_at=datetime(2026, 10, 21, 1, 0, tzinfo=timezone.utc)),
+        TicketStatusHistory(ticket_id=ticket_id, from_status="FIN", to_status="WIP", source="ITSSUE", reason="여전히 안 됨",
+                            changed_at=datetime(2026, 10, 21, 2, 0, tzinfo=timezone.utc)),
+        TicketStatusHistory(ticket_id=ticket_id, from_status="WIP", to_status="FIN", source="ITSSUE", resolution_note="인증서 재발급",
+                            changed_at=datetime(2026, 10, 21, 3, 0, tzinfo=timezone.utc)),
+    ])
+    db.commit()
+
+    items = client.get(f"{TICKETS}/{ticket_id}/status-history", headers=headers).json()["items"]
+
+    assert [(i["toStatus"], i["reason"], i["resolutionNote"]) for i in items] == [
+        ("FIN", None, "재설치"), ("WIP", "여전히 안 됨", None), ("FIN", None, "인증서 재발급"),
+    ]
+
+
+def test_migration_fills_only_last_finish(db, staff):
+    """지금 값은 마지막 완료의 결과다. 그 앞 완료의 값은 이미 덮어써서 알 수 없다."""
+    path = Path(__file__).parents[1] / "backend/app/db/migrations/versions/b6f2c81d4e93_add_status_history_resolution_note.py"
+    spec = importlib.util.spec_from_file_location("fill_last_finish", path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    mine, others = staff["mine"], staff["others"]
+    mine.resolution_note, others.resolution_note = "최근 결과", None
+    day = datetime(2026, 10, 21, tzinfo=timezone.utc)
+    first, reopen, last, other = (
+        TicketStatusHistory(ticket_id=mine.id, from_status="WIP", to_status="FIN", source="JIRA", changed_at=day),
+        TicketStatusHistory(ticket_id=mine.id, from_status="FIN", to_status="WIP", source="JIRA", changed_at=day + timedelta(hours=1)),
+        TicketStatusHistory(ticket_id=mine.id, from_status="WIP", to_status="FIN", source="JIRA", changed_at=day + timedelta(hours=2)),
+        TicketStatusHistory(ticket_id=others.id, from_status="WIP", to_status="FIN", source="JIRA", changed_at=day),
+    )
+    db.add_all([last, reopen, first, other])
+    db.commit()
+
+    db.execute(text(migration.FILL_LAST_FINISH))
+    db.commit()
+
+    for row in (first, reopen, last, other):
+        db.refresh(row)
+    assert (first.resolution_note, reopen.resolution_note, last.resolution_note, other.resolution_note) == (None, None, "최근 결과", None)

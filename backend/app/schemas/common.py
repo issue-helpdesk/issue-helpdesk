@@ -26,6 +26,12 @@ KstDatetime = Annotated[datetime, PlainSerializer(lambda v: to_kst(v).isoformat(
 def trimmed_str(min_length: int | None = None, max_length: int | None = None):
     return Annotated[str, StringConstraints(strip_whitespace=True, min_length=min_length, max_length=max_length)]
 
+class GuideImage(CamelModel):
+    """출처 본문의 '[그림] 설명' 에 대응하는 그림. 파일은 DC-11 로 받는다."""
+    key: str
+    caption: str
+
+
 # 목록 응답 (2.5). JSON 은 items·page·size·totalCount·totalPages
 class Page[T](CamelModel):
     items: list[T]
@@ -35,9 +41,19 @@ class Page[T](CamelModel):
     total_pages: int
 
     @classmethod
-    def of(cls, items: list[T], page: int, size: int, total_count: int) -> "Page[T]":
+    def of(cls, items: list[T], page: int, size: int, total_count: int, **extra) -> "Page[T]":
         return cls(items=items, page=page, size=size, total_count=total_count,
-                   total_pages=ceil(total_count / size) if total_count else 0)
+                   total_pages=ceil(total_count / size) if total_count else 0, **extra)
+
+
+class CountedPage[T](Page[T]):
+    """상태 탭이 있는 목록. status_counts 는 상태 필터만 뺀 나머지 조건으로 센 상태별 건수다."""
+    status_counts: dict[str, int]
+
+    @classmethod
+    def counted(cls, items: list[T], page: int, size: int, total_count: int, counts: dict, statuses: tuple[str, ...]):
+        """statuses 의 모든 값을 키로 준다. 없는 상태는 0 이고, statuses 밖의 값(null 등)은 세지 않는다."""
+        return cls.of(items, page, size, total_count, status_counts={s: counts.get(s, 0) for s in statuses})
 
 
 # 페이지가 없는 목록

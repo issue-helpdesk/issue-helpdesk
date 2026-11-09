@@ -12,6 +12,7 @@ import type { CategoryCode } from '../../api/chatTypes'
 import { groupOf, LIST_GROUPS, listInquiries, type InquiryListQuery, type ListGroup, type Page } from '../../api/inquiries'
 import type { InquirySummary } from '../../api/types'
 import titleHist from '../../assets/mascot/title-hist.webp'
+import { USE_MOCK_INQUIRY } from '../../core/config'
 import { formatRelative, formatStart } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { FilterPill } from '../../ui/FilterPill'
@@ -55,11 +56,13 @@ function Hl({ text, q }: { text: string; q: string }) {
 /** 상태 칸: 이름은 같고 의미가 다른 상태는 배지 아래 보조 라벨로 나눈다 (예: 해결 확인 대기 / AI 안내) */
 function StatusCell({ s }: { s: InquirySummary }) {
   const v = stateView(s)
-  return <StateBadge tone={v.tone} label={v.label} sub={v.sub} block />
+  return <StateBadge tone={v.tone} label={v.label} sub={v.sub} block ring={v.ring} />
 }
 
 /** 정렬할 수 있는 열 머리 */
-function SortTh({ col, label, tip, sort, onSort }: { col: SortCol; label: string; tip?: string; sort: { col: SortCol; dir: 'asc' | 'desc' }; onSort: (c: SortCol) => void }) {
+function SortTh({ col, label, tip, plain, sort, onSort }: { col: SortCol; label: string; tip?: string; plain?: boolean; sort: { col: SortCol; dir: 'asc' | 'desc' }; onSort: (c: SortCol) => void }) {
+  // 서버는 문의 목록을 최근 메시지(updatedAt)·접수(createdAt)·긴급도 순으로만 정렬한다. 나머지 열은 글자만 보인다
+  if (plain) return <th>{label}</th>
   const on = sort.col === col
   return (
     <th aria-sort={on ? (sort.dir === 'desc' ? 'descending' : 'ascending') : 'none'}>
@@ -77,6 +80,8 @@ function SortTh({ col, label, tip, sort, onSort }: { col: SortCol; label: string
 export function InquiryListView() {
   const { user } = useAuth()
   const employeeNo = user?.employeeNo
+  // 관리자는 서버가 모든 사용자의 문의를 주므로 본인 번호를 보내 내 문의만 받는다 (관리자가 아니면 보내면 403)
+  const ownerId = user?.serviceRole === 'ADMIN' ? user.id : undefined
   const navigate = useNavigate()
   const focusSearch = (useLocation().state as { focusSearch?: boolean } | null)?.focusSearch
   const searchRef = useRef<HTMLInputElement>(null)
@@ -114,7 +119,7 @@ export function InquiryListView() {
   useEffect(() => {
     if (!employeeNo) return
     let alive = true
-    listInquiries(employeeNo, query).then((r) => {
+    listInquiries(employeeNo, { ...query, userId: ownerId }).then((r) => {
       if (!alive) return
       if (r.ok) {
         setData(r.data)
@@ -124,13 +129,13 @@ export function InquiryListView() {
     return () => {
       alive = false
     }
-  }, [employeeNo, query, reload])
+  }, [employeeNo, ownerId, query, reload])
 
-  // 분류별 건수: 조건 없이 전체를 한 번 읽어 센다 (서버가 생기면 분류마다 totalCount 로 읽는다)
+  // 상태별 건수: 검색어·분류·기간을 따라간다 (상태 칸 자체만 빼고 센다). 최근 100건까지 읽어 센다 (서버가 생기면 상태마다 totalCount 로 읽는다)
   useEffect(() => {
     if (!employeeNo) return
     let alive = true
-    listInquiries(employeeNo, { size: 100 }).then((r) => {
+    listInquiries(employeeNo, { size: 100, userId: ownerId, categoryCode: query.categoryCode, createdFrom: query.createdFrom, q: query.q }).then((r) => {
       if (!alive || !r.ok) return
       const c: Record<string, number> = { all: r.data.totalCount }
       for (const it of r.data.items) {
@@ -142,7 +147,7 @@ export function InquiryListView() {
     return () => {
       alive = false
     }
-  }, [employeeNo, reload])
+  }, [employeeNo, ownerId, reload, query.categoryCode, query.createdFrom, query.q])
 
   const cond = !!(q.trim() || cat || period || group)
   /** 조건을 바꾸면 첫 쪽으로 돌아간다 */
@@ -169,7 +174,7 @@ export function InquiryListView() {
       <Topbar title="문의 내역" sub="내 문의의 진행 상태" lead={<img className="tti" src={titleHist} alt="" width={56} height={56} />} />
       <div className="scroll">
         <div className="page">
-          <div>
+          <div className="phead">
             <div className="eyebrow">MY INQUIRIES</div>
             <h1>내 문의를 한눈에 확인해요</h1>
             <p className="muted" style={{ marginTop: 4 }}>
@@ -215,12 +220,19 @@ export function InquiryListView() {
             ) : items.length ? (
               <>
                 <div className="tw">
-                  <table className="tbl">
+                  <table className="tbl fx">
+                    <colgroup>
+                      <col style={{ width: '36%' }} />
+                      <col style={{ width: '15%' }} />
+                      <col style={{ width: '14%' }} />
+                      <col style={{ width: '19%' }} />
+                      <col style={{ width: '16%' }} />
+                    </colgroup>
                     <thead>
                       <tr>
-                        <SortTh col="title" label="문의" sort={sort} onSort={onSort} />
-                        <SortTh col="category" label="분류" sort={sort} onSort={onSort} />
-                        <SortTh col="status" label="상태" sort={sort} onSort={onSort} />
+                        <SortTh plain={!USE_MOCK_INQUIRY} col="title" label="문의" sort={sort} onSort={onSort} />
+                        <SortTh plain={!USE_MOCK_INQUIRY} col="category" label="분류" sort={sort} onSort={onSort} />
+                        <SortTh plain={!USE_MOCK_INQUIRY} col="status" label="상태" sort={sort} onSort={onSort} />
                         <th>접수번호</th>
                         <SortTh col="when" label="최근 메시지" tip="마지막 메시지 등록 시각 기준" sort={sort} onSort={onSort} />
                       </tr>

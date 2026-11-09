@@ -3,8 +3,8 @@ import math
 
 import pytest
 
-from app.rag.ingest import (FakeEmbedder, IngestError, Report, check_files, check_reference, check_vectors, connect,
-                            embed, is_local, load_baseline, load_manifest, prepare, run)
+from app.rag.ingest import (FakeEmbedder, IngestError, Report, check_files, check_reference, check_vectors, chunk_rows,
+                            connect, embed, is_local, load_baseline, load_manifest, prepare, run)
 
 
 @pytest.fixture(scope='module')
@@ -26,6 +26,31 @@ def test_transfer_policy_from_manifest(prepared):
     for p in prepared:
         assert p.version['transfer_policy'] == p.entry['transfer_policy']
         assert p.version['transfer_policy'] == ('BLOCKED' if p.entry['doc_type'] == 'manual' else 'ALLOWED')
+
+
+def test_content_transfer_policy_by_document_type(prepared):
+    """매뉴얼 항목별 내용 전송 칸 (M4 Q10): 매뉴얼은 모든 청크에 값 — 지금 목록은 값이 비어 있어 모두 BLOCKED.
+    가이드·공통 기준은 빈칸 = 버전 정책 (지금 동작 그대로)."""
+    for p in prepared:
+        want = {'BLOCKED'} if p.document['doc_type'] == 'MANUAL' else {None}
+        assert {r['content_transfer_policy'] for r in p.rows} == want, p.doc_code
+    assert sum(p.document['doc_type'] == 'MANUAL' for p in prepared) == 27
+
+
+def test_chunk_rows_policy_same_for_all_pieces(prepared):
+    """항목 하나가 여러 조각으로 나뉘어도 unit_key 가 같아 모든 조각이 같은 값. 주지 않은 청크는 빈칸."""
+    p = next(p for p in prepared if p.doc_code == 'IT-SEC-003-M')
+    key = next(c.unit_key for c in p.chunks if c.parts > 1)
+    rows = chunk_rows(p.chunks, {key: 'ALLOWED'})
+    got = {r['unit_key']: set() for r in rows}
+    for r in rows:
+        got[r['unit_key']].add(r['content_transfer_policy'])
+    assert sum(r['unit_key'] == key for r in rows) > 1 and got[key] == {'ALLOWED'}
+    assert all(v == {None} for k, v in got.items() if k != key)
+    assert [{k: v for k, v in r.items() if k != 'content_transfer_policy'} for r in rows] == \
+        [{k: v for k, v in r.items() if k != 'content_transfer_policy'} for r in p.rows]   # 나머지 칸은 그대로
+    with pytest.raises(ValueError, match='MASKED'):                   # DB CHECK 는 ALLOWED·BLOCKED 만 (적재 중 실패 전에 막음)
+        chunk_rows(p.chunks, {key: 'MASKED'})
 
 
 def test_missing_transfer_policy_warns_and_blocks():

@@ -1,6 +1,6 @@
 /**
  * 문의 내역 화면과 문의 목록 조건 조회 (API 02 IQ-02 조건을 모의로 걸러 주는 부분).
- * 시연 데이터(EMP-1001) 7건: 처리 중(접수) 1, 해결 확인 대기 1, AI 해결 1, 미확인 1, 해결 완료 1, 미해결 종료 1, 접수하지 않고 종료 1.
+ * 시연 데이터(EMP-1001) 7건: 처리 중(접수) 1, 해결 확인 대기 1, AI 해결 1, 미확인 1, 해결 완료 1, 미연결 종료 1, 접수하지 않고 종료 1.
  */
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -35,8 +35,8 @@ describe('문의 목록 조건 조회 (API)', () => {
     if (!r.ok) return
     expect(r.data).toMatchObject({ page: 1, size: 20, totalCount: 7, totalPages: 1 })
     expect(r.data.items.map((i) => i.displayStatus)).toEqual(['progress', 'awaiting_confirm', 'ai_resolved', 'unconfirmed', 'resolved', 'unresolved', 'unresolved'])
-    // 접수 전 배지: AI 답변 뒤 확인 대기는 미확인, 접수하지 않고 끝낸 문의도 미해결 종료로 묶인다
-    expect(r.data.items.map((i) => i.stateLabel)).toEqual(['처리 중', '해결 확인 대기', 'AI 해결', '미확인', '해결 완료', '미해결 종료', '미해결 종료'])
+    // 접수 전 배지: AI 답변 뒤 확인 대기는 미확인, 접수하지 않고 끝낸 문의도 미연결 종료로 묶인다
+    expect(r.data.items.map((i) => i.stateLabel)).toEqual(['처리 중', '해결 확인 대기', 'AI 해결', '미확인', '해결 완료', '미연결 종료', '미연결 종료'])
     expect(r.data.items[0]).toMatchObject({ receiptNo: 'RCPT-1041', jiraKey: 'ITHD-1520', categoryCode: 'NET' })
   })
 
@@ -87,7 +87,7 @@ describe('문의 목록 조건 조회 (API)', () => {
 })
 
 describe('문의 내역 화면', () => {
-  it('상태 알약으로 그 문의만 남기고, "미확인" 항목 없이 해결 확인 대기와 미해결을 따로 볼 수 있다', async () => {
+  it('상태 알약으로 그 문의만 남기고, "미확인" 항목 없이 해결 확인 대기와 미연결 종료를 따로 볼 수 있다', async () => {
     const user = userEvent.setup()
     renderAs('EMP-1001', '/list')
     expect(await screen.findByRole('heading', { name: '내 문의를 한눈에 확인해요' }, SLOW)).toBeInTheDocument()
@@ -99,7 +99,7 @@ describe('문의 내역 화면', () => {
     const names = screen.getAllByRole('option').map((o) => o.textContent)
     expect(names.some((n) => /미확인/.test(n ?? ''))).toBe(false)
     expect(names).toContain('해결 확인 대기 · 2')
-    expect(names).toContain('미해결 · 2')
+    expect(names).toContain('미연결 종료 · 2')
     await user.click(screen.getByRole('option', { name: /^AI 해결/ }))
     await waitFor(() => expect(titles()).toEqual(['계정 잠금 해제 방법']), SLOW)
     // 해결 확인 대기: 담당자 처리 완료 뒤 건과 AI 답변 뒤 건이 함께 나오고, 보조 라벨로 구분한다
@@ -110,7 +110,7 @@ describe('문의 내역 화면', () => {
     expect(within(table).getByText('담당자 처리')).toBeInTheDocument()
     expect(within(table).getByText('AI 안내')).toBeInTheDocument()
     await openStatus()
-    await user.click(screen.getByRole('option', { name: /^미해결/ }))
+    await user.click(screen.getByRole('option', { name: /^미연결 종료/ }))
     await waitFor(() => expect(titles()).toEqual(['프린터 드라이버 설치가 안 돼요', '사내 메신저 알림이 안 와요']), SLOW)
     // 조건을 풀면 다시 전부
     await user.click(screen.getByRole('button', { name: '✕ 조건 해제' }))

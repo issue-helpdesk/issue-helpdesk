@@ -2,10 +2,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, status
 
-from app.api.deps import CurrentAuth
-from app.schemas.common import ItemList, Page
+from app.api.deps import AdminAuth, CurrentAuth
+from app.schemas.common import CountedPage, ItemList
 from app.schemas.inquiry import (
     AiTurn,
+    Assessment,
     CloseRequest,
     IdempotencyKey,
     Inquiry,
@@ -29,16 +30,21 @@ def start_inquiry(
     return service.start(body.content, auth.user)
 
 
-@router.get("", response_model=Page[InquirySummary])
+@router.get("", response_model=CountedPage[InquirySummary])
 def list_inquiries(
     query: Annotated[InquiryListQuery, Query()], auth: CurrentAuth, service: InquiryServiceDep,
-) -> Page[InquirySummary]:
+) -> CountedPage[InquirySummary]:
     return service.list_inquiries(query, auth.user)
 
 
 @router.get("/{inquiry_id}", response_model=Inquiry)
 def get_inquiry(inquiry_id: int, auth: CurrentAuth, service: InquiryServiceDep) -> Inquiry:
     return service.get_inquiry(inquiry_id, auth.user)
+
+
+@router.get("/{inquiry_id}/assessments", response_model=ItemList[Assessment])
+def list_assessments(inquiry_id: int, _: AdminAuth, service: InquiryServiceDep) -> ItemList[Assessment]:
+    return service.list_assessments(inquiry_id)
 
 
 @router.patch("/{inquiry_id}", response_model=Inquiry)

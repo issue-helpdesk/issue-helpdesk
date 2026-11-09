@@ -2,30 +2,7 @@ from datetime import date
 from typing import Literal
 
 from app.schemas.common import CamelModel, KstDatetime, PageQuery, sort_param, trimmed_str
-from app.schemas.inquiry import CategoryRef, GroupRef, InquiryTypeRef, Urgency, UserRef
-
-
-class TicketDraft(CamelModel):
-    id: int
-    inquiry_id: int
-    session_id: int
-    summary: str | None
-    target_system: str | None
-    symptom: str | None
-    occurred_at: str | None
-    category_code: str | None
-    category: CategoryRef | None
-    inquiry_type_id: int | None
-    inquiry_type: InquiryTypeRef | None
-    urgency: Urgency | None
-    urgency_reason: str | None
-    business_impact: str | None
-    tried_actions: str | None
-    recommended_group_id: int | None
-    recommended_group: GroupRef | None
-    status: str
-    created_at: KstDatetime
-    updated_at: KstDatetime | None
+from app.schemas.inquiry import CategoryRef, GroupRef, InquiryTypeRef, TicketDraft, Urgency, UserRef
 
 
 # 보낸 필드만 바꾼다. urgency·urgencyReason·recommendedGroupId 는 모르는 필드라 NOT_ALLOWED 가 된다
@@ -106,6 +83,7 @@ class StatusHistory(CamelModel):
     actor_id: int | None
     actor: UserRef | None
     reason: str | None
+    resolution_note: str | None             # toStatus 가 FIN 일 때의 처리 결과
     changed_at: KstDatetime
 
 
@@ -148,6 +126,17 @@ class IntegrationJob(CamelModel):
     idempotency_key: str
     created_at: KstDatetime
     updated_at: KstDatetime | None
+
+
+class IntegrationRetryRequest(CamelModel):
+    retry_of_job_id: int
+    reason: trimmed_str(min_length=1, max_length=500)
+
+
+class IntegrationRetryResult(CamelModel):
+    ticket: "Ticket"
+    job: None = None
+    recovery_result: Literal["LINKED_EXISTING", "ALREADY_APPLIED"]
 
 
 class TicketCreateRequest(CamelModel):

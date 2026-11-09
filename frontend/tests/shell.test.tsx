@@ -2,7 +2,7 @@
  * 문의자 화면 틀 테스트: 사이드바 메뉴 · 새 문의(챗봇 시작) · FAQ.
  * 가짜 응답(mock)으로만 실행하며, 로그인 상태는 가짜 토큰을 직접 넣어 만든다.
  */
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
@@ -30,7 +30,7 @@ describe('화면 전환과 접근성', () => {
     const user = userEvent.setup()
     renderAs('EMP-1001', '/faq')
     await screen.findByRole('heading', { name: '먼저 확인해 보세요' }, SLOW)
-    expect(document.title).toBe('FAQ · ITssue')
+    await waitFor(() => expect(document.title).toBe('FAQ · ITssue')) // 화면 제목은 그린 뒤 효과로 바뀐다
     const skip = screen.getByRole('button', { name: '본문으로 건너뛰기' })
     await user.click(skip)
     const main = document.querySelector('main.main') as HTMLElement
@@ -40,7 +40,7 @@ describe('화면 전환과 접근성', () => {
 })
 
 describe('사이드바', () => {
-  it('문의자는 새 문의 · 문의 내역 · FAQ 메뉴와 사용자 정보가 보인다', async () => {
+  it('문의자는 새 문의 · 문의 내역 · FAQ 메뉴가 보이고, 사용자 정보는 오른쪽 위 메뉴에 있다', async () => {
     renderAs('EMP-1001')
     const nav = await screen.findByRole('navigation', { name: '주 메뉴' }, SLOW)
     expect(within(nav).getByRole('button', { name: /새 문의/ })).toHaveAttribute('aria-current', 'page')
@@ -48,7 +48,9 @@ describe('사이드바', () => {
     expect(within(nav).getByRole('button', { name: 'FAQ' })).toBeInTheDocument()
     // 문의자에게는 업무·운영 메뉴가 없다
     expect(within(nav).queryByRole('button', { name: '처리할 문의' })).not.toBeInTheDocument()
-    expect(screen.getByText('개발1팀 · 문의자')).toBeInTheDocument()
+    // 사용자 정보(소속·역할)는 오른쪽 위 사용자 메뉴를 열면 보인다
+    await userEvent.setup().click(screen.getByRole('button', { name: '내 메뉴' }))
+    expect(screen.getByRole('menu', { name: '내 메뉴' })).toHaveTextContent('개발1팀 · 문의자')
   })
 
   it('담당자에게는 업무 메뉴, 관리자에게는 운영 메뉴가 더해진다', async () => {
@@ -76,7 +78,8 @@ describe('사이드바', () => {
   it('로그아웃하면 로그인 화면으로 돌아간다', async () => {
     const user = userEvent.setup()
     renderAs('EMP-1001')
-    await user.click(await screen.findByRole('button', { name: '로그아웃' }, SLOW))
+    await user.click(await screen.findByRole('button', { name: '내 메뉴' }, SLOW))
+    await user.click(screen.getByRole('menuitem', { name: '로그아웃' }))
     expect(screen.getByRole('heading', { name: 'IT 문제, 먼저 물어보세요' })).toBeInTheDocument()
     expect(tokenStore.get()).toBeNull()
   })
@@ -102,7 +105,19 @@ describe('새 문의 (챗봇 시작 화면)', () => {
     expect(screen.getByRole('heading', { name: '무엇을 도와드릴까요?' })).toBeInTheDocument()
     expect(screen.getByLabelText('메시지 입력')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /계정·로그인/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /비밀번호를 잊었어요/ })).toBeInTheDocument()
+    // 추천 카드는 실제 FAQ 에서 고르고, 분류가 겹치지 않는다
+    const cards = await screen.findAllByRole('button', { name: /FAQ에서 보기/ }, SLOW)
+    expect(cards).toHaveLength(3)
+    expect(screen.getByRole('button', { name: /계정이 잠겼어요. 어떻게 해야 하나요\?/ })).toBeInTheDocument()
+  })
+
+  it('추천 FAQ 카드를 누르면 입력창을 채우지 않고 그 FAQ 가 펼쳐진 FAQ 화면으로 간다', async () => {
+    const user = userEvent.setup()
+    renderAs('EMP-1001')
+    await user.click(await screen.findByRole('button', { name: /계정이 잠겼어요. 어떻게 해야 하나요\?/ }, SLOW))
+    expect(await screen.findByRole('heading', { name: '먼저 확인해 보세요' }, SLOW)).toBeInTheDocument()
+    await waitFor(() => expect(document.querySelector('details.faq[open]')?.textContent).toContain('계정이 잠겼어요. 어떻게 해야 하나요?'))
+    expect(document.querySelectorAll('details.faq[open]')).toHaveLength(1)
   })
 
   it('칩을 누르면 입력창에 문장만 채워지고 바로 보내지지 않는다', async () => {
@@ -135,9 +150,10 @@ describe('새 문의 (챗봇 시작 화면)', () => {
     expect(box).toHaveValue('첫 줄\n둘째 줄')
   })
 
-  it('첨부 버튼은 준비 중이라 막혀 있다', async () => {
+  it('입력창에 파일 첨부 아이콘이 없다 (이번 기능 범위에서 제외)', async () => {
     renderAs('EMP-1001')
-    expect(await screen.findByRole('button', { name: '첨부 파일 (준비 중)' }, SLOW)).toBeDisabled()
+    await screen.findByLabelText('메시지 입력', {}, SLOW)
+    expect(screen.queryByRole('button', { name: /첨부/ })).not.toBeInTheDocument()
   })
 })
 
@@ -156,7 +172,10 @@ describe('FAQ', () => {
     renderAs('EMP-1001', '/faq')
     await user.click(await screen.findByText('계정이 잠겼어요. 어떻게 해야 하나요?', {}, SLOW))
     expect(screen.getByText(/10분 후 자동으로 해제돼요/)).toBeInTheDocument()
-    expect(screen.getByText(/IT-ACC-001 사내 SSO 로그인 오류 대응 가이드 v2 · 3\.2/)).toBeInTheDocument()
+    // 같은 가이드는 제목을 한 번만 쓰고, 위치는 눌러서 미리 볼 수 있는 버튼이다
+    expect(screen.getByText('IT-ACC-001 사내 SSO 로그인 오류 대응 가이드 v2')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /3\.2/ }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
   })
 
   it('"상담하기"를 누르면 새 문의 입력창에 그 질문이 채워진다', async () => {

@@ -3,13 +3,15 @@ from typing import Annotated
 from fastapi import APIRouter, Query, Response, status
 
 from app.api.deps import AdminAuth, CurrentAuth
-from app.schemas.common import ItemList, Page
+from app.schemas.common import CountedPage, ItemList
 from app.schemas.ticket import (
     AssignmentLog,
     AssignmentRequest,
     DraftUpdateRequest,
     DraftUpdateResult,
     IntegrationJob,
+    IntegrationRetryRequest,
+    IntegrationRetryResult,
     StatusHistory,
     Ticket,
     TicketCreateRequest,
@@ -49,10 +51,10 @@ def confirm_ticket(body: TicketCreateRequest, response: Response, auth: CurrentA
     return ticket
 
 
-@router.get("/tickets", response_model=Page[TicketSummary])
+@router.get("/tickets", response_model=CountedPage[TicketSummary])
 def list_tickets(
     query: Annotated[TicketListQuery, Query()], auth: CurrentAuth, service: TicketServiceDep,
-) -> Page[TicketSummary]:
+) -> CountedPage[TicketSummary]:
     return service.list_tickets(query, auth.user)
 
 
@@ -64,6 +66,12 @@ def get_ticket(ticket_id: int, auth: CurrentAuth, service: TicketServiceDep) -> 
 @router.get("/tickets/{ticket_id}/status-history", response_model=ItemList[StatusHistory])
 def status_history(ticket_id: int, auth: CurrentAuth, service: TicketServiceDep) -> ItemList[StatusHistory]:
     return service.status_history(ticket_id, auth.user)
+
+
+@router.post("/tickets/{ticket_id}/sync", response_model=Ticket)
+def sync_ticket(ticket_id: int, auth: CurrentAuth, service: TicketServiceDep) -> Ticket:
+    """화면 새로고침. Jira 최신 값을 반영해 돌려준다."""
+    return service.sync_ticket(ticket_id, auth.user)
 
 
 @router.patch("/tickets/{ticket_id}", response_model=Ticket, status_code=status.HTTP_202_ACCEPTED)
@@ -87,3 +95,13 @@ def assignment_logs(ticket_id: int, auth: CurrentAuth, service: TicketServiceDep
 @router.get("/tickets/{ticket_id}/integration-jobs", response_model=ItemList[IntegrationJob])
 def integration_jobs(ticket_id: int, _: AdminAuth, service: TicketServiceDep) -> ItemList[IntegrationJob]:
     return service.integration_jobs(ticket_id)
+
+
+@router.post("/tickets/{ticket_id}/integration-jobs", response_model=IntegrationJob | IntegrationRetryResult,
+             status_code=status.HTTP_201_CREATED)
+def retry_integration_job(ticket_id: int, body: IntegrationRetryRequest, auth: AdminAuth, service: TicketServiceDep,
+                          response: Response) -> IntegrationJob | IntegrationRetryResult:
+    result = service.retry_integration_job(ticket_id, body, auth.user)
+    if isinstance(result, IntegrationRetryResult):      # 새 작업 없이 복구로 끝났다
+        response.status_code = status.HTTP_200_OK
+    return result

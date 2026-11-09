@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from .common import TOC_TITLES, clean, finalize
+from .common import TOC_TITLES, clean, finalize, image_ext
 from .errors import ParseError
 from .models import Element, ParsedDocument
 
@@ -34,6 +34,32 @@ def _front(text: str) -> tuple[dict, str]:
     return meta, text[m.end():]
 
 
+def display_md(text: str) -> str:
+    """가이드 md → 화면 본문 (DC-12·13). 머리말을 떼고, 그림 링크는 출처 본문과 같은 '[그림] 설명' 줄로 바꾼다.
+
+    화면은 '[그림] 설명' 줄을 그림 목록(images)의 caption 과 짝지어 그림으로 보여 준다. caption 은 청커와 같게
+    _inline(설명) 이라 짝이 맞는다. 표 밖의 '<br>' 은 줄바꿈으로 되돌리고, 표 칸 안의 '<br>' 은 줄이 나뉘면
+    표가 깨지므로 그대로 둔다. 글 안 md 표기를 지키는 폭 없는 빈칸(U+200B)도 그대로 둔다.
+    코드 블록 안은 바꾸지 않는다. 여닫는 기준은 parse_md 와 같다 (여는 줄의 백틱 수 이상으로 시작하는 줄에서 닫힌다).
+    """
+    _, body = _front(text)
+    out = []
+    fence = ''
+    for line in body.splitlines():
+        s = line.strip()
+        if fence:
+            if s.startswith(fence):
+                fence = ''
+        elif s.startswith('```'):
+            fence = '`' * (len(s) - len(s.lstrip('`')))
+        elif img := IMAGE_RE.match(s):
+            line = f'[그림] {_inline(img.group(1))}'.rstrip()
+        elif not s.startswith('|'):
+            line = line.replace('<br>', '\n')
+        out.append(line)
+    return '\n'.join(out).strip('\n') + '\n'
+
+
 def _yaml_value(v: str):
     """머리말 값 하나. 목록은 '["a", "b"]' · "['a', 'b']" · '[a, b]' 모두 읽는다."""
     if v.startswith('[') and v.endswith(']'):
@@ -51,10 +77,10 @@ def _inline(s: str) -> str:
 
 def _table_rows(lines: list[str]) -> list[list[str]]:
     rows = []
-    for ln in lines:
+    for i, ln in enumerate(lines):
         cells = [_inline(c) for c in re.split(r'(?<!\\)\|', ln.strip().strip('|'))]
-        if any(cells) and all(re.fullmatch(r':?-{3,}:?', c.replace(' ', '')) for c in cells if c):
-            continue          # 구분 줄
+        if i == 1 and any(cells) and all(re.fullmatch(r':?-{3,}:?', c.replace(' ', '')) for c in cells if c):
+            continue          # 구분 줄 (둘째 줄만. 그 아래 '---' 만 든 행은 데이터)
         rows.append(cells)
     if rows and not any(rows[0]):
         rows = rows[1:]       # 머리 없는 표(빈 머리 줄)
@@ -116,7 +142,10 @@ def parse_md(path: str, safe: bool = False) -> ParsedDocument:
         elif in_toc or not s:
             i += 1
         elif s.startswith('```'):
-            block, j = _take(lines, i + 1, lambda x: not x.startswith('```'))
+            # 여는 줄의 백틱 수 이상으로 시작하는 줄에서 닫는다 (뒤 글자는 봐주던 예전 그대로). 그보다 짧은 '```' 줄은
+            # 코드 내용이다: to_md.py 는 코드 안에 '```' 줄이 있으면 더 긴 울타리('````')로 연다
+            fence = '`' * (len(s) - len(s.lstrip('`')))
+            block, j = _take(lines, i + 1, lambda x: not x.startswith(fence))
             if any(x.strip() for x in block):
                 out.append(Element('paragraph', '\n'.join(block).strip(), meta={'code': True}))
             i = j + 1
@@ -133,7 +162,8 @@ def parse_md(path: str, safe: bool = False) -> ParsedDocument:
                     out.append(Element('paragraph', _inline(t), meta={'cover_line': True} if cover else {}))
         elif img := IMAGE_RE.match(s):
             alt = _inline(img.group(1))
-            out.append(Element('image', alt, meta={'name': img.group(2).rsplit('/', 1)[-1]}))
+            name = img.group(2).rsplit('/', 1)[-1]
+            out.append(Element('image', alt, meta={'name': name, 'ext': image_ext(name)}))
             j = i + 1
             while j < len(lines) and not lines[j].strip():
                 j += 1

@@ -2,16 +2,28 @@
  * 대화 메시지 한 줄. 문의자·AI·담당자·시스템 안내를 역할에 맞게 그린다.
  * 본문은 구조화된 블록을 React 요소로만 그리며, HTML 로 해석하지 않는다.
  */
-import { URGENCY_LABEL } from '../../api/catalog'
 import type { ChatBlock, ChatMessage, DraftEdit, GuideSource, Inquiry, LegacyCase, ReplyRequest } from '../../api/chatTypes'
 import { Fragment } from 'react'
 import { formatDateTime, sourceLabel } from '../../core/format'
 import { Icon } from '../../ui/Icon'
 import { Pav } from '../../ui/Pav'
+import { uniqueSources } from '../../ui/sourceGroups'
 import type { Pose } from '../../ui/poseImages'
 import { RichText } from '../../ui/RichText'
 import { DraftCard } from './DraftCard'
+import { QuestionForm } from './QuestionForm'
+import { answersFromText, type QAnswer } from './questionAnswers'
 import { TicketCard } from './TicketCard'
+
+/** 해결·미해결은 한 쌍이라 둘 다 같은 기본 버튼 모양이다 (한쪽만 분홍 상자면 선택된 것처럼 보인다) */
+export const PAIR = new Set(['resolved', 'unresolved'])
+
+/** 지금 답할 수 있는 추가 질문의 답 상태와 동작 (대화 화면이 들고 있다) */
+interface QuestionAnswers {
+  answers: (QAnswer | undefined)[]
+  onChange: (index: number, answer: QAnswer) => void
+  onSubmit: () => void
+}
 
 /** 대화 화면이 메시지 안의 버튼에 연결해 주는 동작 */
 export interface ChatActions {
@@ -25,7 +37,7 @@ export interface ChatActions {
   openDetail: () => void
   showSource: (s: GuideSource) => void
   showLegacy: (l: LegacyCase) => void
-  /** 접수 실패 안내에 보여 줄 서비스데스크 연락처 */
+  /** 접수 실패 안내에 보여 줄 IT 헬프데스크 연락처 */
   servicedesk: string
 }
 
@@ -50,20 +62,12 @@ function Block({ b }: { b: ChatBlock }) {
       </ol>
     )
   }
-  // 긴급 징후 요약
+  // 추천 담당 그룹 요약 (긴급도는 문의자에게 보이지 않는다)
   return (
     <div className="card w">
       <dl className="dl" style={{ margin: 0 }}>
         <dt>추천 담당 그룹</dt>
         <dd>{b.groupName}</dd>
-        <dt>긴급도</dt>
-        <dd>
-          <span className={`pri-${b.urgency.toLowerCase()}`}>
-            {b.urgency} · {URGENCY_LABEL[b.urgency]}
-          </span>
-        </dd>
-        <dt>판단 근거</dt>
-        <dd>{b.urgencyReasons.join(' · ')}</dd>
       </dl>
     </div>
   )
@@ -83,10 +87,20 @@ interface Props {
   replyLock?: boolean
   /** 이어가기 뒤 대화 맨 아래에 다시 보이는 버튼이 있으면 이 메시지의 버튼은 감춘다 */
   hideReplies?: boolean
+  /** 지금 답할 수 있는 추가 질문의 답 (questionsOpen 인 메시지에만 온다) */
+  qa?: QuestionAnswers
 }
 
-export function MessageItem({ inquiry, message: m, busy, actions, fresh = false, pose = 'base', poseText = '', replyLock = false, hideReplies = false }: Props) {
-  if (m.role === 'user') return <div className="msg u">{m.text}</div>
+/** 지난 질문에서 고른 답: 이 메시지 다음에 이어진 내 말풍선("이름: 답" 줄)에서 읽는다 */
+function pastAnswers(inquiry: Inquiry, m: ChatMessage) {
+  const at = inquiry.messages.findIndex((x) => x.id === m.id)
+  const next = at >= 0 ? inquiry.messages.slice(at + 1).find((x) => x.role === 'user') : undefined
+  return m.questions && next?.text ? answersFromText(m.questions, next.text) : undefined
+}
+
+export function MessageItem({ inquiry, message: m, busy, actions, fresh = false, pose = 'base', poseText = '', replyLock = false, hideReplies = false, qa }: Props) {
+  // 질문 답변은 "이름: 답" 줄로 묶여 있어서 줄바꿈을 그대로 보인다
+  if (m.role === 'user') return <div className={`msg u${fresh ? ' rise-u' : ''}`} style={{ whiteSpace: 'pre-line' }}>{m.text}</div>
   if (m.role === 'sys') {
     // 안내 문구는 첫 줄이 제목, 나머지가 설명이다 (민감정보 가림 안내, 보안 사고 안내 등). tone 으로 색을 구분한다.
     const [head, ...rest] = (m.text ?? '').split('\n')
@@ -129,7 +143,7 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false,
   // AI 가 답변을 준비하는 중
   if (m.typing) {
     return (
-      <div className="msg a">
+      <div className={`msg a${fresh ? ' rise' : ''}`}>
         <Pav pose={pose} />
         <div className="body" role="status">
           <span className="dots" aria-hidden="true">
@@ -158,24 +172,44 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false,
         {m.legacy && <LegacyButton legacy={m.legacy} onOpen={actions.showLegacy} />}
         {m.sources && (
           <div>
-            {m.sources.map((s) => (
-              <SourceButton key={`${s.docCode}${s.section}`} source={s} onOpen={actions.showSource} />
+            {/* 서버가 같은 문서·버전·위치 출처를 여러 번 줄 때가 있어서 한 번만 보인다 (docs/api/06 R-44) */}
+            {uniqueSources(m.sources).map((s, i) => (
+              <SourceButton key={`${s.docCode}|${s.version}|${s.section}|${i}`} source={s} onOpen={actions.showSource} />
             ))}
           </div>
         )}
 
-        {m.card === 'draft' && inquiry.draft && (
-          <DraftCard
-            draft={inquiry.draft}
-            state={inquiry.draftState}
-            note={inquiry.draftNote}
-            active={m.id === lastDraftId}
-            busy={busy}
-            onConfirm={actions.confirmDraft}
-            onSave={actions.saveDraft}
-            onCancel={actions.cancelDraft}
+        {m.questions && m.questions.length > 0 && (
+          <QuestionForm
+            questions={m.questions}
+            open={!!m.questionsOpen && !!qa}
+            answers={qa?.answers ?? []}
+            disabled={busy || replyLock}
+            picked={m.questionsOpen && qa ? undefined : pastAnswers(inquiry, m)}
+            onChange={qa?.onChange ?? (() => {})}
+            onSubmit={qa?.onSubmit ?? (() => {})}
           />
         )}
+
+        {m.card === 'draft' &&
+          (() => {
+            // 작성 중인 마지막 초안은 화면이 들고 있는 최신 내용으로, 접수·취소된 지난 초안은 서버가 메시지에 담아 준 내용으로 읽기 전용으로 보인다 (R-29)
+            const live = m.id === lastDraftId ? inquiry.draft : null
+            const d = live ?? m.draft ?? inquiry.draft
+            if (!d) return null
+            return (
+              <DraftCard
+                draft={d}
+                state={live ? inquiry.draftState : (m.draftState ?? inquiry.draftState)}
+                note={live ? inquiry.draftNote : ''}
+                active={m.id === lastDraftId}
+                busy={busy}
+                onConfirm={actions.confirmDraft}
+                onSave={actions.saveDraft}
+                onCancel={actions.cancelDraft}
+              />
+            )
+          })()}
 
         {m.card === 'ticket' && (m.ticketSnapshot ?? inquiry.ticket) && (
           <TicketCard ticket={(m.ticketSnapshot ?? inquiry.ticket)!} readOnly={!!m.ticketSnapshot} busy={busy} onResolve={actions.resolve} onReject={actions.reject} onDetail={actions.openDetail} />
@@ -190,7 +224,7 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false,
               작성한 내용은 그대로 보관했어요. 잠시 후 다시 시도하거나 아래 경로로 접수해 주세요.
               <br />
               <span className="small">
-                · 서비스데스크 {actions.servicedesk}
+                · IT 헬프데스크 {actions.servicedesk}
                 <br />· 그룹웨어 IT 요청 메뉴
               </span>
             </div>
@@ -203,7 +237,7 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false,
               <button
                 key={`${r.action}${r.label}`}
                 type="button"
-                className={`chip${r.primary ? ' on' : ''}`}
+                className={`chip${r.primary && !PAIR.has(r.action) ? ' on' : ''}`}
                 disabled={m.locked || busy || replyLock}
                 onClick={() => actions.reply({ messageId: m.id, action: r.action, arg: r.arg } satisfies ReplyRequest)}
               >

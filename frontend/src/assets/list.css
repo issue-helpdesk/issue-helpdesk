@@ -26,14 +26,19 @@
 .d2th.up i b:first-child{border-bottom-color:var(--o600)}.d2th.dn i b:last-child{border-top-color:var(--o600)}
 .d2th.up,.d2th.dn{color:var(--link);background:var(--osoft)}.d2th:hover{color:var(--link)}
 .d2pg{display:flex;justify-content:space-between;align-items:center;padding:14px 8px 6px;flex-wrap:wrap;gap:10px}
-.d2pg .n{display:flex;gap:6px;align-items:center}
-.d2pg button{min-width:36px;height:36px;border-radius:10px;border:0;background:transparent;font-weight:600;font-size:13.5px;color:var(--ink2);cursor:pointer}
-.d2pg button:hover:not([disabled]){background:var(--track)}.d2pg button.on{background:var(--o600);color:#fff;box-shadow:0 2px 6px rgba(184,40,106,.3)}
-.d2pg .pn{padding:0 12px;box-shadow:inset 0 0 0 1px var(--line);background:var(--white)}.d2pg .pn[disabled]{opacity:.4;cursor:default}
+.d2pg .n{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+/* 처음·이전 / 번호 / 생략 / 다음·마지막. 작게(32), 이동·선택 모션 없음. 선택=연한 브랜드 면 + 진한 글자, 호버=아주 연한 면 */
+.d2pg button{min-width:32px;height:32px;padding:0 6px;border-radius:6px;border:0;background:transparent;box-shadow:none;font-weight:500;font-size:14px;color:var(--ink2);cursor:pointer;transition:none}
+.d2pg button:hover:not([disabled]):not(.on){background:var(--hvg);color:var(--ink)}
+.d2pg button.on{background:color-mix(in srgb,var(--btn-l) 14%,var(--white));color:var(--btn-t);font-weight:700}
+.d2pg button:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px}
+.d2pg button[disabled]{opacity:.35;cursor:default}
+.d2pg .el{display:inline-flex;align-items:center;justify-content:center;min-width:24px;color:var(--mute);user-select:none}
+.d2pg .pn{font-size:16px;line-height:1;padding:0 8px}
 .ddw{position:relative}.ddb{display:inline-flex;align-items:center;gap:8px;border:0;background:none;font:inherit;color:inherit;cursor:pointer;padding:0;height:36px}
 .ddb small{color:var(--mute);font-size:12px}.ddw.act .ddb small{color:var(--link)}
 .ddm{position:absolute;top:calc(100% + 6px);left:0;min-width:100%;width:max-content;max-width:300px;max-height:320px;overflow:auto;background:var(--white);border-radius:14px;box-shadow:0 10px 30px rgba(40,20,0,.18),inset 0 0 0 1px var(--line);padding:6px;z-index:30;display:flex;flex-direction:column;gap:1px}
-.ddm button{border:0;background:none;text-align:left;font:inherit;font-size:13.5px;color:var(--ink);padding:9px 12px;border-radius:9px;cursor:pointer;white-space:nowrap}
+.ddm button{flex:none;border:0;background:none;text-align:left;font:inherit;font-size:13.5px;color:var(--ink);padding:9px 12px;border-radius:9px;cursor:pointer;white-space:nowrap}
 .ddm button:hover{background:var(--osoft);color:var(--link)}.ddm button.sel{background:var(--osoft);color:var(--link);font-weight:700}
 .srch{display:flex;align-items:center;gap:10px;height:44px;padding:0 10px 0 16px;border-radius:999px;background:var(--white);box-shadow:inset 0 0 0 1px var(--fieldline);flex:1 1 260px;min-width:220px;max-width:440px;color:var(--mute);cursor:text}
 .srch:focus-within,.srch.f{box-shadow:inset 0 0 0 1.5px var(--o600);color:var(--link)}
@@ -42,6 +47,5 @@
 mark.hl{background:#FFE3C7;color:#5A2500;border-radius:3px;padding:0 1px}
 :root[data-theme="dark"] mark.hl{background:#5B3A12;color:#FFF2D7}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) mark.hl{background:#5B3A12;color:#FFF2D7}}
 .ddm button{min-height:0!important;height:auto!important;padding:8px 12px!important;line-height:20px;font-size:13.5px}
-.d2pg button.on{background:#B8286A}
 .nr{display:inline-flex;align-items:center;gap:6px;height:22px;padding:1px 9px 0;margin-left:8px;border-radius:999px;background:var(--s-need-bg);color:var(--s-need-fg);font-size:12px;font-weight:700;vertical-align:middle}.nr i{width:6px;height:6px;border-radius:50%;background:var(--s-need-dot)}
 .sd{font-size:11.5px;color:var(--sec)}

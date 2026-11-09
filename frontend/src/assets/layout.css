@@ -1,7 +1,7 @@
 /* 문의자 화면 틀: 사이드바·상단바·본문·히어로·FAQ·배지 (design/ITssue-Prototype.html 기준) */
 .badge{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
 .badge i{width:6px;height:6px;border-radius:50%;flex:none}
-.badge .lb{transform:translateY(.06em)}
+.badge .lb{transform:translateY(-.04em)}
 .b-recv{background:var(--s-recv-bg);color:var(--s-recv-fg)}.b-recv i{background:var(--s-recv-dot)}
 .b-asg{background:var(--s-asg-bg);color:var(--s-asg-fg)}.b-asg i{background:var(--s-asg-dot)}
 .b-prog{background:var(--s-prog-bg);color:var(--s-prog-fg)}.b-prog i{background:var(--s-prog-dot)}
@@ -10,6 +10,11 @@
 .b-ok{background:var(--s-ok-bg);color:var(--s-ok-fg)}.b-ok i{background:var(--s-ok-dot)}
 .b-urg{background:var(--s-urg-bg);color:var(--s-urg-fg)}.b-urg i{background:var(--s-urg-dot)}
 .b-warn{background:var(--s-warn-bg);color:var(--s-warn-fg)}.b-warn i{background:var(--s-warn-dot)}
+.b-info{background:var(--s-info-bg);color:var(--s-info-fg)}.b-info i{background:var(--s-info-dot)}
+/* 관리자만 열람: 다른 상태 색(현행·준비 완료=초록, 마스킹=노랑, 금지=빨강)과 겹치지 않도록 글자색을 뒤집은 중립색 */
+.b-adm{background:var(--ink2);color:var(--canvas)}.b-adm i{background:var(--canvas)}
+/* 끝난 문의(미연결 종료)는 점을 속이 빈 링으로 그려 색만으로 구분하지 않게 한다 */
+.badge i.ring,.rs i.ring{background:transparent!important;box-shadow:inset 0 0 0 1.5px currentColor}
 .count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--o600);color:#fff;font-size:12px;font-weight:700;text-box:trim-both cap alphabetic}
 .tag{display:inline-flex;align-items:center;height:22px;padding:1px 8px 0;border-radius:6px;background:var(--osurf);color:var(--o700);font-size:12px;font-weight:700;letter-spacing:.02em}
 .tag.gray{background:var(--shell);color:var(--mute)}
@@ -44,15 +49,31 @@
 .scroll{flex:1;min-height:0;overflow:auto}
 .notice{max-width:760px;margin:8px auto 0;text-align:center;font-size:12px;color:var(--mute)}
 .hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 32px 56px;gap:0;text-align:center}
+.hero>*{flex-shrink:0}
+/* 입력이 3줄 넘게 길어지면 분류 칩·FAQ 카드는 접어 입력창이 눌리지 않게 한다.
+   접힐 때는 Dock 아이콘처럼 왼쪽부터 작아지며 사라지고, 다시 펼쳐질 때는 시차 없이 한꺼번에 커진다 */
+.fold{display:grid;grid-template-rows:1fr;width:100%;max-width:760px;transition:grid-template-rows .45s cubic-bezier(.4,0,.2,1)}
+.fold>.inner{min-height:0;overflow:hidden;padding:3px;margin:-3px}
+.fold :is(.chip,.faqc){transition:transform .45s cubic-bezier(.22,1,.36,1),opacity .3s ease-out,filter .3s ease-out}
+.cats .chip:nth-child(2),.faqs3 .faqc:nth-child(2){--i:1}.cats .chip:nth-child(3),.faqs3 .faqc:nth-child(3){--i:2}.cats .chip:nth-child(4){--i:3}.cats .chip:nth-child(5){--i:4}
+.hero:has(.composer textarea.grown) .fold{grid-template-rows:0fr;pointer-events:none}
+.hero:has(.composer textarea.grown) .fold>.inner{visibility:hidden;transition:visibility 0s .45s}
+.hero:has(.composer textarea.grown) .fold :is(.chip,.faqc){transform:scale(.2) translateY(14px);opacity:0;filter:blur(2px);transition:transform .45s cubic-bezier(.5,0,.75,0),opacity .35s ease,filter .35s ease;transition-delay:calc(var(--i,0)*28ms)}
+@media (prefers-reduced-motion:reduce){.fold,.fold>.inner,.fold :is(.chip,.faqc){transition:none!important}}
 .hero h1{font-size:36px;line-height:46px;font-weight:600;letter-spacing:-.01em;margin-top:6px}
 .hero .hi{font-size:14px;color:var(--mute);margin-top:18px}
 .hero .composer{width:100%;max-width:720px;margin-top:30px;min-height:72px;align-items:center;padding:8px 10px 8px 14px}
 .cats{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:760px;margin-top:20px}
-.faqs3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:720px;width:100%;margin-top:30px;text-align:left}
+.faqs3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:720px;width:100%;margin:30px auto 0;text-align:left}
 .faqc{background:color-mix(in srgb,var(--white) 88%,transparent);border-radius:16px;padding:14px 16px;box-shadow:inset 0 0 0 1px var(--line);border:0;text-align:left}
 .faqc:hover{box-shadow:inset 0 0 0 1px var(--o600)}
+/* 카드 높이를 한 줄 질문이든 두 줄이든 같게 맞춰 두고, 불러오는 동안의 빈 카드(.ph)도 같은 높이로 자리를 잡는다 */
+.faqs3 .faqc{min-height:88px}
+.faqc.ph{display:block;pointer-events:none;background:transparent;opacity:.6}
+.faqs3 button.faqc{animation:pgin .45s cubic-bezier(.22,1,.36,1) backwards}
+@media (prefers-reduced-motion:reduce){.faqs3 button.faqc{animation:none}}
 .faqc b{display:block;font-size:14px;line-height:20px}.faqc small{font-size:12px;color:var(--mute);line-height:16px;display:block;margin-top:4px}
-.page{padding:26px 32px 40px;display:flex;flex-direction:column;gap:18px;max-width:1240px;width:100%;margin:0 auto}
+.page{padding:26px 32px 40px;display:flex;flex-direction:column;gap:12px;max-width:1240px;width:100%;margin:0 auto}
 .page h1{font-size:28px;line-height:36px;font-weight:600}
 .panel{background:var(--white);border-radius:20px;box-shadow:inset 0 0 0 1px var(--line);padding:20px 22px;min-width:0}
 .panel h3{font-size:15px;line-height:22px;font-weight:600}
@@ -62,20 +83,38 @@
 :root{--ag1:rgba(240,100,150,.62);--ag2:rgba(240,80,140,.5);--ag3:rgba(240,80,140,.45)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ag1:rgba(240,80,140,.2);--ag2:rgba(240,80,140,.16);--ag3:rgba(240,80,140,.14)}}
 :root[data-theme="dark"]{--ag1:rgba(240,80,140,.2);--ag2:rgba(240,80,140,.16);--ag3:rgba(240,80,140,.14)}
-.app{position:relative;background:var(--canvas);overflow:hidden}
+.app{position:relative;background:var(--canvas);overflow:hidden;overflow:clip}
 .app::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 42% 34% at 22% 104%,var(--ag1),transparent 72%),radial-gradient(ellipse 36% 32% at 78% 104%,var(--ag2),transparent 72%),radial-gradient(ellipse 60% 22% at 50% 110%,var(--ag3),transparent 75%)}
 .main{background:transparent!important}
 .side{background:color-mix(in srgb,var(--white) 62%,transparent)!important;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-right:1px solid rgba(17,24,39,.06)!important}
 .faq summary{cursor:pointer;display:flex;gap:12px;align-items:center;list-style:none;padding:16px 20px}.faq summary::-webkit-details-marker{display:none}
 .faq summary b{font-size:15px;font-weight:600;flex:1;min-width:0}
-.faq .chv{width:28px;height:28px;border-radius:8px;background:var(--shell);display:flex;align-items:center;justify-content:center;flex:none;transition:transform .2s}
-.faq .chv .i{transform:rotate(90deg);width:16px;height:16px}.faq[open] .chv{transform:rotate(180deg);background:var(--osurf);color:var(--link)}
-.faq summary:hover .chv{background:var(--osurf);color:var(--link)}
+/* 분류 태그: 오른쪽 펼침 버튼·제목과 같은 중심선에 오도록 살짝 올린다 */
+.faq summary .tag{padding:0 8px 1px;position:relative;top:-1px}
 .faq .fb{padding:0 20px 18px;line-height:26px}
+/* 펼침/접힘: 높이가 열리고 내용이 살짝 내려오며 나타난다. ::details-content 를 지원하는 브라우저에서만 움직이고, 아니면 이전처럼 바로 열린다 */
+@supports selector(::details-content){
+  .faq{interpolate-size:allow-keywords}
+  .faq::details-content{block-size:0;overflow:hidden;opacity:0;transition:block-size .35s var(--ease),opacity .25s,content-visibility .35s allow-discrete}
+  .faq[open]::details-content{block-size:auto;opacity:1}
+  .faq .fb{transform:translateY(-6px);transition:transform .35s var(--ease)}
+  .faq[open] .fb{transform:none}
+}
+@media (prefers-reduced-motion:reduce){.faq::details-content,.faq .fb{transition:none}}
+/* 목록 항목 추가/삭제: 높이와 함께 목록 사이 간격(.page 의 gap 12px)도 같이 접고 펼쳐서 덜컥거리지 않게 한다.
+   height:auto 를 움직이려면 interpolate-size 가 필요하고, 지원하지 않으면 높이는 바로 바뀌고 페이드만 보인다 */
+.faq.fnew,.faq.fout{interpolate-size:allow-keywords}
+.faq.fnew{animation:fin .45s var(--ease) backwards}
+.faq.fout{animation:fout .42s cubic-bezier(.4,0,1,1) forwards;pointer-events:none}
+@keyframes fin{from{height:0;margin-bottom:-12px;opacity:0;transform:translateY(-8px);overflow:hidden}to{overflow:hidden}}
+@keyframes fout{0%{height:auto;margin-bottom:0;opacity:1;transform:none;overflow:hidden}55%{opacity:0;transform:translateX(30px)}100%{height:0;margin-bottom:-12px;opacity:0;transform:translateX(30px)}}
+@media (prefers-reduced-motion:reduce){.faq.fnew,.faq.fout{animation:none}}
 .rs{display:inline-flex;align-items:center;gap:5px;font-weight:600}.rs i{width:6px;height:6px;border-radius:50%;display:inline-block}
 .tag.stf{background:#7656E8;color:#fff}
 .side button>span:not(.count){white-space:nowrap;flex:1;overflow:hidden;text-overflow:ellipsis}
 .side .count{flex:none;white-space:nowrap}.side button>span:not(.count){min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis}
+/* 사이드바 하단 프로필 동그라미: 위 span 규칙(flex:1)에 눌려 찌그러지지 않게 */
+.side .who .pf{flex:none;min-width:34px;overflow:visible}
 .side .nav+.nav .grp{padding-top:11px;border-top:1px solid var(--divider)}
 .side .nav+.nav{margin-top:-11px}
 .side .nav .grp{padding:0 12px 4px}
@@ -122,6 +161,13 @@
 .tgm button[disabled]{opacity:.45;cursor:not-allowed}
 .tgm button:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .tgm .i{width:18px;height:18px}
+/* 고대비는 라이트·다크 중 하나를 고른 뒤 더해서 켜는 옵션이라, 같은 알약 안이 아니라 왼쪽에 따로 떼어 둔 동그란 토글로 둔다 */
+.tgw{display:inline-flex;align-items:center;gap:8px}
+.tgh{all:unset;box-sizing:border-box;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:var(--mute);background:var(--shell)}
+.tgh:hover{color:var(--ink)}
+.tgh[aria-pressed=true]{background:var(--white);color:var(--link);box-shadow:inset 0 0 0 1.5px var(--link)}
+.tgh:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+.tgh .i{width:18px;height:18px}
 .modebar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 6px;margin-top:auto}.modebar small{font-size:12px;color:var(--mute)}.modebar+.who{margin-top:0}
 .login>div.lmode:not(.bgsvg){position:absolute;top:24px;right:max(16px,env(safe-area-inset-right,0px));z-index:3}
 .login>.bgsvg{}
@@ -139,6 +185,7 @@
 @media (max-width:860px){.berry{width:220px;height:220px}}
 /* 상단바는 본문 위에 반투명으로 겹쳐 놓는다. 본문 맨 위의 빈 칸이 상단바 높이(--topH)만큼 비켜 준다 */
 .main>.top{position:absolute;top:0;left:0;right:0;z-index:6;background:color-mix(in srgb,var(--canvas) 72%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.main>.top{border-bottom-color:transparent}.main>.top.stuck{border-bottom-color:var(--line2)}
 .main>.scroll::before{content:"";display:block;flex:none;height:var(--topH,0px)}
 .grp.gsr{display:flex;align-items:center;justify-content:space-between}
 .gic{width:26px;height:26px;border-radius:8px;border:0;background:transparent;color:var(--mute);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
@@ -157,6 +204,108 @@
 main.main[tabindex="-1"]:focus{outline:none}
 .nav .grp.tg{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:0;cursor:pointer;min-height:44px;border-radius:12px;font-family:inherit;text-align:left}
 .nav .grp.tg:hover{background:var(--hvg);color:var(--ink)}
-.nav .grp.tg .chv{width:28px;height:28px;border-radius:8px;background:var(--shell);display:flex;align-items:center;justify-content:center;flex:none;transition:transform .2s}
-.nav .grp.tg .chv .i{transform:rotate(90deg);width:16px;height:16px}.nav .grp.tg[aria-expanded="true"] .chv{transform:rotate(180deg);background:var(--osurf);color:var(--link)}.nav .grp.tg:hover .chv{background:var(--osurf);color:var(--link)}
 @media (prefers-reduced-motion:reduce){.nav .grp.tg .chv{transition:none}}
+
+/* 펼침/접힘 영역 (ui/Collapse.tsx): 높이가 열리고 닫힌다. 부모가 gap 으로 간격을 주는 곳은 --gap 에 그 값을 넣어 간격도 같이 접는다 */
+.clp{display:grid;grid-template-rows:1fr;transition:grid-template-rows .3s cubic-bezier(.4,0,.2,1),opacity .2s,margin .3s}
+.clp.in{animation:clpin .4s var(--ease) backwards}
+.clp-in{min-height:0;overflow:hidden}
+.clp.out{grid-template-rows:0fr;opacity:0;margin-bottom:calc(var(--gap,0px)*-1);animation:none;pointer-events:none}
+@keyframes clpin{from{grid-template-rows:0fr;opacity:0;margin-bottom:calc(var(--gap,0px)*-1)}}
+.dres>.clp{--gap:12px}
+@media (prefers-reduced-motion:reduce){.clp,.clp.in,.clp.out{animation:none;transition:none}}
+
+/* 화면 이동: 새 화면의 덩어리들이 아래에서 올라오며 차례로 나타난다 (ui/AppShell.tsx 가 main.enter 를 잠깐 붙인다).
+   --spd 는 속도 배율(클수록 느리다). 투명도·위치만 움직여서 부하가 거의 없다 */
+:root{--spd:1.8}
+@keyframes pgin{from{opacity:0;transform:translateY(14px)}}
+main.enter .scroll>.page>*,main.enter .scroll>.hero>*,main.enter .scroll>.thread{animation:pgin calc(.4s*var(--spd)) cubic-bezier(.22,1,.36,1) backwards;animation-delay:calc(var(--i,0)*.07s*var(--spd))}
+main.enter .scroll>.page>:nth-child(2),main.enter .scroll>.hero>:nth-child(2){--i:1}
+main.enter .scroll>.page>:nth-child(3),main.enter .scroll>.hero>:nth-child(3){--i:2}
+main.enter .scroll>.page>:nth-child(4),main.enter .scroll>.hero>:nth-child(4){--i:3}
+main.enter .scroll>.page>:nth-child(5),main.enter .scroll>.hero>:nth-child(5){--i:4}
+main.enter .scroll>.page>:nth-child(n+6),main.enter .scroll>.hero>:nth-child(n+6){--i:5}
+/* 상단바(캐릭터·제목): 본문보다 먼저, 위에서 살짝 내려오며 나타난다 */
+@keyframes pgdn{from{opacity:0;transform:translateY(-8px)}}
+.top .tt.tin{animation:pgdn calc(.35s*var(--spd)) cubic-bezier(.22,1,.36,1) backwards}
+main.enter>.top>.row>*,main.enter>.top>.row:nth-child(2){animation:pgdn calc(.35s*var(--spd)) cubic-bezier(.22,1,.36,1) backwards;animation-delay:calc(var(--i,0)*.05s*var(--spd))}
+main.enter>.top>.row>:nth-child(2){--i:1}main.enter>.top>.row>:nth-child(3){--i:2}main.enter>.top>.row>:nth-child(n+4){--i:3}
+@media (prefers-reduced-motion:reduce){main.enter .scroll>.page>*,main.enter .scroll>.hero>*,main.enter .scroll>.thread,main.enter>.top>.row>*,main.enter>.top>.row:nth-child(2),.top .tt.tin{animation:none}}
+
+/* 팀별/분류별처럼 목록만 바뀌는 곳: 카드는 그대로 두고 막대 목록만 살짝 올라오며 다시 나타난다 */
+.srows.swap{animation:pgin .4s cubic-bezier(.22,1,.36,1) backwards}
+@media (prefers-reduced-motion:reduce){.srows.swap{animation:none}}
+
+/* ───── 오른쪽 위 컨트롤 (ui/UserControls.tsx): 화면 모드 1칸(올리면 3칸) + 사용자 메뉴 ─────
+   상세 패널(.detail, z-index 40)은 이 위에 겹쳐 열려서 패널이 열려 있는 동안은 컨트롤을 덮는다 */
+.tr{position:absolute;right:16px;z-index:7;display:flex;align-items:center;gap:8px}
+.top>.tr{top:50%;margin-top:-22px}
+.tr.fl{top:12px}
+.main>.top{padding-right:196px}
+@media (max-width:860px){.main>.top{padding-right:180px}.tr{right:max(12px,env(safe-area-inset-right,0px))}}
+/* 1칸: 지금 모드 아이콘 하나 → 마우스를 올리거나 키보드로 오면 3칸으로 펼쳐진다 (터치는 누르면 펼침) */
+.t1{position:relative;width:44px;height:44px}
+.t1 .one{position:absolute;right:0;top:0;width:44px;height:44px;padding:0;border-radius:50%;border:0;background:var(--white);color:var(--ink2);box-shadow:inset 0 0 0 1px var(--line),var(--shadow);display:grid;place-items:center;cursor:pointer;transition:opacity .15s}
+.t1 .tgw{position:absolute;right:0;top:0;height:44px;gap:6px;opacity:0;pointer-events:none;transform-origin:100% 50%;transform:scaleX(.5);transition:opacity .18s,transform .22s cubic-bezier(.22,1,.36,1)}
+.t1 .tgm{height:44px;align-items:center;padding:3px 4px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line),var(--shadow)}
+.t1 .tgh{width:44px;height:44px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line),var(--shadow)}
+.t1:hover .tgw,.t1:has(:focus-visible) .tgw,.t1.open .tgw{opacity:1;pointer-events:auto;transform:none}
+.t1:hover .one,.t1:has(:focus-visible) .one,.t1.open .one{opacity:0}
+/* 사용자 메뉴 */
+.um{position:relative}
+.tr .av{width:44px;height:44px;padding:0;border-radius:50%;border:0;background:var(--osurf);color:var(--o700);font-weight:700;font-size:14px;box-shadow:inset 0 0 0 1px var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer}
+:root[data-theme="dark"] .tr .av{color:#FFB0CF}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tr .av{color:#FFB0CF}}
+.pop{position:absolute;top:52px;right:0;min-width:220px;background:var(--white);border-radius:14px;box-shadow:inset 0 0 0 1px var(--line),var(--pop);padding:10px;font-size:13px;z-index:8}
+.pop .nm{padding:4px 6px 8px;border-bottom:1px solid var(--line2);margin-bottom:6px}.pop .nm b{display:block;font-size:13.5px}.pop .nm small{display:block;color:var(--mute);font-size:12px}
+.pop .lk{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;text-align:left;padding:9px 8px;border-radius:8px;color:var(--ink2);font:inherit;font-size:13.5px;cursor:pointer}
+.pop .lk:hover,.pop .lk:focus-visible{background:var(--shell);color:var(--ink)}
+@media (prefers-reduced-motion:reduce){.t1 .one,.t1 .tgw{transition:none}}
+/* 상단바 제목 아래 상태 배지 (미연결 종료 등) */
+.tst{display:flex;align-items:center;gap:8px;margin-top:2px;min-width:0}
+.tst .badge{height:20px;padding:0 8px;font-size:11.5px}
+.tst>span:not(.badge){white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* 오른쪽 위 컨트롤 자리를 비웠으므로, 상단바 왼쪽 묶음(캐릭터·제목·보조 글)은 줄어들 수 있어야 하고 긴 글은 말줄임으로 자른다 */
+.main>.top>.row:first-child{min-width:0;flex:1 1 auto}
+.top .tt h2,.top .tt .sub:not(.tst){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 오른쪽 위 컨트롤은 상단바(캐릭터 44~56px)와 균형이 맞도록 44px(앱의 버튼 기본 높이)로 키우고, 아이콘·글자도 한 단계 키운다 */
+.t1 .one .i{width:22px;height:22px}
+.t1 .tgm button{width:40px;height:36px}
+.t1 .tgm button .i,.t1 .tgh .i{width:20px;height:20px}
+/* 사용자 메뉴 팝업: 아바타 쪽에서 살짝 커지며 나타나고, 닫을 때는 작아지며 사라진다 */
+.pop{transform-origin:100% 0;animation:popin .2s cubic-bezier(.22,1,.36,1) backwards}
+.pop.out{opacity:0;transform:translateY(-6px) scale(.95);transition:opacity .14s,transform .16s cubic-bezier(.4,0,1,1);pointer-events:none;animation:none}
+@keyframes popin{from{opacity:0;transform:translateY(-8px) scale(.92)}}
+@media (prefers-reduced-motion:reduce){.pop,.pop.out{animation:none;transition:none}}
+
+/* ───── "맨 위로" 버튼 (ui/ScrollTop.tsx): 오른쪽 아래. 상세 패널(z-index 40) 아래, 창(70) 아래에 둔다 ───── */
+.totop{position:fixed;right:24px;bottom:24px;z-index:30;width:44px;height:44px;padding:0;border:0;border-radius:50%;background:var(--white);color:var(--ink2);box-shadow:inset 0 0 0 1px var(--line),var(--pop);display:grid;place-items:center;cursor:pointer;animation:totopin .28s cubic-bezier(.22,1,.36,1) backwards;transition:background .15s,color .15s,transform .15s}
+.totop .i{width:20px;height:20px}
+.totop:hover{background:var(--osoft);color:var(--link);transform:translateY(-2px)}
+.totop:focus-visible{outline:2px solid var(--o600);outline-offset:2px}
+.totop.out{opacity:0;transform:translateY(8px);pointer-events:none;animation:none;transition:opacity .18s,transform .2s cubic-bezier(.4,0,1,1)}
+@keyframes totopin{from{opacity:0;transform:translateY(10px) scale(.9)}}
+@media (max-width:860px){.totop{right:max(14px,env(safe-area-inset-right,0px))}}
+@media (prefers-reduced-motion:reduce){.totop,.totop.out{animation:none;transition:none}}
+
+/* 알림 종: 화면 모드 버튼 오른쪽, 내 메뉴 왼쪽. 안 읽음은 숫자와 "안 읽음" 글자로 알리고 아이콘·프로필 이미지는 쓰지 않는다 */
+.bell{position:relative}
+.bellbtn{position:relative;width:44px;height:44px;padding:0;border-radius:50%;border:0;background:var(--white);color:var(--ink2);box-shadow:inset 0 0 0 1px var(--line),var(--shadow);display:grid;place-items:center;cursor:pointer}
+.bellbtn[aria-expanded="true"]{box-shadow:inset 0 0 0 2px var(--o600)}
+.bpip{position:absolute;top:-3px;right:-3px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--o600);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center;box-shadow:0 0 0 2px var(--canvas)}
+.bpop{position:absolute;top:52px;right:0;width:min(380px,calc(100vw - 24px));max-height:min(520px,calc(100vh - 100px));display:flex;flex-direction:column;background:var(--white);border-radius:18px;box-shadow:inset 0 0 0 1px var(--line),var(--pop);z-index:9;overflow:hidden}
+.bhd{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 16px 10px}.bhd b{font-size:15px}
+.bchk{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--mute);cursor:pointer}
+.blist{list-style:none;margin:0;padding:0;overflow-y:auto}
+.bitem{display:grid;grid-template-columns:28px 1fr;column-gap:10px;row-gap:2px;width:100%;text-align:left;border:0;border-top:1px solid var(--line2);background:none;padding:12px 16px;font:inherit;color:var(--ink);cursor:pointer}
+.bitem:hover,.bitem:focus-visible{background:var(--shell)}
+.bitem .bt{font-size:13.5px;font-weight:700}.bitem.read .bt{font-weight:500;color:var(--ink2)}
+.bnew{margin-left:8px;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:var(--osurf);color:var(--o700);vertical-align:1px}
+.bitem .bs{font-size:12.5px;color:var(--mute);overflow-wrap:anywhere}.bitem .bw{font-size:12px;color:var(--sec)}
+.bem{display:grid;gap:6px;justify-items:center;text-align:center;padding:28px 16px;border-top:1px solid var(--line2);color:var(--mute);font-size:13px}.bem b{color:var(--ink);font-size:13.5px}
+.bmore{display:flex;justify-content:center;padding:10px 16px 14px;border-top:1px solid var(--line2)}
+
+.bitem>.bic{grid-row:1/4;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--osurf);color:var(--o700)}
+.bitem>.bic svg{width:16px;height:16px}
+.bitem>.bic.f{background:var(--s-ok-bg);color:var(--s-ok-fg)}
+.bitem>.bt,.bitem>.bs,.bitem>.bw{grid-column:2}
+.bnote{margin:0;padding:6px 16px 8px;font-size:12px;color:var(--mute)}

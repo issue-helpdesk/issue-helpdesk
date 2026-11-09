@@ -520,7 +520,7 @@
       },
       {
        "t": "fig",
-       "src": "sw001_portal_home.png",
+       "src": "IT-SW-001_3.1-1.png",
        "caption": "사내 IT 포털 홈 화면",
        "points": [
         "① 소프트웨어 센터: 승인 프로그램 설치·제거·업데이트",
@@ -531,7 +531,7 @@
       },
       {
        "t": "fig",
-       "src": "sw001_center_list.png",
+       "src": "IT-SW-001_3.1-2.png",
        "caption": "소프트웨어 센터 프로그램 목록",
        "points": [
         "① 검색 칸에 프로그램 이름 입력",
@@ -657,7 +657,7 @@
       },
       {
        "t": "fig",
-       "src": "sw001_installed_tab.png",
+       "src": "IT-SW-001_3.2-1.png",
        "caption": "소프트웨어 센터 [설치됨] 탭"
       },
       {
@@ -746,7 +746,7 @@
       },
       {
        "t": "fig",
-       "src": "sw001_uac.png",
+       "src": "IT-SW-001_3.3-1.png",
        "caption": "관리자 권한 요청 창 (Windows 사용자 계정 컨트롤)"
       },
       {
@@ -941,7 +941,7 @@
       },
       {
        "t": "fig",
-       "src": "sw001_request_form.png",
+       "src": "IT-SW-001_3.5-1.png",
        "caption": "SW 설치 요청서",
        "points": [
         "① 프로그램 이름·버전·제조사",
@@ -1097,7 +1097,7 @@
       },
       {
        "t": "fig",
-       "src": "sw001_my_requests.png",
+       "src": "IT-SW-001_3.6-1.png",
        "caption": "내 요청 현황",
        "points": [
         "① 설치 요청 진행 단계",

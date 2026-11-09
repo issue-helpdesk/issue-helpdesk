@@ -24,11 +24,24 @@ export const USE_MOCK_AUTH = area(import.meta.env.VITE_USE_MOCK_AUTH)
 export const USE_MOCK_INQUIRY = area(import.meta.env.VITE_USE_MOCK_INQUIRY)
 /** 담당자 접수 목록·상세·업무 상태 변경·이력 (TK-05~08). 모의에서는 문의 저장소와 연결돼 있어서, 접수까지 서버로 확인하려면 INQUIRY 도 함께 서버로 둔다 */
 export const USE_MOCK_TICKET = area(import.meta.env.VITE_USE_MOCK_TICKET)
+/** 화면 알림: 담당자 배정·처리 완료 알림과 안 읽은 개수 (NT-01~04). 모의에서는 알림이 없다 */
+export const USE_MOCK_NOTIFY = area(import.meta.env.VITE_USE_MOCK_NOTIFY)
 /** FAQ (FQ) */
 export const USE_MOCK_FAQ = area(import.meta.env.VITE_USE_MOCK_FAQ)
+/** 가이드 관리: 문서 목록·버전·업로드·현행 전환·정책 변경 (DC-01·02·06·07·09) */
+export const USE_MOCK_GUIDE = area(import.meta.env.VITE_USE_MOCK_GUIDE)
+/** 운영 집계: AI 사용 현황 (OP-03). 서버가 구현하기 전에는 모의로 둔다 */
+export const USE_MOCK_OPS = area(import.meta.env.VITE_USE_MOCK_OPS)
 
 /**
- * 서버에 API 가 아직 없는 기능(로그인 전 상담, 팀 현황, 문의자에게 메시지·Slack 미리보기)은 위 변수와 상관없이 항상 모의로 동작한다.
+ * 문의 서버 모드에서 접수(담당자 연결 → 초안 → 최종 접수)와 접수 이후 해결·미해결을 실제 서버로 보낼지.
+ * 기본은 false(막아 둠): 접수를 만들면 공유 DB 에 접수와 ITSM 작업(JIRA_CREATE 등)이 남는데, 작업을 처리하는 실행기(worker)가
+ * 서버에 떠 있지 않으면 끝나지 않고 쌓이기 때문이다. 실행기가 준비된 환경에서만 'true' 로 켠다. USE_MOCK_INQUIRY 가 true 이면 상관없다.
+ */
+export const SERVER_INTAKE = raw(import.meta.env.VITE_SERVER_INTAKE) === 'true'
+
+/**
+ * 서버에 API 가 아직 없는 기능(로그인 전 상담, 통계 집계)은 위 변수와 상관없이 항상 모의로 동작한다.
  * 서버에 만들어지면 이 값을 쓰는 곳을 영역별 변수로 바꾼다.
  */
 export const MOCK_ONLY: boolean = true
@@ -38,3 +51,5 @@ export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undef
 
 /** 서비스데스크 안내 문구 (IT-STD-001). 연결 실패·계정 제한 안내에 쓴다. */
 export const SERVICEDESK = '내선 1000 (평일 09:00~18:00)'
+/** 연락 창구 이름은 서버 문구와 같은 "IT 헬프데스크"로 통일한다 (담당 그룹 이름 "서비스데스크"와는 다른 말이다) */
+export const HELPDESK = `IT 헬프데스크 ${SERVICEDESK}`

@@ -2,32 +2,69 @@
  * 문의 대화 API 어댑터.
  *
  * 모든 동작은 갱신된 문의(Inquiry) 전체를 돌려준다. 서버 전환 후에도 같은 형태를 유지하면 화면은 바뀌지 않는다.
- * 제안 엔드포인트 (시스템 설계서 9.2 를 바탕으로, 백엔드(A)와 맞춘 뒤 확정):
- *   POST /inquiries                       새 문의 시작 (첫 메시지)
- *   GET  /inquiries/{id}                  문의 상세 (열면 새 답변 표시가 지워진다)
- *   POST /inquiries/{id}/messages         메시지 보내기
- *   POST /inquiries/{id}/replies          빠른 응답 버튼
- *   POST /inquiries/{id}/draft/edit       접수 초안 수정 (분류·긴급도 재판단)
- *   POST /inquiries/{id}/draft/confirm    초안 확인 후 접수
- *   POST /inquiries/{id}/draft/cancel     접수하지 않고 종료
- *   POST /inquiries/{id}/resolve          접수 후 "해결"
- *   POST /inquiries/{id}/reject           접수 후 "미해결" (사유 필수)
- *   POST /inquiries/{id}/reopen           끝난 상담 이어가기 (미해결·미접수 종료만, IQ-06)
- * 실제 서버에서는 접수 이후 진행(Jira 생성·배정·처리)이 서버에서 일어나므로, 화면은 GET 을 주기적으로 다시 읽는다.
+ * 서버 경로 (docs/api/02·03, 변환은 inquiryServer.ts):
+ *   POST /inquiries                       IQ-01 새 문의 시작 (첫 메시지, AI 처리 결과)
+ *   GET  /inquiries/{id}, …/messages      IQ-03·07 문의와 메시지
+ *   POST /inquiries/{id}/messages         IQ-08 메시지 보내기
+ *   PUT  /inquiries/{id}/resolution       IQ-09 AI 답변의 해결·미해결
+ *   PATCH /inquiries/{id}                 IQ-04 담당자 연결 거절(문의 종료)
+ *   POST /inquiries/{id}/sessions         IQ-06 기존 문의·세션 이어가기
+ *   POST /inquiries/{id}/ticket-drafts    TK-01 담당자 연결 동의(초안 생성)  ┐
+ *   PATCH /ticket-drafts/{id}             TK-03 초안 수정·취소               │ SERVER_INTAKE=true 일 때만 서버로 보낸다
+ *   POST /tickets                         TK-04 최종 접수                    │ (꺼져 있으면 NOT_READY 안내)
+ *   PATCH /tickets/{id}                   TK-07 접수 이후 해결·미해결        ┘
+ * 실제 서버에서는 접수 이후 진행(ITSM 생성·배정·처리)이 서버에서 일어나므로, 화면은 GET 을 주기적으로 다시 읽는다.
  */
-import { request, sleep } from '../core/apiClient'
-import { USE_MOCK_INQUIRY } from '../core/config'
-import type { DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
+import { sleep } from '../core/apiClient'
+import { SERVER_INTAKE, USE_MOCK_INQUIRY } from '../core/config'
+import { pollHints, refreshInquiryList, visiblePoll } from '../core/poll'
+import type { ChatMessage, DraftEdit, Inquiry, ReplyRequest } from './chatTypes'
+import { NO_CONNECT_LABEL, NO_TICKET_CLOSED, RESOLVED_LABEL, RESOLVED_REPLY, UNRESOLVED_LABEL, UNRESOLVED_REPLY, isStaleDraft, loadInquiry, notReady, serverClose, serverConfirm, serverDraftCancel, serverDraftCreate, serverDraftSave, serverResolve, serverResume, serverSend, serverStart, serverTicketStatus } from './inquiryServer'
 import { advanceTicket, applyReply, cancelDraft, confirmDraft, confirmResolved, denyResolved, handle, reopenInquiry, saveDraft, sendToStaff, startInquiry, idleWarnInquiry, idleDeleteInquiry, idleBackInquiry, leaveInquiry, resumeInquiry } from './mock/chatEngine'
 import './mock/chatMock'
 import { getRecord, mockConfig, notify, subscribe, type StoreRecord } from './mock/chatStore'
 import { fail, ok, type ApiResult } from './types'
 
-/** 실제 서버를 다시 읽는 간격(ms) */
-const POLL_MS = 4000
+/** 실제 서버를 다시 읽는 간격(ms). 답변은 요청이 끝나면 바로 받으므로, 담당자 메시지·접수 진행을 확인하는 정도로만 읽는다. 탭이 가려져 있으면 읽지 않는다 */
+const POLL_MS = 10_000
+/** 답을 만드는 중일 때 다시 읽는 간격(ms) */
+const QUICK_MS = 3000
+/** 접수 전이라 바뀔 일이 드문 문의를 읽는 간격은 POLL_MS 의 이 배수 */
+const SLOW_EVERY = 6
 
-/** POST 요청 (본문은 JSON 으로 보낸다) */
-const post = <T,>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) })
+/**
+ * 이 문의를 주기적으로 다시 읽어야 하는지.
+ * - stop: 종료됐고 접수가 없거나 해결 완료라 서버에서 바뀔 일이 없다. (이어가기·새 메시지는 사용자가 직접 요청하므로 그때 읽는다)
+ * - slow: 접수 전이고 답변을 만드는 중도 아니라 담당자 쪽에서 바뀔 일이 없다.
+ * - normal: 접수 이후 담당자 메시지·진행 상황을 확인해야 한다.
+ */
+export function pollMode(i: Inquiry): 'stop' | 'slow' | 'normal' {
+  if (i.paused) return 'slow'
+  if (i.step === 'closed' && (!i.ticket || i.ticket.workStatus === 'CLS')) return 'stop'
+  if (!i.ticket && i.step !== 'answering') return 'slow'
+  return 'normal'
+}
+
+/** 서버 모드: 마지막으로 읽은 문의 (답변을 기다리는 동안 보여 줄 화면의 바탕), 보고 있는 화면의 갱신 함수, 진행 중인 요청 수 */
+const lastSeen = new Map<number, Inquiry>()
+const optimistic = new Map<number, (r: ApiResult<Inquiry>) => void>()
+let inflight = 0
+
+const remember = (r: ApiResult<Inquiry>) => {
+  if (r.ok) lastSeen.set(r.data.id, r.data)
+  return r
+}
+/** 서버 요청을 하나 실행한다. 진행 중에는 주기적 조회가 화면을 되돌리지 않게 표시해 둔다. */
+async function track(job: Promise<ApiResult<Inquiry>>): Promise<ApiResult<Inquiry>> {
+  inflight++
+  try {
+    return remember(await job)
+  } finally {
+    inflight--
+    // 내가 한 동작(보내기·해결·미해결·미연결 종료·이어가기)은 사이드바 최근 문의의 상태도 바꾼다. 사이드바는 주기로 읽지 않으니 바로 다시 읽게 한다
+    refreshInquiryList()
+  }
+}
 
 /**
  * 화면이 보던 문의와 서버의 문의가 어긋났을 때 서버가 주는 409 오류 (API 02, docs/09 T27).
@@ -66,7 +103,28 @@ export async function startChat(user: { employeeNo: string; name: string }, text
     notify() // 사이드바 최근 문의에 새 문의가 나타난다
     return ok(structuredClone(inq))
   }
-  return post<Inquiry>('/inquiries', { text })
+  return track(serverStart(text))
+}
+
+/**
+ * 새 문의를 보내고 기다리는 중인 요청 하나. 서버는 AI 답변을 만들 때까지 응답하지 않아(몇 초~1분 이상) 화면을 먼저 대화 화면(/chat/new)으로
+ * 넘기고, 요청은 화면과 따로 계속 진행한다. 화면이 새로고침으로 사라지면 이 값도 사라진다.
+ */
+interface PendingStart {
+  text: string
+  promise: Promise<ApiResult<Inquiry>>
+}
+let pending: PendingStart | null = null
+/** 새 문의를 보내기 시작한다. run 은 테스트에서 느린 서버를 흉내 낼 때 바꾼다 */
+export function beginChat(user: { employeeNo: string; name: string }, text: string, run: typeof startChat = startChat): PendingStart {
+  pending = { text, promise: run(user, text) }
+  // 대기 화면이 뜨기 전에 예외로 끝나도 "처리되지 않은 거절" 경고가 나지 않게 한다 (화면은 같은 약속에서 예외를 직접 받아 오류를 보여 준다)
+  pending.promise.catch(() => {})
+  return pending
+}
+export const getPending = () => pending
+export function clearPending() {
+  pending = null
 }
 
 /** 문의 상세를 읽는다. 열면 새 답변 표시가 지워진다. */
@@ -82,7 +140,7 @@ export async function getChat(id: number, employeeNo: string): Promise<ApiResult
     }
     return ok(snapshot(rec))
   }
-  return request<Inquiry>(`/inquiries/${encodeURIComponent(id)}`)
+  return remember(await loadInquiry(id))
 }
 
 /**
@@ -101,10 +159,35 @@ export function watchChat(id: number, employeeNo: string, onChange: (r: ApiResul
     })
     return off
   }
-  const timer = setInterval(() => {
-    request<Inquiry>(`/inquiries/${encodeURIComponent(id)}`).then(onChange)
-  }, POLL_MS)
-  return () => clearInterval(timer)
+  optimistic.set(id, onChange)
+  pollHints.chatViews++
+  // 서버가 아직 답을 만드는 중이면(내 글만 저장된 상태) 답이 오는 것을 놓치지 않게 잠깐 짧은 간격으로 다시 읽는다
+  let quick: ReturnType<typeof setTimeout> | undefined
+  let tick = 0
+  const load = () => {
+    if (inflight) return // 답변을 기다리는 중에는 화면을 되돌리지 않는다
+    const seen = lastSeen.get(id)
+    const mode = seen ? pollMode(seen) : 'normal'
+    tick++
+    if (mode === 'stop' || (mode === 'slow' && tick % SLOW_EVERY !== 0)) return // 바뀔 일이 없는 문의는 읽지 않는다
+    loadInquiry(id).then((r) => {
+      if (inflight) return
+      const before = lastSeen.get(id)
+      onChange(remember(r))
+      clearTimeout(quick)
+      // 해결·미해결을 ITSM 에 반영하는 중에도 끝나는 순간을 바로 보이게 짧은 간격으로 읽는다
+      if (r.ok && (r.data.step === 'answering' || r.data.ticket?.transitionPending)) quick = setTimeout(load, QUICK_MS)
+      // 이 화면이 먼저 안 상태 변화는 사이드바 목록에도 바로 알려, 사이드바가 따로 읽을 때까지 기다리지 않게 한다
+      if (r.ok && before && (before.status !== r.data.status || before.step !== r.data.step || before.unread !== r.data.unread || before.ticket?.workStatus !== r.data.ticket?.workStatus)) refreshInquiryList()
+    })
+  }
+  const stop = visiblePoll(load, POLL_MS)
+  return () => {
+    stop()
+    clearTimeout(quick)
+    optimistic.delete(id)
+    pollHints.chatViews--
+  }
 }
 
 export function sendChat(id: number, employeeNo: string, text: string): Promise<ApiResult<Inquiry>> {
@@ -115,42 +198,100 @@ export function sendChat(id: number, employeeNo: string, text: string): Promise<
       else if (rec.inquiry.step !== 'answering' && rec.inquiry.step !== 'closed') handle(rec, text, false)
     })
   }
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/messages`, { text })
+  // 서버가 답할 때까지(AI 처리는 몇 초 걸린다) 내 글과 "준비 중" 표시를 먼저 보여 준다
+  const base = lastSeen.get(id)
+  if (base) {
+    const wait: Inquiry = {
+      ...base,
+      step: 'answering',
+      messages: [...base.messages.map((m) => ({ ...m, replies: undefined })), { id: -1, role: 'user', text }, { id: -2, role: 'assistant', typing: { label: '답변을 준비하고 있어요' } }],
+    }
+    optimistic.get(id)?.(ok(wait))
+  }
+  return track(serverSend(id, text))
+}
+
+/**
+ * 서버 모드: 버튼을 누르면 서버가 답할 때까지 기다리지 않고, 내가 고른 말풍선과 다음 모습을 먼저 보여 준다 (모의와 같은 반응).
+ * 서버 요청이 끝나면 서버의 문의로 바뀌고, 실패하면 이전 화면으로 돌아간다.
+ */
+function showChoice(id: number, label: string, after: 'resolved' | 'unresolved' | 'closed', job: () => Promise<ApiResult<Inquiry>>): Promise<ApiResult<Inquiry>> {
+  const base = lastSeen.get(id)
+  if (!base) return track(job())
+  const kept = base.messages.map((m) => ({ ...m, replies: undefined }))
+  const mine: ChatMessage = { id: -1, role: 'user', text: label }
+  // 서버가 끝난 뒤의 모습과 같게 미리 그린다 (해결: 종료 안내, 미해결: 연결 제안 버튼, 연결 거절: 종료 안내)
+  const wait: Inquiry =
+    after === 'closed'
+      ? { ...base, status: 'CLOSED_UNRESOLVED', step: 'closed', messages: [...kept, mine, ...NO_TICKET_CLOSED] }
+      : after === 'resolved'
+        ? { ...base, status: 'AI_RESOLVED', step: 'closed', messages: [...kept, mine, RESOLVED_REPLY] }
+        : { ...base, step: 'offer', messages: [...kept, mine, { ...UNRESOLVED_REPLY, replies: [{ label: '담당자 연결', action: 'connect-yes', primary: true }, { label: '미연결 (종료)', action: 'connect-no' }] }] }
+  optimistic.get(id)?.(ok(wait))
+  const run = track(job())
+  // 실패하면 먼저 보여 준 말풍선을 거두고 이전 화면으로 돌아간다
+  void run.then((r) => {
+    if (!r.ok) optimistic.get(id)?.(ok(base))
+  })
+  return run
+}
+
+/**
+ * 접수 관련 서버 요청 하나. 초안이 낡았다는 오류(다른 화면에서 수정·이미 접수/취소)면 최신 문의를 다시 읽어 화면을 맞춘다.
+ * 오류 안내는 호출한 화면(ChatView)이 보여 준다.
+ */
+async function intake(id: number, job: Promise<ApiResult<Inquiry>>): Promise<ApiResult<Inquiry>> {
+  const r = await track(job)
+  if (!r.ok && isStaleDraft(r.error.code)) void track(loadInquiry(id)).then((latest) => optimistic.get(id)?.(latest))
+  return r
 }
 
 export function replyChat(id: number, employeeNo: string, req: ReplyRequest): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => applyReply(rec, req))
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/replies`, req)
+  switch (req.action) {
+    case 'resolved':
+      return showChoice(id, RESOLVED_LABEL, 'resolved', () => serverResolve(id, 'RESOLVED'))
+    case 'unresolved':
+      return showChoice(id, UNRESOLVED_LABEL, 'unresolved', () => serverResolve(id, 'UNRESOLVED'))
+    case 'connect-no':
+      return showChoice(id, NO_CONNECT_LABEL, 'closed', () => serverClose(id))
+    case 'connect-yes':
+      return SERVER_INTAKE ? intake(id, serverDraftCreate(id)) : Promise.resolve(notReady('담당자 연결(접수 초안)'))
+    case 'quick':
+      return req.arg ? sendChat(id, employeeNo, req.arg) : track(loadInquiry(id))
+    default:
+      return track(loadInquiry(id))
+  }
 }
 
 export function editDraft(id: number, employeeNo: string, edit: DraftEdit): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => saveDraft(rec, edit))
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/draft/edit`, edit)
+  return SERVER_INTAKE ? intake(id, serverDraftSave(id, edit)) : Promise.resolve(notReady('접수 초안 수정'))
 }
 
 export function confirmChatDraft(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => confirmDraft(rec))
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/draft/confirm`)
+  return SERVER_INTAKE ? intake(id, serverConfirm(id)) : Promise.resolve(notReady('최종 접수'))
 }
 
 export function cancelChatDraft(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => cancelDraft(rec))
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/draft/cancel`)
+  return SERVER_INTAKE ? intake(id, serverDraftCancel(id)) : Promise.resolve(notReady('접수 취소'))
 }
 
 export function resolveChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => confirmResolved(rec))
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/resolve`)
+  return SERVER_INTAKE ? track(serverTicketStatus(id, lastSeen.get(id)?.ticket?.id, { workStatus: 'CLS' })) : Promise.resolve(notReady('접수 이후 해결 확인'))
 }
 
 export function rejectChat(id: number, employeeNo: string, reason: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => denyResolved(rec, reason))
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/reject`, { reason })
+  return SERVER_INTAKE ? track(serverTicketStatus(id, lastSeen.get(id)?.ticket?.id, { workStatus: 'WIP', reason })) : Promise.resolve(notReady('접수 이후 미해결 알림'))
 }
 
 export function reopenChat(id: number, employeeNo: string): Promise<ApiResult<Inquiry>> {
   if (USE_MOCK_INQUIRY) return mockAct(id, employeeNo, (rec) => reopenInquiry(rec))
-  return post<Inquiry>(`/inquiries/${encodeURIComponent(id)}/reopen`)
+  return track(serverResume(id))
 }
 
 /** 시연 전용: 응답 없이 시간이 지난 상황 (실제 서버에서는 서버가 정해진 시간 후 처리한다) */

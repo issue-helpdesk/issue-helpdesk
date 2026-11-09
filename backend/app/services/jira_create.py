@@ -22,11 +22,12 @@ DB 상태 규칙 (docs/06 integration_jobs·tickets.jira_sync_status)
     3) VERIFYING 상태에서는 생성 호출 자체를 하지 않는다.
 
 한계(팀 확인 필요)
-    - 이 모듈은 Jira만 호출한다. 개인 담당자 배정(JIRA_ASSIGN)·상태 전환은 다른 작업이다.
-    - integration_jobs.payload 컬럼이 모델에 아직 없어서(docs/06 v0.8 설계만 있음) 생성 값은 실행 시점의
-      Ticket 스냅샷 컬럼에서 만든다. 접수 확정 뒤 Ticket 스냅샷 컬럼이 바뀌지 않는다는 전제다.
+    - 생성 성공 시 공용 함수로 최초 배정을 예약하고 JIRA_ASSIGN 작업을 등록한다. Jira 담당자 지정·상태 전환 실행은 다른 작업이다.
+    - 생성 내용은 integration_jobs.payload의 등록 시점 값을 쓴다. jiraKey·jiraSyncStatus만 최신 Ticket에서 읽는다.
+      과거 마이그레이션의 빈 payload({})는 현재 DB 값으로 처리하며 경고를 남긴다. 원래 등록값의 복원은 아니다.
     - 실행기가 Jira 응답 직후 DB 저장 전에 죽으면 작업이 RUNNING으로 남는다. requeue_stale_running_jobs()가
-      이를 VERIFYING 경로(찾기만)로 되돌린다. 이 함수를 주기적으로 부르는 곳(스케줄러)은 아직 없다.
+      이를 VERIFYING 경로(찾기만)로 되돌린다. 독립 실행기(integrations/jira/worker.py)가 주기 호출하며,
+      실제 서버의 실행기 배포·프로세스 관리는 별도로 연결해야 한다.
     - 재시도 대기 시간·횟수는 retry.RetryPolicy의 제안값(60·300·900초, 3회)을 그대로 쓴다.
 """
 
@@ -44,7 +45,10 @@ from sqlalchemy.orm import Session
 from app.integrations.jira.client import JiraClient, JiraError
 from app.integrations.jira.confirmed_ticket import ConfirmedTicketError, create_from_confirmed_ticket
 from app.integrations.jira.retry import RetryPolicy, next_step
-from app.models import Category, Inquiry, InquiryType, IntegrationJob, SupportGroup, Ticket, User
+from app.models import (AssignmentLog, Category, Department, Inquiry, InquiryType, IntegrationJob,
+                        SupportGroup, SupportGroupMember, Ticket, User)
+from app.services.assignment import reserve_assignment
+from app.services.jira_assign import enqueue_jira_assign
 from app.utils import datetime_utils
 
 logger = logging.getLogger(__name__)
@@ -119,17 +123,27 @@ def run_jira_create_job(
                 raise JiraError("result_unknown", "Jira에서 아직 찾지 못했습니다.", retryable=False)
             result = {**found, "created": False, "source": "jira_lookup"}
         else:
-            result = create_from_confirmed_ticket(jira, _ticket_payload(db, ticket))
-        work_status = _work_status_to_fill(jira, ticket, result)
+            if not isinstance(job.payload, dict):
+                raise ConfirmedTicketError("invalid_type", ("payload",))
+            if job.payload:
+                data = dict(job.payload)
+            else:
+                # 마이그레이션 전 작업에는 등록 시점 입력이 없다. 이 경우에만 현재 DB 값으로 처리한다.
+                logger.warning("jira create job %s uses legacy empty payload", job.id)
+                data = _ticket_payload(db, ticket)
+            # 접수 내용은 보존하고, 중복 생성 방지에 쓰는 제어값만 최신 상태로 확인한다.
+            data.update(jiraKey=ticket.jira_key, jiraSyncStatus=ticket.jira_sync_status)
+            result = create_from_confirmed_ticket(jira, data)
+        work_status = work_status_to_fill(jira, ticket, result)
     except ConfirmedTicketError as e:
         return _needs_admin(db, job, ticket, now, f"{e.reason}: {', '.join(e.fields)}")
     except JiraError as e:
         return _after_jira_error(db, job, ticket, now, e, policy)
 
-    return _save_success(db, job, ticket, now, result, work_status)
+    return save_create_success(db, job, ticket, now, result, work_status)
 
 
-def _work_status_to_fill(jira: JiraClient, ticket: Ticket, result: dict[str, Any]) -> str | None:
+def work_status_to_fill(jira: JiraClient, ticket: Ticket, result: dict[str, Any]) -> str | None:
     """비어 있는 work_status에 넣을 값. 채울 필요가 없거나 Jira 상태가 매핑에 없으면 None."""
     if ticket.work_status is not None:
         return None
@@ -162,6 +176,7 @@ def requeue_stale_running_jobs(
     *,
     older_than: timedelta = timedelta(minutes=5),
     now: datetime | None = None,
+    ticket_id: int | None = None,
 ) -> int:
     """RUNNING으로 오래 방치된 작업을 다시 대기시킨다. 돌려주는 값은 되돌린 작업 수.
 
@@ -171,6 +186,7 @@ def requeue_stale_running_jobs(
     stale = db.scalars(
         select(IntegrationJob).where(
             IntegrationJob.job_type == JOB_TYPE,
+            True if ticket_id is None else IntegrationJob.ticket_id == ticket_id,
             IntegrationJob.status == "RUNNING",
             IntegrationJob.updated_at < now - older_than,
         )
@@ -221,16 +237,20 @@ def _ticket_payload(db: Session, ticket: Ticket) -> dict[str, Any]:
     inquiry_type = db.get(InquiryType, ticket.inquiry_type_id) if ticket.inquiry_type_id else None
     inquiry = db.get(Inquiry, ticket.inquiry_id)
     requester = db.get(User, inquiry.user_id) if inquiry is not None else None
+    department = db.get(Department, requester.department_id) if requester is not None and requester.department_id else None
     return {
         "id": ticket.id,
         "draftId": ticket.draft_id,
         "receiptNo": ticket.receipt_no,
+        # Jira 제목. 없으면 summary 를 쓴다. 첫 판단 전의 제목은 사용자 글을 자른 것이라 보내지 않는다 (docs/10: 대화 원문 복사 금지)
+        "title": inquiry.title if inquiry is not None and inquiry.action is not None else None,
         "summary": ticket.summary,
         "categoryCode": ticket.category_code,
         "urgency": ticket.urgency,
         "category": {"code": category.code, "name": category.name} if category else None,
         "inquiryType": (
-            {"id": inquiry_type.id, "code": inquiry_type.code, "name": inquiry_type.name} if inquiry_type else None
+            {"id": inquiry_type.id, "code": inquiry_type.code, "name": inquiry_type.name,
+             "requestKind": inquiry_type.request_kind} if inquiry_type else None
         ),
         "groupId": ticket.group_id,
         "group": {"id": group.id, "name": group.name} if group else None,
@@ -241,20 +261,23 @@ def _ticket_payload(db: Session, ticket: Ticket) -> dict[str, Any]:
         "triedActions": ticket.tried_actions,
         "urgencyReason": ticket.urgency_reason,
         "requester": (
-            {"id": requester.id, "employeeNo": requester.employee_no, "name": requester.name} if requester else None
+            {"id": requester.id, "employeeNo": requester.employee_no, "name": requester.name,
+             "departmentName": department.name if department else None} if requester else None
         ),
         "jiraSyncStatus": ticket.jira_sync_status,
         "jiraKey": ticket.jira_key,
     }
 
 
-def _save_success(
+def save_create_success(
     db: Session, job: IntegrationJob, ticket: Ticket, now: datetime, result: dict[str, Any], work_status: str | None = None
 ) -> JobResult:
     key = result["jira_key"]
+    # Jira 호출 중 TK-09가 저장한 예약을 최신 값으로 읽고, 배정 변경과 저장 구간을 직렬화한다.
+    ticket = db.get(Ticket, ticket.id, with_for_update=True, populate_existing=True)
     ticket.jira_key = key
     ticket.jira_sync_status = "SYNCED"
-    if work_status is not None:
+    if work_status is not None and ticket.work_status is None:
         ticket.work_status = work_status
     job.status = "DONE"
     job.next_retry_at = None
@@ -262,13 +285,17 @@ def _save_success(
     job.updated_at = now
     job_id, ticket_id = job.id, ticket.id
     try:
-        db.commit()
+        db.flush()
     except IntegrityError:
         # 같은 jira_key가 다른 접수에 이미 저장돼 있다. 어느 쪽이 맞는지는 사람이 본다.
         db.rollback()
         return _needs_admin(
             db, db.get(IntegrationJob, job_id), db.get(Ticket, ticket_id), now, "jira_key_conflict"
         )
+
+    # 생성 결과와 예약을 함께 저장한다. DB 예외는 호출자가 rollback하고 기존 VERIFYING 복구를 쓴다.
+    _reserve_initial_assignment(db, ticket, now)
+    db.commit()
 
     if result.get("source") == "saved_ticket":
         outcome = "SAVED"
@@ -278,6 +305,45 @@ def _save_success(
         outcome = "LINKED"
     logger.info("jira create job %s ticket %s → %s %s", job_id, ticket_id, outcome, key)
     return JobResult(job_id, outcome, "DONE", "SYNCED", key)
+
+
+def _reserve_initial_assignment(db: Session, ticket: Ticket, now: datetime) -> None:
+    """생성 성공 저장과 같은 트랜잭션. 기존 배정 판단·작업·이력을 덮어쓰지 않는다."""
+    if ticket.assign_status != "PENDING" or ticket.work_status not in {"RDY", "WIP"}:
+        return
+    # 완료·실패한 작업도 다시 만들지 않는다. 재처리는 TK-09의 별도 요청으로 받는다.
+    if db.scalar(select(IntegrationJob.id).where(
+        IntegrationJob.ticket_id == ticket.id, IntegrationJob.job_type == "JIRA_ASSIGN",
+    ).limit(1)) is not None:
+        return
+
+    if ticket.assignee_id is not None:
+        # Jira 생성 전 직접 지정·자동 선정된 예약. 재선정, revision 증가, 이력 추가 없이 이어간다.
+        member = db.get(SupportGroupMember, (ticket.group_id, ticket.assignee_id)) if ticket.group_id else None
+        enqueue_jira_assign(db, ticket, {
+            "ticketId": ticket.id, "receiptNo": ticket.receipt_no, "jiraKey": ticket.jira_key,
+            "groupId": ticket.group_id, "assigneeId": ticket.assignee_id,
+            "jiraAccountId": member.jira_account_id if member else None,
+            "assignmentRevision": ticket.assignment_revision, "requestedBy": None,
+            "requestedAt": now.isoformat(),
+        })
+        return
+
+    # 접수(TK-04)가 남기는 RECOMMEND 는 추천 그룹 기록일 뿐 배정 판단이 아니다. ASSIGN·REASSIGN·FAIL 이 있어야 이미 판단한 것으로 본다.
+    if ticket.assignment_revision != 0 or db.scalar(select(AssignmentLog.id).where(
+        AssignmentLog.ticket_id == ticket.id, AssignmentLog.event != "RECOMMEND",
+    ).limit(1)) is not None:
+        return
+    group = db.get(SupportGroup, ticket.group_id, with_for_update=True, populate_existing=True) if ticket.group_id else None
+    inquiry_type = db.get(InquiryType, ticket.inquiry_type_id) if ticket.inquiry_type_id else None
+    if group is None or not group.is_active or (inquiry_type is not None and not inquiry_type.is_active):
+        ticket.assign_status = "NEEDS_ADMIN"
+        ticket.assignment_revision += 1
+        db.add(AssignmentLog(ticket_id=ticket.id, event="FAIL", group_id=ticket.group_id, actor_id=None,
+                             reason="최초 자동배정 (활성 담당 그룹·세부 유형 확인 필요)"))
+        db.flush()
+        return
+    reserve_assignment(db, ticket, ticket.group_id, reason="최초 자동배정", actor_id=None, now=now)
 
 
 def _after_jira_error(

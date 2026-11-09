@@ -10,6 +10,7 @@ import app.agent.llm.call as call_module
 from app.agent.llm import (AIInput, AIOutput, CategoryInfo, ClaudeAdapter, LLMError, MockAdapter, Taxonomy, TypeInfo,
                            build_system_prompt, call_judge, output_json_schema, safe_default)
 from app.agent.llm import config as llm_config
+from app.agent.llm.schemas import second_output_json_schema
 from app.rag.search import ChunkHit, DocumentResult, LegacyResult, SearchResponse
 
 TAXONOMY = Taxonomy(
@@ -24,7 +25,7 @@ ANSWER = {
     'title': "재택 중 VPN '서버에 연결할 수 없습니다' 오류", 'category_code': 'NET', 'inquiry_type_code': 'NET-02',
     'request_kind': 'INCIDENT', 'urgency_suggested': 'P3',
     'facts': {'summary': '재택 근무 중 VPN 연결 시 오류가 나며 연결되지 않음', 'target_system': '사내 VPN',
-              'symptom': "VPN 연결 시 '서버에 연결할 수 없습니다' 오류", 'occurred_at': '오늘 아침부터',
+              'symptom': "VPN 연결 시 '서버에 연결할 수 없습니다' 오류", 'situation': None, 'occurred_at': '오늘 아침부터',
               'impact_scope': 'PERSONAL', 'work_stopped': 'partial', 'has_workaround': None, 'time_constraint': None,
               'business_impact': '재택 근무 중 VPN이 필요한 사내 시스템을 쓰지 못함', 'security_suspected': False,
               'tried_actions': ['재부팅']},
@@ -32,7 +33,7 @@ ANSWER = {
                   'action': 'Guide 근거 충분'},
     'reply': 'VPN 클라이언트를 최신 버전으로 업데이트한 뒤 다시 연결해 보세요.',
     'evidence': [{'kind': 'DOCUMENT', 'source_id': 'IT-NET-001@v2.0/item:3.1', 'quote': 'VPN 클라이언트가 구버전입니다'}],
-    'missing_items': [], 'escalation_reason': None, 'confidence': 0.82,
+    'questions': [], 'missing_items': [], 'escalation_reason': None, 'confidence': 0.82,
 }
 ANSWER_JSON = json.dumps(ANSWER, ensure_ascii=False)
 
@@ -202,6 +203,63 @@ def test_system_prompt_has_taxonomy_and_is_stable():
 
 # ── Claude Adapter (가짜 client) ───────────────────
 
+# ── 2차 판단 (08 2.6) ──────────────────────────────
+
+SECOND = {'action': 'ESCALATE', 'reply': '권한 변경이 필요해요. 담당자에게 연결해 드릴까요?', 'evidence': [],
+          'questions': [], 'missing_items': [], 'escalation_reason': '권한변경', 'confidence': 0.7,
+          'action_reason': '권한 변경 필요'}
+
+
+def first_output(**kw) -> AIOutput:
+    return AIOutput.model_validate(ANSWER | kw)
+
+
+def test_second_call_takes_only_second_fields_and_keeps_first_values():
+    mock = MockAdapter([json.dumps(SECOND, ensure_ascii=False)])
+    search = SearchResponse(query='VPN', model='kure', threshold=0.5, documents=(doc(),))
+    first = first_output(title='김민지 팀장 VPN 오류')
+    r = call_judge(inp(search=search), mock, TAXONOMY, ['김민지'], 'ANSWER', first=first)
+    assert r.failure is None
+    o = r.output
+    assert (o.action, o.reply, o.escalation_reason, o.confidence) == ('ESCALATE', SECOND['reply'], '권한변경', 0.7)
+    assert (o.category_code, o.inquiry_type_code, o.urgency_suggested, o.facts) ==         ('NET', 'NET-02', 'P3', first.facts)                                # 1차 값
+    assert o.title == '김민지 팀장 VPN 오류'                                 # 서버 값은 원문 그대로
+    assert o.rationale.action == '권한 변경 필요' and o.rationale.category == first.rationale.category
+    assert r.ai_output == o.model_dump(mode='json')
+    assert mock.thinks == [False] and mock.schemas == [second_output_json_schema()]
+    body = sent(mock)
+    carried = body['first_judgment']
+    assert carried['title'] == '[직원1] 팀장 VPN 오류'                       # 보내는 1차 값도 치환한다
+    for k in ('action', 'reply', 'evidence', 'missing_items', 'escalation_reason', 'confidence', 'schema_version'):
+        assert k not in carried
+    assert 'action' not in carried['rationale']
+    assert 'first_judgment' in body['second_judgment'] and body['search']['documents']
+
+
+def test_first_call_sends_full_schema_with_thinking():
+    mock = MockAdapter([ANSWER_JSON])
+    call_judge(inp(), mock, TAXONOMY, [], 'CLASSIFY')
+    assert mock.thinks == [True] and mock.schemas == [output_json_schema()]
+    assert 'first_judgment' not in sent(mock)
+
+
+def test_second_call_with_missing_key_is_retried():
+    broken = json.dumps({k: v for k, v in SECOND.items() if k != 'action_reason'}, ensure_ascii=False)
+    mock = MockAdapter([broken, json.dumps(SECOND, ensure_ascii=False)])
+    r = call_judge(inp(search=SearchResponse(query='VPN', model='kure', threshold=0.5, documents=(doc(),))),
+                   mock, TAXONOMY, [], 'ANSWER', first=first_output())
+    assert [c.error_code for c in r.calls] == ['SCHEMA_INVALID', None]
+    assert r.output.action == 'ESCALATE'
+
+
+def test_second_call_accepts_full_shape():
+    # Mock·평가 도구는 2차에도 2장 전체 모양을 준다. 그때는 그대로 쓴다
+    mock = MockAdapter([ANSWER_JSON])
+    r = call_judge(inp(search=SearchResponse(query='VPN', model='kure', threshold=0.5, documents=(doc(),))),
+                   mock, TAXONOMY, [], 'ANSWER', first=first_output(title='1차 제목'))
+    assert r.output.title == ANSWER['title']
+
+
 class FakeClient:
     def __init__(self, result):
         self.result, self.kwargs = result, None
@@ -231,6 +289,13 @@ def test_claude_adapter_request_and_reply():
     assert k['system'][0]['cache_control'] == {'type': 'ephemeral'}
     assert k['messages'] == [{'role': 'user', 'content': '사용자'}]
     assert 'fallbacks' not in k and 'betas' not in k          # 거절되면 다른 모델로 넘기지 않는다
+    assert 'thinking' not in k                                # 1차는 모델이 정한다
+
+
+def test_claude_adapter_turns_thinking_off_for_second_call():
+    client = FakeClient(response())
+    ClaudeAdapter('key', 'claude-sonnet-5-5', client=client).complete('s', 'u', {}, think=False)
+    assert client.kwargs['thinking'] == {'type': 'between_tools'}     # 'disabled' 는 sonnet-5-5 에서 400
 
 
 def test_claude_adapter_time_limit():

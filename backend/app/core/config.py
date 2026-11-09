@@ -1,3 +1,4 @@
+import logging
 import os
 from functools import lru_cache
 from pathlib import Path
@@ -7,12 +8,18 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(ROOT / ".env")
 
+logger = logging.getLogger(__name__)
+
 class Settings:
     def __init__(self) -> None:
         url = os.environ.get("DATABASE_URL")
         if not url:
             raise RuntimeError("DATABASE_URL 이 없습니다. 루트 .env 를 확인하세요.")
         self.database_url = to_sqlalchemy_url(url)
+        self.dsn = url                      # psycopg 로 바로 붙는 곳(문서 적재)이 쓴다
+        # Supabase Session 모드는 쉬는 연결도 한도를 차지한다. 개발 PC 는 .env 에서 더 작게 준다
+        self.db_pool_size = int(os.environ.get("DB_POOL_SIZE", "5"))
+        self.db_max_overflow = int(os.environ.get("DB_MAX_OVERFLOW", "5"))
 
 @lru_cache
 def get_settings() -> Settings:
@@ -34,6 +41,10 @@ class JiraSettings:
 def get_jira_settings() -> JiraSettings:
     return JiraSettings()
 
+def get_jira_webhook_secret() -> str | None:
+    """Jira 웹훅 서명 비밀값. 없으면 모든 웹훅을 거절한다."""
+    return os.environ.get("JIRA_WEBHOOK_SECRET") or None
+
 class AuthSettings:
 
     def __init__(self) -> None:
@@ -52,3 +63,14 @@ def get_auth_settings() -> AuthSettings:
 
 def to_sqlalchemy_url(url: str) -> str:
     return url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+# 없으면 경고 메시지만
+FEATURE_ENV_NAMES = ("LLM_API_KEY", "JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_WEBHOOK_SECRET")
+
+def check_startup_settings() -> None:
+    """API 서버가 시작할 때 부른다. 필수 설정이 틀리면 RuntimeError 로 시작을 막는다."""
+    get_settings()
+    get_auth_settings()
+    missing = [n for n in FEATURE_ENV_NAMES if not os.environ.get(n)]
+    if missing:
+        logger.warning("%s 이 없어 관련 기능이 동작하지 않습니다. 루트 .env 를 확인하세요.", ", ".join(missing))

@@ -14,18 +14,25 @@
 """
 from __future__ import annotations
 
+import hashlib
 import logging
-from collections import defaultdict
+import re
+from collections import Counter, defaultdict
 from datetime import timedelta
 from pathlib import Path
 
-from app.rag.chunker import Chunk, chunk_document, chunk_row, document_row, validate, version_row, view_scope
+from app.rag.chunker import Chunk, chunk_document, document_row, validate, version_row, view_scope
 from app.rag.parser import ParseError, parse
+from app.rag.parser.models import ParsedDocument
+from app.rag.parser.to_md import to_guide_md
 
 from . import (ERROR_MAX, ROOT, SCOPE_RANK, IngestError, Prepared, Report, _drop_stale, _insert_chunks,
-               _lock_document, _put_embeddings, _relabel, activate, check_vectors, read_vectors)
+               _lock_document, _put_embeddings, _relabel, activate, check_vectors, chunk_rows, load_allowlist,
+               manual_policies, read_vectors)
 
 log = logging.getLogger('app.rag.ingest')
+GUIDE_IMAGES = ROOT / 'dataset' / 'guide_images'          # 그림 API(DC-11)가 내려 주는 배포 그림 (청크_메타데이터.md 5장 그림)
+IMAGE_KEY_RE = re.compile(r'^[A-Z]+/[A-Za-z0-9][A-Za-z0-9._-]*\.(?:png|jpe?g)$')   # 그림 API 와 같은 이름표 형식
 STALE_PENDING = timedelta(minutes=10)                     # 이보다 오래 PENDING 이면 적재가 멈춘 것으로 본다
 
 
@@ -38,6 +45,7 @@ def ingest_version(conn, version_id: int, embedder, files_root: Path = ROOT, act
        현행은 본문이 같을 때만 (이름표만 고쳐 쓰고 바뀐 칸을 경고). 본문이 다르면 거부: 새 버전으로 올린다.
     2. 파일 → parse → chunk_document → validate. 파일의 문서 번호·버전이 등록값과 다르면 실패, 없으면 등록값을 쓴다.
     3. 표(inquiry_types)에 없는 문의 유형 코드는 청크에서 빼고 경고한다 (검색은 되게, 판단 흐름에 없는 코드가 가지 않게).
+       그림 이름표는 배포 그림이 없거나 문서 안 그림과 다르면 빼고 경고한다 (check_images. 옛 그림이 보이지 않게).
     4. 임베딩 (DB 트랜잭션 밖) → 한 트랜잭션에서 잠금(문서 → 버전) 뒤 상태를 다시 보고 청크·임베딩 교체 → DONE.
     5. 실패: 롤백 → FAILED + ingest_error (관리자 화면 DC-08 에 그대로 보여 줄 문구). 다른 버전·현행은 그대로.
        그새 다른 작업이 DONE 으로 끝냈으면 FAILED 를 남기지 않고 SKIPPED (reload 는 FAILED, DB 는 DONE 그대로).
@@ -87,7 +95,7 @@ def ingest_version(conn, version_id: int, embedder, files_root: Path = ROOT, act
 
 
 def resume_pending(conn, embedder, older_than: timedelta = STALE_PENDING, files_root: Path = ROOT) -> list[dict]:
-    """적재 도중 서버가 꺼져 PENDING 으로 남은 버전을 다시 적재한다 (서버 시작 때·명령으로).
+    """DB 연결 실패나 서버 중단으로 PENDING 으로 남은 버전을 다시 적재한다 (서버 시작 때·주기적으로·명령으로).
 
     방금 올라와 적재 중인 버전은 건드리지 않게 older_than 보다 오래된 것만. 겹쳐도 ingest_version 이 잠근 뒤
     상태를 다시 봐서 한 번만 적재된다. FAILED 는 파일을 고쳐야 하므로 여기서 다시 하지 않는다.
@@ -121,6 +129,7 @@ def prepare_version(v: dict, files_root: Path, codes: set[str], warnings: list[s
                         f"문의 유형을 등록한 뒤 다시 적재(reload, --version-id {v['id']} --reload)하면 코드가 들어갑니다")
     for c in chunks:
         c.inquiry_type_codes = [x for x in c.inquiry_type_codes if x in codes]
+    warnings += check_images(chunks)
     if meta.get('access_level'):
         file_scope = view_scope(meta['access_level'])
         if SCOPE_RANK[file_scope] > SCOPE_RANK[v['view_scope']]:
@@ -133,9 +142,79 @@ def prepare_version(v: dict, files_root: Path, codes: set[str], warnings: list[s
                         '문서 분류는 그대로 둡니다')
     warnings += [f'파서 경고: {w}' for w in doc.warnings]
 
+    policies = {}
+    if v.get('doc_type') == 'MANUAL':                      # 매뉴얼인지는 등록된 문서 행으로 (파일 자칭 값 아님)
+        allow, notes = load_allowlist()
+        policies, more = manual_policies(v['doc_code'], doc, chunks, allow)
+        warnings += notes + more
     return Prepared(entry={}, chunks=chunks, document={'doc_code': v['doc_code']},
                     version={'version': v['version'], 'file_format': version_row(doc, v['file_path'])['file_format']},
-                    rows=[chunk_row(c) for c in chunks], parse_warnings=list(doc.warnings))
+                    rows=chunk_rows(chunks, policies), parse_warnings=list(doc.warnings))
+
+
+def check_images(chunks: list[Chunk], image_dir: Path = GUIDE_IMAGES) -> list[str]:
+    """청크 그림 이름표가 가리키는 배포 그림을 확인하고, 보여 주면 안 되는 이름표는 뺀다. 경고 목록을 돌려준다.
+
+    그림 API(DC-11)는 업로드 파일 안 그림이 아니라 image_dir/{key} 를 내려 준다. 그래서
+    - 배포 그림이 없으면 뺀다 (새 문서·새 그림 번호. 그대로 두면 404)
+    - docx·pptx 는 문서 안 그림(sha256)이 배포 그림과 다르면 뺀다 (그림을 바꾼 새 버전에 옛 그림이 뜨지 않게)
+    - md·txt 는 그림이 파일 밖에 있어 내용을 볼 수 없으므로 배포 그림이 있는지만 본다
+    뺀 그림은 본문 '[그림] 설명' 줄로만 남는다. 업로드 그림을 꺼내 저장하는 일은 아직 없다 (나중 일).
+    """
+    root = image_dir.resolve()
+    sha: dict[Path, str] = {}
+    missing, changed = [], []
+    for c in chunks:
+        kept = []
+        for im in c.images:
+            path = (image_dir / im['key']).resolve()
+            if not (IMAGE_KEY_RE.fullmatch(im['key']) and path.is_relative_to(root) and path.is_file()):
+                missing.append(im['key'])
+                continue
+            if im.get('sha256'):
+                if path not in sha:
+                    sha[path] = hashlib.sha256(path.read_bytes()).hexdigest()
+                if sha[path] != im['sha256']:
+                    changed.append(im['key'])
+                    continue
+            kept.append(im)
+        c.images = kept
+    out = []
+    if missing:
+        out.append(f'배포 그림이 없어 그림 {len(missing)}개는 본문 설명으로만 넣었습니다: {", ".join(missing[:5])}'
+                   + (' …' if len(missing) > 5 else ''))
+    if changed:
+        out.append(f'파일 안 그림이 배포 그림과 달라 그림 {len(changed)}개는 본문 설명으로만 넣었습니다 '
+                   f'(옛 그림이 보이지 않게): {", ".join(changed[:5])}' + (' …' if len(changed) > 5 else ''))
+    return out
+
+
+def read_guide_md(path: Path) -> tuple[str, list[str]]:
+    """버전 파일 → 가이드 md + 그림 경고. md 는 그대로 읽고, docx·pptx·pdf·txt 는 to_checked_md 로 바꾼다.
+    가이드화의 기준 md 와 본문 조회(DC-12·13)가 쓴다. 파일은 쓰지 않는다. 읽지 못하면 ParseError·OSError."""
+    if path.suffix.lower() == '.md':
+        return path.read_text(encoding='utf-8'), []
+    return to_checked_md(parse(str(path)))
+
+
+def to_checked_md(doc: ParsedDocument, image_dir: Path = GUIDE_IMAGES) -> tuple[str, list[str]]:
+    """파싱 결과 → 가이드 md (parser/to_md.py) + 그림 경고. 가이드화 기준(현행이 md 가 아닐 때)·업로드 md 변환에서 부른다.
+
+    md 에는 문서 안 그림의 내용 해시가 없어, md 를 적재할 때 check_images 는 배포 그림이 있는지만 본다.
+    그래서 변환 **전에** 원래 파싱 결과로 check_images 를 돌려 빠질 그림(배포 그림 없음·내용 다름)을 고르고,
+    그 그림은 형식 없는 링크로 써 이름표가 생기지 않게 한다 (본문 '[그림] 설명' 은 남는다. 업로드 적재와 같은 결과).
+    md 링크는 이름표로만 그림을 가리키므로, 같은 이름표(같은 그림 번호)를 쓰는 그림 중 하나라도 빠지면 그 이름표 그림은
+    모두 뺀다 (어느 쪽이 옛 그림인지 md 에서는 가릴 수 없다). 이때는 경고를 하나 더한다."""
+    chunks = chunk_document(doc)
+    before = Counter(im['key'] for c in chunks for im in c.images)
+    warnings = check_images(chunks, image_dir)
+    kept = Counter(im['key'] for c in chunks for im in c.images)
+    drop = {k for k, n in before.items() if kept[k] < n}
+    if also := sorted(k for k in drop if kept[k]):
+        warnings.append(f'같은 그림 번호를 쓰는 그림 중 일부가 빠져, 그 번호의 다른 그림 {sum(kept[k] for k in also)}개도 '
+                        f'본문 설명으로만 넣었습니다 (md 에서는 구분할 수 없음): {", ".join(also[:5])}'
+                        + (' …' if len(also) > 5 else ''))
+    return to_guide_md(doc, drop), warnings
 
 
 def unknown_inquiry_types(chunks: list[Chunk], codes: set[str]) -> dict[str, list[str]]:
@@ -173,12 +252,12 @@ def resolve_file(file_path: str | None, files_root: Path = ROOT) -> Path:
 def _read_version(conn, version_id: int) -> dict:
     row = conn.execute(
         'select v.id, v.document_id, v.version, v.file_path, v.ingest_status, v.is_current, v.view_scope, '
-        'd.doc_code, d.title, d.category_code from document_versions v '
+        'd.doc_code, d.title, d.category_code, d.doc_type from document_versions v '
         'join knowledge_documents d on d.id = v.document_id where v.id = %s', (version_id,)).fetchone()
     if row is None:
         raise ValueError(f'없는 버전 id {version_id}')
     keys = ('id', 'document_id', 'version', 'file_path', 'status', 'is_current', 'view_scope',
-            'doc_code', 'title', 'category_code')
+            'doc_code', 'title', 'category_code', 'doc_type')
     return dict(zip(keys, row))
 
 

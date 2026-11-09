@@ -10,14 +10,19 @@ from pathlib import Path
 
 import pytest
 
-from app.rag.case_guide import (CASE_DIR, CaseGuideError, Draft, _added_lines, _parse_text, add_case, candidates, check,
-                                draft, next_version, receipts, register, sensitive_warnings)
+from app.rag.case_guide import (CASE_DIR, CaseGuideError, Draft, _added_lines, _base_md, _parse_text, add_case, candidates,
+                                check, draft, next_version, receipts, register, sensitive_warnings)
 from app.rag.ingest import GUIDES, activate, connect
 from app.rag.ingest.upload import ingest_version
+from app.rag.parser import parse
+from app.rag.parser.models import Element
+from app.rag.parser.to_md import to_guide_md
 from test_ingest_upload import EMB, REPO, guide_file, needs_db, url, version  # noqa: F401  (url 은 fixture)
 
 BASE = (REPO / guide_file('IT-SW-001')).read_text(encoding='utf-8')
 TODAY = date(2026, 10, 29)
+POLICY = {'view_scope': 'ALL', 'transfer_policy': 'ALLOWED'}         # 관리자가 고른 값 (시험 가이드의 현행과 같다)
+POLICY_ARGS = ['--view-scope', 'ALL', '--transfer-policy', 'ALLOWED']
 
 
 def ticket_row(**kw):
@@ -50,6 +55,8 @@ def test_add_case_shape():
     assert d.md.index('### 3.8 ') < d.md.index('## 4. ') and d.md.index('### 3.7 ') < d.md.index('### 3.8 ')
     assert re.search(r'^  - 3\.7 .*\n  - 3\.8 설치가', d.md, re.M)
     assert re.search(r'^\| v2\.0 \|.*\|\n\| v2\.1 \| 2026-10-29 \| 엔드포인트지원팀 \| 해결 사례 반영 \(TK-0042\)', d.md, re.M)
+    assert re.search(r'^\| 3\.7 \|.*\|\n\| 3\.8 \| 설치가 "대기 중"에서 멈추고 캐시 폴더가 가득 참 \| SW-01 \| 🔵 IT 담당자 처리 \| '
+                     r'엔드포인트지원팀 \|$', d.md, re.M)              # 3장 항목 표 끝에 한 줄
     removed = set(BASE.splitlines()) - set(d.md.splitlines())
     assert all('v2.0' in line for line in removed)          # 바뀐 줄은 버전 표기뿐
 
@@ -78,6 +85,79 @@ def test_continue_draft_appends_to_same_version():
     second, _ = make(md_base=first.md, receipt_no='TK-0043', summary='설치 후 바로 꺼짐')
     assert second.section_no == '3.9' and second.md.count('\n| v2.1 |') == 1
     assert '(TK-0042)' in second.md and '; 해결 사례 반영 (TK-0043): 3.9 설치 후 바로 꺼짐 |' in second.md
+    assert re.search(r'^\| 3\.8 \| 설치가 .*\|\n\| 3\.9 \| 설치 후 바로 꺼짐 \|', second.md, re.M)   # 항목 표도 이어서
+
+
+def test_item_table_unknown_shape_left_alone():
+    """3장 항목 표 머리줄이 가이드 5열과 다르거나 표가 없으면 표는 고치지 않고 경고. 항목·목차·개정 이력은 그대로 더한다."""
+    head = '| 번호 | 제목 | 문의 유형 | 처리 구분 | 담당 부서 |'
+    assert head in BASE
+    other = BASE.replace(head, '| 번호 | 제목 | 문의 유형 | 담당 부서 |', 1)
+    d, warnings = make(md_base=other)
+    assert warnings == ['3장 항목 표 머리줄(번호 | 제목 | 문의 유형 | 담당 부서)이 예상과 달라 표는 고치지 않았습니다']
+    assert not re.search(r'^\| 3\.8 \|', d.md, re.M) and d.section_no == '3.8' and len(items(d.md)) == len(items(BASE)) + 1
+    table = re.search(r'^\| 번호 \|.*\n(?:\|.*\n)*', BASE, re.M).group(0)
+    d, warnings = make(md_base=BASE.replace(table, '', 1))
+    assert warnings == ['3장 항목 표를 찾지 못해 표는 고치지 않았습니다'] and d.section_no == '3.8'
+    assert check(d, d.md, [])[0] == []
+
+
+TABLE_HEAD = '| 번호 | 제목 | 문의 유형 | 처리 구분 | 담당 부서 |'
+
+
+def _first_table_end(md):
+    """BASE 의 3장 항목 표 마지막 줄 (그 뒤에 무엇을 끼워 넣는 시험용)."""
+    return re.search(r'^\| 번호 \|.*\n(?:\|.*\n)*', md, re.M).end()
+
+
+@pytest.mark.parametrize('gap', ['\n', '\n   \n'])
+def test_item_table_ends_at_blank_line(gap):
+    """PR #349 검수: 빈 줄(공백만 든 빈 줄도) 뒤의 다른 표는 다른 표다 (md 파서도 따로 읽는다). 항목 표에만 한 줄."""
+    at = _first_table_end(BASE)
+    base = BASE[:at] + gap + '| 참고 | 설명 |\n| --- | --- |\n| a | b |\n' + BASE[at:]
+    d, warnings = make(md_base=base)
+    assert warnings == []
+    assert re.search(r'^\| 3\.7 \|.*\|\n\| 3\.8 \| 설치가', d.md, re.M) and '| a | b |\n\n' in d.md + '\n'
+    assert not re.search(r'^\| a \| b \|\n\| 3\.8', d.md, re.M)
+
+
+def test_item_table_skips_code_block():
+    """PR #349 검수: 3장 앞 코드 블록 안의 같은 모양 표 예시는 건너뛰고 실제 항목 표에 한 줄."""
+    chapter = re.search(r'^## 3\. .*\n', BASE, re.M).end()
+    example = f'\n```\n{TABLE_HEAD}\n| --- | --- | --- | --- | --- |\n```\n'
+    d, warnings = make(md_base=BASE[:chapter] + example + BASE[chapter:])
+    assert warnings == [] and example in d.md                       # 예시는 그대로
+    assert re.search(r'^\| 3\.7 \|.*\|\n\| 3\.8 \| 설치가', d.md, re.M)
+
+
+def test_item_table_crlf():
+    """줄 끝이 CRLF 인 md 도 표를 찾고 같은 줄 끝으로 한 줄을 넣는다."""
+    d, warnings = make(md_base=BASE.replace('\n', '\r\n'))
+    assert not [w for w in warnings if '항목 표' in w]
+    assert re.search(r'^\| 3\.7 \|.*\|\r\n\| 3\.8 \| 설치가 .*\|\r\n', d.md, re.M)
+
+
+def test_item_table_mismatch_warned_for_old_draft():
+    """이 기능 전에 만든 초안(표에 3.8 줄 없음)에 이어 쓰면 3.9 줄만 더하고, 빠진 번호를 경고한다 (지난 줄은 채우지 않음)."""
+    first, _ = make()
+    old = re.sub(r'^\| 3\.8 \|.*\n', '', first.md, flags=re.M)
+    second, warnings = make(md_base=old, receipt_no='TK-0043', summary='설치 후 바로 꺼짐')
+    assert warnings == ['3장 항목 표와 항목 번호가 다릅니다 (표에 없음 3.8). 표를 확인해 주세요']
+    assert re.search(r'^\| 3\.7 \|.*\|\n\| 3\.9 \| 설치 후 바로 꺼짐', second.md, re.M)
+
+
+def test_item_table_odd_row_does_not_crash():
+    """표 안에 세로줄 하나뿐인 줄이 있어도 멈추지 않고 한 줄을 더한다 (번호가 맞지 않으니 경고)."""
+    at = _first_table_end(BASE)
+    d, warnings = make(md_base=BASE[:at] + '|\n' + BASE[at:])
+    assert re.search(r'^\|\n\| 3\.8 \| 설치가', d.md, re.M) and len(warnings) == 1 and '항목에 없음' in warnings[0]
+
+
+def test_item_table_row_escapes_pipe_and_empty_cells():
+    """표 줄도 세로줄을 이스케이프해 5칸 그대로. 문의 유형·담당 부서가 없으면 빈칸."""
+    d, _ = make(summary='프로세스 A | B 전환 오류', code=None, group=None)
+    row = next(line for line in d.md.splitlines() if line.startswith('| 3.8 |'))
+    assert len(re.split(r'(?<!\\)\|', row)) - 2 == 5 and 'A \\| B' in row and row.endswith('| 🔵 IT 담당자 처리 |  |')
 
 
 def test_sensitive_only_in_added_lines():
@@ -131,7 +211,7 @@ def test_no_chapter3_refused():
 
 # ── DB ───────────────────────────────────────────────────────
 
-def _current_guide(url, code='IT-SW-001'):
+def _current_guide(url, code='IT-SW-001', fmt='md'):
     """현행 가이드 하나 (file_path 는 절대 경로: 사례 파일은 tmp 저장 루트에, 기준 파일은 저장소에)."""
     with connect(url) as conn:
         doc = conn.execute("insert into knowledge_documents (doc_code, doc_type, title, category_code) "
@@ -142,7 +222,7 @@ def _current_guide(url, code='IT-SW-001'):
             return have[0]
         vid = conn.execute("insert into document_versions (document_id, version, file_path, view_scope, transfer_policy, "
                            "is_current, ingest_status) values (%s, 'v2.0', %s, 'ALL', 'ALLOWED', false, 'PENDING') returning id",
-                           (doc, str(REPO / guide_file(code)))).fetchone()[0]
+                           (doc, str(REPO / guide_file(code, fmt)))).fetchone()[0]
         conn.commit()
         assert ingest_version(conn, vid, EMB)['status'] == 'DONE'
         activate(conn, vid)
@@ -194,14 +274,15 @@ def test_end_to_end_searchable_after_approval(url, tmp_path):
         assert any(c['ticket_id'] == tid and c['doc_code'] == 'IT-SW-001' for c in candidates(conn, 'SW'))
         d = draft(conn, tid, files_root=tmp_path)
         assert (d.doc_code, d.version, d.section_no, d.draft_version_id) == ('IT-SW-001', 'v2.1', '3.8', None)
-        out = register(conn, d, d.md, None, tmp_path)
+        out = register(conn, d, d.md, None, tmp_path, **POLICY)
         assert out['file_path'] == f'{CASE_DIR.as_posix()}/IT-SW-001/v2.1_TK-E2E-1.md'
         assert (tmp_path / out['file_path']).read_text(encoding='utf-8') == d.md
         res = ingest_version(conn, out['version_id'], EMB, tmp_path)
         assert res['status'] == 'DONE' and res['activated'] is False
         assert all(c['ticket_id'] != tid for c in candidates(conn))            # 등록한 티켓은 후보에서 빠진다
     st = version(url, out['version_id'])
-    assert st[:5] == ('DONE', None, False, 'ALL', 'ALLOWED')                    # 정책은 현행 값
+    assert st[:5] == ('DONE', None, False, 'ALL', 'ALLOWED')                    # 정책은 관리자가 고른 값
+    assert not any('현행(' in w for w in out['warnings'])                       # 현행과 같으면 경고 없음
     query = next(c.text for c in items(d.md) if c.section_no == '3.8')
     assert ('IT-SW-001', 'v2.1', '3.8') not in _search(url, query)              # 초안은 검색에 안 나온다
     with connect(url) as conn:
@@ -219,19 +300,39 @@ def test_second_case_continues_draft_and_duplicate_refused(url, tmp_path):
     a, b = _ticket(url, 'TK-C-1', code='SW-03'), _ticket(url, 'TK-C-2', code='SW-03', summary='실행하면 바로 꺼짐')
     with connect(url) as conn:
         d1 = draft(conn, a, files_root=tmp_path)
-        v1 = register(conn, d1, d1.md, None, tmp_path)['version_id']
+        v1 = register(conn, d1, d1.md, None, tmp_path, **POLICY)['version_id']
         assert ingest_version(conn, v1, EMB, tmp_path)['status'] == 'DONE'
         with pytest.raises(CaseGuideError, match='이미 IT-SW-003에 반영'):
             draft(conn, a, files_root=tmp_path)
         d2 = draft(conn, b, files_root=tmp_path)
         assert (d2.version, d2.draft_version_id) == (d1.version, v1) and '(TK-C-1)' in d2.base_md
         assert any('이어서' in w for w in d2.warnings)
-        out = register(conn, d2, d2.md, None, tmp_path)
+        out = register(conn, d2, d2.md, None, tmp_path, **POLICY)
         assert out['version_id'] == v1 and out['file_path'].endswith('_TK-C-2.md')
         assert ingest_version(conn, v1, EMB, tmp_path)['status'] == 'DONE'
         sections = [m['section_no'] for (m,) in conn.execute(
             "select meta from document_chunks where version_id = %s and chunk_type = 'ITEM' and part = 1 order by seq", (v1,))]
     assert sections[-2:] == [d1.section_no, d2.section_no]
+
+
+@needs_db
+def test_register_uses_chosen_policy(url, tmp_path):
+    """docs/10 1.3: 해결 사례를 Guide 로 쓸 때 정책은 관리자가 고른다. 현행과 다르면 경고, 이어 쓰기도 고른 값으로 바꾼다.
+    없는 값은 파일을 쓰기 전에 거부한다."""
+    _current_guide(url, 'IT-HW-002')
+    a, b = _ticket(url, 'TK-P-1', code='HW-05'), _ticket(url, 'TK-P-2', code='HW-05', summary='교체 신청 뒤 연락 없음')
+    with connect(url) as conn:
+        d1 = draft(conn, a, files_root=tmp_path)
+        with pytest.raises(CaseGuideError, match='없는 값입니다: 전송 정책 OPEN'):
+            register(conn, d1, d1.md, None, tmp_path, view_scope='ALL', transfer_policy='OPEN')
+        assert not (tmp_path / CASE_DIR).exists()
+        out = register(conn, d1, d1.md, None, tmp_path, view_scope='AGENT', transfer_policy='BLOCKED')
+        assert any('현행(ALL·ALLOWED)과 다르게 AGENT·BLOCKED' in w for w in out['warnings'])
+        assert version(url, out['version_id'])[3:5] == ('AGENT', 'BLOCKED')
+        d2 = draft(conn, b, files_root=tmp_path)                                 # 같은 초안에 이어 쓰기
+        again = register(conn, d2, d2.md, None, tmp_path, view_scope='ADMIN', transfer_policy='MASKED')
+    assert again['version_id'] == out['version_id']                              # 초안 값·현행 값 어느 쪽도 아닌 고른 값
+    assert version(url, out['version_id'])[3:5] == ('ADMIN', 'MASKED')
 
 
 @needs_db
@@ -241,9 +342,9 @@ def test_register_refuses_stale_draft(url, tmp_path):
     a, b = _ticket(url, 'TK-S-1', code='SW-02'), _ticket(url, 'TK-S-2', code='SW-02')
     with connect(url) as conn:
         da, db = draft(conn, a, files_root=tmp_path), draft(conn, b, files_root=tmp_path)
-        register(conn, da, da.md, None, tmp_path)
+        register(conn, da, da.md, None, tmp_path, **POLICY)
         with pytest.raises(CaseGuideError, match='그새 생겼습니다'):
-            register(conn, db, db.md, None, tmp_path)
+            register(conn, db, db.md, None, tmp_path, **POLICY)
     assert not list((tmp_path / CASE_DIR / 'IT-SW-002').glob('*TK-S-2*'))      # 거부하면 파일도 안 남는다
 
 
@@ -257,6 +358,49 @@ def test_draft_refuses_unresolved(url, tmp_path, kw, msg):
 
 
 @needs_db
+def test_reopened_ticket_warns_without_text(url, tmp_path, capsys):
+    """다시 처리(FIN→WIP)된 접수는 횟수·이력 위치만 경고하고, 앞선 처리 결과·남은 증상 원문은 경고·본문·초안 정보에 넣지 않는다.
+
+    ITSSUE·JIRA 어느 쪽에서 온 이력이든 세고, 다른 티켓의 이력은 섞지 않는다. 명령 draft 출력에도 나온다 (PR #269 검수 3).
+    """
+    from app.rag.case_guide.__main__ import main
+    _current_guide(url, 'IT-NET-003')                                        # 다른 시험의 사례 초안이 없는 가이드
+    note = '1. 스위치 포트를 바꿨습니다\n2. 다시 연결했습니다'
+    once, twice = _ticket(url, 'TK-RO-0', code='NET-03', note=note), _ticket(url, 'TK-RO-2', code='NET-03', note=note)
+    old = ['OLD_FIX_A_MARK', 'OLD_FIX_B_MARK', 'LEFT_SYMPTOM_1_MARK', 'LEFT_SYMPTOM_2_MARK']
+    with connect(url) as conn:
+        steps = [(None, 'RDY', 'JIRA', None, None), ('RDY', 'WIP', 'ITSSUE', None, None),
+                 ('WIP', 'FIN', 'ITSSUE', None, old[0]), ('FIN', 'WIP', 'ITSSUE', old[2], None),
+                 ('WIP', 'FIN', 'JIRA', None, old[1]), ('FIN', 'WIP', 'JIRA', old[3], None),       # Jira 에서 되돌림
+                 ('WIP', 'FIN', 'ITSSUE', None, note), ('FIN', 'CLS', 'ITSSUE', None, None)]
+        for frm, to, source, reason, result in steps:
+            conn.execute('insert into ticket_status_history (ticket_id, from_status, to_status, source, reason, '
+                         'resolution_note) values (%s, %s, %s, %s, %s, %s)', (twice, frm, to, source, reason, result))
+        for frm, to in [(None, 'RDY'), ('RDY', 'WIP'), ('WIP', 'FIN'), ('FIN', 'CLS')]:
+            conn.execute("insert into ticket_status_history (ticket_id, from_status, to_status, source) "
+                         "values (%s, %s, %s, 'ITSSUE')", (once, frm, to))
+        conn.commit()
+        plain = draft(conn, once, files_root=tmp_path)                       # 다른 티켓(twice)의 되돌림은 안 센다
+        again = draft(conn, twice, files_root=tmp_path)
+    assert not any('다시 처리' in w for w in plain.warnings)
+    want = (f'다시 처리된 접수입니다 (재처리 2회). 앞선 처리 결과·남은 증상은 TK-RO-2의 TK-08 이력(티켓 {twice})에서 '
+            '확인하세요. 본문에는 마지막 처리 결과만 넣었습니다')
+    assert [w for w in again.warnings if '다시 처리' in w] == [want]
+    assert '스위치 포트를 바꿨습니다' in again.md                                # 본문은 마지막 처리 결과 그대로
+    saved = tmp_path / 'again.json'
+    again.save(saved)
+    assert Draft.load(saved).warnings == again.warnings                       # 저장했다 불러도 경고가 남는다
+    for text in ['\n'.join(again.warnings), again.md, saved.read_text(encoding='utf-8')]:
+        assert not any(m in text for m in old)                                # 앞선 처리 결과·남은 증상 원문 없음
+    out = tmp_path / 'again.md'
+    assert main(['--database-url', url, '--files-root', str(tmp_path), 'draft', '--ticket', str(twice),
+                 '--out', str(out)]) == 0
+    printed = capsys.readouterr().out
+    assert f'[경고] {want}' in printed and not any(m in printed for m in old)
+    assert not any(m in Path(f'{out}.json').read_text(encoding='utf-8') for m in old)
+
+
+@needs_db
 def test_cli(url, tmp_path, capsys):
     from app.rag.case_guide.__main__ import main
     _current_guide(url, 'IT-HW-001')
@@ -266,15 +410,19 @@ def test_cli(url, tmp_path, capsys):
     assert main([*base, 'candidates']) == 0 and 'TK-CLI-1 [HW-01] → IT-HW-001' in capsys.readouterr().out
     out = tmp_path / 'case.md'
     assert main([*base, 'draft', '--ticket', str(tid), '--out', str(out)]) == 0
-    assert '새 항목' in capsys.readouterr().out
+    text = capsys.readouterr().out
+    assert '새 항목' in text and '현행 정책: 열람 범위 ALL · 전송 정책 ALLOWED' in text   # 관리자가 고를 때 참고
     assert Path(f'{out}.json').exists()
-    assert main([*base, 'register', '--file', str(out), '--embedder', 'fake']) == 0
+    with pytest.raises(SystemExit):                                              # 정책은 반드시 고른다 (docs/10 1.3)
+        main([*base, 'register', '--file', str(out), '--embedder', 'fake'])
+    capsys.readouterr()
+    assert main([*base, 'register', '--file', str(out), '--embedder', 'fake', *POLICY_ARGS]) == 0
     text = capsys.readouterr().out
     assert '적재: DONE' in text and '승인(현행 전환) 전에는' in text
     assert main([*base, 'draft', '--ticket', str(tid)]) == 1 and '이미 IT-HW-001에 반영' in capsys.readouterr().out
     bare = tmp_path / 'bare.md'
     bare.write_text(out.read_text(encoding='utf-8'), encoding='utf-8')
-    assert main([*base, 'register', '--file', str(bare), '--embedder', 'fake']) == 2   # 초안 정보 없이는 등록 안 됨
+    assert main([*base, 'register', '--file', str(bare), '--embedder', 'fake', *POLICY_ARGS]) == 2   # 초안 정보 없이는 등록 안 됨
 
 
 # ── 검수 반영 (작업대/검수/M2-3-2_리뷰.md) ──────────────────────
@@ -287,7 +435,7 @@ def test_append_while_old_ingest_runs_keeps_latest(url, tmp_path):
     b = _ticket(url, 'TK-RACE-B', code='NET-02', note='SECOND_CASE_UNIQUE_FIX 사내망 다시 연결')
     with connect(url) as conn:
         first = draft(conn, a, files_root=tmp_path)
-        vid = register(conn, first, first.md, None, tmp_path)['version_id']
+        vid = register(conn, first, first.md, None, tmp_path, **POLICY)['version_id']
     newer = {}
 
     class Racing:
@@ -297,7 +445,7 @@ def test_append_while_old_ingest_runs_keeps_latest(url, tmp_path):
             if not newer:
                 with connect(url) as other:
                     second = draft(other, b, files_root=tmp_path)
-                    newer.update(register(other, second, second.md, None, tmp_path))
+                    newer.update(register(other, second, second.md, None, tmp_path, **POLICY))
             return EMB.embed_documents(texts)
 
     with connect(url) as conn:
@@ -321,9 +469,9 @@ def test_cli_old_md_cannot_erase_other_case(url, tmp_path, capsys):
     fa, fb = tmp_path / 'a.md', tmp_path / 'b.md'
     assert main([*base, 'draft', '--ticket', str(a), '--out', str(fa)]) == 0
     assert main([*base, 'draft', '--ticket', str(b), '--out', str(fb)]) == 0
-    assert main([*base, 'register', '--file', str(fb), '--embedder', 'fake']) == 0
+    assert main([*base, 'register', '--file', str(fb), '--embedder', 'fake', *POLICY_ARGS]) == 0
     capsys.readouterr()
-    assert main([*base, 'register', '--file', str(fa), '--embedder', 'fake']) == 1
+    assert main([*base, 'register', '--file', str(fa), '--embedder', 'fake', *POLICY_ARGS]) == 1
     assert '그새 생겼습니다' in capsys.readouterr().out
     with connect(url) as conn:
         path, = conn.execute("select v.file_path from document_versions v join knowledge_documents d on d.id = v.document_id "
@@ -349,7 +497,7 @@ def test_receipt_prefix_is_not_duplicate(url, tmp_path):
     ten, one = _ticket(url, 'TK-PREFIX-10', code='ACC-01'), _ticket(url, 'TK-PREFIX-1', code='ACC-01')
     with connect(url) as conn:
         d = draft(conn, ten, files_root=tmp_path)
-        register(conn, d, d.md, None, tmp_path)
+        register(conn, d, d.md, None, tmp_path, **POLICY)
         d1 = draft(conn, one, files_root=tmp_path)
     assert d1.draft_version_id is not None and receipts(d1.md) == {'TK-PREFIX-10', 'TK-PREFIX-1'}
 
@@ -372,6 +520,7 @@ def test_all_guides_take_a_case():
     """57종 가이드 md 모두: 항목 하나 늘고 새 번호가 맞고, 사라진 줄은 버전 표기뿐 (검수에서 확인한 것을 시험으로)."""
     files = sorted(f for f in GUIDES.rglob('IT-*.md'))
     assert len(files) == 57
+    table_rows = 0
     for f in files:
         base = f.read_text(encoding='utf-8')
         version = re.search(r'^version:\s*"?([^"\n]+)', base, re.M).group(1)
@@ -379,6 +528,8 @@ def test_all_guides_take_a_case():
         before, after = items(base), items(md)
         assert len(after) == len(before) + 1 and after[-1].section_no == section, f.name
         assert all(version in line for line in set(base.splitlines()) - set(md.splitlines())), f.name
+        table_rows += f.parent.name == 'guide' and bool(re.search(rf'^\| {re.escape(section)} \|', md, re.M))
+    assert table_rows == 27                                  # 임직원용 가이드 27종 모두 3장 항목 표에 한 줄
 
 
 def test_markdown_in_ticket_text_stays_inside_item():
@@ -386,6 +537,56 @@ def test_markdown_in_ticket_text_stays_inside_item():
     d, _ = make(symptom=payload, resolution_note=payload)
     assert len(items(d.md)) == len(items(BASE)) + 1 and items(d.md)[-1].inquiry_type_codes == ['SW-01']
     assert check(d, d.md, [])[0] == []
+
+
+@pytest.mark.parametrize('fmt', ['docx', 'pptx', 'pdf'])
+def test_non_md_current_is_converted(fmt):
+    """현행이 md 가 아니면 가이드 md 로 바꿔 기준으로 쓴다 (경고 한 줄). 사례를 넣으면 항목이 하나 늘고 원래 항목은 그대로."""
+    warnings = []
+    base = _base_md(REPO / guide_file('IT-SW-001', fmt), 'IT-SW-001', warnings)
+    assert len(warnings) == 1 and f'현행 파일이 {fmt} 라 md 로' in warnings[0]
+    md, section = add_case(base, ticket_row(), 'v2.1', TODAY, [])
+    assert section == '3.8' and [c.text for c in items(base)] == [c.text for c in items(md)][:-1]
+    assert [c.section_no for c in items(base)] == [c.section_no for c in items(BASE)]
+
+
+def test_non_md_current_with_preface_keeps_it():
+    """첫 장 앞에 서문(덧붙인 표)이 있는 비md 현행: 바꾼 기준 md 에 서문이 남고, 사례를 넣어도 서문·목차·새 항목이 맞다."""
+    doc = parse(str(REPO / guide_file('IT-SW-001', 'docx')))
+    first = next(i for i, e in enumerate(doc.elements) if e.kind == 'heading' and e.level == 1)
+    doc.elements.insert(first, Element('table', rows=[['안내', '서문 시험 PREFACE-777']]))
+    base = to_guide_md(doc)
+    md, section = add_case(base, ticket_row(), 'v2.1', TODAY, [])
+    chunks = _parse_text(md)[1]
+    assert chunks[0].chunk_type == 'preface' and 'PREFACE-777' in chunks[0].body
+    assert md.index('PREFACE-777') < md.index('## 목차')
+    assert section == '3.8' and re.search(r'^  - 3\.7 .*\n  - 3\.8 설치가', md, re.M)
+    assert [c.text for c in items(base)] == [c.text for c in items(md)][:-1]
+
+
+def test_unreadable_current_refused(tmp_path):
+    bad = tmp_path / 'x.pdf'
+    bad.write_bytes(b'not a pdf')
+    with pytest.raises(CaseGuideError, match='읽지 못했습니다'):
+        _base_md(bad, 'IT-SW-001', [])
+
+
+@needs_db
+@pytest.mark.parametrize('code, fmt', [('IT-NET-002', 'docx'), ('IT-SEC-001', 'pptx'), ('IT-SYS-001', 'pdf')])
+def test_non_md_current_end_to_end(url, tmp_path, code, fmt):
+    """현행이 docx·pptx·pdf 인 가이드: 초안(md) → 등록(md 파일) → 적재 DONE, 새 항목이 청크에 있다.
+    가이드는 이 파일의 다른 시험이 초안을 만들지 않는 것 (같은 DB 에 승인 전 초안이 있으면 그 초안에 이어 쓴다)."""
+    _current_guide(url, code, fmt)
+    tid = _ticket(url, f'TK-FMT-{fmt}')
+    with connect(url) as conn:
+        d = draft(conn, tid, doc_code=code, files_root=tmp_path)
+        assert any(f'현행 파일이 {fmt} 라' in w for w in d.warnings)
+        out = register(conn, d, d.md, None, tmp_path, **POLICY)
+        assert out['file_path'].endswith('.md')
+        assert ingest_version(conn, out['version_id'], EMB, tmp_path)['status'] == 'DONE'
+        keys = [k for (k,) in conn.execute("select unit_key from document_chunks where version_id = %s "
+                                           "and chunk_type = 'ITEM'", (out['version_id'],))]
+    assert f'{code}@{d.version}/item:{d.section_no}' in keys
 
 
 def test_draft_save_load(tmp_path):

@@ -80,8 +80,9 @@ class TicketRepository:
         sort: list[tuple[str, bool]],
         offset: int,
         limit: int,
-    ) -> tuple[list[tuple[Ticket, User, Category | None, SupportGroup | None, User | None]], int]:
-        """requester_id: 그 사람이 문의한 접수만. member_id: 그 사람이 활성 구성원인 활성 그룹의 접수만."""
+    ) -> tuple[list[tuple[Ticket, User, Category | None, SupportGroup | None, User | None]], int, dict[str | None, int]]:
+        """requester_id: 그 사람이 문의한 접수만. member_id: 그 사람이 활성 구성원인 활성 그룹의 접수만.
+        세 번째 값은 업무 상태 조건만 뺀 업무 상태별 건수."""
         conditions = []
         if requester_id is not None:
             conditions.append(Inquiry.user_id == requester_id)
@@ -92,8 +93,6 @@ class TicketRepository:
                 .where(SupportGroupMember.user_id == member_id, SupportGroupMember.is_active.is_(True),
                        SupportGroup.is_active.is_(True))
             ))
-        if work_statuses:
-            conditions.append(Ticket.work_status.in_(work_statuses))
         if jira_sync_statuses:
             conditions.append(Ticket.jira_sync_status.in_(jira_sync_statuses))
         if assign_statuses:
@@ -119,6 +118,13 @@ class TicketRepository:
                 Ticket.summary.icontains(q, autoescape=True),
             ))
 
+        status_counts = dict(self.db.execute(
+            select(Ticket.work_status, func.count()).join(Inquiry, Inquiry.id == Ticket.inquiry_id)
+            .where(*conditions).group_by(Ticket.work_status)
+        ).all())
+        if work_statuses:
+            conditions.append(Ticket.work_status.in_(work_statuses))
+
         base = select(Ticket.id).join(Inquiry, Inquiry.id == Ticket.inquiry_id).where(*conditions)
         total = self.db.scalar(select(func.count()).select_from(base.subquery()))
         order_by = [
@@ -137,7 +143,7 @@ class TicketRepository:
             .offset(offset)
             .limit(limit)
         )
-        return [tuple(row) for row in rows], total
+        return [tuple(row) for row in rows], total, status_counts
 
     def assignment_logs(self, ticket_id: int) -> list[tuple[AssignmentLog, SupportGroup | None, User | None, User | None]]:
         """(이력, 그룹, 담당자, 실행자). 오래된 것부터."""
@@ -156,6 +162,15 @@ class TicketRepository:
             select(IntegrationJob).where(IntegrationJob.ticket_id == ticket_id)
             .order_by(IntegrationJob.created_at, IntegrationJob.id)
         ))
+
+    def has_reopened(self, ticket_id: int) -> bool:
+        return self.db.scalar(
+            select(TicketStatusHistory.id).where(
+                TicketStatusHistory.ticket_id == ticket_id,
+                TicketStatusHistory.from_status == "FIN",
+                TicketStatusHistory.to_status == "WIP",
+            ).limit(1)
+        ) is not None
 
     def status_history(self, ticket_id: int) -> list[tuple[TicketStatusHistory, User | None]]:
         rows = self.db.execute(

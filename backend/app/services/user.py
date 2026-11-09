@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, get_args
 
 from fastapi import Depends
 from sqlalchemy.exc import IntegrityError
@@ -13,8 +13,9 @@ from app.repositories.auth_session import AuthSessionRepositoryDep
 from app.repositories.user import UserRepositoryDep
 from app.utils import datetime_utils
 from app.schemas.auth import DepartmentRef, Me, SupportGroupMembership
-from app.schemas.common import Page, parse_sort
+from app.schemas.common import CountedPage, parse_sort
 from app.schemas.user import (
+    AccountStatus,
     User as UserDetail,
     TemporaryPasswordResponse,
     UserCreateRequest,
@@ -60,8 +61,8 @@ class UserService:
             ],
         )
 
-    def list_users(self, query: UserListQuery) -> Page[UserSummary]:
-        rows, total = self.users.search(
+    def list_users(self, query: UserListQuery) -> CountedPage[UserSummary]:
+        rows, total, status_counts = self.users.search(
             q=query.q or None,
             department_id=query.department_id,
             service_roles=query.service_role,
@@ -84,7 +85,7 @@ class UserService:
             )
             for user, department in rows
         ]
-        return Page.of(items, query.page, query.size, total)
+        return CountedPage.counted(items, query.page, query.size, total, status_counts, get_args(AccountStatus))
 
     def create_user(self, body: UserCreateRequest, actor: User) -> UserCreateResponse:
         self.check_department(body.department_id)

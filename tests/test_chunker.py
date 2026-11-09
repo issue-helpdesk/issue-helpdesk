@@ -51,7 +51,10 @@ def test_item_chunk():
     assert {'신청 방법', '작성 예시', '문의 시 알려 주실 정보'} <= set(c.subheadings)
     assert c.inquiry_type_codes == ['SW-02'] and c.faq_ids == ['FAQ-023']
     assert c.handling == '신청·승인 후 처리' and c.team == '엔드포인트지원팀'
-    assert c.images == ['sw002_license_form.png']
+    assert c.images == [{'key': 'SW/IT-SW-002_3.1-1.png', 'caption': '그림 3.1-1. 라이선스 요청서'}]
+    keys = lambda fmt: [i['key'] for x in chunks_of('IT-SW-002', fmt)[1] for i in x.images]
+    assert keys('docx') == keys('pptx') == keys('md')          # 이름표는 문서 번호 + 그림 번호, 형식은 문서 안 그림 (사본·청크 대조는 test_guide_images)
+    assert keys('pdf') == []                                   # pdf 는 그림 형식을 몰라 넣지 않는다
     assert (c.doc_no, c.version, c.access_level, c.category, c.doc_type) == ('IT-SW-002', 'v2.0', '사내 일반', 'SW', 'guide')
 
 

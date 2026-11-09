@@ -35,7 +35,7 @@ export type WorkStatus = 'RDY' | 'WIP' | 'FIN' | 'CLS'
 /** 배정 상태 (tickets.assign_status) */
 export type AssignStatus = 'PENDING' | 'ASSIGNED' | 'NEEDS_ADMIN'
 
-/** Jira 연동 상태 (tickets.jira_sync_status) */
+/** ITSM 연동 상태 (tickets.jira_sync_status) */
 export type JiraSyncStatus = 'PENDING' | 'VERIFYING' | 'SYNCED' | 'NEEDS_ADMIN'
 
 /** 답변에 붙는 근거 Guide 출처. 문의 화면·로그인 전 상담·FAQ 가 같은 형태를 쓴다. */
@@ -44,11 +44,21 @@ export interface GuideSource {
   docCode: string
   /** 문서 제목 */
   title: string
+  /** 서버 문서 ID (FAQ 수정 때 연결된 출처를 미리 고르는 데 쓴다) */
+  documentId?: number
   /** 문서 버전 (document_versions.version, 예: v2) */
   version: string
   section: string
   /** 출처 미리보기에 보여 줄 요약 */
   excerpt: string
+  /** 본문의 `[그림] 설명` 줄에 대응하는 그림 (설명이 같은 것끼리 짝지어 보여 준다). 서버 모드에서만 온다 */
+  images?: GuideImageRef[]
+}
+
+/** 가이드 그림 (DC-11 `GET /guide-images/{key}` 로 받는다) */
+export interface GuideImageRef {
+  key: string
+  caption: string
 }
 
 /** 도입 이전 처리 이력(읽기 전용) 참고 표시 */
@@ -80,6 +90,17 @@ export interface ChatReply {
 /** 메시지에 붙는 카드 종류 */
 export type ChatCard = 'draft' | 'ticket' | 'savefail'
 
+/** AI 가 되묻는 추가 질문 한 개 (docs/api/02 Question) */
+export interface ChatQuestion {
+  /** 답을 글로 묶을 때 붙이는 이름 (예: 상황). 이 칸이 생기기 전에 저장된 질문은 null */
+  label: string | null
+  text: string
+  /** 선택지. 비어 있으면 입력칸으로만 답한다 */
+  options: string[]
+  /** 선택지와 함께 직접 입력도 받는지. 옛 질문은 false 지만 선택지가 없으면 입력칸을 막지 않는다 */
+  allowText: boolean
+}
+
 export interface ChatMessage {
   id: number
   /** user=문의자, assistant=AI, staff=담당자, sys=시스템 안내 */
@@ -104,6 +125,13 @@ export interface ChatMessage {
   kind?: string
   /** 메시지 시각 (ISO 8601) */
   createdAt?: string
+  /** AI 추가 질문 (선택칩·입력). 없거나 비어 있으면 일반 답변 */
+  questions?: ChatQuestion[]
+  /** 지금 답할 수 있는 질문인지: 마지막 메시지가 이 AI 메시지이고 문의가 진행 중(IN_PROGRESS)·추가 질문(ASK_MORE)일 때. 아니면 읽기 전용 */
+  questionsOpen?: boolean
+  /** 서버가 저장한 접수 초안 카드의 초안과 상태 (R-29). 접수·취소 뒤에도 카드가 남아 읽기 전용으로 보인다 */
+  draft?: Draft
+  draftState?: DraftState
   /** sys 메시지의 색: sens=민감정보 가림 안내(분홍), warn=보안 사고 안내(노랑). 없으면 기본 안내 */
   tone?: 'sens' | 'warn'
 }
@@ -120,7 +148,7 @@ export interface Draft {
   /** 업무 영향 (business_impact) */
   businessImpact: string
   triedActions: string
-  /** AI 안내 요약. DB 컬럼 없이 Jira 접수 내용에만 넣는다. */
+  /** AI 안내 요약. DB 컬럼 없이 ITSM 접수 내용에만 넣는다. */
   aiSummary: string
   urgency: Urgency
   /** 긴급도 근거. DB urgency_reason 에는 줄바꿈으로 합쳐 저장한다. */
@@ -151,9 +179,11 @@ export type DraftState = 'view' | 'confirmed' | 'cancel'
 
 /** 접수된 Ticket 중 문의자에게 보이는 정보 */
 export interface Ticket {
+  /** 서버 접수 ID (tickets.id). 접수 이후 해결·미해결(TK-07)을 보낼 때 쓴다. 모의에는 없다 */
+  id?: number
   /** 접수번호 RCPT-#### */
   receiptNo: string
-  /** Jira 이슈 키 ITHD-####. 생성 전에는 null */
+  /** ITSM 이슈 키 ITHD-####. 생성 전에는 null */
   jiraKey: string | null
   title: string
   categoryCode: CategoryCode | null
@@ -162,7 +192,7 @@ export interface Ticket {
   groupName: string
   assigneeId: number | null
   assigneeName: string | null
-  /** 업무 상태. Jira 생성 직후 RDY, Jira 생성 전에는 null */
+  /** 업무 상태. ITSM 생성 직후 RDY, ITSM 생성 전에는 null */
   workStatus: WorkStatus | null
   /** 배정 여부는 업무 상태와 따로 나타낸다 */
   assignStatus: AssignStatus
@@ -177,6 +207,8 @@ export interface Ticket {
   resolutionNote: string
   /** 담당자가 추가 정보를 요청해 문의자의 답변을 기다리는 중 */
   needReply: boolean
+  /** 상태 변경(해결 확인 등)을 서버가 받았고 ITSM 에 반영하는 중. 이때는 같은 요청을 다시 보내지 않는다 (서버는 409) */
+  transitionPending?: boolean
 }
 
 export interface Inquiry {
@@ -192,6 +224,8 @@ export interface Inquiry {
   createdAt?: string
   /** 최근 활동 시각 (ISO 8601). '어제' 같은 표시는 화면에서 계산한다. */
   updatedAt: string
+  /** 읽어 온 메시지 중 마지막 AI 답변의 ID (서버 모드). 새 답변 점의 "확인한 값"으로 쓴다 */
+  lastAiMessageId?: number | null
   messages: ChatMessage[]
   draft: Draft | null
   draftState: DraftState

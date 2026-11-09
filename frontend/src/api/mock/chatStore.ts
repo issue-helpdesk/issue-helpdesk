@@ -11,7 +11,7 @@ import type { CategoryCode, ChatMessage, Inquiry, Ticket } from '../chatTypes'
 /** 문의 수집 단계에서 모으는 항목 (순서대로 묻는다) */
 export type IntakeKey = 'targetSystem' | 'summary' | 'onset' | 'businessImpact' | 'triedActions'
 
-export interface Intake {
+interface Intake {
   targetSystem?: string
   summary?: string
   onset?: string
@@ -26,7 +26,7 @@ export interface Intake {
 }
 
 /** 응답에 포함되지 않는 엔진 내부 상태 */
-export interface Internal {
+interface Internal {
   /** 문의자 사번 (users.employee_no) */
   owner: string
   ownerName: string
@@ -51,7 +51,7 @@ interface Record_ {
 export const mockConfig = {
   /** 답변 준비 중 표시 시간(ms) */
   typingMs: 1100,
-  /** Jira 번호 생성·담당자 배정·처리 시작 같은 접수 이후 단계 간격의 배율 (0 이면 즉시) */
+  /** ITSM 번호 생성·담당자 배정·처리 시작 같은 접수 이후 단계 간격의 배율 (0 이면 즉시) */
   pipelineScale: 1,
   /** 접수 후 담당자 처리 시작~결과 등록까지 시연용으로 자동 진행할지 */
   autoRun: true,

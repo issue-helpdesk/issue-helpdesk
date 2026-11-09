@@ -8,7 +8,7 @@
 .card h4{font-size:15px;font-weight:600;line-height:22px}
 .dl{display:grid;grid-template-columns:104px minmax(0,1fr);gap:8px 12px;font-size:13.5px;margin-top:12px}
 .dl dt{color:var(--mute);line-height:22px}.dl dd{margin:0;line-height:22px}
-.composer-wrap{flex:none;padding:30px 32px 20px;background:var(--glow)}
+.composer-wrap{flex:none;padding:30px 32px 20px;background:var(--glow)} /* 아래 여백을 넉넉히(54px) 두어 입력창이 화면 맨 아래에 붙어 보이지 않게 한다 */
 .stepper{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:0;margin-top:14px}
 .stepper .st{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;font-size:12.5px;min-width:0;padding:0 2px}
 .stepper .st b{font-weight:600;line-height:16px}.stepper .st small{font-size:12px;color:var(--mute);line-height:14px}
@@ -59,6 +59,9 @@
 /* AI 답변 도착: 말풍선이 6px 아래에서 올라온다 (새 답변에만) */
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .msg.a.rise .body{animation:rise .18s var(--ease) both}
+/* 내가 보낸 말풍선: 오른쪽 아래에서 튀어나온다 (방금 보낸 것만) */
+.msg.u.rise-u{transform-origin:100% 100%;animation:uin .32s var(--ease) backwards}
+@keyframes uin{from{opacity:0;transform:translateY(10px) scale(.9)}}
 @media (prefers-reduced-motion:reduce){
   .stepper .st.cur .n::before,.stepper .st.cur .n::after,.stepper .st.done.chg .n,.stepper .st:last-child.done.chg .n,.msg.a.rise .body{animation:none}
   .stepper .st:last-child.done.chg .n .i path{animation:drawck .3s var(--ease) .12s forwards;stroke-dashoffset:0}.stepper .st .n .sp{display:none;background:#F0508C}
@@ -83,11 +86,14 @@
 .rdlg p{margin:6px 0 16px;font-size:13.5px;line-height:21px;color:var(--mute)}
 .rdlg .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 /* 선택 창이 처음 뜰 때와 단계가 바뀔 때: 뒤는 160ms 페이드, 창은 가운데에서 살짝 튀며 커진다 (한 번) */
-.ov.rs{animation:rdbg .16s linear both}
-.modal.rdlg,.modal.pwm{animation:rdpop .28s cubic-bezier(.34,1.56,.64,1) both}
+.ov,.ov.rs{animation:rdbg .16s linear both}
+.modal,.modal.rdlg,.modal.pwm{animation:rdpop .28s cubic-bezier(.34,1.56,.64,1) both}
+/* 닫힐 때(ui/Modal.tsx 가 복제해 둔 창): 배경은 페이드아웃, 창은 살짝 내려가며 작아진다 */
+.ov.leaving{pointer-events:none;animation:none}
+.ov.leaving .modal{animation:none}
 @keyframes rdbg{from{opacity:0}to{opacity:1}}
 @keyframes rdpop{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.ov.rs,.modal.rdlg,.modal.pwm{animation:none}}
+@media (prefers-reduced-motion:reduce){.ov,.ov.rs,.modal,.modal.rdlg,.modal.pwm,.msg.u.rise-u{animation:none}}
 /* 끝난·이어갈 수 있는 문의의 잠긴 입력창: 입력창 전체가 "이어가기 선택 열기" 버튼 자리가 된다 */
 .cmpw{position:relative;max-width:760px;margin:0 auto}.cmpw .composer{max-width:none}
 .cmp-hit{position:absolute;inset:0;border:0;background:transparent;border-radius:24px;cursor:pointer}.cmp-hit:focus-visible{outline:2px solid var(--o600);outline-offset:2px}
@@ -103,3 +109,28 @@
 @supports not selector(::-webkit-scrollbar){.modal{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--mute) 45%,transparent) transparent}}
 .modal.pwm{gap:10px;padding:20px 24px 18px}
 .pwm .pfl{display:flex;align-items:center;gap:14px}.pwm .pfl .pf{width:52px;height:52px;border-radius:50%;background:var(--osurf);color:var(--o700);font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}.pwm .pws{border-top:1px solid var(--line);padding-top:12px}
+/* 긴급도 칩 다크 테마 (시안 .pri-p*) */
+:root[data-theme="dark"] .pri-p1{box-shadow:inset 0 0 0 1px #7A2E2A}:root[data-theme="dark"] .pri-p2{box-shadow:inset 0 0 0 1px #7A5A1E}:root[data-theme="dark"] .pri-p3{background:#2B2342;color:#D5CDEA}:root[data-theme="dark"] .pri-p4{color:#B7ADD2;box-shadow:inset 0 0 0 1px #4B4468}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pri-p1{box-shadow:inset 0 0 0 1px #7A2E2A}:root:not([data-theme="light"]) .pri-p2{box-shadow:inset 0 0 0 1px #7A5A1E}:root:not([data-theme="light"]) .pri-p3{background:#2B2342;color:#D5CDEA}:root:not([data-theme="light"]) .pri-p4{color:#B7ADD2;box-shadow:inset 0 0 0 1px #4B4468}}
+
+/* AI 추가 질문 (선택칩·입력): AI 본문 아래에 질문마다 한 묶음. 지난 질문은 흐리게 읽기 전용 */
+.qf{display:flex;flex-direction:column;gap:22px;margin-top:12px;max-width:560px}
+.qf-q{border:0;margin:0;padding:0;min-width:0;display:flex;flex-direction:column;gap:0}
+.qf-q legend{padding:0;margin:0 0 6px;font-size:14px;font-weight:600;color:var(--ink);line-height:1.5;float:left;width:100%}
+.qf-q legend+*{clear:both}
+.qf-opts{display:flex;flex-wrap:wrap;gap:8px}
+.qf-opts{margin-top:2px}
+/* 글자가 칸의 가운데에 오도록 위 5px · 아래 7px (전역 글자 보정 규칙보다 앞서야 해서 !important) */
+.qf-opts .chip{white-space:normal;text-align:left;height:auto;min-height:36px;padding-top:5px!important;padding-bottom:7px!important}
+.qf-in{margin-top:8px}
+.qf-in{width:100%;max-width:560px}
+.qf-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.qf.past{opacity:.7}
+.qf.past .qf-q legend{font-weight:500;color:var(--ink2)}
+/* 지난 질문에서 내가 고른 칸: 흐림은 같고 칸만 색 있는 선 */
+.qf.past .chip.picked{background:var(--osoft);box-shadow:inset 0 0 0 1.5px var(--o600);color:var(--link);font-weight:600}
+.qf-was{margin-top:6px;color:var(--ink2)}
+/* 질문에 다 답하지 않고 입력창으로 보내려 할 때 */
+.composer.err{box-shadow:inset 0 0 0 2px var(--s-urg-dot),0 12px 40px rgba(143,29,82,.14)}
+.cmperr{max-width:760px;margin:6px auto 0;padding-left:14px}
+.qf .chip[disabled]{cursor:default}

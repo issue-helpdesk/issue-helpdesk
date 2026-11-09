@@ -37,6 +37,15 @@ BULLET_RE = re.compile(r'^\s*([•·▪◦‣\-–]|[①-⑳]|\d{1,2}[.)](?=\s))
 NUM_RE = re.compile(r'(?:^|·\s*)(\d{1,2}(?:\.\d{1,2})*)(\.)?\s+\S')
 CHAPTER_RE = re.compile(r'^(?:0(\d)\s+|(\d{1,2})\.?\s+(?=\D))(.+)$')   # '04 7개 분류…'처럼 0 붙은 번호는 늘 장 번호
 CAPTION_RE = re.compile(r'^그림\s*[\d.-]+')
+FIGURE_NO_RE = re.compile(r'^그림\s*(\d+(?:\.\d+)*-\d+)(?=[.\s]|$)')   # 그림 설명의 그림 번호 ('그림 3.1-1. …' → 3.1-1)
+IMAGE_EXTS = ('png', 'jpg')                        # 그림 이름표로 쓰는 형식 (그림 API DC-11 이 받는 형식)
+
+
+def image_ext(name: str) -> str:
+    """그림 형식 = 확장자 (소문자, 점 없이, jpeg → jpg). png·jpg 가 아니거나 모르면 ''. 그림 이름표의 확장자로 쓴다."""
+    ext = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
+    ext = 'jpg' if ext == 'jpeg' else ext
+    return ext if ext in IMAGE_EXTS else ''
 _SPACE_RE = re.compile(r'[ \t 　]+')
 _CTRL_RE = re.compile(r'[\x00-\x08\x0c\x0e-\x1f​﻿]')       # 글꼴에 없는 글자가 \x00 으로 나오는 PDF 등
 
@@ -217,12 +226,15 @@ def _kv_props(cells: list[str]):
 
 
 def qa_tables(doc: ParsedDocument) -> None:
-    """'질문 | 답변' 표를 'Q. …' · 'A. …' 문단으로 바꾼다 (.md 와 같은 모양)."""
+    """'질문 | 답변' 표를 'Q. …' · 'A. …' 문단으로 바꾼다 (.md 와 같은 모양). 형식과 상관없이 finalize 에서 돈다.
+    질문 칸의 줄바꿈만 빈칸으로 잇는다: 질문은 한 문장이고, 줄 넘김으로 '(FAQ-004)' 가 다음 줄로 밀리면 FAQ 묶음 키·
+    문의 유형 코드를 못 읽는다 (pptx 칸). 답변 칸은 일부러 나눈 줄(명령·절차)과 칸 폭 줄 넘김을 구분할 수 없어 그대로 둔다."""
     out = []
     for e in doc.elements:
         if e.kind == 'table' and e.rows and [c.strip() for c in e.rows[0]] == ['질문', '답변']:
             for r in e.rows[1:]:
                 if len(r) >= 2:
+                    r = [' '.join(r[0].split()), *r[1:]]
                     q = r[0][2:].strip() if r[0].startswith('Q.') else r[0]
                     out.append(Element('paragraph', f'Q. {q}', page=e.page))
                     out.append(Element('paragraph', f'A. {r[1]}', page=e.page))

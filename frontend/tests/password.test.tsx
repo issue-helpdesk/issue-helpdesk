@@ -117,17 +117,18 @@ describe('임시 비밀번호 직후', () => {
 })
 
 describe('내 프로필', () => {
-  it('사이드바의 이름 영역으로 열고 ✕ 로 닫으며, 닫으면 그 버튼으로 초점이 돌아간다', async () => {
+  it('오른쪽 위 사용자 메뉴의 "내 프로필"로 열고 ✕ 로 닫으며, 닫으면 메뉴 버튼으로 초점이 돌아간다', async () => {
     const user = userEvent.setup()
     tokenStore.set('mock.EMP-1001')
     renderApp('/new')
-    const open = await screen.findByRole('button', { name: '내 프로필 열기' }, SLOW)
+    const open = await screen.findByRole('button', { name: '내 메뉴' }, SLOW)
     await user.click(open)
+    await user.click(screen.getByRole('menuitem', { name: '내 프로필' }))
     const dialog = await screen.findByRole('dialog', { name: '내 프로필' })
     expect(dialog).toHaveTextContent('이태윤')
     expect(dialog).toHaveTextContent('EMP-1001')
     expect(dialog).toHaveTextContent('개발1팀')
-    expect(dialog).toHaveTextContent('마지막 변경 후 38일')
+    expect(dialog).not.toHaveTextContent('마지막 변경 후')
     // 입력칸은 [변경]을 눌러야 펼쳐진다
     expect(within(dialog).queryByLabelText('현재 비밀번호')).not.toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: '변경' }))

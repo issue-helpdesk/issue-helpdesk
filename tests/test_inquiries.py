@@ -44,7 +44,7 @@ from test_flow_correct import DOC, QUOTE
 INQUIRIES = "/api/v1/inquiries"
 INQUIRY_TABLES = TABLES + ["categories", "inquiry_types", "inquiries", "chat_sessions", "messages",
                            "ticket_drafts", "tickets", "knowledge_documents", "document_versions",
-                           "legacy_inquiries", "message_sources", "inquiry_assessments", "llm_calls"]
+                           "document_chunks", "legacy_inquiries", "message_sources", "inquiry_assessments", "llm_calls"]
 VPN = "어제 업데이트 이후로 VPN 접속이 안 돼요.\n재택 중이라 업무를 못 하고 있습니다."
 FACTS = {"summary": "업데이트 이후 VPN 접속 불가", "target_system": "사내 VPN", "symptom": None, "occurred_at": "어제",
          "impact_scope": "PERSONAL", "work_stopped": "full", "has_workaround": None, "time_constraint": None,
@@ -155,13 +155,13 @@ def start(client, headers, content=VPN, key="key-1"):
     return client.post(INQUIRIES, json={"content": content}, headers={**headers, "Idempotency-Key": key})
 
 
-def add_ticket(db, inquiry_id, group_id=None, work_status=None):
+def add_ticket(db, inquiry_id, group_id=None, work_status=None, assign_status="ASSIGNED"):
     session_id = db.scalar(select(ChatSession.id).where(ChatSession.inquiry_id == inquiry_id))
     draft = TicketDraft(inquiry_id=inquiry_id, session_id=session_id, status="CONFIRMED")
     db.add(draft)
     db.flush()
     ticket = Ticket(receipt_no=f"RCPT-{inquiry_id:04d}", draft_id=draft.id, inquiry_id=inquiry_id, session_id=session_id,
-                    summary="VPN 접속 불가", group_id=group_id, jira_sync_status="SYNCED", assign_status="ASSIGNED",
+                    summary="VPN 접속 불가", group_id=group_id, jira_sync_status="SYNCED", assign_status=assign_status,
                     work_status=work_status)
     db.add(ticket)
     db.commit()
@@ -224,6 +224,45 @@ def test_start_inquiry_keeps_user_message_when_ai_fails(client, db, headers, ai)
     assert [m.sender for m in db.scalars(select(Message))] == ["USER"]
 
 
+def test_ai_failure_keeps_default_title_in_list(client, db, headers, ai):
+    """AI 가 실패해도 목록에 '새 문의' 대신 사용자 글로 만든 제목이 보인다 (R-37)."""
+    ai.broken = True
+    start(client, headers)
+
+    item = client.get(INQUIRIES, headers=headers).json()["items"][0]
+
+    assert item["title"] == "어제 업데이트 이후로 VPN 접속이 안 돼요."
+
+
+def test_default_title_uses_masked_text(client, db, headers, ai):
+    """가리기 전 값이 제목에 남지 않는다."""
+    ai.broken = True
+    res = client.post(INQUIRIES, json={"content": "비밀번호는 Abc123! 인데 로그인이 안 돼요"},
+                      headers={**headers, "Idempotency-Key": "masked-title"})
+
+    assert res.status_code == 503
+    title = db.scalar(select(Inquiry.title))
+    assert "Abc123!" not in title and "●" in title
+
+
+def test_default_title_is_shortened(client, db, headers, ai):
+    ai.broken = True
+    client.post(INQUIRIES, json={"content": "\n\n  " + "가" * 100 + "\n둘째 줄"},
+                headers={**headers, "Idempotency-Key": "long-title"})
+
+    assert db.scalar(select(Inquiry.title)) == "가" * 39 + "…"
+
+
+def test_model_error_replaces_default_title_with_safe_title(client, db, headers, ai, taxonomy):
+    """판단이 남으면 AI 제목 자리의 값으로 바꾼다. 이 값은 Jira 로 나가므로 사용자 글을 남기지 않는다."""
+    ai.replies = [LLMError("TIMEOUT")]
+
+    res = start(client, headers)
+
+    assert res.status_code == 201
+    assert res.json()["inquiry"]["title"] == "IT 문의 (자동 분류 실패)"
+
+
 def test_start_inquiry_requires_login(client):
     assert client.post(INQUIRIES, json={"content": VPN}, headers={"Idempotency-Key": "k"}).status_code == 401
 
@@ -272,7 +311,7 @@ def test_answer_after_search(client, db, headers, ai, taxonomy):
     assert saved.ai_output["action"] == "ANSWER"
     assert body["assessment"] == {"missingItems": [], "urgentSignal": False, "categoryCode": "NET",
                                   "inquiryTypeId": vpn.id, "urgency": saved.urgency,
-                                  "urgencyReason": saved.urgency_reason, "action": "ANSWER"}
+                                  "urgencyReason": saved.urgency_reason, "action": "ANSWER", "questions": []}
 
 
 def test_urgency_rule_reason_is_saved(client, db, headers, ai, taxonomy):
@@ -344,6 +383,119 @@ def test_unanswered_questions_reach_limit(client, db, headers, ai, taxonomy):
 
     assert body["inquiry"]["action"] == "ESCALATE"
     assert "ASK_MORE_UNANSWERED" in [o["rule"] for o in assessments(db)[-1].override_reasons]
+
+
+# ---------------------------------------------------------------- 추가 질문 (questions)
+
+SITUATION = {"text": "어떤 상황인가요?", "options": ["접속 오류", "그 밖의 상황"]}
+SCREEN = {"text": "화면에 뜨는 메시지가 있나요?", "options": []}
+
+
+def shown(question):
+    """label·allow_text 가 없는 질문의 응답 모양."""
+    return {"label": None, "allowText": False, **question}
+
+
+def asking(*questions, **fields):
+    return ai_reply(reply="몇 가지 여쭤볼게요.", questions=list(questions), **fields)
+
+
+def message_list(client, headers, inquiry_id, **params):
+    return client.get(f"{INQUIRIES}/{inquiry_id}/messages", params=params, headers=headers).json()["items"]
+
+
+def test_questions_in_turn_and_message_list(client, headers, ai, taxonomy):
+    ai.replies = [asking(SITUATION, SCREEN)]
+
+    body = start(client, headers).json()
+
+    assert body["assessment"]["questions"] == [shown(SITUATION), shown(SCREEN)]
+    assert [m["questions"] for m in body["messages"]] == [[], [shown(SITUATION), shown(SCREEN)]]
+    assert message_list(client, headers, body["inquiry"]["id"]) == body["messages"]
+
+
+def test_each_message_keeps_its_own_questions(client, headers, ai, taxonomy):
+    ai.replies = [asking(SITUATION)]
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    ai.replies = [asking(SCREEN)]
+
+    body = send(client, headers, inquiry_id, content="접속 오류", key="k-2").json()
+
+    assert body["assessment"]["questions"] == [shown(SCREEN)]
+    assert [(m["sender"], m["questions"]) for m in message_list(client, headers, inquiry_id)] == [
+        ("USER", []), ("AI", [shown(SITUATION)]), ("USER", []), ("AI", [shown(SCREEN)])]
+
+
+def test_session_filter_keeps_question_pairs(client, db, headers, ai, taxonomy):
+    """세션으로 거른 목록에서도 짝은 문의 전체 순서로 찾는다."""
+    ai.replies = [asking(SITUATION)]
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    first = db.scalar(select(ChatSession).where(ChatSession.inquiry_id == inquiry_id))
+    first.ended_at = datetime_utils.now()
+    second = ChatSession(inquiry_id=inquiry_id)
+    db.add(second)
+    db.commit()
+    ai.replies = [asking(SCREEN)]
+    send(client, headers, inquiry_id, content="접속 오류", key="k-2")
+
+    filtered = message_list(client, headers, inquiry_id, sessionId=second.id)
+
+    assert [(m["sender"], m["questions"]) for m in filtered] == [("USER", []), ("AI", [shown(SCREEN)])]
+
+
+def test_questions_empty_when_ask_more_became_escalate(client, db, headers, ai, taxonomy):
+    """ai_output 에 질문이 남아 있어도 최종 판단이 담당자 연결이면 주지 않는다."""
+    ai.replies = [asking(SITUATION, urgent_signal=True)]
+
+    body = start(client, headers).json()
+
+    assert body["inquiry"]["action"] == "ESCALATE"
+    assert assessments(db)[0].ai_output["questions"][0]["text"] == SITUATION["text"]
+    assert body["assessment"]["questions"] == []
+    assert message_list(client, headers, body["inquiry"]["id"])[-1]["questions"] == []
+
+
+def test_stored_questions_are_capped_like_the_turn(client, headers, ai, taxonomy):
+    long = {"text": "어떤 상황인가요?", "options": ["가", "나", "다", "라", "마", "그 밖의 상황"]}
+    ai.replies = [asking(long, long, long, long)]
+
+    body = start(client, headers).json()
+
+    assert len(body["assessment"]["questions"]) == 3
+    assert body["assessment"]["questions"][0]["options"] == ["가", "나", "다", "라", "그 밖의 상황"]
+    assert message_list(client, headers, body["inquiry"]["id"])[-1]["questions"] == body["assessment"]["questions"]
+
+
+def test_stored_question_label_and_allow_text_reach_the_screen(client, db, headers, ai, taxonomy):
+    """합의된 새 모양(label·allow_text). 저장값은 snake_case, 응답은 camelCase 다."""
+    ai.replies = [asking(SITUATION)]
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    saved = assessments(db)[0]
+    saved.ai_output = saved.ai_output | {"questions": [
+        {"label": "상황", "text": "어떤 상황인가요?", "options": ["집에서 자주 끊겨요"], "allow_text": True}]}
+    db.commit()
+
+    assert message_list(client, headers, inquiry_id)[-1]["questions"] == [
+        {"label": "상황", "text": "어떤 상황인가요?", "options": ["집에서 자주 끊겨요"], "allowText": True}]
+
+
+def test_questions_empty_for_saved_output_without_questions(client, db, headers, ai, taxonomy):
+    """questions 가 생기기 전에 저장된 판단."""
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    saved = assessments(db)[0]
+    saved.ai_output = {k: v for k, v in saved.ai_output.items() if k != "questions"}
+    db.commit()
+
+    assert message_list(client, headers, inquiry_id)[-1]["questions"] == []
+
+
+def test_questions_empty_when_messages_and_assessments_do_not_pair(client, db, headers, ai, taxonomy):
+    ai.replies = [asking(SITUATION)]
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    db.delete(assessments(db)[0])
+    db.commit()
+
+    assert [m["questions"] for m in message_list(client, headers, inquiry_id)] == [[], []]
 
 
 def test_history_and_collected_facts_are_sent(client, db, headers, ai, taxonomy):
@@ -542,6 +694,28 @@ def test_display_status_follows_ticket(client, db, headers, work_status, display
 
     assert body["displayStatus"] == display
     assert body["ticket"] == {"id": ticket.id, "receiptNo": ticket.receipt_no, "jiraKey": None, "workStatus": work_status}
+
+
+@pytest.mark.parametrize("assign_status, display", [
+    ("PENDING", "received"), ("NEEDS_ADMIN", "received"), ("ASSIGNED", "assigned"),
+])
+def test_display_status_of_ready_ticket_waits_for_assignment(client, db, headers, assign_status, display):
+    """R-34. RDY 는 Jira 접수가 끝났다는 뜻이라, 담당자가 정해지기 전에는 접수로 보인다."""
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    add_ticket(db, inquiry_id, work_status="RDY", assign_status=assign_status)
+
+    assert client.get(f"{INQUIRIES}/{inquiry_id}", headers=headers).json()["displayStatus"] == display
+
+
+@pytest.mark.parametrize("work_status", ["WIP", "FIN", "CLS"])
+def test_display_status_after_work_started_ignores_assign_status(client, db, headers, work_status):
+    """R-34 는 RDY 만 바꾼다. 이미 진행된 접수는 배정 상태가 어떻든 업무 상태를 따른다."""
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    add_ticket(db, inquiry_id, work_status=work_status, assign_status="PENDING")
+
+    shown = client.get(f"{INQUIRIES}/{inquiry_id}", headers=headers).json()["displayStatus"]
+
+    assert shown == {"WIP": "progress", "FIN": "awaiting_confirm", "CLS": "resolved"}[work_status]
 
 
 def test_get_inquiry_not_found(client, headers):
@@ -745,8 +919,61 @@ def test_list_messages_source_fields(client, headers, answered):
 
     ai = next(m for m in res.json()["items"] if m["sender"] == "AI")
     source = ai["sources"][0]
-    assert set(source) == {"id", "sourceKind", "docCode", "version", "location", "excerpt", "rank"}
+    assert set(source) == {"id", "sourceKind", "docCode", "version", "location", "excerpt", "rank", "images"}
     assert (source["location"], source["excerpt"], source["rank"]) == ("3.2", "업데이트 후 접속 불가", 1)
+
+
+def add_source(db, **fields):
+    source = MessageSource(message_id=db.scalar(select(Message.id).where(Message.seq == 2)), **fields)
+    db.add(source)
+    db.commit()
+    return source
+
+
+def add_piece(db, **fields):
+    return add_source(db, source_kind="DOCUMENT", doc_code="IT-NET-001", version="v1.0", **fields)
+
+
+def ai_sources(client, headers, inquiry_id):
+    res = client.get(f"{INQUIRIES}/{inquiry_id}/messages", headers=headers)
+    return next(m for m in res.json()["items"] if m["sender"] == "AI")["sources"]
+
+
+def guide_sources(sources):
+    return [s for s in sources if s["docCode"] == "IT-NET-001"]
+
+
+def test_sources_merge_pieces_of_same_location(client, db, headers, answered):
+    """R-44: 조각마다 저장돼 있어도 본문이 같으면 한 항목, 본문은 한 번만."""
+    add_piece(db, location="3.2", excerpt="업데이트 후 접속 불가", rank=1)
+    add_piece(db, location="3.2", excerpt="업데이트 후 접속 불가", rank=1)
+
+    merged = guide_sources(ai_sources(client, headers, answered))
+
+    assert [(s["location"], s["excerpt"], s["rank"]) for s in merged] == [("3.2", "업데이트 후 접속 불가", 1)]
+
+
+def test_sources_keep_every_different_excerpt_of_same_location(client, db, headers, answered):
+    """같은 위치에 다른 본문이 있으면 앞선 순위부터 이어 붙이고, 순위는 가장 앞선 값을 쓴다."""
+    add_piece(db, location="3.2", excerpt="다른 단위의 본문", rank=5)
+
+    merged = guide_sources(ai_sources(client, headers, answered))
+
+    assert [(s["excerpt"], s["rank"]) for s in merged] == [("업데이트 후 접속 불가\n\n다른 단위의 본문", 1)]
+
+
+def test_sources_of_different_location_stay_apart(client, db, headers, answered):
+    add_piece(db, location="3.3", excerpt="다음 항목", rank=5)
+
+    assert [s["location"] for s in guide_sources(ai_sources(client, headers, answered))] == ["3.2", "3.3"]
+
+
+def test_sources_do_not_merge_legacy_cases(client, db, headers, answered):
+    legacy = db.scalar(select(LegacyInquiry))
+    add_source(db, source_kind="LEGACY", legacy_inquiry_id=legacy.id, excerpt="재설치 후 정상", rank=5)
+
+    assert [s["excerpt"] for s in ai_sources(client, headers, answered) if s["sourceKind"] == "LEGACY"] == [
+        "재설치 후 정상", "재설치 후 정상"]
 
 
 def test_list_messages_of_other_user_is_not_found(client, db, headers):
@@ -794,9 +1021,59 @@ def test_list_shows_only_own_inquiries(client, db, owner, headers):
     assert ids(res) == [mine.id]
     item = res.json()["items"][0]
     assert set(item) == {"id", "user", "title", "status", "displayStatus", "category", "urgency", "receiptNo",
-                         "createdAt", "updatedAt"}
+                         "lastAiMessageId", "createdAt", "updatedAt"}
     assert item["user"] == {"id": owner.id, "employeeNo": "E0001", "name": "김민지"}
     assert res.json()["totalCount"] == 1
+
+
+def ai_ids(db, inquiry_id):
+    return list(db.scalars(select(Message.id).join(ChatSession, ChatSession.id == Message.session_id)
+                           .where(ChatSession.inquiry_id == inquiry_id, Message.sender == "AI").order_by(Message.id)))
+
+
+def test_list_last_ai_message_id_follows_new_answer(client, db, headers):
+    """R-45: 새 AI 답변이 저장되면 값이 바뀐다."""
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    first = listed(client, headers).json()["items"][0]["lastAiMessageId"]
+    assert first == ai_ids(db, inquiry_id)[-1]
+
+    assert send(client, headers, inquiry_id, content="접속 오류", key="k-2").status_code == 201
+
+    latest = listed(client, headers).json()["items"][0]["lastAiMessageId"]
+    assert latest == ai_ids(db, inquiry_id)[-1] and latest != first
+
+
+def test_list_last_ai_message_id_ignores_failed_answer(client, db, headers, ai):
+    """R-45: 사용자 글만 저장되고 AI 가 실패하면 값이 그대로다."""
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    before = listed(client, headers).json()["items"][0]["lastAiMessageId"]
+    ai.broken = True
+
+    send(client, headers, inquiry_id, content="접속 오류", key="k-2")
+
+    assert listed(client, headers).json()["items"][0]["lastAiMessageId"] == before
+
+
+def test_list_last_ai_message_id_is_null_without_answer(client, db, owner, headers):
+    add_inquiry(db, owner)
+
+    assert listed(client, headers).json()["items"][0]["lastAiMessageId"] is None
+
+
+def test_list_last_ai_message_id_is_per_inquiry_across_sessions(client, db, owner, headers):
+    """문의마다 따로 보고, 이전 세션의 답변만 있어도 값이 나온다."""
+    older, newer = add_inquiry(db, owner), add_inquiry(db, owner)
+    session_of = {row.inquiry_id: row.id for row in db.scalars(select(ChatSession))}
+    db.add(Message(session_id=session_of[older.id], seq=1, sender="AI", content="이전 세션 답변"))
+    db.commit()
+    db.scalars(select(ChatSession).where(ChatSession.inquiry_id == older.id)).one().ended_at = datetime_utils.now()
+    db.add(ChatSession(inquiry_id=older.id))
+    db.add(Message(session_id=session_of[newer.id], seq=1, sender="USER", content="사용자 글"))
+    db.commit()
+
+    found = {item["id"]: item["lastAiMessageId"] for item in listed(client, headers).json()["items"]}
+
+    assert found == {older.id: ai_ids(db, older.id)[-1], newer.id: None}
 
 
 def test_admin_lists_all_and_filters_by_user(client, db, owner):
@@ -860,6 +1137,55 @@ def test_list_display_status_matches_detail(client, headers, every_state):
                                    "progress", "awaiting_confirm", "resolved"])
 def test_list_filters_by_display_status(client, headers, every_state, shown):
     assert ids(listed(client, headers, displayStatus=shown)) == [every_state[shown]]
+
+
+ONE_OF_EACH = {"in_progress": 1, "unconfirmed": 1, "ai_resolved": 1, "unresolved": 1, "received": 1, "assigned": 1,
+               "progress": 1, "awaiting_confirm": 1, "resolved": 1}
+
+
+def test_list_status_counts_ignore_display_status_filter(client, headers, every_state):
+    """R-46: 탭 하나로 걸러도 다른 탭의 숫자가 그대로 나온다."""
+    body = listed(client, headers, displayStatus="received").json()
+
+    assert body["totalCount"] == 1
+    assert body["statusCounts"] == ONE_OF_EACH
+
+
+def test_list_status_counts_apply_other_filters(client, headers, every_state):
+    body = listed(client, headers, status="RECEIVED").json()
+
+    assert body["statusCounts"] == {**dict.fromkeys(ONE_OF_EACH, 0), "received": 1}
+
+
+def test_list_status_counts_are_own_inquiries_only(client, db, headers, every_state):
+    add_inquiry(db, add_user(db, "E0002"), status="RECEIVED")
+
+    assert listed(client, headers).json()["statusCounts"] == ONE_OF_EACH
+
+
+def test_list_status_counts_follow_assignment_for_ready_ticket(client, db, owner, headers):
+    """배정 전 RDY 는 목록 표시와 같이 received 로 센다."""
+    waiting = add_inquiry(db, owner, status="HANDED_OFF")
+    add_ticket(db, waiting.id, work_status="RDY", assign_status="PENDING")
+
+    counts = listed(client, headers).json()["statusCounts"]
+
+    assert (counts["received"], counts["assigned"]) == (1, 0)
+
+
+def test_list_and_filter_follow_assignment_for_ready_ticket(client, db, owner, headers):
+    """R-34. 같은 RDY 접수라도 배정 전·후가 목록 값과 필터에서 상세와 똑같이 갈린다."""
+    waiting = add_inquiry(db, owner, status="HANDED_OFF")
+    add_ticket(db, waiting.id, work_status="RDY", assign_status="PENDING")
+    done = add_inquiry(db, owner, status="HANDED_OFF")
+    add_ticket(db, done.id, work_status="RDY", assign_status="ASSIGNED")
+
+    shown = {item["id"]: item["displayStatus"] for item in listed(client, headers, size=100).json()["items"]}
+    assert shown == {waiting.id: "received", done.id: "assigned"}
+    assert ids(listed(client, headers, displayStatus="received")) == [waiting.id]
+    assert ids(listed(client, headers, displayStatus="assigned")) == [done.id]
+    for inquiry_id, display in shown.items():
+        assert client.get(f"{INQUIRIES}/{inquiry_id}", headers=headers).json()["displayStatus"] == display
 
 
 def test_list_filters_by_status_category_and_urgency(client, db, owner, headers):
@@ -965,11 +1291,13 @@ def test_resolved_closes_inquiry(client, db, headers, ai):
     assert (body["inquiry"]["status"], body["inquiry"]["displayStatus"]) == ("AI_RESOLVED", "ai_resolved")
     assert body["inquiry"]["resolutionResult"] == "RESOLVED"
     assert body["inquiry"]["closedAt"] is not None
-    assert [(m["sender"], m["content"]) for m in body["messages"]] == [("SYSTEM", "해결로 종료되었습니다.")]
+    assert [(m["sender"], m["kind"], m["code"], m["content"]) for m in body["messages"]] == [
+        ("USER", "CHOICE", "RESOLVED", None),
+    ]
     assert (body["assessment"], body["nextActions"]) == (None, ["START_NEW"])
     session = db.scalar(select(ChatSession))
     assert session.ended_at is not None and session.end_reason == "USER_END"
-    assert saved_messages(db)[2:] == [(3, "SYSTEM", "해결로 종료되었습니다.")]      # RESOLVED 의 comment 는 저장하지 않는다
+    assert saved_messages(db)[2:] == [(3, "USER", None)]                         # RESOLVED 의 comment 는 저장하지 않는다
     assert len(ai.adapters) == 1                                                   # 첫 답변 때만 불렀다
 
 
@@ -983,21 +1311,22 @@ def test_unresolved_keeps_inquiry_open_and_offers_handoff(client, db, headers, a
     assert (body["inquiry"]["status"], body["inquiry"]["resolutionResult"]) == ("IN_PROGRESS", "UNRESOLVED")
     assert body["inquiry"]["displayStatus"] == "in_progress"
     assert body["nextActions"] == ["DECIDE_HANDOFF"]
-    message, notice = body["messages"]
-    assert (message["seq"], message["sender"]) == (3, "USER")
+    choice, message, mask_notice = body["messages"]
+    assert (choice["seq"], choice["sender"], choice["kind"], choice["code"]) == (3, "USER", "CHOICE", "UNRESOLVED")
+    assert (message["seq"], message["sender"], message["kind"]) == (4, "USER", "TEXT")
     assert "Abc123!@" not in message["content"] and message["content"].endswith("여전히 안 돼요")
-    assert (notice["seq"], notice["sender"]) == (4, "SYSTEM")                    # 가림 안내
+    assert (mask_notice["seq"], mask_notice["sender"], mask_notice["kind"]) == (5, "SYSTEM", "NOTICE")
     assert db.scalar(select(ChatSession.ended_at)) is None
     assert len(ai.adapters) == 1
 
 
-def test_unresolved_without_comment_saves_no_message(client, db, headers):
+def test_unresolved_without_comment_saves_only_choice(client, db, headers):
     inquiry_id = started(client, db, headers)
 
     res = resolve(client, headers, inquiry_id, "UNRESOLVED")
 
-    assert res.json()["messages"] == []
-    assert len(saved_messages(db)) == 2
+    assert [(m["kind"], m["code"]) for m in res.json()["messages"]] == [("CHOICE", "UNRESOLVED")]
+    assert len(saved_messages(db)) == 3
 
 
 def test_resolved_again_returns_current_inquiry(client, db, headers):
@@ -1173,3 +1502,69 @@ def test_resume_only_by_owner(client, db, headers):
     add_user(db, "E0002", service_role="ADMIN")
 
     assert error_code(resume(client, bearer(login(client, "E0002")), inquiry_id)) == "INQUIRY_NOT_FOUND"
+
+
+# ------------------------------------------------------------------ IQ-10
+
+
+def get_assessments(client, headers, inquiry_id):
+    return client.get(f"{INQUIRIES}/{inquiry_id}/assessments", headers=headers)
+
+
+def test_assessments_show_ai_output_and_overrides(client, db, ai, headers, taxonomy):
+    add_user(db, "E0009", service_role="ADMIN")
+    admin = bearer(login(client, "E0009"))
+    ai.replies = [ANSWER]
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    saved = db.scalar(select(InquiryAssessment).where(InquiryAssessment.inquiry_id == inquiry_id))
+    saved.override_reasons = [{"field": "urgency", "ai": "P3", "final": "P2", "rule": "SEC_MIN_P2", "reason": "최소 P2"}]
+    db.commit()
+
+    res = get_assessments(client, admin, inquiry_id)
+
+    assert res.status_code == 200
+    (item,) = res.json()["items"]
+    assert (item["id"], item["inquiryId"], item["action"], item["urgency"]) == (saved.id, inquiry_id, saved.action, saved.urgency)
+    assert item["inquiryTypeId"] == taxonomy[2].id
+    assert item["missingItems"] == []
+    assert item["overrideReasons"] == [{"field": "urgency", "ai": "P3", "final": "P2", "rule": "SEC_MIN_P2", "reason": "최소 P2"}]
+    assert item["createdAt"].endswith("+09:00")
+    assert item["aiOutput"]["categoryCode"] == saved.ai_output["category_code"]
+    assert item["aiOutput"]["inquiryTypeCode"] == "NET-02"
+    assert "category_code" not in item["aiOutput"]
+    assert "targetSystem" in item["facts"] and "target_system" not in item["facts"]
+
+
+def test_assessments_in_order_and_keeps_empty_values(client, db, ai, headers, owner):
+    add_user(db, "E0009", service_role="ADMIN")
+    admin = bearer(login(client, "E0009"))
+    inquiry = Inquiry(user_id=owner.id, status="IN_PROGRESS")
+    db.add(inquiry)
+    db.flush()
+    db.add_all([InquiryAssessment(inquiry_id=inquiry.id, ai_output=None, facts=None, missing_items=None, override_reasons=[]),
+                InquiryAssessment(inquiry_id=inquiry.id, action="ASK_MORE", override_reasons=[])])
+    db.commit()
+
+    (first, second) = get_assessments(client, admin, inquiry.id).json()["items"]
+
+    assert (first["aiOutput"], first["facts"], first["missingItems"], first["action"]) == (None, None, [], None)
+    assert second["action"] == "ASK_MORE"
+
+
+def test_assessments_not_found(client, db, ai, headers):
+    add_user(db, "E0009", service_role="ADMIN")
+    res = get_assessments(client, bearer(login(client, "E0009")), 999)
+    assert (res.status_code, error_code(res)) == (404, "INQUIRY_NOT_FOUND")
+
+
+@pytest.mark.parametrize("role", ["EMPLOYEE", "AGENT"])
+def test_assessments_admin_only(client, db, ai, headers, taxonomy, role):
+    """문의자 본인이나 담당자에게도 내부 판단은 보여 주지 않는다."""
+    ai.replies = [ANSWER]
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    if role == "EMPLOYEE":
+        res = get_assessments(client, headers, inquiry_id)
+    else:
+        add_user(db, "E0002", service_role="AGENT")
+        res = get_assessments(client, bearer(login(client, "E0002")), inquiry_id)
+    assert (res.status_code, error_code(res)) == (403, "FORBIDDEN")

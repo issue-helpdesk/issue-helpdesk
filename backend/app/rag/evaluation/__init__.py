@@ -6,7 +6,7 @@
   항목 머리 문의 유형에 그 시나리오가 있는 단위로 단위 적중
 
 검색기는 바꿔 끼운다: BM25(메모리, DB·모델 없이) / 실제 검색 search() / DB 벡터(적재된 청크 벡터를 읽고 질문만 임베딩).
-분류·긴급도·처리 방향 채점은 판단 흐름(M4-2)이 붙은 뒤 더한다.
+분류·긴급도·처리 방향·팀 채점은 judgment.py (M2-4-1, 판단 흐름 run_flow 로).
 """
 from __future__ import annotations
 
@@ -286,6 +286,8 @@ def hits_from_response(resp) -> list[Hit]:
 def db_vector_rows(database_url: str, model_id: str, role: str = 'AGENT') -> tuple[list[tuple[str, str, list[float]]], dict]:
     """적재된 청크 벡터와 단위별 묶기 키(sha1(본문), 전송 정책)를 읽는다 (읽기 전용).
 
+    전송 정책은 검색 API와 같이 매뉴얼 항목 값(content_transfer_policy)이 있으면 그 값, 없으면 버전 값이다.
+
     검색 API와 같은 조인 조건: 활성 문서, 현행·DONE 버전, 열람 범위. 연결 오류 메시지에 주소가 섞이지 않게 감싼다.
     """
     import psycopg
@@ -298,7 +300,8 @@ def db_vector_rows(database_url: str, model_id: str, role: str = 'AGENT') -> tup
         conn.read_only = True
         register_vector(conn)
         rows = conn.execute(
-            """select ch.unit_key, d.doc_code, e.embedding, ch.part, ch.content, v.transfer_policy
+            """select ch.unit_key, d.doc_code, e.embedding, ch.part, ch.content,
+                      coalesce(ch.content_transfer_policy, v.transfer_policy)
                  from document_chunk_embeddings e
                  join document_chunks ch on ch.id = e.chunk_id
                  join document_versions v on v.id = ch.version_id

@@ -5,7 +5,7 @@
  * `VITE_USE_MOCK_AUTH`(없으면 `VITE_USE_MOCK`)가 true(기본)이면 서버 없이 가짜 계정으로 동작한다.
  */
 import { request, setTokenRefresher, sleep } from '../core/apiClient'
-import { SERVICEDESK, USE_MOCK_AUTH } from '../core/config'
+import { HELPDESK, USE_MOCK_AUTH } from '../core/config'
 import { tokenStore } from '../core/tokenStore'
 import {
   addFail,
@@ -47,7 +47,7 @@ async function mockLogin(req: LoginRequest, skipPassword = false): Promise<ApiRe
   if (acc && acc.accountStatus === 'LOCKED') {
     return fail(
       'AUTH_ACCOUNT_LOCKED',
-      `로그인 ${MAX_FAILS}회 실패로 잠긴 계정이에요. 약 ${minutesLeft(acc.employeeNo)}분 후 자동으로 해제돼요. 급하면 서비스데스크로 문의해 주세요. (${SERVICEDESK})`,
+      `로그인 ${MAX_FAILS}회 실패로 잠긴 계정이에요. 약 ${minutesLeft(acc.employeeNo)}분 후 자동으로 해제돼요. 급하면 ${HELPDESK}로 문의해 주세요.`,
       { lockedUntil: lockedUntilIso(acc.employeeNo) },
     )
   }
@@ -56,7 +56,7 @@ async function mockLogin(req: LoginRequest, skipPassword = false): Promise<ApiRe
     // 정상 계정이 연속으로 5회 틀리면 잠근다
     if (acc && acc.accountStatus === 'ACTIVE' && addFail(acc.employeeNo) >= MAX_FAILS) {
       lockAccount(acc)
-      return fail('AUTH_ACCOUNT_LOCKED', `로그인 ${MAX_FAILS}회 실패로 계정이 잠겼어요. 10분 후 자동으로 해제돼요. 급하면 서비스데스크로 문의해 주세요. (${SERVICEDESK})`, {
+      return fail('AUTH_ACCOUNT_LOCKED', `로그인 ${MAX_FAILS}회 실패로 계정이 잠겼어요. 10분 후 자동으로 해제돼요. 급하면 ${HELPDESK}로 문의해 주세요.`, {
         lockedUntil: lockedUntilIso(acc.employeeNo),
       })
     }
@@ -64,7 +64,7 @@ async function mockLogin(req: LoginRequest, skipPassword = false): Promise<ApiRe
   }
 
   if (acc.accountStatus === 'INACTIVE') {
-    return fail('AUTH_ACCOUNT_INACTIVE', `이용이 제한된 계정이에요. 서비스데스크로 문의해 주세요. (${SERVICEDESK})`)
+    return fail('AUTH_ACCOUNT_INACTIVE', `이용이 제한된 계정이에요. ${HELPDESK}로 문의해 주세요.`)
   }
 
   clearFails(acc.employeeNo) // 로그인에 성공하면 연속 실패 기록을 지운다
@@ -126,12 +126,12 @@ const fromMe = (m: ServerMe): User => ({
 function friendlyLoginError(r: ApiFail): ApiFail {
   const { code, details } = r.error
   if (code === 'AUTH_INVALID_CREDENTIALS') return fail(code, '사번 또는 비밀번호를 확인해 주세요.')
-  if (code === 'AUTH_ACCOUNT_INACTIVE') return fail(code, `이용이 제한된 계정이에요. 서비스데스크로 문의해 주세요. (${SERVICEDESK})`)
+  if (code === 'AUTH_ACCOUNT_INACTIVE') return fail(code, `이용이 제한된 계정이에요. ${HELPDESK}로 문의해 주세요.`)
   if (code === 'AUTH_ACCOUNT_LOCKED') {
     const until = details?.find((d) => d.reason === 'LOCKED_UNTIL')?.value
     const left = until ? Math.ceil((new Date(until).getTime() - Date.now()) / 60_000) : NaN
     const mins = Number.isFinite(left) ? Math.max(1, left) : LOCK_MINUTES
-    return fail(code, `로그인 ${MAX_FAILS}회 실패로 잠긴 계정이에요. 약 ${mins}분 후 자동으로 해제돼요. 급하면 서비스데스크로 문의해 주세요. (${SERVICEDESK})`, { lockedUntil: until })
+    return fail(code, `로그인 ${MAX_FAILS}회 실패로 잠긴 계정이에요. 약 ${mins}분 후 자동으로 해제돼요. 급하면 ${HELPDESK}로 문의해 주세요.`, { lockedUntil: until })
   }
   return r
 }

@@ -72,9 +72,10 @@ def to_jira_ticket(ticket: Mapping[str, Any]) -> dict[str, str]:
         raise ConfirmedTicketError("group_mismatch", ("groupId", "group.id"))
     group_name = _text(group, "name", required=True)
 
+    # Jira 제목은 문의 제목(inquiries.title)이다. 비어 있으면(AI 가 제목을 못 만든 경우) 문의 요약을 쓴다.
     result = {
         "receipt_no": receipt,
-        "title": summary,
+        "title": _text(ticket, "title") or summary,
         "category_code": category,
         "urgency": urgency,
         "group_name": group_name,
@@ -97,6 +98,10 @@ def to_jira_ticket(ticket: Mapping[str, Any]) -> dict[str, str]:
             raise ConfirmedTicketError("invalid_type", (f"{source}.{field}",))
         if value.strip():
             result[target] = value.strip()
+    # 티켓 유형(장애·요청·문의)은 세부 유형이 가진 값을 그대로 넘긴다
+    kind = ticket.get("inquiryType")
+    if isinstance(kind, Mapping) and _text(kind, "requestKind"):
+        result["request_kind"] = _text(kind, "requestKind")
     # 긴 요약도 본문에 남긴다. Jira 제목 길이 제한은 기존 mapper에서 적용한다.
     parts = [("문의 요약", summary)]
     for source, label in (
@@ -119,7 +124,8 @@ def to_jira_ticket(ticket: Mapping[str, Any]) -> dict[str, str]:
     if requester is not None:
         if not isinstance(requester, Mapping):
             raise ConfirmedTicketError("invalid_type", ("requester",))
-        for source, target in (("employeeNo", "requester_employee_no"), ("name", "requester_name")):
+        for source, target in (("employeeNo", "requester_employee_no"), ("name", "requester_name"),
+                               ("departmentName", "requester_department_name")):
             value = _text(requester, source)
             if value:
                 result[target] = value

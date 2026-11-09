@@ -1,10 +1,10 @@
-"""FAQ API (FQ-01~05) — SQLite 메모리 DB. 게시 조건은 현행 청크의 meta.faq_ids 로 판단한다."""
+"""FAQ API (FQ-01~05) — SQLite 메모리 DB. 게시 조건은 현행 청크의 meta.faq_ids 와 직접 지정한 문서로 판단한다."""
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from app.models import AuditLog, Category, DocumentChunk, DocumentVersion, Faq, KnowledgeDocument
+from app.models import AuditLog, Category, DocumentChunk, DocumentVersion, Faq, FaqSourceDocument, KnowledgeDocument
 from test_auth import TABLES, add_user, bearer, client, error_code, login  # noqa: F401 (픽스처)
 from test_inquiries import create_sqlite_tables
 
@@ -15,7 +15,7 @@ FAQS = "/api/v1/faqs"
 def db():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     create_sqlite_tables(engine, TABLES + ["categories", "faqs", "knowledge_documents", "document_versions",
-                                           "document_chunks"])
+                                           "document_chunks", "faq_source_documents"])
     with Session(engine) as session:
         yield session
     engine.dispose()
@@ -265,3 +265,164 @@ def test_delete_faq(client, db, admin, faqs):
 def test_delete_missing_or_by_employee(client, admin, employee, faqs):
     assert error_code(client.delete(f"{FAQS}/999", headers=admin)) == "FAQ_NOT_FOUND"
     assert client.delete(f"{FAQS}/{faqs['FAQ-001'].id}", headers=employee).status_code == 403
+
+
+# ---------------------------------------------------------------- 출처 직접 지정 (R-41·R-35)
+
+def direct_ids(db, faq_id):
+    db.expire_all()
+    return sorted(db.scalars(select(FaqSourceDocument.document_id).where(FaqSourceDocument.faq_id == faq_id)))
+
+
+@pytest.fixture
+def guide(db, faqs):
+    document = add_document(db, "IT-SW-001")
+    db.commit()
+    return document
+
+
+NEW_FAQ = {"categoryCode": "ACC", "question": "질문", "answer": "답변"}
+
+
+def test_create_published_with_source_document(client, db, admin, employee, guide):
+    """새 FAQ 도 등록과 동시에 게시까지 이어지고, 직원에게 출처와 함께 보인다."""
+    res = client.post(FAQS, json={**NEW_FAQ, "sourceDocumentIds": [guide.id, guide.id]}, headers=admin)
+    assert res.status_code == 201
+    faq_id = res.json()["id"]
+    assert direct_ids(db, faq_id) == [guide.id]
+
+    assert res.json()["faqCode"] in codes(client.get(FAQS, headers=employee))
+    assert client.get(f"{FAQS}/{faq_id}", headers=employee).json()["sources"] == [
+        {"documentId": guide.id, "docCode": "IT-SW-001", "title": "IT-SW-001 가이드", "version": "v1.0",
+         "location": None, "excerpt": None, "images": []},
+    ]
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"view_scope": "AGENT"},
+    {"is_current": False},
+    {"is_active": False},
+    {"doc_type": "MANUAL"},
+])
+def test_source_must_be_public_current_guide(client, db, admin, faqs, kwargs):
+    document = add_document(db, "IT-BAD-001", **kwargs)
+    db.commit()
+    before = db.scalar(select(func.count()).select_from(Faq))
+
+    for body in ({**NEW_FAQ, "sourceDocumentIds": [document.id]}, {**NEW_FAQ, "isActive": False, "sourceDocumentIds": [document.id]}):
+        res = client.post(FAQS, json=body, headers=admin)
+        assert res.status_code == 422
+        detail = res.json()["error"]["details"][0]
+        assert (detail["field"], detail["reason"], detail["value"]) == ("sourceDocumentIds", "NOT_PUBLIC_GUIDE", [document.id])
+    assert db.scalar(select(func.count()).select_from(Faq)) == before
+
+
+def test_source_document_not_found(client, admin, faqs):
+    assert client.post(FAQS, json={**NEW_FAQ, "sourceDocumentIds": [9999]}, headers=admin).status_code == 422
+
+
+def test_update_replaces_sources_only_when_sent(client, db, admin, faqs, guide):
+    other = add_document(db, "IT-SW-002")
+    db.commit()
+    draft = faqs["FAQ-005"].id
+    url = f"{FAQS}/{draft}"
+
+    assert client.patch(url, json={"sourceDocumentIds": [guide.id]}, headers=admin).status_code == 200
+    assert direct_ids(db, draft) == [guide.id]
+    assert client.patch(url, json={"answer": "새 답변"}, headers=admin).status_code == 200
+    assert direct_ids(db, draft) == [guide.id]
+    assert client.patch(url, json={"sourceDocumentIds": [other.id]}, headers=admin).status_code == 200
+    assert direct_ids(db, draft) == [other.id]
+    assert client.patch(url, json={"sourceDocumentIds": []}, headers=admin).status_code == 200
+    assert direct_ids(db, draft) == []
+
+
+def test_publish_draft_after_linking_source(client, db, admin, faqs, guide):
+    url = f"{FAQS}/{faqs['FAQ-005'].id}"
+    res = client.patch(url, json={"isActive": True, "sourceDocumentIds": [guide.id]}, headers=admin)
+    assert res.status_code == 200 and res.json()["isActive"] is True
+
+
+def test_removing_last_source_of_published_faq_is_rejected(client, db, admin, faqs, guide):
+    """거절되면 연결도 바뀌지 않는다."""
+    res = client.post(FAQS, json={**NEW_FAQ, "sourceDocumentIds": [guide.id]}, headers=admin)
+    faq_id = res.json()["id"]
+
+    res = client.patch(f"{FAQS}/{faq_id}", json={"sourceDocumentIds": []}, headers=admin)
+
+    assert error_code(res) == "FAQ_SOURCE_NOT_PUBLIC" and res.status_code == 409
+    assert direct_ids(db, faq_id) == [guide.id]
+
+
+def test_published_create_without_source_saves_nothing(client, db, admin, faqs):
+    before = db.scalar(select(func.count()).select_from(Faq))
+    assert error_code(client.post(FAQS, json=NEW_FAQ, headers=admin)) == "FAQ_SOURCE_NOT_PUBLIC"
+    assert db.scalar(select(func.count()).select_from(Faq)) == before
+
+
+def test_direct_source_does_not_override_restricted_link(client, db, admin, employee, faqs, guide):
+    """FAQ-002 는 제한 문서에도 연결돼 있어, 공개 가이드를 직접 지정해도 게시 조건을 채우지 못한다."""
+    url = f"{FAQS}/{faqs['FAQ-002'].id}"
+    res = client.patch(url, json={"sourceDocumentIds": [guide.id]}, headers=admin)
+    assert error_code(res) == "FAQ_SOURCE_NOT_PUBLIC"
+    assert "FAQ-002" not in codes(client.get(FAQS, headers=employee))
+
+
+def test_direct_source_lost_after_document_narrowed_hides_faq(client, db, admin, employee, guide):
+    """문서 변경 API 를 거치지 않고 범위가 좁아져도 직원 조회는 제한 문서 연결을 보고 숨긴다."""
+    res = client.post(FAQS, json={**NEW_FAQ, "sourceDocumentIds": [guide.id]}, headers=admin)
+    body = res.json()
+    version = db.scalar(select(DocumentVersion).where(DocumentVersion.document_id == guide.id))
+    version.view_scope = "AGENT"
+    db.commit()
+
+    assert body["faqCode"] not in codes(client.get(FAQS, headers=employee))
+    assert client.get(f"{FAQS}/{body['id']}", headers=employee).status_code == 404
+
+
+# ---------------------------------------------------------------- 출처 본문 (R-30)
+
+def test_detail_gives_excerpt_of_linked_chunks(client, db, employee, faqs):
+    document = add_document(db, "IT-SW-003", links=[("Q1", ["FAQ-001"]), ("Q1", ["FAQ-001"]), ("Q2", ["FAQ-009"])])
+    db.flush()
+    chunks = list(db.scalars(select(DocumentChunk).join(DocumentVersion).where(DocumentVersion.document_id == document.id)
+                             .order_by(DocumentChunk.seq)))
+    chunks[0].content, chunks[1].content, chunks[2].content = "앞 조각", "뒤 조각", "다른 FAQ 본문"
+    db.commit()
+
+    sources = client.get(f"{FAQS}/{faqs['FAQ-001'].id}", headers=employee).json()["sources"]
+
+    assert [s["excerpt"] for s in sources if s["docCode"] == "IT-SW-003"] == ["앞 조각\n뒤 조각"]
+
+
+def test_excerpt_of_restricted_document_stays_in_scope():
+    """열람 범위 밖 문서는 출처째로 빠지므로 본문도 나오지 않는다."""
+    from app.repositories.faq import FaqLink
+    from app.services.faq import sources_of
+
+    def link(scope, text):
+        return FaqLink(("FAQ-001",), "GUIDE", scope, 1, f"DOC-{scope}", "제목", "v1.0", scope, text)
+
+    links = [link("ALL", "공개 본문"), link("ADMIN", "관리자 본문")]
+
+    assert [s.excerpt for s in sources_of("FAQ-001", links, ("ALL",))] == ["공개 본문"]
+    assert [s.excerpt for s in sources_of("FAQ-001", links, ("ALL", "AGENT", "ADMIN"))] == ["공개 본문", "관리자 본문"]
+
+
+def test_direct_source_hidden_when_document_has_located_source(client, db, admin, faqs):
+    """같은 문서에 위치를 아는 출처가 있으면 문서 단위 연결을 또 내지 않는다."""
+    document = db.scalar(select(KnowledgeDocument).where(KnowledgeDocument.doc_code == "IT-ACC-001"))
+    faq = faqs["FAQ-001"]
+    db.add(FaqSourceDocument(faq_id=faq.id, document_id=document.id))
+    db.commit()
+
+    sources = client.get(f"{FAQS}/{faq.id}", headers=admin).json()["sources"]
+
+    assert [s["location"] for s in sources] == ["FAQ Q1", "3.1"]
+
+
+def test_list_does_not_read_chunk_body(db, faqs):
+    from app.repositories.faq import FaqRepository
+
+    assert {link.excerpt for link in FaqRepository(db).links()} == {None}
+    assert {link.excerpt for link in FaqRepository(db).links(with_excerpt=True) if link.location} == {"본문"}

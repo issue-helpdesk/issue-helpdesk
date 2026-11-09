@@ -8,6 +8,7 @@
 2. 단위 복원: ITEM·FAQ·PREFACE 는 같은 unit_key 조각을 모두, CHAPTER 는 맞은 조각과 앞뒤 조각만 붙인다
    붙이는 조각도 1의 조건을 똑같이 통과해야 한다 (같은 버전 안에서만 찾는다)
 3. 중복 묶기: 본문이 같고 transfer_policy 도 같은 단위는 하나로. 대표는 문의 분류와 같은 문서 → 공통 문서 → 점수
+   transfer_policy 는 매뉴얼 항목 값(content_transfer_policy)이 있으면 그 값, 없으면 버전 값이다
 4. 개수 맞추기: 단위가 k 개보다 적으면 k × 6 개로 한 번 더 뽑는다
 
 열람 범위 밖 문서는 결과·근거·also_in 어디에도 나오지 않는다 (SRS GUIDE-06).
@@ -40,9 +41,12 @@ HITS_SQL = text(f"""
     limit :n
 """)
 
+# 전송 정책: 매뉴얼 3.x 항목 값(content_transfer_policy)이 있으면 그 값, 비어 있으면 버전 값.
+# 한 항목의 조각은 적재가 같은 값을 넣으므로 _merge·_to_result 는 첫 조각 값을 쓴다
 PIECES_SQL = text(f"""
     select c.id, c.unit_key, c.chunk_type, c.part, c.content, c.heading_path, c.location, c.meta,
-           d.doc_code, d.title, d.category_code, v.version, v.view_scope, v.transfer_policy
+           d.doc_code, d.title, d.category_code, v.version, v.view_scope,
+           coalesce(c.content_transfer_policy, v.transfer_policy) as transfer_policy
     from document_chunks c
     join document_versions v on v.id = c.version_id
     join knowledge_documents d on d.id = v.document_id

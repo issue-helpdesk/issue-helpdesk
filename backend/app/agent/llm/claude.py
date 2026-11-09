@@ -7,6 +7,9 @@ from app.agent.llm.port import LLMError, LLMReply
 TIMEOUT_SECONDS = 30.0          # 한 번 호출 제한 시간
 MAX_RETRIES = 1                 # SDK 가 시간 초과·연결 오류·429·5xx 를 한 번 더 시도한다. 최악 약 1분
 MAX_TOKENS = 16000
+# think=False 일 때 보내는 값. sonnet-5-5 는 thinking 을 안 넣으면 스스로 판단해 생각하고, {'type': 'disabled'} 는 400 이다.
+# between_tools 는 도구 호출 사이에서만 생각하는데, 판단 호출은 도구를 쓰지 않아 생각하지 않는다 (2026-11-03 확인)
+NO_THINKING = {'type': 'between_tools'}
 # 안전 판단으로 거절하면 다른 모델로 다시 처리하지 않고 REFUSAL 로 끝낸다 → 안전 기본값(담당자 연결 제안). 2026-10-29 결정
 
 
@@ -18,7 +21,7 @@ class ClaudeAdapter:
         self._client = client or anthropic.Anthropic(api_key=api_key, timeout=TIMEOUT_SECONDS,
                                                      max_retries=MAX_RETRIES)
 
-    def complete(self, system: str, user: str, schema: dict) -> LLMReply:
+    def complete(self, system: str, user: str, schema: dict, *, think: bool = True) -> LLMReply:
         try:
             r = self._client.messages.create(
                 model=self.model,
@@ -27,6 +30,7 @@ class ClaudeAdapter:
                 system=[{'type': 'text', 'text': system, 'cache_control': {'type': 'ephemeral'}}],
                 messages=[{'role': 'user', 'content': user}],
                 output_config={'format': {'type': 'json_schema', 'schema': schema}},
+                **({} if think else {'thinking': NO_THINKING}),
             )
         except anthropic.APITimeoutError:
             raise LLMError('TIMEOUT', self.model) from None

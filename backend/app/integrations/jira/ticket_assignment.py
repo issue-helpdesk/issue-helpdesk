@@ -141,7 +141,7 @@ def assign_confirmed_ticket(
             (member.user_active, "사용자 비활성"),
             (member.member_active, "그룹 구성원 아님(비활성)"),
             (member.assignable, "자동배정 대상 아님"),
-            (bool(scenario) and scenario in member.scenario_ids, "해당 세부 분류 처리 불가"),
+            (bool(scenario), "미분류 접수는 직접 지정할 수 없음(서비스데스크 확인)"),
             (bool(account and account.strip()), "Jira 계정 없음"),
         )
         for eligible, reason in checks:

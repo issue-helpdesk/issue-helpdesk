@@ -30,7 +30,7 @@ from .models import Element, ParsedDocument
 
 log = logging.getLogger(__name__)
 
-PARSER_VERSION = '1.0'          # 결과가 바뀌는 수정을 하면 올린다 (가이드 버전 표 parser_version)
+PARSER_VERSION = '1.1'          # 결과가 바뀌는 수정을 하면 올린다 (가이드 버전 표 parser_version). 1.1: FAQ 표 칸 줄바꿈 잇기
 SUPPORTED = ('.docx', '.pptx', '.pdf', '.md', '.txt')
 OLE_MAGIC = b'\xd0\xcf\x11\xe0'   # 암호 걸린 OOXML 또는 구형(doc·ppt) 파일
 
@@ -40,7 +40,7 @@ def parse(path: str, safe: bool | None = None) -> ParsedDocument:
     t0 = time.time()
     ext = os.path.splitext(path)[1].lower()
     try:
-        _check_file(path, ext)
+        check_file(path, ext)
         doc = _parse_checked(path, ext, safe)
     except ParseError as e:
         log.warning('파싱 실패 %s: %s', os.path.basename(path), e)
@@ -52,7 +52,7 @@ def parse(path: str, safe: bool | None = None) -> ParsedDocument:
     return doc
 
 
-def _check_file(path: str, ext: str) -> None:
+def check_file(path: str, ext: str) -> None:
     if ext not in SUPPORTED:
         raise ParseError('unsupported', path, ext, CONVERT_HINT.get(ext, '지원 형식: ' + ', '.join(SUPPORTED)))
     if not os.path.isfile(path):
@@ -139,4 +139,4 @@ def _parse_checked(path: str, ext: str, safe: bool | None) -> ParsedDocument:
     return doc
 
 
-__all__ = ['parse', 'ParseError', 'Element', 'ParsedDocument', 'SUPPORTED', 'PARSER_VERSION']
+__all__ = ['parse', 'check_file', 'ParseError', 'Element', 'ParsedDocument', 'SUPPORTED', 'PARSER_VERSION']

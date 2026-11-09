@@ -13,6 +13,12 @@ const PATHS = {
       <path d="M10 6.2v4.4M10 13.4v.1" />
     </>
   ),
+  calendar: (
+    <>
+      <rect x="3.5" y="4.5" width="13" height="12" rx="2" />
+      <path d="M3.5 8.5h13M7 3v3M13 3v3" />
+    </>
+  ),
   bell: <path d="M5 14V9a5 5 0 0 1 10 0v5l1.5 2h-13zM8.5 17.5a1.7 1.7 0 0 0 3 0" />,
   logout: (
     <>
@@ -28,6 +34,8 @@ const PATHS = {
   ),
   down: <path d="M5 8l5 5 5-5" />,
   x: <path d="M5.5 5.5l9 9M14.5 5.5l-9 9" />,
+  expand: <path d="M12 3.5h4.5V8M8 16.5H3.5V12M16.5 3.5l-5 5M3.5 16.5l5-5" />,
+  minimize: <path d="M16 8h-4V4M4 12h4v4M12 8l4.5-4.5M8 12l-4.5 4.5" />,
   clock: (
     <>
       <circle cx="10" cy="10" r="7" />
@@ -58,6 +66,8 @@ const PATHS = {
   chat: <path d="M4 4.5h12v8H9.5L6 16v-3.5H4z" />,
   home: <path d="M3.5 9 10 3.5 16.5 9v7.5h-4.2V12H7.7v4.5H3.5z" />,
   chevron: <path d="m8 5 5 5-5 5" />,
+  chevronDown: <path d="M5 8l5 5 5-5" />,
+  folder: <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h3.2l1.6 2H15.5A1.5 1.5 0 0 1 17 8.5v6A1.5 1.5 0 0 1 15.5 16h-11A1.5 1.5 0 0 1 3 14.5z" />,
   chart: <path d="M4 16.5h12M6.5 16V10.5M10 16V4.5M13.5 16v-3.5" />,
   check: <path d="m5 10.5 3.2 3.2L15 6.8" />,
   lock: (

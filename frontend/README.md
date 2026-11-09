@@ -42,6 +42,7 @@ npm run dev                  # http://localhost:5173
 - 가짜 계정은 프로토타입과 같습니다(비밀번호 `demo`). 로그인 화면의 "시연용 바로 로그인" 버튼은 mock일 때만 보입니다.
 - 연동할 때는 `src/api/`의 어댑터(`auth.ts`, `consult.ts`, `faq.ts`, `inquiries.ts`, `chat.ts`)만 고칩니다. 화면 코드는 건드리지 않습니다.
 - 대화 mock(`src/api/mock/chatEngine.ts`)은 프로토타입의 정해진 규칙(정규식)으로 답하므로 같은 입력에는 항상 같은 답이 나옵니다. 접수 후 Jira 번호 생성 → 담당자 배정 → 처리 시작 → 처리 결과 등록은 시연용 타이머로 진행되고, 해결 확인은 문의자가 직접 누릅니다. 새로고침하면 처음 상태로 돌아갑니다.
+- 문의를 서버로 연결(`VITE_USE_MOCK_INQUIRY=false`)해도 접수(담당자 연결 → 초안 → 최종 접수)와 접수 이후 해결·미해결은 기본적으로 막혀 있습니다. 접수를 만들면 공유 DB 에 Jira 작업이 쌓이는데, 작업 실행기(`backend/app/integrations/jira/worker.py`)가 떠 있지 않으면 끝나지 않기 때문입니다. 실행기가 있는 환경에서만 `VITE_SERVER_INTAKE=true` 로 켭니다.
 - 시연 전용 동작(`(시연) 응답 없이 시간 경과`, 접수 저장 실패 `mockConfig.saveFail`)은 mock일 때만 있습니다.
 - 개발 중 `/api` 요청은 Vite가 `VITE_DEV_PROXY_TARGET`(기본 `http://localhost:8000`)으로 넘기므로 CORS 설정 없이도 호출할 수 있습니다. 브라우저에서 FastAPI를 직접 호출한다면 백엔드에서 CORS를 허용해야 합니다.
 
@@ -106,7 +107,9 @@ frontend/
 
 - Vercel 프로젝트 설정: Root Directory `frontend`, Framework Preset `Vite`, Node.js 24.x, Production Branch `develop`.
 - `vercel.json`은 `/chat/INQ-1` 같은 화면 주소에서 새로고침해도 404가 나지 않도록 모든 경로를 `index.html`로 보냅니다. (정적 파일은 먼저 그대로 제공됩니다)
-- 환경 변수를 넣지 않으면 mock(가상 데이터)으로 동작합니다. 백엔드(EC2)를 연결할 때는 `VITE_USE_MOCK=false`와 `/api` 전달 방법(rewrite 또는 HTTPS 주소)을 정해야 합니다.
+- `/api/*` 요청은 `vercel.json`의 rewrites가 백엔드(EC2)로 넘깁니다. 브라우저에는 같은 도메인으로 보여서 Refresh 쿠키(SameSite=Strict)가 그대로 오갑니다. 백엔드 주소가 바뀌면 이 파일의 `destination`을 고치고 다시 배포합니다.
+- 실제 서버를 쓰려면 Vercel 환경 변수(Production)에 `VITE_USE_MOCK=false`를 넣습니다. 접수까지 쓸 때만 `VITE_SERVER_INTAKE=true`(ITSM 작업 실행기가 떠 있어야 함). `VITE_API_BASE_URL`은 넣지 않습니다. 값을 바꾸면 다시 배포(Redeploy)해야 반영됩니다.
+- 환경 변수를 넣지 않으면 mock(가상 데이터)으로 동작합니다.
 
 ## 사용 라이브러리와 라이선스
 

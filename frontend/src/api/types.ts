@@ -25,7 +25,6 @@ export interface User {
   /** 임시 비밀번호로 로그인한 상태. true 이면 새 비밀번호를 정하기 전에는 다른 기능을 쓸 수 없다. (AU-01 passwordChangeRequired) */
   passwordChangeRequired?: boolean
   /** 비밀번호를 마지막으로 바꾼 뒤 지난 날수. 서버가 주는 값이 문서(AU-03)에 없어 제안이다. */
-  passwordChangedDaysAgo?: number
 }
 
 /** 성공 응답 */
@@ -99,8 +98,12 @@ export interface Faq {
   categoryCode: CategoryCode
   question: string
   answer: string
-  /** 근거 Guide 출처 */
+  /** 근거 Guide 출처. 서버는 목록에 출처를 주지 않아 비어 있고, 서버 모드에서는 열 때 getFaqSources 로 읽는다 */
   sources: GuideSource[]
+  /** 서버 FAQ 의 숫자 ID (GET /faqs/{id}). 모의 데이터에는 없다 */
+  serverId?: number
+  /** 게시 중인지 (없으면 게시 중). 관리자 목록에서만 게시 중단된 FAQ 가 함께 온다 */
+  active?: boolean
 }
 
 /**
@@ -122,7 +125,7 @@ export interface InquirySummary {
   displayStatus: DisplayStatus
   /** 분류. 아직 판단하지 못했으면 null */
   categoryCode: CategoryCode | null
-  /** 접수번호·Jira 번호. 접수 전에는 null */
+  /** 접수번호·ITSM 번호. 접수 전에는 null */
   receiptNo: string | null
   jiraKey: string | null
   /** 문의를 시작한 시각 (ISO 8601) */
@@ -134,6 +137,8 @@ export interface InquirySummary {
   unread: number
   /** 최근 활동 시각 (ISO 8601). '어제' 같은 표시는 화면에서 계산한다. */
   updatedAt: string
+  /** 마지막 AI 답변의 메시지 ID (서버 IQ-02). AI 답변이 없으면 null. 새 답변 점 판단에만 쓰고 크기는 뜻이 없다 */
+  lastAiMessageId?: number | null
 }
 
 /** 성공 응답을 만드는 도우미 */

@@ -3,7 +3,7 @@ import logging
 import os
 from collections import Counter
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import Annotated, get_args
 
 from fastapi import Depends
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -30,8 +30,9 @@ from app.models import (
 from app.repositories.audit_log import AuditLogRepositoryDep
 from app.repositories.inquiry import InquiryRepositoryDep
 from app.repositories.reference import ReferenceRepositoryDep
+from app.repositories.security_alert import SecurityAlertRepositoryDep
 from app.repositories.ticket import TicketRepositoryDep
-from app.schemas.common import ItemList, Page, parse_sort
+from app.schemas.common import CountedPage, ItemList, parse_sort
 from app.schemas.inquiry import CategoryRef, GroupRef, InquiryTypeRef, UserRef
 from app.schemas.ticket import (
     AssignmentLog as AssignmentLogView,
@@ -40,6 +41,8 @@ from app.schemas.ticket import (
     DraftUpdateRequest,
     DraftUpdateResult,
     IntegrationJob as IntegrationJobView,
+    IntegrationRetryRequest,
+    IntegrationRetryResult,
     StatusHistory,
     Ticket as TicketView,
     TicketCreateRequest,
@@ -47,13 +50,23 @@ from app.schemas.ticket import (
     TicketListQuery,
     TicketSummary,
     TicketUpdateRequest,
+    WorkStatus,
 )
 from app.services.ai_responder import facts_of, type_info
-from app.services.inquiry import can_view_inquiry, close_unresolved, end_session, invalid_state, record_sensitive_input
+from app.services.inquiry import (
+    can_view_inquiry,
+    close_unresolved,
+    draft_view,
+    end_session,
+    invalid_state,
+    record_sensitive_input,
+)
 from app.services.inquiry_status import CLOSED_STATUSES, display_status, ticket_display_status
-from app.services.jira_assign import enqueue_jira_assign
+from app.services.assignment import AssigneeNotAssignable, reserve_assignment
+from app.services.integration_retry import JiraOpenerDep, retry_job
 from app.services.jira_create import enqueue_jira_create
 from app.services.jira_transition import enqueue_jira_transition
+from app.services.jira_webhook import sync_ticket
 from app.utils import datetime_utils
 
 logger = logging.getLogger(__name__)
@@ -72,12 +85,16 @@ class TicketService:
         references: ReferenceRepositoryDep,
         tickets: TicketRepositoryDep,
         audit_logs: AuditLogRepositoryDep,
+        alerts: SecurityAlertRepositoryDep,
+        open_jira: JiraOpenerDep,
     ) -> None:
         self.db = db
         self.inquiries = inquiries
         self.references = references
         self.tickets = tickets
         self.audit_logs = audit_logs
+        self.alerts = alerts
+        self.open_jira = open_jira
 
     def create_draft(self, inquiry_id: int, user: User) -> TicketDraftView:
         """TK-01. 마지막 판단 이력과 문의의 현재 판단값으로 초안을 채운다."""
@@ -108,6 +125,8 @@ class TicketService:
             recommended_group_id=inquiry.recommended_group_id or self.references.triage_group_id(),
             status="EDITING",
         ))
+        self.inquiries.add_choice(session.id, "CONNECT")
+        self.inquiries.add_draft_card(session.id, draft.id)
         self.db.commit()
         return self.to_draft(draft)
 
@@ -131,7 +150,7 @@ class TicketService:
             raise draft_not_editable(draft)
 
         if "status" in sent:
-            close_unresolved(self.inquiries, self.audit_logs, inquiry, user)
+            close_unresolved(self.inquiries, self.audit_logs, self.alerts, inquiry, user, "CANCEL")
             self.db.commit()
             return DraftUpdateResult(draft=self.to_draft(draft), changes=[])
 
@@ -150,7 +169,7 @@ class TicketService:
                 value = masked.text
                 masked_counts.update(masked.counts)
             setattr(draft, name, value)
-        record_sensitive_input(self.audit_logs, inquiry.id, user, dict(masked_counts))
+        record_sensitive_input(self.audit_logs, self.alerts, inquiry.id, user, dict(masked_counts))
         changes = []
         if "inquiry_type_id" in sent and body.inquiry_type_id != draft.inquiry_type_id:
             changes = self.reclassify(inquiry, draft, new_type)
@@ -240,6 +259,8 @@ class TicketService:
             assign_status="PENDING",
         ))
         ticket.receipt_no = f"RCPT-{ticket.id:04d}"
+        self.inquiries.add_choice(draft.session_id, "CONFIRM")
+        self.inquiries.add_ticket_card(draft.session_id)
         draft.status = "CONFIRMED"
         inquiry.status = "RECEIVED"
         inquiry.updated_at = now
@@ -253,7 +274,7 @@ class TicketService:
         self.db.commit()
         return ticket
 
-    def list_tickets(self, query: TicketListQuery, viewer: User) -> Page[TicketSummary]:
+    def list_tickets(self, query: TicketListQuery, viewer: User) -> CountedPage[TicketSummary]:
         """TK-05. view 로 범위를 정하고 나머지 조건은 그 범위 안에서 거른다."""
         view = query.view or DEFAULT_TICKET_VIEW[viewer.service_role]
         if viewer.service_role not in TICKET_VIEW_ROLES[view]:
@@ -261,7 +282,7 @@ class TicketService:
         if query.created_from and query.created_to and query.created_from > query.created_to:
             raise AppError(ErrorCode.INVALID_REQUEST)
 
-        rows, total = self.tickets.search(
+        rows, total, status_counts = self.tickets.search(
             requester_id=viewer.id if view == "REQUESTER" else None,
             member_id=viewer.id if view == "ASSIGNED" else None,
             work_statuses=query.work_status,
@@ -303,11 +324,17 @@ class TicketService:
             )
             for ticket, requester, category, group, assignee in rows
         ]
-        return Page.of(items, query.page, query.size, total)
+        return CountedPage.counted(items, query.page, query.size, total, status_counts, get_args(WorkStatus))
 
     def get_ticket(self, ticket_id: int, viewer: User) -> TicketView:
         """TK-06."""
         ticket, inquiry = self.find_viewable(ticket_id, viewer)
+        return self.to_ticket(ticket, inquiry)
+
+    def sync_ticket(self, ticket_id: int, viewer: User) -> TicketView:
+        """TK-14. 볼 수 있는 사람만. Jira 를 읽지 못해도 마지막 확인 값을 돌려준다."""
+        ticket, inquiry = self.find_viewable(ticket_id, viewer)
+        sync_ticket(self.db, self.open_jira, ticket)
         return self.to_ticket(ticket, inquiry)
 
     def status_history(self, ticket_id: int, viewer: User) -> ItemList[StatusHistory]:
@@ -323,6 +350,7 @@ class TicketService:
                 actor_id=h.actor_id,
                 actor=UserRef.model_validate(actor) if actor else None,
                 reason=h.reason,
+                resolution_note=h.resolution_note,
                 changed_at=h.changed_at,
             )
             for h, actor in self.tickets.status_history(ticket.id)
@@ -356,8 +384,10 @@ class TicketService:
             raise AppError(ErrorCode.INTEGRATION_JOB_IN_PROGRESS, [
                 {"reason": "TRANSITION_STATUS", "message": "상태 변경 작업 상태", "value": ticket.transition_status},
             ])
-        if target == "FIN" and not (body.resolution_note or ticket.resolution_note):
-            raise field_error(ErrorCode.TICKET_RESOLUTION_NOTE_REQUIRED, "resolutionNote", "REQUIRED")
+        if target == "FIN" and not body.resolution_note:
+            # 재완료는 저장된 이전 결과가 있어도 이번 요청에 처리 결과를 받아야 한다.
+            if self.tickets.has_reopened(ticket.id) or not ticket.resolution_note:
+                raise field_error(ErrorCode.TICKET_RESOLUTION_NOTE_REQUIRED, "resolutionNote", "REQUIRED")
         if (current, target) == ("FIN", "WIP") and not body.reason:
             raise field_error(ErrorCode.VALIDATION_ERROR, "reason", "REQUIRED", "남은 증상을 입력해 주세요.")
 
@@ -370,13 +400,15 @@ class TicketService:
                 masked = mask_secrets(value)
                 texts[name] = masked.text
                 masked_counts.update(masked.counts)
-        record_sensitive_input(self.audit_logs, inquiry.id, user, dict(masked_counts))
+        record_sensitive_input(self.audit_logs, self.alerts, inquiry.id, user, dict(masked_counts))
 
         now = datetime_utils.now()
         ticket.requested_work_status = target
         ticket.transition_status = "PENDING"
         if target == "CLS":
             ticket.resolution_confirmed_at = now
+        if target is not None and required_role(current, target) == "REQUESTER":
+            self.add_resolution_messages(ticket.session_id, target, texts.get("reason"))
         try:
             enqueue_jira_transition(self.db, ticket, {
                 "ticketId": ticket.id,
@@ -397,9 +429,9 @@ class TicketService:
         return self.to_ticket(ticket, inquiry)
 
     def assign(self, ticket_id: int, body: AssignmentRequest, user: User) -> TicketView:
-        """TK-09. 그룹·담당자를 바꾸고 배정 이력·감사 로그를 남긴다. Jira 가 있으면 JIRA_ASSIGN 작업을 등록한다.
+        """TK-09. 권한·상태·사유를 확인하고 공용 배정 함수(reserve_assignment)로 예약한다. 감사 로그·커밋은 여기서 한다.
 
-        assigneeId 가 null 이면 그 그룹의 배정 가능한 담당자 가운데 처리 중 접수가 가장 적은 사람을 고른다.
+        assigneeId 가 null 이면 그 그룹에서 자동 선정한다 (docs/11 2.4).
         """
         ticket = self.tickets.get_for_update(ticket_id)
         inquiry = self.inquiries.get(ticket.inquiry_id) if ticket else None
@@ -419,51 +451,17 @@ class TicketService:
         if group is None or not group.is_active:
             raise field_error(ErrorCode.VALIDATION_ERROR, "groupId", "NOT_FOUND", "활성 담당 그룹이 아닙니다.")
 
-        # 배정 자격: 활성 계정·AGENT/ADMIN·활성 구성원·assignable·Jira 계정, 세부 유형이 있으면 그 기술 (RF-04 와 같은 조건)
-        candidates = {member.user_id: member for member, _ in
-                      self.references.list_group_members(group.id, True, ticket.inquiry_type_id)}
-        log_reason = body.reason
-        if body.assignee_id is not None:
-            if body.assignee_id not in candidates:
-                raise field_error(ErrorCode.ASSIGNEE_NOT_ASSIGNABLE, "assigneeId", "INVALID_VALUE")
-            assignee_id = body.assignee_id
-        elif ticket.inquiry_type_id is None or not candidates:
-            assignee_id = None                 # 미분류는 서비스데스크가 확인한다. 개인 자동배정을 하지 않는다
-        else:
-            counts = self.references.count_open_tickets(list(candidates))
-            assignee_id = min(candidates, key=lambda uid: (counts.get(uid, 0), uid))
-            log_reason = f"{body.reason} (자동배정: 처리 중 접수 최소 {counts.get(assignee_id, 0)}건)"
-
-        now = datetime_utils.now()
-        previous = ticket.assignee_id
-        ticket.assignment_revision += 1
-        ticket.group_id, ticket.assignee_id = group.id, assignee_id
-        ticket.assign_status = "PENDING" if assignee_id is not None else "NEEDS_ADMIN"
-        if assignee_id is None:
-            event, log_reason = "FAIL", f"{body.reason} (배정 가능한 담당자 없음)"
-        else:
-            event = "REASSIGN" if previous is not None else "ASSIGN"
-        self.tickets.add(AssignmentLog(ticket_id=ticket.id, event=event, group_id=group.id, assignee_id=assignee_id,
-                                       reason=log_reason, actor_id=user.id))
-        self.audit_logs.add("REASSIGN", "ticket", ticket.id, result=event, actor_id=user.id, reason=body.reason)
         try:
-            # Jira 이슈가 아직 없으면 배정은 Jira 생성 뒤에 한다 (생성 작업 쪽 몫)
-            if ticket.jira_key and assignee_id is not None:
-                enqueue_jira_assign(self.db, ticket, {
-                    "ticketId": ticket.id,
-                    "receiptNo": ticket.receipt_no,
-                    "jiraKey": ticket.jira_key,
-                    "groupId": group.id,
-                    "assigneeId": assignee_id,
-                    "jiraAccountId": candidates[assignee_id].jira_account_id,
-                    "assignmentRevision": ticket.assignment_revision,
-                    "requestedBy": user.id,
-                    "requestedAt": now.isoformat(),
-                })
-            self.db.commit()
+            reservation = reserve_assignment(self.db, ticket, group.id, reason=body.reason, actor_id=user.id,
+                                             assignee_id=body.assignee_id)
+        except AssigneeNotAssignable as e:
+            raise field_error(ErrorCode.ASSIGNEE_NOT_ASSIGNABLE, "assigneeId", "INVALID_VALUE", str(e))
         except IntegrityError:
             self.db.rollback()                 # 같은 접수에 다른 배정 요청이 먼저 작업을 등록했다
             raise AppError(ErrorCode.INTEGRATION_JOB_IN_PROGRESS)
+        self.audit_logs.add("REASSIGN", "ticket", ticket.id, result=reservation.event, actor_id=user.id,
+                            reason=body.reason)
+        self.db.commit()
         return self.to_ticket(ticket, inquiry)
 
     def can_assign(self, ticket: Ticket, body: AssignmentRequest, user: User) -> bool:
@@ -505,6 +503,17 @@ class TicketService:
             raise AppError(ErrorCode.TICKET_NOT_FOUND)
         return ItemList(items=[IntegrationJobView.model_validate(job) for job in self.tickets.integration_jobs(ticket_id)])
 
+    def retry_integration_job(
+        self, ticket_id: int, body: IntegrationRetryRequest, user: User,
+    ) -> IntegrationJobView | IntegrationRetryResult:
+        """TK-12. ADMIN 확인은 라우터가 한다."""
+        result = retry_job(self.db, self.open_jira, ticket_id, body.retry_of_job_id, actor_id=user.id, reason=body.reason)
+        if result.job is not None:
+            return IntegrationJobView.model_validate(result.job)
+        ticket = self.tickets.get(ticket_id)
+        return IntegrationRetryResult(ticket=self.to_ticket(ticket, self.inquiries.get(ticket.inquiry_id)),
+                                      recovery_result=result.recovery)
+
     def is_staff(self, ticket: Ticket, user: User) -> bool:
         """ADMIN, 또는 접수 담당 그룹의 활성 구성원인 AGENT."""
         if user.service_role == "ADMIN":
@@ -527,32 +536,15 @@ class TicketService:
             raise AppError(ErrorCode.DRAFT_NOT_FOUND)
         return inquiry, self.tickets.get_draft_for_update(draft_id)
 
+    def add_resolution_messages(self, session_id: int, target: str, reason: str | None) -> None:
+        """접수 뒤 문의자의 해결·미해결 선택을 대화에 남긴다. 남은 증상은 가린 글이다."""
+        self.inquiries.add_choice(session_id, "TICKET_RESOLVED" if target == "CLS" else "TICKET_UNRESOLVED")
+        if target == "WIP":
+            self.inquiries.add_message(session_id, "USER", reason)
+            self.inquiries.add_ticket_card(session_id)
+
     def to_draft(self, draft: TicketDraft) -> TicketDraftView:
-        category = self.inquiries.ref(Category, draft.category_code)
-        inquiry_type = self.inquiries.ref(InquiryType, draft.inquiry_type_id)
-        group = self.inquiries.ref(SupportGroup, draft.recommended_group_id)
-        return TicketDraftView(
-            id=draft.id,
-            inquiry_id=draft.inquiry_id,
-            session_id=draft.session_id,
-            summary=draft.summary,
-            target_system=draft.target_system,
-            symptom=draft.symptom,
-            occurred_at=draft.occurred_at,
-            category_code=draft.category_code,
-            category=CategoryRef.model_validate(category) if category else None,
-            inquiry_type_id=draft.inquiry_type_id,
-            inquiry_type=InquiryTypeRef.model_validate(inquiry_type) if inquiry_type else None,
-            urgency=draft.urgency,
-            urgency_reason=draft.urgency_reason,
-            business_impact=draft.business_impact,
-            tried_actions=draft.tried_actions,
-            recommended_group_id=draft.recommended_group_id,
-            recommended_group=GroupRef.model_validate(group) if group else None,
-            status=draft.status,
-            created_at=draft.created_at,
-            updated_at=draft.updated_at,
-        )
+        return draft_view(self.inquiries, draft)
 
     def to_ticket(self, ticket: Ticket, inquiry: Inquiry) -> TicketView:
         requester = self.inquiries.ref(User, inquiry.user_id)

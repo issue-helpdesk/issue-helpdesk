@@ -16,7 +16,7 @@ import pytest
 
 from app.rag.chunker import chunk_document
 from app.rag.ingest import GUIDES, FakeEmbedder, IngestError, activate, connect, load_manifest
-from app.rag.ingest.upload import ingest_version, prepare_version, resolve_file, resume_pending, unknown_inquiry_types
+from app.rag.ingest.upload import check_images, ingest_version, prepare_version, resolve_file, resume_pending, unknown_inquiry_types
 from app.rag.parser import parse
 
 URL = os.environ.get('TEST_DATABASE_URL', '')
@@ -102,6 +102,74 @@ def test_prepare_warns_but_keeps_registered_values():
     prepare_version(row(code='IT-HW-001-M', file_path=guide_file('IT-HW-001-M'), scope='ALL', category='HW'),
                     REPO, CODES, m_warn)
     assert any('열람' in w for w in m_warn)                       # 매뉴얼(담당자 전용)을 ALL 로 등록
+
+
+def _image_keys(p):
+    return [i['key'] for r in p.rows for i in r['meta']['images']]
+
+
+@pytest.mark.parametrize('fmt', ['md', 'docx', 'pptx'])
+def test_prepare_keeps_images_same_as_deployed(fmt):
+    """정리본 그대로 올리면 형식과 상관없이 md 일괄 적재와 같은 그림 이름표. DB 행에는 sha256 을 넣지 않는다."""
+    warnings = []
+    p = prepare_version(row(file_path=guide_file('IT-SW-002', fmt)), REPO, CODES, warnings)
+    want = [i['key'] for c in chunk_document(parse(str(REPO / guide_file('IT-SW-002')))) for i in c.images]
+    assert want and _image_keys(p) == want
+    assert not [w for w in warnings if '그림' in w]
+    assert all(set(i) == {'key', 'caption'} for r in p.rows for i in r['meta']['images'])
+
+
+def test_prepare_pdf_has_no_image_keys():
+    assert _image_keys(prepare_version(row(file_path=guide_file('IT-SW-002', 'pdf')), REPO, CODES, [])) == []
+
+
+@pytest.mark.parametrize('fmt, media', [('docx', 'word/media/'), ('pptx', 'ppt/media/')])
+def test_prepare_drops_image_changed_in_file(tmp_path, fmt, media):
+    """같은 문서·그림 번호인데 파일 안 그림만 바꾼 새 버전: 배포된 옛 그림을 가리키지 않게 그 이름표를 뺀다 (PR #297 검수)."""
+    import zipfile
+    src = REPO / guide_file('IT-SW-002', fmt)
+    f = tmp_path / src.name
+    with zipfile.ZipFile(src) as zin, zipfile.ZipFile(f, 'w', zipfile.ZIP_DEFLATED) as zout:
+        target = sorted(n for n in zin.namelist() if n.startswith(media) and n.endswith('.png'))[0]
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            zout.writestr(item, data + b'changed' if item.filename == target else data)
+    warnings = []
+    p = prepare_version(row(file_path=str(f)), REPO, CODES, warnings)
+    same = prepare_version(row(file_path=guide_file('IT-SW-002', fmt)), REPO, CODES, [])
+    full = _image_keys(same)
+    assert len(_image_keys(p)) == len(full) - 1 and set(_image_keys(p)) < set(full)
+    assert [w for w in warnings if '배포 그림과 달라' in w and '1개' in w]
+    assert [r['content'] for r in p.rows] == [r['content'] for r in same.rows]     # 본문 '[그림] 설명' 줄은 그대로
+
+
+def test_check_images_drops_missing_and_bad_keys(tmp_path):
+    """배포 그림이 없거나 이름표 형식이 그림 API 와 다르면 뺀다 (새 문서·새 그림 번호는 404 대신 설명 줄만)."""
+    (tmp_path / 'SW').mkdir()
+    (tmp_path / 'SW' / 'IT-SW-002_3.1-1.png').write_bytes(b'png')
+    chunks = chunk_document(parse(str(REPO / guide_file('IT-SW-002'))))
+    total = sum(len(c.images) for c in chunks)
+    warnings = check_images(chunks, tmp_path)
+    assert [i['key'] for c in chunks for i in c.images] == ['SW/IT-SW-002_3.1-1.png']
+    assert len(warnings) == 1 and f'그림 {total - 1}개' in warnings[0]
+    c = chunks[0]
+    c.images = [{'key': 'SW/../SW/IT-SW-002_3.1-1.png', 'caption': ''}]
+    assert check_images([c], tmp_path) and c.images == []
+
+
+def test_check_images_compares_each_use_of_same_key():
+    """같은 이름표를 여러 곳에서 쓰면 쓰는 곳마다 따로 비교한다 (첫 비교 결과를 같은 이름표에 재사용하지 않게, PR #297 재검수)."""
+    import dataclasses
+    import hashlib
+    from app.rag.ingest.upload import GUIDE_IMAGES
+    key = 'SW/IT-SW-002_3.1-1.png'
+    good = hashlib.sha256((GUIDE_IMAGES / key).read_bytes()).hexdigest()
+    base = chunk_document(parse(str(REPO / guide_file('IT-SW-002'))))[0]
+    uses = [('같음', good), ('다름', '0' * 64), ('같음', good), ('다름', 'f' * 64)]
+    chunks = [dataclasses.replace(base, images=[{'key': key, 'caption': name, 'sha256': sha}]) for name, sha in uses]
+    warnings = check_images(chunks)
+    assert [[i['caption'] for i in c.images] for c in chunks] == [['같음'], [], ['같음'], []]
+    assert len(warnings) == 1 and '그림 2개' in warnings[0]
 
 
 def test_resolve_file_stays_inside_root(tmp_path):
@@ -264,6 +332,29 @@ def test_resume_pending_only_stale(url):
 
 
 @needs_db
+def test_connection_failure_recovers_on_next_resume(url, monkeypatch):
+    """적재 때 DB 연결을 못 얻으면 PENDING 으로 남고, 연결이 돌아온 뒤 이어 하기가 끝낸다."""
+    from types import SimpleNamespace
+
+    from app.services import document_ingest
+
+    vid = register(url, 'IT-SYS-008', age=timedelta(hours=1))
+    monkeypatch.setattr(document_ingest, 'get_settings', lambda: SimpleNamespace(dsn=url))
+    monkeypatch.setattr(document_ingest, 'get_embedder', lambda: EMB)
+
+    def no_connection(*_, **__):
+        raise OSError('db down')
+    monkeypatch.setattr(document_ingest, 'connect', no_connection)
+    document_ingest.run_ingest(vid)
+    document_ingest.run_resume()
+    assert version(url, vid)[0] == 'PENDING'
+
+    monkeypatch.setattr(document_ingest, 'connect', connect)
+    document_ingest.run_resume()
+    assert version(url, vid)[0] == 'DONE'
+
+
+@needs_db
 def test_end_to_end_searchable_after_activate(url):
     """완료 기준: 업로드 → 적재 → 현행 전환 → search() 에 새 버전이 나온다. 전환 전에는 나오지 않는다."""
     from sqlalchemy import create_engine
@@ -349,6 +440,25 @@ def test_reload_restores_dropped_code(url, tmp_path):
     assert models == {EMB.model_id: len(after), kure.model_id: len(after)}
     assert version(url, vid)[:3] == ('DONE', None, True)
     assert not [w for w in ingest(url, vid, reload=True)['warnings'] if '이름표' in w]   # 다시 하면 바뀐 것 없음
+
+
+@needs_db
+def test_reload_fixes_transfer_policy_only(url):
+    """업로드 적재도 매뉴얼 항목별 내용 전송 칸을 나른다: 새 적재는 빈칸 (규칙 없음), reload 는 그 칸만 다르면
+    같은 청크 id 에 고쳐 쓰고 경고한다 (일괄 적재 _relabel 과 같은 길)."""
+    vid = register(url, 'IT-NET-002')
+    assert ingest(url, vid, activate_version=True)['status'] == 'DONE'
+    sql = 'select id, content_transfer_policy from document_chunks where version_id = %s order by seq'
+    with connect(url) as conn:
+        before = conn.execute(sql, (vid,)).fetchall()
+        assert before and all(p is None for _, p in before)
+        conn.execute("update document_chunks set content_transfer_policy = 'BLOCKED' where id = %s", (before[0][0],))
+        conn.commit()
+    out = ingest(url, vid, reload=True)
+    assert out['status'] == 'DONE', out
+    assert [w for w in out['warnings'] if '이름표 바뀜' in w and 'content_transfer_policy "BLOCKED" → null' in w]
+    with connect(url) as conn:
+        assert conn.execute(sql, (vid,)).fetchall() == before          # id 그대로, 값은 다시 빈칸
 
 
 CHANGED = '### 원인\n- 바뀐 본문 한 줄'                         # 첫 '### 원인' 자리에 넣어 본문을 바꾼다
@@ -507,3 +617,27 @@ def test_cli_reload(url, capsys):
     assert main(['--embedder', 'fake', '--database-url', url, '--version-id', str(vid), '--reload']) == 0
     assert f'버전 {vid}: DONE' in capsys.readouterr().out
     assert main(['--embedder', 'fake', '--database-url', url, '--reload']) == 2
+
+
+@needs_db
+def test_upload_manual_gets_policy_from_registered_type(url):
+    """업로드 적재: 매뉴얼인지는 **등록된 문서 행**(doc_type)으로 본다. 매뉴얼이면 모든 청크에 값 (지금 목록은 비어 BLOCKED),
+    같은 매뉴얼 파일이라도 문서 행이 GUIDE 면 빈칸."""
+    with connect(url) as conn:
+        doc_id = conn.execute(
+            "insert into knowledge_documents (doc_code, doc_type, title, category_code) values ('IT-HW-002-M', 'MANUAL', "
+            "'매뉴얼', 'HW') returning id").fetchone()[0]
+        vid = conn.execute(
+            "insert into document_versions (document_id, version, file_path, view_scope, transfer_policy, is_current, "
+            "ingest_status) values (%s, 'v2.0', %s, 'AGENT', 'BLOCKED', false, 'PENDING') returning id",
+            (doc_id, guide_file('IT-HW-002-M'))).fetchone()[0]
+        conn.commit()
+    assert ingest(url, vid)['status'] == 'DONE'
+    with connect(url) as conn:
+        got = {p for (p,) in conn.execute('select content_transfer_policy from document_chunks where version_id = %s',
+                                          (vid,))}
+        conn.execute("update knowledge_documents set doc_type = 'GUIDE' where id = %s", (doc_id,))
+        conn.commit()
+    assert got == {'BLOCKED'}
+    out = ingest(url, vid, reload=True)
+    assert out['status'] == 'DONE' and any('"BLOCKED" → null' in w for w in out['warnings'])

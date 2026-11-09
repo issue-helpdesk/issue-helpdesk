@@ -50,7 +50,7 @@ r = run_flow(
 ```
 
 - 값 4개(`ask_more_count`·`ask_more_unanswered_count`·`prior_urgent_signal`·`prior_urgency`)는 서버가 판단 이력에서 계산해 넣습니다 (09 4.2).
-- `search`는 `None`으로 넘깁니다. 검색은 흐름이 합니다. 검색어는 `history`의 사용자 글과 이번 글을 이어 붙인 것이고, 1차 분류로 범위를 좁히지 않습니다.
+- `search`는 `None`으로 넘깁니다. 검색은 흐름이 합니다. 검색어는 `history`의 사용자 글과 이번 글을 이어 붙이고 1차가 정한 `facts.situation`을 끝에 붙인 것이고, 1차 분류로 범위를 좁히지 않습니다.
 - 같은 설정으로 여러 번 부르면 `build_flow(...)`로 그래프를 만들어 두고 `.invoke()`해도 됩니다.
 
 ## 결과 쓰는 법 (`FlowResult`)
@@ -84,11 +84,16 @@ r = run_flow(
 | 경우 | 처리 | 이유 |
 |---|---|---|
 | 1차에서 Claude 실패 (`AI_FAILED`) | 검색·2차 없이 `offer` | 09 T11. SDK가 이미 한 번 더 시도한 뒤라 바로 다시 불러도 실패하기 쉬움 |
-| `reply` 위험 | `call_judge`를 한 번 더 부름. 또 위험하면 안전 기본값 | 판단 전체를 다시 받음. 새 프롬프트를 만들지 않음 |
+| `reply`·`questions` 위험 | `call_judge`를 한 번 더 부름. 또 위험하면 안전 기본값 | 판단 전체를 다시 받음. 새 프롬프트를 만들지 않음 |
 | 1차 `reply`가 위험한데 검색으로 넘어감 | 보지 않음 | 이 `reply`는 사용자에게 보여 주지 않음. 2차 `reply`를 봄 |
+| 2차에 넘기는 1차 판단 | 보정 전 1차 출력 (다시 생성했으면 마지막 것). 2차를 다시 생성해도 같은 1차 값 | 08 2.6. 보정은 합친 출력에 2차에서 다시 적용하므로 `override_reasons`가 최종 판단 기준으로 남음 |
 | 위험한 `reply` 판단 | 비밀번호·인증번호·API 키를 **달라는** 말, 접수·배정됐다는 말. "하지 마세요"가 있는 문장은 안내로 보고 넘김 | `correct.py` `unsafe_reply`. 재설정 포털 안내("새 비밀번호를 입력해 주세요")는 통과 |
 | `ANSWER` `reply`가 연결을 제안하거나 정보를 달라고 함 | 한 번 다시 부름. 또 그러면 그 문장만 빼고 `override_reasons`에 남김 (`ANSWER_ASKS_BACK`) | `ANSWER` 뒤에는 해결 확인 버튼만 나와 답할 길이 없음. 안전 기본값을 쓰면 맞는 안내까지 사라짐. "팀장님께 말씀해 주세요"처럼 다른 사람에게 알리라는 안내는 넘김 (`correct.py` `asks_back`) |
 | 검색 자체가 오류 (DB 연결 끊김 등) | 잡지 않고 그대로 던짐 | 서버 전체 문제라 M1이 한곳에서 처리. 지금 M1 `InquiryService.reply()`가 AI 오류를 모두 잡아 안내함 |
+| 상황을 이미 앎 (`facts.situation`) | `situation`을 다시 묻지 않음. 1차면 묻지 않고 검색으로 | 08 3.2 6단계 |
+| `ASK_MORE`가 다른 처리 방향으로 바뀜 | `questions`를 비우고 `reply`를 연결 안내로 바꿈 | 인사말만 남지 않게 |
+| 질문 3개·선택지 5개 초과, `options`에 "그 밖의 상황" | 맞추고 `INVALID_VALUE` | 08 2.2.1 |
+| `allow_text` | 서버가 고정 (`영향 범위`만 `false`). 기록하지 않음 | 서버가 정하는 값 |
 | `facts.work_stopped`가 허용값 밖 | `unknown` | null 을 받지 않는 칸 |
 | `ESCALATE`가 아닌데 사유가 있음 | 사유를 `null`로 (`INVALID_VALUE`) | 08 2.5 |
 

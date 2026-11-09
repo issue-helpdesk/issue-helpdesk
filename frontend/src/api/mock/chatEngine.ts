@@ -1,17 +1,18 @@
 /**
  * 시연용 대화 엔진 (design/ITssue-Prototype.html 의 "대화 엔진"을 옮긴 것).
- * 실제 AI·Jira·Slack 호출 없이 정해진 규칙으로만 답하므로 같은 입력에는 항상 같은 답이 나온다.
+ * 실제 AI·ITSM·Slack 호출 없이 정해진 규칙으로만 답하므로 같은 입력에는 항상 같은 답이 나온다.
  * 실제 API(VITE_USE_MOCK=false)에서는 쓰이지 않으며, 같은 일을 백엔드가 한다.
  *
  * 흐름 (PRD 4.2~4.9)
  *   첫 메시지 → 부족한 정보(시스템·증상·시점·영향·시도)를 하나씩 확인 → 긴급 징후가 있으면 바로 담당자 연결 제안
  *   → Guide 우선 검색 → 부족하면 도입 이전 처리 이력 → 둘 다 없으면 지원 범위 밖
- *   → 해결 확인(해결 / 미해결) → 접수 초안 확인·수정 → 접수(RCPT 번호) → Jira·담당자 배정 진행
+ *   → 해결 확인(해결 / 미해결) → 접수 초안 확인·수정 → 접수(RCPT 번호) → ITSM·담당자 배정 진행
  */
 import { nowIso } from '../../core/format'
 import { BLOCKED_NOTICE, hasMask, MASK_NOTICE, MASK_NOTICE_DRAFT, maskNotices, maskSensitive } from '../../core/mask'
 import { CATEGORIES, FALLBACK_GROUP } from '../catalog'
 import { detectInquiryType } from './inquiryTypes'
+import { CHAT_ID_BASE, addHistory } from './historyLog'
 import {
   IDLE_TEXT,
   type CategoryCode,
@@ -41,7 +42,7 @@ import {
 } from './chatStore'
 
 /* ------------------------------------------------------------------ 규칙(정규식) */
-export const RE = {
+const RE = {
   /** 보안 사고 의심 */
   sec: /(피싱|악성|랜섬|해킹|도용|탈취|도난|분실|유출|의심.{0,6}(메일|링크|파일|접속)|(링크|첨부).{0,8}(눌렀|열었|클릭))/,
   /** 여러 사용자 */
@@ -110,7 +111,7 @@ const QUESTIONS: Record<IntakeKey, { ask: string; chips: string[] }> = {
 const ORDER: IntakeKey[] = ['targetSystem', 'summary', 'onset', 'businessImpact', 'triedActions']
 
 /* ------------------------------------------------------------------ Guide 요약 (guides 기준) */
-export interface GuideEntry {
+interface GuideEntry {
   /** 문서 코드와 제목 (예: IT-NET-001 VPN 접속 장애 대응 가이드) */
   guide: string
   version: string
@@ -185,7 +186,7 @@ const LEGACY_CASE: LegacyCase = {
 }
 
 /** 시연용 담당 그룹 ID (support_groups.id) */
-export const GROUP_ID: Record<string, number> = {
+const GROUP_ID: Record<string, number> = {
   서비스데스크: 1,
   엔드포인트지원팀: 2,
   네트워크팀: 3,
@@ -268,7 +269,7 @@ function lockReplies(inq: Inquiry, keepId?: number) {
 const SECURITY_NOTICE = '보안 사고가 의심되는 경우 즉시 IT 지원 담당자에게 연락해 주세요.\n의심스러운 링크나 첨부파일은 열지 말고, 계정 정보를 입력하지 마세요.\nIT 지원 담당자: 내선 1000'
 
 /** 접수 없이 끝났을 때(담당자 연결 거절·접수 초안 취소) 같은 모양으로 보이는 종료 안내 */
-const noTicketClosed = (): ChatBlock[] => [p('**담당자 연결 없이 상담을 종료했어요.**'), p('티켓은 접수되지 않았으며, 문의 내역에서 다시 상담을 이어갈 수 있어요.')]
+const noTicketClosed = (): ChatBlock[] => [p('**담당자 연결 없이 상담을 종료했어요.**'), p('티켓은 접수되지 않았으며, 같은 문제로 다시 연결을 원하시면 새 문의로 시작해 주세요.')]
 
 const yesNo = (): { replies: ChatReply[] } => ({
   replies: [
@@ -305,21 +306,40 @@ function absorb(rec: StoreRecord, text: string, initial: boolean) {
 
 const missing = (rec: StoreRecord) => ORDER.filter((k) => !rec.internal.intake[k])
 
+/** 모의 질문의 이름 (서버 Question.label 에 해당). 답은 "이름: 값" 줄로 묶여 온다 */
+const QLABEL: Record<IntakeKey, string> = { targetSystem: '대상 시스템', summary: '상황', onset: '발생 시점', businessImpact: '영향 범위', triedActions: '시도한 조치' }
+
+/** "이름: 값" 줄로 묶여 온 질문 답을 항목별로 나눈다 (모르는 이름은 건너뛴다) */
+export function parseAnswerLines(text: string): { fields: Partial<Record<IntakeKey, string>>; extra: string } {
+  const fields: Partial<Record<IntakeKey, string>> = {}
+  let extra = ''
+  const byLabel = new Map((Object.entries(QLABEL) as [IntakeKey, string][]).map(([k, v]) => [v, k]))
+  for (const line of text.split('\n')) {
+    const m = /^([^:]{1,20}):\s*(.+)$/.exec(line.trim())
+    if (!m) continue
+    if (m[1] === '추가 내용') extra = m[2].trim()
+    else if (byLabel.has(m[1])) fields[byLabel.get(m[1])!] = m[2].trim()
+  }
+  return { fields, extra }
+}
+
+/** 아직 모르는 항목을 한 번에 최대 3개까지 질문(선택칩·입력)으로 묻는다 */
 function askNext(rec: StoreRecord) {
   const miss = missing(rec)
   if (!miss.length) {
     doAnswer(rec)
     return
   }
-  const k = miss[0]
   const { inquiry, internal } = rec
-  internal.pending = k
+  internal.pending = null
   inquiry.step = 'collect'
-  const chips = k === 'targetSystem' && inquiry.categoryCode ? [CATEGORIES[inquiry.categoryCode].targetSystem] : QUESTIONS[k].chips
-  const blocks: ChatBlock[] = []
-  if (!internal.intake.asked) blocks.push(p('정확히 안내해 드리려고 몇 가지만 확인할게요.'))
-  blocks.push(p(QUESTIONS[k].ask))
-  push(inquiry, { role: 'assistant', blocks, replies: chips.map((c) => ({ label: c, action: 'quick', arg: c })) })
+  const questions = miss.slice(0, 3).map((k) => ({
+    label: QLABEL[k],
+    text: QUESTIONS[k].ask,
+    options: k === 'targetSystem' && inquiry.categoryCode ? [CATEGORIES[inquiry.categoryCode].targetSystem] : QUESTIONS[k].chips,
+    allowText: true,
+  }))
+  push(inquiry, { role: 'assistant', blocks: [p(internal.intake.asked ? '조금 더 확인할게요.' : '정확히 안내해 드리려고 몇 가지만 확인할게요.')], questions, questionsOpen: true })
   internal.intake.asked = true
 }
 
@@ -463,6 +483,10 @@ export function handle(rec: StoreRecord, raw: string, initial: boolean) {
   if (c && !inquiry.categoryCode) inquiry.categoryCode = c
   if (RE.sec.test(text) && inquiry.categoryCode !== 'SEC') inquiry.categoryCode = 'SEC'
   absorb(rec, text, initial)
+  // 질문(선택칩·입력)의 답은 "이름: 값" 줄로 묶여 온다: 항목별로 그대로 받아 둔다
+  const answered = parseAnswerLines(text)
+  Object.assign(internal.intake, answered.fields)
+  if (answered.extra) internal.intake.extra = (internal.intake.extra ? internal.intake.extra + ' ' : '') + answered.extra
   internal.pending = null
   lockReplies(inquiry)
   const all = allText(rec)
@@ -588,9 +612,9 @@ export function saveDraft(rec: StoreRecord, edit: DraftEdit) {
   if (d.urgency !== beforeP) rejudged.push('urgency')
   if (d.groupName !== beforeGroup) rejudged.push('group')
   d.rejudged = rejudged
-  const changed = beforeP !== d.urgency || beforeCat !== d.categoryCode
+  const changed = beforeCat !== d.categoryCode
   inquiry.draftNote = changed
-    ? `수정한 내용을 반영해 ${beforeP !== d.urgency ? `긴급도를 ${beforeP}에서 ${d.urgency}(으)로` : ''}${beforeCat !== d.categoryCode ? ` 분류를 ${d.categoryCode ?? ''}(으)로` : ''} 다시 판단했어요. 변경된 내용으로 다시 확인해 주세요.`
+    ? `수정한 내용을 반영해${beforeCat !== d.categoryCode ? ` 분류를 ${d.categoryCode ?? ''}(으)로` : ''} 다시 판단했어요. 변경된 내용으로 다시 확인해 주세요.`
     : '수정 내용을 반영했어요. 최종 접수 전에 한 번 더 확인해 주세요.'
   // 고친 글에서 민감정보를 가렸다면 초안 화면에서도 알린다 (docs/10 6.1)
   if (maskNotices(found).length) inquiry.draftNote = `${MASK_NOTICE_DRAFT} ${inquiry.draftNote}`
@@ -654,8 +678,8 @@ export function confirmDraft(rec: StoreRecord) {
 const wait = (ms: number) => ms * mockConfig.pipelineScale
 
 /**
- * Jira Ticket 생성(업무 상태 RDY) → 담당자 배정(배정 상태 ASSIGNED) → (자동 진행이 켜져 있으면) 처리 시작 → 처리 결과 등록.
- * 업무 상태는 Jira 생성 직후 RDY 가 되고, 배정 여부는 배정 상태가 따로 나타낸다. (docs/07.API_계약서.md 상태 전환)
+ * ITSM Ticket 생성(업무 상태 RDY) → 담당자 배정(배정 상태 ASSIGNED) → (자동 진행이 켜져 있으면) 처리 시작 → 처리 결과 등록.
+ * 업무 상태는 ITSM 생성 직후 RDY 가 되고, 배정 여부는 배정 상태가 따로 나타낸다. (docs/07.API_계약서.md 상태 전환)
  */
 function runPipeline(rec: StoreRecord) {
   const t = rec.inquiry.ticket
@@ -697,10 +721,28 @@ function assign(rec: StoreRecord) {
   inquiry.updatedAt = nowIso()
 }
 
+/** 접수의 상태 이력에 한 줄을 남긴다 (서버의 ticket_status_history 와 같다). 담당자·ITSM 쪽 변화는 actor 없이, 문의자가 누른 해결·미해결은 문의자 이름으로 */
+function logStatus(rec: StoreRecord, to: NonNullable<Ticket['workStatus']>, opt: { source: 'JIRA' | 'ITSSUE'; reason?: string }) {
+  const t = rec.inquiry.ticket
+  if (!t) return
+  const requester = opt.source === 'ITSSUE' ? { id: 0, employeeNo: rec.internal.owner, name: rec.internal.ownerName } : null
+  addHistory(CHAT_ID_BASE + rec.inquiry.id, {
+    fromStatus: t.workStatus,
+    toStatus: to,
+    source: opt.source,
+    actor: requester,
+    reason: opt.reason ?? null,
+    // 완료할 때의 처리 결과는 그 완료의 이력에 남아, 미해결 뒤 다시 완료해도 지난 결과가 보존된다
+    resolutionNote: to === 'FIN' ? t.resolutionNote || null : null,
+    changedAt: nowIso(),
+  })
+}
+
 /** 상태를 바꾸고, 문의자가 이 문의를 보고 있지 않다면 새 답변 표시를 올린다 */
 function setStatus(rec: StoreRecord, status: Ticket['workStatus']) {
   const t = rec.inquiry.ticket
   if (!t) return
+  if (status) logStatus(rec, status, { source: 'JIRA' })
   t.workStatus = status
   if (status === 'FIN') t.finishedAt = nowIso()
   rec.inquiry.updatedAt = nowIso()
@@ -737,6 +779,7 @@ export function staffTransition(rec: StoreRecord, to: 'WIP' | 'FIN', note?: stri
 export function confirmResolved(rec: StoreRecord) {
   const t = rec.inquiry.ticket
   if (!t || t.workStatus !== 'FIN') return
+  logStatus(rec, 'CLS', { source: 'ITSSUE' })
   t.workStatus = 'CLS'
   t.closedAt = nowIso()
   rec.inquiry.status = 'HANDED_OFF'
@@ -752,9 +795,10 @@ export function denyResolved(rec: StoreRecord, reason: string) {
   const old = [...inquiry.messages].reverse().find((m) => m.card === 'ticket' && !m.ticketSnapshot)
   if (old) old.ticketSnapshot = { ...t }
   push(inquiry, { role: 'user', text: reason.trim(), kind: '미해결 사유' })
+  logStatus(rec, 'WIP', { source: 'ITSSUE', reason: reason.trim() })
   t.workStatus = 'WIP'
   t.finishedAt = null
-  t.resolutionNote = ''
+  // 처리 결과는 비우지 않고 남긴다 (서버도 재처리 중 이전 결과를 보존하고, 재완료 때 새 결과로 덮어쓴다)
   inquiry.updatedAt = nowIso()
   push(inquiry, { role: 'assistant', blocks: [p('다시 확인을 요청했어요. 담당자가 재확인하고 있어요. 아래 카드에서 새 진행 상황을 볼 수 있어요.')], card: 'ticket' })
 }
@@ -772,7 +816,7 @@ export function sendToStaff(rec: StoreRecord, text: string) {
  * AI 답변 뒤 해결·미해결 선택을 기다리는 문의(미확인)와 접수된 건(FIN 포함), 끝난 문의에는 쓰지 않는다.
  * 시간·안내 시점은 서버의 환경값이다.
  */
-export function idleKind(inquiry: Inquiry): IdleKind | null {
+function idleKind(inquiry: Inquiry): IdleKind | null {
   if (inquiry.ticket) return null
   if (inquiry.step === 'closed' || inquiry.step === 'submitted' || inquiry.step === 'answered') return null
   return 'h2'

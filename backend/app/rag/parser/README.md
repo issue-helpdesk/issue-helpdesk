@@ -35,6 +35,7 @@ pytest tests/test_parser.py tests/test_parser_robustness.py
 |---|---|
 | `__init__.py` | `parse(path)` 진입점: 파일 점검 → 형식별 파서 → 누락 감지(필요하면 보수 모드로 다시 읽기) → 로그 |
 | `models.py` | 결과 모양 `ParsedDocument` · `Element`, 미리보기 `to_markdown()` |
+| `to_md.py` | `to_guide_md(doc)`: 파싱 결과 → 가이드 md (정리본 모양). 다시 읽으면 원래 파일과 청크가 같다 (쪽 번호·그림 내용 해시·이모지는 빠짐. 글 안 md 표기는 U+200B 로 지킴). 파일은 쓰지 않는다. 그림 확인까지 하려면 `ingest/upload.py` `to_checked_md` |
 | `md_parser.py` · `docx_parser.py` | 형식별 파서: 읽는 순서대로 요소를 만든다 |
 | `pptx_parser.py` · `pdf_parser.py` | 형식별 파서: 쪽마다 글 상자·표·그림·배경 상자(`Item`)를 만든다 |
 | `slides.py` | PPTX·PDF 공통 장표 해석 (쪽 종류·제목·소제목·읽는 순서) |

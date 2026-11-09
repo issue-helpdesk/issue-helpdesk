@@ -31,7 +31,6 @@ class Member:
     member_active: bool = True               # support_group_members 활성
     assignable: bool = True                  # 자동배정 대상 여부
     jira_account_id: str | None = None
-    scenario_ids: frozenset[str] = frozenset()   # member_skills: 처리할 수 있는 세부 분류
     rdy: int = 0
     wip: int = 0
     reserved: int = 0                        # 선정됐지만 Jira 확인 전인 건(PENDING)
@@ -52,7 +51,7 @@ class AssignDecision:
     candidate_ids: tuple[int, ...] = ()                      # 후보가 된 user_id (정렬 전)
 
 
-def _excluded_reason(m: Member, scenario_id: str, require_jira_account: bool) -> str | None:
+def _excluded_reason(m: Member, require_jira_account: bool) -> str | None:
     if m.is_manager:
         return "팀장 제외"
     if not m.user_active:
@@ -61,8 +60,6 @@ def _excluded_reason(m: Member, scenario_id: str, require_jira_account: bool) ->
         return "그룹 구성원 아님(비활성)"
     if not m.assignable:
         return "자동배정 대상 아님"
-    if scenario_id not in m.scenario_ids:
-        return "해당 세부 분류 처리 불가"
     if require_jira_account and not (m.jira_account_id or "").strip():
         return "Jira 계정 없음"
     return None
@@ -80,7 +77,8 @@ def pick_assignee(
     - require_jira_account: `docs/api/03` TK-09가 자동배정에도 "유효한 Jira 계정"을 요구하므로 기본값은 True.
     - exclude_user_ids: 부재자 등 호출하는 쪽이 따로 빼고 싶은 사람. 부재자는 `time_off.absent_user_ids`로 만든다.
     - 선정 순서: 업무량 적은 순 → 마지막 배정이 오래된 순(배정 이력 없음이 가장 먼저) → 사번 순.
-    - scenario_id 가 없으면(미분류) 개인 자동배정을 하지 않는다. 서비스데스크 확인으로 둔다.
+    - scenario_id 는 접수가 미분류인지만 본다. 없으면(미분류) 개인 자동배정을 하지 않고 서비스데스크 확인으로 둔다.
+      담당자가 어떤 세부 분류를 처리해 왔는지(member_skills)는 후보 조건에 쓰지 않는다 (11.04 팀 결정: 과거 처리 이력 확인용).
     """
     members = list(members)
     if not scenario_id:
@@ -90,7 +88,7 @@ def pick_assignee(
     excluded: dict[int, str] = {}
     candidates: list[Member] = []
     for m in members:
-        why = "배정 제외 대상" if m.user_id in skip else _excluded_reason(m, scenario_id, require_jira_account)
+        why = "배정 제외 대상" if m.user_id in skip else _excluded_reason(m, require_jira_account)
         if why:
             excluded[m.user_id] = why
         else:

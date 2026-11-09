@@ -18,9 +18,11 @@ interface Props {
   disabled?: boolean
   /** 버튼으로만 고르는 단계: 글을 보낼 수 없고 면을 흐리게 보여 준다 */
   locked?: boolean
+  /** 보내려다 막힌 이유: 입력창이 빨갛게 바뀌고 입력창 아래에 빨간 안내가 잠깐 보인다 */
+  error?: string
 }
 
-export function Composer({ value, onChange, onSend, placeholder = '메시지를 입력해 주세요.', disabled = false, locked = false }: Props) {
+export function Composer({ value, onChange, onSend, placeholder = '메시지를 입력해 주세요.', disabled = false, locked = false, error = '' }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null)
 
   // 내용 길이에 맞춰 입력창 높이를 조절한다
@@ -28,6 +30,7 @@ export function Composer({ value, onChange, onSend, placeholder = '메시지를 
     const el = ref.current
     if (!el) return
     el.style.height = 'auto'
+    el.classList.toggle('grown', el.scrollHeight > 72)
     el.style.height = `${Math.min(140, el.scrollHeight)}px`
   }, [value])
 
@@ -39,17 +42,15 @@ export function Composer({ value, onChange, onSend, placeholder = '메시지를 
   }
 
   return (
-    <div className={`composer${locked ? ' off' : ''}`}>
-      {/* 첨부는 접수 후 담당자와 주고받는 흐름에서 다룰 예정이라 지금은 막아 둔다 */}
-      <button className="btn ico sm" type="button" style={{ background: 'transparent', color: 'var(--mute)' }} aria-label="첨부 파일 (준비 중)" disabled>
-        <Icon name="paperclip" />
-      </button>
+    <>
+    <div className={`composer${locked ? ' off' : ''}${error ? ' err' : ''}`}>
       <textarea
         ref={ref}
         rows={1}
         value={value}
         placeholder={placeholder}
         aria-label="메시지 입력"
+        aria-invalid={!!error}
         disabled={disabled || locked}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
@@ -58,5 +59,11 @@ export function Composer({ value, onChange, onSend, placeholder = '메시지를 
         <Icon name="send" />
       </button>
     </div>
+    {error && (
+      <div className="errtx cmperr" role="alert">
+        {error}
+      </div>
+    )}
+    </>
   )
 }

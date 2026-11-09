@@ -193,7 +193,7 @@
     },
     {
      "t": "fig",
-     "src": "m001_flow.png",
+     "src": "IT-SEC-001-M_2-1.png",
      "caption": "피싱·의심 메일 문의 처리 흐름"
     }
    ],
@@ -269,7 +269,7 @@
       },
       {
        "t": "fig",
-       "src": "m_mailsec_search.png",
+       "src": "IT-SEC-001-M_3.1-1.png",
        "caption": "메일 보안 콘솔: ① 발신 도메인·첨부 해시 차단 ② 전사 메일함 일괄 삭제 ③ 열람·클릭한 사람 확인"
       },
       {
@@ -363,7 +363,7 @@
       },
       {
        "t": "fig",
-       "src": "m_mailsec_block.png",
+       "src": "IT-SEC-001-M_3.2-1.png",
        "caption": "메일 보안 콘솔: ① 신고된 사칭 메일 ② 발신 주소 차단"
       },
       {
@@ -461,7 +461,7 @@
       },
       {
        "t": "fig",
-       "src": "m_edr_device.png",
+       "src": "IT-SEC-001-M_3.3-1.png",
        "caption": "EDR 관리 콘솔: ① 네트워크 격리 ② 전체 검사"
       },
       {
@@ -564,7 +564,7 @@
       },
       {
        "t": "fig",
-       "src": "m_sso_history.png",
+       "src": "IT-SEC-001-M_3.4-1.png",
        "caption": "SSO 접속 기록 조회: ① 낯선 접속 ② 세션 강제 종료 ③ 비밀번호 초기화·MFA 재등록"
       },
       {
@@ -668,7 +668,7 @@
       },
       {
        "t": "fig",
-       "src": "m_mailsec_search.png",
+       "src": "IT-SEC-001-M_3.5-1.png",
        "caption": "메일 보안 콘솔: 같은 메일을 받은 사람 128명 중 열람·클릭한 사람 확인 (③)"
       },
       {

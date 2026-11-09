@@ -1,5 +1,13 @@
 # Jira 연동 (ITHD)
 
+### 2026-11-02 · 생성 성공 후 최초 배정 예약 연결
+
+- 생성·기존 이슈 연결·저장된 키 확인 성공 시 최초 배정을 예약하고 JIRA_ASSIGN 작업을 등록합니다.
+- 생성 전에 예약된 담당자는 유지합니다. 생성 결과와 예약을 같은 트랜잭션에 저장하며, 실패 시 기존 VERIFYING 조회 복구를 사용합니다.
+- 담당자 지정 실행과 worker 연결은 별도입니다. 부재 일정 DB 연결도 포함하지 않습니다.
+- 상세: [생성 후 최초 배정 예약](../../../../docs/integrations/jira/CREATE_AUTO_ASSIGNMENT.md).
+
+
 ITssue가 티켓을 만드는 Jira Software 스페이스 「ITssue HelpDesk」(키 `ITHD`, 사이트 `itssuehelpdesk.atlassian.net`)입니다.
 필드·선택값·상태 ID는 이 사이트 기준이며 `field_mapping.yaml`에 있습니다(2026-10-26에 조회해 맞춤).
 
@@ -17,7 +25,7 @@ ITssue가 티켓을 만드는 Jira Software 스페이스 「ITssue HelpDesk」(�
 | `comment_notify.py` | 댓글이 달렸을 때 알림 받을 사번 판별(`route_comment`). 순수 함수 |
 | `retry.py` | 실패 뒤 다음 행동 판단(`next_step`): 재시도·결과 조회·관리자 확인 |
 | `time_off.py` | 연차·반차 일정에서 지금 부재인 사람 목록(`absent_user_ids`). 순수 함수 |
-| `accounts.py` · `jira_accounts.yaml` | 사번 ↔ Jira accountId 연결표(테스트용 6명, 1:1). 값이 비면 Jira 계정 없음으로 봄. `account_id_for`(사번→계정), `employee_no_for`(계정→사번) |
+| `accounts.py` · `jira_accounts.yaml` | 사번 ↔ Jira accountId 연결표(시험용 9명, 6개 그룹, 1:1). 값이 비면 Jira 계정 없음으로 봄. `account_id_for`(사번→계정), `employee_no_for`(계정→사번) |
 
 ## 사용법
 
@@ -54,7 +62,7 @@ with JiraClient.from_env() as jira:
 ## 환경 변수 (서버 `.env`에만)
 
 ```
-JIRA_BASE_URL=https://rlahw5367.atlassian.net
+JIRA_BASE_URL=https://itssuehelpdesk.atlassian.net
 JIRA_EMAIL=<API 토큰을 발급한 Atlassian 계정 이메일>
 JIRA_API_TOKEN=<Atlassian API 토큰>
 ```
@@ -75,7 +83,7 @@ python backend/app/integrations/jira/smoke_check.py --create   # 위 + 새 테�
 python backend/app/integrations/jira/smoke_check.py --flow     # 위 + 담당자 지정·재조회·상태 전환(RDY→WIP→FIN→CLS)까지
 python backend/app/integrations/jira/service_check.py            # 생성 서비스(services/jira_create.py)를 실제 Jira에 붙여 접수→작업→이슈 생성→jira_key 저장→중복 방지까지 (임시 DB, 시험 이슈 1건)
 python backend/app/integrations/jira/smoke_check.py --reopen   # 새 테스트 티켓으로 FIN→WIP→FIN 재처리를 해 보고 「최종 처리 결과」가 덮어써지는지 확인 (CLS까지 가지 않음)
-uv run python backend/app/integrations/jira/worker.py --once           # 독립 실행기: 대기 중인 Jira 생성 작업을 한 번 처리하고 종료 (--interval 30 이면 30초마다 반복)
+uv run python backend/app/integrations/jira/worker.py --once           # 독립 실행기: 생성·배정·상태 변경 작업을 한 회차 처리하고 종료
 ```
 
 기본 실행은 인증·검색·존재하는 테스트 티켓의 저장값만 확인합니다. 테스트 티켓을 삭제했어도 다시 만들지 않으며 저장값 비교는 생략했다고 표시합니다. 생성·중복 확인은 `--create`를 지정했을 때만 테스트합니다. 새 티켓이 검색에 나타나지 않으면 생성 함수를 재호출하지 않고 점검을 중단합니다. 테스트 티켓은 확인 후 Jira에서 지웁니다.
@@ -120,19 +128,57 @@ if event.is_comment_created:
 
 - **중복 생성 방지**는 `create_ticket`이 이미 합니다(접수번호로 먼저 검색). 이 모듈에서 따로 늘리지 않았습니다.
 - **재시도는 판단만** 합니다. 실제로 몇 분 뒤 다시 실행할지(작업 큐)는 백엔드의 `integration_jobs`가 정합니다. `RetryPolicy`의 숫자(3회, 1·5·15분, 결과 조회 15분)는 **제안값**이며 팀 합의 전입니다.
-- `pick_assignee`는 팀장·비활성·자동배정 불가·세부 분류 처리 불가·Jira 계정 없음을 후보에서 뺍니다. 부재자는 `exclude_user_ids`로 넘기며, 그 목록은 `time_off.absent_user_ids(일정, 현재시각)`으로 만듭니다(연차는 종일, 오전 반차는 13시 전까지, 오후 반차는 13시부터 부재. 기준 시각은 `half_day_cutoff`로 바꿀 수 있습니다). `time_off` 표와 일정 입력은 백엔드 몫이며 `docs/11.Jira_티켓_담당자_배정_로직.md` 3.1절에 정리했습니다.
+- `pick_assignee`는 팀장·비활성·자동배정 불가·Jira 계정 없음을 후보에서 뺍니다. 담당자의 처리 분류(`member_skills`)는 후보 조건이 아니라 과거 처리 이력 확인용입니다. 부재자는 `exclude_user_ids`로 넘기며, 그 목록은 `time_off.absent_user_ids(일정, 현재시각)`으로 만듭니다(연차는 종일, 오전 반차는 13시 전까지, 오후 반차는 13시부터 부재. 기준 시각은 `half_day_cutoff`로 바꿀 수 있습니다). `time_off` 표와 일정 입력은 백엔드 몫이며 `docs/11.Jira_티켓_담당자_배정_로직.md` 3.1절에 정리했습니다.
+- 서비스에서는 `services/assignment.reserve_assignment`가 DB의 `time_off`로 부재자를 직접 빼므로(`services/time_off.current_absentees`) 부르는 쪽이 부재자 목록을 넘기지 않습니다(`absent_user_ids` 인자 삭제, PR #182). 위 `absent_user_ids`는 DB 없이 규칙을 시험·계산할 때 쓰는 순수 함수입니다. 두 구현의 기준(연차 종일, 반차 13시)이 어긋나지 않게 함께 확인합니다.
 - **웹훅 비밀값**: Jira 관리자 웹훅은 비밀값(secret)으로 본문에 서명해 `X-Hub-Signature: sha256=…` 헤더로 보냅니다. `verify_hub_signature(본문 바이트, 헤더, 비밀값)`이 이를 검증합니다. 사용자 정의 헤더(`X-Itssue-Webhook-Secret`)를 Jira 설정에서 넣을 수 있다고는 확인하지 못해서 서명 방식을 기본으로 씁니다. `docs/api/03.접수_연동.md`의 TK-13 헤더 서술은 이에 맞춰 고쳐야 합니다.
 - **웹훅 이벤트 ID**: 헤더 값(`delivery_id`) → 변경 이력 ID → 본문 해시 순으로 씁니다. 헤더 이름은 Jira 문서 기준이며 실제 웹훅으로는 아직 확인하지 않았습니다.
 - **댓글 알림 받을 사람**: 문의자·담당자는 Jira의 reporter·assignee 가 아니라 ITssue DB 티켓의 사번을 `route_comment`에 넘깁니다(보고자는 API 토큰 계정이고 이관 티켓은 Jira 담당자가 비어 있을 수 있음). 작성자는 사번 연결표로 찾습니다. 문의자가 달면 담당자에게, 담당자가 달면 문의자에게, 둘 다 아닌 사람(팀장·관리자)이 달면 둘 모두에게 가고, 작성자 본인에게는 가지 않습니다. 연결표에 없는 계정(`unknown_author`)과 ITssue 봇 계정(`ignore_account_ids`, `check_auth()["account_id"]`)은 알림을 만들지 않습니다.
 - **댓글 이벤트 ID**: 헤더 값 → 변경 이력 ID → `comment:<이벤트>:<댓글ID>:<updated>` → 본문 해시 순입니다. 수정(`comment_updated`)·삭제는 `is_comment_created` 가 False 입니다. 댓글 본문의 멘션(`@이름`)은 글자로만 남기고, 멘션된 사람에게 따로 알리는 일은 하지 않습니다.
 - 상태·담당자 값은 웹훅 본문으로 덮어쓰지 않고, 이벤트를 신호로 받아 `get_work_status`·`get_assignee`로 최신값을 읽어 반영합니다(TK-13).
 - 되돌림 금지는 ITssue가 보내는 전환만 막습니다(FIN → WIP 한 가지만 예외). Jira 화면에서 직접 되돌리는 것은 Jira 워크플로 설정(전환 권한)으로 제한합니다. FIN → WIP 전환에는 해결 결과(resolution)·해결 일시를 비우는 후처리가 설정돼 있어야 합니다(ITHD-355로 확인, 2026-10-30).
-- 사번 연결표(`jira_accounts.yaml`)는 accountId 칸이 비어 있습니다. 팀원의 Jira 프로필 주소 끝 값을 넣습니다.
-- **실제 Jira로는 아직 테스트하지 않았습니다.** 특히 워크플로가 RDY→CLS처럼 건너뛰는 전환을 허용하는지, 담당자 지정 권한이 토큰 계정에 있는지는 실제 ITHD에서 확인이 필요합니다.
+- 사번 연결표(`jira_accounts.yaml`)는 2026-11-02 확정한 직원 9명의 실제 accountId를 사용합니다(엔드포인트지원팀 4명, 나머지 5개 그룹 각 1명). 조직 관리자 계정은 제외합니다. 이 파일과 운영 DB의 계정 연결은 별도로 반영해야 합니다.
+- **실제 점검 범위는 아래 날짜별 기록을 따릅니다.** 현재 생성 서비스의 자동배정 연결, 배정·상태 변경 작업 실행기, 운영 DB·API·웹훅 전체 흐름의 실제 Jira 통합 검증은 별도입니다.
 
 테스트: `pytest tests/test_jira_assignment.py` (모의 응답 35개), `pytest tests/test_jira_comment.py` (댓글 알림 33개).
 
 ## 변경 기록
+
+### 2026-11-02 · FIN→WIP 재처리 실행
+
+- `services/jira_transition.py`가 FIN→WIP를 실행합니다. Jira 상태를 WIP로 되돌린 뒤 남은 증상을 댓글로 남기고, 이전 처리 결과는 DB에 유지하고 남은 증상은 이력·댓글에 남깁니다. 완료마다의 결과는 상태 이력에 보존합니다. `finished_at`은 웹훅 경로와 같이 WIP 복귀 확인 후 NULL로 비웁니다([STATUS_TRANSITION.md](../../../../docs/integrations/jira/STATUS_TRANSITION.md)). 남은 증상은 필수, 처리 결과는 받지 않습니다.
+- `JiraClient.add_comment`·`find_comment`를 추가했습니다. 댓글은 접수번호·요청 시각으로 만든 식별 문구로 이미 달렸는지 먼저 확인해, 시간 초과 뒤 재시도나 TK-12 재처리에서도 두 번 달지 않습니다.
+- worker의 FIN→WIP 보류 처리를 없앴습니다. 아래 과거 기록의 "DEFERRED"·"보류"는 당시 범위입니다.
+- 확인 필요: 이전 결과를 따로 보존할지(이력 칼럼 또는 별도 테이블)는 미정입니다.
+
+### 2026-11-02 · worker 생성·배정·상태 변경 연결
+
+- 독립 실행기가 세 종류의 중단 복구·단건 실행 서비스를 호출합니다. 작업별 예외는 rollback 후 나머지 작업을 계속합니다.
+- `--ticket-id`는 조회·복구·실행을 해당 접수로 제한하고, `--job-types`는 처리할 종류를 선택합니다. `--limit`은 종류별 상한입니다.
+- FIN→WIP 보류가 뒤의 기본 상태 변경을 막지 않게 합니다. 최초 자동배정 예약·FIN→WIP 실행 정책은 확장하지 않습니다.
+- 별도 Compose 실행 구성과 [운영 방법](../../../../docs/integrations/jira/WORKER.md)을 추가했습니다. 아래 과거 기록의 “worker 미연결”은 당시 범위입니다. 최신 검증 범위는 [검증 기록](../../../../docs/integrations/jira/WORKER_VALIDATION.md)을 따릅니다.
+
+### 2026-11-02 · 저장된 배정 작업 실행 서비스
+
+- `services/jira_assign.py`에 현재 예약·자격·revision 확인, 미배정 Jira 지정·재조회·DB 확정, 배정 작업 재시도·중단 복구를 추가했습니다. PR #174 공용 함수의 `requestedBy=None` 시스템 작업도 받습니다.
+- `client.set_assignee()`는 지정 전송만 담당하며 기존 `assign_issue()`는 지정·재조회 반환 형식을 유지합니다. 다른 Jira 담당자는 현재 payload로 덮어쓰지 않고 관리자 확인으로 넘깁니다.
+- 신규 41개, 기존 포함 Jira 관련 모의 시험 374개 통과. 실제 Jira·운영 DB·worker 배포는 실행하지 않았습니다.
+- 생성 후 최초 자동배정·worker 연결과 승인 재배정의 변경 전 계정 계약은 후속 작업입니다. 자세한 내용은 [배정 작업 실행](../../../../docs/integrations/jira/ASSIGNMENT_EXECUTION.md)을 따릅니다.
+
+### 2026-11-02 · 처리 결과 수정·기본 상태 변경 실행 서비스
+
+- `client.py`: 상태·최종 처리 결과 조회, 처리 결과만 수정·재조회, 페이지 처리로 Jira 전환 시각 조회를 추가했습니다.
+- `services/jira_transition.py`: 기본 전환(RDY→WIP, WIP→FIN, FIN→CLS)과 WIP·FIN 처리 결과 수정을 실행합니다. 응답·저장 실패와 중단 복구 뒤에는 조회만 하며 원본 payload와 생성 연동 상태는 유지합니다.
+- 신규 모의 시험 57개, 기존 포함 Jira 관련 333개 통과. 실제 Jira·운영 DB·worker 배포는 실행하지 않았습니다.
+- FIN→WIP는 DEFERRED로 남기며 기존 worker도 변경하지 않았습니다. 저장 규칙·실행 함수·후속 연결은 [상태 변경 실행 연결](../../../../docs/integrations/jira/STATUS_TRANSITION.md)을 따릅니다.
+
+### 2026-11-02 · 생성 작업의 등록 시점 입력 사용
+
+- `services/jira_create.py`는 `integration_jobs.payload`에 저장된 접수 내용으로 Jira 생성 요청을 만듭니다. 실행 전에 접수·기준정보가 바뀌거나 재시도하더라도 원래 입력을 유지합니다.
+- 중복 생성 방지에 쓰는 `jiraKey`·`jiraSyncStatus`만 최신 Ticket에서 읽습니다. 원본 payload는 수정하지 않습니다. `VERIFYING`은 기존처럼 조회만 하며 생성하지 않습니다.
+- 마이그레이션으로 `{}`가 저장된 과거 작업만 현재 DB 값으로 처리하고, 내용 없이 작업 ID와 경고를 남깁니다. 이 값은 과거 등록값을 복원한 것이 아닙니다. 일부 필드가 빠진 payload나 잘못된 형식은 임의 보충하지 않고 `NEEDS_ADMIN`으로 처리합니다.
+- README와 `.env.example`의 Jira 주소 예시를 `https://itssuehelpdesk.atlassian.net`로 통일했습니다. 실제 서버 `.env`는 별도로 적용해야 합니다.
+- 아래 날짜별 시험·PR 기록은 당시 범위입니다. 현재 `최종 처리 결과`는 `transition_fields.final_result`의 `customfield_10069`로 매핑돼 있습니다. 실제 Jira·운영 DB·배정 실행·웹훅 전체 연결 완료를 뜻하지 않습니다.
+- 확인: Jira 관련 모의 HTTP·임시 SQLite 시험 276개 통과(생성 서비스 25개, 신규 회귀 9개 포함). 이번 변경에서는 실제 Jira와 운영 DB를 호출하지 않았습니다.
 
 ### 2026-10-19 · `feature/jira-create-ticket` (M5-1-2 티켓 생성)
 

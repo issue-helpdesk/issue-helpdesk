@@ -3,7 +3,7 @@
  * (design/ITssue-Prototype.html 의 처리할 문의와 같은 구성)
  *
  * 목록은 TK-05(view=ASSIGNED, assigneeId=나), 상세는 TK-06 이다. 서버가 걸러 주므로 화면은 조건만 보낸다.
- * 정렬은 긴급도 → Jira 알림이 온 건 → 오래된 건 순이 기본이다. 상태 변경(처리 시작·처리 결과)은 제안이며 상세에서 한다.
+ * 정렬은 긴급도 → ITSM 알림이 온 건 → 오래된 건 순이 기본이다. 상태 변경(처리 시작·처리 결과)은 제안이며 상세에서 한다.
  */
 import titleInq from '../../assets/mascot/title-inq.webp'
 import { useEffect, useMemo, useState } from 'react'
@@ -13,6 +13,7 @@ import type { CategoryCode, Urgency, WorkStatus } from '../../api/chatTypes'
 import { listTickets, watchTickets } from '../../api/tickets'
 import type { TicketListQuery, TicketSummary } from '../../api/ticketTypes'
 import type { Page } from '../../api/inquiries'
+import { USE_MOCK_TICKET } from '../../core/config'
 import { formatDateTime, formatElapsed } from '../../core/format'
 import { useAuth } from '../../core/session'
 import { FilterPill } from '../../ui/FilterPill'
@@ -52,15 +53,16 @@ const daysAgo = (n: number) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-/** 긴급도 칩 (P2 높음) */
-export const UrgencyChip = ({ u }: { u: Urgency | null }) => (u ? <span className={`pri-${u.toLowerCase()}`}>{`${u} ${URGENCY_LABEL[u]}`}</span> : <span className="muted small">-</span>)
+/** 긴급도 칩 (높음) */
+export const UrgencyChip = ({ u }: { u: Urgency | null }) => (u ? <span className={`pri-${u.toLowerCase()}`}>{URGENCY_LABEL[u]}</span> : <span className="muted small">-</span>)
 
-/** 담당자 화면의 상태 배지 (상태 변경을 Jira에 요청한 중에는 안내를 함께 보인다) */
+/** 담당자 화면의 상태 배지 (상태 변경을 ITSM에 요청한 중에는 안내를 함께 보인다) */
 export function StaffStatus({ t }: { t: Pick<TicketSummary, 'workStatus' | 'transitionStatus' | 'requestedWorkStatus' | 'needsAdmin'> }) {
   if (!t.workStatus) return <StateBadge tone="recv" label="접수 완료" />
   const s = STAFF_STATUS[t.workStatus]
-  if (t.transitionStatus === 'PENDING') return <StateBadge tone={s.tone} label={s.label} sub="Jira 반영 확인 중" block />
-  if (t.needsAdmin || t.transitionStatus === 'NEEDS_ADMIN') return <StateBadge tone="urg" label="확인 필요" />
+  if (t.transitionStatus === 'PENDING') return <StateBadge tone={s.tone} label={s.label} sub="ITSM 반영 확인 중" block />
+  // 해결이 끝난 접수는 연동·배정 확인 대상이 아니다
+  if ((t.needsAdmin || t.transitionStatus === 'NEEDS_ADMIN') && t.workStatus !== 'CLS') return <StateBadge tone="urg" label="확인 필요" />
   return <StateBadge tone={s.tone} label={s.label} />
 }
 
@@ -77,19 +79,19 @@ export function QueueView() {
     setSlide(openId !== null)
   }
 
-  // 대시보드에서 오면 주소의 값으로 시작한다 (?tab=open&sub=RDY, ?pri=P1, ?per=m, ?new=1)
+  // 대시보드에서 오면 주소의 값으로 시작한다 (?tab=open&sub=RDY, ?pri=P1, ?per=m,)
   const [params] = useSearchParams()
   const fromUrl = <T extends string>(k: string, ok: readonly T[], d: T): T => (ok.includes(params.get(k) as T) ? (params.get(k) as T) : d)
-  const [tab, setTab] = useState<Tab>(() => fromUrl('tab', ['all', 'open', 'fin', 'cls'] as const, params.get('new') || params.get('pri') || params.get('per') ? 'all' : 'open'))
+  const [tab, setTab] = useState<Tab>(() => fromUrl('tab', ['all', 'open', 'fin', 'cls'] as const, 'all'))
   const [sub, setSub] = useState<'' | 'RDY' | 'WIP'>(() => fromUrl('sub', ['', 'RDY', 'WIP'] as const, ''))
   const [q, setQ] = useState('')
   const [pri, setPri] = useState<string>(() => fromUrl('pri', ['', 'P1', 'P2', 'P3', 'P4'] as const, ''))
   const [per, setPer] = useState<string>(() => fromUrl('per', ['', 'd', 'm', 'y'] as const, ''))
-  const [onlyNew, setOnlyNew] = useState(() => params.get('new') === '1') // 확인할 Jira 알림이 온 건만
   const [sort, setSort] = useState<{ col: SortCol; dir: 'asc' | 'desc' } | null>(null)
   const [page, setPage] = useState(1)
   const [data, setData] = useState<Page<TicketSummary> | null>(null)
-  const [mine, setMine] = useState<TicketSummary[]>([])
+  // 처리 상태별 건수 (검색어·긴급도·기간을 따라간다). null = 아직 못 읽음
+  const [statusCounts, setStatusCounts] = useState<Partial<Record<WorkStatus, number>> | null>(null)
   const [error, setError] = useState('')
   const [tick, setTick] = useState(0)
   const [reload, setReload] = useState(0)
@@ -111,9 +113,8 @@ export function QueueView() {
       urgency: pri ? [pri as Urgency] : undefined,
       createdFrom: days === undefined ? undefined : daysAgo(days),
       q: q.trim() || undefined,
-      jiraMention: onlyNew || undefined,
     }
-  }, [user?.id, tab, sub, page, sort, pri, per, q, onlyNew])
+  }, [user?.id, tab, sub, page, sort, pri, per, q])
 
   useEffect(() => {
     if (!user) return
@@ -130,17 +131,25 @@ export function QueueView() {
     }
   }, [user, query, tick, reload])
 
-  // 탭별 건수와 Jira 알림이 온 건: 조건과 상관없이 내가 맡은 전체를 한 번 읽어 센다
+  // 탭별 건수: 검색어·긴급도·기간을 따라간다 (상태 탭 자체만 빼고 센다). 처리 상태마다 1건씩 요청해 총건수만 읽고, 검색어를 칠 때마다 보내지 않도록 잠깐 기다린다
   useEffect(() => {
     if (!user) return
     let alive = true
-    listTickets(user, { view: 'ASSIGNED', assigneeId: user.id, size: 100 }).then((r) => {
-      if (alive && r.ok) setMine(r.data.items)
-    })
+    const days = PERIODS.find((p) => p.value === per)?.days
+    const timer = setTimeout(() => {
+      const states: WorkStatus[] = ['RDY', 'WIP', 'FIN', 'CLS']
+      Promise.all(states.map((s) => listTickets(user, { view: 'ASSIGNED', assigneeId: user.id, size: 1, workStatus: [s], urgency: pri ? [pri as Urgency] : undefined, createdFrom: days === undefined ? undefined : daysAgo(days), q: q.trim() || undefined }))).then((rs) => {
+        if (!alive) return
+        const c: Partial<Record<WorkStatus, number>> = {}
+        rs.forEach((r, i) => (c[states[i]] = r.ok ? r.data.totalCount : 0))
+        setStatusCounts(c)
+      })
+    }, 250)
     return () => {
       alive = false
+      clearTimeout(timer)
     }
-  }, [user, tick])
+  }, [user, tick, q, pri, per])
 
   if (!user) return null
 
@@ -148,17 +157,11 @@ export function QueueView() {
     set(v)
     setPage(1)
   }
-  const count = (statuses: WorkStatus[]) => mine.filter((t) => t.workStatus && statuses.includes(t.workStatus)).length
-  const subCount = (s: 'RDY' | 'WIP') => mine.filter((t) => t.workStatus === s).length
-  const mentions = mine.filter((t) => t.jiraMention)
-  const cond = !!(q.trim() || pri || per || onlyNew)
-  // 조건을 모두 풀면 '전체 상태' 탭은 사라지고 진행 중으로 돌아간다
-  const clearFilter = (set: (v: never) => void, v: unknown) => {
-    set(v as never)
-    setPage(1)
-  }
-  const tabs = pri || per || onlyNew ? [ALL_TAB, ...TABS] : TABS
-  if (tab === 'all' && !(pri || per || onlyNew)) setTab('open')
+  const count = (statuses: WorkStatus[]) => statuses.reduce((n, s) => n + (statusCounts?.[s] ?? 0), 0)
+  const subCount = (s: 'RDY' | 'WIP') => statusCounts?.[s] ?? 0
+  const cond = !!(q.trim() || pri || per)
+  // 전체 상태 탭을 맨 앞에 두고, 각 탭에 내가 맡은 건수를 보인다
+  const tabs = [ALL_TAB, ...TABS]
   const onSort = (col: SortCol) => {
     setSort((s) => (s && s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: col === 'when' ? 'desc' : 'asc' }))
     setPage(1)
@@ -172,7 +175,7 @@ export function QueueView() {
         <Topbar title="처리할 문의" sub={`${user.departmentName} · ${user.name} 담당자`} lead={<img className="tti" src={titleInq} alt="" width={56} height={56} />} />
         <div className="scroll">
           <div className="page">
-            <div>
+            <div className="phead">
               <div className="eyebrow">MY QUEUE</div>
               <h1>처리할 문의를 확인해요</h1>
               <p className="muted" style={{ marginTop: 4 }}>
@@ -180,30 +183,12 @@ export function QueueView() {
               </p>
             </div>
 
-            {mentions.length > 0 && (
-              <div className="alert err bn" role="status">
-                <Icon name="bell" />
-                <div className="bnl">
-                  <b>문의자가 답변했어요.</b>
-                  {mentions.slice(0, 3).map((t) => (
-                    <button key={t.id} type="button" className="lk rl" onClick={() => open(t.id)}>
-                      <span className="rc">{t.receiptNo}</span>
-                      <span className="sp" aria-hidden="true">
-                        ·
-                      </span>
-                      {t.summary}
-                    </button>
-                  ))}
-                  {mentions.length > 3 && <span className="rmore">외 {mentions.length - 3}건</span>}
-                </div>
-              </div>
-            )}
 
-            <div className="tabs" role="tablist" aria-label="처리 상태">
+            <div className="d2seg" role="tablist" aria-label="처리 상태">
               {tabs.map((t) => (
                 <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className={tab === t.key ? 'on' : ''} onClick={() => { reset(setTab)(t.key); setSub('') }}>
                   {t.label}
-                  {t.key !== 'cls' && count(t.statuses) > 0 && <span className="count">{count(t.statuses)}</span>}
+                  {statusCounts && <em>{count(t.statuses)}</em>}
                 </button>
               ))}
             </div>
@@ -211,7 +196,7 @@ export function QueueView() {
             <div className="d2f" role="group" aria-label="필터">
               <label className={`srch${q.trim() ? ' f' : ''}`}>
                 <Icon name="search" size={18} />
-                <input value={q} placeholder="접수번호 · Jira 번호 · 제목 · 문의자로 검색" aria-label="처리할 문의 검색" autoComplete="off" onChange={(e) => reset(setQ)(e.target.value)} />
+                <input value={q} placeholder="접수번호 · ITSM 번호 · 제목 · 문의자로 검색" aria-label="처리할 문의 검색" autoComplete="off" onChange={(e) => reset(setQ)(e.target.value)} />
                 {q && (
                   <button type="button" className="x" aria-label="검색어 지우기" onClick={() => reset(setQ)('')}>
                     ✕
@@ -221,19 +206,8 @@ export function QueueView() {
               <span className="small muted" role="status" aria-live="polite">
                 {data?.totalCount ?? 0}건
               </span>
-              <FilterPill label="긴급도" value={pri} options={URGENCIES.map((p) => ({ value: p, label: `${p} · ${URGENCY_LABEL[p]}` }))} onChange={reset(setPri)} />
+              <FilterPill label="긴급도" value={pri} options={URGENCIES.map((p) => ({ value: p, label: URGENCY_LABEL[p] }))} onChange={reset(setPri)} />
               <FilterPill label="접수 기간" value={per} options={PERIODS.map((p) => ({ value: p.value, label: p.label }))} onChange={reset(setPer)} />
-              {onlyNew && (
-                <span className="d2p act">
-                  <span className="ddb">
-                    <small>알림</small>
-                    <span>확인할 Jira 알림</span>
-                  </span>
-                  <button type="button" className="x" aria-label="Jira 알림 필터 해제" onClick={() => clearFilter(setOnlyNew, false)}>
-                    ✕
-                  </button>
-                </span>
-              )}
             </div>
 
             {tab === 'open' && (
@@ -264,15 +238,23 @@ export function QueueView() {
               ) : items.length ? (
                 <>
                   <div className="tw">
-                    <table className="tbl">
+                    <table className="tbl fx fx2">
+                      <colgroup>
+                        <col style={{ width: '9%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '31%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '17%' }} />
+                      </colgroup>
                       <thead>
                         <tr>
                           <SortTh col="pri" label="긴급도" center sort={sort} onSort={onSort} />
-                          <SortTh col="receipt" label="접수번호 / 티켓" sort={sort} onSort={onSort} />
-                          <SortTh col="title" label="제목" sort={sort} onSort={onSort} />
+                          <SortTh plain={!USE_MOCK_TICKET} col="receipt" label="접수번호 / 티켓" sort={sort} onSort={onSort} />
+                          <SortTh plain={!USE_MOCK_TICKET} col="title" label="제목" sort={sort} onSort={onSort} />
                           <SortTh col="status" label="상태" center sort={sort} onSort={onSort} />
                           <SortTh col="when" label="접수일 / 경과" sort={sort} onSort={onSort} />
-                          <SortTh col="cat" label="분류" center sort={sort} onSort={onSort} />
+                          <SortTh plain={!USE_MOCK_TICKET} col="cat" label="분류" center sort={sort} onSort={onSort} />
                         </tr>
                       </thead>
                       <tbody>
@@ -290,7 +272,6 @@ export function QueueView() {
                               <button type="button" className="lk" onClick={() => open(t.id)}>
                                 {t.summary}
                               </button>
-                              {t.jiraMention && <span className="newd" role="img" aria-label="새 답변" />}
                               <small>{t.requester.name}</small>
                             </td>
                             <td className="c">

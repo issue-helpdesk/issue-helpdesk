@@ -215,7 +215,7 @@ export function LoginView() {
                   {error}
                 </div>
               )}
-              <button className="btn pri block" type="submit" aria-disabled={busy} aria-busy={busy && who === 'id'} style={{ minHeight: 48 }}>
+              <button className="btn pri solid block" type="submit" aria-disabled={busy} aria-busy={busy && who === 'id'} style={{ minHeight: 48 }}>
                 {label('id', '로그인')}
               </button>
               {slowNote}
@@ -240,7 +240,7 @@ export function LoginView() {
                   {error}
                 </div>
               )}
-              <button className="btn pri block" type="button" aria-disabled={busy} aria-busy={busy && who === 'sso'} style={{ minHeight: 48 }} onClick={() => !busy && void run(loginSso(), 'sso')}>
+              <button className="btn pri solid block" type="button" aria-disabled={busy} aria-busy={busy && who === 'sso'} style={{ minHeight: 48 }} onClick={() => !busy && void run(loginSso(), 'sso')}>
                 {label('sso', USE_MOCK_AUTH ? 'SSO로 계속하기 (시연)' : 'SSO로 계속하기')}
               </button>
               {slowNote}

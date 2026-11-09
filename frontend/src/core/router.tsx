@@ -7,14 +7,25 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AppShell } from '../ui/AppShell'
 import { LoadingScreen } from '../ui/LoadingScreen'
+import { AccountsView } from '../views/admin/AccountsView'
+import { AllTicketsView } from '../views/admin/AllTicketsView'
+import { AiOpsView } from '../views/admin/AiOpsView'
+import { AdminStatsView } from '../views/admin/AdminStatsView'
+import { DashView } from '../views/admin/DashView'
+import { GuidesView } from '../views/admin/GuidesView'
+import { OpsView } from '../views/admin/OpsView'
+import { AuditLogView } from '../views/admin/AuditLogView'
+import { SecurityView } from '../views/admin/SecurityView'
 import { FaqView } from '../views/faq/FaqView'
-import { HomePlaceholder } from '../views/HomePlaceholder'
+import { GuideLibraryView } from '../views/docs/GuideLibraryView'
 import { ChatView } from '../views/inquiry/ChatView'
 import { InquiryListView } from '../views/inquiry/InquiryListView'
 import { NewInquiryView } from '../views/inquiry/NewInquiryView'
+import { PendingChatView } from '../views/inquiry/PendingChatView'
 import { LoginView } from '../views/login/LoginView'
 import { StatsView } from '../views/staff/StatsView'
 import { MyDashView } from '../views/staff/MyDashView'
+import { CalendarView } from '../views/staff/CalendarView'
 import { QueueView } from '../views/staff/QueueView'
 import { HOME_BY_ROLE } from './roles'
 import { useAuth } from './session'
@@ -31,6 +42,12 @@ function RequireAuth() {
 }
 
 /** 알 수 없는 주소로 오면 로그인 상태에 맞는 첫 화면으로 보낸다. */
+/** 통계: 관리자는 티켓·AI 상담 전체, 담당자는 내 통계·팀 통계 */
+function StatsEntry() {
+  const { user } = useAuth()
+  return user?.serviceRole === 'ADMIN' ? <AdminStatsView /> : <StatsView />
+}
+
 function Landing() {
   const { user, loading } = useAuth()
   if (loading) return <LoadingScreen />
@@ -49,14 +66,25 @@ export function AppRoutes() {
           {/* 문의 (모든 역할 공통) */}
           <Route path="/new" element={<NewInquiryView />} />
           <Route path="/list" element={<InquiryListView />} />
+          <Route path="/chat/new" element={<PendingChatView />} />
           <Route path="/chat/:id" element={<ChatView />} />
           <Route path="/faq" element={<FaqView />} />
-          {/* 담당자·관리자. 화면을 만들면 HomePlaceholder 를 실제 화면으로 바꾼다 */}
+          <Route path="/docs" element={<GuideLibraryView />} />
+          {/* 담당자·관리자 */}
           <Route path="/my" element={<MyDashView />} />
-          <Route path="/stats" element={<StatsView />} />
+          <Route path="/stats" element={<StatsEntry />} />
           <Route path="/queue" element={<QueueView />} />
           <Route path="/queue/:ticketId" element={<QueueView />} />
-          <Route path="/dash" element={<HomePlaceholder title="대시보드" />} />
+          <Route path="/calendar" element={<CalendarView />} />
+          <Route path="/dash" element={<DashView />} />
+          <Route path="/accounts" element={<AccountsView />} />
+          <Route path="/ops" element={<OpsView />} />
+          <Route path="/security" element={<SecurityView />} />
+          <Route path="/audit" element={<AuditLogView />} />
+          <Route path="/guides" element={<GuidesView />} />
+          <Route path="/ai" element={<AiOpsView />} />
+          <Route path="/tickets" element={<AllTicketsView />} />
+          <Route path="/tickets/:ticketId" element={<AllTicketsView />} />
         </Route>
       </Route>
 

@@ -2,24 +2,26 @@
  * 담당자 접수 API 어댑터 (처리할 문의 · 상세). (docs/api/03.접수_연동.md)
  *   GET   /tickets                       TK-05 접수 목록 (AGENT 는 소속 그룹, view=ASSIGNED)
  *   GET   /tickets/{id}                  TK-06 접수 상세
- *   PATCH /tickets/{id}                  TK-07 업무 상태 변경·처리 결과 등록 (202, Jira 반영 확인 뒤 확정)
+ *   PATCH /tickets/{id}                  TK-07 업무 상태 변경·처리 결과 등록 (202, ITSM 반영 확인 뒤 확정)
  *   GET   /tickets/{id}/status-history   TK-08 업무 상태 이력
  * 모의 모드(VITE_USE_MOCK_TICKET, 없으면 VITE_USE_MOCK 이 true)에서는 mock/staffTickets.ts 와 문의 저장소를 읽는다. 서버 모드에서는 같은 형태의 응답을 받는다.
- * 실제 서버에서는 상태 변경 뒤 Jira 반영이 서버에서 일어나므로, 화면은 목록·상세를 주기적으로 다시 읽는다.
+ * 실제 서버에서는 상태 변경 뒤 ITSM 반영이 서버에서 일어나므로, 화면은 목록·상세를 주기적으로 다시 읽는다.
  */
 import { request, sleep } from '../core/apiClient'
-import { MOCK_ONLY, USE_MOCK_TICKET } from '../core/config'
+import { SERVER_INTAKE, USE_MOCK_AUTH, USE_MOCK_TICKET } from '../core/config'
+import { notReady } from './inquiryServer'
 import { staffTransition } from './mock/chatEngine'
 import { later, mockConfig, notify, subscribe } from './mock/chatStore'
-import { TEAM_MEMBERS, addMessage, addHistory, messagesOf, slackOf, allStaffTickets, clearMention, findStaffTicket, historyOf, mutateSeed, pending, recordOfTicket } from './mock/staffTickets'
+import { GROUP_STAFF, TEAM_MEMBERS, bindMockUser, reassignSeed, addHistory, allStaffTickets, findStaffTicket, historyOf, mutateSeed, pending, recordOfTicket } from './mock/staffTickets'
+import { addAssignmentLog, assignmentLogsOf } from './mock/historyLog'
 import type { Page } from './inquiries'
-import type { MessageKind, SlackPreview, StatusHistory, TicketDetail, TicketMessage, TicketListQuery, TicketSummary, TicketTransitionRequest } from './ticketTypes'
+import type { AssignmentLog, StatusHistory, TicketDetail, TicketListQuery, TicketSummary, TicketTransitionRequest } from './ticketTypes'
 import { fail, ok, type ApiResult, type User } from './types'
 import { nowIso } from '../core/format'
-import { maskSensitive } from '../core/mask'
+import { visiblePoll } from '../core/poll'
 
-/** 서버를 다시 읽는 간격(ms) */
-const POLL_MS = 8000
+/** 서버를 다시 읽는 간격(ms). 탭이 가려져 있으면 읽지 않는다 */
+const POLL_MS = 15_000
 
 const toQueryString = (q: TicketListQuery) => {
   const p = new URLSearchParams()
@@ -29,6 +31,14 @@ const toQueryString = (q: TicketListQuery) => {
     else p.set(k, String(v))
   }
   return p.toString()
+}
+
+/**
+ * 로그인은 서버, 접수는 모의로 섞어 쓸 때 로그인한 사용자의 번호를 모의 접수에 맞춘다 (사번이 같은 구성원의 접수가 보이게).
+ * 둘 다 서버거나 둘 다 모의면 아무것도 하지 않는다.
+ */
+export function bindSessionUser(user: User) {
+  if (!USE_MOCK_AUTH && USE_MOCK_TICKET) bindMockUser(user.employeeNo, user.id)
 }
 
 /** 이 사용자가 볼 수 있는 접수인지 (서버는 토큰으로 판단한다): 관리자는 전체, 담당자는 소속 그룹, 문의자는 본인 문의 */
@@ -48,18 +58,19 @@ const summaryOf = (t: TicketDetail): TicketSummary => {
 export async function listTickets(user: User, query: TicketListQuery = {}): Promise<ApiResult<Page<TicketSummary>>> {
   if (!USE_MOCK_TICKET) return request<Page<TicketSummary>>(`/tickets?${toQueryString(query)}`)
   await sleep(150) // 응답 지연 흉내
-  const { page = 1, size = 20, sort = 'createdAt,desc', workStatus, needsAdmin, categoryCode, urgency, assigneeId, createdFrom, q, jiraMention } = query
+  const { page = 1, size = 20, sort = 'createdAt,desc', workStatus, needsAdmin, categoryCode, urgency, assigneeId, createdFrom, q, groupId, jiraSyncStatus } = query
   const needle = (q ?? '').trim().toLowerCase()
   const from = createdFrom ? new Date(`${createdFrom}T00:00:00`).getTime() : 0
   let rows = allStaffTickets().filter((t) => canSee(user, t))
   rows = rows.filter((t) => {
     if (assigneeId && t.assignee?.id !== assigneeId) return false
+    if (groupId && t.group?.id !== groupId) return false
+    if (jiraSyncStatus?.length && !jiraSyncStatus.includes(t.jiraSyncStatus)) return false
     if (workStatus?.length && !(t.workStatus && workStatus.includes(t.workStatus))) return false
     if (needsAdmin !== undefined && t.needsAdmin !== needsAdmin) return false
     if (categoryCode?.length && !(t.category && categoryCode.includes(t.category.code))) return false
     if (urgency?.length && !(t.urgency && urgency.includes(t.urgency))) return false
     if (from && Date.parse(t.createdAt) < from) return false
-    if (jiraMention && !t.jiraMention) return false
     if (needle) {
       const hay = [t.receiptNo, t.jiraKey, t.summary, t.requester.name, t.assignee?.name, t.category?.name]
       if (!hay.some((x) => x && String(x).toLowerCase().includes(needle))) return false
@@ -80,6 +91,8 @@ export async function listTickets(user: User, query: TicketListQuery = {}): Prom
         return t.category?.name ?? '힣'
       case 'receiptNo':
         return t.receiptNo
+      case 'assignee':
+        return t.assignee?.name ?? '힣' // 배정 전은 맨 뒤
       default:
         return Date.parse(t.createdAt)
     }
@@ -89,8 +102,8 @@ export async function listTickets(user: User, query: TicketListQuery = {}): Prom
     const y = val(b)
     const c = (x < y ? -1 : x > y ? 1 : 0) * sign
     if (c) return c
-    // 같으면 Jira 알림이 온 건 먼저, 그다음 오래된 건 먼저 (먼저 볼 문의)
-    return (b.jiraMention ? 1 : 0) - (a.jiraMention ? 1 : 0) || Date.parse(a.createdAt) - Date.parse(b.createdAt)
+    // 같으면 오래된 건 먼저 (먼저 볼 문의)
+    return Date.parse(a.createdAt) - Date.parse(b.createdAt)
   })
   const totalCount = rows.length
   const totalPages = Math.max(1, Math.ceil(totalCount / size))
@@ -100,16 +113,71 @@ export async function listTickets(user: User, query: TicketListQuery = {}): Prom
 
 const notFound = () => fail('TICKET_NOT_FOUND', '접수를 찾을 수 없어요.')
 
-/** 접수 상세 (TK-06). 열면 Jira 알림 표시가 지워진다 (제안). */
+/**
+ * 담당자 재배정 (TK-09 PUT /tickets/{id}/assignment). 관리자만, 처리 대기·처리 중인 접수만, 사유 필수.
+ * 서버는 요청을 받으면 배정을 예약(배정 상태 PENDING)하고 ITSM 실행기가 나중에 반영한다. 그래서 응답이 와도 담당자는 바로 안 바뀔 수 있다.
+ * 접수를 서버로 보내는 환경(VITE_SERVER_INTAKE)에서만 요청하고, 아니면 안내만 한다. 담당자를 처음 지정할 때도 같은 API 다.
+ */
+export async function reassignTicket(user: User, id: number, body: { assigneeId: number; reason: string }): Promise<ApiResult<TicketDetail>> {
+  if (!USE_MOCK_TICKET) {
+    if (!SERVER_INTAKE) return notReady('담당자 재배정')
+    if (user.serviceRole !== 'ADMIN') return fail('FORBIDDEN', '관리자만 담당자를 다시 정할 수 있어요.')
+    // 서버는 담당 그룹도 함께 받는다. 그룹은 바꾸지 않으므로 접수의 현재 그룹을 쓴다
+    const cur = await getTicket(user, id)
+    if (!cur.ok) return cur
+    if (!cur.data.group) return fail('VALIDATION_ERROR', '담당 그룹이 아직 정해지지 않은 접수예요.')
+    return request<TicketDetail>(`/tickets/${id}/assignment`, { method: 'PUT', body: JSON.stringify({ groupId: cur.data.group.id, assigneeId: body.assigneeId, reason: body.reason.trim().slice(0, 500) }) })
+  }
+  await sleep(200)
+  if (user.serviceRole !== 'ADMIN') return fail('FORBIDDEN', '관리자만 담당자를 다시 정할 수 있어요.')
+  const t = findStaffTicket(id)
+  if (!t) return notFound()
+  if (!body.reason.trim()) return fail('VALIDATION_ERROR', '재배정 사유를 입력해 주세요.', { details: [{ field: 'reason', reason: 'REQUIRED', message: '재배정 사유를 입력해 주세요.' }] })
+  if (t.workStatus !== 'RDY' && t.workStatus !== 'WIP') return fail('TICKET_INVALID_TRANSITION', '처리 대기·처리 중인 접수만 담당자를 바꿀 수 있어요.')
+  const m = (GROUP_STAFF[t.group?.name ?? ''] ?? []).find((x) => x.id === body.assigneeId)
+  if (!m) return fail('ASSIGNEE_NOT_ASSIGNABLE', '이 담당 그룹의 담당자가 아니에요.')
+  if (!m.jira) return fail('ASSIGNEE_NOT_ASSIGNABLE', 'ITSM 계정이 연결되지 않아 배정할 수 없어요.')
+  if (t.assignee?.id === m.id) return fail('ASSIGNEE_NOT_ASSIGNABLE', '이미 이 담당자가 맡고 있어요.')
+  const to = { id: m.id, employeeNo: m.employeeNo, name: m.name }
+  addAssignmentLog(id, { event: 'REASSIGN', group: t.group ? { id: t.group.id, name: t.group.name } : null, assignee: to, reason: body.reason.trim(), actor: { id: user.id, employeeNo: user.employeeNo, name: user.name }, createdAt: nowIso() })
+  const rec = recordOfTicket(id)
+  if (rec?.inquiry.ticket) {
+    rec.inquiry.ticket.assigneeId = to.id
+    rec.inquiry.ticket.assigneeName = to.name
+    notify()
+  } else reassignSeed(id, to)
+  return ok(findStaffTicket(id)!)
+}
+
+/** 접수 상세 (TK-06) */
 export async function getTicket(user: User, id: number): Promise<ApiResult<TicketDetail>> {
   if (!USE_MOCK_TICKET) return request<TicketDetail>(`/tickets/${id}`)
   await sleep(120)
   const t = findStaffTicket(id)
   if (!t || !canSee(user, t)) return notFound()
-  const had = !!t.jiraMention // 처음 열 때만 알림 안내를 보여 준다
-  clearMention(id)
-  if (had) notify() // 사이드바의 NEW 표시가 줄어든다
-  return ok({ ...t, jiraMention: had })
+  return ok({ ...t })
+}
+
+/**
+ * 새로고침 동기화 (TK-14): 접수를 열 때 서버가 ITSM 의 최신 상태·처리 결과·담당자를 읽어 반영해 돌려준다.
+ * 웹훅이 유실되거나 실행기가 멈춘 경우의 보완이다. 서버가 30초 안 재호출 등은 ITSM 를 부르지 않고 현재 값을 돌려주므로 열 때마다 불러도 된다.
+ * 모의 모드에서는 필요 없어서 현재 값을 그대로 돌려준다.
+ */
+export async function syncTicket(user: User, id: number): Promise<ApiResult<TicketDetail>> {
+  if (USE_MOCK_TICKET) return getTicket(user, id)
+  return request<TicketDetail>(`/tickets/${id}/sync`, { method: 'POST' })
+}
+
+/**
+ * 담당자 배정 이력 (TK-10). 서버는 담당 그룹 추천·배정·재배정·배정 실패를 시간순으로 준다. 담당 그룹과 관리자만 읽을 수 있고,
+ * 못 읽으면(권한·없음) 호출한 쪽이 조용히 비워 둔다. 처리 이력 칸이 상태 이력과 합쳐 보여 준다.
+ */
+export async function getAssignmentLogs(user: User, id: number): Promise<ApiResult<{ items: AssignmentLog[] }>> {
+  if (!USE_MOCK_TICKET) return request<{ items: AssignmentLog[] }>(`/tickets/${id}/assignment-logs`)
+  await sleep(80)
+  const t = findStaffTicket(id)
+  if (!t || !canSee(user, t)) return notFound()
+  return ok({ items: assignmentLogsOf(id) })
 }
 
 /** 업무 상태 이력 (TK-08) */
@@ -124,7 +192,7 @@ export async function getTicketHistory(user: User, id: number): Promise<ApiResul
 /**
  * 업무 상태 변경·처리 결과 등록 (TK-07). 담당 그룹·관리자만 RDY → WIP, WIP → FIN 을 요청한다.
  * 응답은 202 이고 확인된 상태(workStatus)는 그대로이며 requestedWorkStatus·transitionStatus=PENDING 이다.
- * Jira 반영을 확인하면 상태가 바뀌고 이력이 한 번 남는다. (모의 모드는 잠깐 뒤에 반영한다)
+ * ITSM 반영을 확인하면 상태가 바뀌고 이력이 한 번 남는다. (모의 모드는 잠깐 뒤에 반영한다)
  */
 export async function changeTicketStatus(user: User, id: number, body: TicketTransitionRequest): Promise<ApiResult<TicketDetail>> {
   if (!USE_MOCK_TICKET) return request<TicketDetail>(`/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
@@ -132,14 +200,16 @@ export async function changeTicketStatus(user: User, id: number, body: TicketTra
   const t = findStaffTicket(id)
   if (!t || !canSee(user, t)) return notFound()
   if (user.serviceRole === 'EMPLOYEE') return fail('FORBIDDEN', '이 접수의 상태를 바꿀 수 없어요.')
-  if (pending.has(id)) return fail('INTEGRATION_JOB_IN_PROGRESS', '상태 변경을 Jira에 반영하는 중이에요. 잠시 뒤에 다시 시도해 주세요.')
-  if (t.jiraSyncStatus !== 'SYNCED') return fail('TICKET_NOT_SYNCED', 'Jira 티켓이 아직 만들어지지 않았어요.')
+  if (pending.has(id)) return fail('INTEGRATION_JOB_IN_PROGRESS', '상태 변경을 ITSM에 반영하는 중이에요. 잠시 뒤에 다시 시도해 주세요.')
+  if (t.jiraSyncStatus !== 'SYNCED') return fail('TICKET_NOT_SYNCED', 'ITSM 티켓이 아직 만들어지지 않았어요.')
   const to = body.workStatus
   if (!to) return fail('VALIDATION_ERROR', '바꿀 상태를 골라 주세요.')
   const okMove = (t.workStatus === 'RDY' && to === 'WIP') || (t.workStatus === 'WIP' && to === 'FIN')
   if (!okMove) return fail('TICKET_INVALID_TRANSITION', '이 상태에서는 바꿀 수 없는 변경이에요.')
-  const note = (body.resolutionNote ?? t.resolutionNote ?? '').trim()
-  if (to === 'FIN' && !note) return fail('TICKET_RESOLUTION_NOTE_REQUIRED', '처리 결과를 입력해 주세요.')
+  // 재완료(미해결로 FIN → WIP 이 된 적 있는 접수의 WIP → FIN)는 저장된 이전 결과가 있어도 이번 요청에 새 처리 결과를 받는다
+  const reopened = historyOf(t).some((h) => h.fromStatus === 'FIN' && h.toStatus === 'WIP')
+  const note = (reopened ? (body.resolutionNote ?? '') : (body.resolutionNote ?? t.resolutionNote ?? '')).trim()
+  if (to === 'FIN' && !note) return fail('TICKET_RESOLUTION_NOTE_REQUIRED', reopened ? '다시 완료하려면 새 처리 결과를 입력해 주세요.' : '처리 결과를 입력해 주세요.')
   const from = t.workStatus
   pending.set(id, to)
   notify()
@@ -157,7 +227,8 @@ export async function changeTicketStatus(user: User, id: number, body: TicketTra
           s.finishedAt = nowIso()
         }
       })
-    addHistory(id, { fromStatus: from, toStatus: to, source: 'ITSSUE', actor: { id: user.id, employeeNo: user.employeeNo, name: user.name }, reason: to === 'FIN' ? note : null, changedAt: nowIso() })
+    // 문의자 접수는 staffTransition 이 상태를 바꾸면서 이력도 남긴다 (여기서 또 남기면 같은 전환이 두 줄이 된다)
+    if (!rec) addHistory(id, { fromStatus: from, toStatus: to, source: 'ITSSUE', actor: { id: user.id, employeeNo: user.employeeNo, name: user.name }, reason: null, resolutionNote: to === 'FIN' ? note : null, changedAt: nowIso() })
     notify()
   })
   const cur = findStaffTicket(id)!
@@ -171,37 +242,25 @@ export async function changeTicketStatus(user: User, id: number, body: TicketTra
 export function watchTickets(onChange: () => void): () => void {
   onChange()
   if (USE_MOCK_TICKET) return subscribe(onChange)
-  const timer = setInterval(onChange, POLL_MS)
-  return () => clearInterval(timer)
+  // 화면 여러 곳(사이드바·목록·대시보드)이 구독해도 타이머는 하나만 둔다
+  subs.add(onChange)
+  stopPoll ??= visiblePoll(() => subs.forEach((f) => f()), POLL_MS)
+  return () => {
+    subs.delete(onChange)
+    if (!subs.size) {
+      stopPoll?.()
+      stopPoll = null
+    }
+  }
+}
+/** 상태 변경 요청·확정 뒤 같은 화면의 목록·건수를 다시 읽는다. */
+export function refreshTickets(): void {
+  if (USE_MOCK_TICKET) notify()
+  else subs.forEach((f) => f())
 }
 
-/** 우리 팀 현황 (제안): 소속 그룹의 근무 인원과 처리 대기·처리 중·배정 전 건수 */
-export interface TeamStatus {
-  groupName: string
-  /** 팀원 이름 */
-  names: string[]
-  members: number
-  off: number
-  rdy: number
-  wip: number
-  unassigned: number
-}
-export async function getTeamStatus(user: User): Promise<ApiResult<TeamStatus>> {
-  if (!MOCK_ONLY) return request<TeamStatus>('/tickets/team-status')
-  await sleep(120)
-  const groupName = user.departmentName ?? ''
-  const team = TEAM_MEMBERS[groupName] ?? []
-  const list = allStaffTickets().filter((t) => t.group?.name === groupName)
-  return ok({
-    groupName,
-    names: team.map((m) => m.name),
-    members: team.length,
-    off: team.filter((m) => !m.avail).length,
-    rdy: list.filter((t) => t.workStatus === 'RDY').length,
-    wip: list.filter((t) => t.workStatus === 'WIP').length,
-    unassigned: list.filter((t) => !t.assignee).length,
-  })
-}
+const subs = new Set<() => void>()
+let stopPoll: (() => void) | null = null
 
 /**
  * 통계 구역 하나의 원자료 (제안): 소속 그룹의 접수와 팀원 이름. 서버에는 구역별 통계 API 가 아직 없어, 구역마다 따로 읽어 화면에서 센다.
@@ -219,35 +278,4 @@ export async function getStatsSource(user: User, section: 'sum' | 'trend' | 'pri
   if (!r.ok) return r
   const names = (USE_MOCK_TICKET ? TEAM_MEMBERS[user.departmentName ?? ''] ?? [] : []).map((m) => m.name)
   return ok({ items: r.data.items, names })
-}
-
-/**
- * 문의자에게 보낸 메시지와 Slack 알림 미리보기 (제안). 문서상 AI 중개 양방향 소통은 Could 범위라 서버 API 가 아직 없다.
- * Slack 미리보기는 담당자·관리자에게만 준다 (실제 발송 없음).
- */
-export async function getTicketMessages(user: User, id: number): Promise<ApiResult<{ messages: TicketMessage[]; slack: SlackPreview[] }>> {
-  if (!MOCK_ONLY) return request<{ messages: TicketMessage[]; slack: SlackPreview[] }>(`/tickets/${id}/messages`)
-  await sleep(100)
-  const t = findStaffTicket(id)
-  if (!t || !canSee(user, t)) return notFound()
-  return ok({ messages: messagesOf(id), slack: user.serviceRole === 'EMPLOYEE' ? [] : slackOf(id) })
-}
-
-/** 담당자가 문의자에게 메시지를 보낸다 (제안). 민감정보는 저장 전에 가린다 */
-export async function sendTicketMessage(user: User, id: number, body: { kind: MessageKind; text: string }): Promise<ApiResult<TicketMessage>> {
-  if (!MOCK_ONLY) return request<TicketMessage>(`/tickets/${id}/messages`, { method: 'POST', body: JSON.stringify(body) })
-  await sleep(150)
-  const t = findStaffTicket(id)
-  if (!t || !canSee(user, t)) return notFound()
-  if (user.serviceRole === 'EMPLOYEE' || (user.serviceRole === 'AGENT' && t.assignee?.id !== user.id)) return fail('FORBIDDEN', '이 접수에 메시지를 보낼 수 없어요.')
-  const text = maskSensitive(body.text.trim()).text
-  if (!text) return fail('VALIDATION_ERROR', '내용을 입력해 주세요.')
-  addMessage(id, { from: `${t.assignee?.name ?? user.name} 담당자`, kind: body.kind, text, at: nowIso() })
-  const rec = recordOfTicket(id)
-  if (rec) {
-    rec.inquiry.unread += 1 // 문의자의 문의 내역에 새 답변으로 보인다
-    notify()
-  }
-  const list = messagesOf(id)
-  return ok(list[list.length - 1])
 }

@@ -2,7 +2,8 @@
 
     python -m app.rag.case_guide --database-url <DB> candidates                         # 가이드화할 수 있는 CLS 티켓
     python -m app.rag.case_guide --database-url <DB> draft --ticket 12 --out case.md     # 초안 md + case.md.json (DB 에 안 씀)
-    python -m app.rag.case_guide --database-url <DB> register --file case.md             # 고친 md 등록 + 적재 → DONE(초안)
+    python -m app.rag.case_guide --database-url <DB> register --file case.md --view-scope ALL --transfer-policy ALLOWED
+                                                                                          # 고친 md 등록 + 적재 → DONE(초안)
     python -m app.rag.ingest ...                                                          # 승인(현행 전환)은 관리자가 따로
 
 draft 는 초안을 만들 때의 기준(현행·이어 쓰던 초안·기준 md)을 <out>.json 에 같이 쓴다. register 는 그 기준으로 검사한다:
@@ -12,7 +13,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from app.rag.case_guide import CaseGuideError, Draft, candidates, draft, register
+from app.rag.case_guide import TRANSFER_POLICIES, VIEW_SCOPES, CaseGuideError, Draft, candidates, draft, register
 from app.rag.embedding import DEFAULT_MODEL, MODELS
 from app.rag.ingest import ROOT, FakeEmbedder, connect, is_local
 
@@ -34,6 +35,9 @@ def main(argv=None) -> int:
     r.add_argument('--file', required=True, help='관리자가 고친 md')
     r.add_argument('--draft', help='초안 정보 (기본 <file>.json, draft --out 이 만든 것)')
     r.add_argument('--admin-id', type=int, help='감사 로그에 남길 관리자 id')
+    r.add_argument('--view-scope', required=True, choices=VIEW_SCOPES, help='이 버전의 열람 범위 (draft 가 현행 값을 보여 준다)')
+    r.add_argument('--transfer-policy', required=True, choices=TRANSFER_POLICIES,
+                   help='이 버전의 외부 전송 정책. 관리자가 반드시 고른다 (docs/10 1.3)')
     r.add_argument('--embedder', choices=('real', 'fake'), default='real', help='fake: 모델 파일 없이 시험용 벡터')
     r.add_argument('--model', default=DEFAULT_MODEL, choices=sorted(MODELS))
     a = ap.parse_args(argv)
@@ -63,11 +67,16 @@ def main(argv=None) -> int:
                     print(f'{d.doc_code} {d.version} 초안 → {a.out} (새 항목 {d.section_no}, 초안 정보 {a.out}.json)')
                 else:
                     print(d.md)
+                scope, policy = conn.execute('select view_scope, transfer_policy from document_versions where id = %s',
+                                             (d.current_version_id,)).fetchone()
+                print(f'  현행 정책: 열람 범위 {scope} · 전송 정책 {policy} '
+                      '(register --view-scope --transfer-policy 로 이 버전의 값을 고른다)')
                 _warn(d.warnings)
                 return 0
             d = Draft.load(info)
             md = Path(a.file).read_text(encoding='utf-8')
-            out = register(conn, d, md, a.admin_id, a.files_root)
+            out = register(conn, d, md, a.admin_id, a.files_root, view_scope=a.view_scope,
+                           transfer_policy=a.transfer_policy)
             print(f"{d.doc_code} {d.version} 등록: 버전 {out['version_id']} · {out['file_path']}")
             _warn(out['warnings'])
             from app.rag.ingest.upload import ingest_version

@@ -173,7 +173,7 @@
     },
     {
      "t": "fig",
-     "src": "m002_flow.png",
+     "src": "IT-SEC-002-M_2-1.png",
      "caption": "보안 프로그램 알림 문의 처리 흐름"
     }
    ],
@@ -247,7 +247,7 @@
       },
       {
        "t": "fig",
-       "src": "m_edr_device.png",
+       "src": "IT-SEC-002-M_3.1-1.png",
        "caption": "EDR 관리 콘솔: 장치의 탐지 기록과 ① 네트워크 격리 ② 전체 검사"
       },
       {
@@ -344,7 +344,7 @@
       },
       {
        "t": "fig",
-       "src": "m_edr_exception.png",
+       "src": "IT-SEC-002-M_3.2-1.png",
        "caption": "EDR 관리 콘솔: ① 해시·평판·격리 환경 실행 결과로 오탐 판정 ② 예외 범위는 해시 단위 ③ 예외 등록·파일 복원"
       },
       {
@@ -448,7 +448,7 @@
       },
       {
        "t": "fig",
-       "src": "m_edr_devices.png",
+       "src": "IT-SEC-002-M_3.3-1.png",
        "caption": "EDR 관리 콘솔: ① 장치 상태 '보호 중' ② 설치 오류 뒤 보호 시작 기록"
       },
       {
@@ -546,7 +546,7 @@
       },
       {
        "t": "fig",
-       "src": "m_edr_device.png",
+       "src": "IT-SEC-002-M_3.4-1.png",
        "caption": "EDR 관리 콘솔: ① 원격 네트워크 격리 후 ② 검사·프로세스 분석"
       },
       {

@@ -1,7 +1,7 @@
 /**
  * 접수 진행 카드: 접수 → 담당자 배정 → 처리 중 → 해결 완료 단계와 현재 안내 문구.
  * 담당자 배정 여부는 배정 상태(assignStatus)로, 처리 단계는 업무 상태(workStatus)로 본다.
- * Jira 생성이나 배정에 실패하거나 생성 결과를 아직 모를 때(VERIFYING)도 문의자에게는 '담당자 확인 중'으로 안내한다.
+ * ITSM 생성이나 배정에 실패하거나 생성 결과를 아직 모를 때(VERIFYING)도 문의자에게는 '담당자 확인 중'으로 안내한다.
  * (docs/07.API_계약서.md 상태 전환)
  * 담당자가 처리 결과를 등록하면(해결 확인 대기) 문의자가 "해결 / 미해결"을 고른다.
  *
@@ -20,7 +20,7 @@ type StepState = 'done' | 'cur' | 'todo'
 const LABELS = ['접수', '담당자 배정', '처리 중', '해결 완료']
 
 /** 진행 단계를 그리는 데 필요한 값 (문의 대화의 Ticket 과 접수 상세가 모두 맞춘다) */
-export interface StepsInput {
+interface StepsInput {
   createdAt: string
   assigneeName: string | null
   assignStatus: Ticket['assignStatus']
@@ -33,8 +33,14 @@ export interface StepsInput {
 /** 담당자가 배정되었는지 (배정 상태로 판단) */
 const assigned = (t: StepsInput) => t.assignStatus === 'ASSIGNED'
 
-/** Jira 생성·배정이 끝나지 않아 관리자가 확인하는 중인지 (실패와 결과 불명을 나누지 않는다) */
-const needsAdmin = (t: StepsInput) => t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.assignStatus === 'NEEDS_ADMIN'
+/**
+ * 업무 상태가 이미 처리 중(WIP)·해결 확인 대기(FIN)·해결 완료(CLS)면 배정 단계는 지났다.
+ * ITSM 에서 담당자를 직접 지정해 서버의 배정 상태가 NEEDS_ADMIN 으로 남아 있어도 진행 단계는 업무 상태를 따른다.
+ */
+const progressed = (t: StepsInput) => t.workStatus === 'WIP' || t.workStatus === 'FIN' || t.workStatus === 'CLS'
+
+/** ITSM 생성·배정이 끝나지 않아 관리자가 확인하는 중인지 (실패와 결과 불명을 나누지 않는다). 이미 처리가 진행됐으면 아니다 */
+const needsAdmin = (t: StepsInput) => !progressed(t) && (t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.assignStatus === 'NEEDS_ADMIN')
 
 /** "완료 · 10.20 14:20" 처럼 시각이 있으면 뒤에 붙인다 */
 const withTime = (label: string, iso?: string | null) => {
@@ -44,7 +50,7 @@ const withTime = (label: string, iso?: string | null) => {
 
 /** Ticket 상태에서 네 단계의 진행 상태와 보조 문구를 정한다 */
 function steps(t: StepsInput): { states: StepState[]; subs: string[]; tone: string } {
-  const s = assigned(t) ? t.workStatus : null
+  const s = assigned(t) || progressed(t) ? t.workStatus : null
   let states: StepState[]
   if (s === 'CLS') states = ['done', 'done', 'done', 'done']
   else if (s === 'FIN') states = ['done', 'done', 'done', 'cur']
@@ -52,7 +58,7 @@ function steps(t: StepsInput): { states: StepState[]; subs: string[]; tone: stri
   else states = ['done', 'cur', 'todo', 'todo'] // 담당자 배정 전
   const subs = [
     formatDateTime(t.createdAt),
-    t.assigneeName && assigned(t) ? `${t.assigneeName} 담당` : needsAdmin(t) ? '운영자 확인 중' : '연결 중',
+    t.assigneeName && (assigned(t) || progressed(t)) ? `${t.assigneeName} 담당` : progressed(t) ? '완료' : needsAdmin(t) ? '운영자 확인 중' : '연결 중',
     s === 'RDY' ? '대기' : s === 'WIP' ? '처리 중' : s === 'FIN' || s === 'CLS' ? withTime('완료', t.finishedAt) : '',
     s === 'FIN' ? '확인 대기' : s === 'CLS' ? withTime('확인 완료', t.closedAt) : '',
   ]
@@ -65,10 +71,11 @@ function steps(t: StepsInput): { states: StepState[]; subs: string[]; tone: stri
 function guide(t: Ticket): string {
   if (needsAdmin(t)) return '접수는 유지되어 있으며, 운영자가 담당자 연결을 확인하고 있어요. 다시 접수하실 필요는 없어요.'
   if (t.needReply) return `${t.assigneeName} 담당자가 추가 정보를 요청했어요. 답변을 남겨 주세요.`
-  if (!assigned(t)) return '접수되었습니다. 담당자 연결을 진행하고 있어요.'
+  if (!assigned(t) && !progressed(t)) return '접수되었습니다. 담당자 연결을 진행하고 있어요.'
+  const who = t.assigneeName ? `${t.assigneeName} 담당자` : '담당자'
   if (t.workStatus === 'CLS') return '문의자 확인으로 종료되었어요. 감사합니다.'
   if (t.workStatus === 'FIN') return '담당자가 처리 결과를 등록했어요. 해결되었는지 확인해 주세요.'
-  if (t.workStatus === 'WIP') return `${t.assigneeName} 담당자가 처리하고 있어요.`
+  if (t.workStatus === 'WIP') return `${who}가 처리하고 있어요.`
   return `${t.assigneeName} 담당자(${t.groupName})에게 배정되었어요. 처리를 기다리고 있어요.`
 }
 
@@ -146,9 +153,9 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
       <p style={{ marginTop: 14, fontSize: 14, lineHeight: '22px' }}>{guide(t)}</p>
 
       {t.workStatus === 'FIN' && (
-        <div className="card w" style={{ marginTop: 10 }}>
+        <div className="card w tkres" style={{ marginTop: 10 }}>
           <div className="small muted">처리 결과 · {t.assigneeName}</div>
-          <div style={{ marginTop: 4 }}>{t.resolutionNote || '조치를 완료했습니다.'}</div>
+          <div style={{ marginTop: 2 }}>{t.resolutionNote || '조치를 완료했습니다.'}</div>
         </div>
       )}
 
@@ -156,10 +163,10 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
         <div className="replies">
           {t.workStatus === 'FIN' && !readOnly && (
             <>
-              <button type="button" className="chip on" disabled={busy} onClick={onResolve}>
+              <button type="button" className="chip" disabled={busy || t.transitionPending} onClick={onResolve}>
                 해결
               </button>
-              <button type="button" className="chip" disabled={busy} onClick={onReject}>
+              <button type="button" className="chip" disabled={busy || t.transitionPending} onClick={onReject}>
                 미해결
               </button>
             </>
@@ -173,6 +180,12 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
         </div>
       )}
 
+      {t.transitionPending && !readOnly && (
+        <p className="small muted" role="status" style={{ marginTop: 10 }}>
+          선택하신 내용을 ITSM에 반영하는 중이에요. 잠시 뒤 상태가 바뀌어요.
+        </p>
+      )}
+
       {readOnly && (
         <p className="small muted" style={{ marginTop: 10 }}>
           문의자 응답: 아직 해결되지 않음 → 다시 확인 요청
@@ -180,7 +193,7 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
       )}
 
       {/* 현재 상태 이름을 글자로도 알려 스크린리더가 같은 정보를 읽게 한다 */}
-      <span className="sr">현재 상태 {t.workStatus && assigned(t) ? WORK_STATUS[t.workStatus].label : '접수'}</span>
+      <span className="sr">현재 상태 {t.workStatus && (assigned(t) || progressed(t)) ? WORK_STATUS[t.workStatus].label : '접수'}</span>
     </div>
   )
 }

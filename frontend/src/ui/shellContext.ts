@@ -9,8 +9,12 @@ interface ShellState {
   toggleNav: () => void
   /** "내 프로필" 창(정보 + 비밀번호 변경)을 연다 */
   openProfile: () => void
+  /** 사이드바를 접었는지 (860px 초과에서만 적용) */
+  sideOff: boolean
+  /** 사이드바를 접거나 펼친다 */
+  toggleSide: () => void
 }
 
-export const ShellContext = createContext<ShellState>({ toggleNav: () => {}, openProfile: () => {} })
+export const ShellContext = createContext<ShellState>({ toggleNav: () => {}, openProfile: () => {}, sideOff: false, toggleSide: () => {} })
 
 export const useShell = () => useContext(ShellContext)

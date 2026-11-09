@@ -36,7 +36,11 @@ class DocumentVersion(Base):
         CheckConstraint("ingest_status in ('PENDING', 'DONE', 'FAILED')", name="ingest_status"),
         # 현행 버전은 문서마다 최대 하나, 적재가 끝난 버전만 현행 (SRS GUIDE-05)
         CheckConstraint("not is_current or ingest_status = 'DONE'", name="current_needs_done"),
-        Index("uq_document_versions_one_current", "document_id", unique=True, postgresql_where=text("is_current")),
+        Index("uq_document_versions_one_current", "document_id", unique=True, postgresql_where=text("is_current"),
+              sqlite_where=text("is_current")),
+        # 같은 파일을 다시 파싱·임베딩하지 않는다. 일괄 적재·사례 가이드 행은 비어 있을 수 있다
+        Index("uq_document_versions_file_sha256", "file_sha256", unique=True,
+              postgresql_where=text("file_sha256 is not null"), sqlite_where=text("file_sha256 is not null")),
     )
 
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)
@@ -44,6 +48,7 @@ class DocumentVersion(Base):
     version: Mapped[str]
     file_path: Mapped[str | None]
     file_format: Mapped[str | None]
+    file_sha256: Mapped[str | None]                                         # 파일 내용 해시
     view_scope: Mapped[str] = mapped_column(server_default="ADMIN")          # 정책 미지정 시 가장 좁게
     transfer_policy: Mapped[str] = mapped_column(server_default="BLOCKED")
     is_current: Mapped[bool] = mapped_column(server_default=text("false"))
@@ -62,6 +67,7 @@ class DocumentChunk(Base):
         UniqueConstraint("version_id", "unit_key", "part", name="uq_document_chunks_version_id_unit_key_part"),
         CheckConstraint("chunk_type in ('ITEM', 'CHAPTER', 'FAQ', 'PREFACE')", name="chunk_type"),
         CheckConstraint("part >= 1", name="part"),
+        CheckConstraint("content_transfer_policy in ('ALLOWED', 'BLOCKED')", name="content_transfer_policy"),
     )
 
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)
@@ -74,6 +80,8 @@ class DocumentChunk(Base):
     chunk_type: Mapped[str]                                          # ITEM·CHAPTER·FAQ·PREFACE
     part: Mapped[int] = mapped_column(Integer, server_default=text("1"))           # 묶음 안 조각 번호
     meta: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))  # 원문 메모 (키 고정)
+    # 매뉴얼 3.x 항목의 내용 외부 전송. 비어 있으면 버전의 transfer_policy 를 따른다. 적재가 허용 목록으로 채운다
+    content_transfer_policy: Mapped[str | None]
 
 
 class LegacyInquiry(Base):
@@ -120,3 +128,15 @@ class Faq(Base):
     updated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime | None]
+
+
+class FaqSourceDocument(Base):
+    """관리자가 FAQ 에 직접 지정한 출처 문서. 버전이 아니라 문서에 잇고, 게시 조건은 그때의 현행 버전으로 본다."""
+    __tablename__ = "faq_source_documents"
+    __table_args__ = (
+        Index("ix_faq_source_documents_document_id", "document_id"),   # 문서가 바뀔 때 연결된 FAQ 를 찾는다
+    )
+
+    faq_id: Mapped[int] = mapped_column(ForeignKey("faqs.id", ondelete="CASCADE"), primary_key=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("knowledge_documents.id"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

@@ -54,11 +54,10 @@ def load_team(team: str) -> list[Member]:
         for r in csv.DictReader(f):
             if r["team"] != team:
                 continue
-            scenarios = frozenset(s for s in r["scenario_ids"].split(",") if s and s != "-")
             members.append(Member(
                 user_id=uid(r["emp_id"]), employee_no=r["emp_id"], name=r["name"],
                 is_manager=r["role"] in ("팀장", "조직장"), assignable=r["assignable"] == "Y",
-                jira_account_id=f"acc-{r['emp_id']}", scenario_ids=scenarios, rdy=int(r["open_tickets"] or 0),
+                jira_account_id=f"acc-{r['emp_id']}", rdy=int(r["open_tickets"] or 0),
             ))
     return members
 
@@ -85,44 +84,66 @@ def test_demo_data_only_half_affect_auto_assignment():
 
 
 # ------------------------------------------------------------------ 부재자가 빠지고 다음 사람이 선정
+# 11.04 팀 결정: 담당자의 처리 분류(scenario_ids)는 후보 조건이 아니다. 같은 팀이면 업무량 → 마지막 배정 → 사번 순으로만 고른다.
+# 시나리오 코드는 접수가 미분류가 아니라는 표시로만 넘긴다.
+
+def only_zero(*emp_ids: int):
+    """지정한 사람만 업무량 0, 나머지는 1건으로 맞춘다 (누가 선정되는지 분명하게 보려는 용도)."""
+    return lambda m: replace(m, rdy=0 if m.user_id in emp_ids else 1)
+
 
 def test_annual_leave_changes_the_pick_business_systems():
-    # SYS-02 담당은 권다은(1130)·김정훈(1480). 업무량이 같으면 사번 순이라 평소엔 권다은.
-    assert pick("업무시스템팀", "SYS-02", "2026-11-10T10:00").user_id == 1130
-    d = pick("업무시스템팀", "SYS-02", "2026-11-11T10:00")        # 권다은 연차(리허설 당일)
-    assert d.user_id == 1480
-    assert d.excluded[1130] == "배정 제외 대상"
+    # 업무시스템팀 담당자 6명이 모두 업무량 0이면 사번이 가장 빠른 정수호(1036)가 선정된다.
+    assert pick("업무시스템팀", "SYS-02", "2026-11-10T10:00").user_id == 1036
+    # 권다은 11/11 연차(리허설 당일)는 정수호 선정에 영향이 없지만 후보에서는 빠진다.
+    d = pick("업무시스템팀", "SYS-02", "2026-11-11T10:00")
+    assert d.user_id == 1036 and d.excluded[1130] == "배정 제외 대상"
+    # 정수호가 연차이면 다음 사번인 권다은(1130)이 선정된다.
+    entries = load_entries() + [TimeOff(1036, "ANNUAL", date(2026, 11, 10), date(2026, 11, 10))]
+    d = pick("업무시스템팀", "SYS-02", "2026-11-10T10:00", entries=entries)
+    assert d.user_id == 1130 and d.excluded[1036] == "배정 제외 대상"
 
 
 def test_annual_leave_beats_lower_workload_endpoint_team():
-    # HW-03~05 담당은 김수아(1102, 진행 1건)·임동훈(1333, 0건). 평소엔 업무량이 적은 임동훈.
-    assert pick("엔드포인트지원팀", "HW-03", "2026-11-02T10:00").user_id == 1333
-    assert pick("엔드포인트지원팀", "HW-03", "2026-11-03T10:00").user_id == 1102   # 임동훈 연차 → 업무량이 더 많아도 김수아
-    assert pick("엔드포인트지원팀", "HW-03", "2026-11-04T10:00").user_id == 1102   # 종료일(11/4)까지 포함
-    assert pick("엔드포인트지원팀", "HW-03", "2026-11-05T10:00").user_id == 1333   # 복귀
+    # 임동훈(1333)만 진행 0건, 나머지 담당자는 1건 이상이면 평소엔 업무량이 가장 적은 임동훈.
+    zero = only_zero(1333)
+    assert pick("엔드포인트지원팀", "HW-03", "2026-11-02T10:00", tweak=zero).user_id == 1333
+    # 임동훈 연차(11/3~11/4) → 업무량이 더 많아도 다음 후보. 1건 동률이면 사번 순(강지호 1064).
+    assert pick("엔드포인트지원팀", "HW-03", "2026-11-03T10:00", tweak=zero).user_id == 1064
+    assert pick("엔드포인트지원팀", "HW-03", "2026-11-04T10:00", tweak=zero).user_id == 1064   # 종료일(11/4)까지 포함
+    assert pick("엔드포인트지원팀", "HW-03", "2026-11-05T10:00", tweak=zero).user_id == 1333   # 복귀
 
 
 def test_half_day_pm_cutoff_security_team():
-    # SEC-01 담당은 황민석(1408)·송예린(1462). 황민석 11/4 오후 반차.
-    assert pick("정보보안팀", "SEC-01", "2026-11-04T12:59").user_id == 1408        # 13시 전엔 근무
-    assert pick("정보보안팀", "SEC-01", "2026-11-04T13:00").user_id == 1462        # 13시 정각부터 부재
-    assert pick("정보보안팀", "SEC-01", "2026-11-05T09:00").user_id == 1408
+    # 황민석(1408) 11/4 오후 반차. 황민석만 업무량 0이면 반차 전에는 황민석이 선정된다.
+    zero = only_zero(1408)
+    assert pick("정보보안팀", "SEC-01", "2026-11-04T12:59", tweak=zero).user_id == 1408        # 13시 전엔 근무
+    d = pick("정보보안팀", "SEC-01", "2026-11-04T13:00", tweak=zero)                          # 13시 정각부터 부재
+    assert d.user_id == 1109 and d.excluded[1408] == "배정 제외 대상"                          # 1건 동률 중 사번 순
+    assert pick("정보보안팀", "SEC-01", "2026-11-05T09:00", tweak=zero).user_id == 1408
 
 
 def test_half_day_am_returns_at_noon_infra_team():
-    # ACC-04 담당은 임재원(1233)·한지민(1241)·오가윤(1319). 한지민이 업무량 최소가 되게 나머지에 1건씩 둔다.
-    busy = lambda m: replace(m, rdy=1) if m.user_id in (1233, 1319) else replace(m, rdy=0)  # noqa: E731
-    assert pick("시스템인프라팀", "ACC-04", "2026-11-05T10:00", tweak=busy).user_id == 1241   # 부재 아님
-    d = pick("시스템인프라팀", "ACC-04", "2026-11-06T10:00", tweak=busy)                     # 오전 반차 → 제외
-    assert d.user_id == 1233 and 1241 in d.excluded
-    assert pick("시스템인프라팀", "ACC-04", "2026-11-06T13:00", tweak=busy).user_id == 1241  # 13시 복귀
+    # 한지민(1241) 11/6 오전 반차. 한지민만 업무량 0이면 한지민이 선정된다.
+    zero = only_zero(1241)
+    assert pick("시스템인프라팀", "ACC-04", "2026-11-05T10:00", tweak=zero).user_id == 1241   # 부재 아님
+    d = pick("시스템인프라팀", "ACC-04", "2026-11-06T10:00", tweak=zero)                     # 오전 반차 → 제외
+    assert d.user_id == 1209 and 1241 in d.excluded                                         # 1건 동률 중 사번 순
+    assert pick("시스템인프라팀", "ACC-04", "2026-11-06T13:00", tweak=zero).user_id == 1241  # 13시 복귀
+
+
+def test_scenario_code_does_not_change_who_is_picked():
+    # 같은 팀·같은 시각이면 어떤 세부 분류든 같은 사람이 선정된다 (처리 분류는 후보 조건이 아니다).
+    picked = {pick("엔드포인트지원팀", s, "2026-11-10T10:00").user_id for s in ("HW-01", "HW-03", "SW-01", "SW-06")}
+    assert len(picked) == 1
 
 
 # ------------------------------------------------------------------ 후보 없음 · 팀장 부재 · 미분류
 
 def test_everyone_absent_means_no_candidate():
-    entries = load_entries() + [TimeOff(1480, "ANNUAL", date(2026, 11, 11), date(2026, 11, 11))]  # 김정훈도 같은 날 연차(가정)
-    d = pick("업무시스템팀", "SYS-02", "2026-11-11T10:00", entries=entries)
+    # 업무시스템팀 담당자 6명이 모두 11/11 연차(가정). 권다은은 원래 데이터에 있고 나머지 5명을 추가한다.
+    team = [TimeOff(u, "ANNUAL", date(2026, 11, 11), date(2026, 11, 11)) for u in (1146, 1278, 1036, 1281, 1480)]
+    d = pick("업무시스템팀", "SYS-02", "2026-11-11T10:00", entries=load_entries() + team)
     assert not d.selected and d.reason == "배정 가능한 후보 없음"                      # 호출하는 쪽이 확인 필요(NEEDS_ADMIN)로 넘긴다
 
 
@@ -130,7 +151,7 @@ def test_manager_leave_does_not_change_auto_assignment():
     # 정상훈(업무시스템팀 팀장) 11/2 연차. 팀장은 원래 후보가 아니라 결과가 같아야 한다.
     with_leave = pick("업무시스템팀", "SYS-02", "2026-11-02T10:00")
     without = pick("업무시스템팀", "SYS-02", "2026-11-02T10:00", entries=[])
-    assert with_leave.user_id == without.user_id == 1130
+    assert with_leave.user_id == without.user_id == 1036
     assert 1464 in with_leave.excluded
 
 

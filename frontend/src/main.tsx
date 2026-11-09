@@ -24,7 +24,7 @@ import '@fontsource/noto-sans-kr/latin-700.css'
 import '@fontsource/ibm-plex-mono/latin-400.css'
 import '@fontsource/ibm-plex-mono/latin-500.css'
 
-// 스타일: 디자인 토큰 → 기본 규칙 → 컴포넌트 규칙 순서로 불러온다
+// 스타일: 디자인 토큰 → 기본 규칙 → 컴포넌트 규칙 → 고대비 순서로 불러온다
 import './assets/tokens.css'
 import './assets/base.css'
 import './assets/components.css'
@@ -32,14 +32,21 @@ import './assets/layout.css'
 import './assets/chat.css'
 import './assets/list.css'
 import './assets/staff.css'
+import './assets/admin.css'
+import './assets/refresh.css'
+// 고대비는 라이트·다크 위에 겹쳐 덮으므로 맨 마지막에 불러온다
+import './assets/contrast.css'
 
 // 우리 프로젝트에서 작성한 코드. 전체 앱, 로그인 상태 관리, 테마 적용 기능을 가져온다.
 import App from './App.tsx'
 import { AuthProvider } from './core/session.tsx'
+import { enableSegSlide } from './ui/segSlide'
 import { applyStoredTheme } from './core/theme.ts'
 
 // 저장된 테마 설정을 적용하는 함수 실행. (화면 붙이기 전에 실행하기 위해 여기에 배치)
 applyStoredTheme()
+// 선택 버튼(.seg)에 슬라이딩 모션을 켠다 (모든 화면 공통)
+enableSegSlide()
 
 // 앱을 브라우저에 붙인다.
 // StricMode - 개발중 추가 검사 / BrowserRouter-주소를 이용한 화면 이동, 

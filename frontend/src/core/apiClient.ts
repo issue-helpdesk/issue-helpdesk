@@ -9,13 +9,30 @@
  * - 네트워크 오류·형식 오류도 같은 모양의 실패 응답으로 바꿔서, 화면이 한 가지 방식으로만 처리하게 한다.
  */
 import { fail, ok, type ApiResult, type ErrorDetail } from '../api/types'
-import { API_BASE_URL, SERVICEDESK } from './config'
+import { BAD_RESPONSE_TEXT, NETWORK_READ, NETWORK_WRITE, displayMessage } from '../api/errorText'
+import { API_BASE_URL } from './config'
 import { tokenStore } from './tokenStore'
 
 /** 토큰 재발급을 하는 함수. 성공하면 새 토큰을 저장하고 true 를 돌려준다. (api/auth.ts 가 등록한다) */
 let refresher: (() => Promise<boolean>) | null = null
 /** 로그인이 끊겼을 때(재발급 실패·무효 토큰) 부르는 함수. (core/session.tsx 가 등록한다) */
 let authLost: (() => void) | null = null
+
+/** 서버가 "비밀번호를 먼저 변경하세요"(403 AUTH_PASSWORD_CHANGE_REQUIRED)라고 답했을 때 부르는 함수. (core/session.tsx 가 등록한다) */
+let pwRequired: (() => void) | null = null
+export const setPasswordRequiredHandler = (fn: (() => void) | null) => {
+  pwRequired = fn
+}
+
+/**
+ * 임시 비밀번호 상태에서는 서버가 비밀번호 변경 말고는 모두 403 으로 막는다. 변경 창이 떠 있는 동안 목록·알림 조회가
+ * 계속 403 을 받아 서버 로그만 쌓이므로, 이 상태에서는 그런 요청을 아예 보내지 않고 같은 실패로 바로 답한다.
+ */
+let pwGate = false
+export const setPasswordGate = (on: boolean) => {
+  pwGate = on
+}
+const GATE_OPEN = (path: string) => path.startsWith('/auth/') || path === '/users/me' || path.startsWith('/users/me/password')
 
 export const setTokenRefresher = (fn: (() => Promise<boolean>) | null) => {
   refresher = fn
@@ -39,7 +56,8 @@ async function send<T>(path: string, init: RequestInit): Promise<ApiResult<T>> {
   const headers = new Headers(init.headers)
 
   // 본문이 있으면 JSON 으로 보낸다
-  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  // (파일 업로드(FormData)는 브라우저가 경계값이 든 Content-Type 을 정해야 하므로 건드리지 않는다)
+  if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
 
   const token = tokenStore.get()
   if (token) headers.set('Authorization', `Bearer ${token}`)
@@ -51,23 +69,28 @@ async function send<T>(path: string, init: RequestInit): Promise<ApiResult<T>> {
 
     const body: unknown = await res.json().catch(() => null)
     if (res.ok) {
-      if (body === null) return fail('BAD_RESPONSE', '서버 응답을 읽지 못했어요. 잠시 후 다시 시도해 주세요.')
+      if (body === null) return fail('BAD_RESPONSE', BAD_RESPONSE_TEXT)
       return ok(body as T)
     }
 
     // 약속한 실패 형식이면 코드·문구·상세를 그대로 전달한다
     const e = (body as { error?: { code?: unknown; message?: unknown; details?: unknown } } | null)?.error
     if (e && typeof e.code === 'string') {
-      return fail(e.code, typeof e.message === 'string' ? e.message : '', { details: Array.isArray(e.details) ? (e.details as ErrorDetail[]) : undefined })
+      const details = Array.isArray(e.details) ? (e.details as ErrorDetail[]) : undefined
+      // 화면 문구는 코드별 사전(api/errorText.ts)에서 정한다. 없는 코드는 서버 문구를 쓰되 용어만 맞춘다
+      return fail(e.code, displayMessage(e.code, typeof e.message === 'string' ? e.message : '', details), { details })
     }
-    return fail('BAD_RESPONSE', '서버 응답을 읽지 못했어요. 잠시 후 다시 시도해 주세요.')
+    return fail('BAD_RESPONSE', BAD_RESPONSE_TEXT)
   } catch {
     // 서버에 닿지 못한 경우 (오프라인, 서버 중지 등)
-    return fail('NETWORK_ERROR', `서버에 연결하지 못했어요. 잠시 후 다시 시도하거나 IT 헬프데스크 ${SERVICEDESK}로 문의해 주세요.`)
+    // 읽기는 다시 불러오면 되고, 변경 요청은 서버가 이미 처리했을 수 있어서 실패로 단정하지 않고 처리 상태를 확인하게 한다
+    const read = !init.method || init.method.toUpperCase() === 'GET'
+    return fail('NETWORK_ERROR', read ? NETWORK_READ : NETWORK_WRITE)
   }
 }
 
 export async function request<T>(path: string, init: RequestInit = {}): Promise<ApiResult<T>> {
+  if (pwGate && !GATE_OPEN(path)) return fail('AUTH_PASSWORD_CHANGE_REQUIRED', displayMessage('AUTH_PASSWORD_CHANGE_REQUIRED', '', undefined))
   const r = await send<T>(path, init)
   // 로그인·재발급·로그아웃 자체의 401 은 아래 처리 대상이 아니다
   if (r.ok || path.startsWith('/auth/')) return r
@@ -79,8 +102,31 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   } else if (r.error.code === 'UNAUTHORIZED') {
     // 폐기됐거나 잘못된 토큰: 다시 로그인해야 한다
     authLost?.()
+  } else if (r.error.code === 'AUTH_PASSWORD_CHANGE_REQUIRED') {
+    // 임시 비밀번호 상태: 닫을 수 없는 비밀번호 변경 창을 띄운다
+    pwRequired?.()
   }
   return r
+}
+
+/**
+ * 파일(그림 등)을 받는다. 토큰을 헤더로 보내야 해서 `<img src>` 에 주소를 바로 넣을 수 없고, 이렇게 받아 blob 으로 보여 준다.
+ * 만료된 토큰은 한 번 재발급해 다시 시도하고, 못 받으면 null 이다 (화면이 대체 표시를 쓴다).
+ */
+export async function requestBlob(path: string): Promise<Blob | null> {
+  const go = () => {
+    const headers = new Headers()
+    const token = tokenStore.get()
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+    return fetch(`${API_BASE_URL}${path}`, { headers, credentials: 'include' })
+  }
+  try {
+    let res = await go()
+    if (res.status === 401 && (await refreshOnce())) res = await go()
+    return res.ok ? await res.blob() : null
+  } catch {
+    return null
+  }
 }
 
 /** 가짜 응답(mock)에서 서버 지연을 흉내 낼 때 쓴다. */

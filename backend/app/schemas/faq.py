@@ -2,10 +2,11 @@ from typing import Annotated
 
 from pydantic import Field
 
-from app.schemas.common import CamelModel, KstDatetime, PageQuery, sort_param, trimmed_str
+from app.schemas.common import CamelModel, GuideImage, KstDatetime, PageQuery, sort_param, trimmed_str
 from app.schemas.inquiry import CategoryRef, UserRef
 
 Keywords = Annotated[list[trimmed_str(1, 30)], Field(max_length=20)]
+SourceDocumentIds = Annotated[list[int], Field(max_length=20)]
 
 
 class Faq(CamelModel):
@@ -27,7 +28,9 @@ class FaqSource(CamelModel):
     doc_code: str
     title: str
     version: str
-    location: str | None
+    location: str | None                    # 문서를 직접 지정한 출처는 null
+    excerpt: str | None                     # 해당 청크의 본문. 문서를 직접 지정한 출처는 null
+    images: list[GuideImage]                # 본문에 나오는 그림. 파일은 DC-11
 
 
 class FaqDetail(Faq):
@@ -48,6 +51,7 @@ class FaqCreateRequest(CamelModel):
     answer: trimmed_str(1, 4000)
     keywords: Keywords = []
     is_active: bool = True
+    source_document_ids: SourceDocumentIds = []
 
 
 # 보낸 필드만 바꾼다. faqCode 는 모르는 필드라 NOT_ALLOWED 가 된다
@@ -57,3 +61,4 @@ class FaqUpdateRequest(CamelModel):
     answer: trimmed_str(1, 4000) = None
     keywords: Keywords = None
     is_active: bool = None
+    source_document_ids: SourceDocumentIds = None     # 보내면 이 목록으로 통째로 바꾼다

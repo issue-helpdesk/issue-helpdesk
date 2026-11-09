@@ -2,11 +2,13 @@
 
 해결된 티켓(CLS, 문의자가 해결을 확인함) 하나를 그 문의 유형을 다루는 **기존 가이드의 다음 버전 초안**으로 만든다.
 현행 md 를 복사해 3장 끝에 새 항목 3.N, 목차 한 줄, 개정 이력 한 줄을 더하고 버전을 올린다 (v2.0 → v2.1).
+현행이 docx·pptx·pdf 면 파싱 결과를 가이드 md 로 바꿔 기준으로 쓴다 (parser/to_md.py). 새 버전은 늘 md 다.
 관리자가 고친 가이드를 새 버전으로 업로드한 것과 같은 모양이라, 그 뒤는 업로드 적재(M2-3-1)와 같다.
 
     d = draft(conn, ticket_id)                      # 초안 md + 경고. DB 에 쓰지 않는다
     problems, warnings = check(d, md, staff_names)  # 관리자가 고친 md 다시 검사
-    vid = register(conn, d, md, admin_id)           # 파일 쓰기 + 버전 행(PENDING·비현행) + 감사 로그, commit
+    vid = register(conn, d, md, admin_id, view_scope='ALL', transfer_policy='ALLOWED')
+                                                    # 파일 쓰기 + 버전 행(PENDING·비현행, 관리자가 고른 정책) + 감사 로그, commit
     ingest_version(conn, vid, embedder)             # M2-3-1 → DONE = 초안 (검색에 안 나온다)
     activate(conn, vid, admin_id); conn.commit()    # 관리자 승인 (DC-09) → 현행 = 검색됨
 
@@ -15,8 +17,10 @@ Draft 는 만들 때의 기준(현행·이어 쓰던 초안·기준 md)을 담�
 개정 이력의 '해결 사례 반영 (<접수 번호>)' 표식으로 반영 여부를 정확히 가린다 (기준에 있던 표식이 빠지면 거부).
 
 같은 가이드에 아직 승인 안 된 사례 초안이 있으면 새 버전을 또 만들지 않고 그 초안에 이어 쓴다 (v2.1 이 둘 생기지 않게).
-민감정보는 지우거나 막지 않고 경고만 한다: 새로 더한 줄만, D 의 탐지 규칙(전화·이메일·사번·직원 이름, 비밀·고유식별)으로.
+민감정보는 지우거나 막지 않고 경고만 한다: 새로 더한 줄만, D 의 탐지 규칙(docs/10 2장 목록 전부: 전화·이메일·사번·
+직원 이름, 비밀·고유식별)으로. 해결 사례 검토에 쓸 목록은 2장 목록이다 (docs/10 1.3).
 초안은 비현행이라 검색·외부 전송에 나가지 않고, 승인 전 검토(정확성·정보 보호·공개 범위)는 관리자 몫이다 (GUIDE-03).
+열람 범위·외부 전송 정책은 관리자가 등록할 때 고른다 (docs/10 1.3).
 """
 from __future__ import annotations
 
@@ -29,13 +33,15 @@ from pathlib import Path
 
 from app.rag.chunker import chunk_document, validate
 from app.rag.ingest import ROOT, _audit, _lock_document
-from app.rag.ingest.upload import resolve_file
+from app.rag.ingest.upload import read_guide_md, resolve_file
 from app.rag.parser import ParseError, parse
 
 CASE_DIR = Path('storage') / 'case_guides'                 # files_root 아래. file_path 에는 이 상대 경로만 넣는다
 EVENT = 'CASE_GUIDE_REGISTER'                              # 감사 로그. result 에 '<접수 번호> → <버전>'
 HANDLING = '🔵 IT 담당자 처리'                              # 담당자가 해결한 사례. 사용자 조치로 바꿀지는 관리자가
 SHORT_NOTE = 20                                            # 해결 내용이 이보다 짧으면 경고
+VIEW_SCOPES = ('ALL', 'AGENT', 'ADMIN')                     # document_versions 제약과 같다
+TRANSFER_POLICIES = ('ALLOWED', 'MASKED', 'BLOCKED')
 MARK = '해결 사례 반영'                                     # 개정 이력 표식: '해결 사례 반영 (<접수 번호>)'
 MARK_RE = re.compile(re.escape(MARK) + r' \(([^()\s|]+)\)')
 
@@ -71,8 +77,10 @@ class Draft:
 
 
 def receipts(md: str) -> set[str]:
-    """개정 이력 표식에 적힌 접수 번호들 (정확히. 'TK-1' 과 'TK-10' 은 다르다)."""
-    return set(MARK_RE.findall(md))
+    """개정 이력 표식에 적힌 접수 번호들 (정확히. 'TK-1' 과 'TK-10' 은 다르다). **개정 이력 장 안, 코드 블록 밖만**
+    본다 — 본문·조각에 적힌 같은 글이 반영 표시로 읽히지 않게 (PR #357 검수 4)."""
+    span = _history(md)
+    return {m.group(1) for m in _find(MARK_RE, md, *span)} if span else set()
 
 
 # ── 고르기 ────────────────────────────────────────────────────
@@ -138,9 +146,7 @@ def draft(conn, ticket_id: int, doc_code: str | None = None, files_root: Path = 
         versions = [v for (v,) in conn.execute('select version from document_versions where document_id = %s', (doc_id,))]
         version = next_version(versions)
     base_file = resolve_file(base_path or cur[2], files_root)
-    if base_file.suffix.lower() != '.md':
-        raise CaseGuideError([f'{doc_code}의 기준 파일이 md 가 아닙니다 ({base_file.suffix}). md 버전을 올린 뒤 다시 하세요'])
-    base_md = base_file.read_text(encoding='utf-8')
+    base_md = _base_md(base_file, doc_code, warnings)
     if t['receipt_no'] in receipts(base_md):
         raise CaseGuideError([f"{t['receipt_no']}는 이미 {doc_code}에 반영되어 있습니다"])
 
@@ -152,10 +158,28 @@ def draft(conn, ticket_id: int, doc_code: str | None = None, files_root: Path = 
                     + (f"같은 문의 유형 항목({', '.join(same)})에 합칠지 확인하세요" if same else '처리 구분을 확인하세요'))
     if len(t['resolution_note'].strip()) < SHORT_NOTE:
         warnings.append(f'해결 내용이 짧습니다 ({len(t["resolution_note"].strip())}자). 조치 방법을 채워 주세요')
+    if reopened := _reopened(conn, ticket_id):
+        warnings.append(f"다시 처리된 접수입니다 (재처리 {reopened}회). 앞선 처리 결과·남은 증상은 {t['receipt_no']}의 "
+                        f'TK-08 이력(티켓 {ticket_id})에서 확인하세요. 본문에는 마지막 처리 결과만 넣었습니다')
     conn.commit()                                          # 읽기만 했다 (트랜잭션을 열어 두지 않게)
     return Draft(ticket_id=ticket_id, receipt_no=t['receipt_no'], document_id=doc_id, doc_code=doc_code,
                  version=version, section_no=section_no, base_md=base_md, md=md, current_version_id=cur[0],
                  draft_version_id=draft_id, base_file_path=base_path, warnings=warnings)
+
+
+def _base_md(path: Path, doc_code: str, warnings: list[str]) -> str:
+    """기준 md. 현행이 md 가 아니면(docx·pptx·pdf·txt) 파싱 결과를 가이드 md 로 바꿔 쓴다 (ingest/upload.py read_guide_md).
+    새 버전은 늘 md 다. 바꾼 md 를 다시 읽으면 원래 파일과 청크가 같지만 쪽 번호·문서 안 그림 내용 해시는 빠진다.
+    그림은 바꾸기 전에 배포 그림과 맞춰 보고, 없거나 내용이 다른 그림은 이름표 없이 본문 설명만 남긴다 (경고)."""
+    try:
+        md, image_warnings = read_guide_md(path)
+    except ParseError as e:
+        raise CaseGuideError([f'{doc_code}의 현행 파일({path.suffix})을 읽지 못했습니다: {e.message}']) from e
+    if path.suffix.lower() != '.md':
+        warnings.append(f'{doc_code}의 현행 파일이 {path.suffix.lstrip(".")} 라 md 로 바꿔 기준으로 썼습니다. '
+                        '새 버전은 md 로 저장·적재되고, 쪽 번호와 문서 안 그림의 내용 확인 값은 넣지 않습니다')
+    warnings += image_warnings
+    return md
 
 
 def _read_ticket(conn, ticket_id: int) -> dict:
@@ -168,6 +192,12 @@ def _read_ticket(conn, ticket_id: int) -> dict:
     keys = ('receipt_no', 'work_status', 'summary', 'symptom', 'target_system', 'resolution_note', 'category_code',
             'code', 'group')
     return dict(zip(keys, row))
+
+
+def _reopened(conn, ticket_id: int) -> int:
+    """미해결로 되돌린(FIN→WIP) 횟수. 앞선 처리 결과·남은 증상은 원문을 경고에 넣지 않는다 (민감정보 경고처럼 위치만)."""
+    return conn.execute("select count(*) from ticket_status_history where ticket_id = %s "
+                        "and from_status = 'FIN' and to_status = 'WIP'", (ticket_id,)).fetchone()[0]
 
 
 def _pick_guide(conn, t: dict, doc_code: str | None, warnings: list[str]) -> tuple[int, str]:
@@ -204,54 +234,203 @@ def next_version(versions: list[str]) -> str:
 # ── md 고치기 ─────────────────────────────────────────────────
 
 ITEM_HEAD = re.compile(r'^### (3\.(\d+)) ', re.M)
+ITEM_TABLE_HEAD = ['번호', '제목', '문의 유형', '처리 구분', '담당 부서']   # 3장 앞 항목 표 (가이드 27종 모두 이 5열)
+
+
+def _code_spans(md: str) -> list[tuple[int, int]]:
+    """``` 코드 블록의 (시작, 끝) 위치들 (md 파서와 같은 규칙: 여는 줄 백틱 수 이상으로 시작하는 줄에서 닫힘,
+    안 닫히면 문서 끝까지). 그 안의 '## '·'### 3.' 줄은 장·항목이 아니다 (PR #357 검수 1)."""
+    spans, fence, start, pos = [], '', 0, 0
+    for line in md.splitlines(keepends=True):
+        s = line.strip()
+        if fence:
+            if s.startswith(fence):
+                spans.append((start, pos + len(line)))
+                fence = ''
+        elif s.startswith('```'):
+            fence, start = '`' * (len(s) - len(s.lstrip('`'))), pos
+        pos += len(line)
+    if fence:
+        spans.append((start, len(md)))
+    return spans
+
+
+def _find(pattern, md: str, pos: int = 0, endpos: int | None = None) -> list[re.Match]:
+    """코드 블록 밖의 일치들 (re.M). pattern 은 문자열 또는 컴파일한 정규식."""
+    spans = _code_spans(md)
+    rx = pattern if isinstance(pattern, re.Pattern) else re.compile(pattern, re.M)
+    return [m for m in rx.finditer(md, pos, len(md) if endpos is None else endpos)
+            if not any(a <= m.start() < b for a, b in spans)]
 
 
 def add_case(md: str, t: dict, version: str, today: date, warnings: list[str]) -> tuple[str, str]:
-    """기준 md 에 사례를 더한다: 버전 표기 → 새 항목 3.N (3장 끝) → 목차 한 줄 → 개정 이력 한 줄. (md, 항목 번호)"""
-    chapter = re.search(r'^## 3\. .*$', md, re.M)
-    if chapter is None:
+    """기준 md 에 사례를 더한다: 버전 표기 → 새 항목 3.N (3장 끝) → 3장 항목 표 한 줄 → 목차 한 줄 → 개정 이력 한 줄.
+    (md, 항목 번호)"""
+    _chapter3(md)
+    md = _set_version(md, version, warnings)
+    section_no = f'3.{max(_item_numbers(md), default=0) + 1}'
+    title = _one_line(t['summary']) or _one_line(t['symptom']) or '해결 사례'
+    md = _append_item(md, _item(section_no, title, t))
+    md = _add_table_row(md, _chapter3(md).end(), [section_no, title, t['code'] or '', HANDLING, t['group'] or ''],
+                        warnings)
+    md = _add_toc(md, [(section_no, title)], warnings)
+    md = _add_history(md, version, today, t['group'] or '서비스데스크',
+                      [f"{MARK} ({t['receipt_no']}): {section_no} {title}"], warnings)
+    return md, section_no
+
+
+def _chapter3(md: str) -> re.Match:
+    found = _find(r'^## 3\. .*$', md)
+    if not found:
         raise CaseGuideError(['기준 가이드에 3장(항목별 안내)이 없어 항목을 넣을 수 없습니다'])
+    return found[0]
+
+
+def _chapter3_end(md: str) -> int:
+    """3장 끝 (코드 블록 밖 다음 '## ' 장 시작, 없으면 문서 끝)."""
+    after = _find(r'^## ', md, _chapter3(md).end())
+    return after[0].start() if after else len(md)
+
+
+def _item_heads(md: str) -> list[re.Match]:
+    """3장 안, 코드 블록 밖의 '### 3.N ' 항목 제목들."""
+    return _find(ITEM_HEAD, md, _chapter3(md).end(), _chapter3_end(md))
+
+
+def _item_numbers(md: str) -> list[int]:
+    """3장 항목 번호 (3.N 의 N)."""
+    return [int(m.group(2)) for m in _item_heads(md)]
+
+
+def _set_version(md: str, version: str, warnings: list[str]) -> str:
+    """머리말 version 과 첫머리 '> 문서 번호 | … | vX.Y |' 를 새 버전으로."""
     old = re.search(r'^version:\s*"?([^"\n]+)"?\s*$', md, re.M)
     if old and old.group(1) != version:
         md = md[:old.start()] + f'version: "{version}"' + md[old.end():]
         md = re.sub(rf'^(>.*\| ){re.escape(old.group(1))}( \|)', rf'\g<1>{version}\g<2>', md, count=1, flags=re.M)
     elif not old:
         warnings.append('머리말에 version 이 없습니다. 등록한 버전으로 적재됩니다')
+    return md
 
-    chapter = re.search(r'^## 3\. .*$', md, re.M)
-    end = re.search(r'^## ', md[chapter.end():], re.M)
-    end = chapter.end() + end.start() if end else len(md)
-    numbers = [int(m.group(2)) for m in ITEM_HEAD.finditer(md, chapter.end(), end)]
-    section_no = f'3.{max(numbers, default=0) + 1}'
-    title = _one_line(t['summary']) or _one_line(t['symptom']) or '해결 사례'
-    item = _item(section_no, title, t)
-    md = md[:end].rstrip('\n') + '\n\n' + item + '\n\n' + md[end:]
 
-    toc = list(re.finditer(r'^(\s*)- 3\.\d+ .*$', md[:chapter.start()], re.M))
-    if toc:
-        last = toc[-1]
-        md = md[:last.end()] + f'\n{last.group(1)}- {section_no} {title}' + md[last.end():]
-    else:
+def _append_item(md: str, item: str) -> str:
+    """3장 끝에 항목 하나 (앞뒤 빈 줄 하나씩)."""
+    end = _chapter3_end(md)
+    return md[:end].rstrip('\n') + '\n\n' + item.strip('\n') + '\n\n' + md[end:]
+
+
+TOC_LINE = re.compile(r'^(\s*)- (3\.\d+) (.*)$', re.M)
+
+
+def _add_toc(md: str, entries: list[tuple[str, str]], warnings: list[str]) -> str:
+    """목차의 마지막 '- 3.x …' 줄 뒤에 (번호, 제목) 줄들. 못 찾으면 경고."""
+    if not entries:
+        return md
+    toc = _find(TOC_LINE, md, 0, _chapter3(md).start())
+    if not toc:
         warnings.append('목차에서 3장 항목 줄을 찾지 못해 목차는 고치지 않았습니다')
+        return md
+    last = toc[-1]
+    return md[:last.end()] + ''.join(f'\n{last.group(1)}- {s} {title}' for s, title in entries) + md[last.end():]
 
-    note = _cell(f"{MARK} ({t['receipt_no']}): {section_no} {title}")
-    group = _cell(t['group'] or '서비스데스크')
-    history = re.search(r'^## 개정 이력\s*$', md, re.M)
-    if history is None:
+
+def _set_toc(md: str, section_no: str, title: str, warnings: list[str]) -> str:
+    """목차의 '- <번호> …' 줄 제목을 바꾼다 (변경 초안이 제목을 바꿨을 때). 못 찾으면 경고."""
+    line = next((m for m in _find(TOC_LINE, md, 0, _chapter3(md).start()) if m.group(2) == section_no), None)
+    if line is None:
+        warnings.append(f'목차에서 {section_no} 줄을 찾지 못해 목차는 고치지 않았습니다')
+        return md
+    return md[:line.start(3)] + title + md[line.end(3):]
+
+
+def _history(md: str) -> tuple[int, int] | None:
+    """개정 이력 장의 (본문 시작, 끝). 코드 블록 밖 '## 개정 이력' 부터 다음 '## ' 까지."""
+    head = _find(r'^## 개정 이력\s*$', md)
+    if not head:
+        return None
+    after = _find(r'^## ', md, head[0].end())
+    return head[0].end(), after[0].start() if after else len(md)
+
+
+def _add_history(md: str, version: str, today: date, group: str, notes: list[str], warnings: list[str]) -> str:
+    """개정 이력에 그 버전 줄 (있으면 변경 내용에 '; ' 로 덧붙임). 표가 없으면 끝에 새로 만들고 경고."""
+    note = '; '.join(_cell(n) for n in notes)
+    group = _cell(group)
+    span = _history(md)
+    if span is None:
         warnings.append('개정 이력이 없어 끝에 새로 만들었습니다')
-        md = md.rstrip('\n') + ('\n\n## 개정 이력\n\n| 버전 | 개정일 | 작성자 | 변경 내용 |\n| --- | --- | --- | --- |\n'
-                                f'| {version} | {today.isoformat()} | {group} | {note} |\n')
-        return md, section_no
-    rows = list(re.finditer(r'^\|.*\|[ \t]*$', md[history.end():], re.M))
+        return md.rstrip('\n') + ('\n\n## 개정 이력\n\n| 버전 | 개정일 | 작성자 | 변경 내용 |\n| --- | --- | --- | --- |\n'
+                                  f'| {version} | {today.isoformat()} | {group} | {note} |\n')
+    rows = _find(r'^\|.*\|[ \t]*$', md, *span)
     same = next((r for r in rows if re.match(rf'^\|\s*{re.escape(version)}\s*\|', r.group(0))), None)
     if same:                                               # 이어 쓰는 초안: 그 버전 줄 변경 내용에 덧붙인다
-        at = history.end() + same.end()
         line = same.group(0).rstrip()
-        md = md[:history.end() + same.start()] + line[:-1].rstrip() + f'; {note} |' + md[at:]
-    else:
-        at = history.end() + rows[-1].end() if rows else history.end()
-        md = md[:at] + f'\n| {version} | {today.isoformat()} | {group} | {note} |' + md[at:]
-    return md, section_no
+        return md[:same.start()] + line[:-1].rstrip() + f'; {note} |' + md[same.end():]
+    at = rows[-1].end() if rows else span[0]
+    return md[:at] + f'\n| {version} | {today.isoformat()} | {group} | {note} |' + md[at:]
+
+
+def _item_table(md: str, start: int) -> tuple[list[tuple[int, int]], str | None]:
+    """3장 제목(start)과 첫 항목 사이의 **첫 표** 줄들의 (시작, 줄 끝 문자 앞) 위치와, 쓸 수 없으면 그 이유.
+    표는 빈 줄이나 표 아닌 줄에서 끝나고 (md 파서도 따로 읽는다), 코드 블록 안의 줄은 보지 않는다."""
+    first = _find(ITEM_HEAD, md, start)
+    stop = first[0].start() if first else len(md)
+    block, fence, pos = [], '', start
+    for line in md[start:stop].splitlines(keepends=True):
+        s, at = line.strip(), pos
+        pos += len(line)
+        if fence:
+            fence = '' if s.startswith(fence) else fence
+        elif s.startswith('```'):
+            fence = '`' * (len(s) - len(s.lstrip('`')))
+        elif s.startswith('|') and s.endswith('|'):
+            block.append((at, at + len(line.rstrip('\r\n'))))
+            continue
+        if block:                                          # 표 다음 줄이 표가 아니면 (빈 줄 포함) 첫 표 끝
+            break
+    if not block:
+        return [], '3장 항목 표를 찾지 못해 표는 고치지 않았습니다'
+    head = _cells(md[block[0][0]:block[0][1]])
+    if head != ITEM_TABLE_HEAD:
+        return [], f"3장 항목 표 머리줄({' | '.join(head)})이 예상과 달라 표는 고치지 않았습니다"
+    return block, None
+
+
+def _cells(line: str) -> list[str]:
+    return [c.strip() for c in re.split(r'(?<!\\)\|', line.strip())[1:-1]]
+
+
+def _add_table_row(md: str, start: int, cells: list[str], warnings: list[str]) -> str:
+    """3장 항목 표 끝에 한 줄 (_item_table). 표가 없거나 머리줄이 ITEM_TABLE_HEAD 가 아니면 고치지 않고 경고한다
+    (모르는 표를 조용히 고치지 않게). 새 항목 본문은 표와 상관없이 검색된다.
+    지난 행을 채우지는 않는다: 표의 번호와 3장 항목 번호가 다르면 (예: 이 기능 전에 만든 초안에 이어 쓰기) 경고만."""
+    block, why = _item_table(md, start)
+    if why:
+        warnings.append(why)
+        return md
+    end = block[-1][1]
+    newline = '\r\n' if md[end:end + 2] == '\r\n' else '\n'
+    md = md[:end] + newline + '| ' + ' | '.join(_cell(c) for c in cells) + ' |' + md[end:]
+    in_table = {(_cells(md[a:b]) or [''])[0] for a, b in block[2:]} | {cells[0]}   # 2: 머리줄·구분 줄 다음부터
+    in_items = {m.group(1) for m in _item_heads(md)}
+    if in_table != in_items:
+        gaps = [f"표에 없음 {', '.join(sorted(in_items - in_table))}" if in_items - in_table else '',
+                f"항목에 없음 {', '.join(sorted(in_table - in_items))}" if in_table - in_items else '']
+        warnings.append(f"3장 항목 표와 항목 번호가 다릅니다 ({'; '.join(g for g in gaps if g)}). 표를 확인해 주세요")
+    return md
+
+
+def _set_table_row(md: str, start: int, cells: list[str], warnings: list[str]) -> str:
+    """3장 항목 표에서 번호가 cells[0] 인 줄을 cells 로 바꾼다 (변경 초안이 제목·머리 정보를 바꿨을 때). 없으면 경고."""
+    block, why = _item_table(md, start)
+    if why:
+        warnings.append(why)
+        return md
+    row = next(((a, b) for a, b in block[2:] if (_cells(md[a:b]) or [''])[0] == cells[0]), None)
+    if row is None:
+        warnings.append(f'3장 항목 표에 {cells[0]} 줄이 없어 표는 고치지 않았습니다')
+        return md
+    return md[:row[0]] + '| ' + ' | '.join(_cell(c) for c in cells) + ' |' + md[row[1]:]
 
 
 def _item(section_no: str, title: str, t: dict) -> str:
@@ -366,13 +545,20 @@ def _parse_text(md: str):
     return doc.meta, chunk_document(doc)
 
 
-def register(conn, d: Draft, md: str, admin_id: int | None, files_root: Path = ROOT) -> dict:
-    """md 를 파일로 쓰고 버전 행을 PENDING·비현행으로 만든다 (이어 쓰기면 그 초안 행의 파일을 바꾼다). commit 한다.
+def register(conn, d: Draft, md: str, admin_id: int | None, files_root: Path = ROOT, *,
+             view_scope: str, transfer_policy: str) -> dict:
+    """md 를 파일로 쓰고 버전 행을 PENDING·비현행으로 만든다 (이어 쓰기면 그 초안 행의 파일·정책을 바꾼다). commit 한다.
 
     결과 {'version_id', 'file_path', 'warnings'}. 이어서 ingest_version(conn, version_id, embedder) 을 부른다.
-    열람 범위·전송 정책은 현행 버전 값을 그대로 쓴다 (같은 문서). 승인(현행 전환)은 하지 않는다.
+    열람 범위·전송 정책은 관리자가 고른 값을 받는다 (docs/10 1.3: 해결 사례를 Guide 로 쓸 때 반드시 고르게 한다).
+    현행 값과 다르면 경고한다 (승인하면 가이드 전체에 적용되므로). 승인(현행 전환)은 하지 않는다.
     만든 뒤 현행이 바뀌었거나 이어 쓰던 초안이 바뀌었으면 거부한다 (다시 draft): 다른 사람의 변경을 덮지 않게.
     """
+    bad = ([f'열람 범위 {view_scope}'] if view_scope not in VIEW_SCOPES else []) + \
+          ([f'전송 정책 {transfer_policy}'] if transfer_policy not in TRANSFER_POLICIES else [])
+    if bad:
+        conn.rollback()
+        raise CaseGuideError([f"없는 값입니다: {', '.join(bad)}"])
     problems, warnings = check(d, md, _staff_names(conn))
     if problems:
         conn.rollback()
@@ -394,6 +580,9 @@ def register(conn, d: Draft, md: str, admin_id: int | None, files_root: Path = R
     if stale:
         conn.rollback()
         raise CaseGuideError([*stale, '초안을 다시 만드세요'])
+    if (view_scope, transfer_policy) != (cur[1], cur[2]):
+        warnings.append(f'열람 범위·전송 정책을 현행({cur[1]}·{cur[2]})과 다르게 {view_scope}·{transfer_policy}로 '
+                        '등록합니다. 승인하면 가이드 전체에 이 값이 적용됩니다')
 
     rel = (CASE_DIR / d.doc_code / f'{d.version}_{d.receipt_no}.md').as_posix()   # 쓸 때마다 다른 경로
     path = Path(files_root) / rel
@@ -402,13 +591,14 @@ def register(conn, d: Draft, md: str, admin_id: int | None, files_root: Path = R
     try:
         if d.draft_version_id is not None:
             vid = d.draft_version_id
-            conn.execute("update document_versions set file_path = %s, ingest_status = 'PENDING', ingest_error = null, "
-                         'registered_at = now() where id = %s', (rel, vid))
+            conn.execute("update document_versions set file_path = %s, view_scope = %s, transfer_policy = %s, "
+                         "ingest_status = 'PENDING', ingest_error = null, registered_at = now() where id = %s",
+                         (rel, view_scope, transfer_policy, vid))
         else:
             vid = conn.execute(
                 'insert into document_versions (document_id, version, file_path, view_scope, transfer_policy, '
                 "is_current, ingest_status, registered_at) values (%s, %s, %s, %s, %s, false, 'PENDING', now()) "
-                'returning id', (d.document_id, d.version, rel, cur[1], cur[2])).fetchone()[0]
+                'returning id', (d.document_id, d.version, rel, view_scope, transfer_policy)).fetchone()[0]
         _audit(conn, EVENT, d.document_id, admin_id, f'{d.receipt_no} → {d.version}')
         conn.commit()
     except Exception:

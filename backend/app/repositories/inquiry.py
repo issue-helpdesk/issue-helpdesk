@@ -8,6 +8,7 @@ from app.db.session import DbSession
 from app.models import (
     Category,
     ChatSession,
+    DocumentChunk,
     DocumentVersion,
     Inquiry,
     InquiryAssessment,
@@ -63,13 +64,12 @@ class InquiryRepository:
         sort: list[tuple[str, bool]],
         offset: int,
         limit: int,
-    ) -> tuple[list[tuple[Inquiry, User, Category | None, str | None, str]], int]:
+    ) -> tuple[list[tuple[Inquiry, User, Category | None, str | None, str]], int, dict[str, int]]:
+        """세 번째 값은 표시 상태 조건만 뺀 표시 상태별 건수."""
         display = display_status_column()
         conditions = []
         if user_id is not None:
             conditions.append(Inquiry.user_id == user_id)
-        if display_statuses:
-            conditions.append(display.in_(display_statuses))
         if statuses:
             conditions.append(Inquiry.status.in_(statuses))
         if category_codes:
@@ -94,6 +94,13 @@ class InquiryRepository:
                 cited,
             ))
 
+        # 표시 상태는 CASE 식이라 서브쿼리에서 이름을 붙인 뒤 묶는다
+        shown = (select(display.label("shown")).select_from(Inquiry)
+                 .outerjoin(Ticket, Ticket.inquiry_id == Inquiry.id).where(*conditions).subquery())
+        status_counts = dict(self.db.execute(select(shown.c.shown, func.count()).group_by(shown.c.shown)).all())
+        if display_statuses:
+            conditions.append(display.in_(display_statuses))
+
         base = select(Inquiry.id).outerjoin(Ticket, Ticket.inquiry_id == Inquiry.id).where(*conditions)
         total = self.db.scalar(select(func.count()).select_from(base.subquery()))
         order_by = [
@@ -110,7 +117,18 @@ class InquiryRepository:
             .offset(offset)
             .limit(limit)
         )
-        return [tuple(row) for row in rows], total
+        return [tuple(row) for row in rows], total, status_counts
+
+    def last_ai_message_ids(self, inquiry_ids: list[int]) -> dict[int, int]:
+        """문의별 마지막 AI 답변의 메시지 ID. 세션을 가리지 않고 보며, AI 답변이 없는 문의는 결과에 없다."""
+        if not inquiry_ids:
+            return {}
+        return dict(self.db.execute(
+            select(ChatSession.inquiry_id, func.max(Message.id))
+            .join(Message, Message.session_id == ChatSession.id)
+            .where(ChatSession.inquiry_id.in_(inquiry_ids), Message.sender == "AI")
+            .group_by(ChatSession.inquiry_id)
+        ).all())
 
     def current_session(self, inquiry_id: int) -> ChatSession | None:
         return self.db.scalars(
@@ -123,8 +141,33 @@ class InquiryRepository:
         last = self.db.scalar(select(func.max(Message.seq)).where(Message.session_id == session_id))
         return (last or 0) + 1
 
-    def messages(self, session_id: int) -> list[Message]:
-        return list(self.db.scalars(select(Message).where(Message.session_id == session_id).order_by(Message.seq)))
+    def add_message(self, session_id: int, sender: str, content: str | None = None, kind: str = "TEXT",
+                    code: str | None = None, draft_id: int | None = None) -> Message:
+        return self.add(Message(session_id=session_id, seq=self.next_seq(session_id), sender=sender, kind=kind,
+                                code=code, content=content, draft_id=draft_id))
+
+    def add_choice(self, session_id: int, code: str) -> Message:
+        return self.add_message(session_id, "USER", kind="CHOICE", code=code)
+
+    def add_notice(self, session_id: int, content: str) -> Message:
+        return self.add_message(session_id, "SYSTEM", content, kind="NOTICE")
+
+    def add_draft_card(self, session_id: int, draft_id: int) -> Message:
+        return self.add_message(session_id, "SYSTEM", kind="DRAFT_CARD", draft_id=draft_id)
+
+    def add_ticket_card(self, session_id: int) -> Message:
+        return self.add_message(session_id, "SYSTEM", kind="TICKET_CARD")
+
+    def conversation(self, session_id: int) -> list[Message]:
+        """AI 에게 넘길 대화. 버튼·안내·카드는 뺀다."""
+        return list(self.db.scalars(
+            select(Message).where(Message.session_id == session_id, Message.kind == "TEXT").order_by(Message.seq)
+        ))
+
+    def drafts(self, draft_ids: set[int]) -> list[TicketDraft]:
+        if not draft_ids:
+            return []
+        return list(self.db.scalars(select(TicketDraft).where(TicketDraft.id.in_(draft_ids))))
 
     def assessments(self, inquiry_id: int) -> list[InquiryAssessment]:
         """이 문의의 판단 이력. 오래된 것부터."""
@@ -149,6 +192,12 @@ class InquiryRepository:
         if session_id is not None:
             query = query.where(Message.session_id == session_id)
         return list(self.db.scalars(query))
+
+    def chunk_metas(self, chunk_ids: list[int]) -> dict[int, dict]:
+        if not chunk_ids:
+            return {}
+        rows = self.db.execute(select(DocumentChunk.id, DocumentChunk.meta).where(DocumentChunk.id.in_(chunk_ids)))
+        return {chunk_id: meta or {} for chunk_id, meta in rows}
 
     def sources_with_scope(self, message_ids: list[int]) -> list[tuple[MessageSource, str | None]]:
         if not message_ids:

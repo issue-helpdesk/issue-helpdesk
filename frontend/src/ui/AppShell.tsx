@@ -6,12 +6,26 @@
  *
  * 키보드: 사이드바를 열면 첫 메뉴로 초점이 가고, Esc 로 닫으면 메뉴 버튼으로 돌아간다.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../core/session'
+import { GuideIngestAlert } from './GuideIngestAlert'
 import { PasswordDialog } from './PasswordDialog'
+import { ScrollTop } from './ScrollTop'
+import { ToastHost } from './Toast'
 import { Sidebar } from './Sidebar'
 import { ShellContext } from './shellContext'
+
+const SIDE_KEY = 'itssue-side'
+
+/** 접힘 상태는 이 브라우저에만 기억한다. 저장소를 못 쓰는 환경에서도 화면은 그대로 동작한다 */
+function readSideOff() {
+  try {
+    return localStorage.getItem(SIDE_KEY) === 'off'
+  } catch {
+    return false
+  }
+}
 
 export function AppShell() {
   // 사이드바를 연 시점의 경로를 기억한다. 다른 화면으로 이동하면 경로가 달라져 자동으로 닫힌 것으로 본다.
@@ -22,11 +36,33 @@ export function AppShell() {
   // "내 프로필" 창. 임시 비밀번호 상태에서는 사용자가 열지 않아도 닫을 수 없는 창이 먼저 뜬다.
   const [profileOpen, setProfileOpen] = useState(false)
   const forced = !!user?.passwordChangeRequired
+  const [sideOff, setSideOff] = useState(readSideOff)
+  // 접고 펴는 동안만 붙는 표시: anim=스크롤바를 숨김, in=펼칠 때 항목이 차례로 올라옴 (css 의 side-anim·side-in)
+  const [sideAnim, setSideAnim] = useState<null | 'out' | 'in'>(null)
+  const animTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const toggleNav = useCallback(() => setOpenPath((cur) => (cur === pathname ? null : pathname)), [pathname])
   const closeNav = useCallback(() => setOpenPath(null), [])
   const openProfile = useCallback(() => setProfileOpen(true), [])
-  const value = useMemo(() => ({ toggleNav, openProfile }), [toggleNav, openProfile])
+  const toggleSide = useCallback(() => {
+    const next = !sideOff
+    const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!next && !reduce) {
+      // 펼칠 때 항목마다 순서 번호(--i)를 매겨 위에서부터 차례로 나타나게 한다
+      let i = 0
+      document.querySelectorAll<HTMLElement>('.side .brand>*, .side .nav>.grp, .side .nav button, .side .recent .rt, .side .modebar, .side .who').forEach((el) => el.style.setProperty('--i', String(Math.min(i++, 14))))
+    }
+    setSideAnim(!next && !reduce ? 'in' : 'out')
+    clearTimeout(animTimer.current)
+    animTimer.current = setTimeout(() => setSideAnim(null), 1600)
+    setSideOff(next)
+    try {
+      localStorage.setItem(SIDE_KEY, next ? 'off' : 'on')
+    } catch {
+      /* 저장소를 못 쓰면 이번 화면에서만 적용된다 */
+    }
+  }, [sideOff])
+  const value = useMemo(() => ({ toggleNav, openProfile, sideOff, toggleSide }), [toggleNav, openProfile, sideOff, toggleSide])
 
   // 사이드바가 열리면 첫 메뉴로 초점을 옮기고, Esc 로 닫으면 메뉴 버튼으로 돌려 보낸다
   useEffect(() => {
@@ -50,11 +86,24 @@ export function AppShell() {
     const a = document.activeElement
     if (!a || a === document.body || a.closest('.side')) main.focus({ preventScroll: true })
   }, [pathname])
+  // 목록 화면 안에서 상세 패널만 바뀌는 이동(/tickets/5001 → /tickets/5002, /queue/…)은 같은 화면이다. 화면 등장 모션은 화면이 바뀔 때만 건다
+  const screenKey = pathname.replace(/^\/(tickets|queue)\/[^/]+$/, '/$1')
+  // 화면이 바뀌면 새 화면의 덩어리들이 위로 올라오며 차례로 나타난다 (layout.css 의 main.enter). 그리기 전에 붙여서 한 프레임도 깜빡이지 않게 한다
+  useLayoutEffect(() => {
+    const main = document.querySelector<HTMLElement>('main.main')
+    if (!main) return
+    main.classList.add('enter')
+    const t = setTimeout(() => main.classList.remove('enter'), 1800)
+    return () => {
+      clearTimeout(t)
+      main.classList.remove('enter')
+    }
+  }, [screenKey])
   const skip = () => document.getElementById('main')?.focus()
 
   return (
     <ShellContext.Provider value={value}>
-      <div className={`app${navOpen ? ' nav-open' : ''}`}>
+      <div className={`app${sideOff ? ' side-off' : ''}${sideAnim ? ' side-anim' : ''}${sideAnim === 'in' ? ' side-in' : ''}${navOpen ? ' nav-open' : ''}`}>
         <button type="button" className="skip" onClick={skip}>
           본문으로 건너뛰기
         </button>
@@ -62,6 +111,12 @@ export function AppShell() {
         <div className="scrim" onClick={closeNav} />
         <Sidebar onNavigate={closeNav} />
         <Outlet />
+        {/* 본문이 길게 스크롤될 때만 나타나는 "맨 위로" 버튼 */}
+        <ScrollTop />
+        {/* 가이드 적재 실패 알림 창 (관리자, 어느 화면에서나) */}
+        <GuideIngestAlert />
+        {/* 어느 화면의 토스트든 여기에 쌓여 보인다 */}
+        <ToastHost />
         {(forced || profileOpen) && <PasswordDialog forced={forced} onClose={() => setProfileOpen(false)} />}
       </div>
     </ShellContext.Provider>

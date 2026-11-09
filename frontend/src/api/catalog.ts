@@ -5,7 +5,7 @@
  */
 import type { CategoryCode, InquiryStatus, Urgency, WorkStatus } from './chatTypes'
 
-export interface CategoryInfo {
+interface CategoryInfo {
   /** 화면에 보일 이름 */
   name: string
   /** 기본 담당 그룹 이름 (시연용. 실제 화면은 API 의 groupName 을 표시한다) */
@@ -27,6 +27,8 @@ export const CATEGORIES: Record<CategoryCode, CategoryInfo> = {
 /** 분류를 확정하지 못했을 때 보내는 곳 */
 export const FALLBACK_GROUP = '서비스데스크'
 
+/** 긴급도 화면 말 (코드 P1~P4 는 화면에 쓰지 않는다) */
+export const urgencyText = (u: string | null | undefined) => (u && (URGENCY_LABEL as Record<string, string>)[u]) || '-'
 export const URGENCY_LABEL: Record<Urgency, string> = { P1: '긴급', P2: '높음', P3: '보통', P4: '낮음' }
 
 /**
@@ -45,7 +47,7 @@ export const INQUIRY_STATUS_LABEL: Record<InquiryStatus, string> = {
   IN_PROGRESS: '진행 중',
   AI_RESOLVED: 'AI 해결',
   UNCONFIRMED: '미확인',
-  CLOSED_UNRESOLVED: '미해결 종료',
+  CLOSED_UNRESOLVED: '미연결 종료',
   RECEIVED: '접수',
   HANDED_OFF: '담당자 배정',
 }

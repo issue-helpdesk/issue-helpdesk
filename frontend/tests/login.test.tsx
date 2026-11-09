@@ -2,6 +2,7 @@
  * 로그인 화면과 로그인 전 상담 테스트.
  * 가짜 응답(mock)으로만 실행하며, 실제 서버·키는 사용하지 않는다.
  */
+import { askPreLogin } from '../src/api/consult'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -183,7 +184,7 @@ describe('로그인 화면', () => {
     tokenStore.clear()
     renderApp()
     await user.click(screen.getByRole('button', { name: '관리자' }))
-    expect(await screen.findByRole('heading', { name: '대시보드' }, SLOW)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '대시보드', level: 1 }, SLOW)).toBeInTheDocument()
   })
 
   it('SSO 탭에서 시연 로그인을 할 수 있다', async () => {
@@ -202,7 +203,7 @@ describe('로그인 화면', () => {
   it('저장된 토큰이 있으면 새로고침 후에도 로그인 상태를 유지한다', async () => {
     tokenStore.set('mock.EMP-1178')
     renderApp('/login')
-    expect(await screen.findByRole('heading', { name: '대시보드' }, SLOW)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '대시보드', level: 1 }, SLOW)).toBeInTheDocument()
   })
 
   it('로그아웃하면 로그인 화면으로 돌아가고 토큰을 지운다', async () => {
@@ -210,7 +211,9 @@ describe('로그인 화면', () => {
     renderApp()
     await user.click(screen.getByRole('button', { name: '로그인' }))
     await screen.findByRole('heading', { name: '새 문의' }, SLOW)
-    await user.click(screen.getByRole('button', { name: '로그아웃' }))
+    // 로그아웃은 오른쪽 위 사용자 메뉴 안에 있다
+    await user.click(screen.getByRole('button', { name: '내 메뉴' }))
+    await user.click(screen.getByRole('menuitem', { name: '로그아웃' }))
     expect(screen.getByRole('heading', { name: 'IT 문제, 먼저 물어보세요' })).toBeInTheDocument()
     expect(tokenStore.get()).toBeNull()
   })
@@ -226,20 +229,37 @@ describe('로그인 전 상담', () => {
     expect(within(panel).getByText(/IT-ACC-001 사내 SSO 로그인 오류 대응 가이드 v2 · 3\.2/)).toBeInTheDocument()
   })
 
-  it('범위 밖 질문은 근거 없이 답하지 않고 로그인 후 문의·서비스데스크로 안내한다', async () => {
+  it('비밀번호 만료·아이디 불일치·휴대폰 교체 질문에도 근거 Guide 출처와 함께 답한다', async () => {
     const user = userEvent.setup()
     renderApp()
     const panel = screen.getByRole('region', { name: '로그인 전 상담' })
-    await user.type(within(panel).getByLabelText('로그인 전 상담 입력'), '프린터가 안 나와요{Enter}')
-    expect(await within(panel).findByText(/상담 범위\(계정·로그인\)를 벗어나요/, {}, SLOW)).toBeInTheDocument()
-    expect(within(panel).getByText(/내선 1000/)).toBeInTheDocument()
+    await user.click(within(panel).getByRole('button', { name: '비밀번호가 만료됐다고 나와요' }))
+    expect(await within(panel).findByText(/\[지금 변경\]/, {}, SLOW)).toBeInTheDocument()
+    expect(within(panel).getByText(/IT-ACC-002 비밀번호 변경·초기화 가이드 · 3\.3/)).toBeInTheDocument()
+    await user.click(within(panel).getByRole('button', { name: '아이디 또는 비밀번호가 일치하지 않는다고 나와요' }))
+    expect(await within(panel).findByText(/Caps Lock과 한\/영 전환/, {}, SLOW)).toBeInTheDocument()
+    await user.click(within(panel).getByRole('button', { name: '휴대폰을 바꿔서 인증을 못 해요' }))
+    expect(await within(panel).findByText(/MFA 초기화/, {}, SLOW)).toBeInTheDocument()
+    expect(within(panel).queryByText('로그인 전에는 Ticket을 만들지 않아요.')).not.toBeInTheDocument()
+  })
+
+  it('글을 적는 입력창과 "입력하지 마세요" 안내 없이 질문 버튼만 있다', () => {
+    renderApp()
+    const panel = screen.getByRole('region', { name: '로그인 전 상담' })
+    expect(within(panel).queryByRole('textbox')).not.toBeInTheDocument()
+    expect(within(panel).queryByText(/입력하지 마세요/)).not.toBeInTheDocument()
+    expect(within(panel).getAllByRole('button').map((b) => b.textContent)).toEqual(expect.arrayContaining(['계정이 잠겼어요', '비밀번호를 재설정하고 싶어요', '비밀번호가 만료됐다고 나와요', '아이디 또는 비밀번호가 일치하지 않는다고 나와요', '휴대폰을 바꿔서 인증을 못 해요']))
+  })
+
+  it('범위 밖 질문은 근거 없이 답하지 않고 로그인 후 문의·서비스데스크로 안내한다', async () => {
+    const r = await askPreLogin('프린터가 안 나와요')
+    const text = r.ok ? r.data.paragraphs.join(' ') : ''
+    expect(text).toMatch(/상담 범위\(계정·로그인\)를 벗어나요/)
+    expect(text).toMatch(/내선 1000/)
   })
 
   it('보안 사고가 의심되면 로그인 후 담당자 연결을 안내한다', async () => {
-    const user = userEvent.setup()
-    renderApp()
-    const panel = screen.getByRole('region', { name: '로그인 전 상담' })
-    await user.type(within(panel).getByLabelText('로그인 전 상담 입력'), '피싱 메일 링크를 눌렀어요{Enter}')
-    expect(await within(panel).findByText(/로그인 후 새 문의/, {}, SLOW)).toBeInTheDocument()
+    const r = await askPreLogin('피싱 메일 링크를 눌렀어요')
+    expect(r.ok && r.data.paragraphs.join(' ')).toMatch(/로그인 후 새 문의/)
   })
 })

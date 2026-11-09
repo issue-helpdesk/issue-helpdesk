@@ -30,6 +30,7 @@ class LLMPort(Protocol):
     name: str                               # llm_calls.adapter (Claude · Mock)
     model: str                              # 설정한 모델
 
-    def complete(self, system: str, user: str, schema: dict) -> LLMReply:
-        """system·user 를 보내고 schema 모양의 JSON 글을 받는다. 실패하면 LLMError."""
+    def complete(self, system: str, user: str, schema: dict, *, think: bool = True) -> LLMReply:
+        """system·user 를 보내고 schema 모양의 JSON 글을 받는다. 실패하면 LLMError.
+        think=False 면 모델이 답하기 전에 따로 생각(thinking)하지 않게 한다 (2차 판단, 08 2.6)."""
         ...
