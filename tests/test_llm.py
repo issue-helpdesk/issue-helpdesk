@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import anthropic
 import httpx2
 import pytest
+from pydantic import ValidationError
 
 import app.agent.llm.call as call_module
 from app.agent.llm import (AIInput, AIOutput, CategoryInfo, ClaudeAdapter, LLMError, MockAdapter, Taxonomy, TypeInfo,
@@ -68,6 +69,16 @@ def sent(mock: MockAdapter, i: int = 0) -> dict:
 
 
 # ── 형식 (08 2장·3.3) ──────────────────────────────
+
+def test_output_schemas_have_no_array_length_limits():
+    """Claude 출력 형식은 배열 maxItems 를 받지 않는다 (HTTP 400). 길이 제한은 응답을 받은 뒤 Pydantic 이 검사한다."""
+    for s in (output_json_schema(), second_output_json_schema()):
+        assert 'maxItems' not in json.dumps(s)
+    assert len(AIOutput.model_validate(ANSWER).security_rule_ids) <= 7
+    too_many = ANSWER | {'security_rule_ids': ['S01'] * 8}
+    with pytest.raises(ValidationError):
+        AIOutput.model_validate(too_many)
+
 
 def test_output_schema_requires_every_key():
     s = output_json_schema()
