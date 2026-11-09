@@ -20,7 +20,7 @@ from pathlib import Path
 from app.rag.ingest import ROOT
 from app.rag.ingest.upload import resolve_file
 
-from . import (HANDLING, SHORT_NOTE, CaseGuideError, _base_md, _find, _item, _one_line, _read_ticket, _reopened,
+from . import (HANDLING, SHORT_NOTE, CaseGuideError, _base_md, _find, _item, _one_line, _read_ticket, _reopened, josa,
                receipts)
 from .assemble import REQUIRED as _REQUIRED, SCHEMA, TODO, _fragment_problems, _props, _renumber, item_text
 
@@ -60,7 +60,7 @@ def open_basis(conn, judgment: str, *, document_id: int | None = None, target_se
             raise CaseGuideError(['바꿀 항목(target_section)이 없습니다'])
         target_md = item_text(base_md, target_section)
         if target_md is None:
-            raise CaseGuideError([f'{doc[0]} 현행에 항목 {target_section}이 없습니다'])
+            raise CaseGuideError([f'{doc[0]} 현행에 항목 {josa(target_section, '이/가')} 없습니다'])
         basis |= {'target_section': target_section, 'target_md': target_md}
     else:
         basis['section_no'] = None                         # 등록 때 assemble 이 정하고 API 가 저장
@@ -100,7 +100,7 @@ def ticket_fragment(conn, ticket_id: int) -> tuple[str, list[str]]:
     t = _read_ticket(conn, ticket_id)
     problems = []
     if t['work_status'] != 'CLS':
-        problems.append(f"해결 확인(CLS)된 티켓만 가이드로 만듭니다: {t['receipt_no']}는 {t['work_status']}")
+        problems.append(f"해결 확인(CLS)된 티켓만 가이드로 만듭니다: {josa(t['receipt_no'], '은/는')} {t['work_status']}")
     if not (t['resolution_note'] or '').strip():
         problems.append(f"{t['receipt_no']}에 해결 내용(resolution_note)이 없습니다")
     if problems:
@@ -142,9 +142,9 @@ def title_problems(title: str | None, what: str = '새 가이드 제목') -> lis
     줄 나눔은 md 파서와 같은 str.splitlines 기준 (U+0085·U+2028·U+2029 포함, #363 재검수 1), 제어 문자는 C0·DEL·C1.
     머리말에는 바깥 따옴표만 붙여 그대로 쓴다 (md 파서가 바깥 따옴표만 벗기므로 다시 읽으면 같은 값, 검수 1)."""
     if not (title or '').strip():
-        return [f'{what}이 없습니다']
+        return [f"{josa(what, '이/가')} 없습니다"]
     if len(title.splitlines()) != 1 or re.search(r'[\x00-\x1f\x7f-\x9f  ]', title):
-        return [f'{what}은 한 줄이어야 합니다 (줄바꿈·제어 문자 없이)']
+        return [f"{josa(what, '은/는')} 한 줄이어야 합니다 (줄바꿈·제어 문자 없이)"]
     return []
 
 

@@ -150,7 +150,7 @@ def test_receipt_already_in_current_warns(url, monkeypatch):
 
 @needs_db
 @pytest.mark.parametrize('kw, msg', [
-    ({'judgment': 'CHANGE', 'target_section': '3.99'}, '항목 3.99이 없습니다'),
+    ({'judgment': 'CHANGE', 'target_section': '3.99'}, '항목 3.99가 없습니다'),
     ({'judgment': 'CHANGE'}, 'target_section'),
     ({'judgment': 'ADD_ITEM', 'document_id': None}, 'document_id'),
     ({'judgment': 'ADD_ITEM', 'document_id': -1}, '임직원용 가이드가 아닌'),

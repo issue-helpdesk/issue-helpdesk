@@ -121,7 +121,7 @@ def draft(conn, ticket_id: int, doc_code: str | None = None, files_root: Path = 
     t = _read_ticket(conn, ticket_id)
     problems = []
     if t['work_status'] != 'CLS':
-        problems.append(f"해결 확인(CLS)된 티켓만 가이드로 만듭니다: {t['receipt_no']}는 {t['work_status']}")
+        problems.append(f"해결 확인(CLS)된 티켓만 가이드로 만듭니다: {josa(t['receipt_no'], '은/는')} {t['work_status']}")
     if not (t['resolution_note'] or '').strip():
         problems.append(f"{t['receipt_no']}에 해결 내용(resolution_note)이 없습니다")
     if problems:
@@ -148,13 +148,13 @@ def draft(conn, ticket_id: int, doc_code: str | None = None, files_root: Path = 
     base_file = resolve_file(base_path or cur[2], files_root)
     base_md = _base_md(base_file, doc_code, warnings)
     if t['receipt_no'] in receipts(base_md):
-        raise CaseGuideError([f"{t['receipt_no']}는 이미 {doc_code}에 반영되어 있습니다"])
+        raise CaseGuideError([f"{josa(t['receipt_no'], '은/는')} 이미 {doc_code}에 반영되어 있습니다"])
 
     md, section_no = add_case(base_md, t, version, today or date.today(), warnings)
     added = _added_lines(base_md, md)
     warnings += sensitive_warnings(md, added, staff_names if staff_names is not None else _staff_names(conn))
     same = _sections_with(base_md, t['code']) if t['code'] else []
-    warnings.append(f'새 항목 {section_no}은 티켓 글을 그대로 옮겼습니다. 임직원이 따라 할 수 있게 다듬고, '
+    warnings.append(f'새 항목 {josa(section_no, '은/는')} 티켓 글을 그대로 옮겼습니다. 임직원이 따라 할 수 있게 다듬고, '
                     + (f"같은 문의 유형 항목({', '.join(same)})에 합칠지 확인하세요" if same else '처리 구분을 확인하세요'))
     if len(t['resolution_note'].strip()) < SHORT_NOTE:
         warnings.append(f'해결 내용이 짧습니다 ({len(t["resolution_note"].strip())}자). 조치 방법을 채워 주세요')
@@ -211,9 +211,9 @@ def _pick_guide(conn, t: dict, doc_code: str | None, warnings: list[str]) -> tup
         raise CaseGuideError([f"{t['receipt_no']}에 문의 유형이 없습니다. 넣을 가이드를 골라 주세요 (--doc)"])
     guides = _guides_for(conn, t['code'])
     if not guides:
-        raise CaseGuideError([f"문의 유형 {t['code']}을 다루는 현행 가이드가 없습니다. 넣을 가이드를 골라 주세요 (--doc)"])
+        raise CaseGuideError([f"문의 유형 {josa(t['code'], '을/를')} 다루는 현행 가이드가 없습니다. 넣을 가이드를 골라 주세요 (--doc)"])
     if len(guides) > 1:
-        warnings.append(f"{t['code']}을 다루는 가이드가 여럿입니다 ({', '.join(g[1] for g in guides)}). "
+        warnings.append(f"{josa(t['code'], '을/를')} 다루는 가이드가 여럿입니다 ({', '.join(g[1] for g in guides)}). "
                         f'항목이 가장 많은 {guides[0][1]}에 넣었습니다. 다른 곳이면 --doc 으로')
     return guides[0][0], guides[0][1]
 
@@ -440,7 +440,7 @@ def _item(section_no: str, title: str, t: dict) -> str:
     if t['target_system']:
         cases.append(f"- 대상: {_one_line(t['target_system'])}")
     steps = _bullets(t['resolution_note'])
-    who = f"{t['group']}이 확인합니다" if t['group'] else '담당자가 확인합니다'
+    who = f"{josa(t['group'], '이/가')} 확인합니다" if t['group'] else '담당자가 확인합니다'
     return '\n'.join([f'### {section_no} {title}', '', props, '', '#### 이런 경우', '', *cases, '',
                       '#### 조치 방법', '', *steps, '', '**해결되지 않으면**', '',
                       f'- 위 조치로 해결되지 않으면 ITssue 챗봇에 알립니다. {who}.'])
@@ -460,6 +460,34 @@ def _bullets(text: str | None) -> list[str]:
 def _cell(text: str) -> str:
     """표 칸에 넣을 글: 세로줄을 이스케이프한다 (칸이 늘어나지 않게. 파서는 '\\|' 를 칸 구분으로 보지 않는다)."""
     return text.replace('|', '\\|')
+
+
+# 받침 (종성 번호, 0 = 없음, 8 = ㄹ). 숫자·영문은 읽는 소리로: 1 일·3 삼·6 육·7 칠·8 팔·0 영, L 엘·M 엠·N 엔·R 알
+_DIGIT_JONG = {'0': 21, '1': 8, '2': 0, '3': 16, '4': 0, '5': 0, '6': 1, '7': 8, '8': 8, '9': 0}
+_LATIN_JONG = {'L': 8, 'M': 16, 'N': 4, 'R': 8}
+_JOSA = {'이/가': ('이', '가'), '은/는': ('은', '는'), '을/를': ('을', '를'), '과/와': ('과', '와'), '으로/로': ('으로', '로')}
+
+
+def josa(word: str, pair: str) -> str:
+    """word + 받침에 맞는 조사 (pair: '이/가'·'은/는'·'을/를'·'과/와'·'으로/로'). 끝의 괄호·따옴표·마침표는 건너뛰고
+    마지막 한글·숫자·영문으로 정한다. 정할 수 없으면 '이(가)' 처럼 둘 다 쓴다."""
+    with_jong, without = _JOSA[pair]
+    jong = None
+    for ch in reversed(str(word)):
+        if '가' <= ch <= '힣':
+            jong = (ord(ch) - 0xAC00) % 28
+        elif ch.isdigit():
+            jong = _DIGIT_JONG.get(ch)
+        elif ch.isascii() and ch.isalpha():
+            jong = _LATIN_JONG.get(ch.upper(), 0)
+        else:
+            continue
+        break
+    if jong is None:
+        return f'{word}{with_jong}({without})'
+    if pair == '으로/로':
+        return f'{word}{without if jong in (0, 8) else with_jong}'
+    return f'{word}{with_jong if jong else without}'
 
 
 def _one_line(text: str | None) -> str:
@@ -531,7 +559,8 @@ def check(d: Draft, md: str, staff_names: list[str]) -> tuple[list[str], list[st
         problems.append(f"기준 가이드의 항목이 빠졌습니다: {', '.join(missing)}")
     have = receipts(md)
     if d.receipt_no not in have:
-        problems.append(f'접수 번호 {d.receipt_no}가 없습니다 (개정 이력 줄 "{MARK} ({d.receipt_no})"을 남겨 주세요)')
+        line = josa(f'"{MARK} ({d.receipt_no})"', '을/를')
+        problems.append(f"접수 번호 {josa(d.receipt_no, '이/가')} 없습니다 (개정 이력 줄 {line} 남겨 주세요)")
     if lost := sorted(receipts(d.base_md) - have):
         problems.append(f"기준에 있던 사례가 빠졌습니다: {', '.join(lost)}")
     return problems, sensitive_warnings(md, _added_lines(d.base_md, md), staff_names)
@@ -573,7 +602,7 @@ def register(conn, d: Draft, md: str, admin_id: int | None, files_root: Path = R
         row = conn.execute('select file_path, is_current, activated_at from document_versions where id = %s',
                            (d.draft_version_id,)).fetchone()
         if row is None or row[0] != d.base_file_path or row[1] or row[2] is not None:
-            stale.append(f'이어 쓰던 초안 {d.version}이 그새 바뀌었습니다')
+            stale.append(f'이어 쓰던 초안 {josa(d.version, '이/가')} 그새 바뀌었습니다')
     elif conn.execute('select 1 from document_versions where document_id = %s and version = %s',
                       (d.document_id, d.version)).fetchone():
         stale.append(f'{d.version} 버전이 그새 생겼습니다')
@@ -581,7 +610,7 @@ def register(conn, d: Draft, md: str, admin_id: int | None, files_root: Path = R
         conn.rollback()
         raise CaseGuideError([*stale, '초안을 다시 만드세요'])
     if (view_scope, transfer_policy) != (cur[1], cur[2]):
-        warnings.append(f'열람 범위·전송 정책을 현행({cur[1]}·{cur[2]})과 다르게 {view_scope}·{transfer_policy}로 '
+        warnings.append(f'열람 범위·전송 정책을 현행({cur[1]}·{cur[2]})과 다르게 {view_scope}·{josa(transfer_policy, '으로/로')} '
                         '등록합니다. 승인하면 가이드 전체에 이 값이 적용됩니다')
 
     rel = (CASE_DIR / d.doc_code / f'{d.version}_{d.receipt_no}.md').as_posix()   # 쓸 때마다 다른 경로

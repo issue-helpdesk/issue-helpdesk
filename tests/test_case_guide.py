@@ -593,3 +593,27 @@ def test_draft_save_load(tmp_path):
     d, _ = make()
     d.save(tmp_path / 'd.json')
     assert Draft.load(tmp_path / 'd.json') == d
+
+
+# ── 조사 (받침에 맞게) ─────────────────────────────────────────
+
+@pytest.mark.parametrize('word, pair, want', [
+    ('네트워크팀', '이/가', '네트워크팀이'), ('서비스데스크', '이/가', '서비스데스크가'),
+    ('3.4', '이/가', '3.4가'), ('3.1', '이/가', '3.1이'), ('v2.0', '은/는', 'v2.0은'), ('v2.3', '은/는', 'v2.3은'),
+    ('TK-0042', '은/는', 'TK-0042는'), ('IT-ACC-001-M', '을/를', 'IT-ACC-001-M을'), ('SW-01', '을/를', 'SW-01을'),
+    ('NET-02', '을/를', 'NET-02를'), ('ALLOWED', '으로/로', 'ALLOWED로'), ('분류 이름', '은/는', '분류 이름은'),
+    ('서울', '으로/로', '서울로'), ('3.6', '으로/로', '3.6으로'), ('"해결 사례 반영 (TK-1)"', '을/를', '"해결 사례 반영 (TK-1)"을'),
+    ('Team', '이/가', 'Team이'), ('ABC', '이/가', 'ABC가'), ('…', '이/가', '…이(가)'),
+])
+def test_josa(word, pair, want):
+    """받침 따라 조사. 숫자·영문은 읽는 소리 (1 일·4 사·M 엠), 끝의 괄호·따옴표는 건너뜀, 모르면 둘 다."""
+    from app.rag.case_guide import josa
+    assert josa(word, pair) == want
+
+
+@pytest.mark.parametrize('group, want', [('서비스데스크', '서비스데스크가 확인합니다'),
+                                         ('네트워크팀', '네트워크팀이 확인합니다'), ('', '담당자가 확인합니다')])
+def test_item_who_checks_josa(group, want):
+    """가이드 본문 '해결되지 않으면' 줄: 담당 부서 이름 받침에 맞는 조사 (서비스데스크이 X)."""
+    from app.rag.case_guide import _item
+    assert want in _item('3.N', '제목', ticket_row(group=group))
