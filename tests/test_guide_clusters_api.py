@@ -1,4 +1,5 @@
-"""해결 사례 가이드화 묶음 API (GC-01~05). SQLite 메모리 DB 만 쓴다."""
+"""해결 사례 가이드화 묶음 API (GC-01~07). SQLite 메모리 DB 만 쓴다."""
+import copy
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -10,7 +11,7 @@ from app.main import app
 from app.models import AuditLog, Category, DocumentVersion, GuideCluster, KnowledgeDocument, TicketGuideState, User
 from app.rag.case_guide import CaseGuideError
 from app.services.document_ingest import ingest_submitter
-from app.services.guide_cluster import guide_assembler
+from app.services.guide_cluster import guide_assembler, guide_rebaser
 from test_auth import TABLES, add_user, bearer, client, error_code, login  # noqa: F401
 from test_dashboard import add_ticket
 from test_inquiries import create_sqlite_tables
@@ -645,5 +646,168 @@ def test_register_validation(client, users, db, guide, assembled, body):
 def test_register_not_found(client, users, assembled):
     res = client.post(f"{API}/999/register", headers=users["admin"],
                       json={"draftRevision": 0, "viewScope": "ALL", "transferPolicy": "BLOCKED"})
+
+    assert (res.status_code, error_code(res)) == (404, "GUIDE_CLUSTER_NOT_FOUND")
+
+
+# ------------------------------------------------------------------ GC-07 다시 맞추기
+
+
+@pytest.fixture
+def rebased(client, guide):
+    """다시 맞추기 함수를 바꿔 끼운다. conflicts 에 넣으면 충돌을 돌려준다."""
+    _, current, _ = guide
+    state = {"calls": [], "conflicts": []}
+
+    def fake(conn, document_id, cluster):
+        state["calls"].append({"document_id": document_id, "cluster": cluster})
+        basis = {"schema": 1, "judgment": cluster["judgment"], "base_version_id": current.id, "base_md": "새 현행",
+                 "section_no": None}
+        if state["conflicts"]:
+            basis["conflicts"] = {"revision": None, "items": copy.deepcopy(state["conflicts"])}
+        return {"draft_basis": basis, "conflicts": state["conflicts"], "warnings": ["이미 반영된 접수 번호입니다"]}
+
+    app.dependency_overrides[guide_rebaser] = lambda: fake
+    return state
+
+
+CONFLICT = {"section": "3.3", "kind": "TARGET_CHANGED", "message": "3.3 이 새 현행에서 바뀌었습니다",
+            "old_md": "### 3.3 예전", "new_md": "### 3.3 새 현행"}
+
+
+def stale_cluster(db, guide, tickets=1, **fields):
+    """기준이 v2.1 인 묶음. 지금 현행은 v2.0 이라 기준이 바뀐 상태다."""
+    _, _, draft = guide
+    return ready_cluster(db, guide, tickets=tickets, base_version_id=draft.id, draft_revision=2,
+                         draft_basis={"schema": 1, "base_version_id": draft.id, "base_md": "옛 현행", "section_no": "3.9"},
+                         **fields)
+
+
+def rebase(client, users, cluster, revision=2, who="admin"):
+    return client.post(f"{API}/{cluster.id}/rebase", headers=users[who], json={"draftRevision": revision})
+
+
+def test_rebase_moves_basis_to_current(client, users, db, guide, rebased):
+    document, current, draft = guide
+    cluster, tickets = stale_cluster(db, guide, tickets=2)
+
+    res = rebase(client, users, cluster)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert (body["draftRevision"], body["baseChanged"], body["conflicts"]) == (3, False, [])
+    assert body["baseVersion"]["id"] == current.id
+    assert body["draftMd"] == "### 3.N 제목\n본문"             # 초안 글은 그대로다
+    assert body["warnings"] == ["이미 반영된 접수 번호입니다"]
+    call = rebased["calls"][0]
+    assert call["document_id"] == document.id
+    assert call["cluster"]["draft_revision"] == 2
+    assert call["cluster"]["receipts"] == [t.receipt_no for t in tickets]
+    db.expire_all()
+    assert cluster.base_version_id == current.id
+    assert cluster.draft_basis["section_no"] is None
+    admin = db.query(User).filter_by(employee_no="E0009").one()
+    log = db.scalars(select(AuditLog).where(AuditLog.event_type == "GUIDE_CLUSTER_REBASE")).one()
+    assert (log.target_id, log.actor_id) == (cluster.id, admin.id)
+    assert log.result == f"ADD_ITEM 기준 버전 {draft.id} → {current.id}, 충돌 0건"
+
+
+def test_rebase_releases_registered_version_then_registers(client, users, db, guide, rebased, assembled):
+    calls, _ = assembled
+    _, _, draft = guide
+    cluster, _ = stale_cluster(db, guide, registered_version_id=draft.id)
+    assert error_code(register(client, users, cluster, revision=2)) == "GUIDE_CLUSTER_BASE_CHANGED"
+
+    assert rebase(client, users, cluster).json()["registeredVersion"] is None
+
+    res = register(client, users, cluster, revision=3)
+    assert res.status_code == 200
+    assert calls[0]["version_id"] is None                       # 옛 기준 버전에 이어 쓰지 않는다
+    assert res.json()["registeredVersion"]["id"] != draft.id
+
+
+def test_conflict_blocks_register_until_draft_saved(client, users, db, guide, rebased, assembled):
+    calls, _ = assembled
+    rebased["conflicts"] = [CONFLICT]
+    cluster, _ = stale_cluster(db, guide, judgment="CHANGE")
+
+    res = rebase(client, users, cluster)
+
+    assert res.json()["conflicts"][0] == {"section": "3.3", "kind": "TARGET_CHANGED", "message": CONFLICT["message"],
+                                          "oldMd": "### 3.3 예전", "newMd": "### 3.3 새 현행"}
+    db.expire_all()
+    assert cluster.draft_basis["conflicts"]["revision"] == 3    # 올린 번호를 기록한다
+    assert client.get(f"{API}/{cluster.id}", headers=users["admin"]).json()["conflicts"][0]["section"] == "3.3"
+
+    blocked = register(client, users, cluster, revision=3)
+    assert (blocked.status_code, error_code(blocked)) == (409, "GUIDE_CLUSTER_CONFLICT_UNRESOLVED")
+    assert blocked.json()["error"]["details"][0]["value"] == "3.3"
+    assert calls == []
+
+    assert save(client, users, cluster, revision=3).json()["conflicts"] == []
+    assert register(client, users, cluster, revision=4).status_code == 200
+
+
+@pytest.mark.parametrize("judgment", ["NEW_GUIDE", "MANUAL_CANDIDATE"])
+def test_rebase_refuses_unsupported_judgment(client, users, db, guide, rebased, judgment):
+    cluster, _ = stale_cluster(db, guide, judgment=judgment)
+
+    res = rebase(client, users, cluster)
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_NOT_REGISTRABLE")
+    assert rebased["calls"] == []
+
+
+def test_rebase_stale_revision(client, users, db, guide, rebased):
+    cluster, _ = stale_cluster(db, guide)
+
+    res = rebase(client, users, cluster, revision=1)
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_DRAFT_CONFLICT")
+    assert rebased["calls"] == []
+
+
+@pytest.mark.parametrize("status", ["APPLIED", "REJECTED"])
+def test_rebase_only_reviewing(client, users, db, guide, rebased, status):
+    cluster, _ = stale_cluster(db, guide, status=status)
+
+    assert error_code(rebase(client, users, cluster)) == "GUIDE_CLUSTER_NOT_REVIEWING"
+
+
+def test_rebase_refused_changes_nothing(client, users, db, guide, rebased):
+    _, _, draft = guide
+
+    def refuse(*args, **kwargs):
+        raise CaseGuideError(["바꿀 항목 3.3이 새 현행에 없습니다"])
+
+    app.dependency_overrides[guide_rebaser] = lambda: refuse
+    cluster, _ = stale_cluster(db, guide, judgment="CHANGE", registered_version_id=draft.id)
+
+    res = rebase(client, users, cluster)
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_REBASE_FAILED")
+    assert res.json()["error"]["details"][0]["message"] == "바꿀 항목 3.3이 새 현행에 없습니다"
+    db.expire_all()
+    assert (cluster.draft_revision, cluster.registered_version_id) == (2, draft.id)
+
+
+@pytest.mark.parametrize("who", ["employee", "agent"])
+def test_rebase_admin_only(client, users, db, guide, rebased, who):
+    cluster, _ = stale_cluster(db, guide)
+
+    assert error_code(rebase(client, users, cluster, who=who)) == "FORBIDDEN"
+
+
+@pytest.mark.parametrize("body", [{}, {"draftRevision": -1}, {"draftRevision": 0, "extra": 1}])
+def test_rebase_validation(client, users, db, guide, rebased, body):
+    cluster, _ = stale_cluster(db, guide)
+
+    res = client.post(f"{API}/{cluster.id}/rebase", headers=users["admin"], json=body)
+
+    assert (res.status_code, error_code(res)) == (422, "VALIDATION_ERROR")
+
+
+def test_rebase_not_found(client, users, rebased):
+    res = client.post(f"{API}/999/rebase", headers=users["admin"], json={"draftRevision": 0})
 
     assert (res.status_code, error_code(res)) == (404, "GUIDE_CLUSTER_NOT_FOUND")
