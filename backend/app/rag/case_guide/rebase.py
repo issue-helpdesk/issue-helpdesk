@@ -59,8 +59,8 @@ def rebase(conn, document_id: int, cluster: dict, files_root: Path = ROOT) -> di
         new_md = item_text(base_md, target) if target else None
         if new_md is None:
             raise CaseGuideError([f'바꿀 항목 {target}이 새 현행에 없습니다. 이 묶음은 거절하고 필요하면 새 묶음으로 만들어 주세요'])
-        pending = _unresolved(old, cluster.get('draft_revision'))
-        old_md = (pending.get(target) or old.get('target_md') or '').strip('\n')   # 안 풀린 충돌이면 조각이 만들어진 원문
+        pending = _unresolved(old, cluster.get('draft_revision'), target)
+        old_md = (pending if pending is not None else old.get('target_md') or '').strip('\n')   # 안 풀린 충돌이면 조각 원문
         if new_md.rstrip() != old_md.rstrip():
             conflicts.append({'section': target, 'kind': 'TARGET_CHANGED',
                               'message': f'{target} 이 새 현행에서 바뀌었습니다. 조각을 새 내용과 비교해 다시 저장해 주세요',
@@ -73,14 +73,25 @@ def rebase(conn, document_id: int, cluster: dict, files_root: Path = ROOT) -> di
     return {'draft_basis': basis, 'conflicts': conflicts, 'warnings': warnings}
 
 
-def _unresolved(old: dict, draft_revision) -> dict[str, str]:
-    """예전 기준의 아직 안 풀린 충돌 {항목 번호: 조각이 만들어진 원문 old_md}. 풀림 = 충돌을 기록한 뒤 관리자가 조각을
-    저장해 draft_revision 이 올라감 (등록 API 의 차단 규칙과 같은 기준)."""
+def _unresolved(old: dict, draft_revision, target: str) -> str | None:
+    """예전 기준의 아직 안 풀린 충돌이 있으면 조각이 만들어진 원문 old_md, 없거나 풀렸으면 None.
+    풀림 = 충돌을 기록한 뒤 관리자가 조각을 저장해 draft_revision 이 올라감 (등록 API 의 차단 규칙과 같은 기준).
+    충돌 데이터의 모양이 틀리거나 안 풀린 충돌에 필요한 값(대상 항목·old_md)이 없으면 풀렸다고 추정하지 않고 거부한다
+    (#368 재검수 1)."""
     c = old.get('conflicts')
-    if not c:
-        return {}
+    if c is None:
+        return None
+    bad = lambda why: CaseGuideError([f'예전 충돌 기록의 모양이 틀립니다 ({why}). 묶음을 거절하고 새로 만들어 주세요'])  # noqa: E731
+    if not isinstance(c, dict) or not isinstance(c.get('items'), list) or not c['items']:
+        raise bad('conflicts·items')
     if draft_revision is None:
         raise CaseGuideError(['예전 충돌이 있어 지금 draft_revision 이 필요합니다 (풀렸는지 알아야 함)'])
-    if c.get('revision') is None or c['revision'] != draft_revision:
-        return {}                                          # 풀림 (또는 API 가 번호를 채우지 않은 예전 값)
-    return {i['section']: i['old_md'] for i in c.get('items') or [] if i.get('section') and i.get('old_md') is not None}
+    revision = c.get('revision')
+    if revision is not None and (type(revision) is not int or type(draft_revision) is not int):
+        raise bad('revision 이 정수가 아님')
+    if revision is None or revision != draft_revision:
+        return None                                        # 풀림 (번호를 채우지 않은 값은 등록 API 도 막지 않는다)
+    item = next((i for i in c['items'] if isinstance(i, dict) and i.get('section') == target), None)
+    if item is None or not isinstance(item.get('old_md'), str):
+        raise bad(f'안 풀린 충돌에 항목 {target} 의 old_md 가 없음')   # 한 묶음 한 항목 (김현나 Q2)
+    return item['old_md']

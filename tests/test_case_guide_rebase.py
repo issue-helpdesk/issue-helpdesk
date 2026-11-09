@@ -189,3 +189,27 @@ def test_reads_only(url):
         rebase(SelectOnly(conn), doc, {'judgment': 'CHANGE', 'draft_md': a_md, 'draft_basis': old, 'receipts': ['RB-11'],
                                        'draft_revision': 4})
         conn.rollback()
+
+
+@pytest.mark.parametrize('conflicts, rev, msg', [
+    ('bad', 4, 'conflicts·items'),
+    ({'revision': 4, 'items': [None]}, 4, 'old_md 가 없음'),
+    ({'revision': 4, 'items': {'section': '3.3'}}, 4, 'conflicts·items'),
+    ({'revision': 4, 'items': []}, 4, 'conflicts·items'),
+    ({'revision': 4, 'items': [{'section': '3.3', 'kind': 'TARGET_CHANGED'}]}, 4, 'old_md 가 없음'),
+    ({'revision': 4, 'items': [{'section': '3.9', 'old_md': 'x'}]}, 4, '항목 3.3 의 old_md 가 없음'),
+    ({'revision': '4', 'items': [{'section': '3.3', 'old_md': 'x'}]}, 4, '정수가 아님'),
+])
+def test_bad_conflict_data_refused(conflicts, rev, msg):
+    """#368 재검수 1: 예전 충돌 기록의 모양이 틀리면 일반 예외가 아니라 CaseGuideError, 안 풀린 충돌에 old_md 가 없으면
+    풀렸다고 추정하지 않고 거부."""
+    with pytest.raises(CaseGuideError, match=msg):
+        rb._unresolved({'conflicts': conflicts}, rev, '3.3')
+
+
+def test_unresolved_returns_original_or_none():
+    item = {'section': '3.3', 'old_md': 'A'}
+    assert rb._unresolved({'conflicts': {'revision': 4, 'items': [item]}}, 4, '3.3') == 'A'
+    assert rb._unresolved({'conflicts': {'revision': 4, 'items': [item]}}, 5, '3.3') is None      # 저장해 풀림
+    assert rb._unresolved({'conflicts': {'revision': None, 'items': [item]}}, 4, '3.3') is None   # 번호 안 채움
+    assert rb._unresolved({}, None, '3.3') is None
