@@ -349,6 +349,9 @@ class InquiryService:
             self.audit_logs.add(event_type, "inquiry", inquiry_id, result=outcome, reason=reason)
         if result.failure == "ALL_BLOCKED":
             detect(self.alerts, "BLOCKED_DOC_QUERY", inquiry.user_id, "inquiry", inquiry_id)
+        # AI 가 안전 판단으로 거절하면(REFUSAL) 보안 유형을 못 내고 기본값으로 끝난다. 그 문의를 놓치지 않게 알림을 남긴다
+        if result.failure == "AI_FAILED" and result.error_code == "REFUSAL":
+            detect(self.alerts, "AI_REFUSED", inquiry.user_id, "inquiry", inquiry_id)
         # AI 가 보안 검토 기준(S01~S06)에 해당한다고 판단한 문의. 기준마다 알림 하나로 합쳐진다
         for rule in dict.fromkeys(result.output.security_rule_ids):
             detect(self.alerts, rule, inquiry.user_id, "inquiry", inquiry_id)

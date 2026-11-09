@@ -132,3 +132,23 @@ def test_normal_inquiry_creates_no_alert(client, db, headers, ai, taxonomy):
     ai.replies = [ai_reply('ASK_MORE')]
     start(client, headers)
     assert alerts(db) == []
+
+
+# ── AI 가 안전 판단으로 거절(REFUSAL)한 문의도 알림을 남긴다 ─────────
+
+def test_refusal_creates_ai_refused_alert(client, db, owner, headers, ai, taxonomy):
+    from app.agent.llm import LLMError
+    ai.replies = [LLMError('REFUSAL', 'mock')]
+
+    r = start(client, headers)
+
+    assert r.status_code == 201
+    assert alerts(db) == [('AI_REFUSED', 'MEDIUM', 'NEW', 'inquiry')]
+    assert ai.searches == []
+
+
+def test_other_ai_failure_creates_no_alert(client, db, headers, ai, taxonomy):
+    from app.agent.llm import LLMError
+    ai.replies = [LLMError('TIMEOUT', 'mock')]
+    start(client, headers)
+    assert alerts(db) == []
