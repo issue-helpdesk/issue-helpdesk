@@ -1,19 +1,16 @@
 /**
  * 보안·감사 알림 (관리자, 제안). (design/ITssue-Prototype.html 보안·감사 알림)
  * 문의가 접수되지 않았어도 ITssue 안에서 감지한 신호(민감정보 입력, 외부 전송 금지 문서 질의, 로그인 반복 실패 등)를 모아 본다.
- * 문의 서버 모드에서는 실제 /security-alerts API 를 사용한다. 모의 모드만 시연 데이터다.
+ * 서버에는 이 기능의 API·테이블이 없다(AUDIT-01~03, docs/07 4.9 제외 범위). 그래서 서버 모드에서도 시연 데이터로 동작한다. (요청 R-20)
  * 원문은 사유를 입력해야 볼 수 있고 열람 기록이 처리 이력에 남는다.
  */
-import { request } from '../core/apiClient'
-import { serverAction, serverCounts, serverGet, serverList, serverPath } from './securityServer'
-import { USE_MOCK_INQUIRY } from '../core/config'
 import { nowIso } from '../core/format'
 import { subscribe, notify } from './mock/chatStore'
 import { fail, ok, type ApiResult, type User } from './types'
 
 export type SecSeverity = '높음' | '중간' | '낮음'
 export type SecStatus = '신규' | '확인 중' | '종결'
-export const SEC_TYPES = ['민감정보 입력', '외부 전송 금지 문서 질의', '로그인 반복 실패', '이용 제한 계정 접속 시도', '긴급 징후 후 접수 없이 종료', '비정상 대량 질의', '보안 사고 의심', '권한·승인 우회 요청', '보안 통제 해제·기록 은폐 요청', '제한 정보 추출 요청', '자료 반출 우회 요청', 'AI 통제 우회 요청', '차단 후 반복 요청', '민감정보 필터 오류', 'AI 위험 답변 차단'] as const
+export const SEC_TYPES = ['민감정보 입력', '외부 전송 금지 문서 질의', '로그인 반복 실패', '이용 제한 계정 접속 시도', '긴급 징후 후 접수 없이 종료', '비정상 대량 질의'] as const
 export type SecType = (typeof SEC_TYPES)[number]
 
 export interface SecLog {
@@ -36,8 +33,6 @@ export interface SecAlert {
   rule: string
   status: SecStatus
   log: SecLog[]
-  hasOriginal?: boolean
-  hitCount?: number
 }
 /** 원문은 목록·상세에 싣지 않고 열람을 요청할 때만 준다 */
 const RAW: Record<string, string> = {}
@@ -70,9 +65,7 @@ resetSecurityMock()
 /** 보안 알림이 바뀔 때 알려 준다 (사이드바 배지·대시보드 띠가 다시 읽는다). 구독하자마자 한 번 알린다 */
 export function watchSecurity(onChange: () => void): () => void {
   onChange()
-  const unsubscribe = subscribe(onChange)
-  const timer = USE_MOCK_INQUIRY ? undefined : window.setInterval(onChange, 30_000)
-  return () => { unsubscribe(); window.clearInterval(timer) }
+  return subscribe(onChange)
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -91,14 +84,11 @@ export interface SecCounts {
   total: number
 }
 
-export interface SecPage { items: SecAlert[]; counts: SecCounts; page?: number; totalPages?: number; totalCount?: number }
-
 /** 알림 목록. 기본 순서: 아직 끝나지 않은 것(신규 → 확인 중) 먼저, 같은 상태에서는 심각도 높은 것, 최근 것 먼저. 종결은 맨 아래 */
-export async function listSecurityAlerts(user: User, filter: { status?: SecStatus | ''; type?: SecType | ''; page?: number } = {}): Promise<ApiResult<SecPage>> {
+export async function listSecurityAlerts(user: User, filter: { status?: SecStatus | ''; type?: SecType | '' } = {}): Promise<ApiResult<{ items: SecAlert[]; counts: SecCounts }>> {
   await sleep(120)
   const no = adminOnly(user)
   if (no) return no
-  if (!USE_MOCK_INQUIRY) return serverList(filter)
   const items = alerts
     .filter((a) => (!filter.status || a.status === filter.status) && (!filter.type || a.type === filter.type))
     .sort((a, b) => RANK[a.status] - RANK[b.status] || SEV[a.severity] - SEV[b.severity] || Date.parse(b.at) - Date.parse(a.at))
@@ -109,11 +99,6 @@ export async function listSecurityAlerts(user: User, filter: { status?: SecStatu
 
 /** 대시보드·사이드바용 건수 */
 export async function countSecurityAlerts(user: User): Promise<SecCounts | null> {
-  if (!USE_MOCK_INQUIRY) {
-    if (adminOnly(user)) return null
-    const r = await serverCounts()
-    return r.ok ? r.data : null
-  }
   const r = await listSecurityAlerts(user)
   return r.ok ? r.data.counts : null
 }
@@ -123,14 +108,6 @@ export async function viewSecurityRaw(user: User, id: string, reason: string): P
   await sleep(120)
   const no = adminOnly(user)
   if (no) return no
-  if (!USE_MOCK_INQUIRY) {
-    if (!reason.trim()) return fail('VALIDATION_ERROR', '열람 사유를 입력해 주세요.')
-    const r = await request<{ messages: { content: string }[] }>(`${serverPath(id)}/original`, { method: 'POST', body: JSON.stringify({ reason }) })
-    if (!r.ok) return r
-    const detail = await serverGet(id)
-    notify()
-    return detail.ok ? ok({ raw: r.data.messages.map((m) => m.content).join('\n\n') || '저장된 문의가 없어요.', alert: detail.data }) : detail
-  }
   const a = find(id)
   if (!a) return fail('NOT_FOUND', '알림을 찾을 수 없어요.')
   if (!reason.trim()) return fail('VALIDATION_ERROR', '열람 사유를 입력해 주세요.')
@@ -144,11 +121,6 @@ export async function startSecurityReview(user: User, id: string): Promise<ApiRe
   await sleep(120)
   const no = adminOnly(user)
   if (no) return no
-  if (!USE_MOCK_INQUIRY) {
-    const r = await serverAction(id, 'review')
-    if (r.ok) notify()
-    return r
-  }
   const a = find(id)
   if (!a) return fail('NOT_FOUND', '알림을 찾을 수 없어요.')
   if (a.status !== '신규') return fail('INVALID_STATE', '신규 알림만 확인을 시작할 수 있어요.')
@@ -163,12 +135,6 @@ export async function closeSecurityAlert(user: User, id: string, reason: string)
   await sleep(120)
   const no = adminOnly(user)
   if (no) return no
-  if (!USE_MOCK_INQUIRY) {
-    if (!reason.trim()) return fail('VALIDATION_ERROR', '종결 사유를 입력해 주세요.')
-    const r = await serverAction(id, 'close', reason)
-    if (r.ok) notify()
-    return r
-  }
   const a = find(id)
   if (!a) return fail('NOT_FOUND', '알림을 찾을 수 없어요.')
   if (a.status !== '확인 중') return fail('INVALID_STATE', '확인 중인 알림만 종결할 수 있어요.')
@@ -183,9 +149,6 @@ export async function closeSecurityAlert(user: User, id: string, reason: string)
 export async function getSecurityAlert(user: User, id: string): Promise<ApiResult<SecAlert>> {
   const no = adminOnly(user)
   if (no) return no
-  if (!USE_MOCK_INQUIRY) {
-    return serverGet(id)
-  }
   const a = find(id)
   return a ? ok(strip(a)) : fail('NOT_FOUND', '알림을 찾을 수 없어요.')
 }
