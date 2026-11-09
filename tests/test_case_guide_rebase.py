@@ -106,7 +106,7 @@ def test_change_target_missing_refused(url):
     """바꿀 항목이 새 현행에 없으면 충돌이 아니라 거부 (조각 저장으로 풀 수 없으므로)."""
     _current_guide(url)
     old = old_basis('CHANGE', target_section='3.99')
-    with pytest.raises(CaseGuideError, match='3.99이 새 현행에 없습니다'):
+    with pytest.raises(CaseGuideError, match='3.99가 새 현행에 없습니다'):
         _run(url, {'judgment': 'CHANGE', 'draft_md': '', 'draft_basis': old, 'receipts': ['RB-4']})
 
 

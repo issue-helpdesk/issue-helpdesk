@@ -27,7 +27,7 @@ from app.rag.ingest import ROOT, _lock_document
 from app.rag.ingest.upload import resolve_file
 from app.rag.parser.md_parser import FRONT_RE
 
-from . import (CASE_DIR, HANDLING, MARK, TRANSFER_POLICIES, VIEW_SCOPES, CaseGuideError, _add_history, _add_table_row,
+from . import (CASE_DIR, HANDLING, MARK, TRANSFER_POLICIES, VIEW_SCOPES, CaseGuideError, _add_history, _add_table_row, josa,
                _add_toc, _added_lines, _append_item, _base_md, _chapter3, _chapter3_end, _find, _item_heads, _item_numbers,
                _one_line, _parse_text, _set_table_row, _set_toc, _set_version, _staff_names, next_version, receipts,
                sensitive_warnings)
@@ -171,7 +171,7 @@ def _check_inputs(clusters: list[dict], view_scope: str, transfer_policy: str) -
     for c in clusters:
         if c.get('judgment') == 'CHANGE' and (t := (c.get('draft_basis') or {}).get('target_section')):
             targets.setdefault(t, []).append(c.get('id'))
-    problems += [f"같은 항목 {t}을 바꾸는 묶음이 여럿입니다 ({', '.join(map(str, ids))}). 하나로 합치거나 거절해 주세요"
+    problems += [f"같은 항목 {josa(t, '을/를')} 바꾸는 묶음이 여럿입니다 ({', '.join(map(str, ids))}). 하나로 합치거나 거절해 주세요"
                  for t, ids in targets.items() if len(ids) > 1]
     if problems:
         raise CaseGuideError(problems)
@@ -215,11 +215,11 @@ def _version(conn, document_id: int, draft_version_id: int | None) -> str:
     row = conn.execute('select document_id, version, file_path, is_current, activated_at from document_versions '
                        'where id = %s', (draft_version_id,)).fetchone()
     if row is None or row[0] != document_id:
-        raise CaseGuideError([f'이어 쓸 버전 {draft_version_id}이 이 문서의 버전이 아닙니다'])
+        raise CaseGuideError([f'이어 쓸 버전 {josa(draft_version_id, '이/가')} 이 문서의 버전이 아닙니다'])
     if row[3] or row[4] is not None:
-        raise CaseGuideError([f'이어 쓸 버전 {row[1]}은 현행이 된 적이 있어 다시 쓸 수 없습니다'])
+        raise CaseGuideError([f'이어 쓸 버전 {josa(row[1], '은/는')} 현행이 된 적이 있어 다시 쓸 수 없습니다'])
     if not (row[2] or '').startswith(CASE_DIR.as_posix() + '/'):
-        raise CaseGuideError([f'이어 쓸 버전 {row[1]}은 사례 초안이 아닙니다'])
+        raise CaseGuideError([f'이어 쓸 버전 {josa(row[1], '은/는')} 사례 초안이 아닙니다'])
     return row[1]
 
 
@@ -242,7 +242,7 @@ def _assign(base_md: str, clusters: list[dict]) -> dict:
     for c in clusters:
         if c['judgment'] in ADD_KINDS and (s := c['draft_basis'].get('section_no')):
             if s in taken:
-                problems.append(f"묶음 {c['id']}: 번호 {s}가 이미 현행 또는 다른 조각에 있습니다")
+                problems.append(f"묶음 {c['id']}: 번호 {josa(s, '이/가')} 이미 현행 또는 다른 조각에 있습니다")
             taken.add(s)
             fixed[c['id']] = s
     if problems:
@@ -292,9 +292,9 @@ def _build(base_md: str, clusters: list[dict], version: str, today: date, warnin
         target = c['draft_basis']['target_section']
         now = item_text(md, target)
         if now is None:
-            raise CaseGuideError([f"묶음 {c['id']}: 바꿀 항목 {target}이 현행에 없습니다. 이 묶음은 거절하고 필요하면 새 묶음으로"])
+            raise CaseGuideError([f"묶음 {c['id']}: 바꿀 항목 {josa(target, '이/가')} 현행에 없습니다. 이 묶음은 거절하고 필요하면 새 묶음으로"])
         if now.rstrip() != (c['draft_basis'].get('target_md') or '').strip('\n').rstrip():
-            raise CaseGuideError([f"묶음 {c['id']}: 바꿀 항목 {target}이 초안을 만든 뒤 바뀌었습니다. 다시 맞춰 주세요"])
+            raise CaseGuideError([f"묶음 {c['id']}: 바꿀 항목 {josa(target, '이/가')} 초안을 만든 뒤 바뀌었습니다. 다시 맞춰 주세요"])
         fragment, title = _renumber(c['draft_md'], target)
         old_title, old_props = _renumber(now, target)[1], _props(now)
         start, end = _item_block(md, target)

@@ -25,7 +25,7 @@ from pathlib import Path
 from app.rag.ingest import ROOT
 from app.rag.ingest.upload import resolve_file
 
-from . import CaseGuideError, _base_md, receipts
+from . import CaseGuideError, _base_md, josa, receipts
 from .assemble import SCHEMA, item_text
 
 KINDS = ('ADD_ITEM', 'SEC_MANUAL', 'CHANGE')
@@ -58,7 +58,7 @@ def rebase(conn, document_id: int, cluster: dict, files_root: Path = ROOT) -> di
         target = old.get('target_section')
         new_md = item_text(base_md, target) if target else None
         if new_md is None:
-            raise CaseGuideError([f'바꿀 항목 {target}이 새 현행에 없습니다. 이 묶음은 거절하고 필요하면 새 묶음으로 만들어 주세요'])
+            raise CaseGuideError([f'바꿀 항목 {josa(target, '이/가')} 새 현행에 없습니다. 이 묶음은 거절하고 필요하면 새 묶음으로 만들어 주세요'])
         pending = _unresolved(old, cluster.get('draft_revision'), target)
         old_md = (pending if pending is not None else old.get('target_md') or '').strip('\n')   # 안 풀린 충돌이면 조각 원문
         if new_md.rstrip() != old_md.rstrip():
