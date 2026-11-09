@@ -97,6 +97,19 @@ def test_build_refuses_heading_only_items(fragments, msg):
         _build_new_guide(new_cluster(_with_fragments(fragments)), 'IT-NET-010', 'v1.0', TODAY, [])
 
 
+@pytest.mark.parametrize('fragments', [
+    ['### 3.N 비어 있는 항목', frag('프린터가 안 잡힘')],          # 빈 것이 앞
+    [frag('프린터가 안 잡힘'), '### 3.N 비어 있는 항목'],          # 빈 것이 뒤
+    [frag('프린터가 안 잡힘'), frag('출력이 느림')],                # 둘 다 본문 있음
+])
+def test_build_refuses_duplicate_item_number(fragments):
+    """같은 항목 번호가 둘이면 거부 — 본문 있는 쪽 때문에 빈 쪽이 통과하지 않게 (PR #370 재검수 1)."""
+    md = _with_fragments(fragments)
+    md = md.replace('\n### 3.2 ', '\n### 3.1 ', 1)
+    with pytest.raises(CaseGuideError, match=re.escape('같은 항목 번호가 두 번 이상 있습니다: 3.1')):
+        _build_new_guide(new_cluster(md), 'IT-NET-010', 'v1.0', TODAY, [])
+
+
 @pytest.mark.parametrize('extra', [f'## 1. 미작성\n\n{TODO}\n\n## 1. 개요\n\n{INTRO}',      # 앞 장에 자리 표시
                                    f'## 1. 개요\n\n{INTRO}\n\n## 1. 개요 둘째\n\n{TODO}'])  # 뒤 장에 자리 표시
 def test_build_refuses_duplicate_chapter(extra):

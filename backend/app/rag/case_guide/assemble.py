@@ -425,6 +425,9 @@ def _build_new_guide(c: dict, doc_code: str, version: str, today: date, warnings
         bodies = {ch.section_no for ch in _parse_text(md)[1] if ch.chunk_type == 'item' and (ch.body or '').strip()}
         if not heads:
             problems.append('3장에 항목(### 3.N)이 없습니다')
+        elif dup_items := sorted({s for s in heads if heads.count(s) > 1}, key=lambda s: int(s.split('.')[1])):
+            # 번호가 겹치면 어느 제목의 본문인지 모른다 — 빈 항목이 숨는다 (PR #370 재검수 1)
+            problems.append(f"같은 항목 번호가 두 번 이상 있습니다: {', '.join(dup_items)}")
         elif empty := [s for s in heads if s not in bodies]:        # 제목만 있는 항목은 검색되지 않는다 (PR #370 검수 1)
             problems.append(f"본문이 없는 항목이 있습니다: {', '.join(empty)}")
     if problems:
