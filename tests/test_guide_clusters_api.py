@@ -1,4 +1,4 @@
-"""해결 사례 가이드화 묶음 API (GC-01~07). SQLite 메모리 DB 만 쓴다."""
+"""해결 사례 가이드화 묶음 API (GC-01~08). SQLite 메모리 DB 만 쓴다."""
 import copy
 from datetime import datetime, timedelta, timezone
 
@@ -11,7 +11,7 @@ from app.main import app
 from app.models import AuditLog, Category, DocumentVersion, GuideCluster, KnowledgeDocument, TicketGuideState, User
 from app.rag.case_guide import CaseGuideError
 from app.services.document_ingest import ingest_submitter
-from app.services.guide_cluster import guide_assembler, guide_rebaser
+from app.services.guide_cluster import guide_assembler, guide_basis_opener, guide_rebaser
 from test_auth import TABLES, add_user, bearer, client, error_code, login  # noqa: F401
 from test_dashboard import add_ticket
 from test_inquiries import create_sqlite_tables
@@ -396,7 +396,7 @@ def assembled(client, db, tmp_path):
             row = db.get(DocumentVersion, draft_version_id)
         row.file_path = str(path)
         sections = {c["id"]: c["draft_basis"].get("section_no") or f"3.{9 + len(calls)}"
-                    for c in clusters if c["judgment"] != "CHANGE"}
+                    for c in clusters if c["judgment"] not in ("CHANGE", "NEW_GUIDE")}
         return {"version_id": row.id, "version": row.version, "file_path": str(path), "sections": sections,
                 "warnings": ["개인정보로 보이는 글이 있습니다"]}
 
@@ -538,9 +538,8 @@ def test_register_reuses_version_with_only_rejected_clusters(client, users, db, 
     assert dropped.registered_version_id is None
 
 
-@pytest.mark.parametrize("judgment", ["NEW_GUIDE", "MANUAL_CANDIDATE"])
-def test_register_refuses_unsupported_judgment(client, users, db, guide, assembled, judgment):
-    cluster, _ = ready_cluster(db, guide, judgment=judgment)
+def test_register_refuses_manual_candidate(client, users, db, guide, assembled):
+    cluster, _ = ready_cluster(db, guide, judgment="MANUAL_CANDIDATE")
 
     res = register(client, users, cluster)
 
@@ -811,3 +810,246 @@ def test_rebase_not_found(client, users, rebased):
     res = client.post(f"{API}/999/rebase", headers=users["admin"], json={"draftRevision": 0})
 
     assert (res.status_code, error_code(res)) == (404, "GUIDE_CLUSTER_NOT_FOUND")
+
+
+# ------------------------------------------------------------------ GC-08 넣을 문서 변경
+
+
+@pytest.fixture
+def other_guide(db):
+    """IT-NET-002: v1.0 현행. 옮겨 갈 문서."""
+    document = KnowledgeDocument(doc_code="IT-NET-002", doc_type="GUIDE", title="무선랜 장애 대응 가이드",
+                                 category_code="NET", is_active=True)
+    db.add(document)
+    db.flush()
+    current = DocumentVersion(document_id=document.id, version="v1.0", view_scope="ALL", transfer_policy="ALLOWED",
+                              is_current=True, ingest_status="DONE")
+    db.add(current)
+    db.commit()
+    return document, current
+
+
+@pytest.fixture
+def empty_guide(db):
+    """버전이 없는 문서. DC-02 로 막 만든 상태다."""
+    document = KnowledgeDocument(doc_code="IT-MSG-001", doc_type="GUIDE", title="사내 메신저 가이드",
+                                 category_code="NET", is_active=True)
+    db.add(document)
+    db.commit()
+    return document
+
+
+@pytest.fixture
+def opened(client, other_guide):
+    """초안 기준 함수를 바꿔 끼운다."""
+    _, current = other_guide
+    state = {"calls": []}
+
+    def fake(conn, judgment, *, document_id, target_section, receipts_):
+        state["calls"].append({"judgment": judgment, "document_id": document_id, "target_section": target_section,
+                               "receipts": receipts_})
+        basis = {"schema": 1, "judgment": judgment, "base_version_id": current.id, "base_md": "새 문서 원문"}
+        if judgment == "CHANGE":
+            basis |= {"target_section": target_section, "target_md": f"### {target_section} 새 항목"}
+        else:
+            basis["section_no"] = None
+        return {"draft_basis": basis, "draft_md": None, "warnings": ["이미 반영된 접수 번호입니다"]}
+
+    app.dependency_overrides[guide_basis_opener] = lambda: fake
+    return state
+
+
+def change_target(client, users, cluster, document_id, section=None, revision=0, who="admin"):
+    body = {"draftRevision": revision, "documentId": document_id}
+    if section:
+        body["targetSection"] = section
+    return client.post(f"{API}/{cluster.id}/target", headers=users[who], json=body)
+
+
+def change_cluster(db, guide, **fields):
+    return ready_cluster(db, guide, judgment="CHANGE", draft_basis={
+        "schema": 1, "judgment": "CHANGE", "base_version_id": guide[1].id, "base_md": "옛 문서 원문",
+        "target_section": "3.3", "target_md": "### 3.3 옛 항목"}, **fields)
+
+
+def new_guide_cluster(db, **fields):
+    return add_cluster(db, tickets=1, judgment="NEW_GUIDE", draft_md="---\ndoc_no: \"\"\n---\n# 새 가이드",
+                       draft_basis={"schema": 1, "judgment": "NEW_GUIDE", "base_version_id": None, "base_md": None,
+                                    "category_code": "NET", "required": ["1", "2", "3"]}, **fields)
+
+
+def test_target_moves_add_item(client, users, db, guide, other_guide, opened):
+    document, current = other_guide
+    cluster, tickets = ready_cluster(db, guide, tickets=2)
+
+    res = change_target(client, users, cluster, document.id)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["targetDocument"]["docCode"] == "IT-NET-002"
+    assert (body["draftRevision"], body["conflicts"], body["baseChanged"]) == (1, [], False)
+    assert body["baseVersion"]["id"] == current.id
+    assert body["draftMd"] == "### 3.N 제목\n본문"
+    assert body["warnings"] == ["이미 반영된 접수 번호입니다"]
+    assert opened["calls"][0]["receipts"] == [t.receipt_no for t in tickets]
+    db.expire_all()
+    assert cluster.base_version_id == current.id
+    log = db.scalars(select(AuditLog).where(AuditLog.event_type == "GUIDE_CLUSTER_TARGET_CHANGE")).one()
+    assert log.result == f"ADD_ITEM 문서 {guide[0].id} → {document.id}"
+
+
+def test_target_change_records_conflict_until_saved(client, users, db, guide, other_guide, opened, assembled):
+    document, _ = other_guide
+    cluster, _ = change_cluster(db, guide)
+
+    res = change_target(client, users, cluster, document.id, "3.5")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert (body["targetSection"], body["targetMd"]) == ("3.5", "### 3.5 새 항목")
+    assert body["conflicts"][0]["kind"] == "TARGET_MOVED"
+    assert (body["conflicts"][0]["oldMd"], body["conflicts"][0]["newMd"]) == ("### 3.3 옛 항목", "### 3.5 새 항목")
+    assert error_code(register(client, users, cluster, revision=1)) == "GUIDE_CLUSTER_CONFLICT_UNRESOLVED"
+
+    assert save(client, users, cluster, revision=1).json()["conflicts"] == []
+    assert register(client, users, cluster, revision=2).status_code == 200
+
+
+def test_target_change_moves_within_same_document(client, users, db, guide, other_guide, opened):
+    cluster, _ = change_cluster(db, guide)
+
+    res = change_target(client, users, cluster, guide[0].id, "3.5")
+
+    assert res.status_code == 200
+    assert res.json()["targetSection"] == "3.5"
+
+
+def test_target_unchanged_refused(client, users, db, guide, other_guide, opened):
+    add_item, _ = ready_cluster(db, guide)
+    change, _ = change_cluster(db, guide)
+
+    assert error_code(change_target(client, users, add_item, guide[0].id)) == "GUIDE_CLUSTER_TARGET_UNCHANGED"
+    assert error_code(change_target(client, users, change, guide[0].id, "3.3")) == "GUIDE_CLUSTER_TARGET_UNCHANGED"
+    assert opened["calls"] == []
+
+
+def test_target_refused_changes_nothing(client, users, db, guide, other_guide, opened):
+    def refuse(*args, **kwargs):
+        raise CaseGuideError(["현행에 항목 3.9가 없습니다"])
+
+    app.dependency_overrides[guide_basis_opener] = lambda: refuse
+    cluster, _ = change_cluster(db, guide)
+
+    res = change_target(client, users, cluster, other_guide[0].id, "3.9")
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_TARGET_INVALID")
+    assert res.json()["error"]["details"][0]["message"] == "현행에 항목 3.9가 없습니다"
+    db.expire_all()
+    assert (cluster.target_document_id, cluster.draft_revision) == (guide[0].id, 0)
+
+
+def test_new_guide_links_document_then_registers(client, users, db, empty_guide, opened, assembled):
+    calls, _ = assembled
+    cluster, _ = new_guide_cluster(db)
+    before = cluster.draft_basis
+
+    res = change_target(client, users, cluster, empty_guide.id)
+
+    assert res.status_code == 200
+    assert res.json()["targetDocument"]["id"] == empty_guide.id
+    assert res.json()["baseVersion"] is None
+    assert opened["calls"] == []                                # 기준 현행이 없어 초안 기준은 그대로다
+    db.expire_all()
+    assert cluster.draft_basis == before
+
+    res = register(client, users, cluster, revision=1)
+    assert res.status_code == 200
+    assert (calls[0]["document_id"], calls[0]["version_id"]) == (empty_guide.id, None)
+
+
+def test_register_new_guide_without_document(client, users, db, assembled):
+    cluster, _ = new_guide_cluster(db)
+
+    res = register(client, users, cluster)
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_NOT_REGISTRABLE")
+    assert res.json()["error"]["details"][0]["reason"] == "NO_TARGET"
+    assert assembled[0] == []
+
+
+def test_new_guide_refuses_document_with_version(client, users, db, guide, other_guide, opened):
+    cluster, _ = new_guide_cluster(db)
+
+    res = change_target(client, users, cluster, other_guide[0].id)
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_TARGET_INVALID")
+
+
+def test_new_guide_refuses_manual_document(client, users, db, opened):
+    manual = KnowledgeDocument(doc_code="IT-NET-001-M", doc_type="MANUAL", title="매뉴얼", category_code="NET", is_active=True)
+    db.add(manual)
+    db.commit()
+    cluster, _ = new_guide_cluster(db)
+
+    assert error_code(change_target(client, users, cluster, manual.id)) == "GUIDE_CLUSTER_TARGET_INVALID"
+
+
+def test_target_refused_for_registered_cluster(client, users, db, guide, other_guide, opened):
+    cluster, _ = ready_cluster(db, guide, registered_version_id=guide[2].id)
+
+    assert error_code(change_target(client, users, cluster, other_guide[0].id)) == "GUIDE_CLUSTER_DRAFT_LOCKED"
+
+
+def test_target_refused_for_manual_candidate(client, users, db, guide, other_guide, opened):
+    cluster, _ = ready_cluster(db, guide, judgment="MANUAL_CANDIDATE")
+
+    assert error_code(change_target(client, users, cluster, other_guide[0].id)) == "GUIDE_CLUSTER_NOT_REGISTRABLE"
+
+
+def test_target_stale_revision(client, users, db, guide, other_guide, opened):
+    cluster, _ = ready_cluster(db, guide, draft_revision=2)
+
+    res = change_target(client, users, cluster, other_guide[0].id, revision=1)
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_DRAFT_CONFLICT")
+
+
+@pytest.mark.parametrize("status", ["APPLIED", "REJECTED"])
+def test_target_only_reviewing(client, users, db, guide, other_guide, opened, status):
+    cluster, _ = ready_cluster(db, guide, status=status)
+
+    assert error_code(change_target(client, users, cluster, other_guide[0].id)) == "GUIDE_CLUSTER_NOT_REVIEWING"
+
+
+def test_target_document_not_found(client, users, db, guide, opened):
+    cluster, _ = ready_cluster(db, guide)
+
+    res = change_target(client, users, cluster, 999)
+
+    assert (res.status_code, error_code(res)) == (404, "DOCUMENT_NOT_FOUND")
+
+
+def test_target_cluster_not_found(client, users, opened):
+    res = client.post(f"{API}/999/target", headers=users["admin"], json={"draftRevision": 0, "documentId": 1})
+
+    assert (res.status_code, error_code(res)) == (404, "GUIDE_CLUSTER_NOT_FOUND")
+
+
+@pytest.mark.parametrize("who", ["employee", "agent"])
+def test_target_admin_only(client, users, db, guide, other_guide, opened, who):
+    cluster, _ = ready_cluster(db, guide)
+
+    assert error_code(change_target(client, users, cluster, other_guide[0].id, who=who)) == "FORBIDDEN"
+
+
+@pytest.mark.parametrize("body", [
+    {"documentId": 1}, {"draftRevision": 0}, {"draftRevision": 0, "documentId": 0},
+    {"draftRevision": 0, "documentId": 1, "targetSection": "2.1"},
+    {"draftRevision": 0, "documentId": 1, "extra": 1},
+])
+def test_target_validation(client, users, db, guide, other_guide, opened, body):
+    cluster, _ = ready_cluster(db, guide)
+
+    res = client.post(f"{API}/{cluster.id}/target", headers=users["admin"], json=body)
+
+    assert (res.status_code, error_code(res)) == (422, "VALIDATION_ERROR")
