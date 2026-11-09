@@ -153,7 +153,8 @@ out = rebase(conn, document_id, {'judgment', 'draft_md', 'draft_basis', 'receipt
 ```python
 open_basis(conn, 'ADD_ITEM', document_id=7, receipts_=['RCPT-0101'])   # 항목 추가·SEC_MANUAL
 open_basis(conn, 'CHANGE', document_id=7, target_section='3.3')        # 변경
-open_basis(conn, 'NEW_GUIDE', category_code='NET', title='…', fragments=[조각, …])   # 새 가이드 뼈대
+open_basis(conn, 'NEW_GUIDE', category_code='NET', title='…', fragments=[조각, …],
+           overview='1장 본문', precheck='2장 본문')                                     # 새 가이드 뼈대 (1·2장은 생략 가능)
 # → {'draft_basis': {...}, 'draft_md': None | 뼈대, 'warnings': [...]}.  MANUAL_CANDIDATE → 모두 None
 fragment, warnings = ticket_fragment(conn, ticket_id)                  # SEC 직접 검토: 티켓 글 → '### 3.N 제목' 조각 (AI 없음)
 ```
@@ -165,7 +166,8 @@ fragment, warnings = ticket_fragment(conn, ticket_id)                  # SEC 직
 | 새 가이드 | `base_version_id`·`base_md` null · `category_code` · `required: ['1','2','3']` |
 
 - 이미 현행에 반영된 접수 번호는 경고 (등록 때는 `assemble` 이 거부).
-- 새 가이드 뼈대 (김현나 Q9): `version: v1.0`, `doc_no` 빈칸(등록 때 DC-02 문서 번호), 1장·2장 `(작성 필요)` 한 줄, 2장 증상별 바로가기 표, 3장 항목 표 + 조각들(3.1부터), 4·5장·부록 제목만(청커가 원래 빈 장은 청크로 만들지 않는다), **6장 문의처는 같은 분류 현행 가이드의 6장 복사** (6장이 없거나 비었거나 자리 표시뿐이면 다음 후보 → 다른 분류, 그래도 없으면 경고·자리 표시. 장 경계는 코드 블록 밖 `## ` 만. 가이드 27종 6장은 모두 같다), 개정 이력 표 머리.
+- 새 가이드 뼈대 (M4 Q9): `version: v1.0`, `doc_no` 빈칸(등록 때 DC-02 문서 번호), 1장·2장은 **AI 초안 `overview`·`precheck`**(11.09 M4 요청, 없으면 `(작성 필요)` 한 줄), 2장 본문 아래에 증상별 바로가기 표(뼈대가 붙임), 3장 항목 표 + 조각들(3.1부터), 4·5장·부록 제목만(청커가 원래 빈 장은 청크로 만들지 않는다), **6장 문의처는 같은 분류 현행 가이드의 6장 복사** (6장이 없거나 비었거나 자리 표시뿐이면 다음 후보 → 다른 분류, 그래도 없으면 경고·자리 표시. 장 경계는 코드 블록 밖 `## ` 만. 가이드 27종 6장은 모두 같다), 개정 이력 표 머리.
+- 1·2장 초안 검사 (`chapter_body`): 코드 블록 밖 `#`·`##`·`###` 제목 금지(`####` 이하 소제목·굵은 글씨·목록·표·코드 블록은 됨), 코드 블록 닫힘, 반영 표식 문구 금지, 2장에 `#### 증상별 바로가기` 직접 쓰기 금지. 걸리면 **오류로 멈추지 않고 그 장만 `(작성 필요)` + 경고** (AI 한 장이 틀려도 묶음은 만들어지고 관리자가 채운다). 줄바꿈은 `\n` 으로 맞춘다. 1장의 `**목적**`·`**적용 대상**` 모양과 "담당자 확인" 표기는 M4 약속이라 검사하지 않는다
 - 새 가이드 제목은 한 줄 (줄바꿈·제어 문자 거부). 머리말에는 바깥 따옴표만 붙여 그대로 쓴다 — md 파서가 바깥 따옴표만 벗기므로 다시 읽으면 같은 제목.
 
 ## 아직
