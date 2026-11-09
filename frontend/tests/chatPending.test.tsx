@@ -46,6 +46,10 @@ describe('새 문의 직후 대기 화면', () => {
   it('기다린 시간에 따라 문구가 바뀌지만 검색·정리 같은 단계 이름은 말하지 않는다', () => {
     expect(stageLabel(0)).toBe('문의를 처리하고 있어요.')
     expect(stageLabel(9)).toBe('문의를 처리하고 있어요.')
+    // 답변을 만드는 중인 대화 화면의 입력 중 표시: 처음 문구만 다르고 이후 단계는 같다
+    expect(stageLabel(0, '답변을 준비하고 있어요')).toBe('답변을 준비하고 있어요')
+    expect(stageLabel(12, '답변을 준비하고 있어요')).toBe('답변을 준비하고 있어요. 잠시만 기다려 주세요.')
+    expect(stageLabel(30, '답변을 준비하고 있어요')).toBe('답변 준비에 시간이 걸리고 있어요.')
     expect(stageLabel(10)).toBe('답변을 준비하고 있어요. 잠시만 기다려 주세요.')
     expect(stageLabel(25)).toBe('답변 준비에 시간이 걸리고 있어요.')
     for (const sec of [0, 5, 12, 30]) expect(stageLabel(sec)).not.toMatch(/찾고|읽고|정리|평소보다/)

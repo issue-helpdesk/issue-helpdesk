@@ -76,7 +76,7 @@
 .page{padding:26px 32px 40px;display:flex;flex-direction:column;gap:12px;max-width:1240px;width:100%;margin:0 auto}
 .page h1{font-size:28px;line-height:36px;font-weight:600}
 .panel{background:var(--white);border-radius:20px;box-shadow:inset 0 0 0 1px var(--line);padding:20px 22px;min-width:0}
-.panel h3{font-size:15px;line-height:22px;font-weight:600}
+.panel h2,.panel h3{font-size:15px;line-height:22px;font-weight:600}
 .empty{padding:36px 16px;text-align:center;color:var(--mute);font-size:14px}
 .scrim{display:none}
 .recent .rt{align-items:flex-start;width:100%}.recent .rt b{width:100%}

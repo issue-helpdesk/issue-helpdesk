@@ -1,6 +1,6 @@
 /**
- * 가이드 관리 → 해결 사례 탭 (모의): 제안 목록(검토 대상·가이드화 승인·비가이드화), 검토 패널, 승인할 때 뜨는 등록 설정 창,
- * 가이드 목록에 등록되는 초안 버전과 검색 준비·현행 전환 연결, 비가이드화, 재시도, 기준 가이드가 바뀐 제안의 차단.
+ * 가이드 관리 → 해결 사례 탭 (모의): 제안 목록(검토 대상·가이드화 승인·반영 안함), 검토 패널, 승인할 때 뜨는 등록 설정 창,
+ * 가이드 목록에 등록되는 초안 버전과 검색 준비·현행 전환 연결, 반영 안함, 재시도, 기준 가이드가 바뀐 제안의 차단.
  * 서버 없이 시연 데이터와 모의 상태 전환만 쓴다.
  */
 import { act, render, screen, waitFor, within } from '@testing-library/react'
@@ -110,7 +110,7 @@ describe('해결 사례 모의 상태 전환', () => {
     expect(approveCase('c3', { after: get('c3').after, scope: '전 직원', tx: '허용' })).toEqual({ ok: true })
   })
 
-  it('비가이드화는 사유가 있어야 하고, 승인한 건에는 쓸 수 없다', () => {
+  it('반영 안함는 사유가 있어야 하고, 승인한 건에는 쓸 수 없다', () => {
     expect(dropCase('c1', '  ').ok).toBe(false)
     expect(dropCase('c1', '일회성 조치예요')).toEqual({ ok: true })
     expect(get('c1')).toMatchObject({ state: 'dropped', dropReason: '일회성 조치예요' })
@@ -165,8 +165,8 @@ describe('해결 사례 탭 화면', () => {
     expect(within(live).getAllByRole('button').map((b) => b.textContent)).toEqual(['등록 버전 보기', '처리 이력 상세 보기'])
     const ready = ok.find((c) => /관리자 권한 오류/.test(c.textContent ?? ''))!
     expect(within(ready).getAllByRole('button').map((b) => b.textContent)).toEqual(['현행으로 전환', '등록 버전 보기', '처리 이력 상세 보기'])
-    // 비가이드화
-    await userEvent.click(screen.getByRole('button', { name: /^비가이드화/ }))
+    // 반영 안함
+    await userEvent.click(screen.getByRole('button', { name: /^반영 안함/ }))
     const dropped = cardsOf()
     expect(dropped).toHaveLength(1)
     expect(within(dropped[0]).getAllByRole('button').map((b) => b.textContent)).toEqual(['처리 이력 상세 보기'])
@@ -210,9 +210,11 @@ describe('해결 사례 탭 화면', () => {
     expect(await screen.findByRole('button', { name: /^IT-SW-001 업무용 SW 설치 가이드/, expanded: true }, SLOW)).toBeInTheDocument()
     const rows = await screen.findAllByRole('row', undefined, SLOW)
     const row = rows.find((r) => within(r).queryByText('v3.0'))!
-    // 넘어온 버전 줄은 강조되고, 그 문서에는 "현행 전환 대기" 표시가 붙는다
+    // 넘어온 버전 줄은 강조되고, 그 문서 아래에는 현행 전환 안내 줄이 붙는다
     expect(row).toHaveClass('vfocus')
-    expect(screen.getByRole('button', { name: /^IT-SW-001 업무용 SW 설치 가이드/ })).toHaveTextContent('현행 전환 대기')
+    expect(screen.getByText(/의 검색 준비가 끝났어요/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '현행 전환하러 가기' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /현행 전환 대기 \d+건만 보기/ })).toBeInTheDocument() // 목록 위 요약
     await userEvent.click(within(row).getByRole('button', { name: '현행 전환' }))
     await waitFor(() => expect(get('c6').state).toBe('live'), SLOW)
   })
@@ -220,7 +222,10 @@ describe('해결 사례 탭 화면', () => {
   it('검토 중인 제안이 걸린 문서에는 제안 건수가 보이고, 그 문서에 새 버전을 올리려 하면 안내가 뜬다', async () => {
     renderAdmin()
     await userEvent.click(await screen.findByRole('button', { name: /^VPN·네트워크/ }, SLOW))
-    expect(await screen.findByRole('button', { name: /^IT-NET-001 VPN 접속 장애 대응 가이드/ }, SLOW)).toHaveTextContent('AI 제안 1건')
+    expect(await screen.findByRole('button', { name: /^IT-NET-001 VPN 접속 장애 대응 가이드/ }, SLOW)).toBeInTheDocument()
+    expect(screen.getByText(/검토할 AI 제안이/)).toHaveTextContent('1건') // 그 가이드 아래 안내 줄
+    expect(screen.getByRole('button', { name: '제안 보기' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /AI 제안 \d+건 보기/ })).toBeInTheDocument() // 목록 위 요약
     await userEvent.click(screen.getByRole('button', { name: /가이드 파일 업로드/ }))
     const dlg = await screen.findByRole('dialog', { name: '가이드 파일 업로드' }, SLOW)
     expect(within(dlg).queryByText(/검토 중인 AI 가이드 제안/)).toBeNull() // 문서를 고르기 전에는 없다
@@ -280,27 +285,27 @@ describe('해결 사례 탭 화면', () => {
     await waitFor(() => expect(within(panel).getByRole('button', { name: '승인하고 초안 등록' })).toBeEnabled(), SLOW)
   })
 
-  it('비가이드화는 사유를 입력해야 처리된다', async () => {
+  it('반영 안함는 사유를 입력해야 처리된다', async () => {
     renderAdmin()
     await openTab()
     await userEvent.click(within(cardsOf()[0]).getByRole('button', { name: '검토하기' }))
     const panel = await screen.findByRole('complementary', { name: '가이드 초안 검토' })
-    await userEvent.click(within(panel).getByRole('button', { name: '비가이드화' }))
+    await userEvent.click(within(panel).getByRole('button', { name: '반영 안함' }))
     const dlg = await screen.findByRole('dialog')
-    await userEvent.click(within(dlg).getByRole('button', { name: '가이드화 안 함' }))
+    await userEvent.click(within(dlg).getByRole('button', { name: '반영 안함' }))
     expect(within(dlg).getByText('사유를 입력해 주세요.')).toBeInTheDocument()
     await userEvent.type(within(dlg).getByLabelText(/사유/), '일회성이에요')
-    await userEvent.click(within(dlg).getByRole('button', { name: '가이드화 안 함' }))
+    await userEvent.click(within(dlg).getByRole('button', { name: '반영 안함' }))
     await waitFor(() => expect(get('c1').state).toBe('dropped'), SLOW)
   })
 
-  it('처리한 건의 상세에서는 아래쪽 닫기 단추가 없고, 패널 밖 빈 곳을 눌러도 닫힌다. 비가이드화 안내는 두 줄이다', async () => {
+  it('처리한 건의 상세에서는 아래쪽 닫기 단추가 없고, 패널 밖 빈 곳을 눌러도 닫힌다. 반영 안함 안내는 두 줄이다', async () => {
     renderAdmin()
     await openTab()
-    await userEvent.click(screen.getByRole('button', { name: /^비가이드화/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^반영 안함/ }))
     await userEvent.click(within(cardsOf()[0]).getByRole('button', { name: '처리 이력 상세 보기' }))
     const panel = await screen.findByRole('complementary', { name: '가이드 초안 검토' })
-    expect(within(panel).getByText('가이드화하지 않기로 한 제안이에요.')).toBeInTheDocument()
+    expect(within(panel).getByText('반영하지 않기로 한 제안이에요.')).toBeInTheDocument()
     expect(within(panel).getByText(/^사유: /)).toBeInTheDocument()
     expect(within(panel).getAllByRole('button', { name: '닫기' })).toHaveLength(1)
     // 패널 밖 빈 곳(제목 글자)을 누르면 닫힌다

@@ -2,7 +2,7 @@
  * 가이드 관리 → 해결 사례 탭 (관리자). 주 1회 AI가 아직 가이드에 반영하지 않은 해결 사례를 분석해
  * 비슷한 사례를 묶어, 근거 티켓이 많은 순서로 제안한다. 서버에 연결된 환경에서는 서버의 묶음(api/caseClusters.ts, GC-01~05)을 보고,
  * 모의 환경에서는 시연 데이터와 모의 상태 전환으로 동작한다 (api/mock/caseGuides.ts).
- * 보기는 세 가지다: 검토 대상 / 가이드화 승인 / 비가이드화. 검토 필요인 카드의 "검토하기"는 오른쪽 검토 패널을 연다.
+ * 보기는 세 가지다: 검토 대상 / 가이드화 승인 / 반영 안함. 검토 필요인 카드의 "검토하기"는 오른쪽 검토 패널을 연다.
  * 승인한 카드는 등록한 버전의 본문과 처리 이력을 따로 볼 수 있고, 현행 전환은 가이드 목록에서 열람 범위를 확인하며 한다.
  * 패널은 화면 전체 틀(<main> 밖)에 열려야 해서 여는 동작만 받고 패널은 가이드 관리 화면이 그린다.
  */
@@ -85,7 +85,7 @@ export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: 
               가이드화 승인 <span className="count">{count('approved')}</span>
             </button>
             <button type="button" className={view === 'dropped' ? 'on' : ''} aria-pressed={view === 'dropped'} onClick={() => go('dropped')}>
-              비가이드화 <span className="count">{count('dropped')}</span>
+              반영 안함 <span className="count">{count('dropped')}</span>
             </button>
           </div>
           <FilterPill label="분류" value={cat} options={cats.map((k) => ({ value: k, label: CATEGORIES[k].name }))} onChange={setCat} />
@@ -121,7 +121,7 @@ export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: 
         </div>
       ) : shown.length === 0 ? (
         <div className="panel">
-          <div className="empty">{view === 'review' ? '검토할 제안이 없어요.' : view === 'approved' ? '아직 가이드화를 승인한 건이 없어요.' : '비가이드화한 건이 없어요.'}</div>
+          <div className="empty">{view === 'review' ? '검토할 제안이 없어요.' : view === 'approved' ? '아직 가이드화를 승인한 건이 없어요.' : '반영하지 않은 건이 없어요.'}</div>
         </div>
       ) : (
         <div className="cgl">

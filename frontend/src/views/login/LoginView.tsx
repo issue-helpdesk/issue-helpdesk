@@ -112,7 +112,7 @@ export function LoginView() {
   )
 
   return (
-    <div className="login">
+    <main className="login">
       <LoginBackground />
       <div className="lmode">
         <ThemeSwitch />
@@ -227,6 +227,6 @@ export function LoginView() {
         </div>
       </div>
       {forgotOpen && <ForgotModal onClose={() => setForgotOpen(false)} />}
-    </div>
+    </main>
   )
 }

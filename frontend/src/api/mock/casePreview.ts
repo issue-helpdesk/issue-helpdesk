@@ -103,7 +103,7 @@ const seedClusters = (): Cluster[] => [
     id: 105, category: { code: 'SEC', name: '보안' }, judgment: 'SEC_MANUAL', status: 'REVIEWING', title: '의심 메일 신고 후 계정 조치', ticketCount: 2,
     targetDocId: null, targetSection: null, targetMd: null, registeredVersion: null,
     draftMd: '### 의심 메일 신고 후 계정 조치\n\n1. 신고된 메일을 격리합니다.\n2. 클릭한 사용자의 비밀번호를 초기화합니다.',
-    draftRevision: 1, reviewInfo: { reason: '보안 사례는 AI 없이 접수 글만으로 만든 초안이에요. 내용을 꼭 확인해 주세요.', warnings: [] },
+    draftRevision: 1, reviewInfo: { reason: '의심 사고 티켓이라 AI가 가이드 초안을 만들지 않았어요.', warnings: [] },
     baseVersion: null, currentVersion: null, baseChanged: false, conflicts: [], rejectReason: null,
     tickets: [tk(12, '피싱 메일 링크를 눌렀어요', '비밀번호 초기화')],
   },

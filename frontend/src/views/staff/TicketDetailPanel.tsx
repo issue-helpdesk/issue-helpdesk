@@ -148,7 +148,8 @@ function assignTitle(a: AssignmentLog): string {
   }
 }
 
-export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose }: { id: number; tick: number; slide?: boolean; onSlideEnd?: () => void; onClose: () => void }) {
+/** title: 문의자 화면에서는 문의 목록·최근 문의와 같은 문의 제목을 쓴다 (접수 요약은 길고 접수 글과 같아서). 없으면 접수 요약 */
+export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose, title }: { id: number; tick: number; slide?: boolean; onSlideEnd?: () => void; onClose: () => void; title?: string }) {
   const { user } = useAuth()
   const [t, setT] = useState<TicketDetail | null>(null)
   const pending = t?.transitionStatus === 'PENDING'
@@ -352,7 +353,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
           <div className="row" style={{ flexWrap: 'nowrap' }}>
             <div style={{ minWidth: 0 }}>
               <div className="mono small muted">{t ? `${t.receiptNo}${t.jiraKey ? ` · ${t.jiraKey}` : ''}` : ''}</div>
-              <h3>{t?.summary ?? (error ? '접수를 열 수 없어요' : '불러오는 중이에요…')}</h3>
+              <h2>{(t ? title || t.summary : null) ?? (error ? '접수를 열 수 없어요' : '불러오는 중이에요…')}</h2>
             </div>
             <span style={{ flex: 1 }} />
             <button type="button" ref={closeBtn} className="btn sec sm ico" aria-label="닫기" onClick={close}>

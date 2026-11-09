@@ -192,12 +192,12 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
       setBusy(false)
       if (!r.ok) return setWhyErr(r.error.message)
       setDropOpen(false)
-      return say('가이드화하지 않기로 했어요.')
+      return say('반영하지 않기로 했어요.')
     }
     const r = dropCase(id, why)
     if (!r.ok) return setWhyErr(r.message)
     setDropOpen(false)
-    say('가이드화하지 않기로 했어요.')
+    say('반영하지 않기로 했어요.')
   }
   const retry = async () => {
     if (CASES_FROM_SERVER) {
@@ -255,7 +255,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
               <div className="small muted">
                 <span className={`tag c-${c.cat}`}>{CATEGORIES[c.cat].name}</span> <StateBadge tone={CASE_KIND_TONE[c.kind]} label={kindLabel(c)} /> 근거 {c.ticketCount}건
               </div>
-              <h3>{nm}</h3>
+              <h2>{nm}</h2>
             </div>
             <span style={{ flex: 1 }} />
             <StateBadge tone={CASE_STATE_TONE[c.state]} label={CASE_STATE_LABEL[c.state]} />
@@ -289,9 +289,9 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           )}
           {changed && compare && c.target && c.latest && (
             <section className="cgs" aria-label="최신 버전과 비교">
-              <h4>
+              <h3>
                 최신 버전({c.target.latestVersion})과 비교 <span className="small muted">· {c.target.section}</span>
-              </h4>
+              </h3>
               <div className="cgcmp">
                 <div>
                   <div className="asl">최신 가이드 내용</div>
@@ -312,7 +312,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
 
           {srv && review && (c.server?.conflicts?.length ?? 0) > 0 && (
             <section className="cgs" aria-label="새 현행과 달라진 항목">
-              <h4>새 현행과 달라진 항목 <span className="count">{c.server?.conflicts?.length}</span></h4>
+              <h3>새 현행과 달라진 항목 <span className="count">{c.server?.conflicts?.length}</span></h3>
               <p className="small muted" style={{ margin: '0 0 8px' }}>
                 초안을 만든 뒤 현행 가이드가 바뀌었어요. 오른쪽 현행 내용과 비교해 아래 초안을 고치고 <b>임시 저장</b>하면 충돌이 풀리고 등록할 수 있어요.
               </p>
@@ -388,7 +388,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
             <div className="alert info" role="status">
               <Icon name="file" />
               <div>
-                <div>가이드화하지 않기로 한 제안이에요.</div>
+                <div>반영하지 않기로 한 제안이에요.</div>
                 {c.dropReason && <div style={{ marginTop: 4 }}>사유: {c.dropReason}</div>}
               </div>
             </div>
@@ -414,9 +414,9 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           {!waiting && (
             <>
           <section className="cgs" aria-label="근거 티켓">
-            <h4>
+            <h3>
               근거 티켓 <span className="count">{c.ticketCount}</span>
-            </h4>
+            </h3>
             <div className="tw">
               <table className="tbl">
                 <thead>
@@ -440,7 +440,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           </section>
 
           <section className="cgs" aria-label="AI 판단">
-            <h4>AI 판단</h4>
+            <h3>AI 판단</h3>
             {/* 판단 이유는 티켓마다 한 줄씩 줄바꿈으로 온다 */}
             {c.reason.split('\n').filter((l) => l.trim()).map((l) => (
               <p key={l} style={{ margin: '0 0 6px' }}>
@@ -479,7 +479,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           </section>
 
           <section className="cgs" aria-label="가이드 내용">
-            <h4>{c.kind === 'amend' ? (c.before !== undefined ? '기존 내용과 AI 수정 제안' : 'AI 수정 제안') : c.kind === 'new' ? '신규 가이드 초안' : c.kind === 'sec' ? 'SEC 직접 검토 초안' : '매뉴얼 후보'}</h4>
+            <h3>{c.kind === 'amend' ? (c.before !== undefined ? '기존 내용과 AI 수정 제안' : 'AI 수정 제안') : c.kind === 'new' ? '신규 가이드 초안' : c.kind === 'sec' ? '보안 사고 사례' : '매뉴얼 후보'}</h3>
             {srv && !c.server?.hasDraft ? (
               <>
                 {info?.manualNote ? (
@@ -501,7 +501,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
                   </div>
                 )}
                 <p className="small muted" style={{ margin: 0 }}>
-                  이 제안은 가이드 초안을 만들지 않아요. 위 내용을 참고해 매뉴얼에 직접 반영한 뒤 "직접 반영 표시"를 눌러 주세요.
+                  이 제안은 가이드 초안을 만들지 않아요. 위 내용을 참고해 매뉴얼에 직접 반영한 뒤 "매뉴얼에 반영했어요"를 눌러 주세요.
                 </p>
               </>
             ) : c.kind === 'amend' && c.target ? (
@@ -538,25 +538,13 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
                   </div>
                 )}
               </>
-            ) : c.kind === 'sec' || c.kind === 'manual' ? (
+            ) : c.kind === 'sec' ? (
+              <p style={{ margin: 0 }}>
+                의심 사고 티켓 <b>{c.ticketCount}건</b>이 접수되어 해결됐어요. 처리 방법을 <b>가이드나 매뉴얼에 남길지</b> 위 근거 티켓을 보고 판단해 주세요. AI가 만든 초안은 없어요.
+                <span className="small muted" style={{ display: 'block', marginTop: 6 }}>가이드나 매뉴얼에 직접 반영했다면 "가이드·매뉴얼에 반영했어요"를, 남길 필요가 없다면 "반영 안함"을 눌러 주세요.</span>
+              </p>
+            ) : c.kind === 'manual' ? (
               <div className="field">
-                {srv && c.kind === 'sec' && (
-                  <p className="small muted" style={{ margin: '0 0 8px' }}>
-                    {c.target ? (
-                      <>
-                        반영 위치: <b>{c.target.docCode} {c.target.title}</b>
-                        {c.target.baseVersion && ` · 기준 ${c.target.baseVersion}`}
-                      </>
-                    ) : (
-                      '넣을 문서가 아직 없어요.'
-                    )}
-                    {review && (
-                      <button type="button" className="btn ghost sm" style={{ marginLeft: 8 }} onClick={() => setTargetOpen(true)}>
-                        넣을 문서 변경
-                      </button>
-                    )}
-                  </p>
-                )}
                 <label className="asl" htmlFor={`${uid}-after`}>
                   티켓 글을 옮긴 초안 {canEdit && <span className="muted">(고쳐서 쓸 수 있어요)</span>}
                 </label>
@@ -618,7 +606,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
 
           {!srv && !review && c.state !== 'dropped' && (
             <section className="cgs" aria-label="등록 설정">
-              <h4>등록 설정</h4>
+              <h3>등록 설정</h3>
               <dl className="dl" style={{ margin: 0 }}>
                 <dt>열람 범위</dt>
                 <dd>{c.scope}</dd>
@@ -639,24 +627,24 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
         <div className="crf">
           {review && (
             <>
-              {canEdit && (
+              {canEdit && c.kind !== 'sec' && (
                 <button type="button" className="btn sec" disabled={busy} onClick={save}>
                   임시 저장
                 </button>
               )}
               <button type="button" className="btn sec dng" disabled={busy} onClick={() => { setWhy(''); setWhyErr(''); setDropOpen(true) }}>
-                비가이드화
+                반영 안함
               </button>
               <span style={{ flex: 1 }} />
               {srv ? (
                 <>
-                  {c.kind !== 'manual' && (
+                  {c.kind !== 'manual' && c.kind !== 'sec' && (
                     <button type="button" className="btn pri" disabled={busy || !!blocked} title={blocked || undefined} onClick={() => setSetOpen(true)}>
                       승인하고 초안 등록
                     </button>
                   )}
-                  <button type="button" className={c.kind === 'manual' ? 'btn pri' : 'btn sec'} disabled={busy} onClick={() => setApplyOpen(true)}>
-                    직접 반영 표시
+                  <button type="button" className={c.kind === 'manual' || c.kind === 'sec' ? 'btn pri' : 'btn sec'} disabled={busy} onClick={() => setApplyOpen(true)}>
+                    {c.kind === 'manual' ? '매뉴얼에 반영했어요' : c.kind === 'sec' ? '가이드·매뉴얼에 반영했어요' : '직접 반영 표시'}
                   </button>
                 </>
               ) : (
@@ -729,9 +717,9 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
         </Modal>
       )}
       {dropOpen && (
-        <Modal title="가이드화하지 않을까요?" variant="form" onClose={() => setDropOpen(false)}>
+        <Modal title="반영하지 않을까요?" variant="form" onClose={() => setDropOpen(false)}>
           <p className="small muted" style={{ margin: 0 }}>
-            이 제안은 가이드로 만들지 않고 닫아요. 사유는 기록에 남아요.
+            이 제안은 반영하지 않고 닫아요. 사유는 기록에 남아요.
           </p>
           <div className="field">
             <label htmlFor={`${uid}-why`}>사유 (필수)</label>
@@ -747,7 +735,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
               취소
             </button>
             <button type="button" className="btn pri" onClick={drop}>
-              가이드화 안 함
+              반영 안함
             </button>
           </div>
         </Modal>

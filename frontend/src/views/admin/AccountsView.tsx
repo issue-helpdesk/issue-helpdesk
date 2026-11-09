@@ -336,12 +336,12 @@ export function AccountsView() {
           </div>
 
           <div className="panel">
-            <h3>
+            <h2>
               {USE_MOCK_AUTH ? '이용 제한·해제 이력' : '계정 변경 이력'}{' '}
               <span className="small muted" style={{ fontWeight: 400 }}>
                 {USE_MOCK_AUTH ? `이 화면에서 처리한 최근 ${Math.min(hist.length, 12)}건` : `운영 기록의 최근 ${Math.min(hist.length, 12)}건 · 수행자와 변경 대상은 다른 사람이에요`}
               </span>
-            </h3>
+            </h2>
             {histErr && (
               <div className="alert err" role="alert">
                 <Icon name="alert" />

@@ -3,7 +3,7 @@
  * 본문은 구조화된 블록을 React 요소로만 그리며, HTML 로 해석하지 않는다.
  */
 import type { ChatBlock, ChatMessage, DraftEdit, GuideSource, Inquiry, LegacyCase, ReplyRequest } from '../../api/chatTypes'
-import { Fragment } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { formatDateTime, sourceLabel } from '../../core/format'
 import { Icon } from '../../ui/Icon'
 import { Pav } from '../../ui/Pav'
@@ -13,6 +13,7 @@ import { RichText } from '../../ui/RichText'
 import { DraftCard } from './DraftCard'
 import { QuestionForm } from './QuestionForm'
 import { answersFromText, type QAnswer } from './questionAnswers'
+import { stageLabel } from './pendingStages'
 import { TicketCard } from './TicketCard'
 
 /** 해결·미해결은 한 쌍이라 둘 다 같은 기본 버튼 모양이다 (한쪽만 분홍 상자면 선택된 것처럼 보인다) */
@@ -151,7 +152,7 @@ export function MessageItem({ inquiry, message: m, busy, actions, fresh = false,
             <i />
             <i />
           </span>{' '}
-          <span className="muted small">{m.typing.label}</span>
+          <TypingLabel first={m.typing.label} />
         </div>
       </div>
     )
@@ -269,4 +270,14 @@ function LegacyButton({ legacy, onOpen }: { legacy: LegacyCase; onOpen: (l: Lega
       </button>
     </div>
   )
+}
+
+/** 답변을 기다린 시간에 따라 문구를 바꾼다 (대기 화면과 같은 단계). 이 표시가 화면에 나타난 때부터 센다 */
+function TypingLabel({ first }: { first: string }) {
+  const [sec, setSec] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setSec((s) => s + 1), 1000)
+    return () => clearInterval(t)
+  }, [])
+  return <span className="muted small">{stageLabel(sec, first)}</span>
 }

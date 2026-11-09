@@ -8,4 +8,8 @@ const WAIT_STAGES: { from: number; label: string }[] = [
   { from: 10, label: '답변을 준비하고 있어요. 잠시만 기다려 주세요.' },
   { from: 25, label: '답변 준비에 시간이 걸리고 있어요.' },
 ]
-export const stageLabel = (sec: number) => [...WAIT_STAGES].reverse().find((s) => sec >= s.from)!.label
+/** first: 0초 구간의 문구 (답변을 만드는 중인 대화 화면에서는 "답변을 준비하고 있어요"로 시작한다) */
+export const stageLabel = (sec: number, first?: string) => {
+  const s = [...WAIT_STAGES].reverse().find((x) => sec >= x.from)!
+  return s.from === 0 && first ? first : s.label
+}

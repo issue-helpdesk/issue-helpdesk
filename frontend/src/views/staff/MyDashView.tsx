@@ -183,7 +183,7 @@ export function MyDashView() {
               <section className="panel" aria-label="검색 결과" aria-live="polite" style={{ padding: '22px 24px' }}>
                 <div className="sech">
                   <div>
-                    <h3 className="sht">검색 결과</h3>
+                    <h2 className="sht">검색 결과</h2>
                     <p className="shs">
                       {hit.length}건{hit.length > 10 ? ' · 최근 접수 10건만 보여요' : ''}
                     </p>
@@ -237,7 +237,7 @@ export function MyDashView() {
                 <section className="panel" aria-label="먼저 볼 문의" style={{ padding: '22px 24px' }}>
                   <div className="sech">
                     <div>
-                      <h3 className="sht">먼저 볼 문의</h3>
+                      <h2 className="sht">먼저 볼 문의</h2>
                       <p className="shs">긴급도 높은 순 → 새 댓글 먼저 → 오래된 순</p>
                     </div>
                     <button type="button" className="btn ghost sm" onClick={() => go('?tab=open')}>
