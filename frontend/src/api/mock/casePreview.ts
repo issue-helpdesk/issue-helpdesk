@@ -132,6 +132,8 @@ let docs = seedDocs()
 let clusters = seedClusters()
 let nextDocId = 50
 let nextVersionId = 1000
+// 다시 맞추기로 제안 연결이 끊긴 옛 사례 초안은 현행 전환 대상에서 제외한다.
+const caseDraftIds = new Set([14])
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const err = <T>(code: string, details?: ErrorDetail[]): ApiResult<T> => fail(code, displayMessage(code, '', details), { details })
@@ -188,7 +190,9 @@ function clusterCall(c: Cluster, action: string, body: Record<string, unknown>):
     if (c.conflicts.length) return err('GUIDE_CLUSTER_CONFLICT_UNRESOLVED', [{ field: 'section', reason: 'CONFLICT', message: '', value: c.conflicts[0].section }])
     const d = docs.find((x) => x.id === c.targetDocId)
     if (!d) return err('DOCUMENT_NOT_FOUND')
-    const v = c.registeredVersion ?? { id: nextVersionId++, version: d.versions.length ? 'v2.2' : 'v1.0', isCurrent: false, ingestStatus: 'PENDING' as const }
+    const [major, minor] = (d.versions[0]?.version ?? 'v1.0').replace(/^v/, '').split('.').map(Number)
+    const v = c.registeredVersion ?? { id: nextVersionId++, version: d.versions.length ? `v${major}.${(minor || 0) + 1}` : 'v1.0', isCurrent: false, ingestStatus: 'PENDING' as const }
+    caseDraftIds.add(v.id)
     v.ingestStatus = 'PENDING'
     // 제안과 문서 목록이 같은 버전 객체를 보도록 연결해 준비 상태와 현행 여부를 함께 갱신한다.
     let row = d.versions.find((x) => x.id === v.id)
@@ -201,9 +205,7 @@ function clusterCall(c: Cluster, action: string, body: Record<string, unknown>):
     row.transferPolicy = String(body.transferPolicy ?? 'BLOCKED')
     c.registeredVersion = row
     // 검색 준비는 몇 초 뒤 끝난다
-    setTimeout(() => {
-      if (c.registeredVersion) c.registeredVersion.ingestStatus = 'DONE'
-    }, 4000)
+    setTimeout(() => { row.ingestStatus = 'DONE' }, 4000)
     return ok(detail(c, ['표가 들어 있는 항목은 검색에서 글자만 읽힐 수 있어요. (미리보기 경고 예시)']))
   }
 
@@ -211,6 +213,7 @@ function clusterCall(c: Cluster, action: string, body: Record<string, unknown>):
     if (!c.baseChanged) return err('GUIDE_CLUSTER_REBASE_FAILED', [{ field: 'cluster', reason: 'REBASE', message: '기준이 바뀌지 않은 제안이에요.' }])
     c.baseChanged = false
     c.baseVersion = c.currentVersion
+    c.registeredVersion = null // 옛 기준으로 조립한 파일은 재사용하지 않고 다시 등록한다 (GC-07).
     c.draftRevision += 1
     if (c.judgment === 'CHANGE') {
       c.conflicts = [{ section: c.targetSection ?? '3.3', kind: 'CHANGED_IN_CURRENT', message: '초안을 만든 뒤 현행에서 이 항목이 고쳐졌어요.', oldMd: c.targetMd ?? '', newMd: '### 3.3 로그인 오류\n\n브라우저를 다시 시작하고, 그래도 안 되면 SSO 포털 공지를 확인한 뒤 로그인합니다.' }]
@@ -256,6 +259,7 @@ export async function previewSend(path: string, init: RequestInit): Promise<ApiR
     if (body.isCurrent === true) {
       if (row.ingestStatus !== 'DONE') return err('DOCUMENT_VERSION_NOT_READY')
       const linked = clusters.filter((c) => c.registeredVersion?.id === row.id)
+      if (!linked.length && caseDraftIds.has(row.id)) return err('DOCUMENT_VERSION_ORPHANED')
       if (linked.some((c) => c.status === 'REJECTED')) return err('DOCUMENT_VERSION_HAS_REJECTED_CLUSTER')
       if (linked.some((c) => c.status === 'REVIEWING' && c.baseChanged)) return err('DOCUMENT_VERSION_BASE_CHANGED')
       doc.versions.forEach((v) => {

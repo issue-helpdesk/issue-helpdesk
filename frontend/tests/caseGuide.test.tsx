@@ -238,7 +238,10 @@ describe('해결 사례 탭 화면', () => {
     await userEvent.click(await screen.findByRole('button', { name: /^VPN·네트워크/ }, SLOW))
     await userEvent.click(await screen.findByRole('button', { name: '제안 보기' }, SLOW))
     expect(await screen.findByRole('status', { name: '가이드별 제안' })).toHaveTextContent('IT-NET-001 VPN 접속 장애 대응 가이드')
-    expect(cardsOf()).toHaveLength(1)
+    // 조회 범위 안내는 상태 탭 뒤, 카드 앞에 있어야 한다.
+    const scope = screen.getByRole('status', { name: '가이드별 제안' })
+    expect(scope.previousElementSibling).toHaveTextContent('검토 대상')
+    await waitFor(() => expect(cardsOf()).toHaveLength(1))
     expect(cardsOf()[0]).toHaveTextContent(get('c1').topic)
     expect(screen.getByRole('button', { name: /^검토 대상/ })).toHaveTextContent('1')
     await userEvent.click(screen.getByRole('button', { name: '전체 제안 보기' }))

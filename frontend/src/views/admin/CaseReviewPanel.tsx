@@ -123,7 +123,8 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
   const srv = CASES_FROM_SERVER
   const waiting = srv && !c.server?.detail
   const canEdit = review && (!srv || !!c.server?.hasDraft)
-  const changed = baseChanged(c) && c.state === 'review'
+  // 등록 후에도 현행이 바뀔 수 있다. 이때도 최신 기준으로 다시 맞출 수 있어야 한다.
+  const changed = baseChanged(c) && (review || (srv && !!c.registered && c.state !== 'live' && c.state !== 'applied' && c.state !== 'dropped'))
   const todo = srv && c.kind === 'new' && review ? todoChapters(after) : []
   const info = c.server?.info
   // 서버 연결: 등록할 수 없는 이유 (있으면 단추를 막고 이유를 보여 준다)
@@ -665,12 +666,12 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           {c.state === 'ready' && (
             <>
               {srv && (
-                <button type="button" className="btn sec" disabled={busy} title="같은 버전에 거절한 제안이 들어 있을 때, 거절한 항목을 빼고 이 버전을 다시 만들어요." onClick={() => setSetOpen(true)}>
+                <button type="button" className="btn sec" disabled={busy || changed} title={changed ? '다시 맞추기로 최신 현행 기준을 먼저 확인해 주세요.' : '같은 버전에 거절한 제안이 들어 있을 때, 거절한 항목을 빼고 이 버전을 다시 만들어요.'} onClick={() => setSetOpen(true)}>
                   거절한 항목 빼고 다시 등록
                 </button>
               )}
               <span style={{ flex: 1 }} />
-              <button type="button" className="btn pri" onClick={() => onGoLive(c)}>
+              <button type="button" className="btn pri" disabled={changed} title={changed ? '다시 맞추기로 최신 현행 기준을 먼저 확인해 주세요.' : undefined} onClick={() => onGoLive(c)}>
                 현행으로 전환
               </button>
             </>

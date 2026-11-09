@@ -41,3 +41,36 @@ it('새로 등록한 미리보기 초안도 문서 버전 목록에 추가한다
   expect(await previewSend('/documents/1/versions', {})).toMatchObject({ ok: true, data: { items: expect.arrayContaining([expect.objectContaining({ id, ingestStatus: 'PENDING', versionState: 'DRAFT', viewScope: 'AGENT', transferPolicy: 'BLOCKED' })]) } })
   expect(await previewSend(`/documents/1/versions/${id}`, { method: 'PATCH', body: '{"isCurrent":true}' })).toMatchObject({ ok: false, error: { code: 'DOCUMENT_VERSION_NOT_READY' } })
 })
+
+it('다른 버전이 먼저 현행이 된 초안은 다시 맞추고 재등록한 뒤 전환한다', async () => {
+  vi.useFakeTimers()
+  const send = async (path: string, body: object) => {
+    const pending = previewSend(path, { method: 'POST', body: JSON.stringify(body) })
+    await vi.advanceTimersByTimeAsync(200)
+    return pending
+  }
+  const activate = async (id: number) => {
+    const pending = previewSend(`/documents/1/versions/${id}`, { method: 'PATCH', body: '{"isCurrent":true}' })
+    await vi.advanceTimersByTimeAsync(200)
+    return pending
+  }
+  try {
+    const first = await send('/guide-clusters/101/register', { draftRevision: 1 })
+    if (!first?.ok) throw new Error('첫 등록 실패')
+    const oldId = (first.data as { registeredVersion: { id: number } }).registeredVersion.id
+    await activate(14) // v2.2를 만든 뒤 다른 제안의 v2.1이 먼저 현행이 된다.
+    await vi.advanceTimersByTimeAsync(4000)
+    expect(await activate(oldId)).toMatchObject({ ok: false, error: { code: 'DOCUMENT_VERSION_BASE_CHANGED' } })
+    expect(await send('/guide-clusters/101/rebase', { draftRevision: 1 })).toMatchObject({ ok: true, data: { registeredVersion: null, baseChanged: false, baseVersion: { id: 14 }, draftRevision: 2 } })
+    expect(await activate(oldId)).toMatchObject({ ok: false, error: { code: 'DOCUMENT_VERSION_ORPHANED' } })
+    const second = await send('/guide-clusters/101/register', { draftRevision: 2 })
+    if (!second?.ok) throw new Error('재등록 실패')
+    const fresh = (second.data as { registeredVersion: { id: number; version: string } }).registeredVersion
+    expect(fresh.version).toBe('v2.3')
+    expect(fresh.id).not.toBe(oldId)
+    await vi.advanceTimersByTimeAsync(4000)
+    expect(await activate(fresh.id)).toMatchObject({ ok: true, data: { isCurrent: true } })
+  } finally {
+    vi.useRealTimers()
+  }
+})

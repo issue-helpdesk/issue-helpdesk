@@ -155,6 +155,11 @@ export function GuidesView() {
   // 해결 사례 → 현행으로 전환: 바로 바꾸지 않고 가이드 목록의 그 문서를 펼쳐 열람 범위를 눈으로 확인한 뒤 거기서 전환하게 한다
   // 문서마다 이 문서에 걸린 AI 제안: 검토 중(review)인 것과, 등록해서 현행 전환을 기다리는(preparing·ready) 것
   const cases = useSyncExternalStore(subscribeAllCases, getAllCases)
+  useEffect(() => {
+    if (!CASES_FROM_SERVER || !cases.some((c) => c.state === 'preparing')) return
+    // 등록 뒤 패널을 열어 둬도 검색 준비 완료를 읽는다. 숨겨진 탭에서는 조회하지 않는다.
+    return visiblePoll(() => void loadCases(), 10_000)
+  }, [cases])
   const caseInfo = useMemo(() => {
     const m = new Map<string, { review: number; waiting: number; next?: CaseItem }>()
     const at = (code: string) => m.get(code) ?? m.set(code, { review: 0, waiting: 0 }).get(code)!
