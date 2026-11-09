@@ -434,7 +434,8 @@ def cause(j: Judged) -> str:
     wrong = [f for f in FIELDS if is_correct(j, f) is False]
     if not wrong:
         return ''
-    if situation_ask(j) and set(wrong) <= {'action', 'team'}:     # 되물으면 팀도 아직 정하지 않는다 (판단 결함 후보 아님)
+    # 처리 방향만 틀렸을 때만. 팀은 ASK_MORE 여도 세부 유형으로 정해지므로(team_of) 팀이 틀리면 기존 조사 후보 (PR #375 검수 1)
+    if situation_ask(j) and wrong == ['action']:
         return SITUATION_ASKS
     if j.found_unit is True:
         return '판단'

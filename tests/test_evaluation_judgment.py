@@ -187,6 +187,8 @@ def test_situation_ask_is_counted_apart(tmp_path):
     assert s[SITUATION_ASKS]['count'] == 1
     assert cause(ask) == SITUATION_ASKS and cause(other) != SITUATION_ASKS
     assert cause(replace(ask, predicted=ask.predicted | {'category': 'SEC'})) != SITUATION_ASKS   # 분류도 틀리면 판단
+    # PR #375 검수 1: 팀은 되물어도 세부 유형으로 정해진다. 분류·유형·긴급도는 맞고 팀만 틀려도 상황 되묻기로 덮지 않는다
+    assert cause(replace(ask, predicted=ask.predicted | {'team': '정보보안팀'})) != SITUATION_ASKS
     summary = write(str(tmp_path), [ask, other, want_ask, ok], {'판단기': 'x'})
     assert [x['문항'] for x in summary[SITUATION_ASKS]] == ['EV-001']
     md = summary_md(summary)
