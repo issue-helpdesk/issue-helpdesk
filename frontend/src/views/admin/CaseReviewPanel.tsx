@@ -13,7 +13,7 @@ import type { CategoryCode } from '../../api/chatTypes'
 import type { GuideScope, GuideTx } from '../../api/guides'
 import { CASES_FROM_SERVER, applyCase, getAllCases, loadCaseDetail, loadCases, rebaseServerCase, registerCase, rejectCase, saveCaseDraft, subscribeAllCases } from '../../api/caseClusters'
 import { retryGuideIngest } from '../../api/guides'
-import { CASE_KIND_LABEL, CASE_KIND_TONE, CASE_STATE_LABEL, CASE_STATE_TONE, approveCase, baseChanged, dropCase, rebaseCase, retryCase, saveCase, type CaseItem } from '../../api/mock/caseGuides'
+import { CASE_KIND_TONE, CASE_STATE_LABEL, CASE_STATE_TONE, approveCase, baseChanged, dropCase, kindLabel, rebaseCase, retryCase, saveCase, type CaseItem } from '../../api/mock/caseGuides'
 import { useAuth } from '../../core/session'
 import { Icon } from '../../ui/Icon'
 import { MarkdownField } from '../../ui/MarkdownField'
@@ -253,7 +253,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           <div className="row" style={{ flexWrap: 'nowrap' }}>
             <div style={{ minWidth: 0 }}>
               <div className="small muted">
-                <span className={`tag c-${c.cat}`}>{CATEGORIES[c.cat].name}</span> <StateBadge tone={CASE_KIND_TONE[c.kind]} label={CASE_KIND_LABEL[c.kind]} /> 근거 {c.ticketCount}건
+                <span className={`tag c-${c.cat}`}>{CATEGORIES[c.cat].name}</span> <StateBadge tone={CASE_KIND_TONE[c.kind]} label={kindLabel(c)} /> 근거 {c.ticketCount}건
               </div>
               <h3>{nm}</h3>
             </div>

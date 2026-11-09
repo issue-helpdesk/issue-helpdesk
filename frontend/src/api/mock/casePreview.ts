@@ -233,6 +233,15 @@ export async function previewSend(path: string, init: RequestInit): Promise<ApiR
   const p = path.split('?')[0]
   const method = (init.method ?? 'GET').toUpperCase()
   const body: Record<string, unknown> = typeof init.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : {}
+  if (p === '/guide-clusters/analysis-status' && method === 'GET') {
+    await wait(200)
+    const mon = new Date()
+    mon.setHours(0, 0, 0, 0)
+    mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7))
+    const next = new Date(mon)
+    next.setDate(next.getDate() + 7)
+    return ok({ lastAnalyzedAt: mon.toISOString(), nextAnalysisAt: next.toISOString(), lastRunStatus: 'SUCCEEDED' })
+  }
   const m = /^\/guide-clusters(?:\/(\d+)(?:\/(\w+))?)?$/.exec(p)
   const d = /^\/documents(?:\/(\d+)\/versions)?$/.exec(p)
   if (!m && !d) return null
