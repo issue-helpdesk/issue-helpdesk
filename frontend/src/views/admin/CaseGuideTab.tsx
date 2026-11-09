@@ -69,7 +69,7 @@ export function CaseGuideTab({ guide, onClearGuide, onReview, onVersion, onGoLiv
   return (
     <>
       {guide && (
-        <div className="alert info" ref={guideNotice} role="status" aria-label="가이드별 제안">
+        <div className="alert guide-scope" ref={guideNotice} role="status" aria-label="가이드별 제안">
           <Icon name="file" />
           <div>
             <b>{guide.docCode} {guide.title}</b>

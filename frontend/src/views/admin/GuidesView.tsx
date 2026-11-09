@@ -243,6 +243,8 @@ export function GuidesView() {
     if (n > 0) return setDlg({ kind: 'blocked', g, n })
     const r = await setGuideCurrent(user, g.id, v.id)
     if (!r.ok) return fail(r.error.message)
+    // 현행 전환된 제안이 계속 '전환 대기'로 안내되지 않도록 서버 사본도 갱신한다.
+    if (CASES_FROM_SERVER) await loadCases()
     say(v.state === '만료' ? `${v.version}을(를) 다시 현행으로 되돌렸어요.` : '현행 버전을 바꿨어요.')
     reload()
   }
@@ -342,7 +344,7 @@ export function GuidesView() {
                     <tr key={v.id} data-ver={v.id} className={[v.state === '현행' ? 'vcur' : v.state === '만료' ? 'vold' : '', focus?.versionId === v.id && focus.docId === g.id ? 'vfocus' : ''].filter(Boolean).join(' ') || undefined}>
                       <td>
                         <b>{v.version}</b>
-                        {focus?.docId === g.id && focus.versionId === v.id && <span className="vfocus-note">전환할 버전</span>}
+                        {focus?.docId === g.id && focus.versionId === v.id && v.state !== '현행' && <span className="vfocus-note">전환할 버전</span>}
                       </td>
                       <td className="c">
                         <StateBadge tone={v.state === '현행' ? 'ok' : v.state === '초안' ? 'warn' : 'recv'} label={v.state} />

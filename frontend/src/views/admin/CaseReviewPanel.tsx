@@ -491,7 +491,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
                   <p className="small muted" style={{ margin: '0 0 8px' }}>AI가 정리한 내용이 없어요. 근거 티켓을 보고 판단해 주세요.</p>
                 )}
                 {(info?.manualItems.length ?? 0) > 0 && (
-                  <div className="field">
+                  <div className="field" style={{ marginTop: 20 }}>
                     <div className="asl">가까운 매뉴얼 항목</div>
                     <ul className="cgw">
                       {info?.manualItems.map((m) => (

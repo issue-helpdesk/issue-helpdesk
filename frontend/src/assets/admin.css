@@ -150,3 +150,5 @@ button.o-main:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px;bo
 .tbl tr.vfocus td{background:var(--osoft)}
 .tbl tr.vfocus td:first-child{box-shadow:inset 3px 0 0 var(--link)}
 .vfocus-note{display:block;margin-top:4px;font-size:11px;font-weight:500;color:var(--link);white-space:nowrap}
+/* 문서별 조회 범위는 일반 기능 안내(파랑)와 구분해 보라색으로 표시한다. */
+.alert.guide-scope{background:var(--s-prog-bg);color:var(--s-prog-fg)}
