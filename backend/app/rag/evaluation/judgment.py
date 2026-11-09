@@ -53,6 +53,10 @@ EVIDENCE_RULES = {'NO_EVIDENCE', 'GUIDE_INSUFFICIENT'}   # 흐름이 근거 부�
 URGENCY_ORDER = ('P1', 'P2', 'P3', 'P4')
 TEAM_ASSIGNED, TEAM_GUIDED, TEAM_SKIP = '배정팀 비교', '안내 지원팀 비교', '팀 평가 제외'
 GUIDED_COL = f'팀 ({TEAM_GUIDED})'
+# 1차 판단이 가이드 상황만 되묻는 것 (M4-3-1, 11.05 흐름 변경). 평가는 첫 글 하나만 넣으므로 그 뒤 방향을 모른다.
+# 정답이 ASK_MORE 가 아닌데 상황만 되물었으면 '틀림'과 따로 센다: 엄격 점수(처리 방향)는 그대로 두고 아래 두 칸을 더 낸다
+SITUATION_ACTION = '처리 방향 (상황 되묻기 제외)'
+SITUATION_ASKS = '상황 되묻기'
 JUDGES = ('claude', 'mock:oracle', 'mock:safe')
 NOT_CLASSIFIED = ('EV-038', 'EV-039')     # 범위 밖·모호: 분류·긴급도·담당팀 채점에서 뺀다 (dataset/README 채점 규칙)
 GUIDED_NOTE = ('두 방식 모두 서버 추천 그룹과 비교. docs/08 설계상(4.3·5.1) AI 는 담당팀을 내지 않고, 최종 답변의 팀 이름도 '
@@ -345,6 +349,7 @@ class Judged:
     overrides: list[str] = field(default_factory=list)
     calls: int = 0
     tokens: tuple[int, int] = (0, 0)
+    missing: tuple[str, ...] = ()       # AI 가 되물은 항목 (missing_items, 보정 후)
 
 
 def judge_item(item: EvalItem, judge: str, ref: Reference, search: DbSearch, round_: int = 1) -> Judged:
@@ -375,7 +380,8 @@ def judge_item(item: EvalItem, judge: str, ref: Reference, search: DbSearch, rou
         bool(refs & item.answer_units) if found is not None and item.answer_units else None,
         [d.unit_key for d in found.documents[:3]] if found else [], [e.source_id for e in out.evidence], cited_unit,
         [o['rule'] for o in r.override_reasons], len(r.llm_calls),
-        (sum(c.input_tokens or 0 for c in r.llm_calls), sum(c.output_tokens or 0 for c in r.llm_calls)))
+        (sum(c.input_tokens or 0 for c in r.llm_calls), sum(c.output_tokens or 0 for c in r.llm_calls)),
+        tuple(out.missing_items))
 
 
 def run(judge: str, items: list[EvalItem], ref: Reference, search: DbSearch, repeat: int = 1,
@@ -414,12 +420,22 @@ def is_correct(j: Judged, f: str) -> bool | None:
     return None if want is None else j.predicted[f] == want
 
 
+def situation_ask(j: Judged) -> bool:
+    """정답은 ASK_MORE 가 아닌데 1차 판단이 가이드 상황만 되물음 (missing_items 가 situation 하나). 설계대로인 첫 반응이라
+    엄격 점수에서는 틀림이지만 '상황 되묻기 제외' 칸에서는 뺀다. 상황 말고 다른 것도 물었으면 여기 들지 않는다."""
+    want = expected(j.item, 'action')
+    return want not in (None, 'ASK_MORE') and j.predicted['action'] == 'ASK_MORE' and set(j.missing) == {'situation'}
+
+
 def cause(j: Judged) -> str:
     """틀린 문항의 원인 쪽 (조사 후보). 정답 항목(같은 본문 포함)을 찾았으면 '판단' (D, M4-4-1).
     못 찾았으면 정답 가이드도 못 찾음 → '검색: 가이드', 가이드는 찾음 → '검색: 항목' (C, M3-4-1).
     정답 항목이 정의되지 않은 문항은 가이드 적중만 보고, 검색을 안 했으면 '판단'."""
-    if all(is_correct(j, f) is not False for f in FIELDS):
+    wrong = [f for f in FIELDS if is_correct(j, f) is False]
+    if not wrong:
         return ''
+    if situation_ask(j) and set(wrong) <= {'action', 'team'}:     # 되물으면 팀도 아직 정하지 않는다 (판단 결함 후보 아님)
+        return SITUATION_ASKS
     if j.found_unit is True:
         return '판단'
     if j.found_doc is False:
@@ -467,6 +483,9 @@ def score(js: list[Judged]) -> dict:
         d[f'팀 ({TEAM_ASSIGNED})'] = rate([j for j in rs if j.item.team_scoring == TEAM_ASSIGNED], 'team')
         d[GUIDED_COL] = rate([j for j in rs if j.item.team_scoring == TEAM_GUIDED], 'team')
         d[CITED] = cited_rate(rs)
+        asks = [j for j in rs if situation_ask(j)]
+        d[SITUATION_ACTION] = rate([j for j in rs if not situation_ask(j)], 'action')
+        d[SITUATION_ASKS] = {'n': len(asks), 'acc': None, 'count': len(asks)}
         out[g] = d
     return out
 
@@ -509,7 +528,8 @@ def write(out_dir: str, js: list[Judged], meta: dict) -> dict:
         w = csv.writer(f)
         w.writerow(['회차', '문항', '묶음', '문의'] + [f'{NAMES[x]} {s}' for x in FIELDS for s in ('정답', '예측', '맞음')] +
                    ['팀 채점', '추가 처리', '긴급 징후', '다음 단계', '실패', '실패 사유', '검색함', '정답 가이드 찾음',
-                    '정답 항목 찾음', '검색 상위 3', '근거', CITED, '보정 규칙', '호출 수', '틀린 원인', '비고'])
+                    '정답 항목 찾음', '검색 상위 3', '근거', CITED, '보정 규칙', '호출 수', '되물은 항목', SITUATION_ASKS,
+                    '틀린 원인', '비고'])
         yn = {True: 'Y', False: 'N', None: ''}
         for j in js:
             it = j.item
@@ -521,7 +541,7 @@ def write(out_dir: str, js: list[Judged], meta: dict) -> dict:
                        [it.team_scoring, it.additional, 'Y' if j.urgent else '', j.next_step, j.failure or '',
                         j.error_code or '', 'Y' if j.searched else '', yn[j.found_doc], yn[j.found_unit],
                         '; '.join(j.top_units), '; '.join(j.evidence), yn[j.cited_unit], '; '.join(j.overrides),
-                        j.calls, cause(j),
+                        j.calls, '; '.join(j.missing), 'Y' if situation_ask(j) else '', cause(j),
                         known_note(j)])
     rounds = by_round(js)
     # 혼동표·추가 처리·틀린 문항은 모든 회차 (반복하면 한 번이라도 틀린 문항이 빠지지 않게)
@@ -532,6 +552,8 @@ def write(out_dir: str, js: list[Judged], meta: dict) -> dict:
                '틀린 문항': [{'회차': j.round, '문항': j.item.eval_id, '원인': cause(j),
                           '틀린 칸': [NAMES[x] for x in FIELDS if is_correct(j, x) is False], '비고': known_note(j)}
                          for j in js if cause(j)],
+               SITUATION_ASKS: [{'회차': j.round, '문항': j.item.eval_id, '정답 처리 방향': j.item.action}
+                                for j in js if situation_ask(j)],
                # 근거는 판단 칸이 아니라 틀린 문항에 안 나오므로 따로. 흐름이 근거 부족으로 ANSWER 를 바꿔 분모에서 빠진 것도
                '근거 불일치': [{'회차': j.round, '문항': j.item.eval_id, '정답 항목 찾음': j.found_unit, '근거': j.evidence}
                           for j in js if j.cited_unit is False],
@@ -550,6 +572,8 @@ def known_note(j: Judged) -> str:
 
 
 def _pct(d: dict) -> str:
+    if 'count' in d:
+        return f"{d['count']}건"
     return '—' if d['acc'] is None else f"{d['acc']:.0%} ({d['n']})"
 
 
@@ -559,7 +583,7 @@ def summary_md(summary: dict) -> str:
     rounds = summary['점수']
     if not rounds:
         return '\n'.join(out + ['', '끝낸 문항이 없습니다.']) + '\n'
-    cols = [*FIELDS, '긴급도 ±1', f'팀 ({TEAM_ASSIGNED})', GUIDED_COL, CITED]
+    cols = [*FIELDS, SITUATION_ACTION, SITUATION_ASKS, '긴급도 ±1', f'팀 ({TEAM_ASSIGNED})', GUIDED_COL, CITED]
     head = [NAMES.get(c, c) for c in cols]
     for n, sc in rounds.items():
         out += ['', f'## 정확도 ({n}회차, 괄호는 채점한 문항 수)', '', '| 묶음 | ' + ' | '.join(head) + ' |',
@@ -572,6 +596,9 @@ def summary_md(summary: dict) -> str:
     if EXTRA_GROUP in tops:
         out += ['', f'{EXTRA_GROUP}: 보조 시험지 참고 점수 (평가셋이 거의 다루지 않는 문의). 종류마다 몇 건뿐이라 점수보다 '
                 '틀린 문항을 본다. 작성자별(Claude·Codex)은 같은 계열 모델이 쓴 질문에 유리한지 보는 값. 평가셋 전체와 섞지 않는다']
+    out += ['', f'{SITUATION_ACTION}: 정답이 ASK_MORE 가 아닌데 첫 판단이 가이드 상황만 되물은 문항({SITUATION_ASKS})을 '
+            '빼고 낸 처리 방향 정확도. 평가는 첫 글 하나만 넣어 되물은 뒤의 방향은 모른다 (M4-3-1 상황 되묻기). '
+            '엄격 점수는 처리 방향 칸']
     out += ['', f'{CITED}: ANSWER 로 답한 문항 중 문서 근거에 정답 항목(같은 본문 포함)이 있는 비율 (참고). '
             '평가셋의 정답 항목은 그 세부 유형 코드가 붙은 모든 항목이라 넓다']
     # 범위는 끝까지 돈 회차만 (중간에 멈춘 회차는 문항이 적어 같은 시험지가 아니다)
@@ -604,6 +631,9 @@ def summary_md(summary: dict) -> str:
     out += ['', f'## {CITED} 틀림 {len(miss)}개 (ANSWER 근거에 정답 항목 없음. 정답 항목 찾음 N → 검색, Y → 판단)', '',
             '| 회차 | 문항 | 정답 항목 찾음 | 근거 |', '|---|---|---|---|'] + \
         [f"| {x['회차']} | {x['문항']} | {yn[x['정답 항목 찾음']]} | {'; '.join(x['근거'])} |" for x in miss]
+    asks = summary.get(SITUATION_ASKS, [])
+    out += ['', f'## {SITUATION_ASKS} {len(asks)}개 (첫 판단이 상황만 되물음. 처리 방향 엄격 점수에서는 틀림)', '',
+            '| 회차 | 문항 | 정답 처리 방향 |', '|---|---|---|'] +         [f"| {x['회차']} | {x['문항']} | {x['정답 처리 방향']} |" for x in asks]
     gone = summary.get('근거 부족으로 빠짐', [])
     out += ['', f'## 근거 부족으로 {CITED}에서 빠짐 {len(gone)}개 (흐름이 ANSWER 를 담당자 연결로 바꿈)', '',
             '| 회차 | 문항 | 보정 규칙 | 정답 항목 찾음 |', '|---|---|---|---|'] + \
