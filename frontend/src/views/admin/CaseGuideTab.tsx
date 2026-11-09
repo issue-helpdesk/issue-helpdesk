@@ -72,7 +72,7 @@ export function CaseGuideTab({ guide, onClearGuide, onReview, onVersion, onGoLiv
         <div className="alert guide-scope" ref={guideNotice} role="status" aria-label="가이드별 제안">
           <Icon name="file" />
           <div>
-            <b>{guide.docCode} {guide.title}</b>
+            <b><span className="mono">{guide.docCode}</span> {guide.title}</b>
             <p style={{ margin: '4px 0 8px' }}>이 가이드에 해당하는 제안만 보고 있어요.</p>
             <button type="button" className="btn sec sm" onClick={onClearGuide}>전체 제안 보기</button>
           </div>
