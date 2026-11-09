@@ -146,7 +146,7 @@ export function CaseGuideTab({ guide, onClearGuide, onReview, onVersion, onGoLiv
           {shown.map((c) => {
             const changed = baseChanged(c) && c.state === 'review'
             return (
-              <section key={c.id} className="panel cgc" aria-label={c.topic}>
+              <section key={c.id} className={`panel cgc${c.state === 'review' ? ' cgc-review' : ''}`} aria-label={c.topic}>
                 <div className="cgh">
                   <span className={`tag c-${c.cat}`}>{CATEGORIES[c.cat].name}</span>
                   <b className="cgt">{c.kind === 'new' ? c.title || c.topic : c.topic}</b>

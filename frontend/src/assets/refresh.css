@@ -607,6 +607,11 @@ td.nw{white-space:nowrap;font-size:13px;color:var(--ink2)}
 .cgk{font-weight:700;color:var(--link)}
 .cgx{line-height:1.6}
 .cga{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:4px}
+/* 검토 대상은 버튼용 하단 줄을 없애고 오른쪽 아래에 배치한다. 여러 동작이 있는 승인 카드는 기존 배치를 유지한다. */
+.cgc-review{position:relative;padding-right:132px;min-height:96px}
+.cgc-review .cgm{font-size:12px}
+.cgc-review .cga{position:absolute;right:22px;bottom:18px;margin:0}
+@media(max-width:700px){.cgc-review{padding-right:22px;min-height:0}.cgc-review .cga{position:static;align-self:flex-end}.cgc-review .cgh{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.cgc-review .cgh>.tag{grid-column:1;justify-self:start}.cgc-review .cgt{grid-column:1/-1;grid-row:2}.cgc-review .cgh>.badge{grid-column:2;grid-row:1;justify-self:end}}
 .app .detail.crev{width:min(920px,100vw);transition:width .28s cubic-bezier(.2,.8,.2,1)}
 .app .detail.crev.wide{width:100vw}
 .detail.crev .db.crb{flex:1}
