@@ -232,3 +232,19 @@ def test_load_duplicate_with_bad_row_blocks_key(tmp_path):
     assert allow == {} and w == ['허용 목록에 같은 항목이 여럿이라 차단합니다: IT-SEC-003-M 3.5']
     pol, _ = policies('IT-SEC-003-M', doc, chunks, allow)
     assert set(pol.values()) == {'BLOCKED'}
+
+
+def test_report_uses_effective_transfer():
+    """#369 검수 3: 조각 값이 섞여 있던 항목(일부 ALLOWED)을 BLOCKED 로 통일하면 실제 전송이 바뀐 것으로 보인다.
+    빈칸 ↔ BLOCKED 도 버전 정책이 ALLOWED 면 실제 전송이 바뀐다. 버전도 BLOCKED 면 값만 정리."""
+    from app.rag.ingest.allowlist import _report
+    out = {'updated': 4, 'skipped': [], 'warnings': [], 'changes': [
+        {'doc': 'A', 'version': 'v1', 'unit': 'A@v1/item:3.1', 'old': ['ALLOWED', 'BLOCKED'], 'new': 'BLOCKED',
+         'effective_old': ['ALLOWED', 'BLOCKED'], 'effective_new': 'BLOCKED', 'pieces': 1},
+        {'doc': 'G', 'version': 'v1', 'unit': 'G@v1/item:3.1', 'old': ['BLOCKED'], 'new': None,
+         'effective_old': ['BLOCKED'], 'effective_new': 'ALLOWED', 'pieces': 2},
+        {'doc': 'M', 'version': 'v1', 'unit': 'M@v1/chapter:2', 'old': [None], 'new': 'BLOCKED',
+         'effective_old': ['BLOCKED'], 'effective_new': 'BLOCKED', 'pieces': 1}]}
+    text = _report(out, True)
+    assert 'A v1 item:3.1: ALLOWED/BLOCKED → BLOCKED' in text and 'G v1 item:3.1: BLOCKED → ALLOWED' in text
+    assert '값만 정리된 단위 1개' in text and 'M v1' not in text

@@ -94,10 +94,13 @@
 - **적재 판정** (`allowlist.load`·`policies`, 일괄·업로드·다시 적재 모두 같은 함수, M4 Q10·Q13): 문서 종류가 **매뉴얼**이면 (일괄은 문서 행, 업로드는 등록된 문서 행의 `doc_type`) **모든 청크에 값** — 3장 안 3.x 항목이 목록에 `ALLOWED` 이고 지금 내용의 지문이 목록 지문과 같을 때만 `ALLOWED`, 나머지(목록 `BLOCKED`·빈 값·지문 다름·목록 밖·3장 밖 장·서문·FAQ·문서 안 번호 겹침)는 `BLOCKED`. 판정은 항목 하나 전체로 한 번 하고 그 항목의 모든 조각에 같은 값. 가이드·공통 기준은 빈칸(버전 정책).
 - 목록을 믿을 수 없으면 차단 (예외로 멈추지 않음): 파일 없음·읽기 실패·JSON 오류·맨 위가 객체 아님·계산법 버전 다름·`items` 가 배열 아님 → 전부, 항목이 객체 아님·`doc_no` 글자 아님·`section` 이 `3.N` 아님 → 어느 항목인지 몰라 뺌, 같은 키가 둘 이상(지문이 틀린 행도 센다) → 그 키, 지문이 `sha256:`64자 아님·모르는 값 → 그 항목. 경고는 적재 결과에 (막지는 않음).
 - **일괄 적재는 판정을 파일의 문서 종류로 한다** — DB 의 문서 종류가 파일과 다르면 검증 실패로 멈춘다 (DB 종류를 두면 판정과 어긋나므로). `--apply-document` 면 파일 종류로 맞춘다. 검증 뒤 잠그기 전에 종류가 바뀌어도 그 문서는 실패.
-- 값이 바뀌면 다시 적재 때 같은 청크 id 에 그 칸만 고친다 (이름표만 경로). "정책만 다시 반영" 명령은 다음 작업.
+- 값이 바뀌면 다시 적재 때 같은 청크 id 에 그 칸만 고친다 (이름표만 경로).
+- **정책만 다시 반영** (`reapply`, M4 Q12 — 목록 수정 PR 이 병합되면 M4 가 공유 DB 에 실행): DB 의 청크가 있는 모든 버전에 지금 목록으로 값을 다시 매긴다. **`content_transfer_policy` 칸만 UPDATE** (청크 id·본문·임베딩 그대로). 문서마다 **먼저 잠근 뒤** 문서 종류·버전·청크를 읽는다 (그사이 적재가 끝나도 낡은 값으로 쓰지 않게). 문서 종류는 등록된 문서 행 — 매뉴얼이면 버전 파일을 다시 읽어 판정, 아니면 빈칸. 매뉴얼은 **DB 청크가 파일과 순번·키·조각 번호·종류·본문까지 같을 때만** 판정한다 — 다르면(파일을 못 읽음 포함) 그 버전은 건너뛰고 알린다 (값 그대로 — 다시 적재 필요. 번호만 같고 예전 본문이 남은 DB 에 파일 지문 기준 허용을 붙이지 않게). UPDATE 가 실제로 바꾼 행 수를 센다. 바뀐 단위마다 감사 로그 `DOCUMENT_POLICY_CHANGE` (`result` 에 "내용 전송 … (허용 목록 다시 반영)"). 출력: **실제 전송**(`coalesce(청크 값, 버전 정책)`)이 바뀐 항목은 `문서 버전 item:3.x: BLOCKED → ALLOWED (칸 값 … → …, 조각 n)` 한 줄씩 — 조각 값이 섞여 있던 항목(일부 ALLOWED)·버전 정책이 ALLOWED 인 문서의 빈칸 ↔ BLOCKED 도 여기 나온다. 칸 값만 바뀌고 전송 결과는 같은 것은 개수만. 끝나면 같은 항목 조각 값이 다른 곳이 있는지 확인.
 
 ```bash
 uv run python -m app.rag.ingest.allowlist skeleton                                       # 화면에 뼈대
+uv run python -m app.rag.ingest.allowlist reapply --database-url <DB>               # 정책만 다시 반영 미리보기 (쓰지 않음)
+uv run python -m app.rag.ingest.allowlist reapply --database-url <DB> --apply       # 쓰기. 공유 DB 는 --allow-remote
 uv run python -m app.rag.ingest.allowlist skeleton --out app/rag/ingest/transfer_allowlist.json   # 있으면 멈춤 (--force 로 덮어씀, 채운 값이 지워진다)
 ```
 

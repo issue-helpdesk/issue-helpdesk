@@ -553,3 +553,126 @@ def test_allowlist_change_relabels_manual(url, tmp_path, monkeypatch):
     report = run(url, embs, docs=['IT-SW-002-M'])
     assert {p for _, p in q(url, pol)} == {'BLOCKED'}
     assert any(f"IT-SW-002-M {row['section']}: 허용 목록 이후 내용이 바뀌어 차단" in w for w in report.warnings)
+
+
+# ── 정책만 다시 반영 (allowlist reapply, M4 Q12) ──────────────
+
+def _policies(url, code):
+    return q(url, '''select c.id, c.unit_key, c.content_transfer_policy from document_chunks c
+                     join document_versions v on v.id = c.version_id join knowledge_documents d on d.id = v.document_id
+                     where d.doc_code = %s order by v.id, c.seq''', code)
+
+
+def _emb_count(url, code):
+    return q(url, '''select count(*) from document_chunk_embeddings e join document_chunks c on c.id = e.chunk_id
+                     join document_versions v on v.id = c.version_id join knowledge_documents d on d.id = v.document_id
+                     where d.doc_code = %s''', code)[0][0]
+
+
+def _reapply(url, allow, apply=True):
+    from app.rag.ingest.allowlist import reapply
+    with connect(url) as conn:
+        out = reapply(conn, allow)
+        (conn.commit if apply else conn.rollback)()
+    return out
+
+
+def test_reapply_fixes_only_policy_column(url):
+    """어긋난 값(매뉴얼 청크 ALLOWED·가이드 청크 BLOCKED)을 목록대로 고친다 — 그 칸만 (청크 id·임베딩 그대로), 감사 로그.
+    미리보기는 DB 를 바꾸지 않는다. 다시 하면 바뀐 것 없음."""
+    from app.rag.ingest.allowlist import load, _report
+    allow, _ = load()
+    man, guide = 'IT-NET-001-M', 'IT-NET-002'
+    m0, g0 = _policies(url, man), _policies(url, guide)
+    with psycopg.connect(url) as conn:
+        conn.execute("update document_chunks set content_transfer_policy = 'ALLOWED' where id = %s", (m0[0][0],))
+        conn.execute("update document_chunks set content_transfer_policy = 'BLOCKED' where id = %s", (g0[0][0],))
+    embs = (_emb_count(url, man), _emb_count(url, guide))
+    before_audit = q(url, "select count(*) from audit_logs where event_type = 'DOCUMENT_POLICY_CHANGE'")[0][0]
+
+    preview = _reapply(url, allow, apply=False)
+    assert _policies(url, man)[0][2] == 'ALLOWED'                       # 미리보기는 되돌림
+    assert any(c['doc'] == man and 'ALLOWED' in c['old'] and c['new'] == 'BLOCKED' for c in preview['changes'])
+    assert any(c['doc'] == guide and c['old'] == ['BLOCKED'] and c['new'] is None for c in preview['changes'])
+    out = _reapply(url, allow)
+    assert _policies(url, man) == m0 and _policies(url, guide) == g0      # 같은 id, 값은 목록대로
+    assert (_emb_count(url, man), _emb_count(url, guide)) == embs
+    assert q(url, "select count(*) from audit_logs where event_type = 'DOCUMENT_POLICY_CHANGE'")[0][0] > before_audit
+    report = _report(out, True)                                        # 실제 전송 결과로: 매뉴얼은 허용→차단,
+    assert f'{man} v2.0 ' in report and ': ALLOWED → BLOCKED' in report  # 가이드는 버전이 ALLOWED 라 차단→허용
+    assert f'{guide} v2.0 ' in report and ': BLOCKED → ALLOWED' in report
+    assert _reapply(url, allow)['changes'] == []
+
+
+def test_reapply_opens_listed_item_all_pieces(url):
+    """목록에 ALLOWED 를 채우면 그 항목의 모든 조각이 ALLOWED (같은 id), 보고에 '차단 → 허용' 한 줄. 지문이 다르면 그대로 차단."""
+    from app.rag.ingest.allowlist import load, _report
+    code = 'IT-NET-002-M'
+    allow, _ = load()
+    section = next(s for (d, s) in allow if d == code)
+    before = _policies(url, code)
+    opened = {**allow, (code, section): ('ALLOWED', allow[(code, section)][1])}
+    out = _reapply(url, opened)
+    after = _policies(url, code)
+    assert [i for i, *_ in after] == [i for i, *_ in before]
+    assert {p for _, u, p in after if u.endswith(f'/item:{section}')} == {'ALLOWED'}
+    assert {p for _, u, p in after if not u.endswith(f'/item:{section}')} == {'BLOCKED'}
+    assert f'{code} v2.0 item:{section}: BLOCKED → ALLOWED' in _report(out, True)
+    stale = {**allow, (code, section): ('ALLOWED', 'sha256:' + '0' * 64)}
+    out = _reapply(url, stale)                                          # 목록 이후 내용이 바뀐 것처럼
+    assert {p for _, _, p in _policies(url, code)} == {'BLOCKED'}
+    assert any(f'{code} {section}: 허용 목록 이후 내용이 바뀌어 차단' in w for w in out['warnings'])
+
+
+def test_reapply_skips_version_whose_file_differs(url):
+    """버전 파일의 청크 구성이 DB 와 다르면 추측하지 않고 건너뛴다 (값 그대로)."""
+    from app.rag.ingest.allowlist import load
+    code = 'IT-NET-003-M'
+    with psycopg.connect(url) as conn:                                  # 다른 매뉴얼 파일을 가리키게
+        conn.execute('''update document_versions set file_path = (select v2.file_path from document_versions v2
+                        join knowledge_documents d2 on d2.id = v2.document_id where d2.doc_code = 'IT-NET-001-M' limit 1)
+                        where document_id = (select id from knowledge_documents where doc_code = %s)''', (code,))
+        conn.execute('''update document_chunks set content_transfer_policy = 'ALLOWED' where version_id in
+                        (select v.id from document_versions v join knowledge_documents d on d.id = v.document_id
+                         where d.doc_code = %s)''', (code,))
+    out = _reapply(url, load()[0])
+    assert any(s.startswith(f'{code} ') and '구성·본문)가 파일과 달라' in s for s in out['skipped'])
+    assert {p for _, _, p in _policies(url, code)} == {'ALLOWED'}         # 건드리지 않음
+
+
+def test_reapply_cli_guards_remote(capsys):
+    from app.rag.ingest.allowlist import main
+    assert main(['reapply', '--database-url', 'postgresql://u:p@db.example.com:5432/x']) == 2
+    assert '--allow-remote' in capsys.readouterr().err
+
+
+def test_reapply_skips_when_db_body_differs_from_file(url):
+    """#369 검수 1: 항목 번호는 같아도 DB 에 예전 본문이 남아 있으면 (파일 지문으로 승인한 허용을 예전 본문에 붙이지 않게)
+    건너뛴다 — 값 그대로, 다시 적재 필요."""
+    from app.rag.ingest.allowlist import load
+    code = 'IT-HW-001-M'
+    allow, _ = load()
+    section = next(s for (d, s) in allow if d == code)
+    with psycopg.connect(url) as conn:                                  # 예전 본문이 남은 것처럼
+        conn.execute('''update document_chunks set content = content || ' (예전 문장)' where unit_key like %s''',
+                     (f'{code}@%/item:{section}',))
+    out = _reapply(url, {**allow, (code, section): ('ALLOWED', allow[(code, section)][1])})
+    assert any(s.startswith(f'{code} ') and '구성·본문)가 파일과 달라' in s for s in out['skipped'])
+    assert {p for _, _, p in _policies(url, code)} == {'BLOCKED'}
+
+
+def test_reapply_reads_kind_after_lock(url, monkeypatch):
+    """#369 검수 2: 잠근 뒤에 문서 종류를 읽는다 — 잠그기를 기다리는 사이 종류가 바뀌어도 바뀐 종류로 판정."""
+    import app.rag.ingest as ingest
+    from app.rag.ingest.allowlist import load
+    code, real = 'IT-HW-002-M', ingest._lock_document
+    doc_id = q(url, 'select id from knowledge_documents where doc_code = %s', code)[0][0]
+
+    def change_then_lock(conn, did):
+        if did == doc_id:
+            with psycopg.connect(url) as other:
+                other.execute("update knowledge_documents set doc_type = 'GUIDE' where id = %s", (did,))
+        real(conn, did)
+    monkeypatch.setattr(ingest, '_lock_document', change_then_lock)
+    _reapply(url, load()[0])
+    assert {p for _, _, p in _policies(url, code)} == {None}             # 잠근 뒤 읽은 GUIDE → 빈칸
