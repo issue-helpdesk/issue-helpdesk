@@ -123,9 +123,12 @@ export function mockListUsers(actor: User, q: UserListQuery): ApiResult<Page<Use
     if (key && ![u.name, u.employeeNo, metaOf(u).email, u.departmentName].some((v) => v.toLowerCase().includes(key))) return false
     if (q.departmentId && u.departmentId !== q.departmentId) return false
     if (q.serviceRole?.length && !q.serviceRole.includes(u.serviceRole)) return false
-    if (q.accountStatus?.length && !q.accountStatus.includes(u.accountStatus)) return false
     return true
   })
+  // 상태별 건수는 상태 조건만 빼고 센다 (서버의 statusCounts 와 같다)
+  const statusCounts: Record<string, number> = { ACTIVE: 0, LOCKED: 0, INACTIVE: 0 }
+  list.forEach((u) => statusCounts[u.accountStatus]++)
+  if (q.accountStatus?.length) list = list.filter((u) => q.accountStatus!.includes(u.accountStatus))
   const sign = dir === 'desc' ? -1 : 1
   list = list.slice().sort((a, b) => {
     const x = sorter(a)
@@ -134,7 +137,7 @@ export function mockListUsers(actor: User, q: UserListQuery): ApiResult<Page<Use
   })
   const page = q.page ?? 1
   const size = q.size ?? 20
-  return ok({ items: list.slice((page - 1) * size, page * size).map(toSummary), page, size, totalCount: list.length, totalPages: list.length ? Math.ceil(list.length / size) : 0 })
+  return ok({ items: list.slice((page - 1) * size, page * size).map(toSummary), page, size, totalCount: list.length, totalPages: list.length ? Math.ceil(list.length / size) : 0, statusCounts })
 }
 
 export function mockCreateUser(actor: User, req: UserCreateRequest): ApiResult<UserCreateResult> {

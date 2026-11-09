@@ -131,18 +131,17 @@ export function QueueView() {
     }
   }, [user, query, tick, reload])
 
-  // 탭별 건수: 검색어·긴급도·기간을 따라간다 (상태 탭 자체만 빼고 센다). 처리 상태마다 1건씩 요청해 총건수만 읽고, 검색어를 칠 때마다 보내지 않도록 잠깐 기다린다
+  // 탭별 건수: 검색어·긴급도·기간을 따라간다 (상태 탭 자체만 빼고 센다). 상태 조건 없이 1건만 요청해 응답의 상태별 건수(statusCounts)를 읽고, 검색어를 칠 때마다 보내지 않도록 잠깐 기다린다
   useEffect(() => {
     if (!user) return
     let alive = true
     const days = PERIODS.find((p) => p.value === per)?.days
     const timer = setTimeout(() => {
-      const states: WorkStatus[] = ['RDY', 'WIP', 'FIN', 'CLS']
-      Promise.all(states.map((s) => listTickets(user, { view: 'ASSIGNED', assigneeId: user.id, size: 1, workStatus: [s], urgency: pri ? [pri as Urgency] : undefined, createdFrom: days === undefined ? undefined : daysAgo(days), q: q.trim() || undefined }))).then((rs) => {
-        if (!alive) return
-        const c: Partial<Record<WorkStatus, number>> = {}
-        rs.forEach((r, i) => (c[states[i]] = r.ok ? r.data.totalCount : 0))
-        setStatusCounts(c)
+      // 상태 조건 없이 1건만 요청하면 응답의 statusCounts 가 상태별 건수를 준다 (R-46)
+      listTickets(user, { view: 'ASSIGNED', assigneeId: user.id, size: 1, urgency: pri ? [pri as Urgency] : undefined, createdFrom: days === undefined ? undefined : daysAgo(days), q: q.trim() || undefined }).then((r) => {
+        if (!alive || !r.ok) return
+        const sc = r.data.statusCounts ?? {}
+        setStatusCounts({ RDY: sc.RDY ?? 0, WIP: sc.WIP ?? 0, FIN: sc.FIN ?? 0, CLS: sc.CLS ?? 0 })
       })
     }, 250)
     return () => {
