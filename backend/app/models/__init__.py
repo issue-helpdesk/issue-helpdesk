@@ -10,7 +10,7 @@ from app.models.knowledge import DocumentChunk, DocumentVersion, Faq, FaqSourceD
 from app.models.embedding import DocumentChunkEmbedding, LegacyInquiryEmbedding
 from app.models.ops import AuditLog, LlmCall, SecurityAlert
 from app.models.time_off import TimeOff
-from app.models.guide import GuideCluster, TicketGuideState
+from app.models.guide import GuideAnalysisRun, GuideCluster, TicketGuideState
 
 __all__ = [
     "Base",
@@ -47,6 +47,7 @@ __all__ = [
     "TimeOff",
     "LlmCall",
     "SecurityAlert",
+    "GuideAnalysisRun",
     "GuideCluster",
     "TicketGuideState",
 ]

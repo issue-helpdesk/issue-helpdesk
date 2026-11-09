@@ -9,7 +9,9 @@ judged, drafted = run_round(session, port, search_fn, embed_fn)   # 판단 → �
 # embed_fn: 글 목록 → 벡터 목록 (Embedder('bge-m3').embed_documents). 기준값이 bge-m3 로 정해졌다
 ```
 
-7일 실행 연결은 박민경 님 담당이다. `case` 를 주지 않으면 이 Session 의 PostgreSQL 연결로 김태연 님 `case_guide` 함수를 부른다.
+7일 실행은 서버의 `guide-worker` 컨테이너가 매주 월요일 00:00(KST)에 한다 (`app/workers/guide_analysis.py`). 지금 바로 한 번 돌리려면 `python -m app.workers.guide_analysis --once`.
+
+`case` 를 주지 않으면 이 Session 의 PostgreSQL 연결로 김태연 님 `case_guide` 함수를 부른다.
 
 ## 파일
 
@@ -153,6 +155,3 @@ AI 는 항목 제목과 본문만 쓴다. 제목 줄 `### 3.N`, 머리 줄(문�
 - **화면:** 매뉴얼 후보의 `manual_note`, 변경 이유 등은 `review_info` 에 있지만 화면은 아직 `reason`·`warnings` 만 보여 준다.
 - **가이드·매뉴얼 구분:** AI가 "그 조치를 누가 하느냐"로 가이드(항목 추가·변경·새 가이드)와 매뉴얼 후보를 나눈다.
   잘못 나뉘면 관리자는 거절만 할 수 있고, 판단을 바꾸는 기능은 없다. 잘못 나뉘는 일이 많으면 추가한다 (제안).
-- **다시 열린 티켓:** 한 번 `EXCLUDED` 가 된 티켓은 미해결로 다시 열렸다가 다시 CLS 가 되어도 모으지 않는다.
-  처음 처리 결과가 짧아 제외됐더라도, 나중에 자세한 처리 결과가 들어오면 빠진다.
-  고치려면 티켓이 다시 열릴 때 `ticket_guide_states` 행을 지워야 한다 (티켓 상태 변경 코드, 박민경 님 담당).
