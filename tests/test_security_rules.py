@@ -147,6 +147,17 @@ def test_refusal_creates_ai_refused_alert(client, db, owner, headers, ai, taxono
     assert ai.searches == []
 
 
+def test_refusal_shows_policy_notice_not_an_error(client, db, headers, ai, taxonomy):
+    from app.agent.llm import LLMError
+    from app.agent.llm.schemas import REFUSED_REPLY, REFUSED_TITLE
+    ai.replies = [LLMError('REFUSAL', 'mock')]
+
+    body = start(client, headers).json()
+
+    assert any(REFUSED_REPLY in (m.get('content') or '') for m in body['messages'] if m['sender'] == 'AI')
+    assert 'S0' not in REFUSED_REPLY and '자동 분류 실패' not in REFUSED_TITLE
+
+
 def test_other_ai_failure_creates_no_alert(client, db, headers, ai, taxonomy):
     from app.agent.llm import LLMError
     ai.replies = [LLMError('TIMEOUT', 'mock')]

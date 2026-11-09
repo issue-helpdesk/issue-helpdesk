@@ -101,7 +101,7 @@ def call_judge(inp: AIInput, port: LLMPort, taxonomy: Taxonomy, staff_names: Ite
         logger.warning('AI 판단 호출 실패: %s', code)          # 원문은 남기지 않는다 (docs/10 5.3)
         if code not in RETRY_CODES:
             break
-    return JudgeResult(safe_default(), None, 'AI_FAILED', code, evidence, tuple(calls))
+    return JudgeResult(safe_default(refused=code == 'REFUSAL'), None, 'AI_FAILED', code, evidence, tuple(calls))
 
 
 def _parse(text: str, first: AIOutput | None = None) -> tuple[AIOutput | None, str | None]:

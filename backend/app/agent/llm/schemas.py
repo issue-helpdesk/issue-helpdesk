@@ -182,17 +182,24 @@ def second_output_json_schema() -> dict:
     return _clean(SecondOutput.model_json_schema())
 
 
-def safe_default(escalation_reason: str = '전문판단', reason: str = 'AI 판단 실패') -> AIOutput:
-    """AI 출력을 쓸 수 없을 때 쓰는 값 (08 3.3). ALL_BLOCKED 는 escalation_reason='전송제한'."""
+# AI 가 안전 판단으로 거절(REFUSAL)했을 때 사용자에게 보이는 글. 시스템 오류처럼 보이지 않게 정책 때문임을 알리되,
+# 어떤 기준에 걸렸는지는 말하지 않는다 (우회 힌트 방지)
+REFUSED_TITLE = 'IT 문의 (직접 안내가 어려운 요청)'
+REFUSED_REPLY = '회사 보안 정책상 AI가 직접 처리할 수 없는 요청이에요. 필요하면 담당자가 확인해 드릴게요.'
+
+
+def safe_default(escalation_reason: str = '전문판단', reason: str = 'AI 판단 실패', refused: bool = False) -> AIOutput:
+    """AI 출력을 쓸 수 없을 때 쓰는 값 (08 3.3). ALL_BLOCKED 는 escalation_reason='전송제한'.
+    refused=True 는 Claude 가 안전 판단으로 거절했을 때(REFUSAL)로, 제목·안내만 정책 안내 글로 바꾼다."""
     return AIOutput(
         schema_version=SCHEMA_VERSION, action='ESCALATE', urgent_signal=False,
-        title='IT 문의 (자동 분류 실패)', category_code=None, inquiry_type_code=None, request_kind=None,
+        title=REFUSED_TITLE if refused else 'IT 문의 (자동 분류 실패)', category_code=None, inquiry_type_code=None, request_kind=None,
         urgency_suggested=None,
         facts=Facts(summary='', target_system=None, symptom=None, situation=None, occurred_at=None, impact_scope=None,
                     work_stopped='unknown', has_workaround=None, time_constraint=None, business_impact=None,
                     security_suspected=False, tried_actions=[]),
         rationale=Rationale(category='', urgency_reasons=[], action=reason),
-        reply='지금은 자동으로 확인하기 어려워요. 담당자에게 연결해 드릴까요?',
+        reply=REFUSED_REPLY if refused else '지금은 자동으로 확인하기 어려워요. 담당자에게 연결해 드릴까요?',
         questions=[], evidence=[], missing_items=[], escalation_reason=escalation_reason, confidence=None,
         security_rule_ids=[],
     )
