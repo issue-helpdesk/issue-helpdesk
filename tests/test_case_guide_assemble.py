@@ -106,7 +106,8 @@ def test_fragment_heading_inside_code_block_ok():
 
 
 @pytest.mark.parametrize('clusters, msg', [
-    ([cluster(1, ['R'], judgment='NEW_GUIDE')], '새 가이드는 다음 작업'),
+    ([cluster(1, ['R'], judgment='MANUAL_CANDIDATE')], '매뉴얼 후보는 초안 없음'),
+    ([cluster(1, ['R1'], judgment='NEW_GUIDE'), cluster(2, ['R2'])], '새 가이드 묶음은 혼자'),
     ([{**cluster(1, ['R']), 'draft_basis': {**cluster(1, ['R'])['draft_basis'], 'schema': 2}}], 'schema'),
     ([{**cluster(1, ['R']), 'draft_basis': {**cluster(1, ['R'])['draft_basis'], 'judgment': 'CHANGE'}}], '판단'),
     ([cluster(1, [])], '접수 번호가 없습니다'),
