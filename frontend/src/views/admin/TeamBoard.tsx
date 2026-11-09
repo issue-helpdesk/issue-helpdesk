@@ -1,6 +1,6 @@
 /**
- * 팀별 개인 현황 (관리자, 캘린더 화면 맨 아래). 담당 그룹마다 구성원의 근무·부재, 처리 대기·처리 중 건수, 긴급도 분포를 보여 준다.
- * 구성원·부재·업무량은 RF-04·TO-01·TK-05 로 읽는다 (api/reference.ts). 운영 현황에서 옮겨 왔다.
+ * 팀별 개인 현황 (관리자, 운영 현황 아래쪽). 담당 그룹마다 구성원의 근무·부재, 처리 대기·처리 중 건수, 긴급도 분포를 보여 준다.
+ * 구성원·부재·업무량은 RF-04·TO-01·TK-05 로 읽는다 (api/reference.ts).
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -11,7 +11,7 @@ import { useAuth } from '../../core/session'
 import { Icon } from '../../ui/Icon'
 import { URGS } from '../staff/StatsView'
 
-export function TeamBoard() {
+export function TeamBoard({ selectedGroup, onGroupChange, refreshKey = 0 }: { selectedGroup?: string; onGroupChange?: (name: string) => void; refreshKey?: number }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [groups, setGroups] = useState<SupportGroupRef[]>([])
@@ -39,9 +39,9 @@ export function TeamBoard() {
     return () => {
       alive = false
     }
-  }, [user, groups, tick])
+  }, [user, groups, tick, refreshKey])
 
-  const grp = chip || groups[0]?.name || ''
+  const grp = (selectedGroup ?? chip) || groups[0]?.name || ''
   const members = people[grp] ?? []
 
   return (
@@ -66,7 +66,7 @@ export function TeamBoard() {
               {groups.map((g) => {
                 const list = people[g.name] ?? []
                 return (
-                  <button key={g.id} type="button" className={`chip${g.name === grp ? ' on' : ''}`} aria-pressed={g.name === grp} onClick={() => setChip(g.name)}>
+                  <button key={g.id} type="button" className={`chip${g.name === grp ? ' on' : ''}`} aria-pressed={g.name === grp} onClick={() => { setChip(g.name); onGroupChange?.(g.name) }}>
                     {g.name} <em>{`${list.filter((c) => c.avail).length}/${list.length}`}</em>
                   </button>
                 )
