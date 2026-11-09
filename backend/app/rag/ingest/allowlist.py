@@ -199,69 +199,86 @@ def reapply(conn, allow: dict, files_root: Path | None = None) -> dict:
     """DB 의 모든 청크 버전에 지금 목록으로 내용 전송 값을 다시 매긴다. **content_transfer_policy 칸만 고친다** (청크 id·
     본문·임베딩 그대로). commit 하지 않는다 (부른 쪽이 --apply 면 commit, 아니면 rollback).
 
-    문서 종류는 **등록된 문서 행** (MANUAL 이면 버전 파일을 다시 읽어 policies, 아니면 모두 빈칸). 파일을 못 읽거나 파일의
-    청크 구성(unit_key)이 DB 와 다르면 추측하지 않고 그 버전은 건너뛰고 알린다 (값 그대로).
-    결과 {'changes': [(문서 번호, 버전, unit_key, 예전, 새, 조각 수)], 'updated': 고친 청크 수, 'skipped': [...], 'warnings': [...]}."""
+    문서마다 **먼저 잠그고** (적재·현행 전환과 같은 순서) 그 뒤에 문서 종류·버전·청크를 읽는다 — 그사이 적재가 끝나도 낡은
+    값으로 쓰지 않게 (#369 검수 2). 문서 종류는 등록된 문서 행: MANUAL 이면 버전 파일을 다시 읽어 policies, 아니면 모두 빈칸.
+    매뉴얼은 **DB 청크가 파일과 순번·키·조각 번호·종류·본문까지 같을 때만** 판정한다 — 번호만 같고 DB 에 예전 본문이
+    남아 있으면 파일 지문으로 승인된 허용을 예전 본문에 붙이게 되므로 건너뛴다 (값 그대로, 다시 적재 필요, #369 검수 1).
+    결과 {'changes': [{doc, version, unit, old, new, effective_old, effective_new, pieces}], 'updated', 'skipped', 'warnings'}.
+    effective_* = coalesce(청크 값, 버전 transfer_policy) — 실제로 밖에 나가는지 (#369 검수 3)."""
     from app.rag.chunker import chunk_document
-    from app.rag.ingest import ROOT, _audit, _lock_document
+    from app.rag.ingest import ROOT, _audit, _lock_document, chunk_rows
     from app.rag.ingest.upload import resolve_file
     root = files_root or ROOT
-    versions = conn.execute(
-        'select d.id, d.doc_code, d.doc_type, v.id, v.version, v.file_path from knowledge_documents d '
-        'join document_versions v on v.document_id = d.id '
-        'where exists (select 1 from document_chunks c where c.version_id = v.id) order by d.id, v.id').fetchall()
     out = {'changes': [], 'updated': 0, 'skipped': [], 'warnings': []}
-    locked = set()
-    for doc_id, doc_no, doc_type, vid, version, path in versions:
-        db: dict[str, list] = {}
-        for cid, unit, policy in conn.execute('select id, unit_key, content_transfer_policy from document_chunks '
-                                              'where version_id = %s order by seq', (vid,)):
-            db.setdefault(unit, []).append((cid, policy))
-        if doc_type == 'MANUAL':
-            try:
-                doc = parse(str(resolve_file(path, root)))
-            except Exception as e:                         # 파일 없음·읽기 실패 — 값을 바꾸지 않는다
-                out['skipped'].append(f'{doc_no} {version}: 파일을 읽지 못해 건너뜀 ({type(e).__name__})')
-                continue
-            doc.meta['doc_no'], doc.meta['version'] = doc_no, version   # 등록값으로 (업로드 적재와 같은 unit_key)
-            chunks = chunk_document(doc)
-            if {c.unit_key for c in chunks} != set(db):
-                out['skipped'].append(f'{doc_no} {version}: 파일의 청크 구성이 DB 와 달라 건너뜀 (다시 적재 필요)')
-                continue
-            want, warns = policies(doc_no, doc, chunks, allow)
-            out['warnings'] += [f'{w} ({version})' for w in warns]
-        else:
-            want = {u: None for u in db}                   # 매뉴얼이 아니면 빈칸 = 버전 정책
-        for unit, rows in db.items():
-            stale = [(cid, p) for cid, p in rows if p != want[unit]]
-            if not stale:
-                continue
-            if doc_id not in locked:                       # 적재·현행 전환과 같은 순서 (문서 먼저)
-                _lock_document(conn, doc_id)
-                locked.add(doc_id)
-            conn.execute('update document_chunks set content_transfer_policy = %s where id = any(%s)',
-                         (want[unit], [cid for cid, _ in stale]))
-            olds = sorted({str(p) for _, p in stale})
-            out['changes'].append((doc_no, version, unit, '/'.join(olds), str(want[unit]), len(stale)))
-            out['updated'] += len(stale)
-            _audit(conn, 'DOCUMENT_POLICY_CHANGE', doc_id, None,
-                   f"{version} {unit.split('/', 1)[-1]} 내용 전송 {'/'.join(olds)} → {want[unit]} (허용 목록 다시 반영)")
-    mixed = conn.execute('select v.version, c.unit_key from document_chunks c join document_versions v on v.id = c.version_id '
-                         'group by v.version, c.unit_key having count(distinct coalesce(c.content_transfer_policy, \'-\')) > 1'
-                         ).fetchall()
-    out['warnings'] += [f'같은 항목의 조각 값이 다릅니다: {u} ({v})' for v, u in mixed]
+    doc_ids = [d for (d,) in conn.execute(
+        'select distinct v.document_id from document_versions v '
+        'where exists (select 1 from document_chunks c where c.version_id = v.id) order by 1')]
+    skeleton_cols = ('seq', 'unit_key', 'part', 'chunk_type', 'content')
+    for doc_id in doc_ids:
+        _lock_document(conn, doc_id)
+        doc_no, doc_type = conn.execute('select doc_code, doc_type from knowledge_documents where id = %s',
+                                        (doc_id,)).fetchone()
+        versions = conn.execute(
+            'select v.id, v.version, v.file_path, v.transfer_policy from document_versions v where v.document_id = %s '
+            'and exists (select 1 from document_chunks c where c.version_id = v.id) order by v.id', (doc_id,)).fetchall()
+        for vid, version, path, version_policy in versions:
+            rows = conn.execute('select id, seq, unit_key, part, chunk_type, content, content_transfer_policy '
+                                'from document_chunks where version_id = %s order by seq', (vid,)).fetchall()
+            if doc_type == 'MANUAL':
+                try:
+                    doc = parse(str(resolve_file(path, root)))
+                except Exception as e:                     # 파일 없음·읽기 실패 — 값을 바꾸지 않는다
+                    out['skipped'].append(f'{doc_no} {version}: 파일을 읽지 못해 건너뜀 ({type(e).__name__})')
+                    continue
+                doc.meta['doc_no'], doc.meta['version'] = doc_no, version   # 등록값으로 (업로드 적재와 같은 unit_key)
+                chunks = chunk_document(doc)
+                if [tuple(r[1:6]) for r in rows] != [tuple(x[k] for k in skeleton_cols) for x in chunk_rows(chunks)]:
+                    out['skipped'].append(f'{doc_no} {version}: DB 청크(구성·본문)가 파일과 달라 건너뜀 (다시 적재 필요)')
+                    continue
+                want, warns = policies(doc_no, doc, chunks, allow)
+                out['warnings'] += [f'{w} ({version})' for w in warns]
+            else:
+                want = {r[2]: None for r in rows}          # 매뉴얼이 아니면 빈칸 = 버전 정책
+            units: dict[str, list] = {}
+            for cid, _seq, unit, *_rest, policy in rows:
+                units.setdefault(unit, []).append((cid, policy))
+            for unit, pieces in units.items():
+                stale = [cid for cid, p in pieces if p != want[unit]]
+                if not stale:
+                    continue
+                cur = conn.execute('update document_chunks set content_transfer_policy = %s '
+                                   'where version_id = %s and id = any(%s)', (want[unit], vid, stale))
+                if cur.rowcount != len(stale):             # 잠근 뒤라 일어나면 안 된다 — 알리고 센 만큼만
+                    out['warnings'].append(f'{doc_no} {version} {unit}: 고칠 청크 {len(stale)}개 중 {cur.rowcount}개만 바뀜')
+                olds = sorted({p for _, p in pieces}, key=str)
+                change = {'doc': doc_no, 'version': version, 'unit': unit, 'old': olds, 'new': want[unit],
+                          'effective_old': sorted({p or version_policy for p in olds}),
+                          'effective_new': want[unit] or version_policy, 'pieces': cur.rowcount}
+                out['changes'].append(change)
+                out['updated'] += cur.rowcount
+                _audit(conn, 'DOCUMENT_POLICY_CHANGE', doc_id, None,
+                       f"{version} {unit.split('/', 1)[-1]} 내용 전송 {'/'.join(map(str, olds))} → {want[unit]} "
+                       f"(실제 {'/'.join(change['effective_old'])} → {change['effective_new']}, 허용 목록 다시 반영)")
+    mixed = conn.execute('select c.unit_key from document_chunks c group by c.version_id, c.unit_key '
+                         "having count(distinct coalesce(c.content_transfer_policy, '-')) > 1").fetchall()
+    out['warnings'] += [f'같은 항목의 조각 값이 다릅니다: {u}' for (u,) in mixed]
     return out
 
 
 def _report(out: dict, applied: bool) -> str:
-    """허용↔차단 바뀐 항목은 한 줄씩, 그 밖(빈칸 ↔ BLOCKED 등)은 개수만."""
-    allow_flip = [c for c in out['changes'] if 'ALLOWED' in (c[3], c[4])]
-    other = len(out['changes']) - len(allow_flip)
+    """실제 전송 결과(버전 정책까지 반영)가 바뀐 항목은 한 줄씩, 값만 정리된 것(빈칸 ↔ BLOCKED 이지만 버전도 BLOCKED 등)은
+    개수만. 조각 값이 섞여 있던 항목(일부 ALLOWED)도 실제 결과로 판단한다 (#369 검수 3)."""
+    flips = [c for c in out['changes'] if set(c['effective_old']) != {c['effective_new']}]
     lines = [f"{'반영함' if applied else '미리보기 (DB 에 쓰지 않음, 쓰려면 --apply)'}: 청크 {out['updated']}개"]
-    lines += ['허용↔차단 바뀐 항목:'] + [f"  {d} {v} {u.split('/', 1)[-1]}: {a} → {b} (조각 {n})"
-                                          for d, v, u, a, b, n in allow_flip] if allow_flip else ['허용↔차단 바뀐 항목: 없음']
-    if other:
-        lines.append(f'그 밖에 바뀐 단위 {other}개 (빈칸 ↔ BLOCKED 등, 전송 결과는 같음)')
+    if flips:
+        lines.append('실제 전송이 바뀐 항목 (허용↔차단):')
+        lines += [f"  {c['doc']} {c['version']} {c['unit'].split('/', 1)[-1]}: {'/'.join(c['effective_old'])} → "
+                  f"{c['effective_new']} (칸 값 {'/'.join(map(str, c['old']))} → {c['new']}, 조각 {c['pieces']})"
+                  for c in flips]
+    else:
+        lines.append('실제 전송이 바뀐 항목 (허용↔차단): 없음')
+    if other := len(out['changes']) - len(flips):
+        lines.append(f'값만 정리된 단위 {other}개 (칸 값은 바뀌었지만 버전 정책까지 보면 전송 결과는 같음)')
     lines += [f'건너뜀: {s}' for s in out['skipped']] + [f'경고: {w}' for w in out['warnings']]
     return '\n'.join(lines)
 

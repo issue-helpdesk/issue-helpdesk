@@ -592,12 +592,15 @@ def test_reapply_fixes_only_policy_column(url):
 
     preview = _reapply(url, allow, apply=False)
     assert _policies(url, man)[0][2] == 'ALLOWED'                       # 미리보기는 되돌림
-    assert {(c[0], c[3], c[4]) for c in preview['changes']} >= {(man, 'ALLOWED', 'BLOCKED'), (guide, 'BLOCKED', 'None')}
+    assert any(c['doc'] == man and 'ALLOWED' in c['old'] and c['new'] == 'BLOCKED' for c in preview['changes'])
+    assert any(c['doc'] == guide and c['old'] == ['BLOCKED'] and c['new'] is None for c in preview['changes'])
     out = _reapply(url, allow)
     assert _policies(url, man) == m0 and _policies(url, guide) == g0      # 같은 id, 값은 목록대로
     assert (_emb_count(url, man), _emb_count(url, guide)) == embs
     assert q(url, "select count(*) from audit_logs where event_type = 'DOCUMENT_POLICY_CHANGE'")[0][0] > before_audit
-    assert f'{man} ' in _report(out, True) and 'ALLOWED → BLOCKED' in _report(out, True)
+    report = _report(out, True)                                        # 실제 전송 결과로: 매뉴얼은 허용→차단,
+    assert f'{man} v2.0 ' in report and ': ALLOWED → BLOCKED' in report  # 가이드는 버전이 ALLOWED 라 차단→허용
+    assert f'{guide} v2.0 ' in report and ': BLOCKED → ALLOWED' in report
     assert _reapply(url, allow)['changes'] == []
 
 
@@ -633,7 +636,7 @@ def test_reapply_skips_version_whose_file_differs(url):
                         (select v.id from document_versions v join knowledge_documents d on d.id = v.document_id
                          where d.doc_code = %s)''', (code,))
     out = _reapply(url, load()[0])
-    assert any(s.startswith(f'{code} ') and '청크 구성이 DB 와 달라' in s for s in out['skipped'])
+    assert any(s.startswith(f'{code} ') and '구성·본문)가 파일과 달라' in s for s in out['skipped'])
     assert {p for _, _, p in _policies(url, code)} == {'ALLOWED'}         # 건드리지 않음
 
 
@@ -641,3 +644,35 @@ def test_reapply_cli_guards_remote(capsys):
     from app.rag.ingest.allowlist import main
     assert main(['reapply', '--database-url', 'postgresql://u:p@db.example.com:5432/x']) == 2
     assert '--allow-remote' in capsys.readouterr().err
+
+
+def test_reapply_skips_when_db_body_differs_from_file(url):
+    """#369 검수 1: 항목 번호는 같아도 DB 에 예전 본문이 남아 있으면 (파일 지문으로 승인한 허용을 예전 본문에 붙이지 않게)
+    건너뛴다 — 값 그대로, 다시 적재 필요."""
+    from app.rag.ingest.allowlist import load
+    code = 'IT-HW-001-M'
+    allow, _ = load()
+    section = next(s for (d, s) in allow if d == code)
+    with psycopg.connect(url) as conn:                                  # 예전 본문이 남은 것처럼
+        conn.execute('''update document_chunks set content = content || ' (예전 문장)' where unit_key like %s''',
+                     (f'{code}@%/item:{section}',))
+    out = _reapply(url, {**allow, (code, section): ('ALLOWED', allow[(code, section)][1])})
+    assert any(s.startswith(f'{code} ') and '구성·본문)가 파일과 달라' in s for s in out['skipped'])
+    assert {p for _, _, p in _policies(url, code)} == {'BLOCKED'}
+
+
+def test_reapply_reads_kind_after_lock(url, monkeypatch):
+    """#369 검수 2: 잠근 뒤에 문서 종류를 읽는다 — 잠그기를 기다리는 사이 종류가 바뀌어도 바뀐 종류로 판정."""
+    import app.rag.ingest as ingest
+    from app.rag.ingest.allowlist import load
+    code, real = 'IT-HW-002-M', ingest._lock_document
+    doc_id = q(url, 'select id from knowledge_documents where doc_code = %s', code)[0][0]
+
+    def change_then_lock(conn, did):
+        if did == doc_id:
+            with psycopg.connect(url) as other:
+                other.execute("update knowledge_documents set doc_type = 'GUIDE' where id = %s", (did,))
+        real(conn, did)
+    monkeypatch.setattr(ingest, '_lock_document', change_then_lock)
+    _reapply(url, load()[0])
+    assert {p for _, _, p in _policies(url, code)} == {None}             # 잠근 뒤 읽은 GUIDE → 빈칸
