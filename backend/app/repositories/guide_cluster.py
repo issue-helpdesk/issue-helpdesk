@@ -66,6 +66,16 @@ class GuideClusterRepository:
             .order_by(GuideCluster.id).with_for_update()
         ))
 
+    def pending_versions(self, document_id: int) -> list[DocumentVersion]:
+        """묶음이 연결되어 있고 한 번도 현행이 된 적 없는 버전, 최신순. 관리자가 올린 버전은 묶음이 없어 나오지 않는다."""
+        linked = select(GuideCluster.id).where(GuideCluster.registered_version_id == DocumentVersion.id).exists()
+        return list(self.db.scalars(
+            select(DocumentVersion)
+            .where(DocumentVersion.document_id == document_id, DocumentVersion.is_current.is_(False),
+                   DocumentVersion.activated_at.is_(None), linked)
+            .order_by(DocumentVersion.id.desc())
+        ))
+
     def mark_applied(self, clusters: list[GuideCluster]) -> None:
         self.change_status(clusters, "APPLIED")
 

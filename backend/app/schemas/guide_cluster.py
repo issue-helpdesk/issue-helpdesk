@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import Field
 
 from app.schemas.common import CamelModel, KstDatetime, PageQuery, trimmed_str
+from app.schemas.document import TransferPolicy, ViewScope
 from app.schemas.inquiry import CategoryRef, UserRef
 
 Judgment = Literal["ADD_ITEM", "CHANGE", "NEW_GUIDE", "MANUAL_CANDIDATE", "SEC_MANUAL"]
@@ -54,8 +55,10 @@ class GuideClusterTicket(CamelModel):
 
 
 class GuideClusterDetail(GuideClusterSummary):
-    """GC-02 상세. 등록 검사용 초안 기준(draft_basis)은 내려 주지 않는다."""
+    """GC-02 상세. 등록 검사용 초안 기준(draft_basis)은 변경할 항목의 위치·원문만 내려 준다."""
     draft_md: str | None
+    target_section: str | None                  # 변경(CHANGE)할 항목 번호. 다른 판단은 없다
+    target_md: str | None                       # 변경할 항목의 초안 기준 원문. 화면의 "기존 내용"
     draft_revision: int                         # 초안 수정 저장 때 함께 보낸다 (다른 관리자 변경 확인)
     review_info: dict
     compared_items: list
@@ -78,3 +81,14 @@ class GuideClusterDraftUpdateRequest(CamelModel):
 
 class GuideClusterRejectRequest(CamelModel):
     reason: trimmed_str(1, 500)
+
+
+class GuideClusterRegisterRequest(CamelModel):
+    draft_revision: int = Field(ge=0)           # GC-02 에서 받은 값. 다르면 관리자가 본 초안과 등록할 초안이 다르다
+    view_scope: ViewScope                       # 이어 쓰는 버전이면 버전 전체에 적용된다
+    transfer_policy: TransferPolicy             # 서버가 대신 채우지 않는다
+
+
+class GuideClusterRegisterResponse(GuideClusterDetail):
+    """GC-06. 상세 + 조립 경고 (개인정보로 보이는 글 등). 저장하지 않으므로 이 응답에서만 볼 수 있다."""
+    warnings: list[str]
