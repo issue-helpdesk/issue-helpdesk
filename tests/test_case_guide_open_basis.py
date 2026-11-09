@@ -278,7 +278,8 @@ def test_skeleton_without_bodies_is_unchanged():
 
 
 @pytest.mark.parametrize('text, why', [
-    ('## 9. 끼어든 장\n본문', '제목 줄'), ('### 3.9 끼어든 항목\n본문', '제목 줄'), ('# 문서 제목', '제목 줄'),
+    ('## 9. 끼어든 장\n본문', '1번째 줄에 쓸 수 없는 제목(##)'), ('본문\n### 3.9 끼어든 항목', '2번째 줄에 쓸 수 없는 제목(###)'),
+    ('# 문서 제목', '쓸 수 없는 제목(#)'),
     ('```text\n열린 코드', '닫히지 않은 코드 블록'), ('- 해결 사례 반영 (TK-1): 넣지 마세요', '반영 표식'),
 ])
 def test_chapter_body_refuses_shape_breakers(text, why):
@@ -295,8 +296,27 @@ def test_chapter_body_allows_subheadings_code_and_tables():
     assert ob.chapter_body(text, '2장', warnings) == text.replace('\r\n', '\n').strip('\n') and warnings == []
     assert ob.chapter_body('  \n ', '2장', warnings) is None and ob.chapter_body(None, '2장', warnings) is None
     assert warnings == []
-    assert ob.chapter_body('#### 증상별 바로가기\n- x', '2장', warnings, reserved=(ob.JUMP_HEAD,)) is None
-    assert '뼈대가 붙이는 소제목' in warnings[0]
+    assert ob.chapter_body('#### 증상별 바로가기\n- x', '2장', warnings, reserved=(ob.JUMP_TITLE,)) is None
+    assert '1번째 줄에 뼈대가 붙이는 소제목' in warnings[0]
+
+
+@pytest.mark.parametrize('head', ['####\t증상별 바로가기', '#### **증상별 바로가기**', '####   증상별   바로가기',
+                                  '##### 증상별 바로가기', '#### `증상별 바로가기` ####'])
+def test_chapter_body_reserved_title_variants(head):
+    """PR #384 검수 2: 탭·여러 공백·굵게·코드 표시·다른 수준으로 써도 예약 소제목은 막는다 (파서가 같은 제목으로 읽음)."""
+    warnings = []
+    assert ob.chapter_body(f'- 앞\n\n{head}\n\n- 내용', '2장', warnings, reserved=(ob.JUMP_TITLE,)) is None
+    assert '3번째 줄에 뼈대가 붙이는 소제목' in warnings[0]
+    assert ob.chapter_body('#### 증상별 확인 순서\n- 내용', '2장', [], reserved=(ob.JUMP_TITLE,))  # 비슷한 다른 제목은 됨
+
+
+def test_chapter_body_warning_has_no_rejected_text():
+    """PR #384 검수 1: 거부한 글의 값(연락처·비밀값 등)은 경고에 넣지 않는다 — 장 이름·줄 번호·문제 종류만."""
+    secret = '010-9999-0000 비번 Zx9!q'                       # 합성 값
+    warnings = []
+    for text in (f'## {secret}', f'본문\n#### 증상별 바로가기 {secret}\n```', f'해결 사례 반영 ({secret})'):
+        assert ob.chapter_body(text, '2장', warnings, reserved=(ob.JUMP_TITLE,)) is None
+    assert len(warnings) == 3 and not any(part in w for w in warnings for part in ('010', '9999', 'Zx9', '비번'))
 
 
 @needs_db

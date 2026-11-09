@@ -140,34 +140,45 @@ def new_guide(conn, category_code: str | None, title: str | None, fragments: lis
         raise CaseGuideError(problems)
     return skeleton(title.strip(), category_code, name[0], fragments, _contact(conn, category_code, files_root, warnings),
                     overview=chapter_body(overview, '1장 개요', warnings),
-                    precheck=chapter_body(precheck, '2장 먼저 확인할 사항', warnings, reserved=(JUMP_HEAD,)))
+                    precheck=chapter_body(precheck, '2장 먼저 확인할 사항', warnings, reserved=(JUMP_TITLE,)))
 
 
-JUMP_HEAD = '#### 증상별 바로가기'                          # 2장 끝에 뼈대가 붙이는 표의 소제목
+JUMP_TITLE = '증상별 바로가기'
+JUMP_HEAD = f'#### {JUMP_TITLE}'                            # 2장 끝에 뼈대가 붙이는 표의 소제목
+HEADING_RE = re.compile(r'^(#{1,6})\s+(.*?)\s*#*\s*$')
+INLINE_MARK = re.compile(r'(\*\*|__|\*|_|`)')
+
+
+def _heading_text(text: str) -> str:
+    """제목 글을 비교용으로: 굵게·기울임·코드 표시를 빼고 공백(탭 포함)을 하나로."""
+    return ' '.join(INLINE_MARK.sub('', text).split())
 
 
 def chapter_body(text: str | None, name: str, warnings: list[str], reserved: tuple[str, ...] = ()) -> str | None:
     """AI 가 쓴 장 본문 → 뼈대에 넣을 글. 없거나 빈 글이면 None (자리 표시). 형식이 틀리면 None + 경고 — 장 경계가
     깨지지 않게: 코드 블록 밖 `#`·`##`·`###` 제목 금지(`####` 이하 소제목·굵은 글씨·목록·표는 됨), 코드 블록은 닫힘,
-    반영 표식 문구 금지, reserved 소제목 금지 (2장의 증상별 바로가기는 뼈대가 붙인다)."""
+    반영 표식 문구 금지, reserved 제목 글 금지 (2장의 증상별 바로가기는 뼈대가 붙인다. 공백·굵게 표기를 정리해 비교).
+    경고에는 원문을 넣지 않는다 — 장 이름·줄 번호·문제 종류만 (거부한 글의 민감값이 경고로 새지 않게, PR #384 검수 1)."""
     body = (text or '').replace('\r\n', '\n').replace('\r', '\n').strip('\n').rstrip()
     if not body.strip():
         return None
+    reserved_titles = {_heading_text(r) for r in reserved}
     problems, fence = [], ''
-    for line in body.splitlines():
+    for n, line in enumerate(body.splitlines(), 1):
         s = line.strip()
         if fence:
             fence = '' if s.startswith(fence) else fence
         elif m := FENCE_RE.match(line):
             fence = m.group(1)
-        elif re.match(r'^#{1,3}\s', s):
-            problems.append(f'제목 줄 {s[:30]}')
-        elif s in reserved:
-            problems.append(f'뼈대가 붙이는 소제목 {s}')
+        elif h := HEADING_RE.match(s):
+            if len(h.group(1)) <= 3:
+                problems.append(f'{n}번째 줄에 쓸 수 없는 제목({h.group(1)})')
+            elif _heading_text(h.group(2)) in reserved_titles:
+                problems.append(f'{n}번째 줄에 뼈대가 붙이는 소제목')
     if fence:
         problems.append('닫히지 않은 코드 블록')
     if f'{MARK} (' in body:
-        problems.append(f"반영 표식 '{MARK} ('")
+        problems.append('반영 표식 문구')
     if problems:
         warnings.append(f"{name} 초안을 넣지 않고 '{TODO}' 로 두었습니다 ({', '.join(problems)}). 관리자가 채워 주세요")
         return None
