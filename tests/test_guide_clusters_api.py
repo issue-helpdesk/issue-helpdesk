@@ -6,7 +6,11 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
+from app.main import app
 from app.models import AuditLog, Category, DocumentVersion, GuideCluster, KnowledgeDocument, TicketGuideState, User
+from app.rag.case_guide import CaseGuideError
+from app.services.document_ingest import ingest_submitter
+from app.services.guide_cluster import guide_assembler
 from test_auth import TABLES, add_user, bearer, client, error_code, login  # noqa: F401
 from test_dashboard import add_ticket
 from test_inquiries import create_sqlite_tables
@@ -163,6 +167,7 @@ def test_detail(client, users, db, guide):
     assert res.status_code == 200
     body = res.json()
     assert "draftBasis" not in body                    # 등록 검사용 기준은 내려 주지 않는다
+    assert (body["targetSection"], body["targetMd"]) == (None, None)
     assert (body["draftMd"], body["draftRevision"]) == ("### 3.8 VPN을 연결하면 인터넷이 끊김", 3)
     assert body["reviewInfo"] == {"reason": "공유기 설정은 다루지 않음"}
     assert body["comparedItems"][0]["sectionNo"] == "3.3"
@@ -172,6 +177,16 @@ def test_detail(client, users, db, guide):
     assert [t["receiptNo"] for t in body["tickets"]] == [t.receipt_no for t in tickets]   # 해결 확인 순
     assert body["tickets"][0]["resolutionNote"] == "공유기 VPN 패스스루 설정을 켬"
     assert body["ticketCount"] == 2
+
+
+def test_detail_change_shows_existing_item(client, users, db, guide):
+    cluster, _ = add_cluster(db, judgment="CHANGE", draft_basis={
+        "base_md": "# 원본 전체", "target_section": "3.3", "target_md": "### 3.3 집에서 VPN이 자주 끊김\n본문"})
+
+    body = client.get(f"{API}/{cluster.id}", headers=users["admin"]).json()
+
+    assert (body["targetSection"], body["targetMd"]) == ("3.3", "### 3.3 집에서 VPN이 자주 끊김\n본문")
+    assert "# 원본 전체" not in str(body)               # 문서 전체 원문은 내려 주지 않는다
 
 
 def test_detail_base_changed(client, users, db, guide):
@@ -356,3 +371,279 @@ def test_save_draft_validation(client, users, db, body):
 def test_save_draft_not_found(client, users):
     res = client.patch(f"{API}/999", headers=users["admin"], json={"draftMd": "# x", "draftRevision": 0})
     assert error_code(res) == "GUIDE_CLUSTER_NOT_FOUND"
+
+
+# ------------------------------------------------------------------ GC-06 초안 등록
+
+
+@pytest.fixture
+def assembled(client, db, tmp_path):
+    """조립 함수와 적재 시작을 바꿔 끼운다. 실제 조립은 Postgres·파일이 필요해 rag 쪽 테스트가 본다."""
+    calls, ingests = [], []
+
+    def fake(conn, document_id, clusters, draft_version_id, *, view_scope, transfer_policy, actor_id):
+        calls.append({"document_id": document_id, "clusters": clusters, "version_id": draft_version_id,
+                      "view_scope": view_scope, "transfer_policy": transfer_policy, "actor_id": actor_id})
+        path = tmp_path / f"{len(calls)}.md"
+        path.write_text("조립 결과", encoding="utf-8")
+        if draft_version_id is None:
+            row = DocumentVersion(document_id=document_id, version=f"v3.{len(calls)}", view_scope=view_scope,
+                                  transfer_policy=transfer_policy, is_current=False, ingest_status="PENDING")
+            db.add(row)
+            db.flush()
+        else:
+            row = db.get(DocumentVersion, draft_version_id)
+        row.file_path = str(path)
+        sections = {c["id"]: c["draft_basis"].get("section_no") or f"3.{9 + len(calls)}"
+                    for c in clusters if c["judgment"] != "CHANGE"}
+        return {"version_id": row.id, "version": row.version, "file_path": str(path), "sections": sections,
+                "warnings": ["개인정보로 보이는 글이 있습니다"]}
+
+    app.dependency_overrides[guide_assembler] = lambda: fake
+    app.dependency_overrides[ingest_submitter] = lambda: ingests.append
+    return calls, ingests
+
+
+def ready_cluster(db, guide, tickets=1, **fields):
+    """등록할 수 있는 묶음. 기준은 현행 v2.0."""
+    document, current, _ = guide
+    values = {"target_document_id": document.id, "base_version_id": current.id, "draft_md": "### 3.N 제목\n본문",
+              "draft_basis": {"schema": 1, "base_version_id": current.id}, **fields}
+    return add_cluster(db, tickets=tickets, **values)
+
+
+def register(client, users, cluster, revision=0, view_scope="AGENT", policy="BLOCKED", who="admin"):
+    return client.post(f"{API}/{cluster.id}/register", headers=users[who],
+                       json={"draftRevision": revision, "viewScope": view_scope, "transferPolicy": policy})
+
+
+def test_register_makes_new_version(client, users, db, guide, assembled):
+    calls, ingests = assembled
+    document, *_ = guide
+    cluster, tickets = ready_cluster(db, guide, tickets=2)
+
+    res = register(client, users, cluster)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["status"] == "REVIEWING"                    # 현행 전환 때 APPLIED 가 된다
+    assert body["registeredVersion"]["version"] == "v3.1"
+    assert body["warnings"] == ["개인정보로 보이는 글이 있습니다"]
+    assert "draftBasis" not in body
+    admin = db.query(User).filter_by(employee_no="E0009").one()
+    assert len(calls) == 1
+    call = calls[0]
+    assert (call["document_id"], call["version_id"]) == (document.id, None)
+    assert (call["view_scope"], call["transfer_policy"], call["actor_id"]) == ("AGENT", "BLOCKED", admin.id)
+    assert call["clusters"][0]["receipts"] == [t.receipt_no for t in tickets]
+    db.expire_all()
+    assert cluster.registered_version_id == body["registeredVersion"]["id"]
+    assert cluster.draft_basis["section_no"] == "3.10"
+    assert cluster.draft_basis["schema"] == 1
+    assert ingests == [cluster.registered_version_id]
+    log = db.scalars(select(AuditLog).where(AuditLog.event_type == "GUIDE_CLUSTER_REGISTER")).one()
+    assert (log.target_id, log.actor_id, log.result) == (cluster.id, admin.id, "ADD_ITEM → v3.1")
+
+
+def test_register_continues_pending_version(client, users, db, guide, assembled):
+    calls, _ = assembled
+    first, _ = ready_cluster(db, guide)
+    second, _ = ready_cluster(db, guide)
+    register(client, users, first)
+    db.expire_all()
+    version_id = first.registered_version_id
+
+    res = register(client, users, second)
+
+    assert res.status_code == 200
+    assert calls[1]["version_id"] == version_id
+    assert [c["id"] for c in calls[1]["clusters"]] == [first.id, second.id]
+    assert calls[1]["clusters"][0]["draft_basis"]["section_no"] == "3.10"   # 앞 묶음 번호를 유지한다
+    db.expire_all()
+    assert second.registered_version_id == version_id
+
+
+def test_register_does_not_touch_uploaded_version(client, users, db, guide, assembled):
+    """관리자가 올린 v2.1 은 묶음이 없어 이어 쓰지 않는다."""
+    calls, _ = assembled
+    cluster, _ = ready_cluster(db, guide)
+
+    assert register(client, users, cluster).status_code == 200
+    assert calls[0]["version_id"] is None
+
+
+def test_register_skips_pending_version_with_old_base(client, users, db, guide, assembled):
+    """기준이 지난 대기 버전에 이어 쓰면 조립이 거부되어 새 묶음까지 막힌다."""
+    calls, _ = assembled
+    document, current, draft = guide
+    older = DocumentVersion(document_id=document.id, version="v1.0", view_scope="ALL", transfer_policy="ALLOWED",
+                            is_current=False, ingest_status="DONE")
+    db.add(older)
+    db.commit()
+    add_cluster(db, target_document_id=document.id, base_version_id=older.id, registered_version_id=draft.id)
+    cluster, _ = ready_cluster(db, guide)
+
+    assert register(client, users, cluster).status_code == 200
+    assert calls[0]["version_id"] is None
+    assert [c["id"] for c in calls[0]["clusters"]] == [cluster.id]
+
+
+def test_reregister_after_reject_reuses_version(client, users, db, guide, assembled):
+    calls, ingests = assembled
+    kept, _ = ready_cluster(db, guide)
+    dropped, _ = ready_cluster(db, guide)
+    register(client, users, kept)
+    register(client, users, dropped)
+    db.expire_all()
+    version_id = kept.registered_version_id
+    assert reject(client, users, dropped).status_code == 200
+
+    res = register(client, users, kept)
+
+    assert res.status_code == 200
+    assert calls[-1]["version_id"] == version_id
+    assert [c["id"] for c in calls[-1]["clusters"]] == [kept.id]
+    db.expire_all()
+    assert kept.registered_version_id == version_id
+    assert dropped.registered_version_id is None
+    assert dropped.status == "REJECTED"
+    assert ingests[-1] == version_id
+
+
+def test_reregister_without_reject_refused(client, users, db, guide, assembled):
+    calls, _ = assembled
+    cluster, _ = ready_cluster(db, guide)
+    register(client, users, cluster)
+
+    res = register(client, users, cluster)
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_REGISTERED")
+    assert len(calls) == 1
+
+
+def test_register_reuses_version_with_only_rejected_clusters(client, users, db, guide, assembled):
+    calls, _ = assembled
+    dropped, _ = ready_cluster(db, guide)
+    register(client, users, dropped)
+    db.expire_all()
+    version_id = dropped.registered_version_id
+    reject(client, users, dropped)
+    cluster, _ = ready_cluster(db, guide)
+
+    assert register(client, users, cluster).status_code == 200
+    assert calls[-1]["version_id"] == version_id
+    assert [c["id"] for c in calls[-1]["clusters"]] == [cluster.id]
+    db.expire_all()
+    assert dropped.registered_version_id is None
+
+
+@pytest.mark.parametrize("judgment", ["NEW_GUIDE", "MANUAL_CANDIDATE"])
+def test_register_refuses_unsupported_judgment(client, users, db, guide, assembled, judgment):
+    cluster, _ = ready_cluster(db, guide, judgment=judgment)
+
+    res = register(client, users, cluster)
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_NOT_REGISTRABLE")
+    assert res.json()["error"]["details"][0]["reason"] == "JUDGMENT"
+    assert assembled[0] == []
+
+
+@pytest.mark.parametrize("missing", ["draft_md", "draft_basis"])
+def test_register_refuses_cluster_without_draft(client, users, db, guide, assembled, missing):
+    cluster, _ = ready_cluster(db, guide, judgment="SEC_MANUAL", **{missing: None})
+
+    res = register(client, users, cluster)
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_NOT_REGISTRABLE")
+    assert res.json()["error"]["details"][0]["reason"] == "NO_DRAFT"
+
+
+def test_register_stale_revision(client, users, db, guide, assembled):
+    cluster, _ = ready_cluster(db, guide, draft_revision=2)
+
+    res = register(client, users, cluster, revision=1)
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_DRAFT_CONFLICT")
+    assert assembled[0] == []
+
+
+def test_register_base_changed(client, users, db, guide, assembled):
+    _, _, draft = guide
+    cluster, _ = ready_cluster(db, guide, base_version_id=draft.id)
+
+    res = register(client, users, cluster)
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_BASE_CHANGED")
+    assert assembled[0] == []
+
+
+@pytest.mark.parametrize("status", ["APPLIED", "REJECTED"])
+def test_register_only_reviewing(client, users, db, guide, assembled, status):
+    cluster, _ = ready_cluster(db, guide, status=status)
+
+    res = register(client, users, cluster)
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_NOT_REVIEWING")
+
+
+def test_register_assemble_refused(client, users, db, guide, assembled):
+    _, ingests = assembled
+
+    def refuse(*args, **kwargs):
+        raise CaseGuideError(["묶음 1: 기준 원문이 지금 현행 파일과 다릅니다. 다시 맞춰 주세요"])
+
+    app.dependency_overrides[guide_assembler] = lambda: refuse
+    cluster, _ = ready_cluster(db, guide)
+
+    res = register(client, users, cluster)
+
+    assert (res.status_code, error_code(res)) == (409, "GUIDE_CLUSTER_ASSEMBLE_FAILED")
+    assert res.json()["error"]["details"][0]["message"].startswith("묶음 1:")
+    db.expire_all()
+    assert cluster.registered_version_id is None
+    assert ingests == []
+
+
+def test_register_removes_file_when_save_fails(client, users, db, guide, assembled, tmp_path, monkeypatch):
+    _, ingests = assembled
+    cluster, _ = ready_cluster(db, guide)
+    original = db.commit
+    monkeypatch.setattr(db, "commit", lambda: (_ for _ in ()).throw(RuntimeError("저장 실패")))
+
+    with pytest.raises(RuntimeError):
+        register(client, users, cluster)
+
+    monkeypatch.setattr(db, "commit", original)
+    assert not (tmp_path / "1.md").exists()
+    assert ingests == []
+    db.expire_all()
+    assert cluster.registered_version_id is None
+
+
+@pytest.mark.parametrize("who", ["employee", "agent"])
+def test_register_admin_only(client, users, db, guide, assembled, who):
+    cluster, _ = ready_cluster(db, guide)
+
+    assert error_code(register(client, users, cluster, who=who)) == "FORBIDDEN"
+
+
+@pytest.mark.parametrize("body", [
+    {"viewScope": "ALL", "transferPolicy": "BLOCKED"},
+    {"draftRevision": 0, "transferPolicy": "BLOCKED"},
+    {"draftRevision": 0, "viewScope": "ALL"},
+    {"draftRevision": 0, "viewScope": "EVERYONE", "transferPolicy": "BLOCKED"},
+    {"draftRevision": 0, "viewScope": "ALL", "transferPolicy": "OPEN"},
+])
+def test_register_validation(client, users, db, guide, assembled, body):
+    cluster, _ = ready_cluster(db, guide)
+
+    res = client.post(f"{API}/{cluster.id}/register", headers=users["admin"], json=body)
+
+    assert (res.status_code, error_code(res)) == (422, "VALIDATION_ERROR")
+
+
+def test_register_not_found(client, users, assembled):
+    res = client.post(f"{API}/999/register", headers=users["admin"],
+                      json={"draftRevision": 0, "viewScope": "ALL", "transferPolicy": "BLOCKED"})
+
+    assert (res.status_code, error_code(res)) == (404, "GUIDE_CLUSTER_NOT_FOUND")
