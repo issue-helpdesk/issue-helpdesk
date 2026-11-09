@@ -6,7 +6,7 @@
  * 승인한 카드는 등록한 버전의 본문과 처리 이력을 따로 볼 수 있고, 현행 전환은 가이드 목록에서 열람 범위를 확인하며 한다.
  * 패널은 화면 전체 틀(<main> 밖)에 열려야 해서 여는 동작만 받고 패널은 가이드 관리 화면이 그린다.
  */
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { CATEGORIES } from '../../api/catalog'
 import { CASES_FROM_SERVER, getAllCases, getAnalysisStatus, getServerLoad, loadAnalysisStatus, loadCases, subscribeAllCases, subscribeServerCases } from '../../api/caseClusters'
 import type { CategoryCode } from '../../api/chatTypes'
@@ -33,7 +33,7 @@ function analysisTimes() {
 type View = 'review' | 'approved' | 'dropped'
 const inView = (v: View, c: CaseItem) => (v === 'review' ? c.state === 'review' : v === 'dropped' ? c.state === 'dropped' : c.state !== 'review' && c.state !== 'dropped')
 
-export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: CaseItem) => void; onVersion: (c: CaseItem) => void; onGoLive: (c: CaseItem) => void }) {
+export function CaseGuideTab({ guide, onClearGuide, onReview, onVersion, onGoLive }: { guide?: { docCode: string; title: string } | null; onClearGuide?: () => void; onReview: (c: CaseItem) => void; onVersion: (c: CaseItem) => void; onGoLive: (c: CaseItem) => void }) {
   const cases = useSyncExternalStore(subscribeAllCases, getAllCases)
   const load = useSyncExternalStore(subscribeServerCases, getServerLoad)
   const status = useSyncExternalStore(subscribeServerCases, getAnalysisStatus)
@@ -49,11 +49,18 @@ export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: 
   const [cat, setCat] = useState('')
   const { say, fail } = useToast()
   const t = analysisTimes()
+  const guideNotice = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (guide) guideNotice.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [guide])
 
-  const pool = cases.filter((c) => inView(view, c))
+  // 탭 건수와 목록에 같은 문서 조건을 적용해, 다른 가이드의 제안과 섞이지 않게 한다.
+  const scoped = guide ? cases.filter((c) => c.target?.docCode === guide.docCode || c.registered?.docCode === guide.docCode) : cases
+  const pool = scoped.filter((c) => inView(view, c))
   const cats = (Object.keys(CATEGORIES) as CategoryCode[]).filter((k) => pool.some((c) => c.cat === k))
-  const shown = pool.filter((c) => !cat || c.cat === cat).sort((a, b) => b.tickets.length - a.tickets.length || a.topic.localeCompare(b.topic))
-  const count = (v: View) => cases.filter((c) => inView(v, c)).length
+  // 목록에는 상세 티켓이 없을 수 있어, 패널 조회 여부와 무관한 서버의 근거 건수로 정렬한다.
+  const shown = pool.filter((c) => !cat || c.cat === cat).sort((a, b) => b.ticketCount - a.ticketCount || a.topic.localeCompare(b.topic))
+  const count = (v: View) => scoped.filter((c) => inView(v, c)).length
   const go = (v: View) => {
     setView(v)
     setCat('')
@@ -103,6 +110,17 @@ export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: 
         )}
       </div>
 
+      {guide && (
+        <div className="alert guide-scope" ref={guideNotice} role="status" aria-label="가이드별 제안">
+          <Icon name="file" />
+          <div>
+            <b><span className="mono">{guide.docCode}</span> {guide.title}</b>
+            <p style={{ margin: '4px 0 8px' }}>이 가이드에 해당하는 제안만 보고 있어요.</p>
+            <button type="button" className="btn sec sm" onClick={onClearGuide}>전체 제안 보기</button>
+          </div>
+        </div>
+      )}
+
       {CASES_FROM_SERVER && load.error && (
         <div className="alert err" role="alert">
           <Icon name="alert" />
@@ -128,7 +146,7 @@ export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: 
           {shown.map((c) => {
             const changed = baseChanged(c) && c.state === 'review'
             return (
-              <section key={c.id} className="panel cgc" aria-label={c.topic}>
+              <section key={c.id} className={`panel cgc${c.state === 'review' ? ' cgc-review' : ''}`} aria-label={c.topic}>
                 <div className="cgh">
                   <span className={`tag c-${c.cat}`}>{CATEGORIES[c.cat].name}</span>
                   <b className="cgt">{c.kind === 'new' ? c.title || c.topic : c.topic}</b>

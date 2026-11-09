@@ -165,6 +165,24 @@ describe('검토 패널 (서버 연결)', () => {
     expect(within(panel).getByRole('button', { name: '다시 맞추기' })).toBeInTheDocument()
   })
 
+  it('등록한 초안의 기준이 바뀌어도 다시 맞추기로 검토·재등록을 이어갈 수 있다', async () => {
+    let rebased = false
+    route = (m, p) => {
+      if (m === 'POST' && p === '/guide-clusters/12/rebase') {
+        rebased = true
+        return json(200, detail({ draftRevision: 3, currentVersion: ver({ id: 33, version: 'v2.1' }), baseVersion: ver({ id: 33, version: 'v2.1' }) }))
+      }
+      if (m === 'GET' && p === '/guide-clusters/12') return json(200, detail({ registeredVersion: rebased ? null : ver({ id: 40, version: 'v2.2', isCurrent: false }), baseChanged: !rebased, currentVersion: ver({ id: 33, version: 'v2.1' }) }))
+    }
+    await mountPanel()
+    const panel = await screen.findByRole('complementary', { name: '가이드 초안 검토' })
+    const rebase = await within(panel).findByRole('button', { name: '다시 맞추기' })
+    expect(within(panel).getByRole('button', { name: '현행으로 전환' })).toBeDisabled()
+    await userEvent.click(rebase)
+    expect(await within(panel).findByRole('button', { name: '승인하고 초안 등록' })).toBeEnabled()
+    expect(bodyOf('POST', '/guide-clusters/12/rebase')).toEqual({ draftRevision: 2 })
+  })
+
   it('풀리지 않은 충돌은 예전 원문과 지금 현행 원문을 나란히 보이고 등록을 막는다', async () => {
     route = (m, p) =>
       m === 'GET' && p === '/guide-clusters/12'
