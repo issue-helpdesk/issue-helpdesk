@@ -314,7 +314,7 @@ create:
   browse_path: /browse/            # 티켓 주소 = JIRA_BASE_URL + browse_path + 키
 
   # 접수 데이터에 반드시 있어야 하는 키
-  required: [receipt_no, title, category_code, urgency, group_name]
+  required: [receipt_no, title, urgency, group_name]   # category_code 는 AI 가 분류하지 못한 접수(미분류)도 만들어야 해서 뺐다
 
   # 항상 같은 값 (07 API 계약서 5장)
   constants:

@@ -240,13 +240,13 @@ def test_latest_pending_status_overrides_old_synced_snapshot(db):
 def test_partial_payload_is_not_supplemented_from_current_ticket(db):
     ticket = make_ticket(db)
     job = make_job(db, ticket)
-    job.payload = {k: v for k, v in job.payload.items() if k != "categoryCode"}
+    job.payload = {k: v for k, v in job.payload.items() if k != "urgency"}
     db.commit()
     jira = FakeJira()
 
     result = jira_create.run_jira_create_job(db, jira.client(), job.id, now=T0)
 
-    assert (result.outcome, result.reason) == ("NEEDS_ADMIN", "missing_value: categoryCode")
+    assert (result.outcome, result.reason) == ("NEEDS_ADMIN", "missing_value: urgency")
     assert jira.calls == []
 
 
