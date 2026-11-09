@@ -73,6 +73,7 @@ def reserve_assignment(
     # revision 이 올라가면 이전 배정의 실패 작업은 재처리해도 거절된다. 열어 두면 Jira 직접 변경까지 막는다 (06 R-49)
     supersede_assign_failures(db, ticket.id, "assign", now)
     previous = ticket.assignee_id
+    previous_account = repo.jira_account(ticket.group_id, previous)   # 그룹이 바뀌기 전에 기존 담당자 기준으로 찾는다
     ticket.assignment_revision += 1
     ticket.group_id = group_id
     ticket.assignee_id = chosen.user_id if chosen else None
@@ -91,6 +92,7 @@ def reserve_assignment(
             "groupId": group_id,
             "assigneeId": chosen.user_id,
             "jiraAccountId": chosen.jira_account_id,
+            "previousJiraAccountId": previous_account,
             "assignmentRevision": ticket.assignment_revision,
             "requestedBy": actor_id,
             "requestedAt": now.isoformat(),
