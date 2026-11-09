@@ -145,7 +145,7 @@ out = rebase(conn, document_id, {'judgment', 'draft_md', 'draft_basis', 'receipt
 
 같은 접수 번호 표식이 새 현행에 이미 있으면 경고 (등록 때 `assemble` 이 거부).
 
-**안 풀린 충돌**: 예전 `draft_basis.conflicts.revision` 이 지금 `draft_revision` 과 같으면 (관리자가 조각을 아직 저장하지 않음) 비교 기준을 그 충돌의 `old_md` (조각이 만들어진 원문) 로 둔다 — 다시 맞추기를 거듭해도 충돌이 사라지지 않는다. 저장해 번호가 올라갔으면 풀린 것으로 보고 직전 `target_md` 와 비교. 예전 충돌이 있는데 `draft_revision` 을 안 주면 거부. **API 는 `draft_revision` 을 꼭 넘겨 주세요.**
+**안 풀린 충돌**: 예전 `draft_basis.conflicts.revision` 이 지금 `draft_revision` 과 같으면 (관리자가 조각을 아직 저장하지 않음) 비교 기준을 그 충돌의 `old_md` (조각이 만들어진 원문) 로 둔다 — 다시 맞추기를 거듭해도 충돌이 사라지지 않는다. 저장해 번호가 올라갔으면 풀린 것으로 보고 직전 `target_md` 와 비교. 예전 충돌이 있는데 `draft_revision` 을 안 주면 거부. 예전 충돌 기록의 모양이 틀리거나(객체·`items`·정수 `revision`) 안 풀린 충돌에 대상 항목의 `old_md` 가 없으면 풀렸다고 추정하지 않고 거부. **API 는 `draft_revision` 을 꼭 넘겨 주세요.**
 
 ## 초안 기준 `open_basis()` · `ticket_fragment()` (`open_basis.py`, 기획 v4)
 
