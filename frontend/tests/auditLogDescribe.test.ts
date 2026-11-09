@@ -10,6 +10,9 @@ const d = (eventType: string, result: string | null, reason: string | null = nul
 describe('이벤트 사전', () => {
   it('지원하는 이벤트가 모두 한글 이름과 색을 가진다', () => {
     const server = [
+      'SECURITY_ALERT_REVIEW',
+      'SECURITY_ALERT_CLOSE',
+      'SECURITY_ALERT_VIEW',
       'SENSITIVE_INPUT',
       'BLOCK',
       'FAIL',
@@ -43,6 +46,14 @@ describe('이벤트 사전', () => {
 })
 
 describe('describeAudit', () => {
+  it('보안 알림의 대상·결과를 번역하고 사유와 알 수 없는 결과는 보존한다', () => {
+    expect(TARGET_LABEL.security_alert).toBe('보안 알림')
+    expect(TARGET_KINDS).toContain('security_alert')
+    expect(d('SECURITY_ALERT_REVIEW', 'REVIEW').out).toBe('확인 시작')
+    expect(d('SECURITY_ALERT_CLOSE', 'CLOSE', '정상 문의 확인')).toMatchObject({ out: '종결', reason: '정상 문의 확인' })
+    expect(d('SECURITY_ALERT_VIEW', 'VIEW_ORIGINAL').out).toBe('저장된 문의 열람')
+    expect(d('SECURITY_ALERT_VIEW', 'UNKNOWN').out).toBe('UNKNOWN')
+  })
   it('가이드화 결과의 종류·상태만 번역하고 번호·버전·사유와 모르는 값은 보존한다', () => {
     expect(TARGET_LABEL.guide_cluster).toBe('AI 가이드 제안')
     expect(TARGET_KINDS).toContain('guide_cluster')
