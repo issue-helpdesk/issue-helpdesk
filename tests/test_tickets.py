@@ -108,8 +108,22 @@ def test_create_draft_without_assessment_goes_to_service_desk(client, db, header
 
     body = create_draft(client, headers, inquiry_id).json()
 
-    assert (body["summary"], body["urgency"], body["categoryCode"]) == (None, None, None)
+    assert (body["urgency"], body["categoryCode"]) == (None, None)
+    assert body["summary"]                                  # AI 요약이 없어도 사용자가 보낸 글로 채운다 (접수가 막히지 않게)
     assert body["recommendedGroupId"] == desk.id
+
+
+def test_create_draft_after_refusal_uses_user_message_as_summary(client, db, headers, ai, taxonomy):
+    from app.agent.llm import LLMError
+    ai.replies = [LLMError('REFUSAL', 'mock')]
+    res = start(client, headers)
+    inquiry_id = db.scalar(select(Inquiry.id))
+
+    body = create_draft(client, headers, inquiry_id).json()
+
+    sent = next(m['content'] for m in res.json()['messages'] if m['sender'] == 'USER')
+    assert body["summary"] == sent.strip()
+    assert body["targetSystem"] is None                     # 알 수 없는 항목은 비워 둔다
 
 
 def test_create_draft_twice(client, headers, answered, draft):

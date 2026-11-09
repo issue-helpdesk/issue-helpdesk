@@ -72,6 +72,7 @@ from app.utils import datetime_utils
 logger = logging.getLogger(__name__)
 
 TRIAGE_REASON = "서비스데스크 확인"
+SUMMARY_MAX = 2000                        # 초안 문의 요약 상한 (DraftUpdateRequest.summary)
 # 허용하는 업무 상태 변경 (API 03 1.3). 누가 요청할 수 있는지는 required_role()
 TRANSITIONS = {("RDY", "WIP"), ("WIP", "FIN"), ("FIN", "CLS"), ("FIN", "WIP")}
 NOTE_EDITABLE = ("WIP", "FIN")            # 처리 결과만 고칠 수 있는 상태
@@ -114,10 +115,14 @@ class TicketService:
 
         assessments = self.inquiries.assessments(inquiry.id)
         last = assessments[-1] if assessments else None
+        fields = facts_fields(facts_of(last) if last else None)
+        if not fields.get("summary"):
+            # AI 요약이 없으면(안전 거절·AI 실패) 사용자가 처음 보낸 글로 채운다. 비어 있으면 접수가 막히고 담당자도 내용을 모른다
+            fields["summary"] = self.first_user_text(inquiry.id, session.id)
         draft = self.tickets.add(TicketDraft(
             inquiry_id=inquiry.id,
             session_id=session.id,
-            **facts_fields(facts_of(last) if last else None),
+            **fields,
             category_code=inquiry.category_code,
             inquiry_type_id=inquiry.inquiry_type_id,
             urgency=inquiry.urgency,
@@ -129,6 +134,12 @@ class TicketService:
         self.inquiries.add_draft_card(session.id, draft.id)
         self.db.commit()
         return self.to_draft(draft)
+
+    def first_user_text(self, inquiry_id: int, session_id: int) -> str | None:
+        """사용자가 처음 보낸 글. 저장 전에 민감정보를 가린 글이다 (docs/10 4장 ①). 요약 상한 안으로 자른다."""
+        first = next((m for m in self.inquiries.inquiry_messages(inquiry_id, session_id)
+                      if m.sender == "USER" and m.content), None)
+        return first.content.strip()[:SUMMARY_MAX] if first else None
 
     def get_draft(self, draft_id: int, user: User) -> TicketDraftView:
         """TK-02."""
