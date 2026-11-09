@@ -52,7 +52,8 @@ export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: 
 
   const pool = cases.filter((c) => inView(view, c))
   const cats = (Object.keys(CATEGORIES) as CategoryCode[]).filter((k) => pool.some((c) => c.cat === k))
-  const shown = pool.filter((c) => !cat || c.cat === cat).sort((a, b) => b.tickets.length - a.tickets.length || a.topic.localeCompare(b.topic))
+  // 목록에는 상세 티켓이 없을 수 있어, 패널 조회 여부와 무관한 서버의 근거 건수로 정렬한다.
+  const shown = pool.filter((c) => !cat || c.cat === cat).sort((a, b) => b.ticketCount - a.ticketCount || a.topic.localeCompare(b.topic))
   const count = (v: View) => cases.filter((c) => inView(v, c)).length
   const go = (v: View) => {
     setView(v)

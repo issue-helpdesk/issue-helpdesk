@@ -55,8 +55,9 @@ interface Cluster {
 
 const ver = (id: number, version: string, current: boolean): Doc['versions'][number] => ({ id, version, isCurrent: current, ingestStatus: 'DONE', viewScope: 'ALL', transferPolicy: 'ALLOWED', versionState: current ? 'CURRENT' : 'EXPIRED', ingestError: null })
 
+// 등록 완료 제안(107번)이 가리키는 초안도 버전 목록에 둔다. 안내만 있고 전환할 행이 빠지지 않게 한다.
 const seedDocs = (): Doc[] => [
-  { id: 1, docCode: 'IT-NET-001', docType: 'GUIDE', title: 'VPN 접속 장애 대응 가이드', categoryCode: 'NET', isActive: true, versions: [ver(12, 'v2.0', true)] },
+  { id: 1, docCode: 'IT-NET-001', docType: 'GUIDE', title: 'VPN 접속 장애 대응 가이드', categoryCode: 'NET', isActive: true, versions: [{ ...ver(14, 'v2.1', false), versionState: 'DRAFT' }, ver(12, 'v2.0', true)] },
   { id: 2, docCode: 'IT-ACC-001', docType: 'GUIDE', title: '사내 SSO 로그인 오류 대응 가이드', categoryCode: 'ACC', isActive: true, versions: [ver(21, 'v2.1', true)] },
   { id: 3, docCode: 'IT-SW-001', docType: 'GUIDE', title: '업무용 SW 설치 가이드', categoryCode: 'SW', isActive: true, versions: [ver(31, 'v1.0', true)] },
   { id: 4, docCode: 'IT-HW-005', docType: 'GUIDE', title: '노트북 배터리 점검 가이드 (버전 없음)', categoryCode: 'HW', isActive: true, versions: [] },

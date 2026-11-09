@@ -246,7 +246,7 @@ export function GuidesView() {
     const list = vers[g.id] ?? g.versions
     const ci = caseInfo.get(g.docCode)
     return (
-      <div className={`gprow${g.isActive ? '' : ' off'}${focus?.docId === g.id ? ' gfocus' : ''}`} key={g.id} data-doc={g.id}>
+      <div className={`gprow${g.isActive ? '' : ' off'}`} key={g.id} data-doc={g.id}>
         <div className="gprh">
         <button type="button" className="grb" aria-expanded={open} onClick={() => setOpenId(open ? null : g.id)}>
           <span className="grt">
@@ -336,6 +336,7 @@ export function GuidesView() {
                     <tr key={v.id} data-ver={v.id} className={[v.state === '현행' ? 'vcur' : v.state === '만료' ? 'vold' : '', focus?.versionId === v.id && focus.docId === g.id ? 'vfocus' : ''].filter(Boolean).join(' ') || undefined}>
                       <td>
                         <b>{v.version}</b>
+                        {focus?.docId === g.id && focus.versionId === v.id && <span className="vfocus-note">전환할 버전</span>}
                       </td>
                       <td className="c">
                         <StateBadge tone={v.state === '현행' ? 'ok' : v.state === '초안' ? 'warn' : 'recv'} label={v.state} />
