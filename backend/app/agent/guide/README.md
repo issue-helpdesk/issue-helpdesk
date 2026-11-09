@@ -9,7 +9,9 @@ judged, drafted = run_round(session, port, search_fn, embed_fn)   # 판단 → �
 # embed_fn: 글 목록 → 벡터 목록 (Embedder('bge-m3').embed_documents). 기준값이 bge-m3 로 정해졌다
 ```
 
-7일 실행 연결은 박민경 님 담당이다. `case` 를 주지 않으면 이 Session 의 PostgreSQL 연결로 김태연 님 `case_guide` 함수를 부른다.
+7일 실행은 서버의 `guide-worker` 컨테이너가 매주 월요일 00:00(KST)에 한다 (`app/workers/guide_analysis.py`). 지금 바로 한 번 돌리려면 `python -m app.workers.guide_analysis --once`.
+
+`case` 를 주지 않으면 이 Session 의 PostgreSQL 연결로 김태연 님 `case_guide` 함수를 부른다.
 
 ## 파일
 

@@ -18,3 +18,13 @@ def to_kst(value: datetime) -> datetime:
 
 def kst_start(day: date) -> datetime:
     return datetime.combine(day, time.min, KST).astimezone(timezone.utc)
+
+
+def kst_week_start(value: datetime) -> datetime:
+    """value 가 속한 주의 월요일 00:00 (KST). 돌려주는 값은 UTC."""
+    day = to_kst(value).date()
+    return kst_start(day - timedelta(days=day.weekday()))
+
+
+def kst_next_week_start(value: datetime) -> datetime:
+    return kst_week_start(value) + timedelta(days=7)

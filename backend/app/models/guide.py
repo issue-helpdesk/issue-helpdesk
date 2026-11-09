@@ -2,10 +2,11 @@
 
 guide_clusters      : 주간 분석이 묶은 해결 티켓 묶음과 그 초안·검토 정보·등록 연결
 ticket_guide_states : 티켓별 가이드화 상태. tickets(Jira 연동)와 나눠 둔다. 행이 없으면 아직 분석하지 않은 티켓이다
+guide_analysis_runs : 주간 분석 실행 기록
 """
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, Identity, Integer, func, text
+from sqlalchemy import CheckConstraint, ForeignKey, Identity, Index, Integer, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -14,6 +15,7 @@ from app.models.base import Base
 CLUSTER_JUDGMENTS = ("ADD_ITEM", "CHANGE", "NEW_GUIDE", "MANUAL_CANDIDATE", "SEC_MANUAL")
 CLUSTER_STATUSES = ("REVIEWING", "APPLIED", "REJECTED")
 TICKET_GUIDE_STATUSES = ("WAITING", "EXCLUDED", "REVIEWING", "APPLIED", "REJECTED")
+ANALYSIS_RUN_STATUSES = ("RUNNING", "SUCCEEDED", "FAILED")
 IN_CLUSTER = "('REVIEWING', 'APPLIED', 'REJECTED')"     # 묶음에 속한 티켓의 상태 = 그 묶음의 상태
 
 
@@ -76,3 +78,22 @@ class TicketGuideState(Base):
     fail_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))   # 성공하면 0
     exclude_reason: Mapped[str | None]                  # AI 가 제외한 이유. EXCLUDED 일 때만
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class GuideAnalysisRun(Base):
+    """주간 분석 시도 하나. 같은 회차를 또 돌리지 않고, 놓친 회차를 찾고, 화면에 마지막·다음 분석을 보여 주는 데 쓴다."""
+    __tablename__ = "guide_analysis_runs"
+    __table_args__ = (
+        CheckConstraint(f"status in ({_values(ANALYSIS_RUN_STATUSES)})", name="status"),
+        CheckConstraint("(status = 'RUNNING') = (finished_at is null)", name="finished_ref"),
+        Index("uq_guide_analysis_runs_running", "status", unique=True,      # 실행 중인 분석은 하나뿐
+              postgresql_where=text("status = 'RUNNING'"), sqlite_where=text("status = 'RUNNING'")),
+    )
+
+    id: Mapped[int] = mapped_column(Identity(), primary_key=True)
+    scheduled_for: Mapped[datetime | None]              # 회차 (그 주 월요일 00:00 KST). 직접 실행(--once)은 비어 있다
+    status: Mapped[str]
+    started_at: Mapped[datetime]
+    finished_at: Mapped[datetime | None]
+    counts: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'"))    # 처리 건수 (넘김·제외·새 묶음 등)
+    error_code: Mapped[str | None]                      # 회차 전체가 실패한 이유. 오류 종류만
