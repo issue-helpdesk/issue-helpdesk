@@ -349,6 +349,9 @@ class InquiryService:
             self.audit_logs.add(event_type, "inquiry", inquiry_id, result=outcome, reason=reason)
         if result.failure == "ALL_BLOCKED":
             detect(self.alerts, "BLOCKED_DOC_QUERY", inquiry.user_id, "inquiry", inquiry_id)
+        # AI 가 보안 검토 기준(S01~S06)에 해당한다고 판단한 문의. 기준마다 알림 하나로 합쳐진다
+        for rule in dict.fromkeys(result.output.security_rule_ids):
+            detect(self.alerts, rule, inquiry.user_id, "inquiry", inquiry_id)
 
     def find_viewable(self, inquiry_id: int, viewer: User) -> Inquiry:
         inquiry = self.inquiries.get(inquiry_id)
@@ -506,6 +509,7 @@ def ai_audit_events(result: FlowResult) -> list[tuple[str, str, str | None]]:
         events.append(("FAIL", "FILTER_FAILED", "④ 외부 모델 호출 직전"))
     elif result.failure == "AI_FAILED":
         events.append(("FAIL", "AI_FAILED", result.error_code))
+    events += [("SECURITY_REVIEW", rule, None) for rule in dict.fromkeys(result.output.security_rule_ids)]
     return events
 
 

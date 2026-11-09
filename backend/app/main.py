@@ -17,6 +17,7 @@ from app.api import (
     jira_webhook,
     notifications,
     reference,
+    security_alerts,
     tickets,
     time_off,
     users,
@@ -70,3 +71,4 @@ app.include_router(jira_webhook.router, prefix=API_VERSION_V1)
 app.include_router(notifications.router, prefix=API_VERSION_V1)
 app.include_router(dashboard.router, prefix=API_VERSION_V1)
 app.include_router(audit_logs.router, prefix=API_VERSION_V1)
+app.include_router(security_alerts.router, prefix=API_VERSION_V1)
