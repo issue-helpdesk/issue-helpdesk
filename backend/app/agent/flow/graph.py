@@ -133,7 +133,7 @@ def next_step(out: AIOutput, overrides: list[dict], second: bool, failure: str |
         return 'collect'
     if second:
         return 'answered' if out.action == 'ANSWER' else 'offer'
-    # 1차: 긴급 징후·추가 질문 상한(T04)·호출 실패(T11)만 여기서 끝낸다. 그 밖의 ESCALATE·ANSWER·OUT_OF_SCOPE 는 검색으로
-    if failure or out.urgent_signal or any(o['rule'] in LIMIT_RULES for o in overrides):
+    # 1차: 긴급 징후·보안 검토 기준·추가 질문 상한(T04)·호출 실패(T11)만 여기서 끝낸다. 그 밖의 ESCALATE·ANSWER·OUT_OF_SCOPE 는 검색으로
+    if failure or out.urgent_signal or out.security_rule_ids or any(o['rule'] in LIMIT_RULES for o in overrides):
         return 'offer'
     return None

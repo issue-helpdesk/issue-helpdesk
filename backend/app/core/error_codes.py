@@ -103,3 +103,8 @@ class ErrorCode(Enum):
     FAQ_NOT_FOUND = (404, "FAQ를 찾을 수 없습니다.")
     FAQ_CODE_DUPLICATE = (409, "이미 등록된 FAQ 번호입니다.")
     FAQ_SOURCE_NOT_PUBLIC = (409, "공개 가능한 현행 출처를 확인한 뒤 게시해 주세요.")
+
+    # 보안·감사 알림 (1C)
+    SECURITY_ALERT_NOT_FOUND = (404, "보안 알림을 찾을 수 없습니다.")
+    SECURITY_ALERT_NO_ORIGINAL = (409, "열람할 문의 내용이 없는 알림입니다.")
+    SECURITY_ALERT_INVALID_STATE = (409, "현재 알림 상태에서는 처리할 수 없습니다.")

@@ -12,6 +12,7 @@ import os
 import re
 from dataclasses import dataclass
 
+from app.constants.security import AI_SECURITY_RULE_IDS
 from app.agent.llm import AIInput, AIOutput, Facts, Taxonomy
 from app.agent.llm.schemas import (ACTIONS, CATEGORY_CODES, ESCALATION_REASONS, EVIDENCE_KINDS, IMPACT_SCOPES,
                                    MISSING_ITEMS, REQUEST_KINDS, URGENCIES, WORK_STOPPED)
@@ -27,6 +28,8 @@ OTHER = '그 밖'                                     # AI 가 options 에 넣�
 ALLOW_TEXT = {'대상': True, '상황': True, '영향 범위': False, '화면 메시지': True}
 # 질문을 빼면 reply 에 인사만 남으므로, 되묻기가 담당자 연결로 바뀌면 이 글로 바꾼다
 ASK_TO_HANDOFF = '지금까지 내용만으로는 정확히 안내해 드리기 어려워요. 담당자에게 연결해 드릴까요?'
+# 보안 검토 기준에 걸린 문의는 AI 가 방법을 안내하지 않는다. 어떤 기준인지도 말하지 않는다
+SECURITY_HANDOFF = '이 요청은 제가 직접 안내해 드리기 어려워요. 담당자에게 연결해 드릴까요?'
 
 # 9단계 검사. 문장 하나에 "하지 마세요"가 있으면 안내로 보고 넘긴다 ("비밀번호는 알려 주지 마세요")
 SENTENCE = re.compile(r'[^.!?\n]+')
@@ -121,6 +124,18 @@ def correct(out: AIOutput, inp: AIInput, *, second: bool, sent: Filtered | None,
             name = f'facts.{key}' if target is f else key
             o.append(override(name, target[key], None, 'INVALID_VALUE', '허용값 밖의 값'))
             target[key] = None
+    # 보안 검토 기준. 중복·모르는 값을 정리한다. S01(사고 의심)은 사고 신호이므로 보안 의심·긴급 징후도 함께 세운다
+    rules = [r for r in dict.fromkeys(d['security_rule_ids']) if r in AI_SECURITY_RULE_IDS]
+    if rules != d['security_rule_ids']:
+        o.append(override('security_rule_ids', d['security_rule_ids'], rules, 'INVALID_VALUE', '중복이거나 허용값 밖의 보안 기준'))
+        d['security_rule_ids'] = rules
+    if 'S01' in rules:
+        if not f['security_suspected']:
+            o.append(override('facts.security_suspected', False, True, 'SECURITY_REVIEW', '보안 사고 의심 기준(S01)'))
+            f['security_suspected'] = True
+        if not d['urgent_signal']:
+            o.append(override('urgent_signal', False, True, 'SECURITY_REVIEW', '보안 사고 의심 기준(S01)'))
+            d['urgent_signal'] = True
     if f['work_stopped'] not in WORK_STOPPED:          # null 을 받지 않는 칸이라 '모름'으로 둔다
         o.append(override('facts.work_stopped', f['work_stopped'], 'unknown', 'INVALID_VALUE', '허용값 밖의 값'))
         f['work_stopped'] = 'unknown'
@@ -183,6 +198,8 @@ def correct(out: AIOutput, inp: AIInput, *, second: bool, sent: Filtered | None,
         d['urgent_signal'] = True
     if d['urgent_signal'] and d['action'] != 'ESCALATE':
         escalate('긴급대응', 'URGENT_SIGNAL', '긴급 징후는 담당자 연결')
+    if rules and d['action'] != 'ESCALATE':             # 보안 기준에 걸리면 답하지 않고 담당자 연결을 제안한다
+        escalate('긴급대응' if d['urgent_signal'] else '전문판단', 'SECURITY_REVIEW', '보안 검토 기준 해당')
     if d['action'] != 'ESCALATE' and d['escalation_reason'] is not None:    # 08 2.5: ESCALATE 가 아니면 null
         o.append(override('escalation_reason', d['escalation_reason'], None, 'INVALID_VALUE', '담당자 연결이 아님'))
         d['escalation_reason'] = None
@@ -199,6 +216,12 @@ def correct(out: AIOutput, inp: AIInput, *, second: bool, sent: Filtered | None,
         if [q | {'allow_text': None} for q in cut] != [q | {'allow_text': None} for q in d['questions']]:
             o.append(override('questions', d['questions'], cut, 'INVALID_VALUE', '질문·선택지를 맞춤'))
         d['questions'] = cut
+
+    # 보안 기준에 걸린 문의의 reply 는 고정 문구로 바꾼다. AI 가 우회 방법을 설명했을 수 있다 (위 질문 정리 뒤에 둔다)
+    if rules:
+        if d['reply'] != SECURITY_HANDOFF:
+            o.append(override('reply', d['reply'], SECURITY_HANDOFF, 'SECURITY_REVIEW', '보안 검토 기준 해당 문의는 고정 문구로 안내'))
+        d['reply'], d['questions'] = SECURITY_HANDOFF, []
 
     return Corrected(AIOutput.model_validate(d), tuple(o))
 

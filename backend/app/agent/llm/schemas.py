@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.constants.security import AI_SECURITY_RULE_IDS
 from app.rag.search.result import SearchResponse
 
 SCHEMA_VERSION = '1.0'
@@ -40,6 +41,7 @@ WorkStopped = Annotated[str, _enum(WORK_STOPPED)]
 MissingItem = Annotated[str, _enum(MISSING_ITEMS)]
 EvidenceKind = Annotated[str, _enum(EVIDENCE_KINDS)]
 EscalationReason = Annotated[str | None, _enum(ESCALATION_REASONS, nullable=True)]
+SecurityRuleId = Annotated[str, _enum(AI_SECURITY_RULE_IDS)]
 
 
 class _Strict(BaseModel):
@@ -119,13 +121,16 @@ class AIOutput(_Strict):
     missing_items: list[MissingItem]
     escalation_reason: EscalationReason
     confidence: float | None = Field(ge=0, le=1)
+    # 해당하는 보안 검토 기준(S01~S06). 없으면 []. 개수 상한(max_length)은 걸지 않는다:
+    # 출력 형식이 maxItems 를 받지 않아 모든 호출이 400 으로 실패한다 (PR #325 되돌림 원인). 중복·잘못된 값은 correct 가 정리한다
+    security_rule_ids: list[SecurityRuleId]
 
     @model_validator(mode='before')
     @classmethod
     def _old_output(cls, v):
-        """questions 가 생기기 전 모양도 읽는다 (평가 도구·Mock). 출력 형식에서는 필수 칸이다."""
-        if isinstance(v, dict) and 'questions' not in v:
-            return {**v, 'questions': []}
+        """questions·security_rule_ids 가 생기기 전 모양도 읽는다 (평가 도구·Mock). 출력 형식에서는 필수 칸이다."""
+        if isinstance(v, dict):
+            return {'questions': [], 'security_rule_ids': [], **v}
         return v
 
 
@@ -161,7 +166,7 @@ def _clean(node):
             return {'enum': node['enum']}
         # 값이 dict 인 'title' 은 출력 칸 이름(AIOutput.title)이라 남긴다
         return {k: _clean(v) for k, v in node.items()
-                if not (k in ('title', 'description', 'minimum', 'maximum') and not isinstance(v, dict))}
+                if not (k in ('title', 'description', 'minimum', 'maximum', 'maxItems') and not isinstance(v, dict))}
     if isinstance(node, list):
         return [_clean(v) for v in node]
     return node
@@ -189,6 +194,7 @@ def safe_default(escalation_reason: str = '전문판단', reason: str = 'AI 판�
         rationale=Rationale(category='', urgency_reasons=[], action=reason),
         reply='지금은 자동으로 확인하기 어려워요. 담당자에게 연결해 드릴까요?',
         questions=[], evidence=[], missing_items=[], escalation_reason=escalation_reason, confidence=None,
+        security_rule_ids=[],
     )
 
 

@@ -4,6 +4,7 @@ from sqlalchemy import CheckConstraint, ForeignKey, Identity, Index, Integer, fu
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.constants.security import SECURITY_RULES
 from app.models.base import Base
 
 
@@ -43,8 +44,7 @@ class SecurityAlert(Base):
     """보안·감사 알림 (06 security_alerts, AUDIT-01~04). 처리 이력은 audit_logs(target_type=security_alert)에 남긴다."""
     __tablename__ = "security_alerts"
     __table_args__ = (
-        CheckConstraint("alert_type in ('SENSITIVE_INPUT', 'BLOCKED_DOC_QUERY', 'ACCOUNT_LOCKED', 'LOGIN_BLOCKED', "
-                        "'URGENT_CLOSED', 'MASS_QUERY')", name="alert_type"),
+        CheckConstraint("alert_type in (" + ", ".join(repr(k) for k in SECURITY_RULES) + ")", name="alert_type"),
         CheckConstraint("severity in ('HIGH', 'MEDIUM', 'LOW')", name="severity"),
         CheckConstraint("status in ('NEW', 'IN_REVIEW', 'CLOSED')", name="status"),
         CheckConstraint("target_type in ('inquiry', 'user')", name="target_type"),
