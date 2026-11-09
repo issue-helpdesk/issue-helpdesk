@@ -90,6 +90,12 @@ export interface ServerCaseInfo {
   rejectReason?: string
   reviewedBy?: string
   reviewedAt?: string
+  /** 서버 판단 종류 코드 (ADD_ITEM·CHANGE·NEW_GUIDE·MANUAL_CANDIDATE·SEC_MANUAL) */
+  judgment?: string
+  /** 다시 맞추기에서 나온, 아직 풀리지 않은 충돌 (oldMd: 초안을 만들 때의 원문, newMd: 지금 현행의 원문) */
+  conflicts?: { section: string; kind: string; message: string; oldMd: string; newMd: string }[]
+  /** 방금 등록·다시 맞추기·문서 변경 응답의 경고. 서버가 저장하지 않으므로 이 화면에서만 볼 수 있다 */
+  fresh?: string[]
 }
 
 /** 시연 이력: 이미 승인해서 가이드 목록에 등록돼 있는 것처럼 보이게 할 버전 */

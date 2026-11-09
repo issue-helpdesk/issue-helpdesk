@@ -248,6 +248,19 @@ export async function uploadGuide(user: User, input: UploadInput, onCreated?: (d
   return ok({ id: docId, docCode: code, title: input.title.trim(), cat: input.cat, isActive: true, current: null, versions: [toVersion(ver.data)] })
 }
 
+/**
+ * 문서만 만든다 (DC-02, 서버 연결 전용). 해결 사례의 새 가이드를 연결할 문서를 만들 때 쓴다 — 버전이 하나도 없는 임직원용 가이드만 연결된다.
+ * 파일은 올리지 않는다. 문서 번호는 분류의 다음 번호로 정하고 바꿀 수 있다.
+ */
+export async function createGuideDocument(user: User, input: { docCode: string; title: string; cat: CategoryCode }): Promise<ApiResult<{ id: number; docCode: string; title: string }>> {
+  const no = adminOnly(user)
+  if (no) return no
+  const code = input.docCode.trim().toUpperCase()
+  if (!/^IT-[A-Z]{2,4}-\d{3}$/.test(code)) return fail('VALIDATION_ERROR', '문서 번호 형식이 맞지 않아요. 예) IT-NET-004', { details: [{ field: 'docCode', reason: 'INVALID_FORMAT', message: '문서 번호 형식이 맞지 않아요. 예) IT-NET-004' }] })
+  const r = await request<SDoc>('/documents', { method: 'POST', body: JSON.stringify({ docCode: code, docType: 'GUIDE', title: input.title.trim(), categoryCode: input.cat }) })
+  return r.ok ? ok({ id: r.data.id, docCode: code, title: input.title.trim() }) : r
+}
+
 const VERSION_DUP = { field: 'version', reason: 'DUPLICATE', message: '이미 있는 버전이에요. 다른 번호를 적어 주세요.' }
 
 /** 기존 가이드에 새 버전 올리기 (DC-07). 같은 버전 이름이 있으면 DOCUMENT_VERSION_DUPLICATE. 현행 전환은 자동으로 하지 않는다 */
