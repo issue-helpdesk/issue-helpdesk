@@ -14,7 +14,7 @@ import { request } from '../core/apiClient'
 import { USE_MOCK_GUIDE } from '../core/config'
 import type { CategoryCode } from './chatTypes'
 import type { GuideScope, GuideTx } from './guides'
-import { getCases as getMockCases, subscribeCases as subscribeMockCases, type CaseItem, type CaseKind, type CaseState, type CaseTicket } from './mock/caseGuides'
+import { getCases as getMockCases, subscribeCases as subscribeMockCases, type CaseItem, type CaseKind, type CaseState, type CaseTicket, type ReviewExtras } from './mock/caseGuides'
 import { fail, ok, type ApiResult } from './types'
 
 type Judgment = 'ADD_ITEM' | 'CHANGE' | 'NEW_GUIDE' | 'MANUAL_CANDIDATE' | 'SEC_MANUAL'
@@ -77,6 +77,19 @@ function stateOf(s: SSummary): CaseState {
 }
 
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : [])
+const text = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() !== '' ? v.trim() : undefined)
+
+/** 검토 정보(reviewInfo)의 추가 항목 (키는 서버가 snake_case 로 준다, backend/app/agent/guide/README.md) */
+function extrasOf(info: Record<string, unknown>): ReviewExtras {
+  return {
+    manualNote: text(info.manual_note),
+    manualItems: strings(info.manual_items),
+    changeNote: text(info.change_note),
+    guideTitle: text(info.guide_title),
+    differences: strings(info.differences),
+    guessed: strings(info.guessed),
+  }
+}
 
 function fromSummary(s: SSummary, prev?: CaseItem): CaseItem {
   const kind = KIND[s.judgment] ?? 'amend'
@@ -103,7 +116,7 @@ function fromSummary(s: SSummary, prev?: CaseItem): CaseItem {
     registered: reg && s.targetDocument ? { docId: s.targetDocument.id, versionId: reg.id, docCode: s.targetDocument.docCode, version: reg.version } : undefined,
     failReason: state === 'failed' ? PREP_FAIL : undefined,
     dropReason: keep?.dropReason ?? (s.status === 'REJECTED' ? '' : undefined),
-    server: { judgmentLabel: JUDGMENT_LABEL[s.judgment] ?? '', baseChanged: keep?.server?.baseChanged ?? false, draftRevision: keep?.server?.draftRevision ?? 0, hasDraft: keep?.server?.hasDraft ?? s.judgment !== 'MANUAL_CANDIDATE', detail: !!keep, judgment: s.judgment, conflicts: keep?.server?.conflicts, fresh: keep?.server?.fresh },
+    server: { judgmentLabel: JUDGMENT_LABEL[s.judgment] ?? '', baseChanged: keep?.server?.baseChanged ?? false, draftRevision: keep?.server?.draftRevision ?? 0, hasDraft: keep?.server?.hasDraft ?? s.judgment !== 'MANUAL_CANDIDATE', detail: !!keep, judgment: s.judgment, conflicts: keep?.server?.conflicts, fresh: keep?.server?.fresh, info: keep?.server?.info },
   }
 }
 
@@ -118,6 +131,7 @@ function fromDetail(d: SDetail): CaseItem {
     target: d.targetDocument ? { docCode: d.targetDocument.docCode, title: d.targetDocument.title, baseVersion: d.baseVersion?.version ?? '', latestVersion: d.currentVersion?.version ?? '', section: d.targetSection ?? '' } : undefined,
     before: d.targetMd ?? undefined,
     after: d.draftMd ?? '',
+    title: base.kind === 'new' ? (text(info.guide_title) ?? base.title) : undefined,
     reason: typeof info.reason === 'string' ? info.reason : '',
     warnings: strings(info.warnings),
     dropReason: d.status === 'REJECTED' ? (d.rejectReason ?? '') : undefined,
@@ -130,6 +144,7 @@ function fromDetail(d: SDetail): CaseItem {
       judgment: d.judgment,
       conflicts: d.conflicts ?? [],
       fresh: d.warnings,
+      info: extrasOf(info),
       rejectReason: d.rejectReason ?? undefined,
       reviewedBy: d.reviewedBy?.name,
       reviewedAt: d.reviewedAt ?? undefined,

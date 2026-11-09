@@ -25,6 +25,19 @@ import { StateBadge } from '../../ui/StateBadge'
 import { useToast } from '../../ui/useToast'
 import { CaseTargetDialog } from './CaseTargetDialog'
 
+/** 새 가이드 뼈대에서 "(작성 필요)" 자리가 남은 장. 서버가 등록할 때 같은 것을 거절하므로, 미리 알려 준다 */
+const TODO_MARK = '(작성 필요)'
+function todoChapters(md: string): string[] {
+  const out: string[] = []
+  let head = ''
+  for (const line of md.split('\n')) {
+    const m = /^##\s+(.+?)\s*$/.exec(line)
+    if (m) head = m[1]
+    else if (line.trim() === TODO_MARK && head && !out.includes(head)) out.push(head)
+  }
+  return out
+}
+
 export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose: () => void; onGoLive: (c: CaseItem) => void }) {
   const cases = useSyncExternalStore(subscribeAllCases, getAllCases)
   const c = cases.find((x) => x.id === id)
@@ -98,12 +111,21 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
     setAfter(c.after)
   }
 
+  // 상세를 읽고 나면 새 가이드 제목이 서버의 값(guide_title)으로 바뀐다
+  const [seenTitle, setSeenTitle] = useState(c?.title)
+  if (c && c.title !== seenTitle) {
+    setSeenTitle(c.title)
+    setTitle(c.title ?? '')
+  }
+
   if (!c) return null
   const review = c.state === 'review'
   const srv = CASES_FROM_SERVER
   const waiting = srv && !c.server?.detail
   const canEdit = review && (!srv || !!c.server?.hasDraft)
   const changed = baseChanged(c) && c.state === 'review'
+  const todo = srv && c.kind === 'new' && review ? todoChapters(after) : []
+  const info = c.server?.info
   // 서버 연결: 등록할 수 없는 이유 (있으면 단추를 막고 이유를 보여 준다)
   const blocked = !srv
     ? ''
@@ -115,7 +137,9 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           ? '넣을 문서를 먼저 연결해 주세요.'
           : !c.server?.hasDraft
             ? '아직 초안이 만들어지지 않았어요.'
-            : ''
+            : todo.length > 0
+              ? `"${TODO_MARK}"가 남은 장을 채워 주세요: ${todo.join(', ')}`
+              : ''
   const draft = { title: c.kind === 'new' ? title : undefined, cat: c.kind === 'new' ? cat : undefined, after }
   const edit = { ...draft, scope: c.scope, tx: c.tx }
   const nm = c.kind === 'new' ? (title.trim() || c.topic) : c.topic
@@ -417,7 +441,32 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
 
           <section className="cgs" aria-label="AI 판단">
             <h4>AI 판단</h4>
-            <p style={{ margin: '0 0 8px' }}>{c.reason}</p>
+            {/* 판단 이유는 티켓마다 한 줄씩 줄바꿈으로 온다 */}
+            {c.reason.split('\n').filter((l) => l.trim()).map((l) => (
+              <p key={l} style={{ margin: '0 0 6px' }}>
+                {l}
+              </p>
+            ))}
+            {info?.changeNote && (
+              <p style={{ margin: '8px 0 6px' }}>
+                <b>변경 이유</b> · {info.changeNote}
+              </p>
+            )}
+            {(info?.guessed.length ?? 0) > 0 && (
+              <p className="small" style={{ margin: '8px 0 6px' }}>
+                <b>AI가 추측해서 쓴 칸</b> · {info?.guessed.join(', ')} <span className="muted">— 사실과 맞는지 확인하고 고쳐 주세요.</span>
+              </p>
+            )}
+            {(info?.differences.length ?? 0) > 0 && (
+              <div className="small" style={{ margin: '8px 0 6px' }}>
+                <b>티켓마다 해결 방법이 달라요</b>
+                <ul className="cgw" style={{ marginTop: 4 }}>
+                  {info?.differences.map((d) => (
+                    <li key={d}>{d}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {c.warnings.length > 0 && (
               <ul className="cgw">
                 {c.warnings.map((w) => (
@@ -432,7 +481,29 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           <section className="cgs" aria-label="가이드 내용">
             <h4>{c.kind === 'amend' ? (c.before !== undefined ? '기존 내용과 AI 수정 제안' : 'AI 수정 제안') : c.kind === 'new' ? '신규 가이드 초안' : c.kind === 'sec' ? 'SEC 직접 검토 초안' : '매뉴얼 후보'}</h4>
             {srv && !c.server?.hasDraft ? (
-              <p style={{ margin: 0 }}>이 제안은 AI가 만든 초안이 없어요. 근거 티켓을 보고 매뉴얼에 직접 반영한 뒤 "직접 반영 표시"를 눌러 주세요.</p>
+              <>
+                {info?.manualNote ? (
+                  <div className="field">
+                    <div className="asl">매뉴얼에 넣을 만한 내용</div>
+                    <pre className="cgpre new" style={{ whiteSpace: 'pre-wrap' }}>{info.manualNote}</pre>
+                  </div>
+                ) : (
+                  <p className="small muted" style={{ margin: '0 0 8px' }}>AI가 정리한 내용이 없어요. 근거 티켓을 보고 판단해 주세요.</p>
+                )}
+                {(info?.manualItems.length ?? 0) > 0 && (
+                  <div className="field">
+                    <div className="asl">가까운 매뉴얼 항목</div>
+                    <ul className="cgw">
+                      {info?.manualItems.map((m) => (
+                        <li key={m}>{m}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <p className="small muted" style={{ margin: 0 }}>
+                  이 제안은 가이드 초안을 만들지 않아요. 위 내용을 참고해 매뉴얼에 직접 반영한 뒤 "직접 반영 표시"를 눌러 주세요.
+                </p>
+              </>
             ) : c.kind === 'amend' && c.target ? (
               <>
                 <p className="small muted" style={{ margin: '0 0 8px' }}>
@@ -508,6 +579,14 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
                       </button>
                     )}
                   </p>
+                )}
+                {todo.length > 0 && (
+                  <div className="alert warn" role="status" style={{ marginBottom: 12 }}>
+                    <Icon name="alert" />
+                    <div>
+                      <b>아직 채워야 할 장이 있어요.</b> 아래 본문에서 <code>{TODO_MARK}</code>로 남은 <b>{todo.join(', ')}</b>을(를) 직접 써 넣고 <b>임시 저장</b>하면 등록할 수 있어요.
+                    </div>
+                  </div>
                 )}
                 <div className="row2">
                   <div className="field">

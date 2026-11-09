@@ -96,6 +96,23 @@ export interface ServerCaseInfo {
   conflicts?: { section: string; kind: string; message: string; oldMd: string; newMd: string }[]
   /** 방금 등록·다시 맞추기·문서 변경 응답의 경고. 서버가 저장하지 않으므로 이 화면에서만 볼 수 있다 */
   fresh?: string[]
+  /** 검토 정보(reviewInfo)의 추가 항목. 서버가 종류에 맞는 것만 준다 (backend/app/agent/guide/README.md "검토 정보") */
+  info?: ReviewExtras
+}
+
+export interface ReviewExtras {
+  /** 매뉴얼에 넣을 만한 내용 (매뉴얼 후보) */
+  manualNote?: string
+  /** 가까운 매뉴얼 항목 (매뉴얼 후보) */
+  manualItems: string[]
+  /** 무엇을 왜 바꿨는지 (변경) */
+  changeNote?: string
+  /** 새 가이드 제목 (새 가이드) */
+  guideTitle?: string
+  /** 티켓마다 해결 방법이 다른 점 */
+  differences: string[]
+  /** AI가 추측해서 쓴 칸 이름 */
+  guessed: string[]
 }
 
 /** 시연 이력: 이미 승인해서 가이드 목록에 등록돼 있는 것처럼 보이게 할 버전 */
