@@ -150,14 +150,22 @@ export function GuidesView() {
   // 문서마다 이 문서에 걸린 AI 제안: 검토 중(review)인 것과, 등록해서 현행 전환을 기다리는(preparing·ready) 것
   const cases = useSyncExternalStore(subscribeAllCases, getAllCases)
   const caseInfo = useMemo(() => {
-    const m = new Map<string, { review: number; waiting: number }>()
+    const m = new Map<string, { review: number; waiting: number; next?: CaseItem }>()
     const at = (code: string) => m.get(code) ?? m.set(code, { review: 0, waiting: 0 }).get(code)!
     cases.forEach((c) => {
       if (c.state === 'review' && c.target?.docCode) at(c.target.docCode).review++
-      else if ((c.state === 'preparing' || c.state === 'ready') && c.registered) at(c.registered.docCode).waiting++
+      else if ((c.state === 'preparing' || c.state === 'ready') && c.registered) {
+        const x = at(c.registered.docCode)
+        x.waiting++
+        if (!x.next || (c.state === 'ready' && x.next.state !== 'ready')) x.next = c // 검색 준비가 끝난 것을 먼저 안내한다
+      }
     })
     return m
   }, [cases])
+  // 목록 맨 위 요약: 현행 전환을 기다리는 버전 수와 검토할 AI 제안 수. 전환 대기만 골라 볼 수 있다
+  const [onlyWaiting, setOnlyWaiting] = useState(false)
+  const waitingTotal = [...caseInfo.values()].reduce((n, x) => n + x.waiting, 0)
+  const reviewTotal = [...caseInfo.values()].reduce((n, x) => n + x.review, 0)
   // 현행 전환하러 넘어온 문서·버전: 목록에서 그 줄로 스크롤하고 잠깐 강조한다
   const [focus, setFocus] = useState<{ docId: number; versionId: number } | null>(null)
   const scrolled = useRef(false)
@@ -191,7 +199,8 @@ export function GuidesView() {
   if (user && !admin) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
   if (!user) return null
 
-  const shown = guides?.filter((g) => !hideInactive || g.isActive)
+  const waitOnly = onlyWaiting && waitingTotal > 0
+  const shown = guides?.filter((g) => (!hideInactive || g.isActive) && (!waitOnly || !!caseInfo.get(g.docCode)?.waiting))
   const inactiveN = guides?.filter((g) => !g.isActive).length ?? 0
   const cats = (Object.keys(CATEGORIES) as CategoryCode[]).filter((c) => shown?.some((g) => g.cat === c))
   const allOpen = cats.length > 0 && cats.every((c) => catOpen[c])
@@ -235,6 +244,7 @@ export function GuidesView() {
   const gpanel = (g: Guide) => {
     const open = openId === g.id
     const list = vers[g.id] ?? g.versions
+    const ci = caseInfo.get(g.docCode)
     return (
       <div className={`gprow${g.isActive ? '' : ' off'}${focus?.docId === g.id ? ' gfocus' : ''}`} key={g.id} data-doc={g.id}>
         <div className="gprh">
@@ -248,8 +258,6 @@ export function GuidesView() {
             <div className="small muted">
               {g.current ? `현행 ${g.current.version}` : '현행 없음'}
               {!g.isActive && ' · 검색·답변에 쓰이지 않아요'}
-              {!!caseInfo.get(g.docCode)?.waiting && <span className="nwb">현행 전환 대기</span>}
-              {!!caseInfo.get(g.docCode)?.review && <span className="nwb">AI 제안 {caseInfo.get(g.docCode)?.review}건</span>}
             </div>
           </span>
           <span className="gbs">
@@ -258,6 +266,40 @@ export function GuidesView() {
           </span>
         </button>
         </div>
+        {(!!ci?.next || !!ci?.review) && (
+          <div className="gnote">
+            {ci?.next && (
+              <p>
+                <i className="gd" aria-hidden="true" />
+                <span>
+                  {ci.next.state === 'ready' ? (
+                    <>
+                      <b>{ci.next.registered?.version}</b>의 검색 준비가 끝났어요. 열람 범위를 확인하고 현행으로 전환해 주세요.
+                    </>
+                  ) : (
+                    <>
+                      <b>{ci.next.registered?.version}</b>의 검색 준비 중이에요. 끝나면 현행으로 전환할 수 있어요.
+                    </>
+                  )}{' '}
+                  <button type="button" className="lnk" onClick={() => goLive(ci.next!)}>
+                    {ci.next.state === 'ready' ? '현행 전환하러 가기' : '버전 보기'}
+                  </button>
+                </span>
+              </p>
+            )}
+            {!!ci?.review && (
+              <p>
+                <i className="gd rv" aria-hidden="true" />
+                <span>
+                  검토할 AI 제안이 <b>{ci.review}건</b> 있어요.{' '}
+                  <button type="button" className="lnk" onClick={() => setTab('case')}>
+                    제안 보기
+                  </button>
+                </span>
+              </p>
+            )}
+          </div>
+        )}
         <Collapse open={open}>
         {open && (
           <div className="gvt-wrap">
@@ -375,6 +417,22 @@ export function GuidesView() {
       <div className="row" style={{ justifyContent: 'space-between', margin: 0 }}>
         <span className="small muted">
           분류 {cats.length}개 · 가이드 {shown?.length ?? 0}개{inactiveN > 0 && !hideInactive ? ` (비활성 ${inactiveN}개 포함)` : ''}
+          {waitingTotal > 0 && (
+            <>
+              {' · '}
+              <button type="button" className="lnk" aria-pressed={waitOnly} onClick={() => setOnlyWaiting((x) => !x)}>
+                {waitOnly ? '전체 가이드 보기' : `현행 전환 대기 ${waitingTotal}건만 보기`}
+              </button>
+            </>
+          )}
+          {reviewTotal > 0 && (
+            <>
+              {' · '}
+              <button type="button" className="lnk" onClick={() => setTab('case')}>
+                AI 제안 {reviewTotal}건 보기
+              </button>
+            </>
+          )}
         </span>
         <span className="row" style={{ gap: 4 }}>
           {inactiveN > 0 && (

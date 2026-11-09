@@ -62,7 +62,7 @@ interface SDetail extends SSummary {
 }
 
 const KIND: Record<Judgment, CaseKind> = { ADD_ITEM: 'amend', CHANGE: 'amend', NEW_GUIDE: 'new', MANUAL_CANDIDATE: 'manual', SEC_MANUAL: 'sec' }
-const JUDGMENT_LABEL: Record<Judgment, string> = { ADD_ITEM: '항목 추가', CHANGE: '변경', NEW_GUIDE: '새 가이드', MANUAL_CANDIDATE: '매뉴얼 후보', SEC_MANUAL: 'SEC 직접 검토' }
+const JUDGMENT_LABEL: Record<Judgment, string> = { ADD_ITEM: '항목 추가', CHANGE: '변경', NEW_GUIDE: '새 가이드', MANUAL_CANDIDATE: '매뉴얼 후보', SEC_MANUAL: '보안 사고 사례' }
 const PREP_FAIL = '문서 변환 중 오류가 나서 검색 준비를 마치지 못했어요. 같은 버전으로 다시 시도할 수 있어요.'
 
 /** 서버 상태를 화면 상태로: 등록한 버전이 있으면 그 버전의 검색 준비·현행 여부를 따른다 */

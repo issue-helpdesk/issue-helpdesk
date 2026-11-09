@@ -16,7 +16,7 @@ import { subscribe as subscribeStore } from './chatStore'
 export type CaseKind = 'amend' | 'new' | 'manual' | 'sec'
 export type CaseState = 'review' | 'preparing' | 'failed' | 'ready' | 'live' | 'applied' | 'dropped'
 
-export const CASE_KIND_LABEL: Record<CaseKind, string> = { amend: '기존 가이드 보강', new: '신규 가이드', manual: '매뉴얼 후보', sec: 'SEC 직접 검토' }
+export const CASE_KIND_LABEL: Record<CaseKind, string> = { amend: '기존 가이드 보강', new: '신규 가이드', manual: '매뉴얼 후보', sec: '보안 사고 사례' }
 /** 카드·패널에 보이는 종류 이름: 서버가 판단한 이름(항목 추가·변경·새 가이드·매뉴얼 후보·SEC 직접 검토)이 있으면 그대로, 모의 화면은 네 가지 이름 */
 export const kindLabel = (c: { kind: CaseKind; server?: { judgmentLabel: string } }) => c.server?.judgmentLabel || CASE_KIND_LABEL[c.kind]
 export const CASE_STATE_LABEL: Record<CaseState, string> = {
@@ -26,7 +26,7 @@ export const CASE_STATE_LABEL: Record<CaseState, string> = {
   ready: '검색 준비 완료',
   live: '현행',
   applied: '반영 완료',
-  dropped: '가이드화 안 함',
+  dropped: '반영 안함',
 }
 /** 구분 배지 색 (StateBadge 의 tone): 기존 가이드 보강=보라, 신규 가이드=하늘 */
 export const CASE_KIND_TONE: Record<CaseKind, string> = { amend: 'prog', new: 'info', manual: 'recv', sec: 'urg' }
@@ -390,10 +390,10 @@ export function approveCase(id: string, e: CaseEdit): Result {
   return { ok: true }
 }
 
-/** 비가이드화: 사유를 남기고 이 제안을 닫는다 */
+/** 반영 안함: 사유를 남기고 이 제안을 닫는다 */
 export function dropCase(id: string, reason: string): Result {
   const c = find(id)
-  if (!c || c.state !== 'review') return { ok: false, message: '검토가 필요한 제안만 가이드화 안 함으로 바꿀 수 있어요.' }
+  if (!c || c.state !== 'review') return { ok: false, message: '검토가 필요한 제안만 반영 안함으로 바꿀 수 있어요.' }
   if (!reason.trim()) return { ok: false, message: '사유를 입력해 주세요.' }
   patch(id, (x) => ({ ...x, dropReason: reason.trim() }))
   return { ok: true }
