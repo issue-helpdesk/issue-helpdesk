@@ -15,6 +15,7 @@ from app.db.session import DbSession
 from app.models import Category, DocumentVersion, GuideCluster, KnowledgeDocument, User
 from app.rag.case_guide import CaseGuideError
 from app.rag.case_guide.assemble import assemble
+from app.rag.case_guide.open_basis import open_basis
 from app.rag.case_guide.rebase import rebase
 from app.repositories.audit_log import AuditLogRepositoryDep
 from app.repositories.document import DocumentRepositoryDep
@@ -35,7 +36,8 @@ from app.schemas.guide_cluster import (
 )
 from app.schemas.inquiry import CategoryRef, UserRef
 
-REGISTRABLE_JUDGMENTS = ("ADD_ITEM", "CHANGE", "SEC_MANUAL")     # 새 가이드는 조립 함수가 아직 지원하지 않는다
+REBASABLE_JUDGMENTS = ("ADD_ITEM", "CHANGE", "SEC_MANUAL")      # 새 가이드는 기준 현행이 없다
+REGISTRABLE_JUDGMENTS = (*REBASABLE_JUDGMENTS, "NEW_GUIDE")     # 매뉴얼 후보는 초안이 없다
 
 
 def guide_assembler() -> Callable[..., dict]:
@@ -46,7 +48,12 @@ def guide_rebaser() -> Callable[..., dict]:
     return rebase
 
 
+def guide_basis_opener() -> Callable[..., dict]:
+    return open_basis
+
+
 GuideAssemblerDep = Annotated[Callable[..., dict], Depends(guide_assembler)]
+GuideBasisOpenerDep = Annotated[Callable[..., dict], Depends(guide_basis_opener)]
 GuideRebaserDep = Annotated[Callable[..., dict], Depends(guide_rebaser)]
 
 
@@ -59,6 +66,7 @@ class GuideClusterService:
         audit_logs: AuditLogRepositoryDep,
         assembler: GuideAssemblerDep,
         rebaser: GuideRebaserDep,
+        basis_opener: GuideBasisOpenerDep,
         submit_ingest: IngestSubmitterDep,
     ) -> None:
         self.db = db
@@ -67,6 +75,7 @@ class GuideClusterService:
         self.audit_logs = audit_logs
         self.assembler = assembler
         self.rebaser = rebaser
+        self.basis_opener = basis_opener
         self.submit_ingest = submit_ingest
 
     def list_clusters(self, query: GuideClusterListQuery) -> Page[GuideClusterSummary]:
@@ -115,7 +124,7 @@ class GuideClusterService:
         """GC-05. 초안 글 저장. 보낸 draft_revision 이 지금 값과 같을 때만 저장하고 1 올린다 (다른 관리자 변경 확인).
 
         검토 중이고 등록하지 않은 묶음만 된다: 등록한 뒤 고치면 등록한 파일과 초안이 달라진다.
-        넣을 문서 변경은 초안을 다시 만들어야 해서 여기서 하지 않는다. 운영 기록은 남기지 않는다 (상태 변경이 아님).
+        넣을 문서 변경은 초안 기준을 새로 잡아야 해서 GC-08 이 한다. 운영 기록은 남기지 않는다 (상태 변경이 아님).
         """
         c = self.lock_reviewing(cluster_id)
         if c.registered_version_id is not None:
@@ -207,7 +216,7 @@ class GuideClusterService:
         관리자가 초안을 고쳐 저장(GC-05)해 번호가 오르면 풀린다.
         """
         c = self.lock_reviewing(cluster_id)
-        self.check_draft_ready(c, draft_revision)
+        self.check_draft_ready(c, draft_revision, REBASABLE_JUDGMENTS)
         try:
             out = self.rebaser(self.db.connection().connection.driver_connection, c.target_document_id,
                                {**self.assemble_input(c), "draft_revision": c.draft_revision})
@@ -226,8 +235,93 @@ class GuideClusterService:
         self.db.commit()
         return GuideClusterDetailWithWarnings(**dict(self.get_cluster(c.id)), warnings=out["warnings"])
 
+    def change_target(
+        self, cluster_id: int, document_id: int, target_section: str | None, draft_revision: int, user: User,
+    ) -> GuideClusterDetailWithWarnings:
+        """GC-08. 넣을 문서를 바꾸거나 새 가이드 묶음에 문서를 연결한다. 초안 글은 바꾸지 않는다.
+
+        변경(CHANGE) 묶음을 옮기면 충돌로 기록한다: 조각은 옛 항목을 고쳐 쓴 글이라 그대로 등록하면 새 항목을 덮어쓴다.
+        관리자가 새 원문을 보고 고쳐 저장(GC-05)하면 풀린다. draft_revision 을 올리므로, 넣을 문서가 바뀌는 사이
+        옛 문서만 잠근 다른 요청(GC-05·06·07)은 번호 검사에서 걸린다.
+        """
+        c = self.lock_reviewing(cluster_id, also_document=document_id)
+        document = self.documents.get(document_id)
+        if document is None:
+            raise AppError(ErrorCode.DOCUMENT_NOT_FOUND)
+        self.check_target_changeable(c, document_id, target_section, draft_revision)
+        revision = c.draft_revision + 1
+        if c.judgment == "NEW_GUIDE":
+            self.check_new_guide_document(document)
+            basis, warnings = c.draft_basis, []
+        else:
+            basis, warnings = self.open_target_basis(c, document_id, target_section, revision)
+        old_document = c.target_document_id
+        c.target_document_id, c.draft_basis, c.draft_revision = document_id, basis, revision
+        c.base_version_id, c.updated_at = (basis or {}).get("base_version_id"), datetime_utils.now()
+        self.audit_logs.add("GUIDE_CLUSTER_TARGET_CHANGE", "guide_cluster", c.id, actor_id=user.id,
+                            result=f"{c.judgment} 문서 {old_document} → {document_id}"
+                                   + (f" 항목 {target_section}" if c.judgment == "CHANGE" else ""))
+        self.db.commit()
+        return GuideClusterDetailWithWarnings(**dict(self.get_cluster(c.id)), warnings=warnings)
+
+    def check_target_changeable(
+        self, c: GuideCluster, document_id: int, target_section: str | None, draft_revision: int,
+    ) -> None:
+        if c.registered_version_id is not None:
+            raise AppError(ErrorCode.GUIDE_CLUSTER_DRAFT_LOCKED, [
+                {"reason": "REGISTERED", "message": "등록한 버전", "value": c.registered_version_id},
+            ])
+        if c.judgment not in REGISTRABLE_JUDGMENTS:
+            raise AppError(ErrorCode.GUIDE_CLUSTER_NOT_REGISTRABLE, [
+                {"reason": "JUDGMENT", "message": "묶음 판단", "value": c.judgment},
+            ])
+        if draft_revision != c.draft_revision:
+            raise AppError(ErrorCode.GUIDE_CLUSTER_DRAFT_CONFLICT, [
+                {"field": "draftRevision", "reason": "STALE", "message": "지금 초안 번호", "value": c.draft_revision},
+            ])
+        same_section = c.judgment != "CHANGE" or target_section == (c.draft_basis or {}).get("target_section")
+        if document_id == c.target_document_id and same_section:        # 기준만 새로 잡히면 다시 맞추기의 충돌 검사를 건너뛴다
+            raise AppError(ErrorCode.GUIDE_CLUSTER_TARGET_UNCHANGED)
+
+    def check_new_guide_document(self, document: KnowledgeDocument) -> None:
+        """조립 함수도 거부하지만, 초안을 다 쓴 뒤 등록에서 실패하지 않게 연결할 때 막는다."""
+        problems = []
+        if document.doc_type != "GUIDE":
+            problems.append("임직원용 가이드만 연결할 수 있습니다")
+        if self.documents.versions(document.id):
+            problems.append("새 가이드는 버전이 하나도 없는 문서에만 연결할 수 있습니다")
+        if problems:
+            raise AppError(ErrorCode.GUIDE_CLUSTER_TARGET_INVALID, [{"reason": "TARGET", "message": p} for p in problems])
+
+    def open_target_basis(
+        self, c: GuideCluster, document_id: int, target_section: str | None, revision: int,
+    ) -> tuple[dict, list[str]]:
+        old_md = (c.draft_basis or {}).get("target_md") or ""
+        try:
+            out = self.basis_opener(self.db.connection().connection.driver_connection, c.judgment,
+                                    document_id=document_id, target_section=target_section,
+                                    receipts_=self.assemble_input(c)["receipts"])
+        except CaseGuideError as e:
+            self.db.rollback()
+            raise AppError(ErrorCode.GUIDE_CLUSTER_TARGET_INVALID, [
+                {"reason": "TARGET", "message": problem} for problem in e.problems
+            ])
+        basis = out["draft_basis"]
+        if c.judgment == "CHANGE":
+            basis["conflicts"] = {"revision": revision, "items": [{
+                "section": target_section, "kind": "TARGET_MOVED", "old_md": old_md, "new_md": basis["target_md"],
+                "message": f"넣을 위치가 {target_section}(으)로 바뀌었습니다. 새 항목과 비교해 초안을 고쳐 저장해 주세요",
+            }]}
+        return basis, out["warnings"]
+
     def check_registrable(self, c: GuideCluster, draft_revision: int) -> None:
-        self.check_draft_ready(c, draft_revision)
+        self.check_draft_ready(c, draft_revision, REGISTRABLE_JUDGMENTS)
+        if c.target_document_id is None:
+            raise AppError(ErrorCode.GUIDE_CLUSTER_NOT_REGISTRABLE, [
+                {"reason": "NO_TARGET", "message": "넣을 문서를 먼저 연결해 주세요"},
+            ])
+        if c.judgment == "NEW_GUIDE":                   # 기준 버전이 없다. 그사이 현행이 생겼으면 조립 함수가 거부한다
+            return
         current = self.documents.current_version(c.target_document_id)
         if current is None or c.base_version_id != current.id:
             raise AppError(ErrorCode.GUIDE_CLUSTER_BASE_CHANGED, [
@@ -238,12 +332,12 @@ class GuideClusterService:
                 {"reason": "CONFLICT", "message": i["message"], "value": i["section"]} for i in conflicts
             ])
 
-    def check_draft_ready(self, c: GuideCluster, draft_revision: int) -> None:
-        if c.judgment not in REGISTRABLE_JUDGMENTS:
+    def check_draft_ready(self, c: GuideCluster, draft_revision: int, judgments: tuple[str, ...]) -> None:
+        if c.judgment not in judgments:
             raise AppError(ErrorCode.GUIDE_CLUSTER_NOT_REGISTRABLE, [
                 {"reason": "JUDGMENT", "message": "묶음 판단", "value": c.judgment},
             ])
-        if not (c.draft_md and c.draft_basis and c.target_document_id):
+        if not (c.draft_md and c.draft_basis):
             raise AppError(ErrorCode.GUIDE_CLUSTER_NOT_REGISTRABLE, [
                 {"reason": "NO_DRAFT", "message": "초안이 아직 만들어지지 않았습니다"},
             ])
@@ -281,14 +375,14 @@ class GuideClusterService:
             if section_no := out["sections"].get(x.id):
                 x.draft_basis = {**x.draft_basis, "section_no": section_no}     # JSONB 는 새 값을 넣어야 저장된다
 
-    def lock_reviewing(self, cluster_id: int) -> GuideCluster:
+    def lock_reviewing(self, cluster_id: int, also_document: int | None = None) -> GuideCluster:
         """넣을 문서 → 묶음 순으로 잠그고 검토 중인지 본다. DC-09(문서 → 버전 → 묶음)와 순서가 같아 교착되지 않는다.
         묶음 행을 잠그므로 같은 묶음에 대한 저장·거절·반영 표시가 한 번에 하나씩 된다."""
         c = self.clusters.get(cluster_id)
         if c is None:
             raise AppError(ErrorCode.GUIDE_CLUSTER_NOT_FOUND)
-        if c.target_document_id is not None:
-            self.documents.get_for_update(c.target_document_id)
+        for document_id in sorted({c.target_document_id, also_document} - {None}):     # 문서 둘을 잠그는 요청끼리 교착되지 않게
+            self.documents.get_for_update(document_id)
         c = self.clusters.get_for_update(cluster_id)
         if c.status != "REVIEWING":
             raise AppError(ErrorCode.GUIDE_CLUSTER_NOT_REVIEWING, [

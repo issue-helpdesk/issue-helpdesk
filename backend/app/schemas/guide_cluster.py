@@ -103,6 +103,12 @@ class GuideClusterRebaseRequest(CamelModel):
     draft_revision: int = Field(ge=0)           # GC-02 에서 받은 값. 성공하면 1 오르므로 응답 값을 이어서 쓴다
 
 
+class GuideClusterTargetRequest(CamelModel):
+    draft_revision: int = Field(ge=0)           # GC-02 에서 받은 값. 성공하면 1 오르므로 응답 값을 이어서 쓴다
+    document_id: int = Field(gt=0)
+    target_section: str | None = Field(default=None, pattern=r"^3\.\d+$")     # 변경(CHANGE) 묶음만 쓴다
+
+
 class GuideClusterDetailWithWarnings(GuideClusterDetail):
-    """GC-06·07. 상세 + 경고 (개인정보로 보이는 글 등). 저장하지 않으므로 이 응답에서만 볼 수 있다."""
+    """GC-06·07·08. 상세 + 경고 (개인정보로 보이는 글 등). 저장하지 않으므로 이 응답에서만 볼 수 있다."""
     warnings: list[str]

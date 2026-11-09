@@ -81,10 +81,12 @@ class ErrorCode(Enum):
     GUIDE_CLUSTER_DRAFT_CONFLICT = (409, "다른 관리자가 먼저 초안을 고쳤습니다. 최신 초안을 다시 불러온 뒤 고쳐 주세요.")
     GUIDE_CLUSTER_DRAFT_LOCKED = (409, "등록한 초안은 고칠 수 없습니다.")
     GUIDE_CLUSTER_NO_DRAFT = (409, "초안이 없는 묶음입니다. 매뉴얼 후보는 매뉴얼에 직접 반영한 뒤 반영 표시해 주세요.")
-    GUIDE_CLUSTER_NOT_REGISTRABLE = (409, "등록하거나 다시 맞출 수 없는 묶음입니다.")
+    GUIDE_CLUSTER_NOT_REGISTRABLE = (409, "이 묶음에는 할 수 없는 작업입니다. 문제 내용을 확인해 주세요.")
     GUIDE_CLUSTER_BASE_CHANGED = (409, "초안을 만든 뒤 현행 버전이 바뀌어 등록할 수 없습니다. 다시 맞춘 뒤 등록해 주세요.")
     GUIDE_CLUSTER_CONFLICT_UNRESOLVED = (409, "현행에서 바뀐 항목과 초안이 충돌합니다. 초안을 고쳐 저장한 뒤 등록해 주세요.")
     GUIDE_CLUSTER_REBASE_FAILED = (409, "초안을 현행에 다시 맞추지 못했습니다. 문제 내용을 확인해 주세요.")
+    GUIDE_CLUSTER_TARGET_INVALID = (409, "이 문서에는 넣을 수 없습니다. 문제 내용을 확인해 주세요.")
+    GUIDE_CLUSTER_TARGET_UNCHANGED = (409, "이미 이 위치에 넣도록 되어 있습니다.")
     GUIDE_CLUSTER_ASSEMBLE_FAILED = (409, "초안을 가이드에 합치지 못했습니다. 문제 내용을 확인해 주세요.")
 
     # 화면 알림

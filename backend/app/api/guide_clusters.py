@@ -12,6 +12,7 @@ from app.schemas.guide_cluster import (
     GuideClusterRebaseRequest,
     GuideClusterRegisterRequest,
     GuideClusterRejectRequest,
+    GuideClusterTargetRequest,
     GuideClusterSummary,
 )
 from app.services.guide_cluster import GuideClusterServiceDep
@@ -53,6 +54,14 @@ def rebase_cluster(
 ) -> GuideClusterDetailWithWarnings:
     """현행이 바뀐 묶음의 초안 기준을 지금 현행으로 맞춘다. 충돌이 나면 초안을 고쳐 저장(GC-05)해야 등록된다."""
     return service.rebase(cluster_id, body.draft_revision, auth.user)
+
+
+@router.post("/{cluster_id}/target", response_model=GuideClusterDetailWithWarnings)
+def change_cluster_target(
+    cluster_id: int, body: GuideClusterTargetRequest, auth: AdminAuth, service: GuideClusterServiceDep,
+) -> GuideClusterDetailWithWarnings:
+    """넣을 문서를 바꾸거나 새 가이드 묶음에 문서를 연결한다. 초안 글은 바꾸지 않는다."""
+    return service.change_target(cluster_id, body.document_id, body.target_section, body.draft_revision, auth.user)
 
 
 @router.post("/{cluster_id}/reject", response_model=GuideClusterDetail)
