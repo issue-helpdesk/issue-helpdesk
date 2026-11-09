@@ -31,7 +31,8 @@ export interface Assessment {
   urgencyReason: string | null
   /** ANSWER · ASK_MORE · ESCALATE · OUT_OF_SCOPE */
   action: string | null
-  aiOutput: { urgencySuggested?: string; categoryCode?: string; action?: string; confidence?: number } & Record<string, unknown>
+  /** 안전 거절·AI 실패·근거 전체 차단으로 기본값이 나간 판단은 null (서버 InquiryAssessment.ai_output) */
+  aiOutput: ({ urgencySuggested?: string; categoryCode?: string; action?: string; confidence?: number } & Record<string, unknown>) | null
   overrideReasons: OverrideReason[]
   createdAt: string
 }
