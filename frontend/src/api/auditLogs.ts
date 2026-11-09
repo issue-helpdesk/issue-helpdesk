@@ -33,13 +33,17 @@ export interface AuditLog {
 }
 
 /** 대상 종류 (서버 값 → 화면 말) */
-export const TARGET_LABEL: Record<string, string> = { inquiry: '문의', ticket: '접수', document: '문서', user: '사용자', faq: 'FAQ', guide_cluster: 'AI 가이드 제안' }
-export const TARGET_KINDS = ['inquiry', 'ticket', 'document', 'user', 'faq', 'guide_cluster'] as const
+export const TARGET_LABEL: Record<string, string> = { inquiry: '문의', ticket: '접수', document: '문서', user: '사용자', faq: 'FAQ', guide_cluster: 'AI 가이드 제안', security_alert: '보안 알림' }
+export const TARGET_KINDS = ['inquiry', 'ticket', 'document', 'user', 'faq', 'guide_cluster', 'security_alert'] as const
 /**
  * 이벤트 → 화면 이름·배지 색 (대상별로 묶어 둔다). 선택 상자도 이 순서로 보인다.
  * 서버 코드는 화면에서 이름 아래에 작게 같이 보여 준다.
  */
 export const EVENT_LABEL: Record<string, { label: string; tone: string }> = {
+  // 보안 알림 관리 API가 남기는 처리 기록이다.
+  SECURITY_ALERT_REVIEW: { label: '보안 알림 확인 시작', tone: 'prog' },
+  SECURITY_ALERT_CLOSE: { label: '보안 알림 종결', tone: 'ok' },
+  SECURITY_ALERT_VIEW: { label: '보안 알림 문의 열람', tone: 'recv' },
   // 문의
   SENSITIVE_INPUT: { label: '민감정보 가림', tone: 'recv' },
   BLOCK: { label: '근거 차단', tone: 'urg' },
@@ -95,6 +99,10 @@ export function describeAudit(x: Pick<AuditLog, 'eventType' | 'result' | 'reason
   const reason = x.reason ?? ''
   const t = (name: string, out: string, why = reason): AuditText => ({ name, out, reason: why })
   switch (x.eventType) {
+    case 'SECURITY_ALERT_REVIEW':
+    case 'SECURITY_ALERT_CLOSE':
+    case 'SECURITY_ALERT_VIEW':
+      return t('', ({ REVIEW: '확인 시작', CLOSE: '종결', VIEW_ORIGINAL: '저장된 문의 열람' } as Record<string, string>)[res] ?? res)
     case 'CONFIRM':
       return t(res, '접수 확정')
     case 'DOCUMENT_ACTIVATE':

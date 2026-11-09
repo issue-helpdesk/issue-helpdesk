@@ -124,6 +124,9 @@ const TEXT: Record<string, string | Make> = {
   FAQ_CODE_DUPLICATE: '이미 등록된 FAQ 번호예요.',
   FAQ_SOURCE_NOT_PUBLIC: '전 직원이 볼 수 있는 현행 가이드를 출처로 연결한 뒤 게시해 주세요.',
   NOTIFICATION_NOT_FOUND: '알림을 찾을 수 없어요. 목록을 다시 불러와 주세요.',
+  SECURITY_ALERT_NOT_FOUND: '보안 알림을 찾을 수 없어요. 목록을 다시 확인해 주세요.',
+  SECURITY_ALERT_NO_ORIGINAL: '이 알림에는 열람할 문의 내용이 없어요.',
+  SECURITY_ALERT_INVALID_STATE: '알림 상태가 바뀌어 처리할 수 없어요. 현재 상태를 다시 확인해 주세요.',
   TIME_OFF_NOT_FOUND: '부재 일정을 찾을 수 없어요. 일정을 다시 불러와 주세요.',
   TIME_OFF_OVERLAP: '선택한 기간에 이미 등록된 부재 일정이 있어요. 기간을 확인해 주세요.',
 }
