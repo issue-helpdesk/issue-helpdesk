@@ -66,7 +66,6 @@ export async function listTickets(user: User, query: TicketListQuery = {}): Prom
     if (assigneeId && t.assignee?.id !== assigneeId) return false
     if (groupId && t.group?.id !== groupId) return false
     if (jiraSyncStatus?.length && !jiraSyncStatus.includes(t.jiraSyncStatus)) return false
-    if (workStatus?.length && !(t.workStatus && workStatus.includes(t.workStatus))) return false
     if (needsAdmin !== undefined && t.needsAdmin !== needsAdmin) return false
     if (categoryCode?.length && !(t.category && categoryCode.includes(t.category.code))) return false
     if (urgency?.length && !(t.urgency && urgency.includes(t.urgency))) return false
@@ -77,6 +76,10 @@ export async function listTickets(user: User, query: TicketListQuery = {}): Prom
     }
     return true
   })
+  // 상태별 건수는 상태 조건만 빼고 센다 (서버의 statusCounts 와 같다. Jira 생성 전 접수는 어느 상태에도 세지 않는다)
+  const statusCounts: Record<string, number> = { RDY: 0, WIP: 0, FIN: 0, CLS: 0 }
+  rows.forEach((t) => t.workStatus && statusCounts[t.workStatus]++)
+  if (workStatus?.length) rows = rows.filter((t) => t.workStatus && workStatus.includes(t.workStatus))
   const [key, dir] = sort.split(',')
   const sign = dir === 'desc' ? -1 : 1
   const val = (t: TicketDetail): string | number => {
@@ -108,7 +111,7 @@ export async function listTickets(user: User, query: TicketListQuery = {}): Prom
   const totalCount = rows.length
   const totalPages = Math.max(1, Math.ceil(totalCount / size))
   const p = Math.min(Math.max(1, page), totalPages)
-  return ok({ items: rows.slice((p - 1) * size, p * size).map(summaryOf), page: p, size, totalCount, totalPages })
+  return ok({ items: rows.slice((p - 1) * size, p * size).map(summaryOf), page: p, size, totalCount, totalPages, statusCounts })
 }
 
 const notFound = () => fail('TICKET_NOT_FOUND', '접수를 찾을 수 없어요.')

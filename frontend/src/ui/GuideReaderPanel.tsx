@@ -90,7 +90,7 @@ export function GuideReaderPanel({ target, onClose }: { target: ReaderTarget; on
               {target.docCode}
               {(cur?.data?.version || target.version) && ` · ${cur?.data?.version || target.version}`}
             </div>
-            <h3>{target.title}</h3>
+            <h2>{target.title}</h2>
           </div>
           <span style={{ flex: 1 }} />
           <button type="button" className="btn sec sm ico" aria-label={wide ? '패널 크기로 줄이기' : '크게 보기'} aria-pressed={wide} title={wide ? '패널 크기로 줄이기' : '화면 전체로 크게 보기'} onClick={() => setWide((w) => !w)}>

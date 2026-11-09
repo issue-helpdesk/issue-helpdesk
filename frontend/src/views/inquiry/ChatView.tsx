@@ -9,7 +9,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { cancelChatDraft, isStaleInquiry, confirmChatDraft, editDraft, getChat, idleBackChat, idleDeleteChat, idleWarnChat, leaveChat, rejectChat, replyChat, resolveChat, resumeChat, sendChat, watchChat } from '../../api/chat'
+import { cancelChatDraft, isStaleInquiry, confirmChatDraft, editDraft, getChat, idleBackChat, idleDeleteChat, idleWarnChat, leaveChat, peekChat, rejectChat, replyChat, resolveChat, resumeChat, sendChat, watchChat } from '../../api/chat'
 import { IDLE_TEXT, type DraftEdit, type GuideSource, type Inquiry, type LegacyCase } from '../../api/chatTypes'
 import { displayStatusOf, inquiryState } from '../../api/inquiryState'
 import { markTicketRead, refreshUnread } from '../../api/notifications'
@@ -44,6 +44,7 @@ const LOAD_SLOW_MS = 12_000
 /** 버튼으로만 고르는 단계의 입력창 자리표시자와 안내 (docs/09: 입력창을 끄는 단계). 자리표시자와 겹치는 안내는 줄여 쓴다. */
 const PICK = '위의 버튼을 선택해 주세요.'
 const LOCK = {
+  ticket: { ph: '접수된 문의라 새 글을 보낼 수 없어요', why: '접수 후에는 담당자가 처리해요. 진행 상황은 위 카드에서 확인해 주세요. ' },
   answered: { ph: PICK, why: '해결 여부는 위 버튼으로 선택해 주세요. ' },
   offer: { ph: PICK, why: '담당자 연결 여부는 위 버튼으로 선택해 주세요. ' },
   draft: { ph: PICK, why: '티켓 내용을 확인한 후 버튼으로 선택해 주세요. ' },
@@ -57,11 +58,13 @@ export function ChatView() {
   const navigate = useNavigate()
   const fromNew = !!(useLocation().state as { fresh?: boolean } | null)?.fresh // 새 문의에서 막 넘어온 화면
   const id = Number(idParam)
+  // 새 문의의 답이 막 와서 넘어왔으면, 대화 화면을 불러오는 빈 화면 없이 받은 내용으로 바로 시작한다 (서버 모드)
+  const [seed] = useState(() => (fromNew && id ? peekChat(id) : undefined))
   const { user } = useAuth()
   const employeeNo = user?.employeeNo
   // 어느 문의를 불러왔는지 함께 기억해, 다른 문의로 옮겼을 때 이전 내용이 잠깐 보이지 않게 한다
   // data=null 이면 불러오지 못한 것이다. failed 이면 문의가 없어서가 아니라 연결·서버 문제로 못 읽은 경우다.
-  const [loaded, setLoaded] = useState<{ id: number; data: Inquiry | null; failed?: boolean } | null>(null)
+  const [loaded, setLoaded] = useState<{ id: number; data: Inquiry | null; failed?: boolean } | null>(() => (seed ? { id, data: seed } : null))
   const [reloadKey, setReloadKey] = useState(0)
   const seen = useRef(false) // 이 화면에서 문의를 한 번이라도 읽었는지
   const [text, setText] = useState('')
@@ -163,7 +166,8 @@ export function ChatView() {
 
   // 새로 생긴 AI 답변만 한 번 움직인다. 처음 불러온 메시지와 단순한 다시 그리기에서는 움직이지 않는다.
   // 내가 보낸 글은 먼저 임시 글로 보였다가 진짜 글로 바뀌는데, 같은 글은 같은 키를 이어 써서 지워졌다 다시 생기지 않게 한다 (messageKeys.ts)
-  const [known, setKnown] = useState<KnownMessages | null>(null)
+  // 새 문의에서 넘어왔으면 내가 보낸 글은 이미 화면에 있던 것으로 치고, 답변만 새로 나타나게 한다
+  const [known, setKnown] = useState<KnownMessages | null>(() => (seed ? nextKnown(null, id, seed.messages.filter((m) => m.role === 'user')) : null))
   if (inquiry) {
     const next = nextKnown(known, id, inquiry.messages)
     if (next !== known) setKnown(next)
@@ -365,7 +369,8 @@ export function ChatView() {
   const typing = inquiry.messages.some((m) => m.typing)
   const t = inquiry.ticket
   // 버튼으로만 고르는 단계: 답변 뒤·연결 제안, 접수 초안 확인, 담당자 처리 완료 뒤 해결 확인
-  const wait = t ? (t.workStatus === 'FIN' ? 'fin' : null) : inquiry.step === 'draft' ? 'draft' : inquiry.step === 'answered' ? 'answered' : inquiry.step === 'offer' ? 'offer' : null
+  // 접수된 뒤에는 서버가 새 글을 받지 않는다(서버 모드). 모의 환경에서는 담당자에게 추가 내용을 보낼 수 있다
+  const wait = t ? (t.workStatus === 'FIN' ? 'fin' : t.workStatus !== 'CLS' && !USE_MOCK_INQUIRY ? 'ticket' : null) : inquiry.step === 'draft' ? 'draft' : inquiry.step === 'answered' ? 'answered' : inquiry.step === 'offer' ? 'offer' : null
   // 삭제 전에 돌아온 상태: 이어서 할지 새로 시작할지 고를 때까지 입력창을 끈다
   const paused = !!inquiry.paused
   const askAnswer = ask && !paused && !gated && (wait === 'answered' || wait === 'fin') ? wait : null
@@ -628,7 +633,7 @@ export function ChatView() {
         </Modal>
       )}
     </main>
-    {detail && t && <TicketDetailPanel id={USE_MOCK_INQUIRY ? ticketIdOfInquiry(inquiry.id) : t.id ?? 0} tick={detailTick} onClose={() => setDetail(false)} />}
+    {detail && t && <TicketDetailPanel id={USE_MOCK_INQUIRY ? ticketIdOfInquiry(inquiry.id) : t.id ?? 0} tick={detailTick} title={inquiry.title} onClose={() => setDetail(false)} />}
     </>
   )
 }

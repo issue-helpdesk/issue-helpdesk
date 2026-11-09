@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { beginChat, clearPending, getPending } from '../../api/chat'
 import { markInquiryUnseen } from '../../api/inquirySeen'
+import { maskSensitive } from '../../core/mask'
 import { refreshInquiryList } from '../../core/poll'
 import { useAuth } from '../../core/session'
 import { Composer } from '../../ui/Composer'
@@ -24,6 +25,8 @@ export function PendingChatView() {
   const [error, setError] = useState('')
   const pending = getPending()
   const text = pending?.text ?? prefill ?? ''
+  // 화면 표시용 사본 (대기·오류·다시 시도 어느 상태에서도 이 값만 그린다)
+  const shown = maskSensitive(text).text
   const live = useRef(true)
   const employeeNo = user?.employeeNo
 
@@ -83,7 +86,8 @@ export function PendingChatView() {
       <Topbar title="새 문의" sub="답변을 준비하고 있어요" lead={<Pav pose="base" size={44} />} />
       <div className="scroll">
         <div className="thread" role="log" aria-live="polite" aria-label="문의 대화">
-          <div className="msg u rise-u">{text}</div>
+          {/* 화면에 보이는 말풍선만 민감정보를 가린다. 요청 본문·다시 시도는 원래 글(text)을 그대로 쓴다 */}
+          <div className="msg u rise-u">{shown}</div>
           {error ? (
             <div className="msg a">
               <Pav pose="base" />

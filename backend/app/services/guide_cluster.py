@@ -19,6 +19,7 @@ from app.rag.case_guide.open_basis import open_basis
 from app.rag.case_guide.rebase import rebase
 from app.repositories.audit_log import AuditLogRepositoryDep
 from app.repositories.document import DocumentRepositoryDep
+from app.repositories.guide_analysis_run import GuideAnalysisRunRepositoryDep
 from app.repositories.guide_cluster import GuideClusterRepositoryDep
 from app.schemas.common import Page
 from app.services.document_file import stored_file
@@ -26,6 +27,7 @@ from app.services.document_ingest import IngestSubmitterDep
 from app.utils import datetime_utils
 from app.schemas.guide_cluster import (
     DocumentRef,
+    GuideAnalysisStatus,
     GuideClusterConflict,
     GuideClusterDetail,
     GuideClusterDetailWithWarnings,
@@ -68,7 +70,9 @@ class GuideClusterService:
         rebaser: GuideRebaserDep,
         basis_opener: GuideBasisOpenerDep,
         submit_ingest: IngestSubmitterDep,
+        analysis_runs: GuideAnalysisRunRepositoryDep,
     ) -> None:
+        self.analysis_runs = analysis_runs
         self.db = db
         self.clusters = clusters
         self.documents = documents
@@ -83,6 +87,15 @@ class GuideClusterService:
         rows, total = self.clusters.search(query.category_code, query.judgment, query.status, query.offset, query.size)
         items = [summary(c, cat, doc, reg, n) for c, cat, doc, reg, n in rows]
         return Page.of(items, query.page, query.size, total)
+
+    def analysis_status(self) -> GuideAnalysisStatus:
+        """GC-09."""
+        succeeded, latest = self.analysis_runs.latest_succeeded(), self.analysis_runs.latest()
+        return GuideAnalysisStatus(
+            last_analyzed_at=succeeded.started_at if succeeded else None,
+            next_analysis_at=datetime_utils.kst_next_week_start(datetime_utils.now()),
+            last_run_status=latest.status if latest else None,
+        )
 
     def get_cluster(self, cluster_id: int) -> GuideClusterDetail:
         """GC-02."""

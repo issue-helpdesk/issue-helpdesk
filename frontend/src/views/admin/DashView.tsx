@@ -212,7 +212,7 @@ export function DashView() {
               <section className="panel" aria-label="검색 결과" aria-live="polite" style={{ padding: '22px 24px' }}>
                 <div className="sech">
                   <div>
-                    <h3 className="sht">검색 결과</h3>
+                    <h2 className="sht">검색 결과</h2>
                     <p className="shs">
                       {hit?.total ?? 0}건{(hit?.total ?? 0) > 10 ? ' · 최근 접수 10건만 보여요' : ''}
                     </p>
@@ -312,7 +312,7 @@ export function DashView() {
                 <section className="panel urg" aria-label="긴급·높음 미해결" style={{ padding: '22px 24px' }}>
                   <div className="sech">
                     <div>
-                      <h3 className="sht">긴급·높음 미해결</h3>
+                      <h2 className="sht">긴급·높음 미해결</h2>
                       <p className="shs">긴급도가 높은 문의 중 처리 대기·처리 중인 문의</p>
                     </div>
                     <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P12&st=open')}>

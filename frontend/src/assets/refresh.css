@@ -248,7 +248,7 @@
 
 .msrc .mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 12px;border-bottom:1px solid var(--line2);flex:none;background:var(--white)}
 
-.msrc .mh h3{margin:0}.msrc .mh .sub2{margin:2px 0 0;font-size:12.5px;line-height:20px;color:var(--mute)}
+.msrc .mh h2,.msrc .mh h3{margin:0}.msrc .mh .sub2{margin:2px 0 0;font-size:12.5px;line-height:20px;color:var(--mute)}
 
 .msrc .mhb{display:flex;gap:6px;flex:none}
 
@@ -610,7 +610,7 @@ td.nw{white-space:nowrap;font-size:13px;color:var(--ink2)}
 .app .detail.crev{width:min(920px,100vw);transition:width .28s cubic-bezier(.2,.8,.2,1)}
 .app .detail.crev.wide{width:100vw}
 .detail.crev .db.crb{flex:1}
-.detail.crev .cgs>h4{margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.detail.crev .cgs>h3,.detail.crev .cgs>h4{margin-bottom:10px;display:flex;align-items:center;gap:8px}
 .detail.crev .cgcmp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:8px}
 .detail.crev .cgpre{margin:6px 0 0;padding:12px 14px;border-radius:12px;background:var(--shell);white-space:pre-wrap;font:inherit;font-size:13.5px;line-height:1.7;color:var(--ink2)}
 .detail.crev .cgpre.new{background:var(--osoft)}
@@ -637,3 +637,11 @@ td.nw{white-space:nowrap;font-size:13px;color:var(--ink2)}
 .mdf .seg.sm button{min-height:28px;padding:0 12px;font-size:12.5px}
 .mdp{min-height:210px;margin-top:2px;padding:12px 16px;border-radius:12px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line);font-size:13.5px;line-height:1.7}
 .mdp.tall{min-height:280px}
+/* 가이드 목록: 현행 전환 대기·AI 제안 안내 줄. 카드로 보이지 않게 가는 글줄과 글자 단추로만 그린다 */
+.gnote{margin:4px 0 0 17px;display:flex;flex-direction:column;gap:1px}
+.gnote p{margin:0;display:flex;align-items:flex-start;gap:8px;font-size:12.5px;line-height:20px;color:var(--mute)}
+.gnote b{font-weight:600;color:var(--ink)}
+.gnote .gd{flex:none;width:7px;height:7px;margin-top:6.5px;border-radius:50%;background:var(--s-warn-dot)}.gnote .gd.rv{background:var(--s-info-dot)}
+.lnk{border:0;background:none;padding:0;font:inherit;font-weight:600;color:var(--ca);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.lnk:hover{text-decoration-thickness:2px}.lnk:focus-visible{outline:2px solid var(--s-info-dot);outline-offset:2px;border-radius:4px}
+

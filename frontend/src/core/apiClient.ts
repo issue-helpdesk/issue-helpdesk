@@ -10,6 +10,7 @@
  */
 import { fail, ok, type ApiResult, type ErrorDetail } from '../api/types'
 import { BAD_RESPONSE_TEXT, NETWORK_READ, NETWORK_WRITE, displayMessage } from '../api/errorText'
+import { PREVIEW_GUIDE_CASES, previewSend } from '../api/mock/casePreview'
 import { API_BASE_URL } from './config'
 import { tokenStore } from './tokenStore'
 
@@ -53,6 +54,11 @@ function refreshOnce(): Promise<boolean> {
 
 /** 요청을 한 번 보내고 결과를 `{ ok, data | error }` 로 바꾼다. (재시도 없음) */
 async function send<T>(path: string, init: RequestInit): Promise<ApiResult<T>> {
+  // 개발 전용 미리보기 (VITE_PREVIEW_GUIDE_CASES=true): AI 가이드 제안·문서 요청만 가짜 서버가 답한다. 배포 빌드에는 들어가지 않는다
+  if (PREVIEW_GUIDE_CASES) {
+    const fake = await previewSend(path, init)
+    if (fake) return fake as ApiResult<T>
+  }
   const headers = new Headers(init.headers)
 
   // 본문이 있으면 JSON 으로 보낸다

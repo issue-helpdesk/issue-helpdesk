@@ -2,7 +2,8 @@
  * 해결 사례 → 가이드 초안 검토 패널 (관리자). 근거 티켓·AI 판단 이유·경고를 확인하고, 기존 가이드 보강이면 기존 내용과 AI 수정 제안문을
  * 비교해 편집하고, 신규 가이드면 제목·분류·본문을 확인·편집한다. 열람 범위·외부 AI 전송 정책을 골라 승인하면
  * 현행이 아닌 초안 버전으로 가이드 목록에 등록되고 검색 준비가 시작된다 (현행 전환은 준비가 끝난 뒤 가이드 목록에서). 모의 환경에서는 모의 상태로 바뀐다.
- * 서버 연결 환경(api/caseClusters.ts)에서는 초안 등록 API 가 아직 없어서 임시 저장(GC-05)·거절(GC-03)·직접 반영 표시(GC-04)만 한다.
+ * 서버 연결 환경(api/caseClusters.ts)에서는 임시 저장(GC-05)·거절(GC-03)·직접 반영 표시(GC-04)에 더해 초안 등록(GC-06)·다시 맞추기(GC-07)·
+ * 넣을 문서 변경(GC-08)을 한다. 등록은 글을 받지 않으므로 고친 글이 있으면 먼저 저장하고 그 응답의 번호로 등록한다.
  * 열람 범위·외부 AI 전송은 검토 중에는 보이지 않고, "승인하고 초안 등록"을 누르면 뜨는 창에서 한 번 더 확인하며 고른다.
  * 열고 닫는 모션과 크게 보기는 접수 상세·가이드 본문 패널과 같다.
  */
@@ -10,9 +11,9 @@ import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import type { GuideScope, GuideTx } from '../../api/guides'
-import { CASES_FROM_SERVER, applyCase, getAllCases, loadCaseDetail, loadCases, rejectCase, saveCaseDraft, subscribeAllCases } from '../../api/caseClusters'
+import { CASES_FROM_SERVER, applyCase, getAllCases, loadCaseDetail, loadCases, rebaseServerCase, registerCase, rejectCase, saveCaseDraft, subscribeAllCases } from '../../api/caseClusters'
 import { retryGuideIngest } from '../../api/guides'
-import { CASE_KIND_LABEL, CASE_KIND_TONE, CASE_STATE_LABEL, CASE_STATE_TONE, approveCase, baseChanged, dropCase, rebaseCase, retryCase, saveCase, type CaseItem } from '../../api/mock/caseGuides'
+import { CASE_KIND_TONE, CASE_STATE_LABEL, CASE_STATE_TONE, approveCase, baseChanged, dropCase, kindLabel, rebaseCase, retryCase, saveCase, type CaseItem } from '../../api/mock/caseGuides'
 import { useAuth } from '../../core/session'
 import { Icon } from '../../ui/Icon'
 import { MarkdownField } from '../../ui/MarkdownField'
@@ -22,6 +23,20 @@ import { useOutsideClose } from '../../ui/useOutsideClose'
 import { SelectBox } from '../../ui/SelectBox'
 import { StateBadge } from '../../ui/StateBadge'
 import { useToast } from '../../ui/useToast'
+import { CaseTargetDialog } from './CaseTargetDialog'
+
+/** 새 가이드 뼈대에서 "(작성 필요)" 자리가 남은 장. 서버가 등록할 때 같은 것을 거절하므로, 미리 알려 준다 */
+const TODO_MARK = '(작성 필요)'
+function todoChapters(md: string): string[] {
+  const out: string[] = []
+  let head = ''
+  for (const line of md.split('\n')) {
+    const m = /^##\s+(.+?)\s*$/.exec(line)
+    if (m) head = m[1]
+    else if (line.trim() === TODO_MARK && head && !out.includes(head)) out.push(head)
+  }
+  return out
+}
 
 export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose: () => void; onGoLive: (c: CaseItem) => void }) {
   const cases = useSyncExternalStore(subscribeAllCases, getAllCases)
@@ -85,6 +100,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
   const [compare, setCompare] = useState(false)
   const [dropOpen, setDropOpen] = useState(false)
   const [setOpen, setSetOpen] = useState(false)
+  const [targetOpen, setTargetOpen] = useState(false)
   const [why, setWhy] = useState('')
   const [whyErr, setWhyErr] = useState('')
   const [err, setErr] = useState('')
@@ -95,12 +111,35 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
     setAfter(c.after)
   }
 
+  // 상세를 읽고 나면 새 가이드 제목이 서버의 값(guide_title)으로 바뀐다
+  const [seenTitle, setSeenTitle] = useState(c?.title)
+  if (c && c.title !== seenTitle) {
+    setSeenTitle(c.title)
+    setTitle(c.title ?? '')
+  }
+
   if (!c) return null
   const review = c.state === 'review'
   const srv = CASES_FROM_SERVER
   const waiting = srv && !c.server?.detail
   const canEdit = review && (!srv || !!c.server?.hasDraft)
   const changed = baseChanged(c) && c.state === 'review'
+  const todo = srv && c.kind === 'new' && review ? todoChapters(after) : []
+  const info = c.server?.info
+  // 서버 연결: 등록할 수 없는 이유 (있으면 단추를 막고 이유를 보여 준다)
+  const blocked = !srv
+    ? ''
+    : changed
+      ? '기준 가이드가 바뀌었어요. "다시 맞추기"를 먼저 해 주세요.'
+      : (c.server?.conflicts?.length ?? 0) > 0
+        ? '새 현행과 달라진 항목을 비교해 초안을 고쳐 저장해 주세요.'
+        : c.kind === 'new' && !c.target
+          ? '넣을 문서를 먼저 연결해 주세요.'
+          : !c.server?.hasDraft
+            ? '아직 초안이 만들어지지 않았어요.'
+            : todo.length > 0
+              ? `"${TODO_MARK}"가 남은 장을 채워 주세요: ${todo.join(', ')}`
+              : ''
   const draft = { title: c.kind === 'new' ? title : undefined, cat: c.kind === 'new' ? cat : undefined, after }
   const edit = { ...draft, scope: c.scope, tx: c.tx }
   const nm = c.kind === 'new' ? (title.trim() || c.topic) : c.topic
@@ -116,8 +155,29 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
     saveCase(id, draft)
     say('임시 저장했어요.')
   }
-  const approve = (sc: GuideScope, t2: GuideTx) => {
+  const approve = async (sc: GuideScope, t2: GuideTx) => {
     setErr('')
+    if (CASES_FROM_SERVER) {
+      if (busy || !c.server) return
+      setBusy(true)
+      // 등록은 글을 받지 않는다: 고친 글이 있으면 먼저 저장하고, 그 응답의 번호로 등록한다
+      let rev = c.server.draftRevision
+      if (canEdit && after !== c.after) {
+        const saved = await saveCaseDraft(id, after, rev)
+        if (!saved.ok) {
+          setBusy(false)
+          setSetOpen(false)
+          return setErr(saved.error.message)
+        }
+        rev = saved.data.server?.draftRevision ?? rev
+      }
+      const done = await registerCase(id, rev, sc, t2)
+      setBusy(false)
+      setSetOpen(false)
+      if (!done.ok) return setErr(done.error.message)
+      void loadCases()
+      return say('초안으로 등록했어요. 검색 준비를 시작해요.')
+    }
     const r = approveCase(id, { ...edit, scope: sc, tx: t2 })
     setSetOpen(false)
     if (!r.ok) return setErr(r.message)
@@ -132,12 +192,12 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
       setBusy(false)
       if (!r.ok) return setWhyErr(r.error.message)
       setDropOpen(false)
-      return say('가이드화하지 않기로 했어요.')
+      return say('반영하지 않기로 했어요.')
     }
     const r = dropCase(id, why)
     if (!r.ok) return setWhyErr(r.message)
     setDropOpen(false)
-    say('가이드화하지 않기로 했어요.')
+    say('반영하지 않기로 했어요.')
   }
   const retry = async () => {
     if (CASES_FROM_SERVER) {
@@ -161,7 +221,17 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
     if (!r.ok) return fail(r.error.message)
     say('직접 반영한 것으로 표시했어요.')
   }
-  const rebase = () => {
+  const rebase = async () => {
+    if (CASES_FROM_SERVER) {
+      if (busy || !c.server) return
+      setBusy(true)
+      setErr('')
+      const r = await rebaseServerCase(id, c.server.draftRevision)
+      setBusy(false)
+      if (!r.ok) return setErr(r.error.message)
+      const n = r.data.server?.conflicts?.length ?? 0
+      return say(n ? `새 현행에 맞췄어요. 달라진 항목 ${n}건은 비교해서 초안을 고쳐 저장해 주세요.` : '새 현행에 맞췄어요. 이제 등록할 수 있어요.')
+    }
     const r = rebaseCase(id)
     if (!r.ok) return fail(r.message)
     setCompare(false)
@@ -183,9 +253,9 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           <div className="row" style={{ flexWrap: 'nowrap' }}>
             <div style={{ minWidth: 0 }}>
               <div className="small muted">
-                <span className={`tag c-${c.cat}`}>{CATEGORIES[c.cat].name}</span> <StateBadge tone={CASE_KIND_TONE[c.kind]} label={CASE_KIND_LABEL[c.kind]} /> 근거 {c.ticketCount}건
+                <span className={`tag c-${c.cat}`}>{CATEGORIES[c.cat].name}</span> <StateBadge tone={CASE_KIND_TONE[c.kind]} label={kindLabel(c)} /> 근거 {c.ticketCount}건
               </div>
-              <h3>{nm}</h3>
+              <h2>{nm}</h2>
             </div>
             <span style={{ flex: 1 }} />
             <StateBadge tone={CASE_STATE_TONE[c.state]} label={CASE_STATE_LABEL[c.state]} />
@@ -209,14 +279,19 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
                     최신 버전과 비교
                   </button>
                 )}
+                {srv && c.kind !== 'new' && (
+                  <button type="button" className="btn pri sm" disabled={busy} onClick={() => void rebase()}>
+                    다시 맞추기
+                  </button>
+                )}
               </div>
             </div>
           )}
           {changed && compare && c.target && c.latest && (
             <section className="cgs" aria-label="최신 버전과 비교">
-              <h4>
+              <h3>
                 최신 버전({c.target.latestVersion})과 비교 <span className="small muted">· {c.target.section}</span>
-              </h4>
+              </h3>
               <div className="cgcmp">
                 <div>
                   <div className="asl">최신 가이드 내용</div>
@@ -235,6 +310,44 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
             </section>
           )}
 
+          {srv && review && (c.server?.conflicts?.length ?? 0) > 0 && (
+            <section className="cgs" aria-label="새 현행과 달라진 항목">
+              <h3>새 현행과 달라진 항목 <span className="count">{c.server?.conflicts?.length}</span></h3>
+              <p className="small muted" style={{ margin: '0 0 8px' }}>
+                초안을 만든 뒤 현행 가이드가 바뀌었어요. 오른쪽 현행 내용과 비교해 아래 초안을 고치고 <b>임시 저장</b>하면 충돌이 풀리고 등록할 수 있어요.
+              </p>
+              {c.server?.conflicts?.map((k) => (
+                <div key={`${k.section}-${k.kind}`} style={{ marginBottom: 10 }}>
+                  <div className="small" style={{ fontWeight: 700, marginBottom: 4 }}>
+                    항목 {k.section} <span className="muted">· {k.message}</span>
+                  </div>
+                  <div className="cgcmp">
+                    <div>
+                      <div className="asl">초안을 만들 때의 원문</div>
+                      <pre className="cgpre">{k.oldMd}</pre>
+                    </div>
+                    <div>
+                      <div className="asl">지금 현행의 원문</div>
+                      <pre className="cgpre new">{k.newMd}</pre>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
+          {(c.server?.fresh?.length ?? 0) > 0 && (
+            <div className="alert warn" role="status">
+              <Icon name="alert" />
+              <div>
+                <b>합치면서 확인할 내용이 있어요.</b> <span className="small muted">(서버가 저장하지 않아 이 화면에서만 볼 수 있어요)</span>
+                <ul className="cgw" style={{ marginTop: 6 }}>
+                  {c.server?.fresh?.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
           {c.state === 'preparing' && c.registered && (
             <div className="alert info" role="status">
               <Icon name="clock" />
@@ -275,7 +388,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
             <div className="alert info" role="status">
               <Icon name="file" />
               <div>
-                <div>가이드화하지 않기로 한 제안이에요.</div>
+                <div>반영하지 않기로 한 제안이에요.</div>
                 {c.dropReason && <div style={{ marginTop: 4 }}>사유: {c.dropReason}</div>}
               </div>
             </div>
@@ -301,9 +414,9 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           {!waiting && (
             <>
           <section className="cgs" aria-label="근거 티켓">
-            <h4>
+            <h3>
               근거 티켓 <span className="count">{c.ticketCount}</span>
-            </h4>
+            </h3>
             <div className="tw">
               <table className="tbl">
                 <thead>
@@ -327,8 +440,33 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           </section>
 
           <section className="cgs" aria-label="AI 판단">
-            <h4>AI 판단</h4>
-            <p style={{ margin: '0 0 8px' }}>{c.reason}</p>
+            <h3>AI 판단</h3>
+            {/* 판단 이유는 티켓마다 한 줄씩 줄바꿈으로 온다 */}
+            {c.reason.split('\n').filter((l) => l.trim()).map((l) => (
+              <p key={l} style={{ margin: '0 0 6px' }}>
+                {l}
+              </p>
+            ))}
+            {info?.changeNote && (
+              <p style={{ margin: '8px 0 6px' }}>
+                <b>변경 이유</b> · {info.changeNote}
+              </p>
+            )}
+            {(info?.guessed.length ?? 0) > 0 && (
+              <p className="small" style={{ margin: '8px 0 6px' }}>
+                <b>AI가 추측해서 쓴 칸</b> · {info?.guessed.join(', ')} <span className="muted">— 사실과 맞는지 확인하고 고쳐 주세요.</span>
+              </p>
+            )}
+            {(info?.differences.length ?? 0) > 0 && (
+              <div className="small" style={{ margin: '8px 0 6px' }}>
+                <b>티켓마다 해결 방법이 달라요</b>
+                <ul className="cgw" style={{ marginTop: 4 }}>
+                  {info?.differences.map((d) => (
+                    <li key={d}>{d}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {c.warnings.length > 0 && (
               <ul className="cgw">
                 {c.warnings.map((w) => (
@@ -341,15 +479,42 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           </section>
 
           <section className="cgs" aria-label="가이드 내용">
-            <h4>{c.kind === 'amend' ? (c.before !== undefined ? '기존 내용과 AI 수정 제안' : 'AI 수정 제안') : c.kind === 'new' ? '신규 가이드 초안' : c.kind === 'sec' ? 'SEC 직접 검토 초안' : '매뉴얼 후보'}</h4>
+            <h3>{c.kind === 'amend' ? (c.before !== undefined ? '기존 내용과 AI 수정 제안' : 'AI 수정 제안') : c.kind === 'new' ? '신규 가이드 초안' : c.kind === 'sec' ? '보안 사고 사례' : '매뉴얼 후보'}</h3>
             {srv && !c.server?.hasDraft ? (
-              <p style={{ margin: 0 }}>이 제안은 AI가 만든 초안이 없어요. 근거 티켓을 보고 매뉴얼에 직접 반영한 뒤 "직접 반영 표시"를 눌러 주세요.</p>
+              <>
+                {info?.manualNote ? (
+                  <div className="field">
+                    <div className="asl">매뉴얼에 넣을 만한 내용</div>
+                    <pre className="cgpre new" style={{ whiteSpace: 'pre-wrap' }}>{info.manualNote}</pre>
+                  </div>
+                ) : (
+                  <p className="small muted" style={{ margin: '0 0 8px' }}>AI가 정리한 내용이 없어요. 근거 티켓을 보고 판단해 주세요.</p>
+                )}
+                {(info?.manualItems.length ?? 0) > 0 && (
+                  <div className="field">
+                    <div className="asl">가까운 매뉴얼 항목</div>
+                    <ul className="cgw">
+                      {info?.manualItems.map((m) => (
+                        <li key={m}>{m}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <p className="small muted" style={{ margin: 0 }}>
+                  이 제안은 가이드 초안을 만들지 않아요. 위 내용을 참고해 매뉴얼에 직접 반영한 뒤 "매뉴얼에 반영했어요"를 눌러 주세요.
+                </p>
+              </>
             ) : c.kind === 'amend' && c.target ? (
               <>
                 <p className="small muted" style={{ margin: '0 0 8px' }}>
                   반영 위치: <b>{c.target.docCode} {c.target.title}</b>
                   {c.target.baseVersion && ` · 기준 ${c.target.baseVersion}`}
-                  {c.target.section && ` · ${c.target.section}`}
+                  {c.target.section && ` · 항목 ${c.target.section}`}
+                  {srv && review && (
+                    <button type="button" className="btn ghost sm" style={{ marginLeft: 8 }} onClick={() => setTargetOpen(true)}>
+                      넣을 문서 변경
+                    </button>
+                  )}
                 </p>
                 {c.before !== undefined ? (
                   <div className="cgcmp">
@@ -373,7 +538,12 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
                   </div>
                 )}
               </>
-            ) : c.kind === 'sec' || c.kind === 'manual' ? (
+            ) : c.kind === 'sec' ? (
+              <p style={{ margin: 0 }}>
+                의심 사고 티켓 <b>{c.ticketCount}건</b>이 접수되어 해결됐어요. 처리 방법을 <b>가이드나 매뉴얼에 남길지</b> 위 근거 티켓을 보고 판단해 주세요. AI가 만든 초안은 없어요.
+                <span className="small muted" style={{ display: 'block', marginTop: 6 }}>가이드나 매뉴얼에 직접 반영했다면 "가이드·매뉴얼에 반영했어요"를, 남길 필요가 없다면 "반영 안함"을 눌러 주세요.</span>
+              </p>
+            ) : c.kind === 'manual' ? (
               <div className="field">
                 <label className="asl" htmlFor={`${uid}-after`}>
                   티켓 글을 옮긴 초안 {canEdit && <span className="muted">(고쳐서 쓸 수 있어요)</span>}
@@ -382,6 +552,30 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
               </div>
             ) : (
               <>
+                {srv && (
+                  <p className="small muted" style={{ margin: '0 0 8px' }}>
+                    {c.target ? (
+                      <>
+                        연결된 문서: <b>{c.target.docCode} {c.target.title}</b> · v1.0으로 등록돼요
+                      </>
+                    ) : (
+                      '아직 연결된 문서가 없어요. 문서를 연결해야 초안으로 등록할 수 있어요.'
+                    )}
+                    {review && (
+                      <button type="button" className={`btn ${c.target ? 'ghost' : 'pri'} sm`} style={{ marginLeft: 8 }} onClick={() => setTargetOpen(true)}>
+                        {c.target ? '넣을 문서 변경' : '문서 연결'}
+                      </button>
+                    )}
+                  </p>
+                )}
+                {todo.length > 0 && (
+                  <div className="alert warn" role="status" style={{ marginBottom: 12 }}>
+                    <Icon name="alert" />
+                    <div>
+                      <b>아직 채워야 할 장이 있어요.</b> 아래 본문에서 <code>{TODO_MARK}</code>로 남은 <b>{todo.join(', ')}</b>을(를) 직접 써 넣고 <b>임시 저장</b>하면 등록할 수 있어요.
+                    </div>
+                  </div>
+                )}
                 <div className="row2">
                   <div className="field">
                     <label htmlFor={`${uid}-title`}>제목</label>
@@ -412,7 +606,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
 
           {!srv && !review && c.state !== 'dropped' && (
             <section className="cgs" aria-label="등록 설정">
-              <h4>등록 설정</h4>
+              <h3>등록 설정</h3>
               <dl className="dl" style={{ margin: 0 }}>
                 <dt>열람 범위</dt>
                 <dd>{c.scope}</dd>
@@ -433,24 +627,24 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
         <div className="crf">
           {review && (
             <>
-              {canEdit && (
+              {canEdit && c.kind !== 'sec' && (
                 <button type="button" className="btn sec" disabled={busy} onClick={save}>
                   임시 저장
                 </button>
               )}
               <button type="button" className="btn sec dng" disabled={busy} onClick={() => { setWhy(''); setWhyErr(''); setDropOpen(true) }}>
-                비가이드화
+                반영 안함
               </button>
               <span style={{ flex: 1 }} />
               {srv ? (
                 <>
                   {c.kind !== 'manual' && c.kind !== 'sec' && (
-                    <button type="button" className="btn pri" disabled title="초안을 가이드로 등록하는 기능은 아직 쓸 수 없어요.">
+                    <button type="button" className="btn pri" disabled={busy || !!blocked} title={blocked || undefined} onClick={() => setSetOpen(true)}>
                       승인하고 초안 등록
                     </button>
                   )}
                   <button type="button" className={c.kind === 'manual' || c.kind === 'sec' ? 'btn pri' : 'btn sec'} disabled={busy} onClick={() => setApplyOpen(true)}>
-                    직접 반영 표시
+                    {c.kind === 'manual' ? '매뉴얼에 반영했어요' : c.kind === 'sec' ? '가이드·매뉴얼에 반영했어요' : '직접 반영 표시'}
                   </button>
                 </>
               ) : (
@@ -470,6 +664,11 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           )}
           {c.state === 'ready' && (
             <>
+              {srv && (
+                <button type="button" className="btn sec" disabled={busy} title="같은 버전에 거절한 제안이 들어 있을 때, 거절한 항목을 빼고 이 버전을 다시 만들어요." onClick={() => setSetOpen(true)}>
+                  거절한 항목 빼고 다시 등록
+                </button>
+              )}
               <span style={{ flex: 1 }} />
               <button type="button" className="btn pri" onClick={() => onGoLive(c)}>
                 현행으로 전환
@@ -484,10 +683,22 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
         <PolicyModal
           initialScope={c.scope}
           initialTx={c.tx}
-          intro="열람 범위와 외부 AI 전송 정책을 정해야 초안으로 등록할 수 있어요. 가이드 목록의 새 버전에 그대로 적용돼요."
-          confirmLabel="초안으로 등록"
+          intro={srv ? '열람 범위와 외부 AI 전송 정책을 정해야 초안으로 등록할 수 있어요. 가이드 목록의 새 버전에 그대로 적용돼요. 같은 문서에 이어 쓰는 버전이면 값이 그 버전 전체에 적용돼요.' : '열람 범위와 외부 AI 전송 정책을 정해야 초안으로 등록할 수 있어요. 가이드 목록의 새 버전에 그대로 적용돼요.'}
+          busy={busy}
+          confirmLabel={c.state === 'ready' ? '다시 등록' : '초안으로 등록'}
           onClose={() => setSetOpen(false)}
           onConfirm={(sc, t2) => approve(sc, t2)}
+        />
+      )}
+      {targetOpen && (
+        <CaseTargetDialog
+          c={c}
+          onClose={() => setTargetOpen(false)}
+          onDone={(m) => {
+            setTargetOpen(false)
+            say(m)
+            void loadCases()
+          }}
         />
       )}
       {applyOpen && (
@@ -506,9 +717,9 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
         </Modal>
       )}
       {dropOpen && (
-        <Modal title="가이드화하지 않을까요?" variant="form" onClose={() => setDropOpen(false)}>
+        <Modal title="반영하지 않을까요?" variant="form" onClose={() => setDropOpen(false)}>
           <p className="small muted" style={{ margin: 0 }}>
-            이 제안은 가이드로 만들지 않고 닫아요. 사유는 기록에 남아요.
+            이 제안은 반영하지 않고 닫아요. 사유는 기록에 남아요.
           </p>
           <div className="field">
             <label htmlFor={`${uid}-why`}>사유 (필수)</label>
@@ -524,7 +735,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
               취소
             </button>
             <button type="button" className="btn pri" onClick={drop}>
-              가이드화 안 함
+              반영 안함
             </button>
           </div>
         </Modal>

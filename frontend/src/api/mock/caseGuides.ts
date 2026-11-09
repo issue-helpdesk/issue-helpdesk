@@ -16,7 +16,9 @@ import { subscribe as subscribeStore } from './chatStore'
 export type CaseKind = 'amend' | 'new' | 'manual' | 'sec'
 export type CaseState = 'review' | 'preparing' | 'failed' | 'ready' | 'live' | 'applied' | 'dropped'
 
-export const CASE_KIND_LABEL: Record<CaseKind, string> = { amend: '기존 가이드 보강', new: '신규 가이드', manual: '매뉴얼 후보', sec: 'SEC 직접 검토' }
+export const CASE_KIND_LABEL: Record<CaseKind, string> = { amend: '기존 가이드 보강', new: '신규 가이드', manual: '매뉴얼 후보', sec: '보안 사고 사례' }
+/** 카드·패널에 보이는 종류 이름: 서버가 판단한 이름(항목 추가·변경·새 가이드·매뉴얼 후보·SEC 직접 검토)이 있으면 그대로, 모의 화면은 네 가지 이름 */
+export const kindLabel = (c: { kind: CaseKind; server?: { judgmentLabel: string } }) => c.server?.judgmentLabel || CASE_KIND_LABEL[c.kind]
 export const CASE_STATE_LABEL: Record<CaseState, string> = {
   review: '검토 필요',
   preparing: '검색 준비 중',
@@ -24,7 +26,7 @@ export const CASE_STATE_LABEL: Record<CaseState, string> = {
   ready: '검색 준비 완료',
   live: '현행',
   applied: '반영 완료',
-  dropped: '가이드화 안 함',
+  dropped: '반영 안함',
 }
 /** 구분 배지 색 (StateBadge 의 tone): 기존 가이드 보강=보라, 신규 가이드=하늘 */
 export const CASE_KIND_TONE: Record<CaseKind, string> = { amend: 'prog', new: 'info', manual: 'recv', sec: 'urg' }
@@ -90,6 +92,29 @@ export interface ServerCaseInfo {
   rejectReason?: string
   reviewedBy?: string
   reviewedAt?: string
+  /** 서버 판단 종류 코드 (ADD_ITEM·CHANGE·NEW_GUIDE·MANUAL_CANDIDATE·SEC_MANUAL) */
+  judgment?: string
+  /** 다시 맞추기에서 나온, 아직 풀리지 않은 충돌 (oldMd: 초안을 만들 때의 원문, newMd: 지금 현행의 원문) */
+  conflicts?: { section: string; kind: string; message: string; oldMd: string; newMd: string }[]
+  /** 방금 등록·다시 맞추기·문서 변경 응답의 경고. 서버가 저장하지 않으므로 이 화면에서만 볼 수 있다 */
+  fresh?: string[]
+  /** 검토 정보(reviewInfo)의 추가 항목. 서버가 종류에 맞는 것만 준다 (backend/app/agent/guide/README.md "검토 정보") */
+  info?: ReviewExtras
+}
+
+export interface ReviewExtras {
+  /** 매뉴얼에 넣을 만한 내용 (매뉴얼 후보) */
+  manualNote?: string
+  /** 가까운 매뉴얼 항목 (매뉴얼 후보) */
+  manualItems: string[]
+  /** 무엇을 왜 바꿨는지 (변경) */
+  changeNote?: string
+  /** 새 가이드 제목 (새 가이드) */
+  guideTitle?: string
+  /** 티켓마다 해결 방법이 다른 점 */
+  differences: string[]
+  /** AI가 추측해서 쓴 칸 이름 */
+  guessed: string[]
 }
 
 /** 시연 이력: 이미 승인해서 가이드 목록에 등록돼 있는 것처럼 보이게 할 버전 */
@@ -365,10 +390,10 @@ export function approveCase(id: string, e: CaseEdit): Result {
   return { ok: true }
 }
 
-/** 비가이드화: 사유를 남기고 이 제안을 닫는다 */
+/** 반영 안함: 사유를 남기고 이 제안을 닫는다 */
 export function dropCase(id: string, reason: string): Result {
   const c = find(id)
-  if (!c || c.state !== 'review') return { ok: false, message: '검토가 필요한 제안만 가이드화 안 함으로 바꿀 수 있어요.' }
+  if (!c || c.state !== 'review') return { ok: false, message: '검토가 필요한 제안만 반영 안함으로 바꿀 수 있어요.' }
   if (!reason.trim()) return { ok: false, message: '사유를 입력해 주세요.' }
   patch(id, (x) => ({ ...x, dropReason: reason.trim() }))
   return { ok: true }

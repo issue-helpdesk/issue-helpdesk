@@ -22,26 +22,22 @@ export interface DashSnapshot {
 
 export async function getDashSnapshot(user: User): Promise<ApiResult<DashSnapshot>> {
   const base = { view: 'ALL' as const }
-  const total = (workStatus: ('RDY' | 'WIP' | 'FIN')[]) => listTickets(user, { ...base, workStatus, size: 1 })
-  const [rdy, wip, fin, need, open] = await Promise.all([
-    total(['RDY']),
-    total(['WIP']),
-    total(['FIN']),
+  // 상태별 건수는 상태 조건 없는 1건 요청의 statusCounts 로 한 번에 읽는다 (R-46)
+  const [counts, need, open] = await Promise.all([
+    listTickets(user, { ...base, size: 1 }),
     listTickets(user, { ...base, needsAdmin: true, size: 100 }),
     listTickets(user, { ...base, urgency: ['P1', 'P2'], workStatus: ['RDY', 'WIP'], size: 100, sort: 'createdAt,asc' }),
   ])
-  if (!rdy.ok) return rdy
-  if (!wip.ok) return wip
-  if (!fin.ok) return fin
+  if (!counts.ok) return counts
   if (!need.ok) return need
   if (!open.ok) return open
   const items = need.data.items.filter((t) => t.workStatus !== 'CLS') // 해결 완료된 접수는 확인할 일이 없다
   const un = [...open.data.items].sort((a, b) => (a.urgency ?? '').localeCompare(b.urgency ?? '') || Date.parse(a.createdAt) - Date.parse(b.createdAt))
   const p1 = un.filter((t) => t.urgency === 'P1').length
   return ok({
-    rdy: rdy.data.totalCount,
-    wip: wip.data.totalCount,
-    fin: fin.data.totalCount,
+    rdy: counts.data.statusCounts?.RDY ?? 0,
+    wip: counts.data.statusCounts?.WIP ?? 0,
+    fin: counts.data.statusCounts?.FIN ?? 0,
     attention: {
       total: items.length,
       sync: items.filter((t) => t.transitionStatus === 'NEEDS_ADMIN').length,

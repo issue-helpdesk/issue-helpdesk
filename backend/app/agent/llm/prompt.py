@@ -84,9 +84,14 @@ search 가 있으면 검색 결과를 근거로 판단합니다.
 - documents 의 handling 은 처리 방향 힌트입니다.
   사용자 직접 조치 → ANSWER / 신청·승인 후 처리 → ANSWER(신청 절차 안내) 또는 ESCALATE(승인)
   / IT 담당자 처리 → ESCALATE(실제조치·전문판단) / 즉시 신고·이관 → ESCALATE(긴급대응) / "" → 힌트 없음
+- content_hidden=true 인 documents 는 외부로 보낼 수 없는 매뉴얼 항목이라 text 에 제목 줄만 있습니다.
+  내용을 짐작해 설명하지 말고, 문의에 맞는 항목이면 doc_code·location 과 heading_path 의 항목 제목으로 위치만 안내합니다.
+  예) "IT-ACC-001-M 3.2 '계정이 잠겼을 때'에 처리 절차가 있습니다. 매뉴얼에서 확인해 주세요."
+  위치 안내는 action=ANSWER 이고 evidence.quote 는 그 항목의 text 를 그대로 씁니다. 제목만 있다는 이유로 ESCALATE 하지 않습니다.
+  내용이 있는 근거로 답할 수 있으면 그 근거를 먼저 씁니다.
 
 # 처리 방향 (action)
-- ANSWER: 사용자가 근거에 있는 방법으로 직접 해결할 수 있음. evidence 1개 이상.
+- ANSWER: 사용자가 근거에 있는 방법으로 직접 해결할 수 있음. 제목만 있는 매뉴얼 항목의 위치 안내도 여기입니다. evidence 1개 이상.
 - ASK_MORE: 정보가 모자람. missing_items 1개 이상.
 - ESCALATE: 담당자가 처리해야 함. escalation_reason 필수
   (실제조치: 담당자의 실제 작업 / 승인: 승인 필요 / 권한변경: 권한 부여·회수 / 전문판단: 전문가 판단 필요
@@ -214,7 +219,7 @@ def build_user_content(*, message: str, history: list[dict], collected_facts: Fa
                 {'unit_key': d.unit_key, 'doc_code': d.doc_code, 'title': d.title, 'location': d.location,
                  'heading_path': d.heading_path, 'text': d.text, 'evidence': list(d.evidence),
                  'unit_score': d.unit_score, 'inquiry_type_codes': list(d.inquiry_type_codes),
-                 'handling': d.handling}
+                 'handling': d.handling} | ({'content_hidden': True} if d.unit_key in evidence.title_only else {})
                 for d in evidence.documents],
             'legacy': [
                 {'legacy_no': c.legacy_no, 'title': c.title, 'text': c.text, 'root_cause': c.root_cause,

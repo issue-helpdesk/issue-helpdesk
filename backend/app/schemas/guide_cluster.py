@@ -109,6 +109,13 @@ class GuideClusterTargetRequest(CamelModel):
     target_section: str | None = Field(default=None, pattern=r"^3\.\d+$")     # 변경(CHANGE) 묶음만 쓴다
 
 
+class GuideAnalysisStatus(CamelModel):
+    """GC-09 주간 분석 일정."""
+    last_analyzed_at: KstDatetime | None        # 마지막으로 성공한 분석의 시작 시각. 아직 없으면 null
+    next_analysis_at: KstDatetime               # 다음 회차 (월요일 00:00 KST)
+    last_run_status: Literal["RUNNING", "SUCCEEDED", "FAILED"] | None   # 가장 최근 시도. 아직 없으면 null
+
+
 class GuideClusterDetailWithWarnings(GuideClusterDetail):
     """GC-06·07·08. 상세 + 경고 (개인정보로 보이는 글 등). 저장하지 않으므로 이 응답에서만 볼 수 있다."""
     warnings: list[str]

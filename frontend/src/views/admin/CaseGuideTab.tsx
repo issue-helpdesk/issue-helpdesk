@@ -2,16 +2,16 @@
  * 가이드 관리 → 해결 사례 탭 (관리자). 주 1회 AI가 아직 가이드에 반영하지 않은 해결 사례를 분석해
  * 비슷한 사례를 묶어, 근거 티켓이 많은 순서로 제안한다. 서버에 연결된 환경에서는 서버의 묶음(api/caseClusters.ts, GC-01~05)을 보고,
  * 모의 환경에서는 시연 데이터와 모의 상태 전환으로 동작한다 (api/mock/caseGuides.ts).
- * 보기는 세 가지다: 검토 대상 / 가이드화 승인 / 비가이드화. 검토 필요인 카드의 "검토하기"는 오른쪽 검토 패널을 연다.
+ * 보기는 세 가지다: 검토 대상 / 가이드화 승인 / 반영 안함. 검토 필요인 카드의 "검토하기"는 오른쪽 검토 패널을 연다.
  * 승인한 카드는 등록한 버전의 본문과 처리 이력을 따로 볼 수 있고, 현행 전환은 가이드 목록에서 열람 범위를 확인하며 한다.
  * 패널은 화면 전체 틀(<main> 밖)에 열려야 해서 여는 동작만 받고 패널은 가이드 관리 화면이 그린다.
  */
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { CATEGORIES } from '../../api/catalog'
-import { CASES_FROM_SERVER, getAllCases, getServerLoad, loadCases, subscribeAllCases, subscribeServerCases } from '../../api/caseClusters'
+import { CASES_FROM_SERVER, getAllCases, getAnalysisStatus, getServerLoad, loadAnalysisStatus, loadCases, subscribeAllCases, subscribeServerCases } from '../../api/caseClusters'
 import type { CategoryCode } from '../../api/chatTypes'
 import { retryGuideIngest } from '../../api/guides'
-import { CASE_KIND_LABEL, CASE_KIND_TONE, CASE_STATE_LABEL, CASE_STATE_TONE, baseChanged, retryCase, type CaseItem } from '../../api/mock/caseGuides'
+import { CASE_KIND_TONE, CASE_STATE_LABEL, CASE_STATE_TONE, baseChanged, kindLabel, retryCase, type CaseItem } from '../../api/mock/caseGuides'
 import { useAuth } from '../../core/session'
 import { FilterPill } from '../../ui/FilterPill'
 import { Icon } from '../../ui/Icon'
@@ -36,10 +36,14 @@ const inView = (v: View, c: CaseItem) => (v === 'review' ? c.state === 'review' 
 export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: CaseItem) => void; onVersion: (c: CaseItem) => void; onGoLive: (c: CaseItem) => void }) {
   const cases = useSyncExternalStore(subscribeAllCases, getAllCases)
   const load = useSyncExternalStore(subscribeServerCases, getServerLoad)
+  const status = useSyncExternalStore(subscribeServerCases, getAnalysisStatus)
   const { user } = useAuth()
   // 서버 연결 환경에서는 탭을 열 때마다 최신 목록을 다시 읽는다
   useEffect(() => {
-    if (CASES_FROM_SERVER) void loadCases()
+    if (CASES_FROM_SERVER) {
+      void loadCases()
+      void loadAnalysisStatus()
+    }
   }, [])
   const [view, setView] = useState<View>('review')
   const [cat, setCat] = useState('')
@@ -61,7 +65,7 @@ export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: 
         <Icon name="file" />
         <div>
           {CASES_FROM_SERVER ? (
-            <>AI가 주 1회, 아직 가이드에 반영하지 않은 해결 완료 사례를 분석해 비슷한 사례를 묶어 제안해요. 제안을 검토해 초안을 고치거나 거절하고, 가이드에 직접 반영했다면 반영했다고 표시해요. 초안을 가이드로 등록하는 기능은 아직 쓸 수 없어요.</>
+            <>AI가 주 1회, 아직 가이드에 반영하지 않은 해결 완료 사례를 분석해 비슷한 사례를 묶어 제안해요. 제안을 검토해 초안을 고친 뒤 승인하면 현행이 아닌 초안 버전으로 가이드 목록에 등록되고, 현행 전환은 검색 준비가 끝난 뒤 가이드 목록에서 직접 해요. 거절하거나, 가이드에 직접 반영했다면 반영했다고 표시할 수도 있어요.</>
           ) : (
             <>
               AI가 주 1회, 아직 가이드에 반영하지 않은 해결 완료 사례를 분석해 비슷한 사례를 묶어 제안해요. 승인하면 현행이 아닌 초안 버전으로 가이드 목록에 등록되고, 현행 전환은 검색 준비가 끝난 뒤 가이드 목록에서 직접 해요.{' '}
@@ -81,7 +85,7 @@ export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: 
               가이드화 승인 <span className="count">{count('approved')}</span>
             </button>
             <button type="button" className={view === 'dropped' ? 'on' : ''} aria-pressed={view === 'dropped'} onClick={() => go('dropped')}>
-              비가이드화 <span className="count">{count('dropped')}</span>
+              반영 안함 <span className="count">{count('dropped')}</span>
             </button>
           </div>
           <FilterPill label="분류" value={cat} options={cats.map((k) => ({ value: k, label: CATEGORIES[k].name }))} onChange={setCat} />
@@ -89,6 +93,12 @@ export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: 
         {!CASES_FROM_SERVER && (
           <span className="small muted">
             이번 분석 결과 · 마지막 분석 {t.last} · 다음 분석 {t.next}
+          </span>
+        )}
+        {CASES_FROM_SERVER && status && (
+          <span className="small muted">
+            마지막 분석 {status.lastAnalyzedAt ? fmt(new Date(status.lastAnalyzedAt)) : '아직 없음'} · 다음 분석 {fmt(new Date(status.nextAnalysisAt))}
+            {status.lastRunStatus === 'FAILED' && <span style={{ color: 'var(--s-urg-fg)' }}> · 가장 최근 분석이 실패했어요</span>}
           </span>
         )}
       </div>
@@ -111,7 +121,7 @@ export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: 
         </div>
       ) : shown.length === 0 ? (
         <div className="panel">
-          <div className="empty">{view === 'review' ? '검토할 제안이 없어요.' : view === 'approved' ? '아직 가이드화를 승인한 건이 없어요.' : '비가이드화한 건이 없어요.'}</div>
+          <div className="empty">{view === 'review' ? '검토할 제안이 없어요.' : view === 'approved' ? '아직 가이드화를 승인한 건이 없어요.' : '반영하지 않은 건이 없어요.'}</div>
         </div>
       ) : (
         <div className="cgl">
@@ -128,8 +138,7 @@ export function CaseGuideTab({ onReview, onVersion, onGoLive }: { onReview: (c: 
                   <span>
                     근거 티켓 <b>{c.ticketCount}건</b>
                   </span>
-                  <StateBadge tone={CASE_KIND_TONE[c.kind]} label={CASE_KIND_LABEL[c.kind]} />
-                  {c.server && c.kind === 'amend' && <span className="muted">{c.server.judgmentLabel}</span>}
+                  <StateBadge tone={CASE_KIND_TONE[c.kind]} label={kindLabel(c)} />
                   {c.target && (
                     <span className="muted">
                       {c.target.docCode} {c.target.title}

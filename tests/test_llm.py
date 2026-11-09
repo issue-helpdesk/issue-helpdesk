@@ -1,5 +1,6 @@
 """AI 판단 호출부 (M4-2-2) 테스트. 기준은 docs/08 1~3장. Claude 는 부르지 않는다 (Mock·가짜 client)."""
 import json
+from dataclasses import replace
 from types import SimpleNamespace
 
 import anthropic
@@ -175,6 +176,22 @@ def test_all_blocked_does_not_call():
     assert mock.requests == []
     assert (r.failure, r.output.escalation_reason, r.ai_output, r.calls) == ('ALL_BLOCKED', '전송제한', None, ())
     assert r.evidence.blocked == ('IT-NET-001',)
+
+
+def test_blocked_manual_sends_title_line_and_calls():
+    """매뉴얼 BLOCKED 만 나와도 전송제한으로 넘기지 않는다. 제목 줄만 content_hidden 으로 보낸다 (M4 결정 2026-11-08)."""
+    m = replace(doc('IT-ACC-001-M', 'BLOCKED', '계정 잠김 처리\n본인 확인 후 잠금 해제'), view_scope='AGENT',
+                heading_path='3. 증상별 처리 절차 > 3.2 계정이 잠겼을 때', handling='')
+    mock = MockAdapter([ANSWER_JSON])
+    r = call_judge(inp(search=SearchResponse(query='잠김', model='kure', threshold=0.5, documents=(m,))),
+                   mock, TAXONOMY, [], 'ANSWER')
+    assert r.failure is None and len(mock.requests) == 1
+    (d,) = sent(mock)['search']['documents']
+    assert d['content_hidden'] is True and d['evidence'] == []
+    assert d['text'] == 'VPN 가이드 > 3. 증상별 처리 절차 > 3.2 계정이 잠겼을 때'
+    assert '본인 확인' not in mock.requests[0][1]
+    assert r.evidence.blocked == ('IT-ACC-001-M',)
+    assert 'content_hidden=true' in mock.requests[0][0]                       # 위치만 안내하는 규칙
 
 
 def test_no_results_is_not_all_blocked():

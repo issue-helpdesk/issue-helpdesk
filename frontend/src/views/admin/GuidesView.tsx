@@ -53,7 +53,7 @@ import { SelectBox } from '../../ui/SelectBox'
 import { useToast } from '../../ui/useToast'
 import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
-import { CASES_FROM_SERVER, getAllCases, loadCases } from '../../api/caseClusters'
+import { CASES_FROM_SERVER, getAllCases, loadCases, subscribeAllCases } from '../../api/caseClusters'
 import { CaseGuideTab } from './CaseGuideTab'
 import { CaseReviewPanel } from './CaseReviewPanel'
 import { useReviewCount } from './useReviewCount'
@@ -147,11 +147,50 @@ export function GuidesView() {
     if (USE_MOCK_GUIDE) ensureCaseVersions()
   }, [])
   // 해결 사례 → 현행으로 전환: 바로 바꾸지 않고 가이드 목록의 그 문서를 펼쳐 열람 범위를 눈으로 확인한 뒤 거기서 전환하게 한다
+  // 문서마다 이 문서에 걸린 AI 제안: 검토 중(review)인 것과, 등록해서 현행 전환을 기다리는(preparing·ready) 것
+  const cases = useSyncExternalStore(subscribeAllCases, getAllCases)
+  const caseInfo = useMemo(() => {
+    const m = new Map<string, { review: number; waiting: number; next?: CaseItem }>()
+    const at = (code: string) => m.get(code) ?? m.set(code, { review: 0, waiting: 0 }).get(code)!
+    cases.forEach((c) => {
+      if (c.state === 'review' && c.target?.docCode) at(c.target.docCode).review++
+      else if ((c.state === 'preparing' || c.state === 'ready') && c.registered) {
+        const x = at(c.registered.docCode)
+        x.waiting++
+        if (!x.next || (c.state === 'ready' && x.next.state !== 'ready')) x.next = c // 검색 준비가 끝난 것을 먼저 안내한다
+      }
+    })
+    return m
+  }, [cases])
+  // 목록 맨 위 요약: 현행 전환을 기다리는 버전 수와 검토할 AI 제안 수. 전환 대기만 골라 볼 수 있다
+  const [onlyWaiting, setOnlyWaiting] = useState(false)
+  const waitingTotal = [...caseInfo.values()].reduce((n, x) => n + x.waiting, 0)
+  const reviewTotal = [...caseInfo.values()].reduce((n, x) => n + x.review, 0)
+  // 현행 전환하러 넘어온 문서·버전: 목록에서 그 줄로 스크롤하고 잠깐 강조한다
+  const [focus, setFocus] = useState<{ docId: number; versionId: number } | null>(null)
+  const scrolled = useRef(false)
+  useEffect(() => {
+    if (!focus) return
+    const t = setTimeout(() => setFocus(null), 8000)
+    return () => clearTimeout(t)
+  }, [focus])
+  useEffect(() => {
+    if (!focus || scrolled.current) return
+    const t = setTimeout(() => {
+      const el = document.querySelector(`[data-ver="${focus.versionId}"]`) ?? document.querySelector(`[data-doc="${focus.docId}"]`)
+      if (!el) return
+      scrolled.current = true
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }, 350)
+    return () => clearTimeout(t)
+  }, [focus, vers, openId, guides])
   const goLive = (c: CaseItem) => {
     if (!c.registered) return
     setCasePanel(null)
     setReader(null)
     setTab('list')
+    scrolled.current = false
+    setFocus({ docId: c.registered.docId, versionId: c.registered.versionId })
     setCatOpen((m) => ({ ...m, [c.cat]: true }))
     setOpenId(c.registered.docId)
     say(`${c.registered.docCode} ${c.registered.version}의 열람 범위를 확인하고 현행으로 전환해 주세요.`)
@@ -160,7 +199,8 @@ export function GuidesView() {
   if (user && !admin) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
   if (!user) return null
 
-  const shown = guides?.filter((g) => !hideInactive || g.isActive)
+  const waitOnly = onlyWaiting && waitingTotal > 0
+  const shown = guides?.filter((g) => (!hideInactive || g.isActive) && (!waitOnly || !!caseInfo.get(g.docCode)?.waiting))
   const inactiveN = guides?.filter((g) => !g.isActive).length ?? 0
   const cats = (Object.keys(CATEGORIES) as CategoryCode[]).filter((c) => shown?.some((g) => g.cat === c))
   const allOpen = cats.length > 0 && cats.every((c) => catOpen[c])
@@ -204,8 +244,9 @@ export function GuidesView() {
   const gpanel = (g: Guide) => {
     const open = openId === g.id
     const list = vers[g.id] ?? g.versions
+    const ci = caseInfo.get(g.docCode)
     return (
-      <div className={`gprow${g.isActive ? '' : ' off'}`} key={g.id}>
+      <div className={`gprow${g.isActive ? '' : ' off'}${focus?.docId === g.id ? ' gfocus' : ''}`} key={g.id} data-doc={g.id}>
         <div className="gprh">
         <button type="button" className="grb" aria-expanded={open} onClick={() => setOpenId(open ? null : g.id)}>
           <span className="grt">
@@ -225,6 +266,40 @@ export function GuidesView() {
           </span>
         </button>
         </div>
+        {(!!ci?.next || !!ci?.review) && (
+          <div className="gnote">
+            {ci?.next && (
+              <p>
+                <i className="gd" aria-hidden="true" />
+                <span>
+                  {ci.next.state === 'ready' ? (
+                    <>
+                      <b>{ci.next.registered?.version}</b>의 검색 준비가 끝났어요. 열람 범위를 확인하고 현행으로 전환해 주세요.
+                    </>
+                  ) : (
+                    <>
+                      <b>{ci.next.registered?.version}</b>의 검색 준비 중이에요. 끝나면 현행으로 전환할 수 있어요.
+                    </>
+                  )}{' '}
+                  <button type="button" className="lnk" onClick={() => goLive(ci.next!)}>
+                    {ci.next.state === 'ready' ? '현행 전환하러 가기' : '버전 보기'}
+                  </button>
+                </span>
+              </p>
+            )}
+            {!!ci?.review && (
+              <p>
+                <i className="gd rv" aria-hidden="true" />
+                <span>
+                  검토할 AI 제안이 <b>{ci.review}건</b> 있어요.{' '}
+                  <button type="button" className="lnk" onClick={() => setTab('case')}>
+                    제안 보기
+                  </button>
+                </span>
+              </p>
+            )}
+          </div>
+        )}
         <Collapse open={open}>
         {open && (
           <div className="gvt-wrap">
@@ -258,7 +333,7 @@ export function GuidesView() {
                 </thead>
                 <tbody>
                   {list.map((v) => (
-                    <tr key={v.id} className={v.state === '현행' ? 'vcur' : v.state === '만료' ? 'vold' : undefined}>
+                    <tr key={v.id} data-ver={v.id} className={[v.state === '현행' ? 'vcur' : v.state === '만료' ? 'vold' : '', focus?.versionId === v.id && focus.docId === g.id ? 'vfocus' : ''].filter(Boolean).join(' ') || undefined}>
                       <td>
                         <b>{v.version}</b>
                       </td>
@@ -342,6 +417,22 @@ export function GuidesView() {
       <div className="row" style={{ justifyContent: 'space-between', margin: 0 }}>
         <span className="small muted">
           분류 {cats.length}개 · 가이드 {shown?.length ?? 0}개{inactiveN > 0 && !hideInactive ? ` (비활성 ${inactiveN}개 포함)` : ''}
+          {waitingTotal > 0 && (
+            <>
+              {' · '}
+              <button type="button" className="lnk" aria-pressed={waitOnly} onClick={() => setOnlyWaiting((x) => !x)}>
+                {waitOnly ? '전체 가이드 보기' : `현행 전환 대기 ${waitingTotal}건만 보기`}
+              </button>
+            </>
+          )}
+          {reviewTotal > 0 && (
+            <>
+              {' · '}
+              <button type="button" className="lnk" onClick={() => setTab('case')}>
+                AI 제안 {reviewTotal}건 보기
+              </button>
+            </>
+          )}
         </span>
         <span className="row" style={{ gap: 4 }}>
           {inactiveN > 0 && (
@@ -714,6 +805,9 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
   // 새 버전을 올릴 문서 선택에서는 비활성 문서를 뺀다 (서버는 허용하지만 화면에서는 먼저 활성화하게 한다)
   const selectable = inCat.filter((g) => g.isActive)
   const doc = docId === null ? null : (guides.find((g) => g.id === docId) ?? null)
+  // 고른 문서에 걸린, 아직 검토하지 않은 AI 가이드 제안 수 (업로드 전 안내)
+  const allCases = useSyncExternalStore(subscribeAllCases, getAllCases)
+  const reviewHere = doc ? allCases.filter((c) => c.state === 'review' && c.target?.docCode === doc.docCode).length : 0
   const newCode = cat ? nextDocCode(guides, cat) : ''
 
   const pickMode = (m: 'ver' | 'new') => {
@@ -981,6 +1075,16 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
                 그 문서 활성화하기
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {mode === 'ver' && doc && reviewHere > 0 && (
+        <div className="alert warn" role="status">
+          <Icon name="alert" />
+          <div>
+            <b>{doc.docCode}에 검토 중인 AI 가이드 제안이 {reviewHere}건 있어요.</b>
+            <br />
+            새 버전을 올려도 괜찮지만, 이 버전을 현행으로 바꾸면 그 제안은 기준 가이드가 달라져 "다시 맞추기"를 해야 해요. 제안을 먼저 처리하면 번거로움이 줄어요.
           </div>
         </div>
       )}

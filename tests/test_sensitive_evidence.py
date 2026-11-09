@@ -78,3 +78,41 @@ def test_masking_failure_blocks_only_that_result(monkeypatch):
     f = filter_evidence([doc('IT-SW-003', 'ALLOWED')], [case('INQ-1', 'MASKED')], Pseudonymizer())
     assert [d.doc_code for d in f.documents] == ['IT-SW-003']
     assert (f.blocked, f.failed) == (('INQ-1',), ('INQ-1',))
+
+
+def manual(policy: str, scope: str = 'AGENT', code: str = 'IT-ACC-001-M') -> DocumentResult:
+    body = '계정 잠김 확인 질문\n본인 확인 L1 후 잠금을 푼다.'
+    return DocumentResult(unit_key=f'{code}@v2.0/item:3.2', chunk_type='ITEM', doc_code=code,
+                          title='김민지 SSO 매뉴얼', version='v2.0', location='3.2',
+                          heading_path='3. 증상별 처리 절차 > 3.2 계정이 잠겼을 때', text=body,
+                          chunks=(ChunkHit(1, 1, 0.7),), unit_score=0.7, score_type='cosine:bge-m3',
+                          view_scope=scope, transfer_policy=policy, evidence=('본인 확인 L1 후 잠금을 푼다.',))
+
+
+def test_blocked_manual_keeps_title_line_only():
+    """매뉴얼 BLOCKED 는 제목 줄만 보낸다 (해결 사례 가이드화 기획, M4 결정 2026-11-08). 기록은 차단으로 남긴다."""
+    f = filter_evidence([manual('BLOCKED')], [], Pseudonymizer(['김민지']))
+    (r,) = f.documents
+    assert r.text == '[직원1] SSO 매뉴얼 > 3. 증상별 처리 절차 > 3.2 계정이 잠겼을 때'    # 제목도 치환한다
+    assert '본인 확인' not in r.text and r.evidence == ()
+    assert (r.doc_code, r.location, r.unit_key) == ('IT-ACC-001-M', '3.2', 'IT-ACC-001-M@v2.0/item:3.2')
+    assert f.title_only == ('IT-ACC-001-M@v2.0/item:3.2',)
+    assert f.blocked == ('IT-ACC-001-M',) and f.all_blocked is False
+
+
+def test_title_only_applies_to_manual_blocked_only():
+    """열람 범위 ALL 인 BLOCKED(가이드)는 지금처럼 빼고, ALLOWED 매뉴얼은 그대로 보낸다."""
+    f = filter_evidence([manual('BLOCKED', scope='ALL', code='IT-SEC-001'), manual('ALLOWED', code='IT-ACC-003-M')],
+                        [], Pseudonymizer())
+    assert [d.doc_code for d in f.documents] == ['IT-ACC-003-M']
+    assert f.documents[0].text.startswith('계정 잠김')
+    assert f.blocked == ('IT-SEC-001',) and f.title_only == ()
+
+
+def test_title_line_failure_removes_that_result(monkeypatch):
+    def broken(_text):
+        raise RuntimeError('필터 오류')
+    monkeypatch.setattr(evidence_module, 'mask_secrets', broken)
+    f = filter_evidence([manual('BLOCKED')], [], Pseudonymizer())
+    assert f.documents == () and f.title_only == ()
+    assert (f.blocked, f.failed) == (('IT-ACC-001-M',), ('IT-ACC-001-M',)) and f.all_blocked

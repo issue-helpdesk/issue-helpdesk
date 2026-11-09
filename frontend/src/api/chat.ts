@@ -123,6 +123,8 @@ export function beginChat(user: { employeeNo: string; name: string }, text: stri
   return pending
 }
 export const getPending = () => pending
+/** 서버 모드: 마지막으로 읽은(방금 받은) 문의. 새 문의의 답이 오면 대화 화면이 바로 이 값으로 시작한다 */
+export const peekChat = (id: number) => lastSeen.get(id)
 export function clearPending() {
   pending = null
 }

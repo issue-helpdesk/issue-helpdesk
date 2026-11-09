@@ -150,7 +150,7 @@ def test_receipt_already_in_current_warns(url, monkeypatch):
 
 @needs_db
 @pytest.mark.parametrize('kw, msg', [
-    ({'judgment': 'CHANGE', 'target_section': '3.99'}, '항목 3.99이 없습니다'),
+    ({'judgment': 'CHANGE', 'target_section': '3.99'}, '항목 3.99가 없습니다'),
     ({'judgment': 'CHANGE'}, 'target_section'),
     ({'judgment': 'ADD_ITEM', 'document_id': None}, 'document_id'),
     ({'judgment': 'ADD_ITEM', 'document_id': -1}, '임직원용 가이드가 아닌'),
@@ -253,3 +253,82 @@ def test_ticket_warnings_reads_only():
 
 def test_category_name_must_be_one_line():
     assert ob.title_problems('분류\n이름', '분류 이름') == ['분류 이름은 한 줄이어야 합니다 (줄바꿈·제어 문자 없이)']
+
+
+# ── 1·2장 AI 초안 (11.09 M4 요청) ───────────────────────────────
+
+OVERVIEW = '**목적**\n\n- 재택 프린터 연결 문제를 스스로 해결하도록 돕습니다.\n\n**적용 대상**\n\n- 재택 근무 임직원'
+PRECHECK = '#### 공통 확인\n\n- 프린터 전원과 와이파이를 확인합니다.\n- 프린터 주소: 담당자 확인'
+
+
+def test_skeleton_fills_chapter1_2_and_keeps_jump_table():
+    """overview·precheck 가 있으면 1·2장 본문으로, 2장 본문 아래에 증상별 바로가기 표는 그대로 붙는다. 파서·청커가 읽는다."""
+    md = skeleton('제목', 'NET', 'VPN·네트워크', [frag('a')], CONTACT, overview=OVERVIEW, precheck=PRECHECK)
+    assert f'## 1. 개요\n\n{OVERVIEW}\n\n## 2. 먼저 확인할 사항\n\n{PRECHECK}\n\n#### 증상별 바로가기\n\n| 겪고 있는 증상 |' in md
+    assert TODO not in md
+    meta, chunks = _parse_text(md)
+    assert [c.section_no for c in chunks if c.chunk_type == 'chapter'][:2] == ['1', '2']
+
+
+def test_skeleton_without_bodies_is_unchanged():
+    """값이 없으면 지금처럼 자리 표시 (예전 호출과 같은 결과)."""
+    old = skeleton('제목', 'NET', 'VPN·네트워크', [frag('a')], CONTACT)
+    assert old == skeleton('제목', 'NET', 'VPN·네트워크', [frag('a')], CONTACT, overview=None, precheck=None)
+    assert old.count(f'\n{TODO}\n') == 2
+
+
+@pytest.mark.parametrize('text, why', [
+    ('## 9. 끼어든 장\n본문', '1번째 줄에 쓸 수 없는 제목(##)'), ('본문\n### 3.9 끼어든 항목', '2번째 줄에 쓸 수 없는 제목(###)'),
+    ('# 문서 제목', '쓸 수 없는 제목(#)'),
+    ('```text\n열린 코드', '닫히지 않은 코드 블록'), ('- 해결 사례 반영 (TK-1): 넣지 마세요', '반영 표식'),
+])
+def test_chapter_body_refuses_shape_breakers(text, why):
+    """장 경계를 깨는 글은 넣지 않고 자리 표시 + 경고 (묶음 전체를 실패시키지 않는다)."""
+    warnings = []
+    assert ob.chapter_body(text, '1장 개요', warnings) is None
+    assert len(warnings) == 1 and why in warnings[0] and '1장 개요' in warnings[0]
+
+
+def test_chapter_body_allows_subheadings_code_and_tables():
+    """#### 소제목·굵은 글씨·목록·표·코드 블록 안의 '##' 는 됨. 빈 글은 경고 없이 자리 표시. 줄바꿈은 \n 으로."""
+    text = '#### 소제목\r\n\r\n| a | b |\r\n| --- | --- |\r\n| 1 | 2 |\r\n\r\n```text\r\n## 코드 안\r\n```\r\n'
+    warnings = []
+    assert ob.chapter_body(text, '2장', warnings) == text.replace('\r\n', '\n').strip('\n') and warnings == []
+    assert ob.chapter_body('  \n ', '2장', warnings) is None and ob.chapter_body(None, '2장', warnings) is None
+    assert warnings == []
+    assert ob.chapter_body('#### 증상별 바로가기\n- x', '2장', warnings, reserved=(ob.JUMP_TITLE,)) is None
+    assert '1번째 줄에 뼈대가 붙이는 소제목' in warnings[0]
+
+
+@pytest.mark.parametrize('head', ['####\t증상별 바로가기', '#### **증상별 바로가기**', '####   증상별   바로가기',
+                                  '##### 증상별 바로가기', '#### `증상별 바로가기` ####'])
+def test_chapter_body_reserved_title_variants(head):
+    """PR #384 검수 2: 탭·여러 공백·굵게·코드 표시·다른 수준으로 써도 예약 소제목은 막는다 (파서가 같은 제목으로 읽음)."""
+    warnings = []
+    assert ob.chapter_body(f'- 앞\n\n{head}\n\n- 내용', '2장', warnings, reserved=(ob.JUMP_TITLE,)) is None
+    assert '3번째 줄에 뼈대가 붙이는 소제목' in warnings[0]
+    assert ob.chapter_body('#### 증상별 확인 순서\n- 내용', '2장', [], reserved=(ob.JUMP_TITLE,))  # 비슷한 다른 제목은 됨
+
+
+def test_chapter_body_warning_has_no_rejected_text():
+    """PR #384 검수 1: 거부한 글의 값(연락처·비밀값 등)은 경고에 넣지 않는다 — 장 이름·줄 번호·문제 종류만."""
+    secret = '010-9999-0000 비번 Zx9!q'                       # 합성 값
+    warnings = []
+    for text in (f'## {secret}', f'본문\n#### 증상별 바로가기 {secret}\n```', f'해결 사례 반영 ({secret})'):
+        assert ob.chapter_body(text, '2장', warnings, reserved=(ob.JUMP_TITLE,)) is None
+    assert len(warnings) == 3 and not any(part in w for w in warnings for part in ('010', '9999', 'Zx9', '비번'))
+
+
+@needs_db
+def test_open_basis_new_guide_with_ai_chapters(url):
+    """open_basis(NEW_GUIDE, overview=, precheck=) → 1·2장 채움, 틀린 장만 자리 표시 + 경고."""
+    _current_guide(url)
+    with _conn(url) as conn:
+        ok = open_basis(conn, 'NEW_GUIDE', category_code='SW', title='새 가이드', fragments=[frag('a', code='SW-01')],
+                        overview=OVERVIEW, precheck=PRECHECK, files_root=REPO)
+        half = open_basis(conn, 'NEW_GUIDE', category_code='SW', title='새 가이드', fragments=[frag('a', code='SW-01')],
+                          overview=OVERVIEW, precheck='## 2. 덮어쓰기', files_root=REPO)
+        conn.rollback()
+    assert OVERVIEW in ok['draft_md'] and PRECHECK in ok['draft_md'] and not any('초안을 넣지' in w for w in ok['warnings'])
+    assert OVERVIEW in half['draft_md'] and f'## 2. 먼저 확인할 사항\n\n{TODO}' in half['draft_md']
+    assert any(w.startswith('2장 먼저 확인할 사항 초안을 넣지 않고') for w in half['warnings'])

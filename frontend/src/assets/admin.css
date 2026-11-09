@@ -28,7 +28,7 @@
 .opage{display:flex;flex-direction:column;gap:12px}.opage>.panel,.ogrid>.panel{padding:22px 24px}
 .ofil{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.ofil .dsy{margin-left:auto;display:flex;align-items:center;gap:8px}
 .ogrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:stretch}.ogrid>.panel{display:flex;flex-direction:column}
-.panel h3.sht{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px}.panel h3.sht .ocnt{margin-left:0}
+.panel h3.sht,.panel h2.sht{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px}.panel h3.sht .ocnt,.panel h2.sht .ocnt{margin-left:0}
 .ocnt{font-size:14px;font-weight:600;color:var(--mute);margin-left:2px}
 .otb{display:flex;flex-direction:column;flex:1}
 .orow{--op:84px;display:grid;grid-template-columns:var(--op) minmax(0,1fr) 108px 94px;align-items:center;gap:8px;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:transparent;padding:10px 6px;min-height:52px;color:var(--ink);font:inherit}
@@ -77,7 +77,7 @@ button.orow{cursor:pointer}button.orow:hover{background:var(--osoft)}
 .stx{display:contents;--g-w:#857DA3;--g-p:#8A64F2;--g-n:#E0457F;--g-c:#0D9488;--s-warn-dot:#B5730F;--s-recv-dot:#7F8794;--s-prog-dot:#8A64F2}
 .stx .hvw .tw svg.hv{min-width:0}
 /* 관리자 통계 (시안 통계 CSS) */
-.panel.sec.k-ai{--bar:var(--ai);box-shadow:inset 5px 0 0 var(--bar),inset 0 0 0 1px var(--line)}.panel.sec.k-tk{--bar:var(--ca);box-shadow:inset 5px 0 0 var(--bar),inset 0 0 0 1px var(--line)}.sch{display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;font-size:12px;line-height:16px;font-weight:700;flex:none}.sch.ai{background:var(--s-info-bg);color:var(--s-info-fg)}.sch.tk{background:var(--s-need-bg);color:var(--s-need-fg)}.sec .sh h3{display:flex;align-items:center;gap:8px}
+.panel.sec.k-ai{--bar:var(--ai);box-shadow:inset 5px 0 0 var(--bar),inset 0 0 0 1px var(--line)}.panel.sec.k-tk{--bar:var(--ca);box-shadow:inset 5px 0 0 var(--bar),inset 0 0 0 1px var(--line)}.sch{display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;font-size:12px;line-height:16px;font-weight:700;flex:none}.sch.ai{background:var(--s-info-bg);color:var(--s-info-fg)}.sch.tk{background:var(--s-need-bg);color:var(--s-need-fg)}.sec .sh h2,.sec .sh h3{display:flex;align-items:center;gap:8px}
 .kpi.urg .v b{color:var(--s-urg-fg)}
 .srow .sl small{font-size:12px;color:var(--mute)}
 .nest .nh{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;font-size:13px}.nest .nh .btn{margin-left:auto}
@@ -145,3 +145,7 @@ button.grb{width:100%;display:flex;align-items:center;justify-content:space-betw
 button.o-main{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;width:100%}
 button.o-main:hover .o-t b{color:var(--link)}
 button.o-main:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px;border-radius:8px}
+
+/* 현행 전환하러 온 버전 줄: 잠깐 강조해서 어느 줄인지 바로 보이게 한다 */
+.tbl tr.vfocus td{background:color-mix(in srgb,var(--s-info-dot) 18%,transparent);box-shadow:inset 0 1px 0 var(--s-info-dot),inset 0 -1px 0 var(--s-info-dot)}
+.gprow.gfocus{box-shadow:0 0 0 2px var(--s-info-dot);border-radius:12px}

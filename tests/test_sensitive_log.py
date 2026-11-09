@@ -5,7 +5,7 @@ import logging
 import pytest
 
 import app.agent.sensitive.log_filter as log_filter_module
-from app.agent.sensitive import MaskSecretsFilter
+from app.agent.sensitive import MaskSecretsFilter, install_log_filter
 
 
 @pytest.fixture
@@ -59,3 +59,55 @@ def test_failure_drops_content(log, monkeypatch):
     logger, out = log
     logger.info('비밀번호는 Abc123!')
     assert out.getvalue().strip() == log_filter_module.FAILED_TEXT
+
+
+@pytest.fixture
+def clean_filters():
+    """install_log_filter 가 붙인 필터를 시험 뒤에 뗀다 (lastResort 는 프로세스 전체가 쓴다)"""
+    yield
+    handlers = list(logging.getLogger().handlers) + [logging.lastResort]
+    for lg in logging.Logger.manager.loggerDict.values():
+        if isinstance(lg, logging.Logger):
+            handlers += lg.handlers
+    for h in handlers:
+        for f in [f for f in h.filters if isinstance(f, MaskSecretsFilter)]:
+            h.removeFilter(f)
+
+
+def test_install_attaches_to_existing_handlers_once(clean_filters):
+    out = io.StringIO()
+    handler = logging.StreamHandler(out)
+    handler.setFormatter(logging.Formatter('%(message)s'))
+    logger = logging.getLogger('test_sensitive_log.install')
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    try:
+        assert install_log_filter() >= 2                       # 이 핸들러와 lastResort
+        assert install_log_filter() == 0                       # 다시 불러도 겹쳐 붙지 않는다
+        logger.info('비밀번호는 Abc123!')
+        assert out.getvalue().strip() == '비밀번호는 ●●●●●●'
+        assert any(isinstance(f, MaskSecretsFilter) for f in logging.lastResort.filters)
+    finally:
+        logger.removeHandler(handler)
+
+
+def test_uvicorn_access_log_keeps_format(clean_filters):
+    """uvicorn 접속 기록 서식은 args 5개를 꺼내 쓴다. 묶음을 지우지 않고 하나씩 가린다"""
+    from uvicorn.logging import AccessFormatter
+    out = io.StringIO()
+    handler = logging.StreamHandler(out)
+    handler.setFormatter(AccessFormatter('%(client_addr)s - "%(request_line)s" %(status_code)s', use_colors=False))
+    logger = logging.getLogger('uvicorn.access')
+    old = (logger.handlers[:], logger.level, logger.propagate)
+    logger.handlers, logger.propagate = [handler], False
+    logger.setLevel(logging.INFO)
+    try:
+        install_log_filter()
+        logger.info('%s - "%s %s HTTP/%s" %d', '127.0.0.1:5000', 'GET', '/api/v1/login?password=Abc123!', '1.1', 200)
+        line = out.getvalue().strip()
+        assert line.startswith('127.0.0.1:5000 - "GET /api/v1/login?') and line.endswith('HTTP/1.1" 200 OK')
+        assert 'Abc123!' not in line
+    finally:
+        logger.handlers, logger.propagate = old[0], old[2]
+        logger.setLevel(old[1])

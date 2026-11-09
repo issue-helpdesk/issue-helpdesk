@@ -1,10 +1,10 @@
 /**
  * 로그인 화면.
  *
- * 왼쪽: 사번 로그인 / SSO 로그인 탭과 시연용 바로 로그인. 오른쪽: 로그인 전 상담 패널.
+ * 왼쪽: 사번 로그인과 시연용 바로 로그인. (SSO 로그인은 아직 만들지 않아 화면에서 뺐다) 오른쪽: 로그인 전 상담 패널.
  * 로그인에 성공하면 역할별 첫 화면(core/roles.ts)으로 이동한다.
  */
-import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { MOCK_PASSWORD, MOCK_QUICK_LOGINS, MOCK_TEMP_PASSWORD } from '../../api/mock/accounts'
 import type { ApiResult, LoginData } from '../../api/types'
@@ -17,8 +17,6 @@ import { Mascot } from '../../ui/Mascot'
 import { ThemeSwitch } from '../../ui/ThemeSwitch'
 import { ConsultPanel } from './ConsultPanel'
 import { ForgotModal } from './ForgotModal'
-
-type Tab = 'id' | 'sso'
 
 /** 로그인 화면 오른쪽 아래의 주황 번짐 배경 (장식이라 스크린리더에는 숨긴다) */
 function LoginBackground() {
@@ -47,9 +45,8 @@ function LoginBackground() {
 }
 
 export function LoginView() {
-  const { user, loading, loginNote, login, loginSso, mockQuickLogin } = useAuth()
+  const { user, loading, loginNote, login, mockQuickLogin } = useAuth()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<Tab>('id')
   // 시연(mock)일 때만 입력칸을 미리 채워 둔다
   const [employeeNo, setEmployeeNo] = useState(USE_MOCK_AUTH ? 'EMP-1001' : '')
   const [pwFocus, setPwFocus] = useState(false)
@@ -99,18 +96,6 @@ export function LoginView() {
     void run(login({ employeeNo: employeeNo.trim(), password }), 'id')
   }
 
-  const idTab = tab === 'id'
-
-  /** 탭은 방향키로 옮긴다 (두 탭이라 어느 방향키든 다른 탭으로 간다) */
-  function onTabKey(e: KeyboardEvent<HTMLDivElement>) {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
-    e.preventDefault()
-    const next: Tab = tab === 'id' ? 'sso' : 'id'
-    setTab(next)
-    setError('')
-    setTimeout(() => document.getElementById(`lt-${next}`)?.focus(), 0)
-  }
-
   /** 요청 중인 버튼은 "로그인 중"과 점 세 개로, 나머지는 원래 글자로 보인다 (크기·색은 그대로) */
   const label = (by: string, text: string) =>
     busy && who === by ? (
@@ -127,7 +112,7 @@ export function LoginView() {
   )
 
   return (
-    <div className="login">
+    <main className="login">
       <LoginBackground />
       <div className="lmode">
         <ThemeSwitch />
@@ -162,90 +147,63 @@ export function LoginView() {
               </div>
             </div>
           )}
-          <div className="seg" role="tablist" aria-label="로그인 방법" style={{ marginBottom: 16 }} onKeyDown={onTabKey}>
-            <button role="tab" type="button" id="lt-id" aria-selected={idTab} aria-controls="lp" tabIndex={idTab ? 0 : -1} className={idTab ? 'on' : ''} onClick={() => { setTab('id'); setError('') }}>
-              사번 로그인
-            </button>
-            <button role="tab" type="button" id="lt-sso" aria-selected={!idTab} aria-controls="lp" tabIndex={!idTab ? 0 : -1} className={!idTab ? 'on' : ''} onClick={() => { setTab('sso'); setError('') }}>
-              SSO 로그인
-            </button>
-          </div>
-
-          {idTab ? (
-            <form id="lp" role="tabpanel" aria-labelledby="lt-id" onSubmit={onSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div className="field">
-                <label htmlFor="lg-id">사번</label>
-                <input
-                  className={`inp${error ? ' err' : ''}`}
-                  id="lg-id"
-                  name="id"
-                  autoComplete="username"
-                  placeholder="예) EMP-1001"
-                  value={employeeNo}
-                  readOnly={busy}
-                  onChange={(e) => setEmployeeNo(e.target.value)}
-                  aria-invalid={!!error}
-                  aria-describedby={error ? 'lg-err' : undefined}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="lg-pw">비밀번호</label>
-                <input
-                  className={`inp${error ? ' err' : ''}`}
-                  id="lg-pw"
-                  onFocus={() => setPwFocus(true)}
-                  onBlur={() => setPwFocus(false)}
-                  name="pw"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  readOnly={busy}
-                  onChange={(e) => setPassword(e.target.value)}
-                  aria-invalid={!!error}
-                  aria-describedby={error ? 'lg-err' : undefined}
-                />
-              </div>
-              {/* 로그인할 수 없는 사용자가 복구 경로를 바로 찾을 수 있게 비밀번호 칸 아래에 둔다 */}
-              <button type="button" className="fgt" onClick={() => setForgotOpen(true)}>
-                비밀번호를 잊으셨나요?
-              </button>
-              {/* 오류는 입력칸 바로 아래에서 연결해 보여 준다 (디자인 가이드) */}
-              {error && (
-                <div className="errtx" id="lg-err" role="alert">
-                  {error}
-                </div>
-              )}
-              <button className="btn pri solid block" type="submit" aria-disabled={busy} aria-busy={busy && who === 'id'} style={{ minHeight: 48 }}>
-                {label('id', '로그인')}
-              </button>
-              {slowNote}
-              <div className="hint">
-                {USE_MOCK_AUTH && `시연 계정 비밀번호는 ${MOCK_PASSWORD} 입니다. `}비밀번호를 5회 연속 잘못 입력하면 계정이 잠겨요. 10분 후 다시 로그인할 수 있어요.
-                {USE_MOCK_AUTH && (
-                  <>
-                    <br />
-                    임시 비밀번호 상태 시연: EMP-1300 / {MOCK_TEMP_PASSWORD}
-                  </>
-                )}
-              </div>
-            </form>
-          ) : (
-            <div id="lp" role="tabpanel" aria-labelledby="lt-sso" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div className="alert info">
-                <Icon name="shield" />
-                <div>사내 SSO와 MFA로 인증하는 화면이에요. 이 화면에서는 인증을 연결하지 않았어요.</div>
-              </div>
-              {error && (
-                <div className="errtx" role="alert">
-                  {error}
-                </div>
-              )}
-              <button className="btn pri solid block" type="button" aria-disabled={busy} aria-busy={busy && who === 'sso'} style={{ minHeight: 48 }} onClick={() => !busy && void run(loginSso(), 'sso')}>
-                {label('sso', USE_MOCK_AUTH ? 'SSO로 계속하기 (시연)' : 'SSO로 계속하기')}
-              </button>
-              {slowNote}
+          <form id="lp" onSubmit={onSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div className="field">
+              <label htmlFor="lg-id">사번</label>
+              <input
+                className={`inp${error ? ' err' : ''}`}
+                id="lg-id"
+                name="id"
+                autoComplete="username"
+                placeholder="예) EMP-1001"
+                value={employeeNo}
+                readOnly={busy}
+                onChange={(e) => setEmployeeNo(e.target.value)}
+                aria-invalid={!!error}
+                aria-describedby={error ? 'lg-err' : undefined}
+              />
             </div>
-          )}
+            <div className="field">
+              <label htmlFor="lg-pw">비밀번호</label>
+              <input
+                className={`inp${error ? ' err' : ''}`}
+                id="lg-pw"
+                onFocus={() => setPwFocus(true)}
+                onBlur={() => setPwFocus(false)}
+                name="pw"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                readOnly={busy}
+                onChange={(e) => setPassword(e.target.value)}
+                aria-invalid={!!error}
+                aria-describedby={error ? 'lg-err' : undefined}
+              />
+            </div>
+            {/* 로그인할 수 없는 사용자가 복구 경로를 바로 찾을 수 있게 비밀번호 칸 아래에 둔다 */}
+            <button type="button" className="fgt" onClick={() => setForgotOpen(true)}>
+              비밀번호를 잊으셨나요?
+            </button>
+            {/* 오류는 입력칸 바로 아래에서 연결해 보여 준다 (디자인 가이드) */}
+            {error && (
+              <div className="errtx" id="lg-err" role="alert">
+                {error}
+              </div>
+            )}
+            <button className="btn pri solid block" type="submit" aria-disabled={busy} aria-busy={busy && who === 'id'} style={{ minHeight: 48 }}>
+              {label('id', '로그인')}
+            </button>
+            {slowNote}
+            <div className="hint">
+              {USE_MOCK_AUTH && `시연 계정 비밀번호는 ${MOCK_PASSWORD} 입니다. `}비밀번호를 5회 연속 잘못 입력하면 계정이 잠겨요. 10분 후 다시 로그인할 수 있어요.
+              {USE_MOCK_AUTH && (
+                <>
+                  <br />
+                  임시 비밀번호 상태 시연: EMP-1300 / {MOCK_TEMP_PASSWORD}
+                </>
+              )}
+            </div>
+          </form>
 
           {/* 시연(mock)일 때만 보이는 바로 로그인 버튼. 실제 API 에서는 나타나지 않는다 */}
           {USE_MOCK_AUTH && (
@@ -269,6 +227,6 @@ export function LoginView() {
         </div>
       </div>
       {forgotOpen && <ForgotModal onClose={() => setForgotOpen(false)} />}
-    </div>
+    </main>
   )
 }

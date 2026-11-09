@@ -20,6 +20,7 @@
 - 근거: 그 세부 유형의 현행·전체 공개 가이드 청크 (+ 가끔 같은 유형 과거 이력)
 - Jira: 키 없음, jira_sync_status=SYNCED, 연동 작업(integration_jobs) 안 만듦 → worker 가 집어 가지 않음
   (그래서 시연 데이터의 열린 티켓 상태를 화면에서 바꾸면 Jira 연동이 실패한다. 실시간 시연은 새 문의로)
+- 가이드화: 해결 내용이 결과 한 줄뿐이라 모든 시연 티켓을 ticket_guide_states EXCLUDED 로 넣어 회차 대상에서 뺀다
 - 같은 --seed 면 같은 결과. 한 트랜잭션.
 """
 from __future__ import annotations
@@ -317,6 +318,8 @@ def apply(cur, ref: dict, items: list[dict], args) -> dict:
              '오늘', cat, tid, urg, reason, None, None, it['group'], it['assignee'], 'SYNCED', 'ASSIGNED', work,
              note if work in ('FIN', 'CLS') else None, made_at, fin_at, cls_at, 'IDLE', last, cls_at, 1))
         ids['tickets'].append(tk_id)
+        cur.execute("insert into ticket_guide_states (ticket_id, status, exclude_reason) "
+                    "values (%s, 'EXCLUDED', '시연 데이터')", (tk_id,))
         insert(cur, 'assignment_logs', dict(ticket_id=tk_id, event='RECOMMEND', group_id=it['group'],
                                              reason='세부 유형 기본 그룹', created_at=made_at), ids)
         insert(cur, 'assignment_logs', dict(ticket_id=tk_id, event='ASSIGN', group_id=it['group'], assignee_id=it['assignee'],
@@ -385,6 +388,9 @@ def main():
     with psycopg.connect(url, connect_timeout=15) as conn, conn.cursor() as cur:
         if args.delete:
             ids = json.loads(Path(args.delete).read_text(encoding='utf-8'))
+            if ids.get('tickets'):
+                cur.execute('delete from ticket_guide_states where ticket_id = any(%s)', (ids['tickets'],))
+                print(f'지움 ticket_guide_states: {cur.rowcount}')
             for t in DELETE_ORDER:
                 if ids.get(t):
                     cur.execute(f'delete from {t} where id = any(%s)', (ids[t],))

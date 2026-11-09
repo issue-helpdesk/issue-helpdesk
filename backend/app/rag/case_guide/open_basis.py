@@ -5,7 +5,8 @@
 
     out = open_basis(conn, 'ADD_ITEM', document_id=7)                         # 항목 추가·SEC
     out = open_basis(conn, 'CHANGE', document_id=7, target_section='3.3')      # 변경
-    out = open_basis(conn, 'NEW_GUIDE', category_code='NET', title='…', fragments=[조각, …])   # 새 가이드 뼈대
+    out = open_basis(conn, 'NEW_GUIDE', category_code='NET', title='…', fragments=[조각, …],
+                     overview='1장 본문', precheck='2장 본문')                         # 새 가이드 뼈대
     # out = {'draft_basis': {...}, 'draft_md': None | 뼈대, 'warnings': [...]}
     frag, warnings = ticket_fragment(conn, ticket_id)                          # SEC 직접 검토: 티켓 글 → 조각 (AI 없음)
     warnings = ticket_warnings(conn, [ticket_id, …])                           # 묶음 티켓의 짧은 처리·재처리 경고 (Q8)
@@ -20,9 +21,9 @@ from pathlib import Path
 from app.rag.ingest import ROOT
 from app.rag.ingest.upload import resolve_file
 
-from . import (HANDLING, SHORT_NOTE, CaseGuideError, _base_md, _find, _item, _one_line, _read_ticket, _reopened,
+from . import (HANDLING, MARK, SHORT_NOTE, CaseGuideError, _base_md, _find, _item, _one_line, _read_ticket, _reopened, josa,
                receipts)
-from .assemble import REQUIRED as _REQUIRED, SCHEMA, TODO, _fragment_problems, _props, _renumber, item_text
+from .assemble import FENCE_RE, REQUIRED as _REQUIRED, SCHEMA, TODO, _fragment_problems, _props, _renumber, item_text
 
 REQUIRED = list(_REQUIRED)                                 # 새 가이드 등록 전에 꼭 채울 장 (김현나 Q9)
 CONTACT_HEAD = re.compile(r'^## 6\. 문의처[ \t]*$', re.M)
@@ -30,13 +31,16 @@ CONTACT_HEAD = re.compile(r'^## 6\. 문의처[ \t]*$', re.M)
 
 def open_basis(conn, judgment: str, *, document_id: int | None = None, target_section: str | None = None,
                receipts_: list[str] | tuple = (), category_code: str | None = None, title: str | None = None,
-               fragments: list[str] | tuple = (), files_root: Path = ROOT) -> dict:
-    """판단별 초안 기준. 결과 {'draft_basis', 'draft_md', 'warnings'}. 안 되면 CaseGuideError."""
+               fragments: list[str] | tuple = (), files_root: Path = ROOT, overview: str | None = None,
+               precheck: str | None = None) -> dict:
+    """판단별 초안 기준. 결과 {'draft_basis', 'draft_md', 'warnings'}. 안 되면 CaseGuideError.
+    새 가이드의 overview·precheck 는 AI 가 쓴 1장·2장 본문 (없으면 `(작성 필요)`, 형식이 틀리면 그 장만 자리 표시 + 경고)."""
     warnings: list[str] = []
     if judgment == 'MANUAL_CANDIDATE':
         return {'draft_basis': None, 'draft_md': None, 'warnings': []}          # 초안 없음 (관리자가 매뉴얼에 직접)
     if judgment == 'NEW_GUIDE':
-        md = new_guide(conn, category_code, title, list(fragments), files_root, warnings)
+        md = new_guide(conn, category_code, title, list(fragments), files_root, warnings,
+                       overview=overview, precheck=precheck)
         return {'draft_basis': {'schema': SCHEMA, 'judgment': judgment, 'base_version_id': None, 'base_md': None,
                                 'category_code': category_code, 'required': list(REQUIRED)},
                 'draft_md': md, 'warnings': warnings}
@@ -60,7 +64,7 @@ def open_basis(conn, judgment: str, *, document_id: int | None = None, target_se
             raise CaseGuideError(['바꿀 항목(target_section)이 없습니다'])
         target_md = item_text(base_md, target_section)
         if target_md is None:
-            raise CaseGuideError([f'{doc[0]} 현행에 항목 {target_section}이 없습니다'])
+            raise CaseGuideError([f'{doc[0]} 현행에 항목 {josa(target_section, '이/가')} 없습니다'])
         basis |= {'target_section': target_section, 'target_md': target_md}
     else:
         basis['section_no'] = None                         # 등록 때 assemble 이 정하고 API 가 저장
@@ -100,7 +104,7 @@ def ticket_fragment(conn, ticket_id: int) -> tuple[str, list[str]]:
     t = _read_ticket(conn, ticket_id)
     problems = []
     if t['work_status'] != 'CLS':
-        problems.append(f"해결 확인(CLS)된 티켓만 가이드로 만듭니다: {t['receipt_no']}는 {t['work_status']}")
+        problems.append(f"해결 확인(CLS)된 티켓만 가이드로 만듭니다: {josa(t['receipt_no'], '은/는')} {t['work_status']}")
     if not (t['resolution_note'] or '').strip():
         problems.append(f"{t['receipt_no']}에 해결 내용(resolution_note)이 없습니다")
     if problems:
@@ -118,10 +122,10 @@ def ticket_fragment(conn, ticket_id: int) -> tuple[str, list[str]]:
 # ── 새 가이드 뼈대 ─────────────────────────────────────────────
 
 def new_guide(conn, category_code: str | None, title: str | None, fragments: list[str], files_root: Path,
-              warnings: list[str]) -> str:
-    """새 가이드 뼈대 md (김현나 Q9): v1.0, 문서 번호는 비워 둠(등록 때 DC-02 문서 번호로), 1장 `(작성 필요)`,
-    2장 증상별 바로가기 + `(작성 필요)`, 3장 조각들(3.1부터), 4·5장·부록은 제목만(비면 등록 때 장째 뺌),
-    6장 문의처는 같은 분류 현행 가이드에서 복사."""
+              warnings: list[str], *, overview: str | None = None, precheck: str | None = None) -> str:
+    """새 가이드 뼈대 md (M4 Q9): v1.0, 문서 번호는 비워 둠(등록 때 DC-02 문서 번호로), 1장 개요·2장 먼저 확인할
+    사항은 AI 초안(overview·precheck, 11.09 M4 요청) 또는 `(작성 필요)`, 2장 끝에 증상별 바로가기 표, 3장 조각들(3.1부터),
+    4·5장·부록은 제목만(비면 등록 때 장째 뺌), 6장 문의처는 같은 분류 현행 가이드에서 복사."""
     problems = []
     name = conn.execute('select name from categories where code = %s', (category_code,)).fetchone() if category_code else None
     if name is None:
@@ -134,7 +138,51 @@ def new_guide(conn, category_code: str | None, title: str | None, fragments: lis
     problems += [f'조각 {i}: {p}' for i, f in enumerate(fragments, 1) for p in _fragment_problems(f)]
     if problems:
         raise CaseGuideError(problems)
-    return skeleton(title.strip(), category_code, name[0], fragments, _contact(conn, category_code, files_root, warnings))
+    return skeleton(title.strip(), category_code, name[0], fragments, _contact(conn, category_code, files_root, warnings),
+                    overview=chapter_body(overview, '1장 개요', warnings),
+                    precheck=chapter_body(precheck, '2장 먼저 확인할 사항', warnings, reserved=(JUMP_TITLE,)))
+
+
+JUMP_TITLE = '증상별 바로가기'
+JUMP_HEAD = f'#### {JUMP_TITLE}'                            # 2장 끝에 뼈대가 붙이는 표의 소제목
+HEADING_RE = re.compile(r'^(#{1,6})\s+(.*?)\s*#*\s*$')
+INLINE_MARK = re.compile(r'(\*\*|__|\*|_|`)')
+
+
+def _heading_text(text: str) -> str:
+    """제목 글을 비교용으로: 굵게·기울임·코드 표시를 빼고 공백(탭 포함)을 하나로."""
+    return ' '.join(INLINE_MARK.sub('', text).split())
+
+
+def chapter_body(text: str | None, name: str, warnings: list[str], reserved: tuple[str, ...] = ()) -> str | None:
+    """AI 가 쓴 장 본문 → 뼈대에 넣을 글. 없거나 빈 글이면 None (자리 표시). 형식이 틀리면 None + 경고 — 장 경계가
+    깨지지 않게: 코드 블록 밖 `#`·`##`·`###` 제목 금지(`####` 이하 소제목·굵은 글씨·목록·표는 됨), 코드 블록은 닫힘,
+    반영 표식 문구 금지, reserved 제목 글 금지 (2장의 증상별 바로가기는 뼈대가 붙인다. 공백·굵게 표기를 정리해 비교).
+    경고에는 원문을 넣지 않는다 — 장 이름·줄 번호·문제 종류만 (거부한 글의 민감값이 경고로 새지 않게, PR #384 검수 1)."""
+    body = (text or '').replace('\r\n', '\n').replace('\r', '\n').strip('\n').rstrip()
+    if not body.strip():
+        return None
+    reserved_titles = {_heading_text(r) for r in reserved}
+    problems, fence = [], ''
+    for n, line in enumerate(body.splitlines(), 1):
+        s = line.strip()
+        if fence:
+            fence = '' if s.startswith(fence) else fence
+        elif m := FENCE_RE.match(line):
+            fence = m.group(1)
+        elif h := HEADING_RE.match(s):
+            if len(h.group(1)) <= 3:
+                problems.append(f'{n}번째 줄에 쓸 수 없는 제목({h.group(1)})')
+            elif _heading_text(h.group(2)) in reserved_titles:
+                problems.append(f'{n}번째 줄에 뼈대가 붙이는 소제목')
+    if fence:
+        problems.append('닫히지 않은 코드 블록')
+    if f'{MARK} (' in body:
+        problems.append('반영 표식 문구')
+    if problems:
+        warnings.append(f"{name} 초안을 넣지 않고 '{TODO}' 로 두었습니다 ({', '.join(problems)}). 관리자가 채워 주세요")
+        return None
+    return body
 
 
 def title_problems(title: str | None, what: str = '새 가이드 제목') -> list[str]:
@@ -142,14 +190,16 @@ def title_problems(title: str | None, what: str = '새 가이드 제목') -> lis
     줄 나눔은 md 파서와 같은 str.splitlines 기준 (U+0085·U+2028·U+2029 포함, #363 재검수 1), 제어 문자는 C0·DEL·C1.
     머리말에는 바깥 따옴표만 붙여 그대로 쓴다 (md 파서가 바깥 따옴표만 벗기므로 다시 읽으면 같은 값, 검수 1)."""
     if not (title or '').strip():
-        return [f'{what}이 없습니다']
+        return [f"{josa(what, '이/가')} 없습니다"]
     if len(title.splitlines()) != 1 or re.search(r'[\x00-\x1f\x7f-\x9f  ]', title):
-        return [f'{what}은 한 줄이어야 합니다 (줄바꿈·제어 문자 없이)']
+        return [f"{josa(what, '은/는')} 한 줄이어야 합니다 (줄바꿈·제어 문자 없이)"]
     return []
 
 
-def skeleton(title: str, category_code: str, category_name: str, fragments: list[str], contact: str) -> str:
-    """뼈대 md (DB 없이). contact: 6장 본문 (비면 자리 표시). title 은 title_problems 를 통과한 한 줄."""
+def skeleton(title: str, category_code: str, category_name: str, fragments: list[str], contact: str, *,
+             overview: str | None = None, precheck: str | None = None) -> str:
+    """뼈대 md (DB 없이). contact: 6장 본문 (비면 자리 표시). title 은 title_problems 를 통과한 한 줄.
+    overview·precheck: 1장·2장 본문 (chapter_body 를 거친 글, None 이면 자리 표시). 2장은 본문 아래에 바로가기 표."""
     items, rows, jumps, toc = [], [], [], []
     for n, f in enumerate(fragments, 1):
         section = f'3.{n}'
@@ -169,8 +219,8 @@ def skeleton(title: str, category_code: str, category_name: str, fragments: list
         f'# {title}', '', f'> 가상 ICT 기업 임직원 IT 안내 · {category_name}', '',
         '## 목차', '', '- 1. 개요', '- 2. 먼저 확인할 사항', '- 3. 증상별 조치 방법', *toc, '- 4. 자주 묻는 질문',
         '- 5. 주의사항', '- 6. 문의처', '- 부록 · 관련 문서 · 용어', '- 개정 이력', '',
-        '## 1. 개요', '', TODO, '',
-        '## 2. 먼저 확인할 사항', '', TODO, '', '#### 증상별 바로가기', '',
+        '## 1. 개요', '', overview or TODO, '',
+        '## 2. 먼저 확인할 사항', '', precheck or TODO, '', JUMP_HEAD, '',
         table(['겪고 있는 증상', '볼 곳', '처리 구분'], jumps), '',
         '## 3. 증상별 조치 방법', '', table(['번호', '제목', '문의 유형', '처리 구분', '담당 부서'], rows), '',
         '\n\n'.join(items), '',
