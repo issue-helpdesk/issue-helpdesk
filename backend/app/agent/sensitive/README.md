@@ -144,13 +144,23 @@ f = filter_evidence(검색결과.documents, 검색결과.legacy, p)   # p: 2번�
 
 ## 4. 로그 안전망 — 로그를 쓰기 직전
 
-```python
-import logging
-from app.agent.sensitive import MaskSecretsFilter
+프로그램이 시작할 때, 로그 설정(`logging.basicConfig`, uvicorn 설정) **뒤에** 한 줄을 부릅니다.
 
-for handler in 서버의_모든_로그_핸들러:   # 콘솔·파일 등 전부
-    handler.addFilter(MaskSecretsFilter())
+```python
+from app.agent.sensitive import install_log_filter
+
+install_log_filter()   # 지금 있는 핸들러 모두(루트·이름 있는 로거·lastResort)에 MaskSecretsFilter 를 붙인다
 ```
+
+| 프로그램 | 넣을 곳 | 담당 |
+|---|---|---|
+| backend (uvicorn) | `app/main.py` 위쪽. uvicorn 은 앱을 불러오기 전에 로그를 설정하므로 import 때 불러도 된다 | M1 박민경 |
+| guide-worker | `app/workers/guide_analysis.py` 의 `logging.basicConfig(...)` 바로 뒤 | M1 박민경 |
+| jira-worker | `app/integrations/jira/worker.py` 의 `logging.basicConfig(...)` 바로 뒤 | M5 김현우 |
+
+- 여러 번 불러도 겹쳐 붙지 않습니다.
+- 이 함수 뒤에 새로 만든 핸들러에는 붙지 않습니다. 핸들러를 더 만들면 그 뒤에 다시 부릅니다.
+- uvicorn 접속 기록(`uvicorn.access`)은 서식이 값 5개를 따로 꺼내 쓰므로, 묶음을 지우지 않고 값마다 가립니다.
 
 | 가리는 것 | 예 |
 |---|---|
