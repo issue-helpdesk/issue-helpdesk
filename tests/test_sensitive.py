@@ -153,7 +153,8 @@ def test_notices_same_as_frontend():
     ts = (Path(__file__).parents[1] / 'frontend/src/core/mask.ts').read_text(encoding='utf-8')
     names = ['MASK_NOTICE', 'MASK_NOTICE_PASSWORD', 'MASK_NOTICE_IDENTITY', 'MASK_NOTICE_DRAFT', 'BLOCKED_NOTICE']
     for name in names:
-        front = re.search(rf"export const {name} = '(.*)'", ts).group(1).replace('\\n', '\n')
+        # 밖에서 안 쓰는 문구는 export 없이 둔다 (frontend 정리 eb74575)
+        front = re.search(rf"^(?:export )?const {name} = '(.*)'", ts, re.M).group(1).replace('\\n', '\n')
         assert getattr(server, name) == front, name
 
 
