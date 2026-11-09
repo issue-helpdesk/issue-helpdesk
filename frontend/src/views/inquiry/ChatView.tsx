@@ -633,7 +633,7 @@ export function ChatView() {
         </Modal>
       )}
     </main>
-    {detail && t && <TicketDetailPanel id={USE_MOCK_INQUIRY ? ticketIdOfInquiry(inquiry.id) : t.id ?? 0} tick={detailTick} onClose={() => setDetail(false)} />}
+    {detail && t && <TicketDetailPanel id={USE_MOCK_INQUIRY ? ticketIdOfInquiry(inquiry.id) : t.id ?? 0} tick={detailTick} title={inquiry.title} onClose={() => setDetail(false)} />}
     </>
   )
 }

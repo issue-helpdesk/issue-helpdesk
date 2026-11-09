@@ -52,6 +52,7 @@
 .detail .db>*+*{border-top:1px solid var(--divider)}
 .detail .db>.stlist{padding-bottom:8px}
 .detail .db h3,.detail .db h4{font-size:14px;margin:0}
+.detail .db .alert{margin-bottom:12px}
 .detail .dl{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px 14px;margin:0}
 .detail .dl dt{font-size:12.5px;color:var(--mute);padding-top:2px}
 .detail .dl dd{margin:0;min-width:0;overflow-wrap:anywhere}
