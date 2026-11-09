@@ -16,6 +16,11 @@ import type { ErrorDetail } from './types'
 type Make = (details?: ErrorDetail[]) => string
 
 const detail = (details: ErrorDetail[] | undefined, reason: string) => details?.find((d) => d.reason === reason)
+/** 같은 reason 의 서버 안내를 줄마다 붙인다 (서버가 문제마다 한 줄씩 준다) */
+const lines = (details: ErrorDetail[] | undefined, reason: string) => {
+  const m = (details ?? []).filter((d) => d.reason === reason && d.message).map((d) => d.message)
+  return m.length ? ` ${m.join(' / ')}` : ''
+}
 /** details.value 는 글자일 수도, 서버가 준 객체일 수도 있다 */
 const asObject = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' ? (v as Record<string, unknown>) : null)
 
@@ -99,6 +104,21 @@ const TEXT: Record<string, string | Make> = {
   GUIDE_CLUSTER_DRAFT_LOCKED: '초안으로 등록한 제안은 내용을 고칠 수 없어요.',
   GUIDE_CLUSTER_NO_DRAFT: '이 제안에는 AI가 만든 초안이 없어서 저장할 수 없어요.',
   GUIDE_CLUSTER_DRAFT_CONFLICT: '다른 관리자가 먼저 초안을 고쳤어요. 최신 초안으로 바꿔 보여 드려요. 내용을 확인한 뒤 다시 고쳐 주세요.',
+  GUIDE_CLUSTER_NOT_REGISTRABLE: (d) => {
+    if (detail(d, 'JUDGMENT')) return '이 제안은 초안으로 등록하지 않는 종류예요. 내용을 직접 반영한 뒤 "직접 반영 표시"를 눌러 주세요.'
+    if (detail(d, 'NO_DRAFT')) return '초안이 아직 만들어지지 않았어요. 잠시 뒤 다시 확인해 주세요.'
+    if (detail(d, 'NO_TARGET')) return '넣을 문서를 먼저 연결해 주세요.'
+    return '이 제안은 지금 초안으로 등록할 수 없어요.'
+  },
+  GUIDE_CLUSTER_BASE_CHANGED: '초안을 만든 뒤 대상 가이드의 현행 버전이 바뀌었어요. "다시 맞추기"로 새 현행에 맞춘 뒤 등록해 주세요.',
+  GUIDE_CLUSTER_CONFLICT_UNRESOLVED: (d) => {
+    const s = detail(d, 'CONFLICT')?.value
+    return `${s ? `항목 ${String(s)}의 ` : ''}내용이 새 현행과 달라서 아직 등록할 수 없어요. 새 현행 내용과 비교해 초안을 고쳐 저장한 뒤 등록해 주세요.`
+  },
+  GUIDE_CLUSTER_ASSEMBLE_FAILED: (d) => `가이드 문서로 합치지 못했어요.${lines(d, 'ASSEMBLE')}`,
+  GUIDE_CLUSTER_REBASE_FAILED: (d) => `새 현행에 맞추지 못했어요.${lines(d, 'REBASE')}`,
+  GUIDE_CLUSTER_TARGET_UNCHANGED: '지금과 같은 문서·항목이에요. 다른 문서나 항목을 골라 주세요.',
+  GUIDE_CLUSTER_TARGET_INVALID: (d) => `이 문서로는 바꿀 수 없어요.${lines(d, 'TARGET')}`,
   // FAQ·알림·일정
   FAQ_NOT_FOUND: 'FAQ를 찾을 수 없어요. 목록을 다시 불러와 주세요.',
   FAQ_CODE_DUPLICATE: '이미 등록된 FAQ 번호예요.',

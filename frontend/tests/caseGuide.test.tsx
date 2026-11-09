@@ -210,8 +210,25 @@ describe('해결 사례 탭 화면', () => {
     expect(await screen.findByRole('button', { name: /^IT-SW-001 업무용 SW 설치 가이드/, expanded: true }, SLOW)).toBeInTheDocument()
     const rows = await screen.findAllByRole('row', undefined, SLOW)
     const row = rows.find((r) => within(r).queryByText('v3.0'))!
+    // 넘어온 버전 줄은 강조되고, 그 문서에는 "현행 전환 대기" 표시가 붙는다
+    expect(row).toHaveClass('vfocus')
+    expect(screen.getByRole('button', { name: /^IT-SW-001 업무용 SW 설치 가이드/ })).toHaveTextContent('현행 전환 대기')
     await userEvent.click(within(row).getByRole('button', { name: '현행 전환' }))
     await waitFor(() => expect(get('c6').state).toBe('live'), SLOW)
+  })
+
+  it('검토 중인 제안이 걸린 문서에는 제안 건수가 보이고, 그 문서에 새 버전을 올리려 하면 안내가 뜬다', async () => {
+    renderAdmin()
+    await userEvent.click(await screen.findByRole('button', { name: /^VPN·네트워크/ }, SLOW))
+    expect(await screen.findByRole('button', { name: /^IT-NET-001 VPN 접속 장애 대응 가이드/ }, SLOW)).toHaveTextContent('AI 제안 1건')
+    await userEvent.click(screen.getByRole('button', { name: /가이드 파일 업로드/ }))
+    const dlg = await screen.findByRole('dialog', { name: '가이드 파일 업로드' }, SLOW)
+    expect(within(dlg).queryByText(/검토 중인 AI 가이드 제안/)).toBeNull() // 문서를 고르기 전에는 없다
+    for (const [label, option] of [['분류', /네트워크/], ['문서', /IT-NET-001/]] as const) {
+      await userEvent.click(within(dlg).getByLabelText(label))
+      await userEvent.click(await screen.findByRole('option', { name: option }))
+    }
+    expect(await within(dlg).findByText(/IT-NET-001에 검토 중인 AI 가이드 제안이 1건 있어요/)).toBeInTheDocument()
   })
 
   it('검토할 제안이 있는 가이드는 현행을 바꾸지 못하게 막고, 제안을 보러 갈 수 있다', async () => {

@@ -93,6 +93,8 @@ export interface Page<T> {
   size: number
   totalCount: number
   totalPages: number
+  /** 상태 탭이 있는 목록(접수·계정·문의)이 주는 상태별 건수. 상태 조건만 빼고 나머지 조건은 목록과 같게 센 값이다 (R-46) */
+  statusCounts?: Record<string, number>
 }
 
 const toQueryString = (q: InquiryListQuery) => {
@@ -125,7 +127,6 @@ export async function listInquiries(employeeNo: string, query: InquiryListQuery 
     return { summary, hay }
   })
   rows = rows.filter(({ summary: s, hay }) => {
-    if (displayStatus?.length && !displayStatus.includes(s.displayStatus)) return false
     if (categoryCode?.length && !(s.categoryCode && categoryCode.includes(s.categoryCode))) return false
     const created = new Date(s.createdAt).getTime()
     if (createdFrom && created < dayStart(createdFrom)) return false
@@ -133,6 +134,10 @@ export async function listInquiries(employeeNo: string, query: InquiryListQuery 
     if (needle && !hay.some((x) => x && String(x).toLowerCase().includes(needle))) return false
     return true
   })
+  // 상태별 건수는 상태 조건만 빼고 센다 (서버의 statusCounts 와 같다)
+  const statusCounts: Record<string, number> = {}
+  rows.forEach((r) => (statusCounts[r.summary.displayStatus] = (statusCounts[r.summary.displayStatus] ?? 0) + 1))
+  if (displayStatus?.length) rows = rows.filter(({ summary: s }) => displayStatus.includes(s.displayStatus))
   const [key, dir] = sort.split(',')
   const sign = dir === 'asc' ? 1 : -1
   const val = (s: InquirySummary): string | number => {
@@ -157,7 +162,7 @@ export async function listInquiries(employeeNo: string, query: InquiryListQuery 
   const totalCount = rows.length
   const totalPages = Math.max(1, Math.ceil(totalCount / size))
   const p = Math.min(Math.max(1, page), totalPages)
-  return ok({ items: rows.slice((p - 1) * size, p * size).map((r) => r.summary), page: p, size, totalCount, totalPages })
+  return ok({ items: rows.slice((p - 1) * size, p * size).map((r) => r.summary), page: p, size, totalCount, totalPages, statusCounts })
 }
 
 /**

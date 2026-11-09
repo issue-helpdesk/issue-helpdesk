@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
-import { groupOf, LIST_GROUPS, listInquiries, type InquiryListQuery, type ListGroup, type Page } from '../../api/inquiries'
+import { LIST_GROUPS, listInquiries, type InquiryListQuery, type ListGroup, type Page } from '../../api/inquiries'
 import type { InquirySummary } from '../../api/types'
 import titleHist from '../../assets/mascot/title-hist.webp'
 import { USE_MOCK_INQUIRY } from '../../core/config'
@@ -131,16 +131,16 @@ export function InquiryListView() {
     }
   }, [employeeNo, ownerId, query, reload])
 
-  // 상태별 건수: 검색어·분류·기간을 따라간다 (상태 칸 자체만 빼고 센다). 최근 100건까지 읽어 센다 (서버가 생기면 상태마다 totalCount 로 읽는다)
+  // 상태별 건수: 검색어·분류·기간을 따라간다 (상태 칸 자체만 빼고 센다). 1건만 요청해 응답의 상태별 건수(statusCounts)를 읽는다 (R-46)
   useEffect(() => {
     if (!employeeNo) return
     let alive = true
-    listInquiries(employeeNo, { size: 100, userId: ownerId, categoryCode: query.categoryCode, createdFrom: query.createdFrom, q: query.q }).then((r) => {
+    listInquiries(employeeNo, { size: 1, userId: ownerId, categoryCode: query.categoryCode, createdFrom: query.createdFrom, q: query.q }).then((r) => {
       if (!alive || !r.ok) return
       const c: Record<string, number> = { all: r.data.totalCount }
-      for (const it of r.data.items) {
-        const g = groupOf(it.displayStatus)
-        c[g] = (c[g] ?? 0) + 1
+      for (const [status, n] of Object.entries(r.data.statusCounts ?? {})) {
+        const g = LIST_GROUPS.find((x) => (x.statuses as string[]).includes(status))?.key
+        if (g) c[g] = (c[g] ?? 0) + n
       }
       setCounts(c)
     })
