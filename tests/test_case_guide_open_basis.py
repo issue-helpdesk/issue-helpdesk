@@ -221,5 +221,35 @@ def test_ticket_fragment_warns_when_it_breaks_fragment_rules(url):
     assert any(w.startswith('OB-SEC-3: 등록 전에 고쳐 주세요') and '반영 표식' in w for w in warnings)
 
 
+@needs_db
+def test_ticket_warnings_for_cluster(url):
+    """M4 Q8: 묶음 티켓별 짧은 처리·재처리 경고를 모은다. 티켓 순서대로·같은 id 한 번, 앞선 처리 원문은 넣지 않는다.
+    문제없는 티켓은 경고 없음, 없는 id 는 거부."""
+    from app.rag.ingest import connect
+    ok = _ticket(url, 'OB-W-1', code='SW-01')
+    short = _ticket(url, 'OB-W-2', code='SW-01', note='재부팅함')
+    again = _ticket(url, 'OB-W-3', code='SW-01')
+    with connect(url) as conn:
+        for frm, to, reason in [('WIP', 'FIN', None), ('FIN', 'WIP', 'OLD_LEFT_MARK'), ('WIP', 'FIN', None),
+                                ('FIN', 'CLS', None)]:
+            conn.execute('insert into ticket_status_history (ticket_id, from_status, to_status, source, reason) '
+                         "values (%s, %s, %s, 'ITSSUE', %s)", (again, frm, to, reason))
+        conn.commit()
+        warnings = ob.ticket_warnings(conn, [again, ok, short, again])
+        assert ob.ticket_warnings(conn, [ok]) == []
+        with pytest.raises(CaseGuideError, match='없는 티켓 id: 999999999'):
+            ob.ticket_warnings(conn, [ok, 999999999])
+        conn.rollback()
+    assert warnings == ['OB-W-3: 다시 처리된 접수입니다 (재처리 1회). 앞선 처리는 TK-08 이력에서 확인하세요',
+                        'OB-W-2: 해결 내용이 짧습니다 (4자). 초안의 조치 방법이 충분한지 확인하세요']
+    assert not any('OLD_LEFT_MARK' in w for w in warnings)
+
+
+def test_ticket_warnings_reads_only():
+    """DB 에 쓰지 않고 commit 하지 않는다 (워커 트랜잭션 안에서 부른다)."""
+    src = re.sub(r'""".*?"""', '', inspect.getsource(ob.ticket_warnings), flags=re.S) + inspect.getsource(ob._ticket_warnings)
+    assert 'commit' not in src and not re.search(r'\b(insert|update|delete)\b', src, re.I)
+
+
 def test_category_name_must_be_one_line():
     assert ob.title_problems('분류\n이름', '분류 이름') == ['분류 이름은 한 줄이어야 합니다 (줄바꿈·제어 문자 없이)']

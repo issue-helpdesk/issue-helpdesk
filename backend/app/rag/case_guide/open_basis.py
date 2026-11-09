@@ -8,6 +8,7 @@
     out = open_basis(conn, 'NEW_GUIDE', category_code='NET', title='…', fragments=[조각, …])   # 새 가이드 뼈대
     # out = {'draft_basis': {...}, 'draft_md': None | 뼈대, 'warnings': [...]}
     frag, warnings = ticket_fragment(conn, ticket_id)                          # SEC 직접 검토: 티켓 글 → 조각 (AI 없음)
+    warnings = ticket_warnings(conn, [ticket_id, …])                           # 묶음 티켓의 짧은 처리·재처리 경고 (Q8)
 
 `draft_basis` 의 키·뜻은 구조 초안 2장. 등록 때 `assemble()` 이 이 값으로 현행과 비교한다 (기준 버전·기준 원문·변경 항목 원문).
 """
@@ -66,6 +67,34 @@ def open_basis(conn, judgment: str, *, document_id: int | None = None, target_se
     return {'draft_basis': basis, 'draft_md': None, 'warnings': warnings}
 
 
+def ticket_warnings(conn, ticket_ids: list[int] | tuple) -> list[str]:
+    """묶음의 티켓별 검토 경고 (M4 Q8: 재처리·짧은 처리는 티켓별로 검사해 묶음 경고로 모은다). 워커가 묶음을 만들 때
+    불러 `review_info.warnings` 에 넣는다 (프론트가 이 배열을 보여 준다). 1건 가이드화·SEC 조각과 같은 기준
+    (`SHORT_NOTE`, FIN→WIP 횟수). 앞선 처리 결과·남은 증상 원문은 넣지 않는다 (TK-08 이력 위치만).
+    티켓 순서대로, 같은 id 는 한 번. 없는 티켓 id 는 CaseGuideError. DB 읽기만, commit 하지 않는다."""
+    out, missing = [], []
+    for tid in dict.fromkeys(ticket_ids):
+        try:
+            t = _read_ticket(conn, tid)
+        except ValueError:
+            missing.append(str(tid))
+            continue
+        out += _ticket_warnings(conn, tid, t)
+    if missing:
+        raise CaseGuideError([f"없는 티켓 id: {', '.join(missing)}"])
+    return out
+
+
+def _ticket_warnings(conn, ticket_id: int, t: dict) -> list[str]:
+    note = (t['resolution_note'] or '').strip()
+    warnings = []
+    if len(note) < SHORT_NOTE:
+        warnings.append(f"{t['receipt_no']}: 해결 내용이 짧습니다 ({len(note)}자). 초안의 조치 방법이 충분한지 확인하세요")
+    if reopened := _reopened(conn, ticket_id):
+        warnings.append(f"{t['receipt_no']}: 다시 처리된 접수입니다 (재처리 {reopened}회). 앞선 처리는 TK-08 이력에서 확인하세요")
+    return warnings
+
+
 def ticket_fragment(conn, ticket_id: int) -> tuple[str, list[str]]:
     """SEC 직접 검토: 티켓 글을 틀에 옮긴 항목 조각 (`### 3.N 제목`, AI 없음). 1건 가이드화와 같은 틀·경고 기준."""
     t = _read_ticket(conn, ticket_id)
@@ -76,11 +105,8 @@ def ticket_fragment(conn, ticket_id: int) -> tuple[str, list[str]]:
         problems.append(f"{t['receipt_no']}에 해결 내용(resolution_note)이 없습니다")
     if problems:
         raise CaseGuideError(problems)
-    warnings = [f"{t['receipt_no']}: 티켓 글을 그대로 옮겼습니다. 임직원이 따라 할 수 있게 다듬어 주세요"]
-    if len(t['resolution_note'].strip()) < SHORT_NOTE:
-        warnings.append(f"{t['receipt_no']}: 해결 내용이 짧습니다 ({len(t['resolution_note'].strip())}자)")
-    if reopened := _reopened(conn, ticket_id):
-        warnings.append(f"{t['receipt_no']}: 다시 처리된 접수입니다 (재처리 {reopened}회). 앞선 처리는 TK-08 이력에서 확인하세요")
+    warnings = [f"{t['receipt_no']}: 티켓 글을 그대로 옮겼습니다. 임직원이 따라 할 수 있게 다듬어 주세요",
+                *_ticket_warnings(conn, ticket_id, t)]
     title = _one_line(t['summary']) or _one_line(t['symptom']) or '해결 사례'
     fragment = _item('3.N', title, t)
     # 티켓 글을 그대로 옮기므로 등록 때의 조각 약속에 걸릴 수 있다 (예: 처리 글에 '해결 사례 반영 (' 문구). 내용을 조용히
