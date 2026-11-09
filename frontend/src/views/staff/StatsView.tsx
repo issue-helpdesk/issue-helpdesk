@@ -107,10 +107,10 @@ export const windowOf = (s: Sec, per: Per, team: boolean, userId: number) => {
 export function Section({ title, sec, note, kind, children }: { title: string; sec: Sec & { reload: () => void }; note?: string; kind?: 'ai' | 'tk'; children: ReactNode }) {
   const head = (
     <div className="row sh">
-      <h3>
+      <h2>
         {kind && <span className={`sch ${kind}`}>{kind === 'ai' ? 'AI' : '티켓'}</span>}
         {title}
-      </h3>
+      </h2>
       <span className="small muted asof">{sec.st === 'ok' ? `집계 기준 ${sec.at}` : ''}</span>
       {sec.st !== 'loading' && (
         <button type="button" className="btn ghost sm" onClick={sec.reload}>

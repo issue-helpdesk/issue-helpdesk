@@ -44,14 +44,14 @@
 @keyframes mback{from{transform:translateX(-24px)}to{transform:none}}
 @media (prefers-reduced-motion:reduce){.app:has(.detail.slide) .main>*,.app:has(.detail.leave) .main>*{animation:none}}
 .detail .dh{flex:none;box-sizing:border-box;min-height:var(--topH,0px);padding:14px 24px;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--divider)}
-.detail .dh h3{font-size:18px;line-height:26px;margin-top:2px}
+.detail .dh h2,.detail .dh h3{font-size:18px;line-height:26px;margin-top:2px}
 .detail .dh .btn.ico{flex:none;padding:0;width:32px;min-width:32px;min-height:32px;height:32px;background:var(--shell);box-shadow:none;color:var(--ink2)}
 .detail .dh .btn.ico .i{width:16px;height:16px}
 .detail .db{padding:0 24px 24px;overflow:auto;display:flex;flex-direction:column;min-height:0}
 .detail .db>*{padding-top:19px;padding-bottom:19px}
 .detail .db>*+*{border-top:1px solid var(--divider)}
 .detail .db>.stlist{padding-bottom:8px}
-.detail .db h4{font-size:14px;margin:0}
+.detail .db h3,.detail .db h4{font-size:14px;margin:0}
 .detail .dl{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px 14px;margin:0}
 .detail .dl dt{font-size:12.5px;color:var(--mute);padding-top:2px}
 .detail .dl dd{margin:0;min-width:0;overflow-wrap:anywhere}
@@ -143,7 +143,7 @@
 
 /* 구역 제목: 제목 아래 줄에 설명, 오른쪽에 버튼 */
 .sech{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:10px}
-.panel h3.sht{font-size:18px;line-height:26px;font-weight:700;display:flex;align-items:center;gap:8px;margin:0}
+.panel h3.sht,.panel h2.sht{font-size:18px;line-height:26px;font-weight:700;display:flex;align-items:center;gap:8px;margin:0}
 .shs{margin:4px 0 0;font-size:13px;line-height:20px;color:var(--mute)}
 
 /* 먼저 볼 문의 목록 */
@@ -178,7 +178,7 @@
 .sbar2 .sg.unit{margin-left:auto}
 .panel.sec{padding:22px 24px}
 .row.sh{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
-.row.sh h3{font-size:18px;line-height:26px;font-weight:700}
+.row.sh h2,.row.sh h3{font-size:18px;line-height:26px;font-weight:700}
 .row.sh .asof{margin-left:auto}
 .row.sh .btn.ghost.sm{margin-block:-8px}
 .secnote{margin:2px 0 8px}

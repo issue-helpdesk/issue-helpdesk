@@ -164,7 +164,7 @@ export function AiOpsView() {
           </div>
 
           <div className="panel">
-            <h3>상담 건수와 비용</h3>
+            <h2>상담 건수와 비용</h2>
             {usage ? (
               <>
                 <p className="small muted" style={{ margin: '0 0 6px' }}>
@@ -194,9 +194,9 @@ export function AiOpsView() {
 
           <div className="panel">
             <div className="row" style={{ justifyContent: 'space-between' }}>
-              <h3>
+              <h2>
                 답변 품질 평가 (Golden Set) <span className="tag gray">시연 데이터</span> <span className="tag gray">Could</span>
-              </h3>
+              </h2>
               <span className="small muted">
                 기대와 일치 {pass} / {gold?.length ?? 0} · 보완 필요 {count('보완 필요')} · 검토 필요 {count('검토 필요')}
               </span>

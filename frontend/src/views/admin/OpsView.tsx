@@ -261,7 +261,7 @@ export function OpsView() {
     <section className={`panel${cls ? ` ${cls}` : ''}`} aria-label={label}>
       <div className="sech">
         <div>
-          <h3 className="sht">{title}</h3>
+          <h2 className="sht">{title}</h2>
           <p className="shs">{desc}</p>
         </div>
         {right}
@@ -337,7 +337,7 @@ export function OpsView() {
               <section className="panel" aria-label="최근 처리 결과" style={{ padding: '16px 20px' }}>
                 <div className="sech">
                   <div>
-                    <h3 className="sht">최근 처리 결과</h3>
+                    <h2 className="sht">최근 처리 결과</h2>
                     <p className="shs">같은 건의 요청과 결과는 한 줄로 모아 보여요. 새로 열면 지워져요.</p>
                   </div>
                   {results.length > 3 && <span className="ocnt">{results.length}건</span>}

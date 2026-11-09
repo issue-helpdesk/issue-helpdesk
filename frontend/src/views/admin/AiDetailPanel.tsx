@@ -90,7 +90,7 @@ export function AiDetailPanel({ row, slide, onSlideEnd, onClose }: { row: AiRow;
         <div className="row" style={{ flexWrap: 'nowrap' }}>
           <div style={{ minWidth: 0 }}>
             <div className="mono small muted">{row.id}</div>
-            <h3>{row.title}</h3>
+            <h2>{row.title}</h2>
           </div>
           <span style={{ flex: 1 }} />
           <button type="button" ref={closeBtn} className="btn sec sm ico" aria-label="닫기" onClick={close}>

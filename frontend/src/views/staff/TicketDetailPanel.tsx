@@ -352,7 +352,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose 
           <div className="row" style={{ flexWrap: 'nowrap' }}>
             <div style={{ minWidth: 0 }}>
               <div className="mono small muted">{t ? `${t.receiptNo}${t.jiraKey ? ` · ${t.jiraKey}` : ''}` : ''}</div>
-              <h3>{t?.summary ?? (error ? '접수를 열 수 없어요' : '불러오는 중이에요…')}</h3>
+              <h2>{t?.summary ?? (error ? '접수를 열 수 없어요' : '불러오는 중이에요…')}</h2>
             </div>
             <span style={{ flex: 1 }} />
             <button type="button" ref={closeBtn} className="btn sec sm ico" aria-label="닫기" onClick={close}>
