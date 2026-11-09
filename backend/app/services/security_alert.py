@@ -158,6 +158,9 @@ def detect(
             return alert
         # 다른 요청이 같은 대상의 알림을 먼저 만들었다. 그 알림에 합친다
         alert = alerts.open_for_update(*key)
+        if alert is None:
+            # UNIQUE 경합이 아닌 다른 이유로 넣지 못했다 (예: alert_type CHECK 에 새 유형이 없는 DB — 마이그레이션 미적용)
+            raise RuntimeError(f"보안 알림을 만들지 못했습니다: {alert_type}. DB 마이그레이션(alembic upgrade head)을 확인하세요")
 
     alert.occurrence_count += 1
     alert.last_detected_at = now

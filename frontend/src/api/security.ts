@@ -13,7 +13,7 @@ import { fail, ok, type ApiResult, type User } from './types'
 
 export type SecSeverity = '높음' | '중간' | '낮음'
 export type SecStatus = '신규' | '확인 중' | '종결'
-export const SEC_TYPES = ['민감정보 입력', '외부 전송 금지 문서 질의', '로그인 반복 실패', '이용 제한 계정 접속 시도', '긴급 징후 후 접수 없이 종료', '비정상 대량 질의', '보안 사고 의심', '권한·승인 우회 요청', '보안 통제 해제·기록 은폐 요청', '제한 정보 추출 요청', '자료 반출 우회 요청', 'AI 통제 우회 요청'] as const
+export const SEC_TYPES = ['민감정보 입력', '외부 전송 금지 문서 질의', '로그인 반복 실패', '이용 제한 계정 접속 시도', '긴급 징후 후 접수 없이 종료', '비정상 대량 질의', '보안 사고 의심', '권한·승인 우회 요청', '보안 통제 해제·기록 은폐 요청', '제한 정보 추출 요청', '자료 반출 우회 요청', 'AI 통제 우회 요청', 'AI 답변 거절 문의'] as const
 export type SecType = (typeof SEC_TYPES)[number]
 
 export interface SecLog {

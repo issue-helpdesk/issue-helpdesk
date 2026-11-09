@@ -300,7 +300,10 @@ function SecurityDialog({ id, onClose, onToast }: { id: string; onClose: () => v
       <Modal title="알림 종결" onClose={() => setEnding(false)}>
         <div className="field">
           <label htmlFor={`${uid}-e`}>종결 사유 (필수)</label>
-          <input id={`${uid}-e`} className={`inp${endErr ? ' err' : ''}`} value={endWhy} placeholder="예) 정상 문의로 확인" autoComplete="off" aria-invalid={!!endErr} onChange={(e) => { setEndWhy(e.target.value); setEndErr('') }} />
+          <input id={`${uid}-e`} className={`inp${endErr ? ' err' : ''}`} maxLength={500} aria-describedby={`${uid}-end-count`} value={endWhy} placeholder="예) 정상 문의로 확인" autoComplete="off" aria-invalid={!!endErr} onChange={(e) => { setEndWhy(e.target.value); setEndErr('') }} />
+          <div className="wcnt" style={{ justifyContent: 'flex-end' }}>
+            <span id={`${uid}-end-count`} className="hint">{endWhy.length}/500</span>
+          </div>
           {endErr && (
             <div className="ferr" role="alert">
               {endErr}
@@ -347,10 +350,13 @@ function SecurityDialog({ id, onClose, onToast }: { id: string; onClose: () => v
         <div className="field">
           <label htmlFor={`${uid}-w`}>{USE_MOCK_INQUIRY ? '원문 열람 사유 (필수)' : '문의 열람 사유 (필수)'}</label>
           <div className="row" style={{ flexWrap: 'nowrap' }}>
-            <input id={`${uid}-w`} className={`inp${whyErr ? ' err' : ''}`} value={why} placeholder="예) 정상 문의 여부 확인" autoComplete="off" aria-invalid={!!whyErr} onChange={(e) => { setWhy(e.target.value); setWhyErr('') }} />
+            <input id={`${uid}-w`} className={`inp${whyErr ? ' err' : ''}`} maxLength={500} aria-describedby={`${uid}-raw-count`} value={why} placeholder="예) 정상 문의 여부 확인" autoComplete="off" aria-invalid={!!whyErr} onChange={(e) => { setWhy(e.target.value); setWhyErr('') }} />
             <button type="button" className="btn sec" disabled={busy} onClick={() => void showRaw()}>
               {USE_MOCK_INQUIRY ? '원문 보기' : '저장된 문의 보기'}
             </button>
+          </div>
+          <div className="wcnt" style={{ justifyContent: 'flex-end' }}>
+            <span id={`${uid}-raw-count`} className="hint">{why.length}/500</span>
           </div>
           {whyErr && (
             <div className="ferr" role="alert">

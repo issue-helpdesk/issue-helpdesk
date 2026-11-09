@@ -21,6 +21,7 @@ export interface ServerAlert {
 const labels: Record<string, SecType> = {
   S01: '보안 사고 의심', S02: '권한·승인 우회 요청', S03: '보안 통제 해제·기록 은폐 요청',
   S04: '제한 정보 추출 요청', S05: '자료 반출 우회 요청', S06: 'AI 통제 우회 요청',
+  AI_REFUSED: 'AI 답변 거절 문의',
   SENSITIVE_INPUT: '민감정보 입력', BLOCKED_DOC_QUERY: '외부 전송 금지 문서 질의', ACCOUNT_LOCKED: '로그인 반복 실패',
   LOGIN_BLOCKED: '이용 제한 계정 접속 시도', URGENT_CLOSED: '긴급 징후 후 접수 없이 종료', MASS_QUERY: '비정상 대량 질의',
 }
