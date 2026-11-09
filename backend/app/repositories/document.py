@@ -62,6 +62,16 @@ class DocumentRepository:
             .group_by(DocumentChunk.version_id)
         ).all())
 
+    def unfinished_ingests(self, document_ids: list[int]) -> list[tuple[int, str, str | None]]:
+        """적재 실패·대기 버전의 (문서 ID, 상태, 실패 사유). 최근에 올린 버전부터."""
+        if not document_ids:
+            return []
+        return [tuple(row) for row in self.db.execute(
+            select(DocumentVersion.document_id, DocumentVersion.ingest_status, DocumentVersion.ingest_error)
+            .where(DocumentVersion.document_id.in_(document_ids), DocumentVersion.ingest_status.in_(("FAILED", "PENDING")))
+            .order_by(DocumentVersion.registered_at.desc(), DocumentVersion.id.desc())
+        )]
+
     def users(self, user_ids: set[int]) -> dict[int, User]:
         return {u.id: u for u in self.db.scalars(select(User).where(User.id.in_(user_ids)))} if user_ids else {}
 
@@ -119,6 +129,12 @@ class DocumentRepository:
             .where(FaqSourceDocument.document_id == document_id)
         )
         return {code for meta in metas for code in (meta or {}).get("faq_ids", [])} | set(direct)
+
+    def chunk_metas(self, version_id: int) -> list[dict | None]:
+        """버전 청크의 meta 를 청크 순서대로. 본문 조회(DC-12·13)의 그림 목록에 쓴다."""
+        return list(self.db.scalars(
+            select(DocumentChunk.meta).where(DocumentChunk.version_id == version_id).order_by(DocumentChunk.seq)
+        ))
 
     def image_scopes(self, key: str) -> set[str]:
         """이 그림을 실제로 쓰는 청크의 열람 범위들. 활성 문서의 적재 끝난 버전만 본다.

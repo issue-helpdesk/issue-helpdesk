@@ -1,0 +1,124 @@
+/**
+ * 캘린더(부재 일정) 화면: 담당자·관리자만 들어오고, 관리자에게만 "내 일정/전체" 전환이 있으며, 등록·삭제는 본인 일정만 한다.
+ */
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
+import { beforeEach, describe, expect, it } from 'vitest'
+import App from '../src/App'
+import { createTimeOff, listTimeOff, resetMockTimeOff, ymd } from '../src/api/timeOff'
+import type { User } from '../src/api/types'
+import { AuthProvider } from '../src/core/session'
+import { tokenStore } from '../src/core/tokenStore'
+
+const SLOW = { timeout: 3000 }
+const ME = { id: 7, employeeNo: 'EMP-1004', name: '성민경' } as User
+
+function renderAt(path: string, employeeNo: string) {
+  tokenStore.set(`mock.${employeeNo}`)
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </MemoryRouter>,
+  )
+}
+
+beforeEach(() => resetMockTimeOff())
+
+describe('캘린더 화면', () => {
+  it('담당자는 달력을 보고, "내 일정 / 팀 일정" 전환이 있다', async () => {
+    renderAt('/calendar', 'EMP-1004')
+    expect((await screen.findAllByRole('heading', { name: '캘린더' }, SLOW)).length).toBeGreaterThan(0)
+    expect(screen.getByRole('grid')).toBeInTheDocument()
+    const g = screen.getByRole('group', { name: '보기 범위' })
+    expect(within(g).getByRole('button', { name: '팀 일정' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(g).queryByRole('button', { name: '전체' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '일정 등록' })).toBeInTheDocument()
+  })
+
+  it('관리자에게만 "내 일정 / 전체" 전환이 있다', async () => {
+    renderAt('/calendar', 'EMP-1178')
+    const g = await screen.findByRole('group', { name: '보기 범위' }, SLOW)
+    expect(within(g).getByRole('button', { name: '내 일정' })).toBeInTheDocument()
+    expect(within(g).getByRole('button', { name: '전체' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('관리자는 캘린더 맨 아래에서 팀별 개인 현황을 보고, 담당자에게는 없다', async () => {
+    const { unmount } = renderAt('/calendar', 'EMP-1178')
+    const grp = await screen.findByRole('group', { name: '담당 그룹' }, SLOW)
+    expect(await within(grp).findByRole('button', { name: /^서비스데스크\s*\d+\/\d+/ }, SLOW)).toBeInTheDocument()
+    unmount()
+    renderAt('/calendar', 'EMP-1004')
+    await screen.findByRole('grid', {}, SLOW)
+    expect(screen.queryByRole('group', { name: '담당 그룹' })).toBeNull()
+  })
+
+  it('관리자는 여러 팀의 일정을 이름 앞 팀 두 글자와 함께 보고, 팀별 개인 현황은 접기 버튼 없이 펼쳐져 있다', async () => {
+    renderAt('/calendar', 'EMP-1178')
+    const grp = await screen.findByRole('group', { name: '담당 그룹' }, SLOW)
+    await within(grp).findByRole('button', { name: /^서비스데스크/ }, SLOW)
+    // 일정 이름 앞에 [팀 두 글자]가 붙는다
+    expect((await screen.findAllByText(/^\[[가-힣]{2}\] /, undefined, SLOW)).length).toBeGreaterThan(0)
+    // 접기·펼치기 버튼이 없고 구성원 표가 바로 보인다
+    expect(screen.queryByRole('button', { name: /담당자 (접기|펼치기)/ })).toBeNull()
+    expect(screen.getAllByRole('columnheader', { name: '오늘 상태' }).length).toBeGreaterThan(0)
+  })
+
+  it('날짜 칸을 누르면 그날 일정 목록이 열리고, 거기서 그 날짜로 일정을 등록할 수 있다', async () => {
+    renderAt('/calendar', 'EMP-1004')
+    const grid = await screen.findByRole('grid', {}, SLOW)
+    const cell = within(grid).getAllByRole('gridcell').find((c) => !c.classList.contains('out'))!
+    await userEvent.click(cell)
+    const dlg = await screen.findByRole('dialog')
+    expect(within(dlg).getByRole('button', { name: '이 날 일정 등록' })).toBeInTheDocument()
+    await userEvent.click(within(dlg).getByRole('button', { name: '이 날 일정 등록' }))
+    const add = await screen.findByRole('dialog', { name: '부재 일정 등록' })
+    expect((within(add).getByLabelText(/날짜|시작일/) as HTMLInputElement).value).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('문의자는 들어올 수 없고 자기 첫 화면으로 돌아간다', async () => {
+    renderAt('/calendar', 'EMP-1001')
+    expect(await screen.findByRole('heading', { name: '새 문의' }, SLOW)).toBeInTheDocument()
+  })
+
+  it('사이드바 메뉴 이름은 "캘린더"다', async () => {
+    renderAt('/calendar', 'EMP-1004')
+    const nav = await screen.findByRole('navigation', { name: '주 메뉴' }, SLOW)
+    expect(within(nav).getByRole('button', { name: '캘린더' })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).queryByText('부재 일정')).not.toBeInTheDocument()
+  })
+
+  it('일정을 등록하면 목록에 나타나고, 삭제하면 사라진다', async () => {
+    const user = userEvent.setup()
+    renderAt('/calendar', 'EMP-1004')
+    await user.click(await screen.findByRole('button', { name: '일정 등록' }, SLOW))
+    const dlg = await screen.findByRole('dialog', { name: '부재 일정 등록' })
+    await user.type(within(dlg).getByLabelText('메모 (선택)'), '치과 진료')
+    await user.click(within(dlg).getByRole('button', { name: '등록' }))
+    await screen.findByText('부재 일정을 등록했어요.', {}, SLOW).catch(() => undefined)
+    await user.click(screen.getAllByRole('button', { name: /연차 삭제$/ })[0])
+    const ask = await screen.findByRole('alertdialog')
+    await user.click(within(ask).getByRole('button', { name: '삭제' }))
+    await screen.findByText('부재 일정을 삭제했어요.', {}, SLOW)
+  })
+})
+
+describe('부재 일정 API (모의)', () => {
+  const today = ymd(new Date())
+  it('기간이 겹치는 일정은 등록할 수 없다 (같은 날 오전·오후 반차는 함께 가능)', async () => {
+    await listTimeOff(ME, today, today)
+    const a = await createTimeOff(ME, { timeOffType: 'HALF_AM', startDate: '2031-03-03', endDate: '2031-03-03' })
+    expect(a.ok).toBe(true)
+    const b = await createTimeOff(ME, { timeOffType: 'HALF_PM', startDate: '2031-03-03', endDate: '2031-03-03' })
+    expect(b.ok).toBe(true)
+    const c = await createTimeOff(ME, { timeOffType: 'ANNUAL', startDate: '2031-03-02', endDate: '2031-03-04' })
+    expect(!c.ok && c.error.code).toBe('TIME_OFF_OVERLAP')
+  })
+
+  it('종료일이 시작일보다 빠르면 종료일 오류를 준다', async () => {
+    const r = await createTimeOff(ME, { timeOffType: 'ANNUAL', startDate: '2031-04-05', endDate: '2031-04-01' })
+    expect(!r.ok && r.error.details?.[0]?.field).toBe('endDate')
+  })
+})

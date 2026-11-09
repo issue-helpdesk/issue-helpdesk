@@ -5,7 +5,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CATEGORIES } from '../../api/catalog'
+import { CATEGORIES, URGENCY_LABEL, urgencyText } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { listTickets, watchTickets } from '../../api/tickets'
 import type { TicketSummary } from '../../api/ticketTypes'
@@ -15,6 +15,8 @@ import { useAuth } from '../../core/session'
 import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
 import { StaffStatus, UrgencyChip } from './QueueView'
+import { PRI_RULE, Section, URGS, useSection, windowOf } from './StatsView'
+import { TicketDetailPanel } from './TicketDetailPanel'
 
 const hm = () => {
   const d = new Date()
@@ -37,7 +39,7 @@ function Row({ t, onOpen }: { t: TicketSummary; onOpen: () => void }) {
       type="button"
       className="dtr"
       onClick={onOpen}
-      aria-label={`${t.summary}. 긴급도 ${t.urgency ?? '-'}. 접수 후 경과 ${formatElapsed(t.createdAt)}. 접수번호 ${t.receiptNo}${t.jiraKey ? `, ITSM ${t.jiraKey}` : ''}. 문의자 ${t.requester.name}`}
+      aria-label={`${t.summary}. 긴급도 ${urgencyText(t.urgency)}. 접수 후 경과 ${formatElapsed(t.createdAt)}. 접수번호 ${t.receiptNo}${t.jiraKey ? `, ITSM ${t.jiraKey}` : ''}. 문의자 ${t.requester.name}`}
     >
       <span className="c-p">
         <UrgencyChip u={t.urgency} />
@@ -79,6 +81,13 @@ export function MyDashView() {
   const [synced, setSynced] = useState(hm())
   const [tick, setTick] = useState(0)
   const [reload, setReload] = useState(0)
+  // 티켓을 누르면 화면을 옮기지 않고 오른쪽에 그 티켓의 상세만 연다
+  const [openId, setOpenId] = useState<number | null>(null)
+  const [slide, setSlide] = useState(false)
+  // 긴급도 분포: 통계에서 옮겨 온 구역 (최근 30일에 접수된 내 티켓 기준)
+  const pri = useSection('pri', 'm|me', tick)
+  const uid = user?.id ?? 0
+  const priWin = useMemo(() => windowOf(pri, 'm', false, uid), [pri, uid])
 
   useEffect(() => watchTickets(() => setTick((n) => n + 1)), [])
   useEffect(() => {
@@ -115,7 +124,12 @@ export function MyDashView() {
 
   if (!user) return null
   const go = (qs: string) => navigate(`/queue${qs}`)
-  const open = (t: TicketSummary) => navigate(`/queue/${t.id}`)
+  const open = (t: TicketSummary) => {
+    if (openId === null) setSlide(true)
+    setOpenId(t.id)
+  }
+  const urgN = URGS.map((p) => priWin.filter((t) => t.urgency === p).length)
+  const urgMx = Math.max(1, ...urgN)
   const tile = (color: string, label: string, count: number, qs: string, hint: string) => (
     <button type="button" className="sbtn" onClick={() => go(qs)} aria-label={`${label} ${count}건. ${hint}`}>
       <span className="l">
@@ -131,6 +145,7 @@ export function MyDashView() {
   )
 
   return (
+    <>
     <main className="main">
       <Topbar title="내 대시보드" sub={`${user.departmentName} · ${user.name} 담당자`} lead={<img className="tti" src={titleOps} alt="" width={56} height={56} />} />
       <div className="scroll">
@@ -191,12 +206,33 @@ export function MyDashView() {
             ) : (
               <>
                 <div className="dgrid c4">
-                  {tile('var(--g-w)', '처리 대기 (RDY)', n('RDY'), '?tab=open&sub=RDY', oldest('RDY'))}
-                  {tile('var(--g-p)', '처리 중 (WIP)', n('WIP'), '?tab=open&sub=WIP', oldest('WIP'))}
-                  {tile('var(--g-n)', '해결 확인 대기 (FIN)', n('FIN'), '?tab=fin', '문의자 확인을 기다려요')}
-                  {tile('var(--g-c)', '해결 완료 (CLS)', n('CLS'), '?tab=cls', '해결 완료된 문의 보기')}
+                  {tile('var(--g-w)', '처리 대기', n('RDY'), '?tab=open&sub=RDY', oldest('RDY'))}
+                  {tile('var(--g-p)', '처리 중', n('WIP'), '?tab=open&sub=WIP', oldest('WIP'))}
+                  {tile('var(--g-n)', '해결 확인 대기', n('FIN'), '?tab=fin', '문의자 확인을 기다려요')}
+                  {tile('var(--g-c)', '해결 완료', n('CLS'), '?tab=cls', '해결 완료된 문의 보기')}
                 </div>
 
+
+                <Section title="긴급도 분포" sec={pri} note="최근 30일에 접수된 내 티켓 기준이에요. 줄을 누르면 내 문의 중 해당 긴급도 목록으로 가요.">
+                  <div className="pdist">
+                    {URGS.map((p, i) => (
+                      <button key={p} type="button" className="pd" onClick={() => navigate(`/queue?pri=${p}&per=m`)} aria-label={`${URGENCY_LABEL[p]} ${urgN[i]}건. 이 긴급도의 문의 목록 보기`}>
+                        <span className="pl">
+                          <UrgencyChip u={p} />
+                        </span>
+                        <span className="bar" aria-hidden="true">
+                          <i className={`pb-${p.toLowerCase()}`} style={{ width: `${Math.max(urgN[i] ? 3 : 0, (urgN[i] / urgMx) * 100)}%` }} />
+                        </span>
+                        <b>
+                          {urgN[i]}
+                          <small>건</small>
+                        </b>
+                        <Icon name="chevron" className="go" />
+                        <span className="small muted pr">{PRI_RULE[p]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </Section>
 
                 <section className="panel" aria-label="먼저 볼 문의" style={{ padding: '22px 24px' }}>
                   <div className="sech">
@@ -229,5 +265,7 @@ export function MyDashView() {
         </div>
       </div>
     </main>
+    {openId !== null && <TicketDetailPanel key={openId} id={openId} tick={tick} slide={slide} onSlideEnd={() => setSlide(false)} onClose={() => setOpenId(null)} />}
+    </>
   )
 }

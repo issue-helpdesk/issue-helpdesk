@@ -6,6 +6,7 @@ from app.api.deps import AdminAuth, CurrentAuth
 from app.schemas.common import ItemList, Page
 from app.schemas.document import (
     Document,
+    DocumentContent,
     DocumentCreateRequest,
     DocumentListQuery,
     DocumentUpdateRequest,
@@ -32,6 +33,12 @@ def create_document(body: DocumentCreateRequest, _: AdminAuth, service: Document
 @router.get("/{document_id}", response_model=Document)
 def get_document(document_id: int, auth: CurrentAuth, service: DocumentServiceDep) -> Document:
     return service.get_document(document_id, auth.user)
+
+
+@router.get("/{document_id}/content", response_model=DocumentContent)
+def get_content(document_id: int, auth: CurrentAuth, service: DocumentServiceDep) -> DocumentContent:
+    """현행 버전 본문. 열람 범위 밖은 DC-03 처럼 404."""
+    return service.get_content(document_id, auth.user)
 
 
 @router.patch("/{document_id}", response_model=Document)
@@ -73,6 +80,11 @@ def retry_version(
 @router.get("/{document_id}/versions/{version_id}", response_model=DocumentVersion)
 def get_version(document_id: int, version_id: int, _: AdminAuth, service: DocumentServiceDep) -> DocumentVersion:
     return service.get_version(document_id, version_id)
+
+
+@router.get("/{document_id}/versions/{version_id}/content", response_model=DocumentContent)
+def get_version_content(document_id: int, version_id: int, _: AdminAuth, service: DocumentServiceDep) -> DocumentContent:
+    return service.get_version_content(document_id, version_id)
 
 
 @router.patch("/{document_id}/versions/{version_id}", response_model=DocumentVersion)

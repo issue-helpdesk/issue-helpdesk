@@ -923,6 +923,59 @@ def test_list_messages_source_fields(client, headers, answered):
     assert (source["location"], source["excerpt"], source["rank"]) == ("3.2", "업데이트 후 접속 불가", 1)
 
 
+def add_source(db, **fields):
+    source = MessageSource(message_id=db.scalar(select(Message.id).where(Message.seq == 2)), **fields)
+    db.add(source)
+    db.commit()
+    return source
+
+
+def add_piece(db, **fields):
+    return add_source(db, source_kind="DOCUMENT", doc_code="IT-NET-001", version="v1.0", **fields)
+
+
+def ai_sources(client, headers, inquiry_id):
+    res = client.get(f"{INQUIRIES}/{inquiry_id}/messages", headers=headers)
+    return next(m for m in res.json()["items"] if m["sender"] == "AI")["sources"]
+
+
+def guide_sources(sources):
+    return [s for s in sources if s["docCode"] == "IT-NET-001"]
+
+
+def test_sources_merge_pieces_of_same_location(client, db, headers, answered):
+    """R-44: 조각마다 저장돼 있어도 본문이 같으면 한 항목, 본문은 한 번만."""
+    add_piece(db, location="3.2", excerpt="업데이트 후 접속 불가", rank=1)
+    add_piece(db, location="3.2", excerpt="업데이트 후 접속 불가", rank=1)
+
+    merged = guide_sources(ai_sources(client, headers, answered))
+
+    assert [(s["location"], s["excerpt"], s["rank"]) for s in merged] == [("3.2", "업데이트 후 접속 불가", 1)]
+
+
+def test_sources_keep_every_different_excerpt_of_same_location(client, db, headers, answered):
+    """같은 위치에 다른 본문이 있으면 앞선 순위부터 이어 붙이고, 순위는 가장 앞선 값을 쓴다."""
+    add_piece(db, location="3.2", excerpt="다른 단위의 본문", rank=5)
+
+    merged = guide_sources(ai_sources(client, headers, answered))
+
+    assert [(s["excerpt"], s["rank"]) for s in merged] == [("업데이트 후 접속 불가\n\n다른 단위의 본문", 1)]
+
+
+def test_sources_of_different_location_stay_apart(client, db, headers, answered):
+    add_piece(db, location="3.3", excerpt="다음 항목", rank=5)
+
+    assert [s["location"] for s in guide_sources(ai_sources(client, headers, answered))] == ["3.2", "3.3"]
+
+
+def test_sources_do_not_merge_legacy_cases(client, db, headers, answered):
+    legacy = db.scalar(select(LegacyInquiry))
+    add_source(db, source_kind="LEGACY", legacy_inquiry_id=legacy.id, excerpt="재설치 후 정상", rank=5)
+
+    assert [s["excerpt"] for s in ai_sources(client, headers, answered) if s["sourceKind"] == "LEGACY"] == [
+        "재설치 후 정상", "재설치 후 정상"]
+
+
 def test_list_messages_of_other_user_is_not_found(client, db, headers):
     inquiry_id = start(client, headers).json()["inquiry"]["id"]
     add_user(db, "E0002")
@@ -968,9 +1021,59 @@ def test_list_shows_only_own_inquiries(client, db, owner, headers):
     assert ids(res) == [mine.id]
     item = res.json()["items"][0]
     assert set(item) == {"id", "user", "title", "status", "displayStatus", "category", "urgency", "receiptNo",
-                         "createdAt", "updatedAt"}
+                         "lastAiMessageId", "createdAt", "updatedAt"}
     assert item["user"] == {"id": owner.id, "employeeNo": "E0001", "name": "김민지"}
     assert res.json()["totalCount"] == 1
+
+
+def ai_ids(db, inquiry_id):
+    return list(db.scalars(select(Message.id).join(ChatSession, ChatSession.id == Message.session_id)
+                           .where(ChatSession.inquiry_id == inquiry_id, Message.sender == "AI").order_by(Message.id)))
+
+
+def test_list_last_ai_message_id_follows_new_answer(client, db, headers):
+    """R-45: 새 AI 답변이 저장되면 값이 바뀐다."""
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    first = listed(client, headers).json()["items"][0]["lastAiMessageId"]
+    assert first == ai_ids(db, inquiry_id)[-1]
+
+    assert send(client, headers, inquiry_id, content="접속 오류", key="k-2").status_code == 201
+
+    latest = listed(client, headers).json()["items"][0]["lastAiMessageId"]
+    assert latest == ai_ids(db, inquiry_id)[-1] and latest != first
+
+
+def test_list_last_ai_message_id_ignores_failed_answer(client, db, headers, ai):
+    """R-45: 사용자 글만 저장되고 AI 가 실패하면 값이 그대로다."""
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+    before = listed(client, headers).json()["items"][0]["lastAiMessageId"]
+    ai.broken = True
+
+    send(client, headers, inquiry_id, content="접속 오류", key="k-2")
+
+    assert listed(client, headers).json()["items"][0]["lastAiMessageId"] == before
+
+
+def test_list_last_ai_message_id_is_null_without_answer(client, db, owner, headers):
+    add_inquiry(db, owner)
+
+    assert listed(client, headers).json()["items"][0]["lastAiMessageId"] is None
+
+
+def test_list_last_ai_message_id_is_per_inquiry_across_sessions(client, db, owner, headers):
+    """문의마다 따로 보고, 이전 세션의 답변만 있어도 값이 나온다."""
+    older, newer = add_inquiry(db, owner), add_inquiry(db, owner)
+    session_of = {row.inquiry_id: row.id for row in db.scalars(select(ChatSession))}
+    db.add(Message(session_id=session_of[older.id], seq=1, sender="AI", content="이전 세션 답변"))
+    db.commit()
+    db.scalars(select(ChatSession).where(ChatSession.inquiry_id == older.id)).one().ended_at = datetime_utils.now()
+    db.add(ChatSession(inquiry_id=older.id))
+    db.add(Message(session_id=session_of[newer.id], seq=1, sender="USER", content="사용자 글"))
+    db.commit()
+
+    found = {item["id"]: item["lastAiMessageId"] for item in listed(client, headers).json()["items"]}
+
+    assert found == {older.id: ai_ids(db, older.id)[-1], newer.id: None}
 
 
 def test_admin_lists_all_and_filters_by_user(client, db, owner):
@@ -1034,6 +1137,40 @@ def test_list_display_status_matches_detail(client, headers, every_state):
                                    "progress", "awaiting_confirm", "resolved"])
 def test_list_filters_by_display_status(client, headers, every_state, shown):
     assert ids(listed(client, headers, displayStatus=shown)) == [every_state[shown]]
+
+
+ONE_OF_EACH = {"in_progress": 1, "unconfirmed": 1, "ai_resolved": 1, "unresolved": 1, "received": 1, "assigned": 1,
+               "progress": 1, "awaiting_confirm": 1, "resolved": 1}
+
+
+def test_list_status_counts_ignore_display_status_filter(client, headers, every_state):
+    """R-46: 탭 하나로 걸러도 다른 탭의 숫자가 그대로 나온다."""
+    body = listed(client, headers, displayStatus="received").json()
+
+    assert body["totalCount"] == 1
+    assert body["statusCounts"] == ONE_OF_EACH
+
+
+def test_list_status_counts_apply_other_filters(client, headers, every_state):
+    body = listed(client, headers, status="RECEIVED").json()
+
+    assert body["statusCounts"] == {**dict.fromkeys(ONE_OF_EACH, 0), "received": 1}
+
+
+def test_list_status_counts_are_own_inquiries_only(client, db, headers, every_state):
+    add_inquiry(db, add_user(db, "E0002"), status="RECEIVED")
+
+    assert listed(client, headers).json()["statusCounts"] == ONE_OF_EACH
+
+
+def test_list_status_counts_follow_assignment_for_ready_ticket(client, db, owner, headers):
+    """배정 전 RDY 는 목록 표시와 같이 received 로 센다."""
+    waiting = add_inquiry(db, owner, status="HANDED_OFF")
+    add_ticket(db, waiting.id, work_status="RDY", assign_status="PENDING")
+
+    counts = listed(client, headers).json()["statusCounts"]
+
+    assert (counts["received"], counts["assigned"]) == (1, 0)
 
 
 def test_list_and_filter_follow_assignment_for_ready_ticket(client, db, owner, headers):

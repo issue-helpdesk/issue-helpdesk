@@ -66,10 +66,10 @@ export async function listAssessments(user: User, inquiryId: number): Promise<Ap
   let over: OverrideReason[] = []
   if (cat === 'SEC' && (final === 'P1' || final === 'P2')) {
     ai = 'P3'
-    over = [{ field: 'urgency', ai, final, rule: 'SEC_MIN_P2', reason: '보안 사고 의심은 최소 P2' }]
+    over = [{ field: 'urgency', ai, final, rule: 'SEC_MIN_P2', reason: '보안 사고 의심은 최소 높음' }]
   } else if (final === 'P1') {
     ai = 'P2'
-    over = [{ field: 'urgency', ai, final, rule: 'WORK_STOPPED_P1', reason: '업무 중단·다수 영향은 P1' }]
+    over = [{ field: 'urgency', ai, final, rule: 'WORK_STOPPED_P1', reason: '업무 중단·다수 영향은 긴급' }]
   }
   return ok([
     {

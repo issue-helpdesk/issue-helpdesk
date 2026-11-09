@@ -107,7 +107,9 @@ frontend/
 
 - Vercel 프로젝트 설정: Root Directory `frontend`, Framework Preset `Vite`, Node.js 24.x, Production Branch `develop`.
 - `vercel.json`은 `/chat/INQ-1` 같은 화면 주소에서 새로고침해도 404가 나지 않도록 모든 경로를 `index.html`로 보냅니다. (정적 파일은 먼저 그대로 제공됩니다)
-- 환경 변수를 넣지 않으면 mock(가상 데이터)으로 동작합니다. 백엔드(EC2)를 연결할 때는 `VITE_USE_MOCK=false`와 `/api` 전달 방법(rewrite 또는 HTTPS 주소)을 정해야 합니다.
+- `/api/*` 요청은 `vercel.json`의 rewrites가 백엔드(EC2)로 넘깁니다. 브라우저에는 같은 도메인으로 보여서 Refresh 쿠키(SameSite=Strict)가 그대로 오갑니다. 백엔드 주소가 바뀌면 이 파일의 `destination`을 고치고 다시 배포합니다.
+- 실제 서버를 쓰려면 Vercel 환경 변수(Production)에 `VITE_USE_MOCK=false`를 넣습니다. 접수까지 쓸 때만 `VITE_SERVER_INTAKE=true`(ITSM 작업 실행기가 떠 있어야 함). `VITE_API_BASE_URL`은 넣지 않습니다. 값을 바꾸면 다시 배포(Redeploy)해야 반영됩니다.
+- 환경 변수를 넣지 않으면 mock(가상 데이터)으로 동작합니다.
 
 ## 사용 라이브러리와 라이선스
 

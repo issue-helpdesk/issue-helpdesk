@@ -67,6 +67,7 @@ class DocumentChunk(Base):
         UniqueConstraint("version_id", "unit_key", "part", name="uq_document_chunks_version_id_unit_key_part"),
         CheckConstraint("chunk_type in ('ITEM', 'CHAPTER', 'FAQ', 'PREFACE')", name="chunk_type"),
         CheckConstraint("part >= 1", name="part"),
+        CheckConstraint("content_transfer_policy in ('ALLOWED', 'BLOCKED')", name="content_transfer_policy"),
     )
 
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)
@@ -79,6 +80,8 @@ class DocumentChunk(Base):
     chunk_type: Mapped[str]                                          # ITEM·CHAPTER·FAQ·PREFACE
     part: Mapped[int] = mapped_column(Integer, server_default=text("1"))           # 묶음 안 조각 번호
     meta: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))  # 원문 메모 (키 고정)
+    # 매뉴얼 3.x 항목의 내용 외부 전송. 비어 있으면 버전의 transfer_policy 를 따른다. 적재가 허용 목록으로 채운다
+    content_transfer_policy: Mapped[str | None]
 
 
 class LegacyInquiry(Base):

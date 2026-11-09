@@ -69,7 +69,7 @@ export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: T
   return (
     <Modal title={verb} onClose={onClose}>
       <p className="small muted" style={{ margin: 0 }}>
-        {t.receiptNo} · {group} · {t.urgency && <span className={`pri-${t.urgency.toLowerCase()}`}>{`${t.urgency} ${URGENCY_LABEL[t.urgency]}`}</span>}
+        {t.receiptNo} · {group} · {t.urgency && <span className={`pri-${t.urgency.toLowerCase()}`}>{URGENCY_LABEL[t.urgency]}</span>}
       </p>
       {!assign && (
         <p style={{ margin: 0 }}>
@@ -95,7 +95,7 @@ export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: T
                 <th>이름</th>
                 <th>오늘 상태</th>
                 <th>
-                  업무량 <span className="small muted">(RDY+WIP)</span>
+                  업무량 <span className="small muted">(처리 대기+처리 중)</span>
                 </th>
                 <th>긴급도</th>
                 <th>ITSM 계정</th>
@@ -133,14 +133,14 @@ export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: T
                     <td>
                       {c.rdy + c.wip}건
                       <div className="small muted">
-                        RDY {c.rdy} · WIP {c.wip}
+                        처리 대기 {c.rdy} · 처리 중 {c.wip}
                       </div>
                     </td>
                     <td>
                       <span className="pcs">
                         {URGS.map((p) => (
                           <span key={p} className={`pcn ${c.pri[p] ? `pri-${p.toLowerCase()}` : 'z'}`} title={URGENCY_LABEL[p]}>
-                            {p} <b>{c.pri[p]}</b>
+                            {URGENCY_LABEL[p]} <b>{c.pri[p]}</b>
                           </span>
                         ))}
                       </span>
@@ -172,11 +172,9 @@ export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: T
       </div>
       <p className="small muted" style={{ margin: 0 }}>
         {assign ? (
-          <>
-            지정하면 처리 이력에 남고 담당자·문의자에게 알림이 가요. <span className="tag gray">제안</span>
-          </>
+          '지정하면 처리 이력에 남고 지정된 담당자에게 알림이 가요.'
         ) : (
-          '재배정하면 처리 이력에 남고 새 담당자·문의자에게 알림이 가요. 진행 상태는 그대로 유지돼요.'
+          '재배정하면 처리 이력에 남고 새 담당자에게 알림이 가요. 진행 상태는 그대로 유지돼요.'
         )}
       </p>
       {err && (

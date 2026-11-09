@@ -24,7 +24,7 @@ describe('AI 답변을 기다리는 중 판단', () => {
     expect(isAnswering(inquiry(), list)).toBe(false)
     const i = toInquiry(inquiry(), list)
     expect(i.step).toBe('offer')
-    expect(JSON.stringify(i.messages[i.messages.length - 1])).toContain('지금은 답변을 만들지 못했어요')
+    expect(JSON.stringify(i.messages[i.messages.length - 1])).toContain('지금은 AI 답변을 만들지 못했어요')
   })
 
   it('AI 답이 마지막이거나 접수된 문의는 답하는 중이 아니다', () => {
@@ -51,7 +51,7 @@ describe('접수 없이 끝낸 문의 (담당자 연결 거절)', () => {
     expect(i.step).toBe('closed')
     const texts = i.messages.map((m) => (m.role === 'user' ? `나:${m.text}` : JSON.stringify(m.blocks ?? '')))
     // 내 글 → 답변 못 만듦 안내 → 내가 누른 미연결 → 종료 안내 순서이고, 안내에는 버튼이 없다
-    const k = texts.findIndex((t) => t.includes('지금은 답변을 만들지 못했어요'))
+    const k = texts.findIndex((t) => t.includes('지금은 AI 답변을 만들지 못했어요'))
     expect(k).toBeGreaterThan(0)
     expect(texts[k + 1]).toBe('나:미연결 (종료)')
     expect(texts[k + 2]).toContain('상담을 종료했어요')

@@ -51,3 +51,5 @@ export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undef
 
 /** 서비스데스크 안내 문구 (IT-STD-001). 연결 실패·계정 제한 안내에 쓴다. */
 export const SERVICEDESK = '내선 1000 (평일 09:00~18:00)'
+/** 연락 창구 이름은 서버 문구와 같은 "IT 헬프데스크"로 통일한다 (담당 그룹 이름 "서비스데스크"와는 다른 말이다) */
+export const HELPDESK = `IT 헬프데스크 ${SERVICEDESK}`

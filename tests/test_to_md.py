@@ -84,6 +84,51 @@ def _doc(*els, meta=None):
                                     *els])
 
 
+def _preface_doc():
+    """템플릿이 아닌 문서: 장 제목 앞에 표지 쪽 글·덧붙인 표·그림이 있다 (사람이 만든 pdf·docx 에서 본 모양)."""
+    return ParsedDocument(path='x.pdf', format='pdf', meta={'title': '업무용 SW 안내'}, elements=[
+        Element('heading', '업무용 SW 안내', level=0),
+        Element('image', '', meta={}),
+        Element('paragraph', '서비스데스크 | 2026.10.06 | Ver 1.0'),
+        Element('paragraph', '본 가이드는 교육용 가상 안내문입니다.'),
+        Element('table', rows=[['검색 키워드', 'VPN, 원격 접속, VPN-1001']]),
+        Element('heading', '1. 설치 전 확인', level=1),
+        Element('paragraph', '설치 전에 저장 공간을 확인합니다.'),
+        Element('heading', '2. 설치 방법', level=1),
+        Element('paragraph', '소프트웨어 센터에서 설치합니다.')])
+
+
+def test_preface_kept_before_toc(tmp_path):
+    """첫 장 앞 서문은 '## 목차' 앞에 써야 남는다 (목차 뒤에 쓰면 md_parser 가 목차 절로 보고 건너뛴다)."""
+    a = _preface_doc()
+    md = to_guide_md(a)
+    assert md.index('본 가이드는') < md.index('## 목차') < md.index('## 1. 설치 전 확인')
+    assert re.search(r'^## 목차\n\n- 1\. 설치 전 확인\n- 2\. 설치 방법$', md, re.M)
+    ca, cb = chunk_document(a), chunk_document(_reparse(md, tmp_path, 'x.md'))
+    assert [c.chunk_type for c in cb] == ['preface', 'chapter', 'chapter']
+    assert _sig(cb) == _sig(ca)                                    # 원래 파일을 직접 적재한 청크와 같다
+    assert 'VPN-1001' in cb[0].body and cb[0].images == []         # 형식 모르는 그림(pdf)은 이름표 없음
+
+
+def test_preface_only_image_no_empty_chunk(tmp_path):
+    """서문이 그림 하나뿐이어도 원래 청크와 같다 (빈 청크·이름표가 새로 생기지 않는다)."""
+    a = ParsedDocument(path='x.pdf', format='pdf', meta={'title': '안내'}, elements=[
+        Element('heading', '안내', level=0), Element('image', '', meta={}),
+        Element('heading', '1. 개요', level=1), Element('paragraph', '본문')])
+    ca, cb = chunk_document(a), chunk_document(_reparse(to_guide_md(a), tmp_path, 'x.md'))
+    assert _sig(cb) == _sig(ca)
+    assert all(not c.images for c in cb)
+
+
+def test_no_chapter_heading_keeps_everything(tmp_path):
+    """장 제목이 하나도 없는 문서: 목차가 없고 글이 모두 남는다."""
+    a = ParsedDocument(path='x.pdf', format='pdf', meta={'title': '메모'}, elements=[
+        Element('heading', '메모', level=0), Element('paragraph', '첫 문단'), Element('paragraph', '둘째 문단')])
+    md = to_guide_md(a)
+    assert '## 목차' not in md
+    assert _sig(chunk_document(_reparse(md, tmp_path, 'x.md'))) == _sig(chunk_document(a))
+
+
 def test_markdown_like_paragraphs_stay_paragraphs(tmp_path):
     texts = ['# 제목 아님', '| 표 아님 |', '> 인용 아님', '- 목록 아님', '1. 번호 아님', '![그림](a.png)',
              '```', '*기울임*', '**굵게만**']

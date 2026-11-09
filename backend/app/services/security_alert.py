@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Depends
@@ -5,15 +6,18 @@ from sqlalchemy import case, func, select
 
 from app.agent.sensitive import mask_secrets
 from app.constants.security import SECURITY_RULES
+from app.constants.security_alert import FIXED_SEVERITY, MEDIUM_SENSITIVE_TYPES, SEVERITY_RANK
 from app.core.error_codes import ErrorCode
 from app.core.errors import AppError
 from app.db.session import DbSession
-from app.models import AuditLog, ChatSession, Department, Message, SecurityAlert, User
+from app.models import AuditLog, ChatSession, Department, Inquiry, Message, SecurityAlert, User
+from app.repositories.security_alert import SecurityAlertRepository
 from app.schemas.common import Page
 from app.schemas.inquiry import UserRef
 from app.schemas.security_alert import (SecurityAlertView, SecurityCounts, SecurityHistory, SecurityMessage,
                                        SecurityOriginal, SecurityQuery)
 from app.utils import datetime_utils
+from app.utils.dict_utils import add_counts
 
 
 class SecurityAlertService:
@@ -25,8 +29,8 @@ class SecurityAlertService:
         if lock:
             subject_id = self.db.scalar(select(SecurityAlert.subject_user_id).where(SecurityAlert.id == alert_id))
             if subject_id is not None:
-                # Match event ingestion's user → alert lock order, including an admin reviewing their own alert.
-                self.db.execute(select(User.id).where(User.id == subject_id).with_for_update())
+                # Match the lock order used when detecting alerts.
+                lock_subject(self.db, subject_id)
         row = self.db.scalar(q.with_for_update() if lock else q)
         if row is None:
             raise AppError(ErrorCode.SECURITY_ALERT_NOT_FOUND)
@@ -108,7 +112,8 @@ class SecurityAlertService:
             raise AppError(ErrorCode.SECURITY_ALERT_NO_ORIGINAL)
         # Original credentials never existed in storage. Scan again before returning saved context.
         records = self.db.scalars(select(Message).join(ChatSession, Message.session_id == ChatSession.id)
-            .where(ChatSession.inquiry_id == row.target_id, Message.sender == 'USER').order_by(Message.id))
+            .where(ChatSession.inquiry_id == row.target_id, Message.sender == 'USER',
+                   Message.kind == 'TEXT', Message.content.is_not(None)).order_by(Message.id))
         messages = [SecurityMessage(id=m.id, content=mask_secrets(m.content).text, created_at=m.created_at)
                     for m in records]
         self.log(row, actor, 'VIEW_ORIGINAL', reason)
@@ -117,3 +122,80 @@ class SecurityAlertService:
 
 
 SecurityAlertServiceDep = Annotated[SecurityAlertService, Depends(SecurityAlertService)]
+
+
+def severity_of(alert_type: str, detail: dict[str, int]) -> str:
+    """감지 유형 표의 심각도. SENSITIVE_INPUT 은 OTP 만 가렸으면 MEDIUM, 그 밖은 HIGH."""
+    if alert_type == "SENSITIVE_INPUT":
+        return "MEDIUM" if set(detail) <= MEDIUM_SENSITIVE_TYPES else "HIGH"
+    return FIXED_SEVERITY[alert_type]
+
+
+def detect(
+    alerts: SecurityAlertRepository,
+    alert_type: str,
+    subject_user_id: int,
+    target_type: str,
+    target_id: int,
+    detail: dict[str, int] | None = None,
+) -> SecurityAlert:
+    """알림을 만들거나, 같은 대상의 종결 전 알림에 합친다.
+
+    detail 은 유형별 개수만 받는다 (값·원문 금지). 합칠 때 개수를 더하고, 횟수·마지막 감지 시각을 올리고,
+    심각도는 올리기만 한다. 종결된 알림에는 합치지 않으므로 다시 감지되면 새 알림이 생긴다.
+    """
+    lock_subject(alerts.db, subject_user_id)
+    detail = dict(detail or {})
+    key = (alert_type, subject_user_id, target_type, target_id)
+    now = datetime_utils.now()
+
+    alert = alerts.open_for_update(*key)
+    if alert is None:
+        alert = SecurityAlert(
+            alert_type=alert_type, severity=severity_of(alert_type, detail), status="NEW",
+            subject_user_id=subject_user_id, target_type=target_type, target_id=target_id,
+            detail=detail, occurrence_count=1, first_detected_at=now, last_detected_at=now,
+        )
+        if alerts.add_open(alert):
+            return alert
+        # 다른 요청이 같은 대상의 알림을 먼저 만들었다. 그 알림에 합친다
+        alert = alerts.open_for_update(*key)
+
+    alert.occurrence_count += 1
+    alert.last_detected_at = now
+    alert.detail = add_counts(alert.detail, detail)     # 새 dict 를 넣어야 JSONB 변경이 저장된다
+    severity = severity_of(alert_type, alert.detail)
+    if SEVERITY_RANK[severity] > SEVERITY_RANK[alert.severity]:
+        alert.severity = severity
+    return alert
+
+
+def lock_subject(db, user_id: int) -> None:
+    # PostgreSQL NO KEY UPDATE serializes alert work without blocking foreign-key checks.
+    db.execute(select(User.id).where(User.id == user_id).with_for_update(key_share=True))
+
+
+def record_ai_security_rules(alerts: SecurityAlertRepository, inquiry: Inquiry, rules: list[str]) -> None:
+    for rule in dict.fromkeys(rules):
+        detect(alerts, rule, inquiry.user_id, "inquiry", inquiry.id)
+    risk_codes = set(rules) & {"S02", "S03", "S04", "S05", "S06"}
+    if not risk_codes:
+        return
+    recent = alerts.db.scalar(select(AuditLog.result).where(
+        AuditLog.event_type == "SECURITY_REVIEW", AuditLog.result.in_(risk_codes),
+        AuditLog.target_type == "inquiry",
+        AuditLog.target_id.in_(select(Inquiry.id).where(Inquiry.user_id == inquiry.user_id)),
+        AuditLog.created_at >= datetime_utils.now() - timedelta(minutes=10),
+    ).group_by(AuditLog.result).having(func.count(func.distinct(AuditLog.target_id)) >= 3).limit(1))
+    if recent is not None:
+        detect(alerts, "S07", inquiry.user_id, "user", inquiry.user_id)
+
+
+def record_query_volume(alerts: SecurityAlertRepository, user_id: int) -> None:
+    lock_subject(alerts.db, user_id)
+    count = alerts.db.scalar(select(func.count()).select_from(Message).join(
+        ChatSession, ChatSession.id == Message.session_id).join(Inquiry, Inquiry.id == ChatSession.inquiry_id)
+        .where(Inquiry.user_id == user_id, Message.sender == "USER", Message.kind == "TEXT",
+               Message.created_at >= datetime_utils.now() - timedelta(minutes=3)))
+    if count >= 41:
+        detect(alerts, "MASS_QUERY", user_id, "user", user_id)

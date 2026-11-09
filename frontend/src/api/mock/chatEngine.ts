@@ -42,7 +42,7 @@ import {
 } from './chatStore'
 
 /* ------------------------------------------------------------------ 규칙(정규식) */
-export const RE = {
+const RE = {
   /** 보안 사고 의심 */
   sec: /(피싱|악성|랜섬|해킹|도용|탈취|도난|분실|유출|의심.{0,6}(메일|링크|파일|접속)|(링크|첨부).{0,8}(눌렀|열었|클릭))/,
   /** 여러 사용자 */
@@ -111,7 +111,7 @@ const QUESTIONS: Record<IntakeKey, { ask: string; chips: string[] }> = {
 const ORDER: IntakeKey[] = ['targetSystem', 'summary', 'onset', 'businessImpact', 'triedActions']
 
 /* ------------------------------------------------------------------ Guide 요약 (guides 기준) */
-export interface GuideEntry {
+interface GuideEntry {
   /** 문서 코드와 제목 (예: IT-NET-001 VPN 접속 장애 대응 가이드) */
   guide: string
   version: string
@@ -186,7 +186,7 @@ const LEGACY_CASE: LegacyCase = {
 }
 
 /** 시연용 담당 그룹 ID (support_groups.id) */
-export const GROUP_ID: Record<string, number> = {
+const GROUP_ID: Record<string, number> = {
   서비스데스크: 1,
   엔드포인트지원팀: 2,
   네트워크팀: 3,
@@ -612,9 +612,9 @@ export function saveDraft(rec: StoreRecord, edit: DraftEdit) {
   if (d.urgency !== beforeP) rejudged.push('urgency')
   if (d.groupName !== beforeGroup) rejudged.push('group')
   d.rejudged = rejudged
-  const changed = beforeP !== d.urgency || beforeCat !== d.categoryCode
+  const changed = beforeCat !== d.categoryCode
   inquiry.draftNote = changed
-    ? `수정한 내용을 반영해 ${beforeP !== d.urgency ? `긴급도를 ${beforeP}에서 ${d.urgency}(으)로` : ''}${beforeCat !== d.categoryCode ? ` 분류를 ${d.categoryCode ?? ''}(으)로` : ''} 다시 판단했어요. 변경된 내용으로 다시 확인해 주세요.`
+    ? `수정한 내용을 반영해${beforeCat !== d.categoryCode ? ` 분류를 ${d.categoryCode ?? ''}(으)로` : ''} 다시 판단했어요. 변경된 내용으로 다시 확인해 주세요.`
     : '수정 내용을 반영했어요. 최종 접수 전에 한 번 더 확인해 주세요.'
   // 고친 글에서 민감정보를 가렸다면 초안 화면에서도 알린다 (docs/10 6.1)
   if (maskNotices(found).length) inquiry.draftNote = `${MASK_NOTICE_DRAFT} ${inquiry.draftNote}`
@@ -816,7 +816,7 @@ export function sendToStaff(rec: StoreRecord, text: string) {
  * AI 답변 뒤 해결·미해결 선택을 기다리는 문의(미확인)와 접수된 건(FIN 포함), 끝난 문의에는 쓰지 않는다.
  * 시간·안내 시점은 서버의 환경값이다.
  */
-export function idleKind(inquiry: Inquiry): IdleKind | null {
+function idleKind(inquiry: Inquiry): IdleKind | null {
   if (inquiry.ticket) return null
   if (inquiry.step === 'closed' || inquiry.step === 'submitted' || inquiry.step === 'answered') return null
   return 'h2'

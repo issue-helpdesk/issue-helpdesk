@@ -14,7 +14,7 @@ export interface KnownMessages {
   alias: Map<number, number>
 }
 
-export const OPTIMISTIC_USER_ID = -1
+const OPTIMISTIC_USER_ID = -1
 
 interface Msg {
   id: number

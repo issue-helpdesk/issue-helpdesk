@@ -84,3 +84,20 @@ def test_unsupported_format():
     with pytest.raises(ParseError) as ei:
         parse('a.hwp')
     assert ei.value.reason == 'unsupported'
+
+
+def test_faq_table_cell_line_breaks_joined():
+    """'질문 | 답변' 표의 질문 칸 줄바꿈만 빈칸으로 잇는다 (pptx 칸에서 '(FAQ-004)' 가 다음 줄로 밀림, 11.06 형식별 차이 N).
+    답변 칸은 일부러 나눈 줄(명령 두 줄 등)일 수 있어 그대로 (검수: 답변까지 이으면 'cd C:\\logs' 와 다음 명령이 붙음).
+    pptx FAQ 청크의 FAQ 묶음 키·문의 유형 코드·질문 줄이 md 와 같다."""
+    from app.rag.chunker import chunk_document
+    from app.rag.parser.common import qa_tables
+    from app.rag.parser.models import Element, ParsedDocument
+    d = ParsedDocument(path='x', format='docx', elements=[Element('table', rows=[
+        ['질문', '답변'], ['Q. 어떻게\n신청하나요?\n(FAQ-004)', 'cd C:\\logs\npython report.py']])])
+    qa_tables(d)
+    assert [e.text for e in d.elements] == ['Q. 어떻게 신청하나요? (FAQ-004)', 'A. cd C:\\logs\npython report.py']
+    for doc_no in ('IT-ACS-001', 'IT-SW-003', 'IT-NET-001'):
+        faq = lambda fmt: [(c.unit_key, c.inquiry_type_codes, c.body.split('\n')[0]) for c in
+                           chunk_document(load(doc_no, fmt)[0]) if c.chunk_type == 'faq']
+        assert faq('pptx') == faq('md'), doc_no

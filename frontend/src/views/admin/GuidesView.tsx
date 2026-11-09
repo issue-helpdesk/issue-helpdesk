@@ -3,20 +3,18 @@
  * AI 답변의 근거가 되는 문서를 분류별로 보고, 버전마다 열람 범위·외부 AI 전송 정책·현행 여부를 관리한다.
  * 현행 버전 중 검색 준비가 끝난 것만 AI 답변에 쓰인다. 해결 사례를 묶어 가이드 초안으로 만드는 탭은 제안이다.
  * 문서·버전은 문서 API(DC-01·02·06·07·09), 해결 사례 묶음은 접수 목록(TK-05)을 읽어 화면에서 만든다.
- * 서버에 없는 버전 메모·정책 변경 사유·가이드 초안 만들기는 서버 모드에서 안내만 한다. (api/guides.ts, 요청 R-21~23)
+ * 서버에 없는 정책 변경 사유·가이드 초안 만들기는 서버 모드에서 안내만 한다. (api/guides.ts, 요청 R-22~23)
  */
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { CATEGORIES } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import {
   FIRST_VERSION,
-  GUIDE_SCOPES,
   GUIDE_TXS,
   MAX_UPLOAD_BYTES,
   MAX_UPLOAD_MESSAGE,
   TX_RANK,
-  createGuideDraft,
   formatBytes,
   guideLabel,
   listGuideVersions,
@@ -29,7 +27,6 @@ import {
   retryGuideIngest,
   setGuideActive,
   setGuideCurrent,
-  setGuideNote,
   setGuideTransfer,
   uploadGuide,
   uploadGuideVersion,
@@ -39,12 +36,13 @@ import {
   type GuideTx,
   type GuideVersion,
 } from '../../api/guides'
-import { breakSentences, getIngestFailures, recordVersions, setFailureListOpen, trackIngest, watchIngest } from '../../api/guideWatch'
-import { listTickets } from '../../api/tickets'
-import type { TicketSummary } from '../../api/ticketTypes'
+import { breakSentences, getIngestFailures, recordVersions, setFailureListOpen, syncIngestSummary, trackIngest, watchIngest } from '../../api/guideWatch'
 import titleOps from '../../assets/mascot/title-ops.webp'
 import { USE_MOCK_GUIDE } from '../../core/config'
-import { formatDateTime, formatElapsed } from '../../core/format'
+import { formatDateTime } from '../../core/format'
+import { GuideReaderPanel, type ReaderTarget } from '../../ui/GuideReaderPanel'
+import { PolicyModal } from '../../ui/PolicyModal'
+import { ScopeBadge } from '../../ui/ScopeBadge'
 import { visiblePoll } from '../../core/poll'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
@@ -55,50 +53,17 @@ import { SelectBox } from '../../ui/SelectBox'
 import { useToast } from '../../ui/useToast'
 import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
-import { StaffStatus } from '../staff/QueueView'
+import { CASES_FROM_SERVER, getAllCases, loadCases } from '../../api/caseClusters'
+import { CaseGuideTab } from './CaseGuideTab'
+import { CaseReviewPanel } from './CaseReviewPanel'
+import { useReviewCount } from './useReviewCount'
+import { ensureCaseVersions, registeredText, type CaseItem } from '../../api/mock/caseGuides'
 
 const TX_CLS: Record<GuideTx, string> = { 허용: 'ok', '마스킹 후 허용': 'warn', 금지: 'urg' }
-/** 해결 사례 분석 단위: 일간(최근 이틀) · 주간(최근 7일) */
-const GCP = { d: { lb: '일간', sub: '최근 이틀 해결된 티켓', max: 1 }, w: { lb: '주간', sub: '최근 7일 해결된 티켓', max: 6 } } as const
-type Per = keyof typeof GCP
 type Tab = 'list' | 'case'
-
-interface Cluster {
-  title: string
-  cat: CategoryCode
-  list: TicketSummary[]
-  n: number
-  sim: number
-  exist: Guide | null
-}
-
-/** 같은 분류·같은 제목을 같은 주제로 본다(시연 기준). 해결 티켓의 5% 이상(최소 2건)인 묶음만 남긴다 */
-function clustersOf(tickets: TicketSummary[], guides: Guide[], per: Per) {
-  const day = 86_400_000
-  const win = tickets.filter((t) => t.workStatus === 'CLS' && t.category && Date.now() - Date.parse(t.createdAt) < (GCP[per].max + 1) * day)
-  const thr = Math.max(2, Math.round(win.length * 0.05))
-  const g: Record<string, TicketSummary[]> = {}
-  win.forEach((t) => {
-    const k = `${t.category!.code}|${t.summary}`
-    ;(g[k] = g[k] ?? []).push(t)
-  })
-  const cl: Cluster[] = Object.values(g)
-    .map((l) => {
-      const t0 = l[0]
-      const cat = t0.category!.code
-      const h = [...t0.summary].reduce((a, ch) => a + ch.charCodeAt(0), 0)
-      const tk = t0.summary.replace(/[·()/]/g, ' ').split(/\s+/).filter((w) => w.length >= 2)
-      const exist = guides.find((x) => x.cat === cat && x.current && tk.some((w) => x.title.includes(w))) ?? null
-      return { title: t0.summary, cat, list: l, n: l.length, sim: 84 + (h % 13), exist }
-    })
-    .filter((c) => c.n >= thr)
-    .sort((a, b) => b.n - a.n || a.title.localeCompare(b.title))
-  return { win, cl, inCl: cl.reduce((a, c) => a + c.n, 0) }
-}
 
 export function GuidesView() {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const [params] = useSearchParams()
   const [guides, setGuides] = useState<Guide[] | null>(null)
   const [vers, setVers] = useState<Record<number, GuideVersion[]>>({})
@@ -106,18 +71,19 @@ export function GuidesView() {
   const [tab, setTab] = useState<Tab>('list')
   const [catOpen, setCatOpen] = useState<Record<string, boolean>>({})
   const [openId, setOpenId] = useState<number | null>(null)
-  const [tickets, setTickets] = useState<TicketSummary[] | null>(null)
-  const [per, setPer] = useState<Per>('d')
-  const [clOpen, setClOpen] = useState<number | null>(null)
   const [tick, setTick] = useState(0)
   const [hideInactive, setHideInactive] = useState(false)
+  // 가이드 본문을 오른쪽 패널로 읽는다 (관리자는 버전마다)
+  const [reader, setReader] = useState<ReaderTarget | null>(null)
+  // 해결 사례 탭의 검토 패널
+  const [casePanel, setCasePanel] = useState<string | null>(null)
   // 적재에 실패한 버전 (가이드·분류 옆 점). 추적 기록은 api/guideWatch.ts 가 관리한다
   const failures = useSyncExternalStore(watchIngest, getIngestFailures)
   const failDocs = useMemo(() => new Set(failures.map((f) => f.docId)), [failures])
   const failCats = useMemo(() => new Set(failures.map((f) => f.cat)), [failures])
   const guidesRef = useRef<Guide[] | null>(null)
-  const { say } = useToast()
-  const [dlg, setDlg] = useState<null | { kind: 'upload' } | { kind: 'ingest'; g: Guide; v: GuideVersion } | { kind: 'active'; g: Guide; to: boolean } | { kind: 'tx'; g: Guide; v: GuideVersion; to: GuideTx } | { kind: 'note'; g: Guide; v: GuideVersion } | { kind: 'draft'; c: Cluster; i: number }>(null)
+  const { say, fail } = useToast()
+  const [dlg, setDlg] = useState<null | { kind: 'upload' } | { kind: 'ingest'; g: Guide; v: GuideVersion } | { kind: 'active'; g: Guide; to: boolean } | { kind: 'tx'; g: Guide; v: GuideVersion; to: GuideTx } | { kind: 'blocked'; g: Guide; n: number }>(null)
   const admin = user?.serviceRole === 'ADMIN'
   useEffect(() => {
     guidesRef.current = guides
@@ -134,6 +100,7 @@ export function GuidesView() {
       if (r.ok) {
         setGuides(r.data)
         setError('')
+        void syncIngestSummary(user, r.data)
       } else setError(r.error.message)
     })
     return () => {
@@ -174,19 +141,21 @@ export function GuidesView() {
     return visiblePoll(() => setTick((n) => n + 1), 10_000)
   }, [vers])
 
-  // 해결 사례 묶음: 해결 완료(CLS) 접수를 읽는다 (탭 건수에도 쓴다)
+  const reviewN = useReviewCount()
+  // 해결 사례로 승인해 둔 시연 이력의 버전을 가이드 목록(모의)에 한 번 등록한다
   useEffect(() => {
-    if (!user || !admin) return
-    let alive = true
-    listTickets(user, { view: 'ALL', workStatus: ['CLS'], size: 100, sort: 'createdAt,desc' }).then((r) => {
-      if (alive && r.ok) setTickets(r.data.items)
-    })
-    return () => {
-      alive = false
-    }
-  }, [user, admin])
-
-  const gc = useMemo(() => clustersOf(tickets ?? [], guides ?? [], per), [tickets, guides, per])
+    if (USE_MOCK_GUIDE) ensureCaseVersions()
+  }, [])
+  // 해결 사례 → 현행으로 전환: 바로 바꾸지 않고 가이드 목록의 그 문서를 펼쳐 열람 범위를 눈으로 확인한 뒤 거기서 전환하게 한다
+  const goLive = (c: CaseItem) => {
+    if (!c.registered) return
+    setCasePanel(null)
+    setReader(null)
+    setTab('list')
+    setCatOpen((m) => ({ ...m, [c.cat]: true }))
+    setOpenId(c.registered.docId)
+    say(`${c.registered.docCode} ${c.registered.version}의 열람 범위를 확인하고 현행으로 전환해 주세요.`)
+  }
 
   if (user && !admin) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
   if (!user) return null
@@ -203,27 +172,31 @@ export function GuidesView() {
   }
   const applyTx = async (g: Guide, v: GuideVersion, to: GuideTx, why: string) => {
     const r = await setGuideTransfer(user, g.id, v.id, to, why)
-    if (!r.ok) return say(r.error.message)
+    if (!r.ok) return fail(r.error.message)
     say(`외부 전송 정책을 ${to}${to === '금지' ? '로' : '으로'} 바꿨어요.`)
     reload()
   }
   const retryIngest = async (g: Guide, v: GuideVersion, file?: File) => {
-    if (file && file.size > MAX_UPLOAD_BYTES) return say(MAX_UPLOAD_MESSAGE)
+    if (file && file.size > MAX_UPLOAD_BYTES) return fail(MAX_UPLOAD_MESSAGE)
     const r = await retryGuideIngest(user, g.id, v.id, file)
-    if (!r.ok) return say(r.error.message)
+    if (!r.ok) return fail(r.error.message)
     trackIngest({ docId: g.id, versionId: v.id, docCode: g.docCode, title: g.title, cat: g.cat, version: v.version })
     say(file ? `${v.version} 파일을 바꿔 검색 준비를 다시 시작했어요.` : `${v.version} 검색 준비를 다시 시작했어요.`)
     reload()
   }
   const applyActive = async (g: Guide, to: boolean) => {
     const r = await setGuideActive(user, g.id, to)
-    if (!r.ok) return say(r.error.message)
+    if (!r.ok) return fail(r.error.message)
     say(to ? `${g.docCode}을(를) 활성화했어요.` : `${g.docCode}을(를) 비활성화했어요. 번호는 그대로 남아요.`)
     reload()
   }
   const makeCurrent = async (g: Guide, v: GuideVersion) => {
+    // 이 가이드에 아직 검토하지 않은 AI 가이드 제안이 있으면 현행을 바꾸지 못하게 막는다 (바뀌면 그 제안은 기준 가이드가 달라져 등록할 수 없게 된다)
+    if (CASES_FROM_SERVER) await loadCases()
+    const n = getAllCases().filter((c) => c.state === 'review' && c.target?.docCode === g.docCode).length
+    if (n > 0) return setDlg({ kind: 'blocked', g, n })
     const r = await setGuideCurrent(user, g.id, v.id)
-    if (!r.ok) return say(r.error.message)
+    if (!r.ok) return fail(r.error.message)
     say(v.state === '만료' ? `${v.version}을(를) 다시 현행으로 되돌렸어요.` : '현행 버전을 바꿨어요.')
     reload()
   }
@@ -246,18 +219,23 @@ export function GuidesView() {
               {!g.isActive && ' · 검색·답변에 쓰이지 않아요'}
             </div>
           </span>
-          <span className="gbs">{g.current?.tx === '금지' ? <StateBadge tone="urg" label="외부 전송 금지" /> : g.current?.tx === '마스킹 후 허용' ? <StateBadge tone="warn" label="마스킹 후 전송" /> : null}</span>
+          <span className="gbs">
+            <span className="gb1">{g.current?.scope && <ScopeBadge scope={g.current.scope} />}</span>
+            <span className="gb2">{g.current?.tx === '금지' ? <StateBadge tone="urg" label="외부 전송 금지" /> : g.current?.tx === '마스킹 후 허용' ? <StateBadge tone="warn" label="마스킹 후 전송" /> : null}</span>
+          </span>
         </button>
-        {/* 문서 전체를 켜고 끄는 버튼: 제목과 같은 줄, 펼쳤을 때만 보인다 */}
-        {open && (
-          <button type="button" className={`btn ${g.isActive ? 'sec' : 'pri'} sm gact`} aria-label={`${g.docCode} ${g.isActive ? '비활성화' : '활성화'}`} onClick={() => setDlg({ kind: 'active', g, to: !g.isActive })}>
-            {g.isActive ? '비활성화' : '활성화'}
-          </button>
-        )}
         </div>
         <Collapse open={open}>
         {open && (
-          <div className="tw gvt" style={{ marginTop: 12 }}>
+          <div className="gvt-wrap">
+            {/* 문서 전체를 켜고 끄는 버튼: 접었을 때 줄 정렬을 흔들지 않도록 펼친 영역 안 오른쪽 위에 둔다 */}
+            <div className="gvt-bar">
+              <span className="small muted">{list ? `버전 ${list.length}개` : ''}</span>
+              <button type="button" className={`btn ${g.isActive ? 'sec' : 'pri'} sm`} aria-label={`${g.docCode} ${g.isActive ? '비활성화' : '활성화'}`} onClick={() => setDlg({ kind: 'active', g, to: !g.isActive })}>
+                {g.isActive ? '비활성화' : '활성화'}
+              </button>
+            </div>
+          <div className="tw gvt">
             {!list ? (
               <div className="empty" role="status">
                 불러오는 중이에요…
@@ -273,9 +251,9 @@ export function GuidesView() {
                     <th className="c" title="이 가이드의 내용을 외부 AI 모델에 보내 답변 생성에 써도 되는지">
                       외부 AI 전송
                     </th>
-                    {USE_MOCK_GUIDE && <th className="memo">메모</th>}
                     <th className="c">현행 관리</th>
                     <th>올린 시각</th>
+                    <th className="c">본문</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -297,28 +275,28 @@ export function GuidesView() {
                           <StateBadge tone={v.ready === '준비 완료' ? 'ok' : 'warn'} label={v.ready} />
                         )}
                       </td>
-                      <td>{v.scope}</td>
+                      <td>
+                        <ScopeBadge scope={v.scope} />
+                      </td>
                       <td className="c">
                         <div className="seg tx" role="group" aria-label={`${v.version} 외부 AI 전송`}>
                           {GUIDE_TXS.slice()
                             .reverse()
                             .map((k) => (
-                              <button key={k} type="button" className={v.tx === k ? `on ${TX_CLS[k]}` : ''} aria-pressed={v.tx === k} title={v.tx === k ? undefined : `${k}(으)로 바꾸기`} onClick={() => v.tx !== k && changeTx(g, v, k)}>
+                              <button
+                                key={k}
+                                type="button"
+                                className={v.tx === k ? `on ${TX_CLS[k]}` : ''}
+                                aria-pressed={v.tx === k}
+                                disabled={g.docType === 'MANUAL' && v.tx !== k}
+                                title={g.docType === 'MANUAL' ? '담당자용 매뉴얼은 외부 AI 전송이 금지로 고정돼요. 매뉴얼 내용은 항목별 허용 목록으로만 열려요.' : v.tx === k ? undefined : `${k}(으)로 바꾸기`}
+                                onClick={() => v.tx !== k && changeTx(g, v, k)}
+                              >
                                 {k}
                               </button>
                             ))}
                         </div>
                       </td>
-                      {USE_MOCK_GUIDE && (
-                        <td className="memo">
-                          <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
-                            <span>{v.note || '-'}</span>
-                            <button type="button" className="btn ghost sm" aria-label={`${v.version} 메모 수정`} onClick={() => setDlg({ kind: 'note', g, v })}>
-                              수정
-                            </button>
-                          </div>
-                        </td>
-                      )}
                       <td className="c">
                         {v.state !== '현행' && (
                           <button type="button" className="btn ghost sm" disabled={v.ready !== '준비 완료'} title={v.ready !== '준비 완료' ? '검색 준비가 끝나야 현행으로 바꿀 수 있어요' : v.state === '만료' ? '이전 버전을 다시 현행으로 되돌려요' : undefined} onClick={() => void makeCurrent(g, v)}>
@@ -330,11 +308,17 @@ export function GuidesView() {
                         {v.registeredAt ? formatDateTime(v.registeredAt) : '-'}
                         {v.registeredAt && Date.now() - Date.parse(v.registeredAt) < 24 * 3600_000 && <span className="nwb">NEW</span>}
                       </td>
+                      <td className="c">
+                        <button type="button" className="btn sec sm" aria-label={`${g.docCode} ${v.version} 본문 보기`} onClick={() => setReader({ id: g.id, docCode: g.docCode, title: g.title, versionId: v.id, version: v.version })}>
+                          보기
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
+          </div>
           </div>
         )}
         </Collapse>
@@ -405,187 +389,6 @@ export function GuidesView() {
     </>
   )
 
-  const N = gc.win.length
-  const pct = (n: number) => (N ? Math.round((n / N) * 100) : 0)
-  const caseTab = (
-    <>
-      <div className="alert info">
-        <Icon name="file" />
-        <div>
-          매일 자정에 AI가 해결 완료(CLS)된 티켓의 유사도를 분석해요 <span className="tag gray">제안</span>. 비슷한 주제로 들어온 건을 묶어 보여 주고, 골라서 가이드 초안으로 만들 수 있어요. 초안은 관리자 검토와 검색 준비가 끝난 뒤에만 현행이 될 수 있어요.
-        </div>
-      </div>
-      <div className="row" style={{ justifyContent: 'space-between', margin: '14px 0 10px' }}>
-        <div className="seg" role="group" aria-label="분석 단위">
-          {(Object.keys(GCP) as Per[]).map((k) => (
-            <button key={k} type="button" className={per === k ? 'on' : ''} aria-pressed={per === k} onClick={() => { setPer(k); setClOpen(null) }}>
-              {GCP[k].lb}
-            </button>
-          ))}
-        </div>
-        <span className="small muted">
-          마지막 분석 오늘 00:00 · 다음 분석 내일 00:00 <span className="tag gray">시연 데이터</span>
-        </span>
-      </div>
-      <div className="gk">
-        <div className="kpi grp">
-          <div className="l">해결 티켓 분석</div>
-          <div className="gcells g3">
-            <div className="sgc">
-              <div className="small muted gl">분석한 해결 티켓</div>
-              <div className="v">
-                <b>{N}</b>
-                <span>건</span>
-              </div>
-              <div className="small muted">{GCP[per].sub}</div>
-            </div>
-            <div className="sgc">
-              <div className="small muted gl">유사 주제 묶음</div>
-              <div className="v">
-                <b>{gc.cl.length}</b>
-                <span>개</span>
-              </div>
-              <div className="small muted">해결 티켓의 5% 이상(최소 2건)이 비슷한 주제</div>
-            </div>
-            <div className="sgc">
-              <div className="small muted gl">묶음에 들어간 티켓</div>
-              <div className="v">
-                <b>{gc.inCl}</b>
-                <span>건</span>
-              </div>
-              <div className="small muted">
-                {pct(gc.inCl)}% · 해결 {N}건 중
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="kpi grp">
-          <div className="l">가이드 후보</div>
-          <div className="gcells g2">
-            <div className="sgc">
-              <div className="small muted gl">새 가이드 후보</div>
-              <div className="v">
-                <b>{gc.cl.filter((c) => !c.exist).length}</b>
-                <span>개</span>
-              </div>
-              <div className="small muted">현행 가이드가 다루지 않는 주제</div>
-            </div>
-            <div className="sgc">
-              <div className="small muted gl">기존 가이드 보강 후보</div>
-              <div className="v">
-                <b>{gc.cl.filter((c) => c.exist).length}</b>
-                <span>개</span>
-              </div>
-              <div className="small muted">사례가 더 쌓인 주제</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      {gc.cl.length ? (
-        <>
-          <div className="gcs">
-            {gc.cl.slice(0, 8).map((c, i) => {
-              const open = clOpen === i
-              return (
-                <section key={`${c.cat}|${c.title}`} className="panel gc" aria-label={c.title}>
-                  <div className="gc-h">
-                    <span className={`tag c-${c.cat}`}>{CATEGORIES[c.cat].name}</span>
-                    <b>{c.title}</b>
-                    {c.exist ? <StateBadge tone="asg" label="기존 가이드 보강" /> : <StateBadge tone="need" label="새 가이드" />}
-                    <span className="gc-n">
-                      <b>{c.n}건</b> · {pct(c.n)}%
-                    </span>
-                  </div>
-                  <div className="gc-bar" role="img" aria-label={`해결 ${N}건 중 ${c.n}건 (${pct(c.n)}%)`}>
-                    <i style={{ width: `${Math.max(3, pct(c.n))}%` }} />
-                  </div>
-                  <p className="small muted" style={{ margin: '6px 0 0' }}>
-                    묶인 티켓끼리 평균 유사도 {c.sim}% · {c.exist ? `보강할 가이드: ${guideLabel(c.exist)}` : '맞는 기존 가이드가 없어요'}
-                  </p>
-                  <div className="gc-acts">
-                    {c.exist && (
-                      <button
-                        type="button"
-                        className="btn ghost sm"
-                        onClick={() => {
-                          setTab('list')
-                          setCatOpen((m) => ({ ...m, [c.exist!.cat]: true }))
-                          setOpenId(c.exist!.id)
-                        }}
-                      >
-                        기존 가이드 보기
-                      </button>
-                    )}
-                    <button type="button" className="btn ghost sm" aria-expanded={open} onClick={() => setClOpen(open ? null : i)}>
-                      포함된 티켓 {c.n}건 {open ? '접기' : '보기'}
-                    </button>
-                    <button type="button" className="btn pri sm" onClick={() => setDlg({ kind: 'draft', c, i })}>
-                      {c.exist ? '버전 업데이트 초안' : '신규 가이드 초안'}
-                    </button>
-                  </div>
-                  <Collapse open={open}>
-                  {open && (
-                    <div className="tw gc-tw">
-                      <table className="tbl">
-                        <thead>
-                          <tr>
-                            <th>접수번호 / 티켓</th>
-                            <th>제목</th>
-                            <th>상태</th>
-                            <th>접수일 / 경과</th>
-                            <th>담당</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {c.list.slice(0, 10).map((t) => (
-                            <tr key={t.id}>
-                              <td className="mono small">
-                                {t.receiptNo}
-                                <br />
-                                {t.jiraKey ?? '-'}
-                              </td>
-                              <td>
-                                <button type="button" className="lk" onClick={() => navigate(`/tickets/${t.id}`)}>
-                                  {t.summary}
-                                </button>
-                              </td>
-                              <td>
-                                <StaffStatus t={t} />
-                              </td>
-                              <td className="small">
-                                <b>{formatElapsed(t.createdAt)}</b> 경과
-                              </td>
-                              <td>{t.assignee?.name ?? '-'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {c.n > 10 && (
-                        <p className="small muted" style={{ margin: '8px 4px 0' }}>
-                          나머지 {c.n - 10}건
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  </Collapse>
-                </section>
-              )
-            })}
-          </div>
-          {gc.cl.length > 8 && (
-            <p className="small muted" style={{ marginTop: 8 }}>
-              건수가 많은 상위 8개만 보여요. 전체 {gc.cl.length}개
-            </p>
-          )}
-        </>
-      ) : (
-        <div className="panel" style={{ marginTop: 14 }}>
-          <div className="empty">{tickets === null ? '불러오는 중이에요…' : `${GCP[per].lb} 분석에서 비슷한 주제로 묶인 해결 사례가 아직 없어요.`}</div>
-        </div>
-      )}
-    </>
-  )
-
   return (
     <>
       <main className="main">
@@ -601,7 +404,7 @@ export function GuidesView() {
             </div>
             <div>
               <p className="muted">
-                <b>외부 AI 전송</b>은 이 가이드 내용을 AI 모델에 보내 답변을 만들어도 되는지에 관한 설정이에요(문서 열람 권한인 열람 범위와는 별개). <b>허용</b>은 그대로 보내고, <b>마스킹 후 허용</b>은 민감정보를 가린 내용만 보내요. <b>금지</b>인 가이드 내용은 외부 AI에 보내지 않아요. 사용할 수 있는 근거가 없으면 담당자 연결을 제안해요. 열람 범위와 전송 정책을 정하지 않으면 관리자 전용·금지로 처리돼요.
+                <b>외부 AI 전송</b>은 이 가이드 내용을 AI 모델에 보내 답변을 만들어도 되는지에 관한 설정이에요(문서 열람 권한인 열람 범위와는 별개). <b>허용</b>은 그대로 보내고, <b>마스킹 후 허용</b>은 민감정보를 가린 내용만 보내요. <b>금지</b>인 가이드 내용은 외부 AI에 보내지 않아요. 사용할 수 있는 근거가 없으면 담당자 연결을 제안해요. 열람 범위와 전송 정책을 정하지 않으면 관리자만·금지로 처리돼요.
               </p>
             </div>
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
@@ -610,13 +413,15 @@ export function GuidesView() {
                   가이드 목록 <span className="count">{guides?.length ?? 0}</span>
                 </button>
                 <button type="button" className={tab === 'case' ? 'on' : ''} aria-pressed={tab === 'case'} onClick={() => setTab('case')}>
-                  해결 사례 → 가이드 초안 <span className="count">{gc.cl.length}</span>
+                  AI 가이드 제안 <span className="count">{reviewN}</span>
                 </button>
               </div>
-              <button type="button" className="btn pri sm" onClick={() => setDlg({ kind: 'upload' })}>
-                <Icon name="plus" />
-                가이드 파일 업로드
-              </button>
+              {tab === 'list' && (
+                <button type="button" className="btn pri sm" onClick={() => setDlg({ kind: 'upload' })}>
+                  <Icon name="plus" />
+                  가이드 파일 업로드
+                </button>
+              )}
             </div>
 
             {error && (
@@ -640,11 +445,26 @@ export function GuidesView() {
                 </div>
               )
             ) : (
-              caseTab
+              <CaseGuideTab
+                onReview={(c) => {
+                  setReader(null)
+                  setCasePanel(c.id)
+                }}
+                onVersion={(c) => {
+                  setCasePanel(null)
+                  if (!c.registered) return
+                  const t = { id: c.registered.docId, docCode: c.registered.docCode, title: c.target?.title ?? c.title ?? c.topic, version: c.registered.version }
+                  // 서버 연결 환경에서는 등록한 버전의 본문을 서버에서 읽고, 모의에서는 제안 내용을 보여 준다
+                  setReader(CASES_FROM_SERVER ? { ...t, versionId: c.registered.versionId } : { ...t, text: registeredText(c) })
+                }}
+                onGoLive={goLive}
+              />
             )}
           </div>
         </div>
       </main>
+      {reader && <GuideReaderPanel target={reader} onClose={() => setReader(null)} />}
+      {casePanel && <CaseReviewPanel key={casePanel} id={casePanel} onClose={() => setCasePanel(null)} onGoLive={goLive} />}
       {dlg?.kind === 'upload' && (
         <UploadDialog
           guides={guides ?? []}
@@ -674,6 +494,31 @@ export function GuidesView() {
           }}
         />
       )}
+      {dlg?.kind === 'blocked' && (
+        <Modal title="현행을 바꿀 수 없어요" variant="form" onClose={() => setDlg(null)}>
+          <p style={{ margin: 0 }}>
+            <b>{dlg.g.docCode} {dlg.g.title}</b>에 검토할 AI 가이드 제안이 <b>{dlg.n}건</b> 있어요. 제안을 먼저 확인한 뒤 현행을 변경해 주세요.
+          </p>
+          <p className="small muted" style={{ margin: 0 }}>
+            현행을 바꾸면 이 제안들의 기준 가이드가 달라져서 그대로 등록할 수 없게 돼요.
+          </p>
+          <div className="acts">
+            <button type="button" className="btn sec" onClick={() => setDlg(null)}>
+              닫기
+            </button>
+            <button
+              type="button"
+              className="btn pri"
+              onClick={() => {
+                setDlg(null)
+                setTab('case')
+              }}
+            >
+              AI 가이드 제안 보기
+            </button>
+          </div>
+        </Modal>
+      )}
       {dlg?.kind === 'active' && (
         <ActiveDialog
           g={dlg.g}
@@ -696,33 +541,6 @@ export function GuidesView() {
             const d = dlg
             setDlg(null)
             void applyTx(d.g, d.v, d.to, why)
-          }}
-        />
-      )}
-      {dlg?.kind === 'note' && (
-        <NoteDialog
-          g={dlg.g}
-          v={dlg.v}
-          onClose={() => setDlg(null)}
-          onDone={() => {
-            setDlg(null)
-            say('메모를 저장했어요.')
-            reload()
-          }}
-        />
-      )}
-      {dlg?.kind === 'draft' && (
-        <DraftDialog
-          c={dlg.c}
-          per={per}
-          onClose={() => setDlg(null)}
-          onDone={(g, version, update) => {
-            setDlg(null)
-            setTab('list')
-            setCatOpen((m) => ({ ...m, [g.cat]: true }))
-            setOpenId(g.id)
-            say(update ? `기존 가이드에 버전 업데이트 초안(${version})을 추가했어요. 검토 후 현행으로 전환하세요.` : '신규 가이드 초안을 만들었어요. 검토 후 현행으로 전환하세요.')
-            reload()
           }}
         />
       )}
@@ -842,7 +660,9 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
   const [docVers, setDocVers] = useState<GuideVersion[] | null>(null)
   const [title, setTitle] = useState('')
   const [ver, setVer] = useState('')
-  const [scope, setScope] = useState<GuideScope>('관리자 전용')
+  const [policyOpen, setPolicyOpen] = useState(false)
+  const pending = useRef<{ version: string } | null>(null)
+  const [scope, setScope] = useState<GuideScope>('관리자만')
   const [tx, setTx] = useState<GuideTx>('금지')
   // 파일 머리의 version: 값 (md·txt 만 읽는다). 서버는 이 값과 입력한 버전이 다르면 적재를 실패 처리한다
   const [fileVer, setFileVer] = useState<string | null>(null)
@@ -950,6 +770,17 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
     setErrs(e)
     setErr('')
     if (Object.keys(e).length || !file || !cat || !version) return
+    // 검증이 끝나면 열람 범위·외부 AI 전송을 정하는 창을 한 번 더 열고, 거기서 확인해야 올린다
+    pending.current = { version }
+    setPolicyOpen(true)
+  }
+
+  const upload = async (scope: GuideScope, tx: GuideTx) => {
+    if (!user || !file || !cat || !pending.current) return
+    const { version } = pending.current
+    setScope(scope)
+    setTx(tx)
+    setPolicyOpen(false)
     setBusy(true)
     let made = madeDoc
     const r = mode === 'ver' && doc ? await uploadGuideVersion(user, doc.id, { file, version, scope, tx }) : await uploadGuide(user, { file, docCode: newCode, title, cat, scope, tx, version, docId: madeDoc ?? undefined }, (id) => { made = id; setMadeDoc(id) })
@@ -1139,18 +970,6 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
         </>
       )}
       {field('ver', '버전', <input id={`${uid}-ver`} className={`inp${errs.ver ? ' err' : ''}`} value={ver} placeholder="예) v4.0" autoComplete="off" style={{ maxWidth: 160 }} aria-invalid={!!errs.ver} onChange={(e) => { setVer(e.target.value); clr('ver') }} />)}
-      <div className="gu2">
-        {field(
-          'scope',
-          '열람 범위',
-          <SelectBox id={`${uid}-scope`} value={scope} options={GUIDE_SCOPES.map((s) => ({ value: s, label: s }))} onChange={(v) => setScope(v as GuideScope)} />,
-        )}
-        {field(
-          'tx',
-          '외부 모델 전송',
-          <SelectBox id={`${uid}-tx`} value={tx} options={GUIDE_TXS.map((s) => ({ value: s, label: s }))} onChange={(v) => setTx(v as GuideTx)} />,
-        )}
-      </div>
       <div className="hint">업로드한 버전은 초안으로 올라가요. 검색 준비가 끝나면 내용을 확인한 뒤 목록에서 "현행 전환"을 눌러 주세요. 현행으로 바꾸기 전에는 검색·답변에 쓰이지 않아요.</div>
       {dupDoc && (
         <div className="alert warn" role="alert">
@@ -1165,9 +984,7 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
           </div>
         </div>
       )}
-      <div className="hint">
-        {mode === 'ver' && doc ? '앞 버전의 열람 범위·외부 전송 값을 채워 두었어요. 필요하면 바꿔 주세요. ' : ''}정하지 않으면 가장 제한적인 값(관리자 전용·금지)이 적용돼요.
-      </div>
+      <div className="hint">업로드를 누르면 열람 범위와 외부 AI 전송 정책을 정하는 창이 한 번 더 열려요.{mode === 'ver' && doc ? ' 앞 버전의 값을 채워 둘게요.' : ''}</div>
       {err && (
         <div className="ferr" role="alert">
           {err}
@@ -1181,6 +998,18 @@ function UploadDialog({ guides, onClose, onDone, onActivate }: { guides: Guide[]
           업로드
         </button>
       </div>
+      {policyOpen && (
+        <PolicyModal
+          initialScope={scope}
+          initialTx={doc?.docType === 'MANUAL' ? '금지' : tx}
+          txLockedNote={mode === 'ver' && doc?.docType === 'MANUAL' ? '담당자용 매뉴얼은 외부 AI 전송이 금지로 고정돼요. 매뉴얼 내용은 항목별 허용 목록으로만 열려요.' : undefined}
+          intro={mode === 'ver' && doc ? '올릴 버전의 열람 범위와 외부 AI 전송 정책을 확인해 주세요. 앞 버전의 값을 채워 두었어요.' : '올릴 가이드의 열람 범위와 외부 AI 전송 정책을 정해 주세요. 정하지 않으면 가장 제한적인 값(관리자만·금지)이에요.'}
+          confirmLabel="올리기"
+          busy={busy}
+          onClose={() => setPolicyOpen(false)}
+          onConfirm={(sc, t2) => void upload(sc, t2)}
+        />
+      )}
     </Modal>
   )
 }
@@ -1223,111 +1052,6 @@ function TxDialog({ g, v, to, onClose, onApply }: { g: Guide; v: GuideVersion; t
         </button>
         <button type="button" className="btn pri" onClick={() => (why.trim() || !wide ? onApply(why.trim()) : setErr('변경 사유를 입력해 주세요.'))}>
           변경
-        </button>
-      </div>
-    </Modal>
-  )
-}
-
-function NoteDialog({ g, v, onClose, onDone }: { g: Guide; v: GuideVersion; onClose: () => void; onDone: () => void }) {
-  const { user } = useAuth()
-  const uid = useId()
-  const [note, setNote] = useState(v.note)
-  const [err, setErr] = useState('')
-  const save = async () => {
-    if (!user) return
-    const r = await setGuideNote(user, g.id, v.id, note)
-    if (!r.ok) return setErr(r.error.message)
-    onDone()
-  }
-  return (
-    <Modal title={`${v.version} 메모 수정`} onClose={onClose}>
-      <p className="small muted" style={{ margin: 0 }}>
-        {guideLabel(g)} · 관리자가 직접 적는 메모예요. AI가 쓰지 않고, 수정하면 변경 기록이 남아요.
-      </p>
-      <div className="field">
-        <label htmlFor={`${uid}-n`}>메모</label>
-        <input id={`${uid}-n`} className="inp" value={note} placeholder="예) 5회 실패 시 잠금, 10분 후 해제" autoComplete="off" onChange={(e) => setNote(e.target.value)} />
-      </div>
-      {err && (
-        <div className="ferr" role="alert">
-          {err}
-        </div>
-      )}
-      <div className="acts">
-        <button type="button" className="btn sec" onClick={onClose}>
-          취소
-        </button>
-        <button type="button" className="btn pri" onClick={() => void save()}>
-          저장
-        </button>
-      </div>
-    </Modal>
-  )
-}
-
-function DraftDialog({ c, per, onClose, onDone }: { c: Cluster; per: Per; onClose: () => void; onDone: (g: Guide, version: string, update: boolean) => void }) {
-  const { user } = useAuth()
-  const [err, setErr] = useState('')
-  const [busy, setBusy] = useState(false)
-  const make = async () => {
-    if (!user) return
-    setBusy(true)
-    const note = `${GCP[per].lb} 분석: 해결 사례 ${c.n}건을 ${c.exist ? '반영한 보강 초안' : '묶어 정리한 초안'}`
-    const r = await createGuideDraft(user, { cat: c.cat, title: `${c.title} 가이드 (유사 사례 ${c.n}건 초안)`, existId: c.exist?.id ?? null, note })
-    setBusy(false)
-    if (!r.ok) return setErr(r.error.message)
-    onDone(r.data.guide, r.data.version, !!c.exist)
-  }
-  return (
-    <Modal title="가이드 초안 미리보기" onClose={onClose}>
-      <p className="small muted" style={{ margin: 0 }}>
-        {GCP[per].lb} 분석 · 해결 티켓 {c.n}건 · 평균 유사도 {c.sim}%
-      </p>
-      <dl className="dl" style={{ margin: 0 }}>
-        <dt>제목</dt>
-        <dd>{c.title} 가이드</dd>
-        <dt>분류</dt>
-        <dd>
-          <span className={`tag c-${c.cat}`}>{CATEGORIES[c.cat].name}</span>
-        </dd>
-        <dt>대상</dt>
-        <dd>{c.exist ? `기존 가이드 보강 · ${guideLabel(c.exist)}` : '새 가이드'}</dd>
-      </dl>
-      <div>
-        <b style={{ fontSize: 14 }}>AI가 정리한 처리 순서</b> <span className="tag gray">시연 데이터</span>
-        <ol className="osteps" style={{ marginTop: 8 }}>
-          <li>
-            <span>해결 사례의 처리 결과에서 공통 단계를 추려요.</span>
-          </li>
-        </ol>
-      </div>
-      <div>
-        <b style={{ fontSize: 14 }}>근거 티켓</b>
-        <div className="row" style={{ gap: 6, marginTop: 6 }}>
-          {c.list.slice(0, 6).map((t, i) => (
-            <span key={t.id}>
-              {i > 0 && <span className="muted">· </span>}
-              <span className="mono small">{t.receiptNo}</span>
-            </span>
-          ))}
-          {c.n > 6 && <span className="small muted">외 {c.n - 6}건</span>}
-        </div>
-      </div>
-      <p className="small muted" style={{ margin: 0 }}>
-        비밀번호·개인정보 같은 민감정보는 초안에 넣지 않아요. 초안은 관리자 검토 후 현행으로 바꿔요.
-      </p>
-      {err && (
-        <div className="ferr" role="alert">
-          {err}
-        </div>
-      )}
-      <div className="acts">
-        <button type="button" className="btn sec" onClick={onClose}>
-          취소
-        </button>
-        <button type="button" className="btn pri" disabled={busy} onClick={() => void make()}>
-          {c.exist ? '버전 업데이트 초안' : '신규 가이드 초안'}
         </button>
       </div>
     </Modal>

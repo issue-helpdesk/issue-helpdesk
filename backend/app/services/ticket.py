@@ -3,7 +3,7 @@ import logging
 import os
 from collections import Counter
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import Annotated, get_args
 
 from fastapi import Depends
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -30,8 +30,9 @@ from app.models import (
 from app.repositories.audit_log import AuditLogRepositoryDep
 from app.repositories.inquiry import InquiryRepositoryDep
 from app.repositories.reference import ReferenceRepositoryDep
+from app.repositories.security_alert import SecurityAlertRepositoryDep
 from app.repositories.ticket import TicketRepositoryDep
-from app.schemas.common import ItemList, Page, parse_sort
+from app.schemas.common import CountedPage, ItemList, parse_sort
 from app.schemas.inquiry import CategoryRef, GroupRef, InquiryTypeRef, UserRef
 from app.schemas.ticket import (
     AssignmentLog as AssignmentLogView,
@@ -49,6 +50,7 @@ from app.schemas.ticket import (
     TicketListQuery,
     TicketSummary,
     TicketUpdateRequest,
+    WorkStatus,
 )
 from app.services.ai_responder import facts_of, type_info
 from app.services.inquiry import (
@@ -83,6 +85,7 @@ class TicketService:
         references: ReferenceRepositoryDep,
         tickets: TicketRepositoryDep,
         audit_logs: AuditLogRepositoryDep,
+        alerts: SecurityAlertRepositoryDep,
         open_jira: JiraOpenerDep,
     ) -> None:
         self.db = db
@@ -90,6 +93,7 @@ class TicketService:
         self.references = references
         self.tickets = tickets
         self.audit_logs = audit_logs
+        self.alerts = alerts
         self.open_jira = open_jira
 
     def create_draft(self, inquiry_id: int, user: User) -> TicketDraftView:
@@ -146,7 +150,7 @@ class TicketService:
             raise draft_not_editable(draft)
 
         if "status" in sent:
-            close_unresolved(self.inquiries, self.audit_logs, inquiry, user, "CANCEL")
+            close_unresolved(self.inquiries, self.audit_logs, self.alerts, inquiry, user, "CANCEL")
             self.db.commit()
             return DraftUpdateResult(draft=self.to_draft(draft), changes=[])
 
@@ -165,7 +169,7 @@ class TicketService:
                 value = masked.text
                 masked_counts.update(masked.counts)
             setattr(draft, name, value)
-        record_sensitive_input(self.audit_logs, inquiry.id, user, dict(masked_counts))
+        record_sensitive_input(self.audit_logs, self.alerts, inquiry.id, user, dict(masked_counts))
         changes = []
         if "inquiry_type_id" in sent and body.inquiry_type_id != draft.inquiry_type_id:
             changes = self.reclassify(inquiry, draft, new_type)
@@ -270,7 +274,7 @@ class TicketService:
         self.db.commit()
         return ticket
 
-    def list_tickets(self, query: TicketListQuery, viewer: User) -> Page[TicketSummary]:
+    def list_tickets(self, query: TicketListQuery, viewer: User) -> CountedPage[TicketSummary]:
         """TK-05. view 로 범위를 정하고 나머지 조건은 그 범위 안에서 거른다."""
         view = query.view or DEFAULT_TICKET_VIEW[viewer.service_role]
         if viewer.service_role not in TICKET_VIEW_ROLES[view]:
@@ -278,7 +282,7 @@ class TicketService:
         if query.created_from and query.created_to and query.created_from > query.created_to:
             raise AppError(ErrorCode.INVALID_REQUEST)
 
-        rows, total = self.tickets.search(
+        rows, total, status_counts = self.tickets.search(
             requester_id=viewer.id if view == "REQUESTER" else None,
             member_id=viewer.id if view == "ASSIGNED" else None,
             work_statuses=query.work_status,
@@ -320,7 +324,7 @@ class TicketService:
             )
             for ticket, requester, category, group, assignee in rows
         ]
-        return Page.of(items, query.page, query.size, total)
+        return CountedPage.counted(items, query.page, query.size, total, status_counts, get_args(WorkStatus))
 
     def get_ticket(self, ticket_id: int, viewer: User) -> TicketView:
         """TK-06."""
@@ -396,7 +400,7 @@ class TicketService:
                 masked = mask_secrets(value)
                 texts[name] = masked.text
                 masked_counts.update(masked.counts)
-        record_sensitive_input(self.audit_logs, inquiry.id, user, dict(masked_counts))
+        record_sensitive_input(self.audit_logs, self.alerts, inquiry.id, user, dict(masked_counts))
 
         now = datetime_utils.now()
         ticket.requested_work_status = target

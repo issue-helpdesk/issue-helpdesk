@@ -73,11 +73,11 @@ describe('접수 상세의 AI 판단 이력 (화면)', () => {
     const labels = [...box.querySelectorAll('.asl')].map((e) => e.textContent)
     expect(labels).toEqual(['문의 요약', 'AI 원래 판단', '규칙이 바꾼 내역', '최종 적용'])
     expect(within(box).getByText('악성 첨부파일 의심 메일 수신')).toBeInTheDocument()
-    expect(box.querySelector('.asai')).toHaveTextContent('긴급도 P3')
-    expect(within(box).getByText(/보안 사고 의심은 최소 P2/)).toBeInTheDocument()
+    expect(box.querySelector('.asai')).toHaveTextContent('긴급도 보통')
+    expect(within(box).getByText(/보안 사고 의심은 최소 높음/)).toBeInTheDocument()
     expect(within(box).getByText('SEC_MIN_P2')).toBeInTheDocument()
     // 규칙이 바꾼 항목 이름과 값이 화면 말이다
-    expect(box.querySelector('.aso li')).toHaveTextContent('긴급도 P3 → P1')
+    expect(box.querySelector('.aso li')).toHaveTextContent('긴급도 보통 → 긴급')
   })
 
   it('규칙이 바꾼 것이 없으면 그대로 적용했다고 안내하고, 담당자 화면에는 이 섹션이 없다', async () => {

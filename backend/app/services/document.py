@@ -2,6 +2,7 @@
 
 파일을 읽어 청크·임베딩으로 만드는 일은 app.rag.ingest.upload 가 하고, 여기서는 저장과 등록까지만 한다.
 """
+import logging
 from pathlib import Path
 from typing import Annotated, BinaryIO
 
@@ -13,27 +14,37 @@ from app.core.error_codes import ErrorCode
 from app.core.errors import AppError, field_error
 from app.core.permissions import visible_scopes
 from app.db.session import DbSession
-from app.models import Category, DocumentVersion, KnowledgeDocument, SupportGroup, User
+from app.models import Category, DocumentVersion, GuideCluster, KnowledgeDocument, SupportGroup, User
+from app.rag.ingest import IngestError
+from app.rag.ingest.upload import read_guide_md
+from app.rag.parser import ParseError
+from app.rag.parser.md_parser import display_md
 from app.repositories.audit_log import AuditLogRepositoryDep
 from app.repositories.document import DocumentRepositoryDep
 from app.repositories.faq import FaqRepositoryDep
+from app.repositories.guide_cluster import GuideClusterRepositoryDep
 from app.schemas.common import ItemList, Page, parse_sort
 from app.schemas.document import (
     CurrentVersion,
     Document,
+    DocumentContent,
     DocumentCreateRequest,
     DocumentListQuery,
     DocumentUpdateRequest,
     DocumentVersion as DocumentVersionView,
     DocumentVersionUpdateRequest,
+    IngestSummary,
 )
 from app.schemas.inquiry import CategoryRef, GroupRef, UserRef
-from app.services.document_file import remove_stored, stage_file, to_stored_path
+from app.services.document_file import remove_stored, stage_file, stored_file, to_stored_path
 from app.services.document_ingest import IngestSubmitterDep
 from app.services.faq import publishable_codes
+from app.services.guide_image import images_of
 from app.utils import datetime_utils
 
+logger = logging.getLogger(__name__)
 TRANSFER_RANK = {"BLOCKED": 0, "MASKED": 1, "ALLOWED": 2}     # 클수록 외부 모델에 넓게 전달된다
+CASE_DRAFT_PREFIX = "storage/case_guides/"                     # 해결 사례를 등록한 초안 파일 위치 (case_guide.CASE_DIR)
 
 
 class DocumentService:
@@ -44,12 +55,14 @@ class DocumentService:
         faqs: FaqRepositoryDep,
         audit_logs: AuditLogRepositoryDep,
         submit_ingest: IngestSubmitterDep,
+        guide_clusters: GuideClusterRepositoryDep,
     ) -> None:
         self.db = db
         self.documents = documents
         self.faqs = faqs
         self.audit_logs = audit_logs
         self.submit_ingest = submit_ingest
+        self.guide_clusters = guide_clusters
 
     def list_documents(self, query: DocumentListQuery, viewer: User) -> Page[Document]:
         """DC-01. ADMIN 이 아니면 활성이고 현행 버전이 열람 범위 안인 문서만."""
@@ -71,8 +84,21 @@ class DocumentService:
             offset=query.offset,
             limit=query.size,
         )
-        items = [to_document(d, v, c, g, is_admin) for d, v, c, g in rows]
+        summaries = self.ingest_summaries([d.id for d, *_ in rows]) if is_admin else {}
+        items = [to_document(d, v, c, g, is_admin, summaries.get(d.id)) for d, v, c, g in rows]
         return Page.of(items, query.page, query.size, total)
+
+    def ingest_summaries(self, document_ids: list[int]) -> dict[int, IngestSummary]:
+        summaries = {i: IngestSummary(failed=0, pending=0, last_ingest_error=None) for i in document_ids}
+        for document_id, status, error in self.documents.unfinished_ingests(document_ids):
+            summary = summaries[document_id]
+            if status == "PENDING":
+                summary.pending += 1
+                continue
+            if summary.failed == 0:      # 최근 버전부터 오므로 처음 만난 실패가 마지막 실패다
+                summary.last_ingest_error = error
+            summary.failed += 1
+        return summaries
 
     def create(self, body: DocumentCreateRequest) -> Document:
         """DC-02. 메타정보만 만든다. 파일은 DC-07 로 올린다."""
@@ -91,15 +117,41 @@ class DocumentService:
 
     def get_document(self, document_id: int, viewer: User) -> Document:
         """DC-03. 범위 밖은 제목·번호도 드러내지 않게 없는 것처럼 404."""
-        is_admin = viewer.service_role == "ADMIN"
+        document, _ = self.find_visible(document_id, viewer)
+        return self.view(document, viewer.service_role == "ADMIN")
+
+    def get_content(self, document_id: int, viewer: User) -> DocumentContent:
+        """DC-12. 현행 버전 본문. 열람 범위는 DC-03 과 같다. ADMIN 이 현행 없는 문서를 부르면 버전 없음."""
+        _, current = self.find_visible(document_id, viewer)
+        if current is None:
+            raise AppError(ErrorCode.DOCUMENT_VERSION_NOT_FOUND)
+        return self.content_of(current)
+
+    def get_version_content(self, document_id: int, version_id: int) -> DocumentContent:
+        """DC-13 (ADMIN). 현행이 아닌 버전·적재 실패 버전도 파일이 남아 있으면 준다."""
+        return self.content_of(self.find_version(document_id, version_id))
+
+    def find_visible(self, document_id: int, viewer: User) -> tuple[KnowledgeDocument, DocumentVersion | None]:
+        """ADMIN 이 아니면 활성 문서이고 현행 버전이 열람 범위 안이어야 한다. 아니면 없는 것처럼 404."""
         document = self.documents.get(document_id)
         if document is None:
             raise AppError(ErrorCode.DOCUMENT_NOT_FOUND)
         current = self.documents.current_version(document.id)
-        if not is_admin and (not document.is_active or current is None
-                             or current.view_scope not in visible_scopes(viewer.service_role)):
+        if viewer.service_role != "ADMIN" and (not document.is_active or current is None
+                                                or current.view_scope not in visible_scopes(viewer.service_role)):
             raise AppError(ErrorCode.DOCUMENT_NOT_FOUND)
-        return self.view(document, is_admin)
+        return document, current
+
+    def content_of(self, row: DocumentVersion) -> DocumentContent:
+        """버전 파일을 가이드 md 로 읽어 화면 본문으로 바꾼다. 요청마다 읽고 저장하지 않는다 (06 R-48).
+        그림은 그 버전 청크의 이름표라 적재 전·실패 버전은 비어 있다 (본문에는 '[그림] 설명' 줄만 남는다)."""
+        try:
+            md, _ = read_guide_md(stored_file(row.file_path))
+        except (IngestError, ParseError, OSError, UnicodeDecodeError) as error:
+            logger.warning("document version %s content unavailable (%s)", row.id, type(error).__name__)
+            raise AppError(ErrorCode.DOCUMENT_CONTENT_UNAVAILABLE) from error
+        return DocumentContent(document_id=row.document_id, version_id=row.id, version=row.version,
+                               content=display_md(md), images=images_of(self.documents.chunk_metas(row.id)))
 
     def update(self, document_id: int, body: DocumentUpdateRequest, user: User) -> Document:
         """DC-04. 보낸 필드만 바꾼다. 활성·비활성 전환도 여기서 한다."""
@@ -137,8 +189,10 @@ class DocumentService:
         transfer_policy: str, user: User,
     ) -> DocumentVersionView:
         """DC-07. 내용 확인·중복 검사 → 파일 저장 → 버전 행(PENDING) 커밋 → 백그라운드 적재. 현행 전환은 자동으로 하지 않는다."""
-        if self.documents.get(document_id) is None:
+        document = self.documents.get(document_id)
+        if document is None:
             raise AppError(ErrorCode.DOCUMENT_NOT_FOUND)
+        self.check_manual_policy(document, transfer_policy)
         suffix, file_format = file_format_of(filename)
         staged = stage_file(file, document_id, suffix)
         path = None
@@ -248,14 +302,60 @@ class DocumentService:
             raise AppError(ErrorCode.DOCUMENT_VERSION_NOT_READY, [
                 {"reason": "INGEST_STATUS", "message": "적재 상태", "value": row.ingest_status},
             ])
+        clusters = self.check_guide_clusters(row) if activating else []
 
         scope_changed = self.change_policy(row, body, user)
         if activating:
             self.activate(row, user)
+            self.guide_clusters.mark_applied([c for c in clusters if c.status == "REVIEWING"])
         if activating or (scope_changed and row.is_current):
             self.recheck_faqs(document_id, user)
         self.db.commit()
         return self.version_views([row])[0]
+
+    def check_guide_clusters(self, row: DocumentVersion) -> list[GuideCluster]:
+        """해결 사례 묶음을 등록한 버전이면 전환 전에 본다 (기획_해결사례_가이드화 6단계). 일반 업로드 버전은 묶음이 없다.
+
+        거절한 묶음이 있거나, 묶음을 만든 기준 버전이 지금 현행과 다르면 막는다. 현행 전환은 가이드 전체를 바꾸므로
+        그사이 현행에 들어간 수정이 사라지지 않게 한다. 기준 버전은 검토 중인 묶음만 본다: 이미 반영된 버전으로
+        되돌리는 것은 관리자의 되돌리기라 막지 않는다. 새 가이드 묶음은 기준 버전이 없어 건너뛴다.
+        잠금 순서는 문서 → 버전 → 묶음이다. 묶음을 거절·수정하는 쪽도 같은 순서로 잠근다.
+
+        묶음이 없는 버전도 한 번도 현행이 된 적 없으면 본다. 해결 사례 내용이 조용히 사라지는 두 경우를 막는다.
+        - 묶음이 모두 떨어져 나간 사례 초안: 기준이 지난 내용이라 전환하면 그사이 현행에 들어간 수정이 사라진다.
+        - 지금 현행에 묶음이 반영됐는데 현행이 되기 전에 올라온 버전: 반영된 내용이 없다.
+        """
+        clusters = self.guide_clusters.registered_to(row.id)
+        if rejected := [c.id for c in clusters if c.status == "REJECTED"]:
+            raise AppError(ErrorCode.DOCUMENT_VERSION_HAS_REJECTED_CLUSTER, [
+                {"reason": "REJECTED_CLUSTER", "message": "거절한 묶음", "value": rejected},
+            ])
+        current = self.documents.current_version(row.document_id)
+        current_id = current.id if current else None
+        if stale := [c.id for c in clusters if c.status == "REVIEWING" and c.base_version_id is not None
+                      and c.base_version_id != current_id]:
+            raise AppError(ErrorCode.DOCUMENT_VERSION_BASE_CHANGED, [
+                {"reason": "BASE_VERSION_CHANGED", "message": "기준 버전이 현행과 다른 묶음", "value": stale},
+            ])
+        if not clusters and row.activated_at is None:
+            self.check_unlinked_version(row, current)
+        return clusters
+
+    def check_unlinked_version(self, row: DocumentVersion, current: DocumentVersion | None) -> None:
+        if (row.file_path or "").startswith(CASE_DRAFT_PREFIX):
+            raise AppError(ErrorCode.DOCUMENT_VERSION_ORPHANED)
+        if current is None or current.activated_at is None or row.registered_at >= current.activated_at:
+            return                                      # 현행이 된 뒤에 올라온 버전은 현행을 보고 고쳤을 수 있다
+        if applied := [c.id for c in self.guide_clusters.registered_to(current.id) if c.status == "APPLIED"]:
+            raise AppError(ErrorCode.DOCUMENT_VERSION_OUTDATED, [
+                {"reason": "CURRENT_HAS_APPLIED_CLUSTERS", "message": "지금 현행에 반영된 묶음", "value": applied},
+            ])
+
+    def check_manual_policy(self, document: KnowledgeDocument, transfer_policy: str) -> None:
+        """매뉴얼 버전은 BLOCKED 로 둔다. 항목 칸이 비어 있으면 버전 값을 따르므로 (검색의 coalesce) 버전을 열면
+        허용 목록에 없는 항목까지 외부로 나간다. 매뉴얼 내용을 여는 길은 항목별 허용 목록뿐이다."""
+        if document.doc_type == "MANUAL" and transfer_policy != "BLOCKED":
+            raise field_error(ErrorCode.DOCUMENT_MANUAL_TRANSFER_FIXED, "transferPolicy", "NOT_ALLOWED")
 
     def change_policy(self, row: DocumentVersion, body: DocumentVersionUpdateRequest, user: User) -> bool:
         """정책을 바꾸고 운영 기록을 남긴다. 돌려주는 값은 열람 범위가 바뀌었는지."""
@@ -265,6 +365,8 @@ class DocumentService:
         new_policy = body.transfer_policy if "transfer_policy" in sent and body.transfer_policy is not None else old_policy
         if (new_scope, new_policy) == (old_scope, old_policy):
             return False
+        if new_policy != old_policy:
+            self.check_manual_policy(self.documents.get(row.document_id), new_policy)
         if TRANSFER_RANK[new_policy] > TRANSFER_RANK[old_policy] and not body.reason:
             raise field_error(ErrorCode.VALIDATION_ERROR, "reason", "REQUIRED", "외부 전송 정책을 완화하는 사유를 입력해 주세요.")
         row.view_scope, row.transfer_policy = new_scope, new_policy
@@ -338,7 +440,7 @@ def file_format_of(filename: str | None) -> tuple[str, str]:
 
 
 def to_document(document: KnowledgeDocument, current: DocumentVersion | None, category: Category | None,
-                group: SupportGroup | None, is_admin: bool) -> Document:
+                group: SupportGroup | None, is_admin: bool, ingest_summary: IngestSummary | None = None) -> Document:
     return Document(
         id=document.id,
         doc_code=document.doc_code,
@@ -357,6 +459,7 @@ def to_document(document: KnowledgeDocument, current: DocumentVersion | None, ca
             transfer_policy=current.transfer_policy if is_admin else None,
             registered_at=current.registered_at,
         ) if current else None,
+        ingest_summary=ingest_summary,
         created_at=document.created_at,
     )
 

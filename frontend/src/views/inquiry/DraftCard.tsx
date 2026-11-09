@@ -3,10 +3,10 @@
  *
  * 수정 화면도 보기 화면과 같은 줄 구성을 유지한다. 문의자가 직접 쓴 말(문의 내용·발생 시점·업무 영향·시도한 조치)만
  * 그 자리에서 입력칸으로 바뀌고(기존 내용이 미리 채워져 있다), 나머지는 잠금 표시와 함께 글자 그대로 둔다.
- * 잠긴 항목(분류·세부 유형·긴급도·담당 그룹)은 고친 글로 다시 판단하며, 값이 바뀐 줄에는 "다시 판단됨"을 붙인다.
+ * 잠긴 항목(분류·세부 유형·담당 그룹)은 고친 글로 다시 판단하며, 값이 바뀐 줄에는 "다시 판단됨"을 붙인다.
  */
 import { useState, type ReactNode } from 'react'
-import { CATEGORIES, URGENCY_LABEL } from '../../api/catalog'
+import { CATEGORIES } from '../../api/catalog'
 import type { Draft, DraftEdit, DraftState, RejudgedField } from '../../api/chatTypes'
 import { Icon } from '../../ui/Icon'
 import { Modal } from '../../ui/Modal'
@@ -139,16 +139,6 @@ export function DraftCard({ draft: d, state, note, active, busy, onConfirm, onSa
         {locked('AI 안내', d.aiSummary)}
         {locked('분류', d.categoryCode ? `${d.categoryCode} · ${CATEGORIES[d.categoryCode].name}` : '미분류 · 서비스데스크 확인', 'category')}
         {locked('세부 유형', d.inquiryTypeCode ? `${d.inquiryTypeCode} · ${d.inquiryTypeName ?? ''}` : '담당자가 확인해요', 'inquiryType')}
-        {locked(
-          '긴급도',
-          <>
-            <span className={`pri-${d.urgency.toLowerCase()}`}>
-              {d.urgency} · {URGENCY_LABEL[d.urgency]}
-            </span>{' '}
-            <span className="small muted">{d.urgencyReasons.join(' · ')}</span>
-          </>,
-          'urgency',
-        )}
         {locked('추천 담당 그룹', d.groupName, 'group')}
       </dl>
 

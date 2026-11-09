@@ -25,7 +25,6 @@ export interface User {
   /** 임시 비밀번호로 로그인한 상태. true 이면 새 비밀번호를 정하기 전에는 다른 기능을 쓸 수 없다. (AU-01 passwordChangeRequired) */
   passwordChangeRequired?: boolean
   /** 비밀번호를 마지막으로 바꾼 뒤 지난 날수. 서버가 주는 값이 문서(AU-03)에 없어 제안이다. */
-  passwordChangedDaysAgo?: number
 }
 
 /** 성공 응답 */
@@ -138,6 +137,8 @@ export interface InquirySummary {
   unread: number
   /** 최근 활동 시각 (ISO 8601). '어제' 같은 표시는 화면에서 계산한다. */
   updatedAt: string
+  /** 마지막 AI 답변의 메시지 ID (서버 IQ-02). AI 답변이 없으면 null. 새 답변 점 판단에만 쓰고 크기는 뜻이 없다 */
+  lastAiMessageId?: number | null
 }
 
 /** 성공 응답을 만드는 도우미 */

@@ -1,17 +1,15 @@
 /**
  * 운영 현황 (관리자, /ops). (design/ITssue-Prototype.html viewExc)
- * 현재 미처리 문의 중 지금 확인하고 처리할 일만 모았다: 긴급 조치(P1), 당일 미종결 예외, 티켓 연동 확인, 담당자 배정 확인, 팀별 개인 현황.
+ * 현재 미처리 문의 중 지금 확인하고 처리할 일만 모았다: 긴급 조치(P1), 당일 미종결 예외, 티켓 연동 확인, 담당자 배정 확인. (팀별 개인 현황은 캘린더 화면 맨 아래에 있다)
  *
- * 목록은 접수 목록(TK-05 view=ALL)을 조건별로 받아 나눈다 (api/ops.ts). 팀별 개인 현황의 구성원·부재·업무량은 RF-04·TO-01·TK-05 로 읽는다 (api/reference.ts).
+ * 목록은 접수 목록(TK-05 view=ALL)을 조건별로 받아 나눈다 (api/ops.ts). 
  * 확인·재시도는 접수를 서버로 보내는 환경(VITE_SERVER_INTAKE)에서 연동 작업 재처리(TK-12)를 등록한다. 서버는 등록만 하고 실행기가 나중에 처리한다.
  * 담당자 지정은 서버의 배정 API(TK-09)로 예약하고, 마찬가지로 실행기가 반영한다.
  */
 import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { URGENCY_LABEL } from '../../api/catalog'
-import type { Urgency } from '../../api/chatTypes'
 import { getOpsSnapshot, recheckTransition, retryJiraCreate, type OpsSnapshot } from '../../api/ops'
-import { listBoard, listSupportGroups, type Candidate, type SupportGroupRef } from '../../api/reference'
+import { listSupportGroups, type SupportGroupRef } from '../../api/reference'
 import { getTicket, watchTickets } from '../../api/tickets'
 import type { TicketDetail, TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
@@ -19,15 +17,15 @@ import { formatElapsed } from '../../core/format'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
 import { FilterPill } from '../../ui/FilterPill'
-import { Collapse } from '../../ui/Collapse'
 import { Icon } from '../../ui/Icon'
-import { Modal } from '../../ui/Modal'
 import { useToast } from '../../ui/useToast'
 import { Topbar } from '../../ui/Topbar'
-import { StaffStatus, UrgencyChip } from '../staff/QueueView'
+import { UrgencyChip } from '../staff/QueueView'
+import { CheckDialog } from './CheckDialog'
+import { linkWhy } from './checkText'
 import { ReassignDialog } from './ReassignDialog'
+import { TicketDetailPanel } from '../staff/TicketDetailPanel'
 
-const URGS: Urgency[] = ['P1', 'P2', 'P3', 'P4']
 const hm = (iso: string) => {
   const d = new Date(iso)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
@@ -70,10 +68,9 @@ function Dots({ t, mode }: { t: TicketSummary; mode: 'link' | 'asg' }) {
   )
 }
 
-const linkWhy = (t: TicketSummary) => (t.transitionStatus === 'NEEDS_ADMIN' ? 'ITSM 동기화 확인 필요' : t.jiraSyncStatus === 'NEEDS_ADMIN' ? 'ITSM 생성 요청 응답 시간 초과 · 생성 여부 확인 필요' : 'ITSM 생성 결과 확인 중')
 const sub = (t: TicketSummary) => `${t.receiptNo} · ${t.group?.name ?? '-'} · ${t.assignee?.name ?? '배정 전'}`
 
-type Key = 'U' | 'X' | 'L' | 'A'
+type Key = 'L' | 'A'
 /** 최근 처리 결과: 같은 접수의 요청 → 결과를 한 건으로 묶는다 */
 interface Res {
   id: number
@@ -87,17 +84,13 @@ export function OpsView() {
   const navigate = useNavigate()
   const [groups, setGroups] = useState<SupportGroupRef[]>([])
   const [team, setTeam] = useState('')
-  const [chip, setChip] = useState('')
   const [snap, setSnap] = useState<OpsSnapshot | null>(null)
   const [error, setError] = useState('')
-  const [more, setMore] = useState<Record<Key, boolean>>({ U: false, X: false, L: false, A: false })
-  const [people, setPeople] = useState<Record<string, Candidate[]>>({})
-  const [peopleErr, setPeopleErr] = useState('')
+  const [more, setMore] = useState<Record<Key, boolean>>({ L: false, A: false })
   const [results, setResults] = useState<Res[]>([])
   const [resMore, setResMore] = useState(false)
-  const [curOpen, setCurOpen] = useState(false)
   const [pending, setPending] = useState<number[]>([])
-  const { say } = useToast()
+  const { say, fail } = useToast()
   const [check, setCheck] = useState<TicketSummary | null>(null)
   const [assign, setAssign] = useState<TicketDetail | null>(null)
   const [busy, setBusy] = useState(false)
@@ -132,24 +125,6 @@ export function OpsView() {
     }
   }, [user, admin, groupId, tick, reload])
 
-  // 팀별 개인 현황: 담당 그룹마다 구성원·부재·업무량
-  useEffect(() => {
-    if (!user || !admin || !groups.length) return
-    let alive = true
-    listBoard(user).then((r) => {
-      if (!alive) return
-      if (!r.ok) {
-        setPeopleErr(r.error.message)
-        setPeople({})
-        return
-      }
-      setPeopleErr('')
-      setPeople(r.data)
-    })
-    return () => {
-      alive = false
-    }
-  }, [user, admin, groups, tick, reload])
 
   /** 같은 접수의 요청과 결과는 한 줄로 묶고, 가장 최근에 건드린 건이 맨 위에 온다 */
   const note = useCallback((t: { id: number; receiptNo: string; jiraKey?: string | null }, text: string, st: 'req' | 'done' = 'done') => {
@@ -161,9 +136,13 @@ export function OpsView() {
     })
   }, [])
 
-  const grp = chip || team || groups[0]?.name || ''
-  const members = people[grp] ?? []
-  const open = (id: number) => navigate(`/tickets/${id}`)
+  // 문의를 누르면 전체 문의로 가지 않고 오른쪽에 그 문의의 상세만 연다
+  const [openId, setOpenId] = useState<number | null>(null)
+  const [slide, setSlide] = useState(false)
+  const open = (id: number) => {
+    if (openId === null) setSlide(true)
+    setOpenId(id)
+  }
   const toggle = (k: Key) => setMore((m) => ({ ...m, [k]: !m[k] }))
   const asOf = snap?.asOf ?? opened
 
@@ -233,26 +212,9 @@ export function OpsView() {
     )
   }
 
-  const rowU = (t: TicketSummary) => (
-    <button key={t.id} type="button" className="orow" onClick={() => open(t.id)}>
-      <span className="o-p">
-        <UrgencyChip u={t.urgency} />
-      </span>
-      <span className="o-t">
-        <b>{t.summary}</b>
-        <small>{sub(t)}</small>
-      </span>
-      <span className="o-s">
-        <StaffStatus t={t} />
-      </span>
-      <span className="o-e">
-        <b>{formatElapsed(t.createdAt)}</b> 경과
-      </span>
-    </button>
-  )
   const rowC = (mode: 'link' | 'asg') => (t: TicketSummary) => (
     <div key={t.id} className="orow l">
-      <div className="o-main">
+      <button type="button" className="o-main" title="상세 보기" aria-label={`${t.summary} 상세 보기`} onClick={() => open(t.id)}>
         <span className="o-p">
           <UrgencyChip u={t.urgency} />
         </span>
@@ -262,7 +224,7 @@ export function OpsView() {
             {sub(t)} · {mode === 'link' ? linkWhy(t) : '개인 배정을 확인해야 해요'}
           </small>
         </span>
-      </div>
+      </button>
       <Dots t={t} mode={mode} />
       <span className="o-e">
         <b>{formatElapsed(t.createdAt)}</b> 경과
@@ -292,7 +254,7 @@ export function OpsView() {
     if (!user) return
     const r = await getTicket(user, t.id)
     if (r.ok) setAssign(r.data)
-    else say(r.error.message)
+    else fail(r.error.message)
   }
 
   const sec = (title: ReactNode, desc: ReactNode, right: ReactNode, inner: ReactNode, cls?: string, label?: string) => (
@@ -308,8 +270,6 @@ export function OpsView() {
     </section>
   )
 
-  const urgent = snap?.urgent ?? []
-  const exc = snap?.exception ?? []
   const linkL = snap?.link ?? []
   const asgL = snap?.assign ?? []
   const wait = (body: ReactNode) => (snap ? body : <div className="empty" role="status">불러오는 중이에요…</div>)
@@ -341,13 +301,11 @@ export function OpsView() {
                 options={groups.map((g) => ({ value: g.name, label: g.name }))}
                 onChange={(v) => {
                   setTeam(v)
-                  setChip('')
                 }}
               />
               <span className="small muted">
                 {monthDay(asOf)} {hm(asOf)} 기준
               </span>
-              <span className="tag gray">제안</span>
               <span className="small muted dsy">
                 <span>마지막 조회 {hm(asOf)}</span>
                 <button
@@ -447,33 +405,10 @@ export function OpsView() {
             <div className="ogrid">
               {sec(
                 <>
-                  긴급 조치 필요 <span className="ocnt">{urgent.length}건</span>
-                </>,
-                '현재 미처리 · 처리 대기·처리 중 (과거 접수 포함)',
-                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P1&st=open')}>
-                  모두 보기
-                </button>,
-                wait(list('U', urgent, rowU, '처리 대기·처리 중인 긴급 건이 없어요.')),
-              )}
-              {sec(
-                <>
-                  당일 미종결 예외 <span className="ocnt">{exc.length}건</span> <span className="tag gray">제안</span>
-                </>,
-                '접수 당일 안에 끝나지 않은 긴급·높음 건',
-                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P12&unres=1')}>
-                  모두 보기
-                </button>,
-                wait(list('X', exc, rowU, '접수 당일 안에 끝나지 않은 P1·P2 건이 없어요.')),
-              )}
-            </div>
-
-            <div className="ogrid">
-              {sec(
-                <>
                   티켓 연동 확인 <span className="ocnt">{linkL.length}건</span>
                 </>,
                 'ITSM 이슈가 안 만들어졌거나 상태를 가져오지 못한 건',
-                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?st=none')}>
+                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?needs=1')}>
                   모두 보기
                 </button>,
                 wait(list('L', linkL, rowC('link'), '연동 확인이 필요한 건이 없어요.')),
@@ -484,108 +419,18 @@ export function OpsView() {
                   담당자 배정 확인 <span className="ocnt">{asgL.length}건</span>
                 </>,
                 'ITSM 이슈는 만들어졌지만 담당자가 비어 있는 건',
-                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?st=none')}>
+                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?needs=1')}>
                   모두 보기
                 </button>,
                 wait(list('A', asgL, rowC('asg'), '배정 확인이 필요한 건이 없어요.')),
                 asgL.length ? 'need' : '',
               )}
             </div>
-
-            {sec(
-              '팀별 개인 현황',
-              '팀별로 근무 여부와 진행 중 티켓의 긴급도를 확인해요. 이름을 누르면 그 담당자의 처리 대기·처리 중 티켓을 볼 수 있어요. 칩 숫자는 근무/전체 인원이에요.',
-              null,
-              peopleErr ? (
-                <div className="alert info" role="status">
-                  <Icon name="alert" />
-                  <div>{peopleErr}</div>
-                </div>
-              ) : (
-                <>
-                  <div className="ocurh">
-                    <div className="subc" role="group" aria-label="담당 그룹">
-                      {groups.map((g) => {
-                        const list = people[g.name] ?? []
-                        return (
-                          <button key={g.id} type="button" className={`chip${g.name === grp ? ' on' : ''}`} aria-pressed={g.name === grp} onClick={() => setChip(g.name)}>
-                            {g.name} <em>{`${list.filter((c) => c.avail).length}/${list.length}`}</em>
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <button type="button" className="tgc" aria-expanded={curOpen} aria-controls="ocur-b" aria-label={`${grp} 담당자 ${curOpen ? '접기' : '펼치기'}`} title={curOpen ? '접기' : `${members.length}명 보기`} onClick={() => setCurOpen((v) => !v)}>
-                      <Icon name="chevron" />
-                    </button>
-                  </div>
-                  <Collapse open={curOpen}>
-                  <div className="tw" id="ocur-b">
-                    <table className="tbl ptbl">
-                      <colgroup>
-                        <col style={{ width: '14%' }} />
-                        <col style={{ width: '13%' }} />
-                        <col style={{ width: '11%' }} />
-                        <col style={{ width: '11%' }} />
-                        <col style={{ width: '22%' }} />
-                        <col style={{ width: '12%' }} />
-                        <col style={{ width: '17%' }} />
-                      </colgroup>
-                      <thead>
-                        <tr>
-                          <th>이름</th>
-                          <th>오늘 상태</th>
-                          <th className="c">처리 대기 (RDY)</th>
-                          <th className="c">처리 중 (WIP)</th>
-                          <th>
-                            긴급도 <span className="small muted">(처리 대기 + 처리 중)</span>
-                          </th>
-                          <th>ITSM 계정</th>
-                          <th>비고</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {members.map((c) => {
-                          const notes = [!c.avail && '부재 중 · 자동배정 제외', !c.jira && 'ITSM 배정 반영 불가'].filter(Boolean).join(' · ')
-                          return (
-                            <tr key={c.id}>
-                              <td>
-                                <button type="button" className="lk" title={`${c.name} 담당자의 처리 대기·처리 중 티켓 보기`} onClick={() => navigate(`/tickets?staff=${encodeURIComponent(c.name)}&st=open`)}>
-                                  {c.name}
-                                </button>
-                              </td>
-                              <td>
-                                <span className={`stt ${c.avail ? 'on' : 'off'}`}>
-                                  <i />
-                                  {c.avail ? '근무' : `부재 (${c.leave ?? '연차'})`}
-                                </span>
-                              </td>
-                              <td className="c">{c.rdy}건</td>
-                              <td className="c">{c.wip}건</td>
-                              <td>
-                                <span className="pcs">
-                                  {URGS.map((p) => (
-                                    <span key={p} className={`pcn ${c.pri[p] ? `pri-${p.toLowerCase()}` : 'z'}`} title={URGENCY_LABEL[p]}>
-                                      {p} <b>{c.pri[p]}</b>
-                                    </span>
-                                  ))}
-                                </span>
-                              </td>
-                              <td>{c.jira ? '연결됨' : <span className="od">⚠ 미연결</span>}</td>
-                              <td className="small muted">{notes || '-'}</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  </Collapse>
-                </>
-              ),
-            )}
           </div>
         </div>
       </main>
 
+      {openId !== null && <TicketDetailPanel key={openId} id={openId} tick={tick} slide={slide} onSlideEnd={() => setSlide(false)} onClose={() => setOpenId(null)}  />}
       {check && (
         <CheckDialog
           t={check}
@@ -613,89 +458,5 @@ export function OpsView() {
         />
       )}
     </>
-  )
-}
-
-const WORK_LABEL = { RDY: '처리 대기', WIP: '처리 중', FIN: '해결 확인 대기', CLS: '해결 완료' } as const
-
-function CheckDialog({ t, busy, err, onClose, onDetail, onGo }: { t: TicketSummary; busy: boolean; err: string; onClose: () => void; onDetail: () => void; onGo: (kind: 'link' | 'trn', reason: string) => void }) {
-  const trn = t.transitionStatus === 'NEEDS_ADMIN'
-  const [why, setWhy] = useState('')
-  const [whyErr, setWhyErr] = useState('')
-  const to = t.requestedWorkStatus ? WORK_LABEL[t.requestedWorkStatus] : '요청한 상태'
-  const now = t.workStatus ? WORK_LABEL[t.workStatus] : '이전 상태'
-  const verifying = t.jiraSyncStatus === 'VERIFYING'
-  const submit = () => {
-    const w = why.trim()
-    if (!w) return setWhyErr('재처리 사유를 입력해 주세요.')
-    onGo(trn ? 'trn' : 'link', w)
-  }
-  return (
-    <Modal title={trn ? 'ITSM 상태 확인' : 'ITSM 생성 확인'} onClose={onClose}>
-      <p className="small muted" style={{ margin: 0 }}>
-        접수 <span className="mono">{t.receiptNo}</span> · {t.jiraKey ? <>ITSM <b className="mono">{t.jiraKey}</b></> : 'ITSM 티켓 없음'} · {t.group?.name ?? '-'} · <UrgencyChip u={t.urgency} />
-      </p>
-      <div className="mdl-issue">
-        <div className="stlist" aria-label="확인이 필요한 내용">
-          <div className={`sx live ${trn || !verifying ? 'tn-urg' : 'tn-warn'}`}>
-            <span className="mk">
-              <Icon name="alert" />
-            </span>
-            <span className="l">{trn ? '상태 변경' : 'ITSM 연동'}</span>
-            <span className="vb">
-              <span className={`sbd ${trn || !verifying ? 'tn-urg' : 'tn-warn'}`}>
-                <i />
-                {trn ? 'ITSM 동기화 필요' : verifying ? '생성 여부 확인 중' : 'ITSM 생성 확인 필요'}
-              </span>
-            </span>
-            <span className="sxs">{trn ? `${now} → ${to} 변경이 ITSM에 반영됐는지 확인하지 못함` : linkWhy(t)}</span>
-          </div>
-        </div>
-      </div>
-      <p className="mdl-how">
-        {trn ? (
-          <>
-            ITSM에서 현재 상태를 먼저 읽어 와요. 이미 <b>{to}</b>이면 다시 요청하지 않고 완료로 처리하고, 아직 <b>{now}</b>이면 <b>{to}</b>로 바꾸는 요청을 다시 보내요.
-          </>
-        ) : (
-          <>
-            ITSM에서 접수번호 <b className="mono">{t.receiptNo}</b>로 만든 티켓이 있는지 먼저 찾아요. 있으면 그 티켓을 연결하고, 없을 때만 새로 만들어요. (중복 생성 방지)
-          </>
-        )}
-      </p>
-      <div className="field">
-        <label htmlFor="ops-why">
-          재처리 사유 <span className="muted">(필수)</span>
-        </label>
-        <textarea id="ops-why" className={`ta${whyErr ? ' err' : ''}`} maxLength={500} value={why} placeholder="예) ITSM 장애 복구 후 재처리" aria-invalid={!!whyErr} aria-describedby={whyErr ? 'ops-why-e' : undefined} onChange={(e) => { setWhy(e.target.value); setWhyErr('') }} />
-        {whyErr && (
-          <div className="ferr" id="ops-why-e" role="alert">
-            {whyErr}
-          </div>
-        )}
-        <div className="wcnt">
-          <span className="hint">처리 이력과 감사 기록에 남아요.</span>
-          <span className="hint">
-            <b>{why.length}</b>/500
-          </span>
-        </div>
-      </div>
-      {err && (
-        <div className="ferr" role="alert">
-          {err}
-        </div>
-      )}
-      <div className="acts">
-        <button type="button" className="btn sec" onClick={onClose}>
-          닫기
-        </button>
-        <button type="button" className="btn sec" onClick={onDetail}>
-          상세
-        </button>
-        <button type="button" className="btn pri" disabled={busy} onClick={submit}>
-          {trn ? 'ITSM 상태 확인·다시 반영' : 'ITSM 생성 확인·재시도'}
-        </button>
-      </div>
-    </Modal>
   )
 }

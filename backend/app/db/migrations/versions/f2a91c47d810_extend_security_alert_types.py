@@ -1,12 +1,12 @@
 """Extend security alert types for LLM review and filter failures.
 
 Revision ID: f2a91c47d810
-Revises: f8a2c6d41b97
+Revises: d3a7f2c9e184
 """
 from alembic import op
 
 revision = 'f2a91c47d810'
-down_revision = 'f8a2c6d41b97'
+down_revision = 'd3a7f2c9e184'
 branch_labels = None
 depends_on = None
 

@@ -224,6 +224,8 @@ export interface Inquiry {
   createdAt?: string
   /** 최근 활동 시각 (ISO 8601). '어제' 같은 표시는 화면에서 계산한다. */
   updatedAt: string
+  /** 읽어 온 메시지 중 마지막 AI 답변의 ID (서버 모드). 새 답변 점의 "확인한 값"으로 쓴다 */
+  lastAiMessageId?: number | null
   messages: ChatMessage[]
   draft: Draft | null
   draftState: DraftState

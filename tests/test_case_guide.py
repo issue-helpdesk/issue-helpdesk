@@ -14,6 +14,9 @@ from app.rag.case_guide import (CASE_DIR, CaseGuideError, Draft, _added_lines, _
                                 check, draft, next_version, receipts, register, sensitive_warnings)
 from app.rag.ingest import GUIDES, activate, connect
 from app.rag.ingest.upload import ingest_version
+from app.rag.parser import parse
+from app.rag.parser.models import Element
+from app.rag.parser.to_md import to_guide_md
 from test_ingest_upload import EMB, REPO, guide_file, needs_db, url, version  # noqa: F401  (url 은 fixture)
 
 BASE = (REPO / guide_file('IT-SW-001')).read_text(encoding='utf-8')
@@ -52,6 +55,8 @@ def test_add_case_shape():
     assert d.md.index('### 3.8 ') < d.md.index('## 4. ') and d.md.index('### 3.7 ') < d.md.index('### 3.8 ')
     assert re.search(r'^  - 3\.7 .*\n  - 3\.8 설치가', d.md, re.M)
     assert re.search(r'^\| v2\.0 \|.*\|\n\| v2\.1 \| 2026-10-29 \| 엔드포인트지원팀 \| 해결 사례 반영 \(TK-0042\)', d.md, re.M)
+    assert re.search(r'^\| 3\.7 \|.*\|\n\| 3\.8 \| 설치가 "대기 중"에서 멈추고 캐시 폴더가 가득 참 \| SW-01 \| 🔵 IT 담당자 처리 \| '
+                     r'엔드포인트지원팀 \|$', d.md, re.M)              # 3장 항목 표 끝에 한 줄
     removed = set(BASE.splitlines()) - set(d.md.splitlines())
     assert all('v2.0' in line for line in removed)          # 바뀐 줄은 버전 표기뿐
 
@@ -80,6 +85,79 @@ def test_continue_draft_appends_to_same_version():
     second, _ = make(md_base=first.md, receipt_no='TK-0043', summary='설치 후 바로 꺼짐')
     assert second.section_no == '3.9' and second.md.count('\n| v2.1 |') == 1
     assert '(TK-0042)' in second.md and '; 해결 사례 반영 (TK-0043): 3.9 설치 후 바로 꺼짐 |' in second.md
+    assert re.search(r'^\| 3\.8 \| 설치가 .*\|\n\| 3\.9 \| 설치 후 바로 꺼짐 \|', second.md, re.M)   # 항목 표도 이어서
+
+
+def test_item_table_unknown_shape_left_alone():
+    """3장 항목 표 머리줄이 가이드 5열과 다르거나 표가 없으면 표는 고치지 않고 경고. 항목·목차·개정 이력은 그대로 더한다."""
+    head = '| 번호 | 제목 | 문의 유형 | 처리 구분 | 담당 부서 |'
+    assert head in BASE
+    other = BASE.replace(head, '| 번호 | 제목 | 문의 유형 | 담당 부서 |', 1)
+    d, warnings = make(md_base=other)
+    assert warnings == ['3장 항목 표 머리줄(번호 | 제목 | 문의 유형 | 담당 부서)이 예상과 달라 표는 고치지 않았습니다']
+    assert not re.search(r'^\| 3\.8 \|', d.md, re.M) and d.section_no == '3.8' and len(items(d.md)) == len(items(BASE)) + 1
+    table = re.search(r'^\| 번호 \|.*\n(?:\|.*\n)*', BASE, re.M).group(0)
+    d, warnings = make(md_base=BASE.replace(table, '', 1))
+    assert warnings == ['3장 항목 표를 찾지 못해 표는 고치지 않았습니다'] and d.section_no == '3.8'
+    assert check(d, d.md, [])[0] == []
+
+
+TABLE_HEAD = '| 번호 | 제목 | 문의 유형 | 처리 구분 | 담당 부서 |'
+
+
+def _first_table_end(md):
+    """BASE 의 3장 항목 표 마지막 줄 (그 뒤에 무엇을 끼워 넣는 시험용)."""
+    return re.search(r'^\| 번호 \|.*\n(?:\|.*\n)*', md, re.M).end()
+
+
+@pytest.mark.parametrize('gap', ['\n', '\n   \n'])
+def test_item_table_ends_at_blank_line(gap):
+    """PR #349 검수: 빈 줄(공백만 든 빈 줄도) 뒤의 다른 표는 다른 표다 (md 파서도 따로 읽는다). 항목 표에만 한 줄."""
+    at = _first_table_end(BASE)
+    base = BASE[:at] + gap + '| 참고 | 설명 |\n| --- | --- |\n| a | b |\n' + BASE[at:]
+    d, warnings = make(md_base=base)
+    assert warnings == []
+    assert re.search(r'^\| 3\.7 \|.*\|\n\| 3\.8 \| 설치가', d.md, re.M) and '| a | b |\n\n' in d.md + '\n'
+    assert not re.search(r'^\| a \| b \|\n\| 3\.8', d.md, re.M)
+
+
+def test_item_table_skips_code_block():
+    """PR #349 검수: 3장 앞 코드 블록 안의 같은 모양 표 예시는 건너뛰고 실제 항목 표에 한 줄."""
+    chapter = re.search(r'^## 3\. .*\n', BASE, re.M).end()
+    example = f'\n```\n{TABLE_HEAD}\n| --- | --- | --- | --- | --- |\n```\n'
+    d, warnings = make(md_base=BASE[:chapter] + example + BASE[chapter:])
+    assert warnings == [] and example in d.md                       # 예시는 그대로
+    assert re.search(r'^\| 3\.7 \|.*\|\n\| 3\.8 \| 설치가', d.md, re.M)
+
+
+def test_item_table_crlf():
+    """줄 끝이 CRLF 인 md 도 표를 찾고 같은 줄 끝으로 한 줄을 넣는다."""
+    d, warnings = make(md_base=BASE.replace('\n', '\r\n'))
+    assert not [w for w in warnings if '항목 표' in w]
+    assert re.search(r'^\| 3\.7 \|.*\|\r\n\| 3\.8 \| 설치가 .*\|\r\n', d.md, re.M)
+
+
+def test_item_table_mismatch_warned_for_old_draft():
+    """이 기능 전에 만든 초안(표에 3.8 줄 없음)에 이어 쓰면 3.9 줄만 더하고, 빠진 번호를 경고한다 (지난 줄은 채우지 않음)."""
+    first, _ = make()
+    old = re.sub(r'^\| 3\.8 \|.*\n', '', first.md, flags=re.M)
+    second, warnings = make(md_base=old, receipt_no='TK-0043', summary='설치 후 바로 꺼짐')
+    assert warnings == ['3장 항목 표와 항목 번호가 다릅니다 (표에 없음 3.8). 표를 확인해 주세요']
+    assert re.search(r'^\| 3\.7 \|.*\|\n\| 3\.9 \| 설치 후 바로 꺼짐', second.md, re.M)
+
+
+def test_item_table_odd_row_does_not_crash():
+    """표 안에 세로줄 하나뿐인 줄이 있어도 멈추지 않고 한 줄을 더한다 (번호가 맞지 않으니 경고)."""
+    at = _first_table_end(BASE)
+    d, warnings = make(md_base=BASE[:at] + '|\n' + BASE[at:])
+    assert re.search(r'^\|\n\| 3\.8 \| 설치가', d.md, re.M) and len(warnings) == 1 and '항목에 없음' in warnings[0]
+
+
+def test_item_table_row_escapes_pipe_and_empty_cells():
+    """표 줄도 세로줄을 이스케이프해 5칸 그대로. 문의 유형·담당 부서가 없으면 빈칸."""
+    d, _ = make(summary='프로세스 A | B 전환 오류', code=None, group=None)
+    row = next(line for line in d.md.splitlines() if line.startswith('| 3.8 |'))
+    assert len(re.split(r'(?<!\\)\|', row)) - 2 == 5 and 'A \\| B' in row and row.endswith('| 🔵 IT 담당자 처리 |  |')
 
 
 def test_sensitive_only_in_added_lines():
@@ -442,6 +520,7 @@ def test_all_guides_take_a_case():
     """57종 가이드 md 모두: 항목 하나 늘고 새 번호가 맞고, 사라진 줄은 버전 표기뿐 (검수에서 확인한 것을 시험으로)."""
     files = sorted(f for f in GUIDES.rglob('IT-*.md'))
     assert len(files) == 57
+    table_rows = 0
     for f in files:
         base = f.read_text(encoding='utf-8')
         version = re.search(r'^version:\s*"?([^"\n]+)', base, re.M).group(1)
@@ -449,6 +528,8 @@ def test_all_guides_take_a_case():
         before, after = items(base), items(md)
         assert len(after) == len(before) + 1 and after[-1].section_no == section, f.name
         assert all(version in line for line in set(base.splitlines()) - set(md.splitlines())), f.name
+        table_rows += f.parent.name == 'guide' and bool(re.search(rf'^\| {re.escape(section)} \|', md, re.M))
+    assert table_rows == 27                                  # 임직원용 가이드 27종 모두 3장 항목 표에 한 줄
 
 
 def test_markdown_in_ticket_text_stays_inside_item():
@@ -467,6 +548,20 @@ def test_non_md_current_is_converted(fmt):
     md, section = add_case(base, ticket_row(), 'v2.1', TODAY, [])
     assert section == '3.8' and [c.text for c in items(base)] == [c.text for c in items(md)][:-1]
     assert [c.section_no for c in items(base)] == [c.section_no for c in items(BASE)]
+
+
+def test_non_md_current_with_preface_keeps_it():
+    """첫 장 앞에 서문(덧붙인 표)이 있는 비md 현행: 바꾼 기준 md 에 서문이 남고, 사례를 넣어도 서문·목차·새 항목이 맞다."""
+    doc = parse(str(REPO / guide_file('IT-SW-001', 'docx')))
+    first = next(i for i, e in enumerate(doc.elements) if e.kind == 'heading' and e.level == 1)
+    doc.elements.insert(first, Element('table', rows=[['안내', '서문 시험 PREFACE-777']]))
+    base = to_guide_md(doc)
+    md, section = add_case(base, ticket_row(), 'v2.1', TODAY, [])
+    chunks = _parse_text(md)[1]
+    assert chunks[0].chunk_type == 'preface' and 'PREFACE-777' in chunks[0].body
+    assert md.index('PREFACE-777') < md.index('## 목차')
+    assert section == '3.8' and re.search(r'^  - 3\.7 .*\n  - 3\.8 설치가', md, re.M)
+    assert [c.text for c in items(base)] == [c.text for c in items(md)][:-1]
 
 
 def test_unreadable_current_refused(tmp_path):

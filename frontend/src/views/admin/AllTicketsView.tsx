@@ -89,7 +89,7 @@ export function AllTicketsView() {
     setSlide(openId !== null)
   }
 
-  // 대시보드에서 오면 주소의 값으로 시작한다 (?st=open&cat=NET&pri=P12&team=…&staff=…&per=m&unres=1&mode=ai&aik=ok)
+  // 대시보드에서 오면 주소의 값으로 시작한다 (?st=open&cat=NET&pri=P12&team=…&staff=…&per=m&needs=1&mode=ai&aik=ok)
   const [params] = useSearchParams()
   const pick = <T extends string>(k: string, ok: readonly T[], d: T): T => (ok.includes(params.get(k) as T) ? (params.get(k) as T) : d)
   const [mode, setMode] = useState<Mode>(() => pick('mode', ['staff', 'ai'] as const, 'staff'))
@@ -99,7 +99,8 @@ export function AllTicketsView() {
   const [team, setTeam] = useState(() => params.get('team') ?? '')
   const [staff, setStaff] = useState(() => params.get('staff') ?? '')
   const [per, setPer] = useState<string>(() => pick('per', ['', 'd', 'm', 'y'] as const, ''))
-  const [unres, setUnres] = useState(() => params.get('unres') === '1')
+  // 연동·배정·상태 변경 중 관리자 확인이 필요한 접수만 (서버의 needsAdmin 조건)
+  const [needs, setNeeds] = useState(() => params.get('needs') === '1')
   const [aik, setAik] = useState<'' | AiKind>(() => pick('aik', ['', 'ok', 'pend', 'unr'] as const, ''))
   // AI 처리 보기의 검색어·분류 (접수 기간은 담당자 처리와 함께 쓴다)
   const [aiQ, setAiQ] = useState('')
@@ -137,13 +138,14 @@ export function AllTicketsView() {
   const query: TicketListQuery = useMemo(() => {
     const days = PERIODS.find((p) => p.value === per)?.days
     const w: WorkStatus[] | undefined =
-      st === 'open' ? ['RDY', 'WIP'] : st === 'RDY' || st === 'WIP' || st === 'FIN' || st === 'CLS' ? [st] : unres ? ['RDY', 'WIP', 'FIN'] : undefined
+      st === 'open' ? ['RDY', 'WIP'] : st === 'RDY' || st === 'WIP' || st === 'FIN' || st === 'CLS' ? [st] : undefined
     return {
       view: 'ALL',
       page,
       size: PAGE_SIZE,
       sort: sort ? `${SORT_KEY[sort.col]},${sort.dir}` : 'createdAt,desc',
       workStatus: w,
+      needsAdmin: needs ? true : undefined,
       jiraSyncStatus: st === 'none' ? ['PENDING', 'VERIFYING', 'NEEDS_ADMIN'] : undefined,
       categoryCode: cat ? [cat as CategoryCode] : undefined,
       urgency: pri === 'P12' ? ['P1', 'P2'] : pri ? [pri as Urgency] : undefined,
@@ -152,7 +154,7 @@ export function AllTicketsView() {
       createdFrom: days === undefined ? undefined : daysAgo(days),
       q: q.trim() || undefined,
     }
-  }, [st, unres, cat, pri, team, staff, per, q, page, sort, groups, staffList])
+  }, [st, needs, cat, pri, team, staff, per, q, page, sort, groups, staffList])
 
   useEffect(() => {
     if (!user || mode !== 'staff') return
@@ -210,14 +212,14 @@ export function AllTicketsView() {
     set(v)
     setPage(1)
   }
-  const active = [cat, pri, team, staff, per, unres && 'u'].filter(Boolean).length
+  const active = [cat, pri, team, staff, per, needs && 'n'].filter(Boolean).length
   const clear = () => {
     setCat('')
     setPri('')
     setTeam('')
     setStaff('')
     setPer('')
-    setUnres(false)
+    setNeeds(false)
     setPage(1)
   }
   const onSort = (col: SortCol) => {
@@ -433,19 +435,11 @@ export function AllTicketsView() {
                 {data?.totalCount ?? 0}건
               </span>
               <FilterPill label="분류" value={cat} options={Object.keys(CATEGORIES).map((c) => ({ value: c, label: CATEGORIES[c as CategoryCode].name }))} onChange={reset(setCat)} />
-              <FilterPill label="긴급도" value={pri} options={[{ value: 'P12', label: 'P1·P2 · 긴급·높음' }, ...URGENCIES.map((p) => ({ value: p, label: `${p} · ${URGENCY_LABEL[p]}` }))]} onChange={reset(setPri)} />
+              <FilterPill label="긴급도" value={pri} options={[{ value: 'P12', label: '긴급·높음' }, ...URGENCIES.map((p) => ({ value: p, label: URGENCY_LABEL[p] }))]} onChange={reset(setPri)} />
               <FilterPill label="팀" value={team} options={groups.map((g) => ({ value: g.name, label: g.name }))} onChange={reset(setTeam)} />
               <FilterPill label="담당자" value={staff} options={staffList.map((s) => ({ value: s.name, label: `${s.name} · ${s.group}` }))} onChange={reset(setStaff)} />
               {perChip}
-              {unres && (
-                <span className="d2p act">
-                  <small>상태</small>
-                  <span>해결 완료 제외</span>
-                  <button type="button" className="x" aria-label="해결 완료 제외 조건 해제" onClick={() => reset(setUnres)(false)}>
-                    ✕
-                  </button>
-                </span>
-              )}
+              <FilterPill label="확인 필요" value={needs ? '1' : ''} options={[{ value: '1', label: '확인 필요만' }]} onChange={(v) => reset(setNeeds)(v === '1')} />
               {active > 0 && (
                 <button type="button" className="d2clr" onClick={clear}>
                   ✕ 필터 해제

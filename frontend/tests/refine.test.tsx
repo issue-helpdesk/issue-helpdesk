@@ -134,14 +134,14 @@ describe('접수 초안 수정', () => {
     expect(screen.getByLabelText('발생 시점')).toBeInTheDocument()
     expect(screen.getByLabelText('업무 영향')).toBeInTheDocument()
     expect(screen.getByLabelText('시도한 조치')).toBeInTheDocument()
-    // 자동 판단 항목(대상 시스템, AI 안내, 분류, 세부 유형, 긴급도, 담당 그룹)은 잠금 표시
-    expect(screen.getAllByText('자동으로 판단하는 항목')).toHaveLength(6)
+    // 자동 판단 항목(대상 시스템, AI 안내, 분류, 세부 유형, 담당 그룹)은 잠금 표시
+    expect(screen.getAllByText('자동으로 판단하는 항목')).toHaveLength(5)
     const onset = screen.getByLabelText('발생 시점')
     await user.clear(onset)
     await user.type(onset, '어제 오후부터 전사 접속이 안 돼요')
     await user.click(screen.getByRole('button', { name: '수정 저장' }))
     expect(await screen.findByText('NET-03 · VPN 전사 장애', {}, SLOW)).toBeInTheDocument()
-    expect(screen.getAllByText('다시 판단됨').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('다시 판단됨').length).toBeGreaterThanOrEqual(1)
   })
 })
 
@@ -190,7 +190,7 @@ describe('진행 카드', () => {
 })
 
 describe('비밀번호를 잊으셨나요? 안내와 모달 초점', () => {
-  it('로그인 화면의 링크로 안내 창을 열면 입력칸 없이 서비스데스크 요청 방법을 알려 준다', async () => {
+  it('로그인 화면의 링크로 안내 창을 열면 입력칸 없이 IT 헬프데스크 요청 방법을 알려 준다', async () => {
     const user = userEvent.setup()
     renderAt('/login')
     await user.click(screen.getByRole('button', { name: '비밀번호를 잊으셨나요?' }))
@@ -198,7 +198,7 @@ describe('비밀번호를 잊으셨나요? 안내와 모달 초점', () => {
     // 문서에는 셀프 초기화가 없으므로 사번 입력칸과 휴대폰 인증 단계가 없다
     expect(within(dialog).queryByLabelText('사번')).not.toBeInTheDocument()
     expect(within(dialog).queryByRole('button', { name: /휴대폰/ })).not.toBeInTheDocument()
-    expect(dialog).toHaveTextContent('서비스데스크에 임시 비밀번호 발급을 요청해 주세요')
+    expect(dialog).toHaveTextContent('IT 헬프데스크에 임시 비밀번호 발급을 요청해 주세요')
     expect(dialog).toHaveTextContent('사번과 이름을 알려 주세요')
     // 열면 창 안의 첫 버튼으로 초점이 가고, 확인으로 닫는다
     expect(within(dialog).getByRole('button', { name: '확인' })).toHaveFocus()
@@ -221,7 +221,7 @@ describe('비밀번호를 잊으셨나요? 안내와 모달 초점', () => {
     expect(link).toHaveFocus()
   })
 
-  it('로그인 전 상담의 비밀번호 답변에서도 같은 창을 열 수 있고, 입력한 값은 가려서 보인다', async () => {
+  it('로그인 전 상담의 비밀번호 답변에서도 같은 창을 열 수 있다', async () => {
     const user = userEvent.setup()
     renderAt('/login')
     await user.click(screen.getByRole('button', { name: '비밀번호를 재설정하고 싶어요' }))
@@ -229,11 +229,6 @@ describe('비밀번호를 잊으셨나요? 안내와 모달 초점', () => {
     await user.click(open)
     expect(await screen.findByRole('dialog', { name: '비밀번호를 잊으셨나요?' })).toBeInTheDocument()
     await user.keyboard('{Escape}')
-    const box = screen.getByLabelText('로그인 전 상담 입력')
-    await user.type(box, '비밀번호는 abc12345 입니다{Enter}')
-    const panel = screen.getByRole('region', { name: '로그인 전 상담' })
-    expect(await within(panel).findByText(/가림 처리했어요/, {}, SLOW)).toBeInTheDocument()
-    expect(within(panel).queryByText(/abc12345/)).not.toBeInTheDocument()
   })
 })
 

@@ -17,7 +17,7 @@
 
 모양 (md_parser 가 읽는 문법만 쓴다)
 - 머리말: doc.meta 를 front matter 로 (목록은 ["a", "b"]). 줄바꿈은 빈칸으로
-- '# 제목', 표지 줄은 '> …', '## 목차' (장·3.x 항목. 파서는 읽지 않고 가이드화가 한 줄 더한다)
+- '# 제목', 표지 줄은 '> …', 첫 장 앞 서문, '## 목차' (장·3.x 항목. 파서는 읽지 않고 가이드화가 한 줄 더한다)
 - 제목 수준 1·2·3 → '##'·'###'·'####', 카드 제목('목적' 등) → '**목적**'
 - 항목 머리 정보: '**문의 유형** SW-01 · **처리 구분** …' (하나뿐이면 한 줄 표 — 파서가 둘 이상일 때만 머리 정보로 읽는다)
 - 문단·목록·표 칸 안 줄바꿈은 '<br>' (파서가 줄바꿈으로 되돌린다. 요소 경계가 바뀌면 청크 경계가 바뀐다)
@@ -58,8 +58,13 @@ def to_guide_md(doc: ParsedDocument, drop_images: frozenset[str] | set[str] = fr
         out += [f'# {_inline(title)}', '']
         if cover := doc.properties.get('cover'):
             out += [f'> {_inline(c)}  ' for c in cover] + ['']
+    # 첫 장 앞 서문(표지로 빠지지 않은 글·표·그림. 템플릿이 아닌 문서, 장 앞에 덧붙인 표)은 목차 **앞**에 쓴다.
+    # md_parser 는 '## 목차' 부터 다음 제목까지 건너뛰므로, 목차 뒤에 쓰면 서문이 사라진다 (청커는 서문을 preface 청크로 남긴다)
+    first = next((i for i, e in enumerate(els) if i >= start and e.kind == 'heading' and e.level == 1), len(els))
+    for e in els[start:first]:
+        out += _element(e, img, out)
     out += _toc(els)
-    for e in els[start:]:
+    for e in els[first:]:
         out += _element(e, img, out)
     return '\n'.join(out).rstrip('\n') + '\n'
 

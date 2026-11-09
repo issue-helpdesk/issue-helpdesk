@@ -1,5 +1,6 @@
 """문서 API (DC-01~09). SQLite 메모리 DB 만 쓰고, 적재는 부르는지만 본다."""
 import asyncio
+from datetime import timedelta
 import importlib.util
 import io
 import os
@@ -22,9 +23,12 @@ from app.models import (
     DocumentVersion,
     Faq,
     FaqSourceDocument,
+    GuideCluster,
     KnowledgeDocument,
     SupportGroup,
+    TicketGuideState,
 )
+from app.rag.parser.md_parser import display_md
 from app.services import document_file
 from app.services.document_ingest import ingest_submitter
 from test_auth import TABLES, add_user, bearer, client, error_code, login  # noqa: F401
@@ -37,7 +41,8 @@ DOCS = "/api/v1/documents"
 def db():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     create_sqlite_tables(engine, TABLES + ["categories", "faqs", "knowledge_documents", "document_versions",
-                                           "document_chunks", "faq_source_documents"])
+                                           "document_chunks", "faq_source_documents", "guide_clusters",
+                                           "ticket_guide_states"])
     with Session(engine) as session:
         yield session
     engine.dispose()
@@ -822,6 +827,202 @@ def test_relaxing_with_other_field_needs_reason(client, db, users):
     assert (new.is_current, new.view_scope, new.transfer_policy) == (False, "ALL", "BLOCKED")
 
 
+
+# ------------------------------------------------------------------ DC-09 해결 사례 묶음
+
+
+def add_cluster(db, registered, base, status="REVIEWING", tickets=(), **fields):
+    """registered 버전에 등록한 묶음과 소속 티켓 상태. tickets: 티켓 id."""
+    values = {"category_code": "NET", "judgment": "ADD_ITEM", "title": "VPN 끊김",
+              "reject_reason": "이미 매뉴얼에 있음" if status == "REJECTED" else None, **fields}
+    cluster = GuideCluster(status=status, registered_version_id=registered.id,
+                           base_version_id=base.id if base else None, **values)
+    db.add(cluster)
+    db.flush()
+    for ticket_id in tickets:
+        db.add(TicketGuideState(ticket_id=ticket_id, status=status, cluster_id=cluster.id))
+    db.commit()
+    return cluster
+
+
+def guide_states(db):
+    return {s.ticket_id: s.status for s in db.scalars(select(TicketGuideState))}
+
+
+def test_activate_applies_registered_clusters(client, db, users):
+    document, (old, new) = add_doc(db, versions=(("v1", "ALL", True), ("v2", "ALL", False)))
+    first = add_cluster(db, new, old, tickets=(1, 2))
+    second = add_cluster(db, new, old, tickets=(3,))         # 이어 쓴 초안: 묶음 둘이 한 버전
+    db.add(TicketGuideState(ticket_id=9, status="WAITING"))  # 다른 티켓은 그대로
+    db.commit()
+
+    res = patch_version(client, users["admin"], document, new, {"isCurrent": True})
+
+    assert res.status_code == 200
+    db.expire_all()
+    assert (first.status, second.status) == ("APPLIED", "APPLIED")
+    assert first.updated_at is not None
+    assert guide_states(db) == {1: "APPLIED", 2: "APPLIED", 3: "APPLIED", 9: "WAITING"}
+
+
+def test_activate_blocked_by_rejected_cluster(client, db, users):
+    document, (old, new) = add_doc(db, versions=(("v1", "ALL", True), ("v2", "ALL", False)))
+    kept = add_cluster(db, new, old, tickets=(1,))
+    rejected = add_cluster(db, new, old, status="REJECTED", tickets=(2,))
+
+    res = patch_version(client, users["admin"], document, new, {"isCurrent": True, "viewScope": "AGENT"})
+
+    assert (res.status_code, error_code(res)) == (409, "DOCUMENT_VERSION_HAS_REJECTED_CLUSTER")
+    assert res.json()["error"]["details"][0]["value"] == [rejected.id]
+    db.expire_all()
+    assert (old.is_current, new.is_current, new.view_scope) == (True, False, "ALL")   # 정책도 바꾸지 않는다
+    assert kept.status == "REVIEWING" and guide_states(db) == {1: "REVIEWING", 2: "REJECTED"}
+
+
+def test_activate_blocked_when_base_changed(client, db, users):
+    """초안을 v1 기준으로 만들었는데 그사이 v2 가 현행이 됐다. v3 로 바꾸면 v2 의 수정이 사라진다."""
+    document, (v1, v2, v3) = add_doc(db, versions=(("v1", "ALL", False), ("v2", "ALL", True), ("v3", "ALL", False)))
+    cluster = add_cluster(db, v3, v1, tickets=(1,))
+
+    res = patch_version(client, users["admin"], document, v3, {"isCurrent": True})
+
+    assert (res.status_code, error_code(res)) == (409, "DOCUMENT_VERSION_BASE_CHANGED")
+    assert res.json()["error"]["details"][0]["value"] == [cluster.id]
+    db.expire_all()
+    assert (v2.is_current, v3.is_current, cluster.status) == (True, False, "REVIEWING")
+
+
+def test_activate_new_guide_cluster_without_base(client, db, users):
+    document, (first,) = add_doc(db, versions=(("v1", "ALL", False),))
+    cluster = add_cluster(db, first, None, judgment="NEW_GUIDE", tickets=(1,))
+
+    assert patch_version(client, users["admin"], document, first, {"isCurrent": True}).status_code == 200
+    db.expire_all()
+    assert cluster.status == "APPLIED" and guide_states(db) == {1: "APPLIED"}
+
+
+def test_rolling_back_to_applied_version_is_allowed(client, db, users):
+    """이미 반영된 v2 로 되돌릴 때는 기준 버전(v1)이 현행(v3)과 달라도 막지 않는다."""
+    document, (v1, v2, v3) = add_doc(db, versions=(("v1", "ALL", False), ("v2", "ALL", False), ("v3", "ALL", True)))
+    cluster = add_cluster(db, v2, v1, status="APPLIED", tickets=(1,))
+
+    assert patch_version(client, users["admin"], document, v2, {"isCurrent": True}).status_code == 200
+    db.expire_all()
+    assert (v2.is_current, cluster.status) == (True, "APPLIED")
+
+
+def test_activate_refuses_outdated_upload(client, db, users):
+    """묶음 버전 v3 를 먼저 전환했다. 그 전에 올린 v2 를 전환하면 반영된 해결 사례가 사라진다."""
+    document, (v1, v2, v3) = add_doc(db, versions=(("v1", "ALL", False), ("v2", "ALL", False), ("v3", "ALL", True)))
+    cluster = add_cluster(db, v3, v1, status="APPLIED", tickets=(1,))
+    v3.activated_at = v2.registered_at + timedelta(hours=1)
+    db.commit()
+
+    res = patch_version(client, users["admin"], document, v2, {"isCurrent": True})
+
+    assert (res.status_code, error_code(res)) == (409, "DOCUMENT_VERSION_OUTDATED")
+    assert res.json()["error"]["details"][0]["value"] == [cluster.id]
+    db.expire_all()
+    assert (v3.is_current, v2.is_current) == (True, False)
+
+
+def test_activate_upload_after_current_is_allowed(client, db, users):
+    """현행이 된 뒤에 올린 버전은 현행을 보고 고쳤을 수 있다."""
+    document, (v1, v2, v3) = add_doc(db, versions=(("v1", "ALL", False), ("v2", "ALL", True), ("v3", "ALL", False)))
+    add_cluster(db, v2, v1, status="APPLIED")
+    v2.activated_at = v3.registered_at - timedelta(hours=1)
+    db.commit()
+
+    assert patch_version(client, users["admin"], document, v3, {"isCurrent": True}).status_code == 200
+
+
+def test_activate_old_upload_without_applied_clusters_is_allowed(client, db, users):
+    """현행에 반영된 묶음이 없으면 일반 업로드끼리의 전환은 지금과 같다."""
+    document, (v1, v2) = add_doc(db, versions=(("v1", "ALL", False), ("v2", "ALL", True)))
+    v2.activated_at = v1.registered_at + timedelta(hours=1)
+    db.commit()
+
+    assert patch_version(client, users["admin"], document, v1, {"isCurrent": True}).status_code == 200
+
+
+def test_rolling_back_to_previously_current_upload_is_allowed(client, db, users):
+    document, (v1, v2, v3) = add_doc(db, versions=(("v1", "ALL", False), ("v2", "ALL", False), ("v3", "ALL", True)))
+    add_cluster(db, v3, v1, status="APPLIED")
+    v2.activated_at = v2.registered_at
+    v3.activated_at = v2.registered_at + timedelta(hours=1)
+    db.commit()
+
+    assert patch_version(client, users["admin"], document, v2, {"isCurrent": True}).status_code == 200
+
+
+def test_activate_refuses_orphaned_case_draft(client, db, users):
+    """묶음이 모두 다시 맞춰져 떨어져 나간 사례 초안. 지난 기준의 내용이다."""
+    document, (old, new) = add_doc(db, versions=(("v1", "ALL", True), ("v2", "ALL", False)))
+    new.file_path = "storage/case_guides/IT-NET-001/v2_RCPT-1.md"
+    db.commit()
+
+    res = patch_version(client, users["admin"], document, new, {"isCurrent": True})
+
+    assert (res.status_code, error_code(res)) == (409, "DOCUMENT_VERSION_ORPHANED")
+    db.expire_all()
+    assert (old.is_current, new.is_current) == (True, False)
+
+
+# ------------------------------------------------------------------ 매뉴얼 외부 전송 정책
+
+
+@pytest.mark.parametrize("policy", ["ALLOWED", "MASKED"])
+def test_manual_upload_must_stay_blocked(client, db, users, storage, submitted, policy):
+    document, _ = add_doc(db, "IT-NET-001-M", doc_type="MANUAL", versions=())
+
+    res = upload(client, users["admin"], document.id, transferPolicy=policy)
+
+    assert (res.status_code, error_code(res)) == (422, "DOCUMENT_MANUAL_TRANSFER_FIXED")
+    assert res.json()["error"]["details"][0]["field"] == "transferPolicy"
+    assert submitted == [] and not list(storage.rglob("*.md"))
+
+
+def test_manual_upload_blocked_is_accepted(client, db, users, storage, submitted):
+    document, _ = add_doc(db, "IT-NET-001-M", doc_type="MANUAL", versions=())
+    assert upload(client, users["admin"], document.id, transferPolicy="BLOCKED").status_code == 202
+    assert upload(client, users["admin"], document.id, name="b.md", content=b"# b", version="v3").status_code == 202  # 기본값 BLOCKED
+
+
+def test_manual_policy_cannot_be_relaxed(client, db, users):
+    document, (current,) = add_doc(db, "IT-NET-001-M", doc_type="MANUAL")
+    current.transfer_policy = "BLOCKED"
+    db.commit()
+
+    res = patch_version(client, users["admin"], document, current, {"transferPolicy": "ALLOWED", "reason": "필요함"})
+
+    assert (res.status_code, error_code(res)) == (422, "DOCUMENT_MANUAL_TRANSFER_FIXED")
+    db.expire_all()
+    assert current.transfer_policy == "BLOCKED" and policy_logs(db) == []
+
+
+def test_manual_view_scope_can_still_change(client, db, users):
+    document, (current,) = add_doc(db, "IT-NET-001-M", doc_type="MANUAL")
+    current.transfer_policy = "BLOCKED"
+    db.commit()
+
+    assert patch_version(client, users["admin"], document, current, {"viewScope": "AGENT"}).status_code == 200
+
+
+def test_guide_policy_is_not_fixed(client, db, users):
+    document, (current,) = add_doc(db)
+    current.transfer_policy = "BLOCKED"
+    db.commit()
+
+    assert patch_version(client, users["admin"], document, current, {"transferPolicy": "ALLOWED", "reason": "공개 내용"}).status_code == 200
+
+
+def test_policy_change_without_activation_ignores_clusters(client, db, users):
+    """막는 것은 현행 전환뿐이다. 거절한 묶음이 있는 초안 버전도 정책은 바꿀 수 있다."""
+    document, (old, new) = add_doc(db, versions=(("v1", "ALL", True), ("v2", "ALL", False)))
+    add_cluster(db, new, old, status="REJECTED")
+
+    assert patch_version(client, users["admin"], document, new, {"viewScope": "AGENT"}).status_code == 200
+
 @pytest.mark.parametrize("old, body", [
     ("ALLOWED", {"transferPolicy": "MASKED"}),
     ("MASKED", {"transferPolicy": "BLOCKED"}),
@@ -878,6 +1079,54 @@ def test_list_is_active_wins_over_include_inactive(client, users, scoped):
 @pytest.mark.parametrize("who", ["employee", "agent"])
 def test_list_include_inactive_admin_only(client, users, scoped, who):
     assert client.get(DOCS, headers=users[who], params={"includeInactive": "true"}).status_code == 403
+
+
+# ------------------------------------------------------------------ DC-01 적재 요약 (R-47)
+
+
+def set_ingest(db, row, status, error=None):
+    row.ingest_status, row.ingest_error = status, error
+    db.commit()
+
+
+def summaries(client, headers):
+    return {d["docCode"]: d["ingestSummary"] for d in client.get(DOCS, headers=headers).json()["items"]}
+
+
+def test_list_ingest_summary_counts_failed_and_pending(client, db, users):
+    _, rows = add_doc(db, "IT-NET-010", versions=(("v1", "ALL", True), ("v2", "ALL", False), ("v3", "ALL", False),
+                                                  ("v4", "ALL", False)))
+    set_ingest(db, rows[1], "FAILED", "이전 실패")
+    set_ingest(db, rows[2], "FAILED", "마지막 실패")
+    set_ingest(db, rows[3], "PENDING")
+
+    assert summaries(client, users["admin"]) == {
+        "IT-NET-010": {"failed": 2, "pending": 1, "lastIngestError": "마지막 실패"}}
+
+
+def test_list_ingest_summary_is_per_document_and_zero_without_problem(client, db, users):
+    _, rows = add_doc(db, "IT-NET-010", versions=(("v1", "ALL", True), ("v2", "ALL", False)))
+    add_doc(db, "IT-NET-011")
+    set_ingest(db, rows[1], "PENDING")
+
+    assert summaries(client, users["admin"]) == {
+        "IT-NET-010": {"failed": 0, "pending": 1, "lastIngestError": None},
+        "IT-NET-011": {"failed": 0, "pending": 0, "lastIngestError": None},
+    }
+
+
+@pytest.mark.parametrize("who", ["employee", "agent"])
+def test_list_ingest_summary_is_admin_only(client, db, users, who):
+    _, rows = add_doc(db, "IT-NET-010", versions=(("v1", "ALL", True), ("v2", "ALL", False)))
+    set_ingest(db, rows[1], "FAILED", "실패")
+
+    assert summaries(client, users[who]) == {"IT-NET-010": None}
+
+
+def test_ingest_summary_only_in_list(client, db, users):
+    document, _ = add_doc(db, "IT-NET-010")
+
+    assert client.get(f"{DOCS}/{document.id}", headers=users["admin"]).json()["ingestSummary"] is None
 
 
 # ------------------------------------------------------------------ FAQ 재검사
@@ -1183,3 +1432,135 @@ def test_upload_rejects_password_pdf(client, db, users, submitted, storage):
 
     assert error_code(res) == "DOCUMENT_FILE_FORMAT_UNSUPPORTED"
     assert "암호" in res.json()["error"]["details"][0]["message"]
+
+
+# ------------------------------------------------------------------ DC-12·13 본문
+
+
+GUIDE_MD = """---
+doc_no: "IT-NET-001"
+title: "VPN 접속 안내"
+category: "NET"
+---
+# VPN 접속 안내
+
+첫 줄<br>둘째 줄
+
+![그림 3.1-1. **접속** 화면](../images/IT-NET-001_3.1-1.png)
+
+| 항목 | 설명 |
+| --- | --- |
+| 계정 | 사번<br>비밀번호 |
+"""
+IMAGE = {"key": "NET/IT-NET-001_3.1-1.png", "caption": "그림 3.1-1. 접속 화면"}
+
+
+def with_file(db, row, storage, name="guide.md", content=GUIDE_MD.encode()):
+    """버전에 업로드 파일을 붙인다. 위치는 업로드와 같은 storage/documents/{문서 ID}/."""
+    path = storage / str(row.document_id) / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content)
+    row.file_path = document_file.to_stored_path(path)
+    db.commit()
+    return path
+
+
+def content(client, headers, document, row=None):
+    path = f"{DOCS}/{document.id}/content" if row is None else f"{DOCS}/{document.id}/versions/{row.id}/content"
+    return client.get(path, headers=headers)
+
+
+def test_current_content_is_display_markdown_with_images(client, db, users, storage):
+    document, (row,) = add_doc(db)
+    with_file(db, row, storage)
+    db.add(DocumentChunk(version_id=row.id, content="[그림] 그림 3.1-1. 접속 화면", seq=1, unit_key="u1",
+                         chunk_type="ITEM", meta={"images": [IMAGE]}))
+    db.commit()
+
+    res = content(client, users["employee"], document)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert (body["documentId"], body["versionId"], body["version"]) == (document.id, row.id, "v1")
+    assert body["content"] == ("# VPN 접속 안내\n\n첫 줄\n둘째 줄\n\n[그림] 그림 3.1-1. 접속 화면\n\n"
+                               "| 항목 | 설명 |\n| --- | --- |\n| 계정 | 사번<br>비밀번호 |\n")
+    assert body["images"] == [IMAGE]          # '[그림]' 줄의 설명과 caption 이 같아 화면이 짝지을 수 있다
+
+
+@pytest.mark.parametrize("md, expected", [
+    ("```\necho <br> x\n![a](b.png)\n```\n\n앞<br>뒤\n\n![그림 1. c](../images/y.png)\n",
+     "```\necho <br> x\n![a](b.png)\n```\n\n앞\n뒤\n\n[그림] 그림 1. c\n"),
+    ("````\n```\n<br>\n```\n![a](b.png)\n````\n앞<br>뒤\n", "````\n```\n<br>\n```\n![a](b.png)\n````\n앞\n뒤\n"),
+    ("앞<br>뒤\n\n```\n<br>\n![a](b.png)\n", "앞\n뒤\n\n```\n<br>\n![a](b.png)\n"),
+], ids=["block_then_text", "longer_fence_keeps_short_fence_lines", "unclosed_runs_to_end"])
+def test_display_md_leaves_code_blocks_alone(md, expected):
+    assert display_md(md) == expected
+
+
+def test_non_markdown_file_is_converted(client, db, users, storage):
+    document, (row,) = add_doc(db)
+    row.file_format = "TEXT"
+    with_file(db, row, storage, name="guide.txt", content="VPN 접속 방법\n\n재부팅 후 다시 시도하세요".encode())
+
+    res = content(client, users["employee"], document)
+
+    assert res.status_code == 200
+    assert "재부팅 후 다시 시도하세요" in res.json()["content"]
+    assert res.json()["images"] == []
+
+
+@pytest.mark.parametrize("who, doc, expected", [
+    ("employee", "agent", "DOCUMENT_NOT_FOUND"), ("employee", "no_current", "DOCUMENT_NOT_FOUND"),
+    ("employee", "inactive", "DOCUMENT_NOT_FOUND"), ("agent", "admin", "DOCUMENT_NOT_FOUND"),
+    ("admin", "no_current", "DOCUMENT_VERSION_NOT_FOUND"),
+])
+def test_content_scope(client, users, scoped, who, doc, expected):
+    res = content(client, users[who], scoped[doc])
+
+    assert res.status_code == 404
+    assert error_code(res) == expected
+
+
+def test_content_scope_allows_wider_roles(client, db, users, scoped, storage):
+    for key in ("agent", "admin", "inactive"):
+        with_file(db, db.scalar(select(DocumentVersion).where(DocumentVersion.document_id == scoped[key].id)), storage)
+
+    assert content(client, users["agent"], scoped["agent"]).status_code == 200
+    assert content(client, users["admin"], scoped["admin"]).status_code == 200
+    assert content(client, users["admin"], scoped["inactive"]).status_code == 200
+
+
+def test_admin_reads_any_version_content(client, db, users, storage):
+    document, (old, failed) = add_doc(db, versions=(("v1", "ALL", True), ("v2", "ADMIN", False)))
+    failed.ingest_status, failed.ingest_error = "FAILED", "청크 없음"
+    with_file(db, old, storage, name="v1.md", content="# v1 본문\n".encode())
+    with_file(db, failed, storage, name="v2.md", content="# v2 본문\n".encode())
+
+    res = content(client, users["admin"], document, failed)
+
+    assert res.status_code == 200
+    assert (res.json()["version"], res.json()["content"]) == ("v2", "# v2 본문\n")
+    assert content(client, users["admin"], document, old).json()["content"] == "# v1 본문\n"
+
+
+def test_version_content_is_admin_only(client, db, users, storage):
+    document, (row,) = add_doc(db)
+    with_file(db, row, storage)
+
+    assert content(client, users["agent"], document, row).status_code == 403
+    assert error_code(content(client, users["admin"], document, type("Row", (), {"id": 999})())) == "DOCUMENT_VERSION_NOT_FOUND"
+
+
+@pytest.mark.parametrize("case", ["no_path", "missing_file", "broken_file"])
+def test_unreadable_file_is_content_unavailable(client, db, users, storage, case):
+    document, (row,) = add_doc(db)
+    if case == "missing_file":
+        with_file(db, row, storage).unlink()
+    elif case == "broken_file":
+        row.file_format = "DOCX"
+        with_file(db, row, storage, name="guide.docx", content=b"not a zip")
+
+    res = content(client, users["employee"], document)
+
+    assert res.status_code == 409
+    assert error_code(res) == "DOCUMENT_CONTENT_UNAVAILABLE"

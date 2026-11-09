@@ -16,7 +16,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 type Source = { items: TicketSummary[]; names: string[]; extra: StatsOverview }
 
 /** 접수 목록(선택 기간에 접수된 것)으로 서버 집계와 같은 모양의 값을 만든다 (모의 모드) */
-export function overviewFromItems(items: TicketSummary[], teams: { name: string; members: string[] }[], per: Per, unit: Unit, now: number): StatsOverview {
+function overviewFromItems(items: TicketSummary[], teams: { name: string; members: string[] }[], per: Per, unit: Unit, now: number): StatsOverview {
   const from = per === 'd' ? startOfDay(now) : now - PERD[per] * DAY
   const win = items.filter((t) => Date.parse(t.createdAt) >= from)
   const states = countBy(win)

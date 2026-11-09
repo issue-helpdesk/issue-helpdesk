@@ -7,8 +7,7 @@
  */
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CATEGORIES } from '../../api/catalog'
-import type { CategoryCode, Urgency, WorkStatus } from '../../api/chatTypes'
+import type { Urgency, WorkStatus } from '../../api/chatTypes'
 import { getStatsSource, watchTickets } from '../../api/tickets'
 import type { ApiResult, User } from '../../api/types'
 import type { TicketSummary } from '../../api/ticketTypes'
@@ -19,7 +18,6 @@ import { Icon } from '../../ui/Icon'
 import { Topbar } from '../../ui/Topbar'
 import { MemberCards } from '../admin/MemberCards'
 import { loadMine } from './myOverview'
-import { UrgencyChip } from './QueueView'
 import type { MyOverview } from '../../api/myStats'
 
 export type Per = 'd' | 'm' | 'y'
@@ -32,10 +30,10 @@ export const UNITS: Record<Per, Unit[]> = { d: [], m: ['d', 'w'], y: ['w', 'mo']
 export const UDEF: Record<Per, Unit> = { d: 'd', m: 'd', y: 'mo' }
 
 export const STATES: { k: WorkStatus; short: string; label: string; color: string }[] = [
-  { k: 'RDY', short: '처리 대기', label: '처리 대기 (RDY)', color: 'var(--g-w)' },
-  { k: 'WIP', short: '처리 중', label: '처리 중 (WIP)', color: 'var(--g-p)' },
-  { k: 'FIN', short: '해결 확인 대기', label: '해결 확인 대기 (FIN)', color: 'var(--g-n)' },
-  { k: 'CLS', short: '해결 완료', label: '해결 완료 (CLS)', color: 'var(--g-c)' },
+  { k: 'RDY', short: '처리 대기', label: '처리 대기', color: 'var(--g-w)' },
+  { k: 'WIP', short: '처리 중', label: '처리 중', color: 'var(--g-p)' },
+  { k: 'FIN', short: '해결 확인 대기', label: '해결 확인 대기', color: 'var(--g-n)' },
+  { k: 'CLS', short: '해결 완료', label: '해결 완료', color: 'var(--g-c)' },
 ]
 const QS: Record<WorkStatus, string> = { RDY: '?tab=open&sub=RDY', WIP: '?tab=open&sub=WIP', FIN: '?tab=fin', CLS: '?tab=cls' }
 export const URGS: Urgency[] = ['P1', 'P2', 'P3', 'P4']
@@ -45,8 +43,7 @@ export const PRI_RULE: Record<Urgency, string> = {
   P3: '개인 업무 일부에 지장이 있으나 허용된 대체 방법으로 진행 가능',
   P4: '현재 업무 지장이 없는 단순 문의·사전 신청',
 }
-export const TREND_NOTE = '해결 완료 선은 그날 접수된 티켓 중 지금 해결 완료(CLS)인 건수(접수일 기준)예요. 해결한 날짜 기준이 아니고, AI 해결은 해결 완료와 합산하지 않아요.'
-export const CATC: Record<CategoryCode, string> = { ACC: '#0EA5E9', ACS: '#8A64F2', NET: '#5B7CF0', SW: '#14B8A6', HW: '#D9A21B', SYS: '#E0457F', SEC: '#D92D20' }
+export const TREND_NOTE = '해결 완료 선은 그날 접수된 티켓 중 지금 해결 완료인 건수(접수일 기준)예요. 해결한 날짜 기준이 아니고, AI 해결은 해결 완료와 합산하지 않아요.'
 export const DAY = 86_400_000
 
 const hm = () => {
@@ -63,7 +60,7 @@ export const countBy = (l: TicketSummary[]) => Object.fromEntries(STATES.map((s)
 export const sumOf = (v: Record<WorkStatus, number>) => STATES.reduce((a, s) => a + v[s.k], 0)
 
 /* ------------------------------------------------------------------ 구역별 불러오기 */
-export interface Sec {
+interface Sec {
   st: 'loading' | 'ok' | 'err'
   dep: string
   items: TicketSummary[]
@@ -166,7 +163,7 @@ export function Section({ title, sec, note, kind, children }: { title: string; s
 }
 
 /* ------------------------------------------------------------------ 곡선 그래프 */
-export interface Series {
+interface Series {
   name: string
   k: 'ca' | 'cb' | 'cc'
   dash: string
@@ -500,74 +497,6 @@ export function bucket(list: TicketSummary[], per: Per, unit: Unit, ts: number) 
   return { labels, recv: edges.map((e) => list.filter((t) => inB(t, e)).length), done: edges.map((e) => list.filter((t) => inB(t, e) && t.workStatus === 'CLS').length) }
 }
 
-/* ------------------------------------------------------------------ 도넛 */
-export function Donut({ parts, center, sub, cls }: { parts: { l: string; v: number; c: string }[]; center: number; sub: string; cls?: string }) {
-  const t = parts.reduce((a, p) => a + p.v, 0) || 1
-  const R = 48
-  const CC = 2 * Math.PI * R
-  const shown = parts.filter((p) => p.v)
-  const starts = shown.map((_, i) => shown.slice(0, i).reduce((a, p) => a + (p.v / t) * CC, 0))
-  return (
-    <div className={`donut ${cls ?? ''}`}>
-      <svg viewBox="0 0 140 140" width="140" height="140" role="img" aria-label={`${center}${sub}. ${parts.filter((p) => p.v).map((p) => `${p.l} ${p.v}`).join(', ')}`}>
-        <circle cx="70" cy="70" r={R} fill="none" stroke="var(--track)" strokeWidth="18" />
-        {shown.map((p, i) => {
-          const len = (p.v / t) * CC
-          return (
-            <circle key={p.l} cx="70" cy="70" r={R} fill="none" stroke={p.c} strokeWidth="18" strokeDasharray={`${Math.max(0, len - 2)} ${CC - Math.max(0, len - 2)}`} strokeDashoffset={-starts[i]} transform="rotate(-90 70 70)">
-              <title>{`${p.l} ${p.v}`}</title>
-            </circle>
-          )
-        })}
-        <text x="70" y="68" textAnchor="middle" style={{ fontSize: 26, fontWeight: 700, fill: 'var(--ink)' }}>
-          {center}
-        </text>
-        <text x="70" y="88" textAnchor="middle" style={{ fontSize: 12, fill: 'var(--mute)' }}>
-          {sub}
-        </text>
-      </svg>
-      <ul className="dl2">
-        {parts.map((p) => (
-          <li key={p.l}>
-            <i style={{ background: p.c }} />
-            <span>{p.l}</span>
-            <b>{p.v}</b>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-/** 팀원 한 명의 개인 현황: 처리 상태와 분류 도넛 */
-export function MemberDonuts({ name, list }: { name: string; list: TicketSummary[] }) {
-  const mine = list.filter((t) => t.assignee?.name === name)
-  const v = countBy(mine)
-  const total = sumOf(v)
-  const cats = (Object.keys(CATEGORIES) as CategoryCode[]).map((c) => ({ l: CATEGORIES[c].name, v: mine.filter((t) => t.category?.code === c).length, c: CATC[c] }))
-  return (
-    <div className="nest don">
-      <div className="mp2">
-        <h4>{name} · 개인 현황</h4>
-        <div className="g2 mpg">
-          <div className="dbox">
-            <div className="small muted" style={{ marginBottom: 8 }}>
-              처리 상태
-            </div>
-            <Donut parts={STATES.map((s) => ({ l: s.short, v: v[s.k], c: s.color }))} center={total} sub="건" />
-          </div>
-          <div className="dbox">
-            <div className="small muted" style={{ marginBottom: 8 }}>
-              분류
-            </div>
-            <Donut parts={cats} center={total} sub="건" cls="cat" />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /* ------------------------------------------------------------------ 화면 */
 export function StatsView() {
   const { user } = useAuth()
@@ -593,11 +522,9 @@ export function StatsView() {
   const loadMineCb = useCallback((u: User) => loadMine(u, per), [per])
   const mine = useSection('ovme', per, tick, loadMineCb)
   const trend = useSection('trend', `${per}|${scope}|${unitNow}`, tick)
-  const pri = useSection('pri', `${per}|${scope}`, tick)
   const uid = user?.id ?? 0
 
   const trendWin = useMemo(() => windowOf(trend, per, team, uid), [trend, per, team, uid])
-  const priWin = useMemo(() => windowOf(pri, per, team, uid), [pri, per, team, uid])
 
   if (!user) return null
   const groupName = user.departmentName ?? ''
@@ -606,8 +533,6 @@ export function StatsView() {
   const total = sumOf(v)
   const none = ovm?.none
   const b = per === 'd' ? null : bucket(trendWin, per, unitNow, trend.ts)
-  const urgN = URGS.map((p) => priWin.filter((t) => t.urgency === p).length)
-  const urgMx = Math.max(1, ...urgN)
   const pickPer = (p: Per) => {
     setPer(p)
     setUnit(UDEF[p])
@@ -675,21 +600,33 @@ export function StatsView() {
 
           <Section title="상태별 현황" sec={mine} note="선택 기간에 접수된 티켓의 현재 상태예요. 선택 기간에 처리가 끝난 건수가 아니에요.">
             <div className="sk">
-              {STATES.map((s) => (
-                <button key={s.k} type="button" className="kpi kl" onClick={() => navigate(`/queue${QS[s.k]}`)} aria-label={`${s.label} ${v[s.k]}건. 해당 문의 목록 보기`}>
-                  <div className="l">
-                    <i className="dt" style={{ background: s.color }} />
-                    {s.label}
+              {STATES.map((s) => {
+                const inner = (
+                  <>
+                    <div className="l">
+                      <i className="dt" style={{ background: s.color }} />
+                      {s.label}
+                    </div>
+                    <div className="v">
+                      <b>
+                        <CountUp value={v[s.k]} />
+                      </b>
+                      <span>건</span>
+                    </div>
+                  </>
+                )
+                // 팀 통계는 팀 전체 숫자라서, 내 티켓만 보이는 처리할 문의 목록으로 보내면 숫자와 목록이 맞지 않는다. 숫자만 보여 준다
+                return team ? (
+                  <div key={s.k} className="kpi" role="group" aria-label={`${s.label} ${v[s.k]}건`}>
+                    {inner}
                   </div>
-                  <div className="v">
-                    <b>
-                      <CountUp value={v[s.k]} />
-                    </b>
-                    <span>건</span>
-                  </div>
-                  <Icon name="chevron" className="go" />
-                </button>
-              ))}
+                ) : (
+                  <button key={s.k} type="button" className="kpi kl" onClick={() => navigate(`/queue${QS[s.k]}`)} aria-label={`${s.label} ${v[s.k]}건. 해당 문의 목록 보기`}>
+                    {inner}
+                    <Icon name="chevron" className="go" />
+                  </button>
+                )
+              })}
             </div>
             {team && none !== undefined && <p className="small muted secnote">배정 전 {none}건은 위 네 상태에 넣지 않고 따로 세요.</p>}
             <p className="small muted secnote">
@@ -724,34 +661,6 @@ export function StatsView() {
                 </div>
                 <p className="small muted secnote">오늘은 하루치라서 추이 그래프는 보여주지 않아요. 기간을 ‘최근 30일’ 이상으로 바꾸면 추이를 볼 수 있어요.</p>
               </>
-            )}
-          </Section>
-
-          <Section title="긴급도 분포" sec={pri} note="선택 기간에 접수된 티켓 기준이에요.">
-            <div className="pdist">
-              {URGS.map((p, i) => (
-                <button key={p} type="button" className="pd" onClick={() => navigate(`/queue?pri=${p}&per=${per}`)} aria-label={`${p} ${urgN[i]}건. 이 긴급도의 문의 목록 보기`}>
-                  <span className="pl">
-                    <UrgencyChip u={p} />
-                  </span>
-                  <span className="bar" aria-hidden="true">
-                    <i className={`pb-${p.toLowerCase()}`} style={{ width: `${Math.max(urgN[i] ? 3 : 0, (urgN[i] / urgMx) * 100)}%` }} />
-                  </span>
-                  <b>
-                    {urgN[i]}
-                    <small>건</small>
-                  </b>
-                  <Icon name="chevron" className="go" />
-                  <span className="small muted pr">
-                    {PRI_RULE[p]}
-                  </span>
-                </button>
-              ))}
-            </div>
-            {team && (
-              <p className="small muted secnote" style={{ marginTop: 8 }}>
-                건수는 팀 전체예요. 줄을 누르면 내 문의 중 해당 긴급도만 목록으로 보여줘요.
-              </p>
             )}
           </Section>
 

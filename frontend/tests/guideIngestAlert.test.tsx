@@ -31,7 +31,7 @@ function renderAs(employeeNo: string, path: string) {
 
 /** 모의 ACC-003(문서 id 4)에 새 버전을 올리고 추적을 시작한다 */
 async function uploadAndTrack(file: File) {
-  const up = await uploadGuideVersion(admin(), 4, { file, version: 'v99.0', scope: '사내 일반', tx: '금지' })
+  const up = await uploadGuideVersion(admin(), 4, { file, version: 'v99.0', scope: '전 직원', tx: '금지' })
   if (!up.ok) throw new Error('업로드')
   trackIngest({ docId: 4, versionId: up.data.id, docCode: 'IT-ACC-003', title: 'MFA 인증 오류 대응 가이드', cat: 'ACC', version: 'v99.0' })
   return up.data.id

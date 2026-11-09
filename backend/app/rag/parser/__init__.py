@@ -30,7 +30,7 @@ from .models import Element, ParsedDocument
 
 log = logging.getLogger(__name__)
 
-PARSER_VERSION = '1.0'          # 결과가 바뀌는 수정을 하면 올린다 (가이드 버전 표 parser_version)
+PARSER_VERSION = '1.1'          # 결과가 바뀌는 수정을 하면 올린다 (가이드 버전 표 parser_version). 1.1: FAQ 표 칸 줄바꿈 잇기
 SUPPORTED = ('.docx', '.pptx', '.pdf', '.md', '.txt')
 OLE_MAGIC = b'\xd0\xcf\x11\xe0'   # 암호 걸린 OOXML 또는 구형(doc·ppt) 파일
 

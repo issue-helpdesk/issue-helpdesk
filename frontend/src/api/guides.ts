@@ -6,20 +6,20 @@
  *   POST  /documents/{id}/versions                DC-07 새 버전 업로드 (multipart, 202)
  *   PATCH /documents/{id}/versions/{versionId}    DC-09 현행 전환·열람 범위·외부 전송 정책 변경
  *   POST  /documents/{id}/versions/{versionId}/retry  DC-10 적재(검색 준비)에 실패한 버전 다시 시도
- * 서버에 없는 것: 버전 메모(관리자가 적는 한 줄), 정책을 느슨하게 바꿀 때의 변경 사유 저장, 해결 사례 → 가이드 초안(GUIDE-03).
- * 이 세 가지는 서버 모드에서 안내만 한다. (요청 R-21·R-22)
+ * 서버에 없는 것: 정책을 느슨하게 바꿀 때의 변경 사유 저장, 해결 사례 → 가이드 초안(GUIDE-03).
+ * 이 둘은 서버 모드에서 안내만 한다. (요청 R-22) 버전 메모는 서버에 없고 요청하지도 않기로 해서 모의에서도 뺐다.
  */
 import { request } from '../core/apiClient'
 import { USE_MOCK_GUIDE } from '../core/config'
-import type { CategoryCode } from './chatTypes'
+import type { CategoryCode, GuideImageRef } from './chatTypes'
 import { subscribe, notify } from './mock/chatStore'
 import { fail, ok, type ApiResult, type User } from './types'
 
 export type GuideState = '현행' | '초안' | '만료'
 export type GuideReady = '준비 완료' | '준비 중' | '준비 실패'
-export type GuideScope = '관리자 전용' | '사내 제한' | '사내 일반'
+export type GuideScope = '관리자만' | '담당자 이상' | '전 직원'
 export type GuideTx = '허용' | '마스킹 후 허용' | '금지'
-export const GUIDE_SCOPES: GuideScope[] = ['관리자 전용', '사내 제한', '사내 일반']
+export const GUIDE_SCOPES: GuideScope[] = ['관리자만', '담당자 이상', '전 직원']
 export const GUIDE_TXS: GuideTx[] = ['금지', '마스킹 후 허용', '허용']
 /** 외부 전송 정책의 엄격한 순서: 금지 < 마스킹 후 허용 < 허용. 값이 커지면 더 느슨해진다 */
 export const TX_RANK: Record<GuideTx, number> = { 금지: 0, '마스킹 후 허용': 1, 허용: 2 }
@@ -31,7 +31,6 @@ export interface GuideVersion {
   ready: GuideReady
   scope: GuideScope
   tx: GuideTx
-  note: string
   /** 적재 실패 사유 */
   error?: string
   /** 올린 시각 (서버 registeredAt). 맨 끝 열에 보이고 하루 안이면 NEW */
@@ -50,10 +49,12 @@ export interface Guide {
   docType?: string
   /** 서버 모드에서는 가이드를 펼칠 때 읽는다 */
   versions: GuideVersion[] | null
+  /** 적재 실패·진행 중인 버전 수와 마지막 실패 사유 (서버 DC-01 ingestSummary). 모의·구버전 서버에는 없다 */
+  ingest?: { failed: number; pending: number; lastError: string | null }
 }
 
-const SCOPE_FROM = { ALL: '사내 일반', AGENT: '사내 제한', ADMIN: '관리자 전용' } as const
-const SCOPE_TO = { '사내 일반': 'ALL', '사내 제한': 'AGENT', '관리자 전용': 'ADMIN' } as const
+const SCOPE_FROM = { ALL: '전 직원', AGENT: '담당자 이상', ADMIN: '관리자만' } as const
+const SCOPE_TO = { '전 직원': 'ALL', '담당자 이상': 'AGENT', '관리자만': 'ADMIN' } as const
 const TX_FROM = { ALLOWED: '허용', MASKED: '마스킹 후 허용', BLOCKED: '금지' } as const
 const TX_TO = { 허용: 'ALLOWED', '마스킹 후 허용': 'MASKED', 금지: 'BLOCKED' } as const
 
@@ -66,20 +67,20 @@ interface MockGuide extends Omit<Guide, 'current' | 'versions' | 'isActive'> {
   versions: GuideVersion[]
   isActive?: boolean
 }
-const v = (id: number, version: string, state: GuideState, scope: GuideScope, tx: GuideTx, ready: GuideReady, note: string): GuideVersion => ({ id, version, state, scope, tx, ready, note })
+const v = (id: number, version: string, state: GuideState, scope: GuideScope, tx: GuideTx, ready: GuideReady): GuideVersion => ({ id, version, state, scope, tx, ready })
 /** 이 화면에서 새로 올리거나 만든 버전: 올린 시각이 붙는다 */
 const vNew = (...a: Parameters<typeof v>): GuideVersion => ({ ...v(...a), registeredAt: new Date().toISOString() })
 const seed = (): MockGuide[] => [
-  { id: 1, docCode: 'IT-NET-001', title: 'VPN 접속 장애 대응 가이드', cat: 'NET', versions: [v(13, 'v3', '초안', '사내 제한', '허용', '준비 중', '주간 분석: 해결 사례 8건 반영'), v(12, 'v2', '현행', '사내 일반', '허용', '준비 완료', 'guides 정리본 (2026-10-16)'), v(11, 'v1', '만료', '사내 일반', '허용', '준비 완료', '정리 전 팀원 원본')] },
-  { id: 2, docCode: 'IT-ACC-001', title: '사내 SSO 로그인 오류 대응 가이드', cat: 'ACC', versions: [v(21, 'v2', '현행', '사내 일반', '허용', '준비 완료', '5회 실패 시 잠금, 10분 후 해제')] },
-  { id: 3, docCode: 'IT-ACC-002', title: '비밀번호 변경·초기화 가이드', cat: 'ACC', versions: [v(31, 'v2', '현행', '사내 일반', '허용', '준비 완료', '12자 이상, 90일마다 변경')] },
-  { id: 4, docCode: 'IT-ACC-003', title: 'MFA 인증 오류 대응 가이드', cat: 'ACC', versions: [v(41, 'v2', '현행', '사내 일반', '허용', '준비 완료', '')] },
-  { id: 5, docCode: 'IT-SW-001', title: '업무용 SW 설치 가이드', cat: 'SW', versions: [v(51, 'v2', '현행', '사내 일반', '허용', '준비 완료', '소프트웨어 센터 설치')] },
-  { id: 6, docCode: 'IT-HW-003', title: '프린터·복합기 이용 가이드', cat: 'HW', versions: [v(62, 'v2', '현행', '사내 일반', '허용', '준비 완료', '층별 복합기'), v(61, 'v1', '만료', '사내 일반', '허용', '준비 완료', '정리 전 팀원 원본')] },
-  { id: 7, docCode: 'IT-ACS-001', title: '사내 시스템 접근권한 신청 가이드', cat: 'ACS', versions: [v(71, 'v2', '현행', '사내 일반', '허용', '준비 완료', '권한 부여는 담당자·승인자 업무')] },
-  { id: 8, docCode: 'IT-SYS-001', title: '그룹웨어·ERP 이용 오류 대응 가이드', cat: 'SYS', versions: [v(81, 'v2', '현행', '사내 일반', '허용', '준비 완료', '')] },
-  { id: 9, docCode: 'IT-SEC-004', title: '보안 예외 신청·정책 안내 가이드', cat: 'SEC', versions: [v(91, 'v2', '현행', '사내 제한', '금지', '준비 완료', '시연용: 외부 모델 전송 금지 문서로 가정')] },
-  { id: 10, docCode: 'IT-SEC-001', title: '피싱·의심 메일 대응 가이드', cat: 'SEC', versions: [v(102, 'v2', '현행', '사내 일반', '마스킹 후 허용', '준비 완료', '시연용: 마스킹 후 전송 문서로 가정'), v(103, 'v3', '초안', '사내 일반', '허용', '준비 중', '신고 채널 변경 반영 중')] },
+  { id: 1, docCode: 'IT-NET-001', title: 'VPN 접속 장애 대응 가이드', cat: 'NET', versions: [v(13, 'v3', '초안', '담당자 이상', '허용', '준비 중'), v(12, 'v2', '현행', '전 직원', '허용', '준비 완료'), v(11, 'v1', '만료', '전 직원', '허용', '준비 완료')] },
+  { id: 2, docCode: 'IT-ACC-001', title: '사내 SSO 로그인 오류 대응 가이드', cat: 'ACC', versions: [v(21, 'v2', '현행', '전 직원', '허용', '준비 완료')] },
+  { id: 3, docCode: 'IT-ACC-002', title: '비밀번호 변경·초기화 가이드', cat: 'ACC', versions: [v(31, 'v2', '현행', '전 직원', '허용', '준비 완료')] },
+  { id: 4, docCode: 'IT-ACC-003', title: 'MFA 인증 오류 대응 가이드', cat: 'ACC', versions: [v(41, 'v2', '현행', '전 직원', '허용', '준비 완료')] },
+  { id: 5, docCode: 'IT-SW-001', title: '업무용 SW 설치 가이드', cat: 'SW', versions: [v(51, 'v2', '현행', '전 직원', '허용', '준비 완료')] },
+  { id: 6, docCode: 'IT-HW-003', title: '프린터·복합기 이용 가이드', cat: 'HW', versions: [v(62, 'v2', '현행', '전 직원', '허용', '준비 완료'), v(61, 'v1', '만료', '전 직원', '허용', '준비 완료')] },
+  { id: 7, docCode: 'IT-ACS-001', title: '사내 시스템 접근권한 신청 가이드', cat: 'ACS', versions: [v(71, 'v2', '현행', '전 직원', '허용', '준비 완료')] },
+  { id: 8, docCode: 'IT-SYS-001', title: '그룹웨어·ERP 이용 오류 대응 가이드', cat: 'SYS', versions: [v(81, 'v2', '현행', '전 직원', '허용', '준비 완료')] },
+  { id: 9, docCode: 'IT-SEC-004', title: '보안 예외 신청·정책 안내 가이드', cat: 'SEC', versions: [v(91, 'v2', '현행', '담당자 이상', '금지', '준비 완료')] },
+  { id: 10, docCode: 'IT-SEC-001', title: '피싱·의심 메일 대응 가이드', cat: 'SEC', versions: [v(102, 'v2', '현행', '전 직원', '마스킹 후 허용', '준비 완료'), v(103, 'v3', '초안', '전 직원', '허용', '준비 중')] },
 ]
 let store: MockGuide[] = seed()
 let seq = { doc: 10, ver: 200 }
@@ -135,6 +136,8 @@ interface SDoc {
   categoryCode: CategoryCode | null
   isActive?: boolean
   currentVersion: { version: string; viewScope: keyof typeof SCOPE_FROM | null; transferPolicy: keyof typeof TX_FROM | null } | null
+  /** 버전 적재 요약 (R-47, ADMIN 응답만). 구버전 서버에는 없다 */
+  ingestSummary?: { failed: number; pending: number; lastIngestError: string | null } | null
 }
 interface SVer {
   id: number
@@ -149,7 +152,7 @@ interface SVer {
 }
 const STATE_FROM = { CURRENT: '현행', DRAFT: '초안', EXPIRED: '만료' } as const
 const READY_FROM = { DONE: '준비 완료', PENDING: '준비 중', FAILED: '준비 실패' } as const
-const toVersion = (s: SVer): GuideVersion => ({ id: s.id, version: s.version, state: STATE_FROM[s.versionState], ready: READY_FROM[s.ingestStatus], scope: SCOPE_FROM[s.viewScope], tx: TX_FROM[s.transferPolicy], note: '', error: s.ingestError ?? undefined, registeredAt: s.registeredAt ?? undefined })
+const toVersion = (s: SVer): GuideVersion => ({ id: s.id, version: s.version, state: STATE_FROM[s.versionState], ready: READY_FROM[s.ingestStatus], scope: SCOPE_FROM[s.viewScope], tx: TX_FROM[s.transferPolicy], error: s.ingestError ?? undefined, registeredAt: s.registeredAt ?? undefined })
 
 /** 가이드 목록. 서버는 문서 목록(분류가 있는 가이드·매뉴얼)을 모두 읽는다 */
 export async function listGuides(user: User): Promise<ApiResult<Guide[]>> {
@@ -166,7 +169,7 @@ export async function listGuides(user: User): Promise<ApiResult<Guide[]>> {
     r.data.items.forEach((d) => {
       if (!d.categoryCode) return
       const c = d.currentVersion
-      out.push({ id: d.id, docCode: d.docCode, title: d.title, cat: d.categoryCode, isActive: d.isActive !== false, docType: d.docType, current: c ? { version: c.version, tx: c.transferPolicy ? TX_FROM[c.transferPolicy] : '금지', scope: c.viewScope ? SCOPE_FROM[c.viewScope] : undefined } : null, versions: null })
+      out.push({ id: d.id, docCode: d.docCode, title: d.title, cat: d.categoryCode, isActive: d.isActive !== false, docType: d.docType, current: c ? { version: c.version, tx: c.transferPolicy ? TX_FROM[c.transferPolicy] : '금지', scope: c.viewScope ? SCOPE_FROM[c.viewScope] : undefined } : null, versions: null, ingest: d.ingestSummary ? { failed: d.ingestSummary.failed, pending: d.ingestSummary.pending, lastError: d.ingestSummary.lastIngestError } : undefined })
     })
     if (page >= r.data.totalPages) break
   }
@@ -215,7 +218,7 @@ export async function uploadGuide(user: User, input: UploadInput, onCreated?: (d
   if (USE_MOCK_GUIDE) {
     await sleep(250)
     if (store.some((g) => g.docCode === code)) return fail('DOCUMENT_CODE_DUPLICATE', '이미 있는 문서 번호예요.', { details: [{ field: 'docCode', reason: 'DUPLICATE', message: '이미 있는 문서 번호예요.' }] })
-    const g: MockGuide = { id: ++seq.doc, docCode: code, title: input.title.trim(), cat: input.cat, versions: [vNew(++seq.ver, input.version?.trim() || 'v1.0', '초안', input.scope, input.tx, '준비 중', `업로드 · ${input.file.name}`)] }
+    const g: MockGuide = { id: ++seq.doc, docCode: code, title: input.title.trim(), cat: input.cat, versions: [vNew(++seq.ver, input.version?.trim() || 'v1.0', '초안', input.scope, input.tx, '준비 중')] }
     store.push(g)
     if (g.versions[0]) mockFiles.set(g.versions[0], { name: input.file.name, size: input.file.size })
     notify()
@@ -257,7 +260,7 @@ export async function uploadGuideVersion(user: User, docId: number, input: { fil
     const g = store.find((x) => x.id === docId)
     if (!g) return fail('DOCUMENT_NOT_FOUND', '문서를 찾을 수 없어요.')
     if (g.versions.some((x) => sameVersion(x.version, version))) return fail('DOCUMENT_VERSION_DUPLICATE', VERSION_DUP.message, { details: [VERSION_DUP] })
-    const x = vNew(++seq.ver, version, '초안', input.scope, input.tx, '준비 중', `업로드 · ${input.file.name}`)
+    const x = vNew(++seq.ver, version, '초안', input.scope, input.tx, '준비 중')
     g.versions.unshift(x)
     mockFiles.set(x, { name: input.file.name, size: input.file.size })
     notify()
@@ -327,7 +330,6 @@ export async function retryGuideIngest(user: User, docId: number, versionId: num
     x.ready = '준비 중'
     x.error = undefined
     if (file) {
-      x.note = `파일 교체 · ${file.name}`
       mockFiles.set(x, { name: file.name, size: file.size })
     }
     notify()
@@ -398,20 +400,6 @@ export async function setGuideCurrent(user: User, docId: number, versionId: numb
   return r.ok ? ok(toVersion(r.data)) : r
 }
 
-/** 버전 메모 (관리자가 적는 한 줄). 서버에 필드가 없어 서버 모드에서는 사용할 수 없다 (R-21) */
-export async function setGuideNote(user: User, docId: number, versionId: number, note: string): Promise<ApiResult<GuideVersion>> {
-  const no = adminOnly(user)
-  if (no) return no
-  if (!USE_MOCK_GUIDE) return notReady('버전 메모')
-  const g = store.find((x) => x.id === docId)
-  const x = g && findV(g, versionId)
-  if (!g || !x) return fail('DOCUMENT_VERSION_NOT_FOUND', '버전을 찾을 수 없어요.')
-  x.note = note.trim()
-  notify()
-  return ok({ ...x })
-}
-
-/** 해결 사례 묶음에서 가이드 초안 만들기 (GUIDE-03, 제안). 서버에 없어 서버 모드에서는 사용할 수 없다 (R-23) */
 export async function createGuideDraft(user: User, draft: { cat: CategoryCode; title: string; existId: number | null; note: string }): Promise<ApiResult<{ guide: Guide; version: string }>> {
   const no = adminOnly(user)
   if (no) return no
@@ -422,10 +410,10 @@ export async function createGuideDraft(user: User, draft: { cat: CategoryCode; t
   if (g) {
     const n = Math.max(0, ...g.versions.map((x) => Number(x.version.replace(/\D/g, '')) || 0)) + 1
     version = `v${n}`
-    g.versions.unshift(vNew(++seq.ver, version, '초안', '사내 제한', '허용', '준비 중', draft.note))
+    g.versions.unshift(vNew(++seq.ver, version, '초안', '담당자 이상', '허용', '준비 중'))
   } else {
     const code = `IT-${draft.cat}-${String(900 + ++seq.doc).slice(-3)}`
-    g = { id: seq.doc, docCode: code, title: draft.title, cat: draft.cat, versions: [vNew(++seq.ver, 'v1', '초안', '사내 제한', '허용', '준비 중', draft.note)] }
+    g = { id: seq.doc, docCode: code, title: draft.title, cat: draft.cat, versions: [vNew(++seq.ver, 'v1', '초안', '담당자 이상', '허용', '준비 중')] }
     store.push(g)
   }
   const made = g
@@ -442,3 +430,129 @@ export async function createGuideDraft(user: User, draft: { cat: CategoryCode; t
 }
 
 export const guideLabel = (g: Pick<Guide, 'docCode' | 'title'>) => `${g.docCode} ${g.title}`
+
+/* ------------------------------------------------------------------ 본문 보기 · 열람 (문의자·담당자·관리자) */
+/** 가이드 본문(마크다운) 한 건. 서버 API 는 docs/api/06 R-48 로 요청 중이다 */
+export interface GuideContent {
+  docCode: string
+  title: string
+  version: string
+  text: string
+  images?: GuideImageRef[]
+}
+interface SContent {
+  version?: string
+  content?: string
+  text?: string
+  markdown?: string
+  images?: GuideImageRef[]
+}
+
+/** 시연용 본문: 제목과 문서 번호로 만든 짧은 가이드 */
+function mockContent(g: { docCode: string; title: string }, version: string): GuideContent {
+  const text = [
+    `# ${g.title}`,
+    '',
+    '## 1. 개요',
+    '',
+    '이 문서는 시연용 본문이에요. 실제 가이드는 서버가 본문 API를 제공하면 그대로 보여요.',
+    '',
+    '## 2. 먼저 확인할 사항',
+    '',
+    '- 증상이 언제부터 시작됐는지',
+    '- 같은 증상이 다른 기기나 계정에서도 나타나는지',
+    '- 화면에 뜨는 메시지가 있는지',
+    '',
+    '## 3. 조치 순서',
+    '',
+    '1. 안내된 방법을 먼저 시도합니다.',
+    '2. 해결되지 않으면 화면의 메시지를 그대로 적어 ITssue에 문의합니다.',
+  ].join('\n')
+  return { docCode: g.docCode, title: g.title, version, text }
+}
+
+/**
+ * 가이드 본문. versionId 를 주면 그 버전(관리자만), 없으면 현행 버전이다. 현행 본문은 열람 범위 안에서만 받는다.
+ * 서버 API(DC-12·13, R-48)의 본문과 그림 목록을 그대로 쓴다. 실패하면 오류 사전의 문구를 보인다.
+ */
+export async function getGuideContent(user: User, doc: { id: number; docCode: string; title: string }, versionId?: number, version = ''): Promise<ApiResult<GuideContent>> {
+  if (USE_MOCK_GUIDE) {
+    await sleep(150)
+    return ok(mockContent(doc, version || 'v1.0'))
+  }
+  const path = versionId !== undefined && user.serviceRole === 'ADMIN' ? `/documents/${doc.id}/versions/${versionId}/content` : `/documents/${doc.id}/content`
+  const r = await request<SContent>(path)
+  if (!r.ok) {
+    // 파일이 서버에 없거나 읽지 못한 경우: 관리자는 파일을 확인할 수 있으니 그 안내를, 그 밖의 사용자는 문의 안내를 본다
+    if (r.error.code === 'DOCUMENT_CONTENT_UNAVAILABLE' && user.serviceRole === 'ADMIN') return fail(r.error.code, '서버에 가이드 파일이 없거나 읽지 못했어요. 파일을 확인해 주세요.')
+    return r
+  }
+  const text = r.data.content ?? r.data.text ?? r.data.markdown ?? ''
+  return ok({ docCode: doc.docCode, title: doc.title, version: r.data.version ?? version, text, images: r.data.images })
+}
+
+/**
+ * 문의자·담당자가 읽을 수 있는 가이드 목록 (현행 버전만). 서버는 열람 범위 안의 문서만 준다(DC-01).
+ * 모의에서는 내 역할로 볼 수 있는 범위(전 직원 / 담당자 이상 / 관리자만)로 거른다.
+ */
+export async function listReadableGuides(user: User): Promise<ApiResult<Guide[]>> {
+  if (USE_MOCK_GUIDE) {
+    await sleep(150)
+    const rank = { EMPLOYEE: 0, AGENT: 1, ADMIN: 2 }[user.serviceRole]
+    const need: Record<GuideScope, number> = { '전 직원': 0, '담당자 이상': 1, '관리자만': 2 }
+    return ok(store.map(toGuide).filter((g) => g.isActive && g.current && rank >= need[g.current.scope ?? '전 직원']))
+  }
+  const out: Guide[] = []
+  for (let page = 1; page <= 10; page++) {
+    const r = await request<{ items: SDoc[]; totalPages: number }>(`/documents?size=100&page=${page}&docType=GUIDE&docType=MANUAL&sort=docCode,asc`)
+    if (!r.ok) return r
+    r.data.items.forEach((d) => {
+      const c = d.currentVersion
+      if (!d.categoryCode || !c || d.isActive === false) return
+      out.push({ id: d.id, docCode: d.docCode, title: d.title, cat: d.categoryCode, isActive: true, docType: d.docType, current: { version: c.version, tx: c.transferPolicy ? TX_FROM[c.transferPolicy] : '금지', scope: c.viewScope ? SCOPE_FROM[c.viewScope] : undefined }, versions: null })
+    })
+    if (page >= r.data.totalPages) break
+  }
+  return ok(out)
+}
+
+/* ------------------------------------------------------------------ 해결 사례 → 가이드 초안 연결 (모의 전용) */
+/**
+ * 해결 사례를 승인하면(모의) 가이드 목록의 문서에 현행이 아닌 초안 버전이 등록된다. 문서가 없으면 새 문서를 만든다.
+ * ready 를 '준비 중'으로 주면 몇 초 뒤 준비 완료가 된다. current 이면 그 버전이 현행이다(시연 이력용).
+ */
+export function mockRegisterCaseDraft(a: { docCode?: string; title: string; cat: CategoryCode; scope: GuideScope; tx: GuideTx; ready: GuideReady; error?: string; current?: boolean; version?: string }): { docId: number; versionId: number; docCode: string; version: string } {
+  let g = a.docCode ? store.find((x) => x.docCode === a.docCode) : undefined
+  if (!g) {
+    g = { id: ++seq.doc, docCode: a.docCode ?? nextDocCode(store, a.cat), title: a.title, cat: a.cat, versions: [] }
+    store.push(g)
+  }
+  const version = a.version ?? (g.versions.length ? nextVersion(g.versions) : FIRST_VERSION)
+  const x = vNew(++seq.ver, version, a.current ? '현행' : '초안', a.scope, a.tx, a.ready)
+  if (a.error) x.error = a.error
+  if (a.current) g.versions.forEach((y) => y.state === '현행' && (y.state = '만료'))
+  g.versions.unshift(x)
+  notify()
+  if (a.ready === '준비 중') {
+    const doc = g
+    timers.push(setTimeout(() => finishMockIngest(x, doc.docCode), 2800))
+  }
+  return { docId: g.id, versionId: x.id, docCode: g.docCode, version }
+}
+/** 등록한 버전의 지금 상태 (없으면 null) */
+export function mockVersionState(docId: number, versionId: number): { state: GuideState; ready: GuideReady; error?: string } | null {
+  const x = store.find((g) => g.id === docId)?.versions.find((y) => y.id === versionId)
+  return x ? { state: x.state, ready: x.ready, error: x.error } : null
+}
+/** 검색 준비에 실패한 같은 버전을 다시 준비한다 */
+export function mockRetryCaseDraft(docId: number, versionId: number): boolean {
+  const g = store.find((x) => x.id === docId)
+  const x = g?.versions.find((y) => y.id === versionId)
+  if (!g || !x || x.ready !== '준비 실패') return false
+  x.ready = '준비 중'
+  x.error = undefined
+  notify()
+  timers.push(setTimeout(() => finishMockIngest(x, g.docCode), 2800))
+  return true
+}
+

@@ -27,8 +27,10 @@ ROOT = Path(__file__).resolve().parents[4]                 # 저장소 루트
 GUIDES = ROOT / 'dataset' / 'guides'
 BASELINE = Path(__file__).resolve().parents[1] / 'chunker' / 'baseline.json'
 VERSION_COLUMNS = ('version', 'file_path', 'file_format', 'view_scope', 'transfer_policy')   # version_row 중 표에 있는 칸
-CHUNK_COLUMNS = ('seq', 'unit_key', 'part', 'chunk_type', 'heading_path', 'location', 'content', 'meta')
-ERROR_MAX = 1000                                           # ingest_error 에 남기는 글자 수
+CHUNK_COLUMNS = ('seq', 'unit_key', 'part', 'chunk_type', 'heading_path', 'location', 'content', 'meta',
+                 'content_transfer_policy')
+CONTENT_POLICIES = ('ALLOWED', 'BLOCKED')                 # content_transfer_policy 값 (DB CHECK 와 같다. MASKED 없음)
+ERROR_MAX = 1000                                          # ingest_error 에 남기는 글자 수
 NORM_TOLERANCE = 1e-3                                      # 임베딩은 길이 1 (두 모델 모두 정규화)
 LOCAL_HOSTS = ('', 'localhost', '127.0.0.1', '::1')       # 이 컴퓨터. 아니면 --allow-remote 가 있어야 쓴다
 SCOPE_RANK = {'ALL': 0, 'AGENT': 1, 'ADMIN': 2}            # 클수록 좁다
@@ -77,11 +79,12 @@ class Prepared:
     chunks: list[Chunk]
     document: dict                                         # knowledge_documents 행 (owner_group 은 이름)
     version: dict                                          # document_versions 행 (VERSION_COLUMNS)
-    rows: list[dict]                                       # document_chunks 행들 (chunk_row)
+    rows: list[dict]                                       # document_chunks 행들 (chunk_rows: chunk_row + 내용 전송 칸)
     parse_warnings: list[str]
     vectors: dict[str, list[list[float]]] = field(default_factory=dict)   # model_id → 청크 순서대로
     apply_policy: bool = False                             # 이미 있는 버전의 정책을 manifest 값으로 바꿀지 (check_policies)
     apply_document: bool = False                           # 이미 있는 문서의 제목·분류·관리 부서를 파일 값으로 바꿀지 (check_documents)
+    policy_warnings: list[str] = field(default_factory=list)   # 매뉴얼 항목별 내용 전송 판정 경고 (막지 않음)
 
     @property
     def doc_code(self) -> str:
@@ -115,8 +118,9 @@ def load_manifest(guides: Path = GUIDES, docs: list[str] | None = None) -> list[
 
 
 def prepare(entries: list[dict], guides: Path = GUIDES) -> list[Prepared]:
-    """md 를 파싱해 청크·행을 만든다. 정리본은 문서마다 md 하나만 등록한다."""
-    out = []
+    """md 를 파싱해 청크·행을 만든다. 정리본은 문서마다 md 하나만 등록한다.
+    매뉴얼(문서 종류 MANUAL)은 허용 목록으로 청크마다 내용 전송 값을 넣는다 (manual_policies)."""
+    out, allow = [], None
     for e in entries:
         path = (Path(guides) / e['files']['md']).resolve()
         doc = parse(str(path))
@@ -126,10 +130,44 @@ def prepare(entries: list[dict], guides: Path = GUIDES) -> list[Prepared]:
         except ValueError:
             shown = path.as_posix()
         v = version_row(doc, shown, e)
-        out.append(Prepared(entry=e, chunks=chunks, document=document_row(doc),
-                            version={k: v[k] for k in VERSION_COLUMNS}, rows=[chunk_row(c) for c in chunks],
-                            parse_warnings=list(doc.warnings)))
+        d = document_row(doc)
+        policies, warns = {}, []
+        if d['doc_type'] == 'MANUAL':
+            if allow is None:
+                allow = load_allowlist()
+                warns += allow[1]
+            policies, more = manual_policies(d['doc_code'], doc, chunks, allow[0])
+            warns += more
+        out.append(Prepared(entry=e, chunks=chunks, document=d, version={k: v[k] for k in VERSION_COLUMNS},
+                            rows=chunk_rows(chunks, policies), parse_warnings=list(doc.warnings),
+                            policy_warnings=warns))
     return out
+
+
+def load_allowlist():
+    """허용 목록 (allowlist.load). 순환 import 를 피해 여기서 부른다."""
+    from .allowlist import load
+    return load()
+
+
+def manual_policies(doc_no: str, doc, chunks: list[Chunk], allow: dict) -> tuple[dict[str, str], list[str]]:
+    """매뉴얼 청크별 내용 전송 (allowlist.policies): 목록에 ALLOWED·지문 같음인 3장 3.x 항목만 ALLOWED, 나머지 BLOCKED."""
+    from .allowlist import policies
+    return policies(doc_no, doc, chunks, allow)
+
+
+def chunk_rows(chunks: list[Chunk], policies: dict[str, str] | None = None) -> list[dict]:
+    """document_chunks 행들: chunker.chunk_row + 적재가 정하는 content_transfer_policy (매뉴얼 3.x 항목별 내용 전송).
+
+    policies: unit_key → 'ALLOWED'·'BLOCKED'. 한 항목이 여러 조각으로 나뉘어도 unit_key 가 같아 모든 조각이 같은 값이다.
+    없는 청크는 빈칸 = 버전의 transfer_policy 를 따른다. 매뉴얼은 manual_policies 가 모든 청크에 값을 주고 (M4 Q10),
+    가이드 등 매뉴얼이 아닌 문서는 늘 빈칸 (지금 동작 그대로).
+    값은 허용 목록이 기준이라, DB 에서 직접 고친 값은 다음 적재 때 이 값으로 덮인다 (_relabel).
+    """
+    policies = policies or {}
+    if bad := sorted({v for v in policies.values() if v not in CONTENT_POLICIES}):
+        raise ValueError(f'content_transfer_policy 는 {"·".join(CONTENT_POLICIES)} 만 됩니다: {", ".join(map(str, bad))}')
+    return [{**chunk_row(c), 'content_transfer_policy': policies.get(c.unit_key)} for c in chunks]
 
 
 def load_baseline(path: Path = BASELINE) -> dict[str, dict]:
@@ -148,6 +186,8 @@ def check_files(prepared: list[Prepared], base: dict[str, dict] | None, report: 
         if p.version['version'] != p.entry.get('version'):
             report.problems.append(f'{p.doc_code}: 버전이 manifest({p.entry.get("version")})와 문서({p.version["version"]})에서 다름')
         report.problems += [f'{p.doc_code}: 파서 경고 {w}' for w in p.parse_warnings]
+        report.warnings += [w if w.startswith(p.doc_code) or w.startswith('허용 목록') else f'{p.doc_code}: {w}'
+                            for w in p.policy_warnings]
         report.problems += [f'{p.doc_code}: {x}' for x in validate(p.chunks)]
         if not p.chunks:
             report.problems.append(f'{p.doc_code}: 청크 0개')
@@ -244,6 +284,11 @@ def check_documents(conn, prepared: list[Prepared], groups: dict[str, int], appl
         if row is None or tuple(row) == want:
             continue
         diff = ', '.join(f'{k} {a!r} → {b!r}' for k, a, b in zip(DOCUMENT_COLUMNS, row, want) if a != b)
+        if not apply and row[0] != want[0]:               # 매뉴얼 내용 전송 판정은 파일 종류로 했다 (prepare) — DB 종류를
+            report.problems.append(                       # 두면 판정과 어긋난다 (PR #364 검수 1)
+                f'{p.doc_code}: 문서 종류가 DB({row[0]})와 파일({want[0]})에서 다릅니다. 매뉴얼 내용 전송 판정이 어긋나 '
+                '멈춥니다. 파일 값으로 맞추려면 --apply-document, 아니면 파일 머리말 doc_type 을 고치세요')
+            continue
         if apply:
             p.apply_document = True
             report.warnings.append(f'{p.doc_code}: 문서 정보를 파일 값으로 바꿈 ({diff})')
@@ -382,6 +427,10 @@ def write_document(conn, p: Prepared, groups: dict[str, int], cache: dict, activ
         status = conn.execute('select ingest_status from document_versions where id = %s', (vid,)).fetchone()[0]
         if p.apply_document:
             _update_document(conn, doc_id, p, groups)
+        kind = conn.execute('select doc_type from knowledge_documents where id = %s', (doc_id,)).fetchone()[0]
+        if kind != p.document['doc_type']:                 # 잠근 뒤 다시: 검증 뒤 관리자가 종류를 바꿨을 수 있다.
+            raise IngestError([f"검증 뒤 문서 종류가 바뀜: DB {kind}, 파일 {p.document['doc_type']}. "   # 내용 전송 판정은
+                               '확인 후 --apply-document'])                                          # 파일 종류로 했다
         if p.apply_policy:
             _apply_policy(conn, doc_id, vid, p)
         else:                                              # 잠근 뒤 지금 정책으로 다시 비교. 검증 뒤나 새 버전 행을
@@ -481,22 +530,26 @@ SHOW_CHANGED = 10                                         # 바뀐 칸 경고는
 
 
 def _relabel(conn, vid: int, p: Prepared, warnings: list[str]) -> list[int] | None:
-    """뼈대(seq·unit_key·part·chunk_type)와 본문이 DB 와 같으면 이름표(heading_path·location·meta)만 같은 id 에
-    고쳐 쓰고 청크 id 들을 돌려준다. 조각 식별·본문은 그대로라 겹친 검색이 섞이지 않는다 (순위·이름표는 이전 것을
-    볼 수 있다). 바뀐 칸은 경고 ('item:3.4: inquiry_type_codes [] → ["HW-10"]'). 다르면 아무것도 안 하고 None."""
-    old = conn.execute('select id, seq, unit_key, part, chunk_type, content, heading_path, location, meta '
-                       'from document_chunks where version_id = %s order by seq', (vid,)).fetchall()
+    """뼈대(seq·unit_key·part·chunk_type)와 본문이 DB 와 같으면 이름표(heading_path·location·meta)와 내용 전송
+    (content_transfer_policy)만 같은 id 에 고쳐 쓰고 청크 id 들을 돌려준다. 조각 식별·본문은 그대로라 겹친 검색이
+    섞이지 않는다 (순위·이름표는 이전 것을 볼 수 있다). 바뀐 칸은 경고 ('item:3.4: inquiry_type_codes [] → ["HW-10"]').
+    다르면 아무것도 안 하고 None."""
+    old = conn.execute('select id, seq, unit_key, part, chunk_type, content, heading_path, location, meta, '
+                       'content_transfer_policy from document_chunks where version_id = %s order by seq',
+                       (vid,)).fetchall()
     if [tuple(r[1:6]) for r in old] != [tuple(x[k] for k in ('seq', 'unit_key', 'part', 'chunk_type', 'content'))
                                          for x in p.rows]:
         return None
     from psycopg.types.json import Jsonb
     changed = []
-    for (cid, *_, heading, location, meta), x in zip(old, p.rows):
-        diff = _diff({'heading_path': heading, 'location': location, **(meta or {})},
-                     {'heading_path': x['heading_path'], 'location': x['location'], **x['meta']})
+    for (cid, *_, heading, location, meta, policy), x in zip(old, p.rows):
+        diff = _diff({'heading_path': heading, 'location': location, 'content_transfer_policy': policy, **(meta or {})},
+                     {'heading_path': x['heading_path'], 'location': x['location'],
+                      'content_transfer_policy': x['content_transfer_policy'], **x['meta']})
         if diff:
-            conn.execute('update document_chunks set heading_path = %s, location = %s, meta = %s where id = %s',
-                         (x['heading_path'], x['location'], Jsonb(x['meta']), cid))
+            conn.execute('update document_chunks set heading_path = %s, location = %s, meta = %s, '
+                         'content_transfer_policy = %s where id = %s',
+                         (x['heading_path'], x['location'], Jsonb(x['meta']), x['content_transfer_policy'], cid))
             changed.append(f"{x['unit_key'].split('/', 1)[-1]}: {', '.join(diff)}")
     warnings += [f'이름표 바뀜 {c}' for c in changed[:SHOW_CHANGED]]
     if len(changed) > SHOW_CHANGED:

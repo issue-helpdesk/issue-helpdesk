@@ -1,9 +1,7 @@
 /**
  * 운영 현황 (관리자). (design/ITssue-Prototype.html viewExc)
- * 지금 확인하고 처리할 일을 모아 보여 준다: 긴급 조치(P1), 당일 미종결 예외, 티켓 연동 확인, 담당자 배정 확인.
+ * 관리자가 직접 확인해야 풀리는 일만 모아 보여 준다: 티켓 연동 확인, 담당자 배정 확인. (긴급·높음 미해결은 대시보드에서 본다)
  * 목록은 접수 목록(TK-05 view=ALL)을 조건별로 받아 나눈다. 서버에는 이 화면 전용 집계 API 가 없다.
- *   긴급 조치       urgency=P1 · workStatus=RDY,WIP
- *   당일 미종결     urgency=P1,P2 · 처리 대기·처리 중·해결 확인 대기 중 접수일이 오늘 이전인 것
  *   연동·배정 확인  needsAdmin=true 를 jiraSyncStatus·assignStatus·transitionStatus 로 나눈다
  * 확인·재시도는 서버의 연동 작업 목록(TK-11)에서 실패한 작업을 골라 재처리(TK-12)를 등록한다. 실행기가 처리해야 끝나므로
  * 접수를 서버로 보내는 환경(VITE_SERVER_INTAKE)에서만 요청하고, 아니면 안내만 한다. 담당자 지정(TK-09)은 따로 연결한다.
@@ -18,8 +16,6 @@ import type { IntegrationJob, IntegrationJobType, RetryOutcome, TicketDetail, Ti
 import { fail, ok, type ApiResult, type User } from './types'
 
 export interface OpsSnapshot {
-  urgent: TicketSummary[]
-  exception: TicketSummary[]
   /** ITSM 이슈가 안 만들어졌거나(확인 필요·결과 확인 중) 상태 변경을 ITSM 에서 확인하지 못한 접수 */
   link: TicketSummary[]
   /** ITSM 이슈는 만들어졌지만 담당자가 비어 있는 접수 */
@@ -28,33 +24,18 @@ export interface OpsSnapshot {
   asOf: string
 }
 
-const isOpen = (t: TicketSummary) => t.workStatus === 'RDY' || t.workStatus === 'WIP'
-const startOfToday = () => {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d.getTime()
-}
-
 export async function getOpsSnapshot(user: User, groupId?: number): Promise<ApiResult<OpsSnapshot>> {
   const base = { view: 'ALL' as const, size: 100, ...(groupId ? { groupId } : {}) }
-  const [u, x, n] = await Promise.all([
-    listTickets(user, { ...base, urgency: ['P1'], workStatus: ['RDY', 'WIP'], sort: 'createdAt,asc' }),
-    listTickets(user, { ...base, urgency: ['P1', 'P2'], workStatus: ['RDY', 'WIP', 'FIN'], sort: 'createdAt,asc' }),
-    listTickets(user, { ...base, needsAdmin: true, sort: 'createdAt,asc' }),
-  ])
-  if (!u.ok) return u
-  if (!x.ok) return x
+  const n = await listTickets(user, { ...base, needsAdmin: true, sort: 'createdAt,asc' })
   if (!n.ok) return n
-  const today = startOfToday()
-  const exception = x.data.items
-    .filter((t) => Date.parse(t.createdAt) < today && !(t.urgency === 'P1' && isOpen(t)))
-    // P1 먼저, 같은 긴급도에서는 오래된 건 먼저
-    .sort((a, b) => (a.urgency ?? '').localeCompare(b.urgency ?? '') || Date.parse(a.createdAt) - Date.parse(b.createdAt))
   // 해결 완료(CLS)된 접수는 더 확인할 일이 없다
   const open = n.data.items.filter((t) => t.workStatus !== 'CLS')
-  const link = open.filter((t) => t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.transitionStatus === 'NEEDS_ADMIN')
-  const assign = open.filter((t) => t.jiraSyncStatus === 'SYNCED' && t.assignStatus === 'NEEDS_ADMIN')
-  return ok({ urgent: u.data.items, exception, link, assign, asOf: nowIso() })
+  const isAssign = (t: TicketSummary) => t.jiraSyncStatus === 'SYNCED' && t.assignStatus === 'NEEDS_ADMIN'
+  const isLink = (t: TicketSummary) => t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.transitionStatus === 'NEEDS_ADMIN'
+  // 어느 쪽에도 안 맞는 확인 필요 건(예: 연동이 아직 진행 중인데 배정 확인이 필요)도 빠지지 않게 연동 확인으로 보인다
+  const link = open.filter((t) => isLink(t) || !isAssign(t))
+  const assign = open.filter(isAssign)
+  return ok({ link, assign, asOf: nowIso() })
 }
 
 /** 사이드바 배지용: 연동·배정 확인이 필요한 접수 수 */

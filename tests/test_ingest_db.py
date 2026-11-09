@@ -429,6 +429,40 @@ def test_document_info_kept_unless_applied(url, tmp_path):
     assert title == load_manifest(docs=[code])[0]['title']
 
 
+def test_document_type_mismatch_stops_unless_applied(url):
+    """PR #364 검수 1: 매뉴얼 내용 전송 판정은 파일 종류로 한다. DB 종류가 다르면 (DB 를 두면 판정과 어긋나) 멈추고,
+    --apply-document 면 파일 종류로 맞춰 판정과 같아진다. 반대 방향(DB MANUAL·파일 GUIDE)도 같다."""
+    for code, other in (('IT-ACS-002-M', 'GUIDE'), ('IT-ACS-002', 'MANUAL')):
+        with psycopg.connect(url) as conn:
+            conn.execute('update knowledge_documents set doc_type = %s where doc_code = %s', (other, code))
+        before = snapshot(url)
+        with pytest.raises(IngestError) as e:                          # 검증 실패 → DB 에 아무것도 쓰지 않음
+            run(url, [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')], docs=[code])
+        assert any(f'{code}: 문서 종류가 DB({other})와 파일' in p for p in e.value.problems) and snapshot(url) == before
+        report = run(url, [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')], docs=[code], apply_document=True)
+        assert not report.problems and report.results[0]['error'] is None
+        file_type = 'MANUAL' if code.endswith('-M') else 'GUIDE'
+        assert q(url, 'select doc_type from knowledge_documents where doc_code = %s', code) == [(file_type,)]
+        got = {p for (p,) in q(url, '''select c.content_transfer_policy from document_chunks c join document_versions v
+                                       on v.id = c.version_id and v.is_current join knowledge_documents d
+                                       on d.id = v.document_id where d.doc_code = %s''', code)}
+        assert got == ({'BLOCKED'} if file_type == 'MANUAL' else {None})
+
+
+def test_document_type_changed_before_lock(url, monkeypatch):
+    """검증 뒤 잠그기 전에 관리자가 문서 종류를 바꾸면 그 문서는 실패 (판정과 어긋난 값을 쓰지 않음)."""
+    import app.rag.ingest as ingest
+    code, real = 'IT-HW-003-M', ingest._lock_document
+
+    def change_then_lock(conn, doc_id):
+        with psycopg.connect(url) as other:
+            other.execute("update knowledge_documents set doc_type = 'GUIDE' where id = %s", (doc_id,))
+        real(conn, doc_id)
+    monkeypatch.setattr(ingest, '_lock_document', change_then_lock)
+    r = run(url, [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')], docs=[code]).results[0]
+    assert r['action'] == 'failed' and '검증 뒤 문서 종류가 바뀜: DB GUIDE, 파일 MANUAL' in r['error']
+
+
 def test_new_version_policy_widened_before_lock(url, tmp_path, monkeypatch):
     """새 버전 PENDING 행을 커밋한 뒤 문서를 잠그기 전에 정책이 넓어지면 그 버전은 FAILED, 현행 그대로 (PR #96 리뷰 P2)."""
     import app.rag.ingest as ingest
@@ -469,3 +503,176 @@ def test_label_only_change_keeps_chunk_ids(url):
     assert q(url, chunks) == before                                     # id·이름표 모두 원래대로
     assert versions(url, 'IT-ACC-002')['v2.0'][1:3] == (True, 'DONE')
     assert run(url, embs, docs=['IT-ACC-002']).results[0]['action'] == 'unchanged'
+
+
+def test_transfer_policy_only_change_keeps_chunk_ids(url):
+    """매뉴얼 항목별 내용 전송 칸만 DB 와 다르면 (예: 허용 목록을 고친 뒤 다시 적재) 같은 id 에 그 칸만 고쳐 쓴다.
+    전체 적재는 목록대로 넣는다 (지금 목록은 값이 비어 매뉴얼은 모두 BLOCKED). 벡터는 다시 만들지 않는다."""
+    chunks = '''select c.id, c.content_transfer_policy from document_chunks c join document_versions v on v.id = c.version_id
+                join knowledge_documents d on d.id = v.document_id where d.doc_code = 'IT-SW-001-M' order by c.seq'''
+    before = q(url, chunks)
+    assert before and all(p == 'BLOCKED' for _, p in before)
+    item = q(url, '''select c.unit_key from document_chunks c join document_versions v on v.id = c.version_id
+                     join knowledge_documents d on d.id = v.document_id
+                     where d.doc_code = 'IT-SW-001-M' and c.unit_key like '%%/item:%%' order by c.seq limit 1''')[0][0]
+    with psycopg.connect(url) as conn:                                  # 예전 목록으로 허용됐던 것처럼
+        conn.execute("update document_chunks set content_transfer_policy = 'ALLOWED' where unit_key = %s", (item,))
+    embs = [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')]
+    r = run(url, embs, docs=['IT-SW-001-M']).results[0]
+    assert r['action'] == 'relabeled' and not r['dropped'] and [e.calls for e in embs] == [0, 0]
+    assert r['changed'] and all('content_transfer_policy "ALLOWED" → "BLOCKED"' in c for c in r['changed'])
+    assert q(url, chunks) == before                                     # id 그대로, 값은 목록대로 다시 BLOCKED
+    assert run(url, embs, docs=['IT-SW-001-M']).results[0]['action'] == 'unchanged'
+
+
+def test_allowlist_change_relabels_manual(url, tmp_path, monkeypatch):
+    """허용 목록에서 한 항목을 ALLOWED 로 채우고 다시 적재하면 그 항목 조각만 ALLOWED (같은 id·벡터 그대로).
+    목록 지문과 지금 내용이 다르면 차단하고 경고한다."""
+    import json
+    from app.rag.ingest import allowlist as al
+    data = json.loads(al.ALLOWLIST.read_text(encoding='utf-8'))
+    row = next(r for r in data['items'] if r['doc_no'] == 'IT-SW-002-M')
+    row['content'] = 'ALLOWED'
+    f = tmp_path / 'allow.json'
+    f.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
+    monkeypatch.setattr(al, 'ALLOWLIST', f)
+    monkeypatch.setattr(al.load, '__defaults__', (f,))
+    pol = '''select c.unit_key, c.content_transfer_policy from document_chunks c join document_versions v on v.id = c.version_id
+             join knowledge_documents d on d.id = v.document_id where d.doc_code = 'IT-SW-002-M' order by c.seq'''
+    ids = '''select c.id from document_chunks c join document_versions v on v.id = c.version_id
+             join knowledge_documents d on d.id = v.document_id where d.doc_code = 'IT-SW-002-M' order by c.seq'''
+    before = q(url, ids)
+    embs = [FakeEmbedder('kure-v1'), FakeEmbedder('bge-m3')]
+    report = run(url, embs, docs=['IT-SW-002-M'])
+    assert report.results[0]['action'] == 'relabeled' and [e.calls for e in embs] == [0, 0] and q(url, ids) == before
+    got = {u.rsplit(':', 1)[-1]: p for u, p in q(url, pol)}
+    assert got[row['section']] == 'ALLOWED' and {p for s, p in got.items() if s != row['section']} == {'BLOCKED'}
+
+    row['fingerprint'] = 'sha256:' + '0' * 64                          # 목록 이후 내용이 바뀐 것처럼
+    f.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
+    report = run(url, embs, docs=['IT-SW-002-M'])
+    assert {p for _, p in q(url, pol)} == {'BLOCKED'}
+    assert any(f"IT-SW-002-M {row['section']}: 허용 목록 이후 내용이 바뀌어 차단" in w for w in report.warnings)
+
+
+# ── 정책만 다시 반영 (allowlist reapply, M4 Q12) ──────────────
+
+def _policies(url, code):
+    return q(url, '''select c.id, c.unit_key, c.content_transfer_policy from document_chunks c
+                     join document_versions v on v.id = c.version_id join knowledge_documents d on d.id = v.document_id
+                     where d.doc_code = %s order by v.id, c.seq''', code)
+
+
+def _emb_count(url, code):
+    return q(url, '''select count(*) from document_chunk_embeddings e join document_chunks c on c.id = e.chunk_id
+                     join document_versions v on v.id = c.version_id join knowledge_documents d on d.id = v.document_id
+                     where d.doc_code = %s''', code)[0][0]
+
+
+def _reapply(url, allow, apply=True):
+    from app.rag.ingest.allowlist import reapply
+    with connect(url) as conn:
+        out = reapply(conn, allow)
+        (conn.commit if apply else conn.rollback)()
+    return out
+
+
+def test_reapply_fixes_only_policy_column(url):
+    """어긋난 값(매뉴얼 청크 ALLOWED·가이드 청크 BLOCKED)을 목록대로 고친다 — 그 칸만 (청크 id·임베딩 그대로), 감사 로그.
+    미리보기는 DB 를 바꾸지 않는다. 다시 하면 바뀐 것 없음."""
+    from app.rag.ingest.allowlist import load, _report
+    allow, _ = load()
+    man, guide = 'IT-NET-001-M', 'IT-NET-002'
+    m0, g0 = _policies(url, man), _policies(url, guide)
+    with psycopg.connect(url) as conn:
+        conn.execute("update document_chunks set content_transfer_policy = 'ALLOWED' where id = %s", (m0[0][0],))
+        conn.execute("update document_chunks set content_transfer_policy = 'BLOCKED' where id = %s", (g0[0][0],))
+    embs = (_emb_count(url, man), _emb_count(url, guide))
+    before_audit = q(url, "select count(*) from audit_logs where event_type = 'DOCUMENT_POLICY_CHANGE'")[0][0]
+
+    preview = _reapply(url, allow, apply=False)
+    assert _policies(url, man)[0][2] == 'ALLOWED'                       # 미리보기는 되돌림
+    assert any(c['doc'] == man and 'ALLOWED' in c['old'] and c['new'] == 'BLOCKED' for c in preview['changes'])
+    assert any(c['doc'] == guide and c['old'] == ['BLOCKED'] and c['new'] is None for c in preview['changes'])
+    out = _reapply(url, allow)
+    assert _policies(url, man) == m0 and _policies(url, guide) == g0      # 같은 id, 값은 목록대로
+    assert (_emb_count(url, man), _emb_count(url, guide)) == embs
+    assert q(url, "select count(*) from audit_logs where event_type = 'DOCUMENT_POLICY_CHANGE'")[0][0] > before_audit
+    report = _report(out, True)                                        # 실제 전송 결과로: 매뉴얼은 허용→차단,
+    assert f'{man} v2.0 ' in report and ': ALLOWED → BLOCKED' in report  # 가이드는 버전이 ALLOWED 라 차단→허용
+    assert f'{guide} v2.0 ' in report and ': BLOCKED → ALLOWED' in report
+    assert _reapply(url, allow)['changes'] == []
+
+
+def test_reapply_opens_listed_item_all_pieces(url):
+    """목록에 ALLOWED 를 채우면 그 항목의 모든 조각이 ALLOWED (같은 id), 보고에 '차단 → 허용' 한 줄. 지문이 다르면 그대로 차단."""
+    from app.rag.ingest.allowlist import load, _report
+    code = 'IT-NET-002-M'
+    allow, _ = load()
+    section = next(s for (d, s) in allow if d == code)
+    before = _policies(url, code)
+    opened = {**allow, (code, section): ('ALLOWED', allow[(code, section)][1])}
+    out = _reapply(url, opened)
+    after = _policies(url, code)
+    assert [i for i, *_ in after] == [i for i, *_ in before]
+    assert {p for _, u, p in after if u.endswith(f'/item:{section}')} == {'ALLOWED'}
+    assert {p for _, u, p in after if not u.endswith(f'/item:{section}')} == {'BLOCKED'}
+    assert f'{code} v2.0 item:{section}: BLOCKED → ALLOWED' in _report(out, True)
+    stale = {**allow, (code, section): ('ALLOWED', 'sha256:' + '0' * 64)}
+    out = _reapply(url, stale)                                          # 목록 이후 내용이 바뀐 것처럼
+    assert {p for _, _, p in _policies(url, code)} == {'BLOCKED'}
+    assert any(f'{code} {section}: 허용 목록 이후 내용이 바뀌어 차단' in w for w in out['warnings'])
+
+
+def test_reapply_skips_version_whose_file_differs(url):
+    """버전 파일의 청크 구성이 DB 와 다르면 추측하지 않고 건너뛴다 (값 그대로)."""
+    from app.rag.ingest.allowlist import load
+    code = 'IT-NET-003-M'
+    with psycopg.connect(url) as conn:                                  # 다른 매뉴얼 파일을 가리키게
+        conn.execute('''update document_versions set file_path = (select v2.file_path from document_versions v2
+                        join knowledge_documents d2 on d2.id = v2.document_id where d2.doc_code = 'IT-NET-001-M' limit 1)
+                        where document_id = (select id from knowledge_documents where doc_code = %s)''', (code,))
+        conn.execute('''update document_chunks set content_transfer_policy = 'ALLOWED' where version_id in
+                        (select v.id from document_versions v join knowledge_documents d on d.id = v.document_id
+                         where d.doc_code = %s)''', (code,))
+    out = _reapply(url, load()[0])
+    assert any(s.startswith(f'{code} ') and '구성·본문)가 파일과 달라' in s for s in out['skipped'])
+    assert {p for _, _, p in _policies(url, code)} == {'ALLOWED'}         # 건드리지 않음
+
+
+def test_reapply_cli_guards_remote(capsys):
+    from app.rag.ingest.allowlist import main
+    assert main(['reapply', '--database-url', 'postgresql://u:p@db.example.com:5432/x']) == 2
+    assert '--allow-remote' in capsys.readouterr().err
+
+
+def test_reapply_skips_when_db_body_differs_from_file(url):
+    """#369 검수 1: 항목 번호는 같아도 DB 에 예전 본문이 남아 있으면 (파일 지문으로 승인한 허용을 예전 본문에 붙이지 않게)
+    건너뛴다 — 값 그대로, 다시 적재 필요."""
+    from app.rag.ingest.allowlist import load
+    code = 'IT-HW-001-M'
+    allow, _ = load()
+    section = next(s for (d, s) in allow if d == code)
+    with psycopg.connect(url) as conn:                                  # 예전 본문이 남은 것처럼
+        conn.execute('''update document_chunks set content = content || ' (예전 문장)' where unit_key like %s''',
+                     (f'{code}@%/item:{section}',))
+    out = _reapply(url, {**allow, (code, section): ('ALLOWED', allow[(code, section)][1])})
+    assert any(s.startswith(f'{code} ') and '구성·본문)가 파일과 달라' in s for s in out['skipped'])
+    assert {p for _, _, p in _policies(url, code)} == {'BLOCKED'}
+
+
+def test_reapply_reads_kind_after_lock(url, monkeypatch):
+    """#369 검수 2: 잠근 뒤에 문서 종류를 읽는다 — 잠그기를 기다리는 사이 종류가 바뀌어도 바뀐 종류로 판정."""
+    import app.rag.ingest as ingest
+    from app.rag.ingest.allowlist import load
+    code, real = 'IT-HW-002-M', ingest._lock_document
+    doc_id = q(url, 'select id from knowledge_documents where doc_code = %s', code)[0][0]
+
+    def change_then_lock(conn, did):
+        if did == doc_id:
+            with psycopg.connect(url) as other:
+                other.execute("update knowledge_documents set doc_type = 'GUIDE' where id = %s", (did,))
+        real(conn, did)
+    monkeypatch.setattr(ingest, '_lock_document', change_then_lock)
+    _reapply(url, load()[0])
+    assert {p for _, _, p in _policies(url, code)} == {None}             # 잠근 뒤 읽은 GUIDE → 빈칸

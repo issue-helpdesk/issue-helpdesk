@@ -24,8 +24,10 @@ from app.db.session import DbSession
 from app.models import AuthSession, User
 from app.repositories.audit_log import AuditLogRepositoryDep
 from app.repositories.auth_session import AuthSessionRepositoryDep
+from app.repositories.security_alert import SecurityAlertRepositoryDep
 from app.repositories.user import UserRepositoryDep
 from app.schemas.auth import Me
+from app.services.security_alert import detect
 from app.services.user import UserServiceDep, unlock
 
 MAX_FAILED_LOGINS = 5
@@ -54,12 +56,14 @@ class AuthService:
         users: UserRepositoryDep,
         sessions: AuthSessionRepositoryDep,
         audit_logs: AuditLogRepositoryDep,
+        alerts: SecurityAlertRepositoryDep,
         user_service: UserServiceDep,
     ) -> None:
         self.db = db
         self.users = users
         self.sessions = sessions
         self.audit_logs = audit_logs
+        self.alerts = alerts
         self.user_service = user_service
 
     def login(self, employee_no: str, password: str) -> IssuedTokens:
@@ -75,6 +79,7 @@ class AuthService:
 
         if user.account_status in ("LOCKED", "INACTIVE"):
             self.audit_logs.add("LOGIN_BLOCKED", "user", user.id, result=user.account_status)
+            detect(self.alerts, "LOGIN_BLOCKED", user.id, "user", user.id)
             self.db.commit()
             raise blocked_error(user)
 
@@ -84,6 +89,7 @@ class AuthService:
                 user.account_status = "LOCKED"
                 user.locked_until = now + timedelta(minutes=LOCK_MINUTES)
                 self.audit_logs.add("ACCOUNT_LOCKED", "user", user.id, result="LOCKED")
+                detect(self.alerts, "ACCOUNT_LOCKED", user.id, "user", user.id)
                 self.db.commit()
                 raise blocked_error(user)
             self.db.commit()

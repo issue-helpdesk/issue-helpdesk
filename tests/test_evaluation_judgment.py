@@ -7,7 +7,8 @@ from dataclasses import replace
 import pytest
 
 from app.agent.llm import CategoryInfo, Taxonomy, TypeInfo
-from app.rag.evaluation.judgment import (CITED, EXTRA_GROUP, GUIDE_GROUP, GUIDED_COL, TEAM_ASSIGNED, TEAM_GUIDED,
+from app.rag.evaluation.judgment import (CITED, EXTRA_GROUP, GUIDE_GROUP, GUIDED_COL, SITUATION_ACTION, SITUATION_ASKS,
+                                         TEAM_ASSIGNED, TEAM_GUIDED,
                                          TEAM_SKIP, EvalItem, Judged, Reference, cause, confusion, judge_item,
                                          load_extra_items, load_guide_items, load_items, main, near_urgency, run, score,
                                          summary_md, team_of, write)
@@ -171,6 +172,49 @@ def test_score_skips_dash_answers_and_team_exclusions():
                         team='엔드포인트지원팀', team_scoring=TEAM_SKIP), category='SW', urgency='P2')
     assert [score([vague])['전체'][c]['n'] for c in ('category', 'urgency', '긴급도 ±1', 'team')] == [0, 0, 0, 0]  # 모호 문항
     assert score([vague])['전체']['action'] == {'n': 1, 'acc': 1.0}                                   # 처리 방향은 채점
+
+
+def test_situation_ask_is_counted_apart(tmp_path):
+    """M4-3-1(11.05): 첫 판단이 가이드 상황만 되물으면 엄격 점수는 틀림 그대로, '상황 되묻기 제외' 칸에서는 빼고 건수를 따로.
+    상황 말고 다른 것도 물었거나 정답이 ASK_MORE 면 해당 없음. 원인은 '상황 되묻기'(판단 결함 후보 아님)."""
+    ask = replace(judged(item(), action='ASK_MORE'), missing=('situation',))
+    other = replace(judged(item(eval_id='EV-002'), action='ASK_MORE'), missing=('situation', 'target_system'))
+    want_ask = replace(judged(item(eval_id='EV-039', action='ASK_MORE')), missing=('situation',))
+    ok = judged(item(eval_id='EV-003'))
+    s = score([ask, other, want_ask, ok])['전체']
+    assert s['action'] == {'n': 4, 'acc': 0.5}                                   # 엄격: ask·other 틀림
+    assert s[SITUATION_ACTION] == {'n': 3, 'acc': 2 / 3}                         # ask 만 뺌
+    assert s[SITUATION_ASKS]['count'] == 1
+    assert cause(ask) == SITUATION_ASKS and cause(other) != SITUATION_ASKS
+    assert cause(replace(ask, predicted=ask.predicted | {'category': 'SEC'})) != SITUATION_ASKS   # 분류도 틀리면 판단
+    # PR #375 검수 1: 팀은 되물어도 세부 유형으로 정해진다. 분류·유형·긴급도는 맞고 팀만 틀려도 상황 되묻기로 덮지 않는다
+    assert cause(replace(ask, predicted=ask.predicted | {'team': '정보보안팀'})) != SITUATION_ASKS
+    summary = write(str(tmp_path), [ask, other, want_ask, ok], {'판단기': 'x'})
+    assert [x['문항'] for x in summary[SITUATION_ASKS]] == ['EV-001']
+    md = summary_md(summary)
+    assert f'| {SITUATION_ACTION} | {SITUATION_ASKS} |' in md and '| 67% (3) | 1건 |' in md
+    assert f'## {SITUATION_ASKS} 1개' in md
+    rows = {r['문항']: r for r in csv.DictReader(open(tmp_path / '문항별.csv', encoding='utf-8-sig'))}
+    assert (rows['EV-001'][SITUATION_ASKS], rows['EV-001']['되물은 항목']) == ('Y', 'situation')
+    assert rows['EV-002'][SITUATION_ASKS] == '' and rows['EV-002']['되물은 항목'] == 'situation; target_system'
+
+
+def test_situation_ask_survives_real_flow(monkeypatch):
+    """실제 판단 흐름(보정 포함)을 지나도 상황만 되물은 첫 판단이 missing=('situation',) 로 남아 따로 센다."""
+    import app.rag.evaluation.judgment as jm
+    from app.agent.llm import MockAdapter
+    it = item()
+
+    def ask(system, user):
+        d = json.loads(jm.oracle_reply(it, REF)(system, user))
+        return json.dumps(d | {'action': 'ASK_MORE', 'missing_items': ['situation'], 'evidence': [],
+                               'questions': [{'label': '상황', 'text': '어떤 상황인가요?',
+                                              'options': ['비밀번호를 잊음', '계정이 잠김'], 'allow_text': True}]},
+                          ensure_ascii=False)
+    monkeypatch.setattr(jm, 'make_port', lambda *a, **k: MockAdapter([ask]))
+    j = judge_item(it, 'mock:oracle', REF, FakeSearch(DOC))
+    assert (j.predicted['action'], j.missing, j.searched) == ('ASK_MORE', ('situation',), False)
+    assert score([j])['전체'][SITUATION_ASKS]['count'] == 1
 
 
 def test_write_keeps_values_only_and_reports_repeat_range(tmp_path):

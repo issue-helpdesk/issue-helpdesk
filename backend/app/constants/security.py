@@ -16,4 +16,3 @@ SECURITY_RULES = {
     'URGENT_CLOSED': ('긴급 징후 후 접수 없이 종료', 'HIGH', '긴급 징후가 있었으나 접수 없이 미해결 종료. 일반 장애 포함'),
     'MASS_QUERY': ('비정상 대량 질의', 'MEDIUM', '3분 동안 사용자 메시지 41건 이상 저장'),
 }
-SEVERITY_RANK = {'LOW': 0, 'MEDIUM': 1, 'HIGH': 2}

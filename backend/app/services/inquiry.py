@@ -1,7 +1,7 @@
 import logging
 from dataclasses import asdict
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import Annotated, get_args
 
 from fastapi import Depends
 
@@ -29,13 +29,14 @@ from app.models import (
 from app.repositories.audit_log import AuditLogRepository, AuditLogRepositoryDep
 from app.repositories.inquiry import InquiryRepository, InquiryRepositoryDep
 from app.repositories.reference import ReferenceRepositoryDep
-from app.repositories.security_alert import record_query_volume, record_sensitive_counts
-from app.schemas.common import ItemList, Page, parse_sort
+from app.repositories.security_alert import SecurityAlertRepository, SecurityAlertRepositoryDep
+from app.schemas.common import CountedPage, ItemList, parse_sort
 from app.schemas.inquiry import (
     AiTurn,
     Assessment as AssessmentHistory,
     AssessmentView,
     CategoryRef,
+    DisplayStatus,
     GroupRef,
     Inquiry as InquiryDetail,
     InquiryListQuery,
@@ -53,6 +54,7 @@ from app.schemas.inquiry import (
 from app.services.ai_responder import AiResponderDep
 from app.services.guide_image import images_of
 from app.services.inquiry_status import CLOSED_STATUSES, display_status, next_actions, resume_actions
+from app.services.security_alert import detect, record_ai_security_rules, record_query_volume
 from app.utils import datetime_utils
 from app.utils.text_utils import first_line_summary
 from app.utils.dict_utils import camel_keys
@@ -69,12 +71,14 @@ class InquiryService:
         inquiries: InquiryRepositoryDep,
         references: ReferenceRepositoryDep,
         audit_logs: AuditLogRepositoryDep,
+        alerts: SecurityAlertRepositoryDep,
         ai: AiResponderDep,
     ) -> None:
         self.db = db
         self.inquiries = inquiries
         self.references = references
         self.audit_logs = audit_logs
+        self.alerts = alerts
         self.ai = ai
 
     def start(self, content: str, user: User) -> AiTurn:
@@ -136,7 +140,7 @@ class InquiryService:
             override_reasons=list(result.override_reasons),
         ))
         message = self.inquiries.add_message(session.id, "AI", BLOCKED_NOTICE if result.failure == "ALL_BLOCKED" else out.reply)
-        self.record_ai_run(inquiry.id, message, result)
+        self.record_ai_run(inquiry, message, result)
         inquiry.category_code = assessment.category_code
         inquiry.inquiry_type_id = assessment.inquiry_type_id
         inquiry.urgency = assessment.urgency
@@ -158,7 +162,7 @@ class InquiryService:
         if inquiry.status != "IN_PROGRESS":
             raise invalid_state(inquiry)
 
-        close_unresolved(self.inquiries, self.audit_logs, inquiry, user, "NO_CONNECT")
+        close_unresolved(self.inquiries, self.audit_logs, self.alerts, inquiry, user, "NO_CONNECT")
         self.db.commit()
         return self.to_detail(inquiry)
 
@@ -202,13 +206,13 @@ class InquiryService:
         return SessionResume(session=SessionView.model_validate(session), inquiry=self.to_detail(inquiry),
                              next_actions=actions)
 
-    def list_inquiries(self, query: InquiryListQuery, viewer: User) -> Page[InquirySummary]:
+    def list_inquiries(self, query: InquiryListQuery, viewer: User) -> CountedPage[InquirySummary]:
         if query.user_id is not None and viewer.service_role != "ADMIN":
             raise AppError(ErrorCode.FORBIDDEN)
         if query.created_from and query.created_to and query.created_from > query.created_to:
             raise AppError(ErrorCode.INVALID_REQUEST)
 
-        rows, total = self.inquiries.search(
+        rows, total, status_counts = self.inquiries.search(
             user_id=query.user_id if viewer.service_role == "ADMIN" else viewer.id,
             display_statuses=query.display_status,
             statuses=query.status,
@@ -221,6 +225,7 @@ class InquiryService:
             offset=query.offset,
             limit=query.size,
         )
+        last_ai = self.inquiries.last_ai_message_ids([row[0].id for row in rows])
         items = [
             InquirySummary(
                 id=inquiry.id,
@@ -231,12 +236,13 @@ class InquiryService:
                 category=CategoryRef.model_validate(category) if category else None,
                 urgency=inquiry.urgency,
                 receipt_no=receipt_no,
+                last_ai_message_id=last_ai.get(inquiry.id),
                 created_at=inquiry.created_at,
                 updated_at=inquiry.updated_at,
             )
             for inquiry, user, category, receipt_no, shown in rows
         ]
-        return Page.of(items, query.page, query.size, total)
+        return CountedPage.counted(items, query.page, query.size, total, status_counts, get_args(DisplayStatus))
 
     def get_inquiry(self, inquiry_id: int, viewer: User) -> InquiryDetail:
         return self.to_detail(self.find_viewable(inquiry_id, viewer))
@@ -286,22 +292,30 @@ class InquiryService:
     def visible_sources(self, messages: list[Message], viewer: User) -> dict[int, list[MessageSourceView]]:
         """메시지별 출처. 보는 사람의 역할로 열람 범위 밖 출처는 뺀다 (청크_메타데이터.md 4장).
 
-        문서 출처는 조각마다 한 줄이고 본문(excerpt)은 단위 전체라, 그림도 같은 위치의 조각들을 합쳐 준다.
+        문서 출처는 조각마다 한 줄로 저장되므로 같은 문서·버전·위치를 한 항목으로 합친다. 값은 순위가 가장 앞선 줄을
+        따르고, 본문은 서로 다른 것만 이어 붙이며 그림은 모은다. 과거 사례는 문서 번호·위치가 없어 합치지 않는다.
         """
         allowed = visible_scopes(viewer.service_role)
         rows = [source for source, scope in self.inquiries.sources_with_scope([m.id for m in messages]) if scope in allowed]
         metas = self.inquiries.chunk_metas([s.chunk_id for s in rows if s.chunk_id is not None])
 
         def unit(s: MessageSource) -> tuple:
-            return s.message_id, s.doc_code, s.version, s.location
+            if s.source_kind == "DOCUMENT":
+                return s.message_id, s.doc_code, s.version, s.location
+            return s.message_id, s.id
 
-        unit_metas: dict[tuple, list[dict | None]] = {}
+        units: dict[tuple, list[MessageSource]] = {}
         for source in rows:
-            unit_metas.setdefault(unit(source), []).append(metas.get(source.chunk_id))
+            units.setdefault(unit(source), []).append(source)
         sources: dict[int, list[MessageSourceView]] = {}
-        for source in rows:
-            view = MessageSourceView.model_validate(source).model_copy(update={"images": images_of(unit_metas[unit(source)])})
-            sources.setdefault(source.message_id, []).append(view)
+        for pieces in units.values():
+            first = pieces[0]
+            excerpts = dict.fromkeys(p.excerpt for p in pieces if p.excerpt)
+            view = MessageSourceView.model_validate(first).model_copy(update={
+                "excerpt": "\n\n".join(excerpts) or first.excerpt,
+                "images": images_of(metas.get(p.chunk_id) for p in pieces),
+            })
+            sources.setdefault(first.message_id, []).append(view)
         return sources
 
     def find_own(self, inquiry_id: int, user: User, for_update: bool = False) -> Inquiry:
@@ -318,18 +332,31 @@ class InquiryService:
         masked = mask_secrets(content)
         messages = [self.inquiries.add_message(session.id, "USER", masked.text)]
         messages += [self.inquiries.add_notice(session.id, notice) for notice in mask_notices(masked)]
-        record_sensitive_input(self.audit_logs, inquiry.id, user, masked.counts)
-        record_query_volume(self.db, user.id)
+        record_query_volume(self.alerts, user.id)
+        record_sensitive_input(self.audit_logs, self.alerts, inquiry.id, user, masked.counts)
         return messages
 
-    def record_ai_run(self, inquiry_id: int, message: Message, result: FlowResult) -> None:
-        """모델 호출·답변 출처·차단·실패를 남긴다 (06 G장, docs/10 5.2, 09 3.3). 원문은 남기지 않는다."""
+    def record_ai_run(self, inquiry: Inquiry, message: Message, result: FlowResult) -> None:
+        """모델 호출·답변 출처·차단·실패를 남긴다 (06 G장, docs/10 5.2, 09 3.3). 원문은 남기지 않는다.
+
+        근거가 모두 전송 금지라 답변을 막았으면 보안 알림도 만든다 (06 security_alerts BLOCKED_DOC_QUERY).
+        """
+        inquiry_id = inquiry.id
         for call in result.llm_calls:
             self.inquiries.add(LlmCall(inquiry_id=inquiry_id, **asdict(call)))
         for row in result.sources:
             self.inquiries.add(MessageSource(message_id=message.id, **row))
-        for event_type, outcome, reason in ai_audit_events(result):
+        events = ai_audit_events(result)
+        for event_type, outcome, reason in events:
             self.audit_logs.add(event_type, "inquiry", inquiry_id, result=outcome, reason=reason)
+        record_ai_security_rules(self.alerts, inquiry, result.output.security_rule_ids)
+        for event_type, outcome in {(kind, outcome) for kind, outcome, _ in events}:
+            if (event_type, outcome) == ("BLOCK", "ALL_BLOCKED"):
+                detect(self.alerts, "BLOCKED_DOC_QUERY", inquiry.user_id, "inquiry", inquiry_id)
+            elif (event_type, outcome) == ("FAIL", "FILTER_FAILED"):
+                detect(self.alerts, "FILTER_FAILED", inquiry.user_id, "inquiry", inquiry_id)
+            elif event_type == "UNSAFE_REPLY":
+                detect(self.alerts, "UNSAFE_REPLY", inquiry.user_id, "inquiry", inquiry_id)
 
     def find_viewable(self, inquiry_id: int, viewer: User) -> Inquiry:
         inquiry = self.inquiries.get(inquiry_id)
@@ -462,11 +489,17 @@ def urgency_reason(result: FlowResult) -> str | None:
     return " ".join(rules or result.output.rationale.urgency_reasons) or None
 
 
-def record_sensitive_input(audit_logs: AuditLogRepository, inquiry_id: int, actor: User, counts: dict[str, int]) -> None:
-    """가린 유형마다 한 줄 (docs/10 5.2). 값과 원문은 남기지 않고 개수만 남긴다."""
-    record_sensitive_counts(audit_logs.db, inquiry_id, actor.id, counts)
+def record_sensitive_input(
+    audit_logs: AuditLogRepository, alerts: SecurityAlertRepository, inquiry_id: int, actor: User, counts: dict[str, int],
+) -> None:
+    """가린 유형마다 한 줄 (docs/10 5.2). 값과 원문은 남기지 않고 개수만 남긴다.
+
+    가린 게 있으면 입력한 사람 기준으로 보안 알림 하나를 만들거나 합친다 (06 security_alerts SENSITIVE_INPUT).
+    """
     for kind, count in counts.items():
         audit_logs.add("SENSITIVE_INPUT", "inquiry", inquiry_id, result=kind, actor_id=actor.id, reason=f"{count}건")
+    if counts:
+        detect(alerts, "SENSITIVE_INPUT", actor.id, "inquiry", inquiry_id, counts)
 
 
 def ai_audit_events(result: FlowResult) -> list[tuple[str, str, str | None]]:
@@ -496,7 +529,8 @@ def can_view_inquiry(inquiries: InquiryRepository, inquiry: Inquiry, ticket: Tic
 
 
 def close_unresolved(
-    inquiries: InquiryRepository, audit_logs: AuditLogRepository, inquiry: Inquiry, actor: User, choice: str,
+    inquiries: InquiryRepository, audit_logs: AuditLogRepository, alerts: SecurityAlertRepository,
+    inquiry: Inquiry, actor: User, choice: str,
 ) -> None:
     """접수 없이 미해결로 닫는다 (IQ-04 종료, TK-03 초안 취소). choice 는 누른 버튼의 code. 커밋은 호출자가 한다."""
     now = datetime_utils.now()
@@ -510,6 +544,7 @@ def close_unresolved(
         draft.status, draft.updated_at = "CANCELLED", now
     if any(a.urgent_signal for a in inquiries.assessments(inquiry.id)):
         audit_logs.add("URGENT_CLOSED", "inquiry", inquiry.id, result=inquiry.status, actor_id=actor.id)
+        detect(alerts, "URGENT_CLOSED", inquiry.user_id, "inquiry", inquiry.id)    # 대상은 문의자 (AUDIT-04)
 
 
 def end_session(session: ChatSession | None, now: datetime, reason: str = "USER_END") -> None:

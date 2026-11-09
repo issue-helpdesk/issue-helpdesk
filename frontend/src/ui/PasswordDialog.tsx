@@ -64,7 +64,7 @@ export function PasswordDialog({ forced, onClose }: { forced: boolean; onClose: 
       setDone(true)
       return
     }
-    if (r.error.code === 'AUTH_CURRENT_PASSWORD_MISMATCH') setErrors({ cur: ['현재 비밀번호가 맞지 않아요.'] })
+    if (r.error.code === 'AUTH_CURRENT_PASSWORD_MISMATCH') setErrors({ cur: [r.error.message] })
     else if (r.error.code === 'AUTH_PASSWORD_POLICY_VIOLATION') setErrors({ nw: (r.error.details ?? []).map((d) => d.message) })
     else setErrors({ cf: [r.error.message] })
   }
@@ -152,7 +152,6 @@ export function PasswordDialog({ forced, onClose }: { forced: boolean; onClose: 
     )
   }
 
-  const days = user.passwordChangedDaysAgo
   return (
     <Modal key="profile" title="내 프로필" variant="form" closeButton onClose={onClose}>
       <div className="pfl">
@@ -199,12 +198,6 @@ export function PasswordDialog({ forced, onClose }: { forced: boolean; onClose: 
         <div className="pws" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
           <div>
             <b style={{ fontSize: 14 }}>비밀번호</b>
-            {/* 서버가 주는 값이 문서에 없어 제안으로 둔다 */}
-            {days !== undefined && (
-              <div className="small muted">
-                마지막 변경 후 {days}일 <span className="tag gray">제안</span>
-              </div>
-            )}
           </div>
           <button type="button" className="btn sec sm" onClick={() => setEdit(true)}>
             변경

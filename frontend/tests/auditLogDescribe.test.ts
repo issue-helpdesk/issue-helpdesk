@@ -51,6 +51,9 @@ describe('describeAudit', () => {
     expect(d('BLOCK', 'ALL_BLOCKED').out).toBe('근거 전체 차단, 담당자 연결 제안')
     expect(d('FAIL', 'FILTER_FAILED').out).toBe('민감정보 필터 실패')
     expect(d('FAIL', 'AI_FAILED', 'TIMEOUT')).toMatchObject({ out: 'AI 답변 실패', reason: 'TIMEOUT' })
+    // 사유 앞의 서버 내부 번호(④)는 떼고 보인다
+    expect(d('FAIL', 'FILTER_FAILED', '④ 검색 근거 IT-SEC-003').reason).toBe('검색 근거 IT-SEC-003')
+    expect(d('FAIL', 'FILTER_FAILED', '④ 외부 모델 호출 직전').reason).toBe('외부 모델 호출 직전')
   })
 
   it('서버가 결과에 담아 준 접수번호·문서 코드·FAQ 번호만 식별 이름(name)으로 올린다', () => {
@@ -68,8 +71,8 @@ describe('describeAudit', () => {
     expect(d('DOCUMENT_VERSION_ACTIVATE', 'v1 → v2').out).toBe('현행 v1 → v2')
     expect(d('DOCUMENT_VERSION_RETRY', 'v3 파일 교체').out).toBe('v3 — 파일을 바꿔 재처리')
     expect(d('DOCUMENT_VERSION_RETRY', 'v3 같은 파일').out).toBe('v3 — 같은 파일로 재처리')
-    expect(d('DOCUMENT_POLICY_CHANGE', 'v2 ALL/ALLOWED → ADMIN/BLOCKED').out).toBe('v2 · 열람 전 직원 → 관리자 전용 / 외부 전송 허용 → 금지')
-    expect(d('DOCUMENT_POLICY_CHANGE', 'v1 AGENT/MASKED → ALL/ALLOWED').out).toBe('v1 · 열람 담당자 → 전 직원 / 외부 전송 마스킹 후 허용 → 허용')
+    expect(d('DOCUMENT_POLICY_CHANGE', 'v2 ALL/ALLOWED → ADMIN/BLOCKED').out).toBe('v2 · 열람 전 직원 → 관리자만 / 외부 전송 허용 → 금지')
+    expect(d('DOCUMENT_POLICY_CHANGE', 'v1 AGENT/MASKED → ALL/ALLOWED').out).toBe('v1 · 열람 담당자 이상 → 전 직원 / 외부 전송 마스킹 후 허용 → 허용')
     expect(d('DOCUMENT_POLICY_CHANGE', '형식이 다른 값').out).toBe('형식이 다른 값') // 모르는 모양은 그대로
   })
 

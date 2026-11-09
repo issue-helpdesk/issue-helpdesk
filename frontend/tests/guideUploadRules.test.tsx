@@ -72,6 +72,34 @@ describe('가이드 업로드 화면 (모의)', () => {
     expect(within(dlg).getByText(/초안으로 올라가요/)).toBeInTheDocument()
   })
 
+  it('업로드를 누르면 열람 범위·외부 AI 전송을 정하는 창이 한 번 더 열리고, 거기서 확인해야 올라간다', async () => {
+    renderAs('EMP-1178', '/guides')
+    await userEvent.click(await screen.findByRole('button', { name: /가이드 파일 업로드/ }, SLOW))
+    const dlg = await screen.findByRole('dialog', { name: '가이드 파일 업로드' })
+    // 업로드 창에는 더 이상 열람 범위·외부 전송 선택 상자가 없다
+    expect(within(dlg).queryByLabelText('열람 범위')).toBeNull()
+    expect(within(dlg).queryByLabelText('외부 모델 전송')).toBeNull()
+    await waitFor(() => expect(within(dlg).getByRole('button', { name: '기존 가이드에 새 버전 만들기' })).toHaveAttribute('aria-pressed', 'true'), SLOW)
+    await userEvent.upload(within(dlg).getByLabelText('파일'), pdf())
+    await choose(dlg, '분류', /네트워크/)
+    await choose(dlg, '문서', /IT-NET-001/)
+    await userEvent.click(within(dlg).getByRole('button', { name: '업로드' }))
+    const pol = await screen.findByRole('dialog', { name: '등록 설정을 확인해 주세요' }, SLOW)
+    expect(within(pol).getByText(/앞 버전의 값을 채워 두었어요/)).toBeInTheDocument()
+    // 버튼마다 색이 있다: 열람 범위(하늘·보라·중립), 외부 AI 전송(초록·노랑·빨강)
+    await userEvent.click(within(pol).getByRole('button', { name: '관리자만' }))
+    await userEvent.click(within(pol).getByRole('button', { name: '금지' }))
+    expect(within(pol).getByRole('button', { name: '관리자만' })).toHaveClass('on', 'adm')
+    expect(within(pol).getByRole('button', { name: '금지' })).toHaveClass('on', 'urg')
+    await userEvent.click(within(pol).getByRole('button', { name: '담당자 이상' }))
+    await userEvent.click(within(pol).getByRole('button', { name: '마스킹 후 허용' }))
+    expect(within(pol).getByRole('button', { name: '담당자 이상' })).toHaveClass('on', 'prog')
+    expect(within(pol).getByRole('button', { name: '마스킹 후 허용' })).toHaveClass('on', 'warn')
+    await userEvent.click(within(pol).getByRole('button', { name: '취소' })) // 취소하면 올라가지 않고 업로드 창이 남는다
+    expect(screen.queryByRole('dialog', { name: '등록 설정을 확인해 주세요' })).toBeNull()
+    expect(screen.getByRole('dialog', { name: '가이드 파일 업로드' })).toBeInTheDocument()
+  })
+
   it('20MB 를 넘는 파일은 고르는 즉시 막는다', async () => {
     renderAs('EMP-1178', '/guides')
     await userEvent.click(await screen.findByRole('button', { name: /가이드 파일 업로드/ }, SLOW))
@@ -172,7 +200,7 @@ describe('모의 적재 실패 시연', () => {
   })
 
   it('스캔 PDF 를 올리면 준비 실패와 사유가 남고, 파일을 바꿔 다시 시도하면 준비 완료가 된다', async () => {
-    const up = await uploadGuideVersion(admin(), 4, { file: new File(['x'], 'sample_scanned.pdf', { type: 'application/pdf' }), version: 'v3.0', scope: '사내 일반', tx: '허용' })
+    const up = await uploadGuideVersion(admin(), 4, { file: new File(['x'], 'sample_scanned.pdf', { type: 'application/pdf' }), version: 'v3.0', scope: '전 직원', tx: '허용' })
     expect(up.ok).toBe(true)
     const id = up.ok ? up.data.id : 0
     const find = async () => {
@@ -215,7 +243,7 @@ describe('서버 모드 가이드 업로드 규칙 (VITE_USE_MOCK_GUIDE=false)',
     const api = await load()
     fetchMock.mockResolvedValueOnce(json(201, doc(40, 'IT-NET-004'))).mockResolvedValueOnce(json(500, { error: { code: 'INTERNAL_ERROR', message: '서버 오류' } })).mockResolvedValueOnce(json(202, ver(41)))
     const made: number[] = []
-    const base = { file: pdf(), docCode: 'IT-NET-004', title: 't', cat: 'NET' as const, scope: '관리자 전용' as const, tx: '금지' as const }
+    const base = { file: pdf(), docCode: 'IT-NET-004', title: 't', cat: 'NET' as const, scope: '관리자만' as const, tx: '금지' as const }
     const r1 = await api.uploadGuide(admin(), base, (id) => made.push(id))
     expect(r1.ok).toBe(false)
     expect(made).toEqual([40])
@@ -257,7 +285,7 @@ describe('서버 모드 가이드 업로드 규칙 (VITE_USE_MOCK_GUIDE=false)',
     resetGuideMock()
     expect(await setGuideActive(admin(), 99, true)).toMatchObject({ ok: false, error: { code: 'DOCUMENT_NOT_FOUND' } })
     expect(await retryGuideIngest(admin(), 1, 13)).toMatchObject({ ok: false, error: { code: 'DOCUMENT_VERSION_NOT_RETRYABLE' } })
-    const up = await uploadGuide(admin(), { file: pdf(), docCode: 'IT-NET-009', title: 't', cat: 'NET', scope: '관리자 전용', tx: '금지' })
+    const up = await uploadGuide(admin(), { file: pdf(), docCode: 'IT-NET-009', title: 't', cat: 'NET', scope: '관리자만', tx: '금지' })
     expect(up.ok && up.data.versions?.[0].version).toBe('v1.0')
   })
 })

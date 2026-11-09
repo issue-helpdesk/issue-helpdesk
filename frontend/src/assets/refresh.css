@@ -235,6 +235,8 @@
 .md .tbl2{overflow-x:auto}.md table{border-collapse:collapse;font-size:13px;line-height:20px;min-width:100%}.md th,.md td{padding:6px 10px;border:1px solid var(--line);text-align:left;vertical-align:top}.md th{background:var(--shell);font-weight:600}
 
 .md code{font-family:var(--mono);font-size:12.5px;background:var(--shell);border-radius:4px;padding:1px 5px}
+.md pre.codeblk{margin:8px 0;padding:12px 14px;border-radius:10px;background:var(--shell);overflow-x:auto;line-height:1.6}
+.md pre.codeblk code{display:block;padding:0;background:none;border-radius:0;white-space:pre;font-size:12.5px}
 
 
 
@@ -486,15 +488,17 @@
 /* 가이드 적재 실패 표시: 점(사이드바·분류·가이드), 버전 표의 준비 실패 배지 단추, 알림 창 목록. 버전 칸은 줄바꿈 없이 넓게 */
 .count.dot{min-width:8px;width:8px;height:8px;padding:0;font-size:0;line-height:0;border-radius:50%;background:var(--s-urg-dot);color:transparent}
 .fdot{display:inline-block;width:8px;height:8px;margin-left:8px;border-radius:50%;background:var(--s-urg-dot);vertical-align:middle;box-shadow:0 0 0 3px color-mix(in srgb,var(--s-urg-dot) 22%,transparent)}
-/* 버전 표: 열은 내용 폭에 넉넉한 좌우 여백(22px)을 더해 쓰고, 남는 폭은 맨 끝 "올린 시각" 열이 받는다.
+/* 버전 표: 열은 내용 폭에 넉넉한 좌우 여백(22px)을 더해 쓰고, 남는 폭은 맨 끝 열이 받는다.
    (열 폭을 늘려 칸을 벌리면 외부 AI 전송 버튼 양옆이 휑해 보여서, 이 열은 버튼 폭에 가깝게만 둔다) */
 .gvt .tbl th,.gvt .tbl td{white-space:nowrap;width:1%;padding-left:22px;padding-right:22px}
 .gvt .tbl th:first-child,.gvt .tbl td:first-child{padding-left:24px}
-.gvt .tbl th:last-child,.gvt .tbl td:last-child{width:auto}
+/* 남는 폭은 맨 끝 "본문 보기" 열이 받고, 단추는 "올린 시각" 바로 옆(왼쪽 정렬)에 붙는다 */
+.gvt .tbl th:last-child,.gvt .tbl td:last-child{width:auto;padding-right:24px}
+.gvt-bar{display:flex;justify-content:space-between;align-items:center;margin:10px 4px 0}
+.gvt-wrap .gvt{margin-top:6px}
 .gvt .tbl th:nth-child(3),.gvt .tbl td:nth-child(3){min-width:150px}
 .gvt .tbl th:nth-child(5),.gvt .tbl td:nth-child(5){min-width:250px}
-/* 모의 모드의 메모 열은 길면 줄을 바꾼다 */
-.gvt .tbl .memo{white-space:normal;width:auto;min-width:150px}
+
 .gvt .tbl td .rfail{display:inline-flex;flex-direction:column;align-items:center;gap:2px;background:none;border:0;padding:2px 4px;border-radius:10px;cursor:pointer;font:inherit}
 .gvt .tbl td .rfail:hover{background:var(--osoft)}.gvt .tbl td .rfail:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px}
 .rfm{font-size:12px;color:var(--link);text-decoration:underline;text-underline-offset:2px}
@@ -587,3 +591,49 @@ input[type=checkbox]:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
 /* 올린 지 하루 안인 가이드 버전 */
 .nwb{display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;background:var(--s-info-bg);color:var(--s-info-fg);font-size:11px;font-weight:700;line-height:18px;vertical-align:1px}
 td.nw{white-space:nowrap;font-size:13px;color:var(--ink2)}
+/* 가이드 본문 읽기 패널: 평소에는 상세 패널 폭, "크게 보기"를 누르면 화면 전체 너비로 넓어진다 */
+.app .detail.gread{width:min(560px,100vw);transition:width .28s cubic-bezier(.2,.8,.2,1)}
+.app .detail.gread.wide{width:100vw}
+.gread-body{max-width:860px;margin:0 auto}
+.detail.gread.wide .gread-body{padding:8px 24px 32px}
+@media (prefers-reduced-motion:reduce){.app .detail.gread{transition:none}}
+
+/* 해결 사례 → 가이드 초안: 제안 카드 목록과 검토 패널 */
+.cgl{display:flex;flex-direction:column;gap:12px}
+.cgc{padding:18px 22px;display:flex;flex-direction:column;gap:8px}
+.cgh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cgt{flex:1;min-width:0;font-size:16px}
+.cgm{display:flex;gap:4px 14px;flex-wrap:wrap;align-items:center}
+.cgk{font-weight:700;color:var(--link)}
+.cgx{line-height:1.6}
+.cga{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:4px}
+.app .detail.crev{width:min(920px,100vw);transition:width .28s cubic-bezier(.2,.8,.2,1)}
+.app .detail.crev.wide{width:100vw}
+.detail.crev .db.crb{flex:1}
+.detail.crev .cgs>h4{margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.detail.crev .cgcmp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:8px}
+.detail.crev .cgpre{margin:6px 0 0;padding:12px 14px;border-radius:12px;background:var(--shell);white-space:pre-wrap;font:inherit;font-size:13.5px;line-height:1.7;color:var(--ink2)}
+.detail.crev .cgpre.new{background:var(--osoft)}
+.detail.crev .cgta{width:100%;min-height:210px;margin-top:6px;font-size:13.5px;line-height:1.7}
+.detail.crev .cgta.tall{min-height:280px}
+.detail.crev .cgw{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.detail.crev .cgw li{display:flex;gap:8px;align-items:flex-start;color:var(--s-warn-fg);background:var(--s-warn-bg);border-radius:10px;padding:8px 12px;font-size:13.5px}
+.detail.crev .cgset{display:flex;gap:24px;flex-wrap:wrap}
+.detail.crev .crf{flex:none;display:flex;gap:8px;align-items:center;padding:14px 24px;border-top:1px solid var(--divider);background:color-mix(in srgb,var(--white) 90%,transparent)}
+@media (max-width:800px){.detail.crev .cgcmp{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.app .detail.crev{transition:none}}
+/* 해결 사례 검토 패널·등록 설정 창 다듬기 */
+.detail.crev .crb>.alert{margin-top:16px}
+.detail.crev .crb>.alert+.cgs{border-top:0}
+.polg{display:flex;flex-direction:column;gap:22px;margin:6px 0 4px}
+.polg .asl{margin-bottom:8px}
+.seg.tx button.on.info{background:var(--s-info-bg);color:var(--s-info-fg)}
+.seg.tx button.on.prog{background:var(--s-prog-bg);color:var(--s-prog-fg)}
+.seg.tx button.on.adm{background:var(--ink2);color:var(--canvas)}
+/* 신규 가이드의 제목과 본문 사이를 넓히고, 마크다운 입력칸의 편집/미리보기 */
+.detail.crev .cgs .row2{margin-bottom:20px}
+.mdf{display:flex;flex-direction:column;gap:8px}
+.mdf .seg.sm{align-self:flex-start}
+.mdf .seg.sm button{min-height:28px;padding:0 12px;font-size:12.5px}
+.mdp{min-height:210px;margin-top:2px;padding:12px 16px;border-radius:12px;background:var(--white);box-shadow:inset 0 0 0 1px var(--line);font-size:13.5px;line-height:1.7}
+.mdp.tall{min-height:280px}

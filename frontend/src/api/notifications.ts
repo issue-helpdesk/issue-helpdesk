@@ -13,7 +13,7 @@ import { USE_MOCK_NOTIFY } from '../core/config'
 import { visiblePoll } from '../core/poll'
 import { ok, type ApiResult } from './types'
 
-export interface UnreadCount {
+interface UnreadCount {
   count: number
   ticketIds: number[]
 }
@@ -40,6 +40,13 @@ export async function listUnread(): Promise<ApiResult<AppNotification[]>> {
   if (USE_MOCK_NOTIFY) return ok([])
   const r = await request<{ items: AppNotification[] }>('/notifications?unreadOnly=true&size=100')
   return r.ok ? ok(r.data.items) : r
+}
+
+/** 알림 목록 한 쪽 (NT-01, 최신순). unreadOnly 면 안 읽은 알림만. 모의 모드에서는 알림이 없다 */
+export async function listNotifications(unreadOnly: boolean, page = 1, size = 20): Promise<ApiResult<{ items: AppNotification[]; hasMore: boolean }>> {
+  if (USE_MOCK_NOTIFY) return ok({ items: [], hasMore: false })
+  const r = await request<{ items: AppNotification[]; page?: number; totalPages?: number }>(`/notifications?${unreadOnly ? 'unreadOnly=true&' : ''}page=${page}&size=${size}`)
+  return r.ok ? ok({ items: r.data.items, hasMore: page < (r.data.totalPages ?? 1) }) : r
 }
 
 /** 그 접수의 내 알림을 읽음으로 바꾼다 (NT-04). 접수 상세를 열 때 부른다 */

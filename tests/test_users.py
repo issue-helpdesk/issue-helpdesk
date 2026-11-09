@@ -111,6 +111,20 @@ def test_list_users_filters(client, headers, members):
     assert employee_nos(by_status) == ["E0002"]
 
 
+def test_list_users_status_counts_ignore_account_status_filter(client, headers, members):
+    """R-46: 탭 하나로 걸러도 다른 탭의 숫자가 그대로 나온다."""
+    body = client.get(USERS, params={"accountStatus": "INACTIVE"}, headers=headers).json()
+
+    assert body["totalCount"] == 1
+    assert body["statusCounts"] == {"ACTIVE": 3, "LOCKED": 0, "INACTIVE": 1}
+
+
+def test_list_users_status_counts_apply_other_filters(client, headers, members):
+    body = client.get(USERS, params={"q": "김"}, headers=headers).json()
+
+    assert body["statusCounts"] == {"ACTIVE": 1, "LOCKED": 0, "INACTIVE": 1}
+
+
 def test_list_users_sort(client, headers, members):
     by_no = client.get(USERS, params={"sort": "employeeNo,desc"}, headers=headers)
     by_login = client.get(USERS, params={"sort": "lastLoginAt,desc"}, headers=headers).json()["items"]

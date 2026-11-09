@@ -226,12 +226,15 @@ def _kv_props(cells: list[str]):
 
 
 def qa_tables(doc: ParsedDocument) -> None:
-    """'질문 | 답변' 표를 'Q. …' · 'A. …' 문단으로 바꾼다 (.md 와 같은 모양)."""
+    """'질문 | 답변' 표를 'Q. …' · 'A. …' 문단으로 바꾼다 (.md 와 같은 모양). 형식과 상관없이 finalize 에서 돈다.
+    질문 칸의 줄바꿈만 빈칸으로 잇는다: 질문은 한 문장이고, 줄 넘김으로 '(FAQ-004)' 가 다음 줄로 밀리면 FAQ 묶음 키·
+    문의 유형 코드를 못 읽는다 (pptx 칸). 답변 칸은 일부러 나눈 줄(명령·절차)과 칸 폭 줄 넘김을 구분할 수 없어 그대로 둔다."""
     out = []
     for e in doc.elements:
         if e.kind == 'table' and e.rows and [c.strip() for c in e.rows[0]] == ['질문', '답변']:
             for r in e.rows[1:]:
                 if len(r) >= 2:
+                    r = [' '.join(r[0].split()), *r[1:]]
                     q = r[0][2:].strip() if r[0].startswith('Q.') else r[0]
                     out.append(Element('paragraph', f'Q. {q}', page=e.page))
                     out.append(Element('paragraph', f'A. {r[1]}', page=e.page))

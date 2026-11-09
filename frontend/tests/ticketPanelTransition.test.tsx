@@ -65,7 +65,7 @@ describe('패널의 서버 상태 변경', () => {
     latest = { ...latest, workStatus: 'WIP', requestedWorkStatus: null, transitionStatus: 'IDLE' }
     history = [{ id: 1, ticketId: 7, fromStatus: 'RDY', toStatus: 'WIP', source: 'ITSSUE', actor: agent, reason: null, changedAt: '2026-11-06T09:01:00+09:00' }]
     view.rerender(panel(1))
-    expect(await screen.findByLabelText(/처리 결과/)).toBeEnabled()
+    expect(await screen.findByRole('button', { name: '처리 완료' })).toBeEnabled()
     expect(await screen.findByText('처리 대기 → 처리 중')).toBeInTheDocument()
     await waitFor(() => expect(api.refreshTickets.mock.calls.length).toBeGreaterThan(refreshes))
   })
@@ -106,7 +106,7 @@ describe('패널의 서버 상태 변경', () => {
   it('Jira에서 직접 완료한 상태와 처리 결과도 재조회로 표시한다', async () => {
     latest = { ...base, workStatus: 'WIP' }
     const view = render(panel())
-    expect(await screen.findByLabelText(/처리 결과/)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '처리 완료' })).toBeInTheDocument()
     latest = { ...latest, workStatus: 'FIN', resolutionNote: 'Jira에서 잠금 해제 완료', displayStatus: 'awaiting_confirm' }
     view.rerender(panel(1))
     expect(await screen.findByText('Jira에서 잠금 해제 완료')).toBeInTheDocument()
@@ -118,13 +118,32 @@ describe('패널의 서버 상태 변경', () => {
     latest = { ...base, workStatus: 'WIP' }
     api.changeTicketStatus.mockResolvedValue(fail('INTEGRATION_JOB_IN_PROGRESS', '다른 변경이 진행 중입니다.'))
     render(panel())
-    const note = await screen.findByLabelText(/처리 결과/)
+    await userEvent.click(await screen.findByRole('button', { name: '처리 완료' }))
+    const note = await screen.findByRole('textbox', { name: /처리 결과/ })
     await userEvent.type(note, '계정 잠금을 해제했습니다.')
-    await userEvent.click(screen.getByRole('button', { name: '처리 완료' }))
+    await userEvent.click(screen.getByRole('button', { name: '등록하고 해결 확인 요청' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('다른 변경이 진행 중')
     expect(note).toHaveValue('계정 잠금을 해제했습니다.')
     expect(api.changeTicketStatus).toHaveBeenCalledWith(agent, 7, { workStatus: 'FIN', resolutionNote: '계정 잠금을 해제했습니다.' })
     expect(api.refreshTickets).toHaveBeenCalled()
+  })
+})
+
+describe('긴급도 표시', () => {
+  it('담당자에게는 긴급도와 사유(P1 같은 코드는 한글 이름으로)를 보이고, 문의자에게는 긴급도 칸이 없다', async () => {
+    latest = { ...base, urgency: 'P1', urgencyReason: '통합 로그인(SSO) 장애 기본 긴급도 P1에서 시작해요.' }
+    const staff = render(panel())
+    expect(await screen.findByText('긴급도')).toBeInTheDocument()
+    expect(screen.getByText('통합 로그인(SSO) 장애 기본 긴급도 긴급에서 시작해요.')).toBeInTheDocument()
+    expect(screen.queryByText(/P1/)).toBeNull()
+    staff.unmount()
+    auth.user = { ...agent, serviceRole: 'EMPLOYEE' }
+    render(panel())
+    await screen.findByText('계정 잠금 문의', undefined, { timeout: 3000 }).catch(() => undefined)
+    await waitFor(() => expect(api.getTicket).toHaveBeenCalled())
+    await screen.findByText('접수번호')
+    expect(screen.queryByText('긴급도')).toBeNull()
+    expect(screen.queryByText(/기본 긴급도/)).toBeNull()
   })
 })
 
@@ -149,11 +168,12 @@ describe('처리 동작의 노출·입력 제한', () => {
     api.changeTicketStatus.mockImplementation(() => new Promise((done) => { resolve = done }))
     const onRequested = vi.fn()
     render(<TicketWorkActions ticket={{ ...base, workStatus: 'WIP' }} user={agent} onRequested={onRequested} />)
-    await userEvent.type(screen.getByLabelText(/처리 결과/), '   ')
     await userEvent.click(screen.getByRole('button', { name: '처리 완료' }))
+    await userEvent.type(screen.getByRole('textbox', { name: /처리 결과/ }), '   ')
+    await userEvent.click(screen.getByRole('button', { name: '등록하고 해결 확인 요청' }))
     expect(api.changeTicketStatus).not.toHaveBeenCalled()
-    await userEvent.type(screen.getByLabelText(/처리 결과/), '잠금 해제 완료')
-    await userEvent.click(screen.getByRole('button', { name: '처리 완료' }))
+    await userEvent.type(screen.getByRole('textbox', { name: /처리 결과/ }), '잠금 해제 완료')
+    await userEvent.click(screen.getByRole('button', { name: '등록하고 해결 확인 요청' }))
     await userEvent.click(screen.getByRole('button', { name: '요청 중…' }))
     expect(api.changeTicketStatus).toHaveBeenCalledTimes(1)
     await act(async () => resolve(ok({ ...base, workStatus: 'WIP', transitionStatus: 'PENDING', requestedWorkStatus: 'FIN' })))

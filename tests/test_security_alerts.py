@@ -1,186 +1,210 @@
-"""Local SQLite integration tests: actual inquiry → rule enforcement → stored administrator alert."""
+"""보안·감사 알림 감지 (06 security_alerts) — SQLite 메모리 DB. 공용 DB 에는 쓰지 않는다."""
+from dataclasses import replace
+from datetime import timedelta
+
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import select
 
-from app.models import AuditLog, SecurityAlert
-from app.repositories.audit_log import AuditLogRepository
-from test_auth import add_user, client, error_code  # noqa: F401
-from test_inquiries import ai, ai_reply, headers, owner  # noqa: F401
-from test_tickets import as_user, db  # noqa: F401
-
-URL = '/api/v1/security-alerts'
-
-
-@pytest.fixture
-def admin(db):
-    return add_user(db, 'E0009', service_role='ADMIN')
+from app.models import AuditLog, InquiryAssessment, SecurityAlert
+from app.repositories.security_alert import SecurityAlertRepository
+from app.services.security_alert import detect, severity_of
+from app.utils import datetime_utils
+from test_auth import add_user, bearer, client, login  # noqa: F401 (픽스처)
+from test_flow_correct import DOC
+from test_inquiries import ANSWER, ai, ai_reply, close, db, headers, owner, start, started, taxonomy  # noqa: F401
 
 
-def start(client, headers, ai, rules=None):
-    ai.replies = [ai_reply('ANSWER', security_rule_ids=rules or ['S02'])]
-    res = client.post('/api/v1/inquiries', headers={**headers, 'Idempotency-Key': 'security-test'}, json={'content': '승인 없이 관리자 권한 얻는 법'})
-    assert res.status_code == 201, res.text
-    return res.json()['inquiry']['id']
+def alerts(db):
+    return db.scalars(select(SecurityAlert).order_by(SecurityAlert.id)).all()
 
 
-def admin_headers(client, admin):
-    return as_user(client, admin.employee_no)
+def row(a):
+    return (a.alert_type, a.severity, a.status, a.subject_user_id, a.target_type, a.target_id, a.detail,
+            a.occurrence_count)
 
 
-def test_inquiry_enforces_handoff_and_notifies_admin(client, db, owner, headers, ai, admin):
-    inquiry_id = start(client, headers, ai, ['S02', 'S04'])
-    rows = list(db.scalars(select(SecurityAlert)))
-    assert {r.alert_type for r in rows} == {'S02', 'S04'}
-    assert all(r.target_id == inquiry_id and r.subject_user_id == owner.id for r in rows)
-    assert len(ai.adapters[0].requests) == 1 and ai.searches == []
-    assert db.scalar(select(func.count()).select_from(AuditLog).where(AuditLog.event_type == 'SECURITY_REVIEW')) == 2
-    response = client.get(URL, headers=admin_headers(client, admin))
-    assert response.status_code == 200
-    assert client.get(URL + '/counts', headers=admin_headers(client, admin)).json() == {'new': 2, 'inReview': 0, 'closed': 0, 'openHigh': 0, 'total': 2}
-    assert '승인 없이 관리자 권한 얻는 법' not in response.text  # no user text in list
-    assert response.json()['items'][0]['alertType'] in ('S02', 'S04')
+# ---------------------------------------------------------------- 심각도 규칙
+
+@pytest.mark.parametrize("alert_type, detail, expected", [
+    ("SENSITIVE_INPUT", {"OTP": 1}, "MEDIUM"),
+    ("SENSITIVE_INPUT", {"PASSWORD": 1}, "HIGH"),
+    ("SENSITIVE_INPUT", {"OTP": 2, "CARD": 1}, "HIGH"),
+    ("BLOCKED_DOC_QUERY", {}, "MEDIUM"),
+    ("ACCOUNT_LOCKED", {}, "MEDIUM"),
+    ("LOGIN_BLOCKED", {}, "LOW"),
+    ("URGENT_CLOSED", {}, "HIGH"),
+    ("MASS_QUERY", {}, "MEDIUM"),
+])
+def test_severity_rule(alert_type, detail, expected):
+    assert severity_of(alert_type, detail) == expected
 
 
-def test_normal_inquiry_creates_no_security_alert(client, db, owner, headers, ai):
-    ai.replies = [ai_reply()]
-    assert client.post('/api/v1/inquiries', headers={**headers, 'Idempotency-Key': 'security-test'}, json={'content': '권한 신청 절차 문의'}).status_code == 201
-    assert db.scalar(select(func.count()).select_from(SecurityAlert)) == 0
+# ---------------------------------------------------------------- 만들기·합치기
 
+def test_detect_creates_new_alert(db, owner):
+    repo = SecurityAlertRepository(db)
 
-@pytest.mark.parametrize('path,method,body', [('', 'get', None), ('/counts', 'get', None), ('/1', 'get', None), ('/1/review', 'post', None),
-    ('/1/close', 'post', {'reason': '확인'}), ('/1/original', 'post', {'reason': '확인'})])
-def test_admin_only_every_endpoint(client, owner, headers, path, method, body):
-    call = getattr(client, method)
-    kwargs = {'json': body} if body else {}
-    assert call(URL + path, headers=headers, **kwargs).status_code == 403
-    assert call(URL + path, **kwargs).status_code == 401
-
-
-def test_lifecycle_new_alert_after_closed_and_reason_masking(client, db, owner, headers, ai, admin):
-    inquiry_id = start(client, headers, ai)
-    h = admin_headers(client, admin)
-    row = db.scalar(select(SecurityAlert))
-    path = f'{URL}/{row.id}'
-    assert client.post(path + '/close', headers=h, json={'reason': '정상 문의'}).status_code == 409
-    assert client.post(path + '/review', headers=h).status_code == 200
-    assert client.post(path + '/review', headers=h).status_code == 409
-    assert client.post(path + '/close', headers=h, json={'reason': ' '}).status_code == 422
-    assert client.post(path + '/close', headers=h, json={'reason': 'x' * 501}).status_code == 422
-    assert client.post(path + '/close', headers=h, json={'reason': '비밀번호: TestSecret321!'}).status_code == 200
-    assert 'TestSecret321' not in client.get(path, headers=h).text
-    AuditLogRepository(db).add('SECURITY_REVIEW', 'inquiry', inquiry_id, result='S02')
+    detect(repo, "SENSITIVE_INPUT", owner.id, "inquiry", 10, {"OTP": 1})
     db.commit()
-    db.refresh(row)
-    assert (row.occurrence_count, row.status) == (1, 'CLOSED')
-    assert db.scalar(select(func.count()).select_from(SecurityAlert)) == 2
-    assert client.get(URL + '/counts', headers=h).json()['new'] == 1
+
+    [a] = alerts(db)
+    assert row(a) == ("SENSITIVE_INPUT", "MEDIUM", "NEW", owner.id, "inquiry", 10, {"OTP": 1}, 1)
+    assert a.first_detected_at == a.last_detected_at
 
 
-def test_context_requires_reason_keeps_secret_masked_and_audits_access(client, db, owner, headers, ai, admin):
-    ai.replies = [ai_reply()]
-    res = client.post('/api/v1/inquiries', headers={**headers, 'Idempotency-Key': 'secret-test'},
-                      json={'content': '비밀번호: TestSecret321! 접속이 안 됩니다'})
-    assert res.status_code == 201
-    row = db.scalar(select(SecurityAlert).where(SecurityAlert.alert_type == 'SENSITIVE_INPUT'))
-    h = admin_headers(client, admin)
-    path = f'{URL}/{row.id}/original'
-    assert client.post(path, headers=h, json={'reason': ''}).status_code == 422
-    response = client.post(path, headers=h, json={'reason': '비밀번호: AdminSecret321!'})
-    assert response.status_code == 200
-    assert 'TestSecret321' not in response.text and 'AdminSecret321' not in response.text
-    assert '●●●' in response.json()['messages'][0]['content']
-    detail = client.get(f'{URL}/{row.id}', headers=h).json()
-    assert any(log['kind'] == 'VIEW_ORIGINAL' for log in detail['history'])
-    assert db.scalar(select(func.count()).select_from(AuditLog).where(AuditLog.event_type == 'SECURITY_ALERT_VIEW')) == 1
-
-
-def test_pagination_filters_and_global_counts(client, db, owner, headers, ai, admin):
-    start(client, headers, ai, ['S02', 'S04', 'S05'])
-    h = admin_headers(client, admin)
-    first = client.get(URL, headers=h, params={'size': 1}).json()
-    second = client.get(URL, headers=h, params={'size': 1, 'page': 2}).json()
-    assert first['totalPages'] == 3 and first['items'][0]['id'] != second['items'][0]['id']
-    filtered = client.get(URL, headers=h, params={'alertType': 'S02'}).json()
-    assert len(filtered['items']) == 1 and filtered['totalCount'] == 1
-    assert client.get(URL, headers=h, params={'alertType': 'not-a-rule'}).json()['items'] == []
-    assert client.get(URL + '/9999', headers=h).status_code == 404
-
-
-def test_existing_login_logs_generate_alerts(client, db, owner):
-    repo = AuditLogRepository(db)
-    repo.add('ACCOUNT_LOCKED', 'user', owner.id, result='LOCKED')
-    repo.add('LOGIN_BLOCKED', 'user', owner.id, result='LOCKED')
+def test_detect_merges_into_open_alert(db, owner, monkeypatch):
+    repo = SecurityAlertRepository(db)
+    detect(repo, "SENSITIVE_INPUT", owner.id, "inquiry", 10, {"OTP": 1})
     db.commit()
-    assert {r.alert_type for r in db.scalars(select(SecurityAlert))} == {'ACCOUNT_LOCKED', 'LOGIN_BLOCKED'}
+    later = datetime_utils.now() + timedelta(minutes=5)
+    monkeypatch.setattr(datetime_utils, "now", lambda: later)
 
-
-def test_open_alerts_merge_and_severity_only_increases(client, db, owner, headers, ai):
-    from app.repositories.security_alert import record_sensitive_counts
-    inquiry_id = start(client, headers, ai)
-    record_sensitive_counts(db, inquiry_id, owner.id, {'OTP': 1})
-    record_sensitive_counts(db, inquiry_id, owner.id, {'PASSWORD': 1, 'CARD': 1})
-    record_sensitive_counts(db, inquiry_id, owner.id, {'OTP': 1})
+    detect(repo, "SENSITIVE_INPUT", owner.id, "inquiry", 10, {"OTP": 1, "PASSWORD": 2})
     db.commit()
-    row = db.scalar(select(SecurityAlert).where(SecurityAlert.alert_type == 'SENSITIVE_INPUT'))
-    assert (row.occurrence_count, row.severity) == (3, 'HIGH')
-    assert row.detail == {'OTP': 2, 'PASSWORD': 1, 'CARD': 1}
+
+    [a] = alerts(db)
+    assert row(a) == ("SENSITIVE_INPUT", "HIGH", "NEW", owner.id, "inquiry", 10, {"OTP": 2, "PASSWORD": 2}, 2)
+    assert datetime_utils.as_utc(a.last_detected_at) == later
+    assert a.first_detected_at != a.last_detected_at
 
 
-def test_user_alert_has_no_original(client, db, owner, admin):
-    AuditLogRepository(db).add('LOGIN_BLOCKED', 'user', owner.id, result='LOCKED')
+def test_merge_keeps_reviewing_status(db, owner):
+    repo = SecurityAlertRepository(db)
+    first = detect(repo, "LOGIN_BLOCKED", owner.id, "user", owner.id)
+    first.status, first.reviewer_id, first.review_started_at = "IN_REVIEW", owner.id, datetime_utils.now()
     db.commit()
-    row = db.scalar(select(SecurityAlert))
-    h = admin_headers(client, admin)
-    assert client.get(f'{URL}/{row.id}', headers=h).json()['hasOriginal'] is False
-    response = client.post(f'{URL}/{row.id}/original', headers=h, json={'reason': '계정 확인'})
-    assert (response.status_code, error_code(response)) == (409, 'SECURITY_ALERT_NO_ORIGINAL')
 
-
-def test_partial_document_block_does_not_create_full_block_alert(db, owner, client, headers, ai):
-    inquiry_id = start(client, headers, ai)
-    repo = AuditLogRepository(db)
-    repo.add('BLOCK', 'inquiry', inquiry_id, result='DOC_BLOCKED')
+    detect(repo, "LOGIN_BLOCKED", owner.id, "user", owner.id)
     db.commit()
-    assert db.scalar(select(func.count()).select_from(SecurityAlert).where(
-        SecurityAlert.alert_type == 'BLOCKED_DOC_QUERY')) == 0
-    repo.add('BLOCK', 'inquiry', inquiry_id, result='ALL_BLOCKED')
+
+    [a] = alerts(db)
+    assert (a.status, a.occurrence_count) == ("IN_REVIEW", 2)
+
+
+def test_closed_alert_is_not_merged(db, owner):
+    repo = SecurityAlertRepository(db)
+    first = detect(repo, "LOGIN_BLOCKED", owner.id, "user", owner.id)
+    now = datetime_utils.now()
+    first.status, first.reviewer_id, first.review_started_at = "CLOSED", owner.id, now
+    first.closed_by, first.closed_at, first.close_reason = owner.id, now, "본인 확인 완료"
     db.commit()
-    assert db.scalar(select(func.count()).select_from(SecurityAlert).where(
-        SecurityAlert.alert_type == 'BLOCKED_DOC_QUERY')) == 1
 
-
-def test_volume_excludes_ai_and_only_alerts_on_41st_message(db, owner, client, headers, ai):
-    from app.models import ChatSession, Message
-    from app.repositories.security_alert import record_query_volume
-    inquiry_id = start(client, headers, ai)
-    session = db.scalar(select(ChatSession).where(ChatSession.inquiry_id == inquiry_id))
-    for _ in range(39):
-        db.add(Message(session_id=session.id, sender='USER', kind='TEXT', content='정상 질의', seq=100 + _))
-    record_query_volume(db, owner.id)
-    assert db.scalar(select(func.count()).select_from(SecurityAlert).where(SecurityAlert.alert_type == 'MASS_QUERY')) == 0
-    db.add(Message(session_id=session.id, sender='USER', kind='TEXT', content='정상 질의', seq=200))
-    record_query_volume(db, owner.id)
+    detect(repo, "LOGIN_BLOCKED", owner.id, "user", owner.id)
     db.commit()
-    assert db.scalar(select(func.count()).select_from(SecurityAlert).where(SecurityAlert.alert_type == 'MASS_QUERY')) == 1
+
+    assert [(a.status, a.occurrence_count) for a in alerts(db)] == [("CLOSED", 1), ("NEW", 1)]
 
 
-def test_repeated_risk_across_chats_is_detected_without_llm_history(client, db, owner, headers, ai):
-    for _ in range(3):
-        start(client, headers, ai)
-    row = db.scalar(select(SecurityAlert).where(SecurityAlert.alert_type == 'S07'))
-    assert row is not None and row.target_type == 'user' and row.subject_user_id == owner.id
+def test_different_target_makes_separate_alert(db, owner):
+    repo = SecurityAlertRepository(db)
+
+    detect(repo, "SENSITIVE_INPUT", owner.id, "inquiry", 10, {"OTP": 1})
+    detect(repo, "SENSITIVE_INPUT", owner.id, "inquiry", 11, {"OTP": 1})
+    detect(repo, "URGENT_CLOSED", owner.id, "inquiry", 10)
+    db.commit()
+
+    assert [(a.alert_type, a.target_id) for a in alerts(db)] == [
+        ("SENSITIVE_INPUT", 10), ("SENSITIVE_INPUT", 11), ("URGENT_CLOSED", 10),
+    ]
 
 
-def test_source_event_and_alert_rollback_together(client, db, owner, headers, ai):
-    from app.models import Inquiry
-    ai.replies = [ai_reply()]
-    response = client.post('/api/v1/inquiries', headers={**headers, 'Idempotency-Key': 'rollback'},
-                           json={'content': '정식 승인 신청 문의'})
-    inquiry_id = response.json()['inquiry']['id']
-    AuditLogRepository(db).add('SECURITY_REVIEW', 'inquiry', inquiry_id, result='S02')
-    db.flush()
-    assert db.scalar(select(func.count()).select_from(SecurityAlert)) == 1
-    db.rollback()
-    assert db.scalar(select(func.count()).select_from(SecurityAlert)) == 0
-    assert db.scalar(select(func.count()).select_from(AuditLog).where(AuditLog.event_type == 'SECURITY_REVIEW')) == 0
-    assert db.get(Inquiry, inquiry_id) is not None
+def test_detect_merges_when_other_request_created_first(db, owner, monkeypatch):
+    """조회 뒤 다른 요청이 먼저 넣어 UNIQUE 에 걸리면, 호출자 트랜잭션은 살리고 그 알림에 합친다."""
+    repo = SecurityAlertRepository(db)
+    detect(repo, "LOGIN_BLOCKED", owner.id, "user", owner.id)
+    db.commit()
+    original = repo.open_for_update
+    calls = []
+
+    def miss_first(*key):
+        calls.append(key)
+        return None if len(calls) == 1 else original(*key)
+
+    monkeypatch.setattr(repo, "open_for_update", miss_first)
+    db.add(AuditLog(event_type="LOGIN_BLOCKED", target_type="user", target_id=owner.id))   # 같은 트랜잭션의 원천 기록
+
+    detect(repo, "LOGIN_BLOCKED", owner.id, "user", owner.id)
+    db.commit()
+
+    assert len(calls) == 2
+    assert [(a.status, a.occurrence_count) for a in alerts(db)] == [("NEW", 2)]
+    assert db.scalar(select(AuditLog.event_type)) == "LOGIN_BLOCKED"
+
+
+# ---------------------------------------------------------------- 원천 기록 5곳
+
+def test_secret_input_creates_alert_for_writer(client, db, owner, headers):
+    inquiry_id = start(client, headers, content="비밀번호는 Abc123!@ 이고 주민번호 900101-1234567 이에요").json()["inquiry"]["id"]
+
+    [a] = alerts(db)
+    assert row(a) == ("SENSITIVE_INPUT", "HIGH", "NEW", owner.id, "inquiry", inquiry_id, {"PASSWORD": 1, "RRN": 1}, 1)
+    assert "Abc123" not in str(a.detail)
+
+
+def test_plain_input_creates_no_alert(client, db, headers):
+    start(client, headers)
+
+    assert alerts(db) == []
+
+
+def test_all_blocked_creates_blocked_doc_query_alert(client, db, owner, headers, ai, taxonomy):
+    ai.replies = [ai_reply("ANSWER"), ANSWER]
+    ai.documents = (replace(DOC, transfer_policy="BLOCKED"),)
+
+    inquiry_id = start(client, headers).json()["inquiry"]["id"]
+
+    assert [row(a) for a in alerts(db)] == [
+        ("BLOCKED_DOC_QUERY", "MEDIUM", "NEW", owner.id, "inquiry", inquiry_id, {}, 1),
+    ]
+
+
+def test_answer_with_evidence_creates_no_alert(client, db, headers, ai, taxonomy):
+    ai.replies = [ai_reply("ANSWER", inquiry_type_code="NET-02"), ANSWER]
+    ai.documents = (DOC,)
+
+    start(client, headers)
+
+    assert alerts(db) == []
+
+
+def test_urgent_close_creates_alert_for_inquiry_owner(client, db, owner, headers):
+    inquiry_id = started(client, db, headers, action="ESCALATE")
+    db.add(InquiryAssessment(inquiry_id=inquiry_id, urgent_signal=True, action="ESCALATE", override_reasons=[]))
+    db.commit()
+
+    close(client, headers, inquiry_id)
+
+    assert [row(a) for a in alerts(db)] == [("URGENT_CLOSED", "HIGH", "NEW", owner.id, "inquiry", inquiry_id, {}, 1)]
+
+
+def test_normal_close_creates_no_alert(client, db, headers):
+    inquiry_id = started(client, db, headers, action="ESCALATE")
+
+    close(client, headers, inquiry_id)
+
+    assert alerts(db) == []
+
+
+def test_fifth_failure_creates_account_locked_alert(client, db):
+    user = add_user(db)
+
+    for _ in range(5):
+        login(client, password="Wrong!Pass1")
+
+    assert [row(a) for a in alerts(db)] == [("ACCOUNT_LOCKED", "MEDIUM", "NEW", user.id, "user", user.id, {}, 1)]
+
+
+def test_blocked_login_attempts_merge_into_one_alert(client, db):
+    user = add_user(db, account_status="INACTIVE")
+
+    login(client)
+    login(client)
+
+    assert [row(a) for a in alerts(db)] == [("LOGIN_BLOCKED", "LOW", "NEW", user.id, "user", user.id, {}, 2)]
+
+
+def test_successful_login_creates_no_alert(client, db):
+    add_user(db)
+
+    assert bearer(login(client))
+    assert alerts(db) == []

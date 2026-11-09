@@ -113,6 +113,8 @@ interface SSummary {
   displayStatus: DisplayStatus
   category: { code: CategoryCode; name: string } | null
   receiptNo: string | null
+  /** 마지막 AI 답변의 메시지 ID (IQ-02). 구버전 서버에는 없다 */
+  lastAiMessageId?: number | null
   createdAt: string
   updatedAt: string | null
 }
@@ -232,7 +234,7 @@ const RESOLVED_NOTICE = '해결로 종료되었습니다.'
 export const NO_CONNECT_LABEL = '미연결 (종료)'
 
 /** AI 가 답을 만들지 못했을 때 화면이 붙이는 안내 (서버는 저장하지 않는다) */
-const NO_ANSWER_TEXT = '지금은 답변을 만들지 못했어요. 담당자에게 연결해 드릴까요?'
+const NO_ANSWER_TEXT = '지금은 AI 답변을 만들지 못했어요. 입력한 내용은 저장됐어요. 담당자에게 연결해 드릴까요?'
 
 /** 접수 없이 끝났을 때 보여 주는 종료 안내 (모의의 noTicketClosed 와 같은 글) */
 export const NO_TICKET_CLOSED: ChatMessage[] = [
@@ -482,6 +484,8 @@ export function toInquiry(i: SInquiry, messages: SMessage[], next?: string[], ti
     unread: 0,
     createdAt: i.createdAt,
     updatedAt: i.updatedAt ?? i.createdAt,
+    // sender 가 AI 인 메시지 중 가장 큰 ID (서버 lastAiMessageId 와 같은 기준: 글이 아닌 AI 메시지도 포함)
+    lastAiMessageId: messages.reduce<number | null>((m, x) => (x.sender === 'AI' && (m === null || x.id > m) ? x.id : m), null),
     messages: toMessages(messages, step, i, answering, intake),
     draft: step === 'draft' ? (draft ?? null) : null,
     draftState: 'view',
@@ -574,6 +578,7 @@ export function toServerSummary(s: SSummary): InquirySummary {
     stateKind: st.kind,
     unread: 0,
     updatedAt: s.updatedAt ?? s.createdAt,
+    lastAiMessageId: s.lastAiMessageId ?? null,
   }
 }
 export const mapSummaries = (p: Page<SSummary>): Page<InquirySummary> => ({ ...p, items: p.items.map(toServerSummary) })

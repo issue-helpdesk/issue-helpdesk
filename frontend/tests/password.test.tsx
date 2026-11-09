@@ -128,7 +128,7 @@ describe('내 프로필', () => {
     expect(dialog).toHaveTextContent('이태윤')
     expect(dialog).toHaveTextContent('EMP-1001')
     expect(dialog).toHaveTextContent('개발1팀')
-    expect(dialog).toHaveTextContent('마지막 변경 후 38일')
+    expect(dialog).not.toHaveTextContent('마지막 변경 후')
     // 입력칸은 [변경]을 눌러야 펼쳐진다
     expect(within(dialog).queryByLabelText('현재 비밀번호')).not.toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: '변경' }))

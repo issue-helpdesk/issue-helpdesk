@@ -13,7 +13,7 @@ const SIZE = 124
 const SW = 15
 
 /** 처리 상태 도넛: 가운데에 전체 건수, 그 아래에 완료율 */
-export function MiniDonut({ v }: { v: StatCounts }) {
+function MiniDonut({ v }: { v: StatCounts }) {
   const total = sumOf(v)
   const R = (SIZE - SW) / 2 - 1
   const C = 2 * Math.PI * R
@@ -39,7 +39,7 @@ export function MiniDonut({ v }: { v: StatCounts }) {
   )
 }
 
-export interface MemberCardData {
+interface MemberCardData {
   id: number
   name: string
   v: StatCounts

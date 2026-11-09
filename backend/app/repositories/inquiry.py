@@ -64,13 +64,12 @@ class InquiryRepository:
         sort: list[tuple[str, bool]],
         offset: int,
         limit: int,
-    ) -> tuple[list[tuple[Inquiry, User, Category | None, str | None, str]], int]:
+    ) -> tuple[list[tuple[Inquiry, User, Category | None, str | None, str]], int, dict[str, int]]:
+        """세 번째 값은 표시 상태 조건만 뺀 표시 상태별 건수."""
         display = display_status_column()
         conditions = []
         if user_id is not None:
             conditions.append(Inquiry.user_id == user_id)
-        if display_statuses:
-            conditions.append(display.in_(display_statuses))
         if statuses:
             conditions.append(Inquiry.status.in_(statuses))
         if category_codes:
@@ -95,6 +94,13 @@ class InquiryRepository:
                 cited,
             ))
 
+        # 표시 상태는 CASE 식이라 서브쿼리에서 이름을 붙인 뒤 묶는다
+        shown = (select(display.label("shown")).select_from(Inquiry)
+                 .outerjoin(Ticket, Ticket.inquiry_id == Inquiry.id).where(*conditions).subquery())
+        status_counts = dict(self.db.execute(select(shown.c.shown, func.count()).group_by(shown.c.shown)).all())
+        if display_statuses:
+            conditions.append(display.in_(display_statuses))
+
         base = select(Inquiry.id).outerjoin(Ticket, Ticket.inquiry_id == Inquiry.id).where(*conditions)
         total = self.db.scalar(select(func.count()).select_from(base.subquery()))
         order_by = [
@@ -111,7 +117,18 @@ class InquiryRepository:
             .offset(offset)
             .limit(limit)
         )
-        return [tuple(row) for row in rows], total
+        return [tuple(row) for row in rows], total, status_counts
+
+    def last_ai_message_ids(self, inquiry_ids: list[int]) -> dict[int, int]:
+        """문의별 마지막 AI 답변의 메시지 ID. 세션을 가리지 않고 보며, AI 답변이 없는 문의는 결과에 없다."""
+        if not inquiry_ids:
+            return {}
+        return dict(self.db.execute(
+            select(ChatSession.inquiry_id, func.max(Message.id))
+            .join(Message, Message.session_id == ChatSession.id)
+            .where(ChatSession.inquiry_id.in_(inquiry_ids), Message.sender == "AI")
+            .group_by(ChatSession.inquiry_id)
+        ).all())
 
     def current_session(self, inquiry_id: int) -> ChatSession | None:
         return self.db.scalars(
