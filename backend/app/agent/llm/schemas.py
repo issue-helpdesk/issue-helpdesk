@@ -153,16 +153,15 @@ def merge_second(first: AIOutput, part: SecondOutput) -> AIOutput:
 
 
 def _clean(node):
-    """Pydantic 이 만든 schema 에서 출력 형식이 받지 않는 것(title·숫자 범위·배열 길이 maxItems)과 코드 설명(description)을 빼고,
-    허용값이 있는 칸은 {'enum': [...]} 하나로 둔다. 숫자 범위와 배열 길이는 응답을 받은 뒤 Pydantic 이 검사한다.
-    Claude 출력 형식은 배열의 maxItems 를 받지 않아 넣으면 요청이 400 으로 거절된다 (security_rule_ids 의 max_length=7 때문에 겪음).
+    """Pydantic 이 만든 schema 에서 출력 형식이 받지 않는 것(title·숫자 범위)과 코드 설명(description)을 빼고,
+    허용값이 있는 칸은 {'enum': [...]} 하나로 둔다. 숫자 범위는 응답을 받은 뒤 Pydantic 이 검사한다.
     """
     if isinstance(node, dict):
         if 'enum' in node:
             return {'enum': node['enum']}
         # 값이 dict 인 'title' 은 출력 칸 이름(AIOutput.title)이라 남긴다
         return {k: _clean(v) for k, v in node.items()
-                if not (k in ('title', 'description', 'minimum', 'maximum', 'maxItems') and not isinstance(v, dict))}
+                if not (k in ('title', 'description', 'minimum', 'maximum') and not isinstance(v, dict))}
     if isinstance(node, list):
         return [_clean(v) for v in node]
     return node
