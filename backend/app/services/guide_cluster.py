@@ -15,6 +15,7 @@ from app.db.session import DbSession
 from app.models import Category, DocumentVersion, GuideCluster, KnowledgeDocument, User
 from app.rag.case_guide import CaseGuideError
 from app.rag.case_guide.assemble import assemble
+from app.rag.case_guide.rebase import rebase
 from app.repositories.audit_log import AuditLogRepositoryDep
 from app.repositories.document import DocumentRepositoryDep
 from app.repositories.guide_cluster import GuideClusterRepositoryDep
@@ -24,9 +25,10 @@ from app.services.document_ingest import IngestSubmitterDep
 from app.utils import datetime_utils
 from app.schemas.guide_cluster import (
     DocumentRef,
+    GuideClusterConflict,
     GuideClusterDetail,
+    GuideClusterDetailWithWarnings,
     GuideClusterListQuery,
-    GuideClusterRegisterResponse,
     GuideClusterSummary,
     GuideClusterTicket,
     VersionRef,
@@ -40,7 +42,12 @@ def guide_assembler() -> Callable[..., dict]:
     return assemble
 
 
+def guide_rebaser() -> Callable[..., dict]:
+    return rebase
+
+
 GuideAssemblerDep = Annotated[Callable[..., dict], Depends(guide_assembler)]
+GuideRebaserDep = Annotated[Callable[..., dict], Depends(guide_rebaser)]
 
 
 class GuideClusterService:
@@ -51,6 +58,7 @@ class GuideClusterService:
         documents: DocumentRepositoryDep,
         audit_logs: AuditLogRepositoryDep,
         assembler: GuideAssemblerDep,
+        rebaser: GuideRebaserDep,
         submit_ingest: IngestSubmitterDep,
     ) -> None:
         self.db = db
@@ -58,6 +66,7 @@ class GuideClusterService:
         self.documents = documents
         self.audit_logs = audit_logs
         self.assembler = assembler
+        self.rebaser = rebaser
         self.submit_ingest = submit_ingest
 
     def list_clusters(self, query: GuideClusterListQuery) -> Page[GuideClusterSummary]:
@@ -84,6 +93,8 @@ class GuideClusterService:
             draft_md=c.draft_md,
             target_section=basis.get("target_section"),
             target_md=basis.get("target_md"),
+            conflicts=[GuideClusterConflict(section=i["section"], kind=i["kind"], message=i["message"],
+                                            old_md=i["old_md"], new_md=i["new_md"]) for i in unresolved_conflicts(c)],
             draft_revision=c.draft_revision,
             review_info=c.review_info,
             compared_items=c.compared_items,
@@ -153,7 +164,7 @@ class GuideClusterService:
 
     def register(
         self, cluster_id: int, draft_revision: int, view_scope: str, transfer_policy: str, user: User,
-    ) -> GuideClusterRegisterResponse:
+    ) -> GuideClusterDetailWithWarnings:
         """GC-06. 묶음을 현행이 아닌 가이드 버전으로 등록한다. 상태는 검토 중 그대로이고 현행 전환(DC-09)에서 APPLIED 가 된다.
 
         같은 문서에 이어 쓸 대기 버전이 있으면 [그 버전 묶음(거절 제외) + 이번 묶음] 으로 현행부터 다시 조립한다.
@@ -186,9 +197,48 @@ class GuideClusterService:
             stored_file(out["file_path"]).unlink(missing_ok=True)   # 행이 없는 파일이 남지 않게 한다
             raise
         self.submit_ingest(out["version_id"])
-        return GuideClusterRegisterResponse(**dict(self.get_cluster(c.id)), warnings=out["warnings"])
+        return GuideClusterDetailWithWarnings(**dict(self.get_cluster(c.id)), warnings=out["warnings"])
+
+    def rebase(self, cluster_id: int, draft_revision: int, user: User) -> GuideClusterDetailWithWarnings:
+        """GC-07. 현행이 바뀐 묶음의 초안 기준을 지금 현행으로 맞춘다.
+
+        초안 글은 건드리지 않는다. 등록한 파일은 옛 기준이라 등록 연결을 끊고, 다음 등록(GC-06)에서 새 기준으로 조립한다.
+        변경 항목이 현행에서 달라졌으면 충돌을 기록한다: 기록한 번호와 지금 draft_revision 이 같은 동안 등록이 막히고,
+        관리자가 초안을 고쳐 저장(GC-05)해 번호가 오르면 풀린다.
+        """
+        c = self.lock_reviewing(cluster_id)
+        self.check_draft_ready(c, draft_revision)
+        try:
+            out = self.rebaser(self.db.connection().connection.driver_connection, c.target_document_id,
+                               {**self.assemble_input(c), "draft_revision": c.draft_revision})
+        except CaseGuideError as e:
+            self.db.rollback()
+            raise AppError(ErrorCode.GUIDE_CLUSTER_REBASE_FAILED, [
+                {"reason": "REBASE", "message": problem} for problem in e.problems
+            ])
+        old_base, basis, revision = c.base_version_id, out["draft_basis"], c.draft_revision + 1
+        if out["conflicts"]:
+            basis["conflicts"]["revision"] = revision
+        c.draft_basis, c.base_version_id, c.draft_revision = basis, basis["base_version_id"], revision
+        c.registered_version_id, c.updated_at = None, datetime_utils.now()
+        self.audit_logs.add("GUIDE_CLUSTER_REBASE", "guide_cluster", c.id, actor_id=user.id,
+                            result=f"{c.judgment} 기준 버전 {old_base} → {c.base_version_id}, 충돌 {len(out['conflicts'])}건")
+        self.db.commit()
+        return GuideClusterDetailWithWarnings(**dict(self.get_cluster(c.id)), warnings=out["warnings"])
 
     def check_registrable(self, c: GuideCluster, draft_revision: int) -> None:
+        self.check_draft_ready(c, draft_revision)
+        current = self.documents.current_version(c.target_document_id)
+        if current is None or c.base_version_id != current.id:
+            raise AppError(ErrorCode.GUIDE_CLUSTER_BASE_CHANGED, [
+                {"reason": "BASE_VERSION_CHANGED", "message": "지금 현행 버전", "value": current.id if current else None},
+            ])
+        if conflicts := unresolved_conflicts(c):
+            raise AppError(ErrorCode.GUIDE_CLUSTER_CONFLICT_UNRESOLVED, [
+                {"reason": "CONFLICT", "message": i["message"], "value": i["section"]} for i in conflicts
+            ])
+
+    def check_draft_ready(self, c: GuideCluster, draft_revision: int) -> None:
         if c.judgment not in REGISTRABLE_JUDGMENTS:
             raise AppError(ErrorCode.GUIDE_CLUSTER_NOT_REGISTRABLE, [
                 {"reason": "JUDGMENT", "message": "묶음 판단", "value": c.judgment},
@@ -200,11 +250,6 @@ class GuideClusterService:
         if draft_revision != c.draft_revision:
             raise AppError(ErrorCode.GUIDE_CLUSTER_DRAFT_CONFLICT, [
                 {"field": "draftRevision", "reason": "STALE", "message": "지금 초안 번호", "value": c.draft_revision},
-            ])
-        current = self.documents.current_version(c.target_document_id)
-        if current is None or c.base_version_id != current.id:
-            raise AppError(ErrorCode.GUIDE_CLUSTER_BASE_CHANGED, [
-                {"reason": "BASE_VERSION_CHANGED", "message": "지금 현행 버전", "value": current.id if current else None},
             ])
 
     def registration_target(self, c: GuideCluster) -> tuple[int | None, list[GuideCluster]]:
@@ -254,6 +299,12 @@ class GuideClusterService:
     def review(self, c: GuideCluster, status: str, user: User) -> None:
         self.clusters.change_status([c], status)
         c.reviewed_by, c.reviewed_at = user.id, datetime_utils.now()
+
+
+def unresolved_conflicts(c: GuideCluster) -> list[dict]:
+    """아직 풀리지 않은 충돌. 기록한 번호가 지금 draft_revision 과 같으면 관리자가 초안을 고쳐 저장하지 않은 것이다."""
+    conflicts = (c.draft_basis or {}).get("conflicts") or {}
+    return conflicts.get("items") or [] if conflicts.get("revision") == c.draft_revision else []
 
 
 def summary(c: GuideCluster, category: Category, document: KnowledgeDocument | None,

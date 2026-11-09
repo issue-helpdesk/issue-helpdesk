@@ -54,11 +54,21 @@ class GuideClusterTicket(CamelModel):
     closed_at: KstDatetime | None
 
 
+class GuideClusterConflict(CamelModel):
+    """다시 맞추기에서 나온 충돌. 관리자가 새 원문과 비교해 초안을 고쳐 저장하면 풀린다."""
+    section: str
+    kind: str
+    message: str
+    old_md: str                                 # 초안을 만들 때의 원문
+    new_md: str                                 # 지금 현행의 원문
+
+
 class GuideClusterDetail(GuideClusterSummary):
     """GC-02 상세. 등록 검사용 초안 기준(draft_basis)은 변경할 항목의 위치·원문만 내려 준다."""
     draft_md: str | None
     target_section: str | None                  # 변경(CHANGE)할 항목 번호. 다른 판단은 없다
     target_md: str | None                       # 변경할 항목의 초안 기준 원문. 화면의 "기존 내용"
+    conflicts: list[GuideClusterConflict]       # 아직 풀리지 않은 충돌. 있으면 등록이 막힌다
     draft_revision: int                         # 초안 수정 저장 때 함께 보낸다 (다른 관리자 변경 확인)
     review_info: dict
     compared_items: list
@@ -89,6 +99,10 @@ class GuideClusterRegisterRequest(CamelModel):
     transfer_policy: TransferPolicy             # 서버가 대신 채우지 않는다
 
 
-class GuideClusterRegisterResponse(GuideClusterDetail):
-    """GC-06. 상세 + 조립 경고 (개인정보로 보이는 글 등). 저장하지 않으므로 이 응답에서만 볼 수 있다."""
+class GuideClusterRebaseRequest(CamelModel):
+    draft_revision: int = Field(ge=0)           # GC-02 에서 받은 값. 성공하면 1 오르므로 응답 값을 이어서 쓴다
+
+
+class GuideClusterDetailWithWarnings(GuideClusterDetail):
+    """GC-06·07. 상세 + 경고 (개인정보로 보이는 글 등). 저장하지 않으므로 이 응답에서만 볼 수 있다."""
     warnings: list[str]

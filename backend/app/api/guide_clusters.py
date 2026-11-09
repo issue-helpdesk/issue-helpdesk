@@ -8,8 +8,9 @@ from app.schemas.guide_cluster import (
     GuideClusterDetail,
     GuideClusterDraftUpdateRequest,
     GuideClusterListQuery,
+    GuideClusterDetailWithWarnings,
+    GuideClusterRebaseRequest,
     GuideClusterRegisterRequest,
-    GuideClusterRegisterResponse,
     GuideClusterRejectRequest,
     GuideClusterSummary,
 )
@@ -38,12 +39,20 @@ def save_draft(
     return service.save_draft(cluster_id, body.draft_md, body.draft_revision)
 
 
-@router.post("/{cluster_id}/register", response_model=GuideClusterRegisterResponse)
+@router.post("/{cluster_id}/register", response_model=GuideClusterDetailWithWarnings)
 def register_cluster(
     cluster_id: int, body: GuideClusterRegisterRequest, auth: AdminAuth, service: GuideClusterServiceDep,
-) -> GuideClusterRegisterResponse:
+) -> GuideClusterDetailWithWarnings:
     """초안을 가이드의 현행이 아닌 버전으로 등록한다. 검색 준비는 백그라운드로 돌고, 현행 전환은 DC-09 로 한다."""
     return service.register(cluster_id, body.draft_revision, body.view_scope, body.transfer_policy, auth.user)
+
+
+@router.post("/{cluster_id}/rebase", response_model=GuideClusterDetailWithWarnings)
+def rebase_cluster(
+    cluster_id: int, body: GuideClusterRebaseRequest, auth: AdminAuth, service: GuideClusterServiceDep,
+) -> GuideClusterDetailWithWarnings:
+    """현행이 바뀐 묶음의 초안 기준을 지금 현행으로 맞춘다. 충돌이 나면 초안을 고쳐 저장(GC-05)해야 등록된다."""
+    return service.rebase(cluster_id, body.draft_revision, auth.user)
 
 
 @router.post("/{cluster_id}/reject", response_model=GuideClusterDetail)
