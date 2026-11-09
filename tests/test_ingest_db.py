@@ -553,3 +553,91 @@ def test_allowlist_change_relabels_manual(url, tmp_path, monkeypatch):
     report = run(url, embs, docs=['IT-SW-002-M'])
     assert {p for _, p in q(url, pol)} == {'BLOCKED'}
     assert any(f"IT-SW-002-M {row['section']}: 허용 목록 이후 내용이 바뀌어 차단" in w for w in report.warnings)
+
+
+# ── 정책만 다시 반영 (allowlist reapply, M4 Q12) ──────────────
+
+def _policies(url, code):
+    return q(url, '''select c.id, c.unit_key, c.content_transfer_policy from document_chunks c
+                     join document_versions v on v.id = c.version_id join knowledge_documents d on d.id = v.document_id
+                     where d.doc_code = %s order by v.id, c.seq''', code)
+
+
+def _emb_count(url, code):
+    return q(url, '''select count(*) from document_chunk_embeddings e join document_chunks c on c.id = e.chunk_id
+                     join document_versions v on v.id = c.version_id join knowledge_documents d on d.id = v.document_id
+                     where d.doc_code = %s''', code)[0][0]
+
+
+def _reapply(url, allow, apply=True):
+    from app.rag.ingest.allowlist import reapply
+    with connect(url) as conn:
+        out = reapply(conn, allow)
+        (conn.commit if apply else conn.rollback)()
+    return out
+
+
+def test_reapply_fixes_only_policy_column(url):
+    """어긋난 값(매뉴얼 청크 ALLOWED·가이드 청크 BLOCKED)을 목록대로 고친다 — 그 칸만 (청크 id·임베딩 그대로), 감사 로그.
+    미리보기는 DB 를 바꾸지 않는다. 다시 하면 바뀐 것 없음."""
+    from app.rag.ingest.allowlist import load, _report
+    allow, _ = load()
+    man, guide = 'IT-NET-001-M', 'IT-NET-002'
+    m0, g0 = _policies(url, man), _policies(url, guide)
+    with psycopg.connect(url) as conn:
+        conn.execute("update document_chunks set content_transfer_policy = 'ALLOWED' where id = %s", (m0[0][0],))
+        conn.execute("update document_chunks set content_transfer_policy = 'BLOCKED' where id = %s", (g0[0][0],))
+    embs = (_emb_count(url, man), _emb_count(url, guide))
+    before_audit = q(url, "select count(*) from audit_logs where event_type = 'DOCUMENT_POLICY_CHANGE'")[0][0]
+
+    preview = _reapply(url, allow, apply=False)
+    assert _policies(url, man)[0][2] == 'ALLOWED'                       # 미리보기는 되돌림
+    assert {(c[0], c[3], c[4]) for c in preview['changes']} >= {(man, 'ALLOWED', 'BLOCKED'), (guide, 'BLOCKED', 'None')}
+    out = _reapply(url, allow)
+    assert _policies(url, man) == m0 and _policies(url, guide) == g0      # 같은 id, 값은 목록대로
+    assert (_emb_count(url, man), _emb_count(url, guide)) == embs
+    assert q(url, "select count(*) from audit_logs where event_type = 'DOCUMENT_POLICY_CHANGE'")[0][0] > before_audit
+    assert f'{man} ' in _report(out, True) and 'ALLOWED → BLOCKED' in _report(out, True)
+    assert _reapply(url, allow)['changes'] == []
+
+
+def test_reapply_opens_listed_item_all_pieces(url):
+    """목록에 ALLOWED 를 채우면 그 항목의 모든 조각이 ALLOWED (같은 id), 보고에 '차단 → 허용' 한 줄. 지문이 다르면 그대로 차단."""
+    from app.rag.ingest.allowlist import load, _report
+    code = 'IT-NET-002-M'
+    allow, _ = load()
+    section = next(s for (d, s) in allow if d == code)
+    before = _policies(url, code)
+    opened = {**allow, (code, section): ('ALLOWED', allow[(code, section)][1])}
+    out = _reapply(url, opened)
+    after = _policies(url, code)
+    assert [i for i, *_ in after] == [i for i, *_ in before]
+    assert {p for _, u, p in after if u.endswith(f'/item:{section}')} == {'ALLOWED'}
+    assert {p for _, u, p in after if not u.endswith(f'/item:{section}')} == {'BLOCKED'}
+    assert f'{code} v2.0 item:{section}: BLOCKED → ALLOWED' in _report(out, True)
+    stale = {**allow, (code, section): ('ALLOWED', 'sha256:' + '0' * 64)}
+    out = _reapply(url, stale)                                          # 목록 이후 내용이 바뀐 것처럼
+    assert {p for _, _, p in _policies(url, code)} == {'BLOCKED'}
+    assert any(f'{code} {section}: 허용 목록 이후 내용이 바뀌어 차단' in w for w in out['warnings'])
+
+
+def test_reapply_skips_version_whose_file_differs(url):
+    """버전 파일의 청크 구성이 DB 와 다르면 추측하지 않고 건너뛴다 (값 그대로)."""
+    from app.rag.ingest.allowlist import load
+    code = 'IT-NET-003-M'
+    with psycopg.connect(url) as conn:                                  # 다른 매뉴얼 파일을 가리키게
+        conn.execute('''update document_versions set file_path = (select v2.file_path from document_versions v2
+                        join knowledge_documents d2 on d2.id = v2.document_id where d2.doc_code = 'IT-NET-001-M' limit 1)
+                        where document_id = (select id from knowledge_documents where doc_code = %s)''', (code,))
+        conn.execute('''update document_chunks set content_transfer_policy = 'ALLOWED' where version_id in
+                        (select v.id from document_versions v join knowledge_documents d on d.id = v.document_id
+                         where d.doc_code = %s)''', (code,))
+    out = _reapply(url, load()[0])
+    assert any(s.startswith(f'{code} ') and '청크 구성이 DB 와 달라' in s for s in out['skipped'])
+    assert {p for _, _, p in _policies(url, code)} == {'ALLOWED'}         # 건드리지 않음
+
+
+def test_reapply_cli_guards_remote(capsys):
+    from app.rag.ingest.allowlist import main
+    assert main(['reapply', '--database-url', 'postgresql://u:p@db.example.com:5432/x']) == 2
+    assert '--allow-remote' in capsys.readouterr().err

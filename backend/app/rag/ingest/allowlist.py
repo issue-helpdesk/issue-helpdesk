@@ -13,6 +13,8 @@
 형식별 일치 수는 README "매뉴얼 항목별 내용 전송 허용 목록".
 
     python -m app.rag.ingest.allowlist skeleton --out app/rag/ingest/transfer_allowlist.json   # backend 폴더에서
+    python -m app.rag.ingest.allowlist reapply --database-url <DB>            # 정책만 다시 반영: 미리보기
+    python -m app.rag.ingest.allowlist reapply --database-url <DB> --apply    # 쓰기 (공유 DB 는 --allow-remote)
 """
 from __future__ import annotations
 
@@ -191,6 +193,79 @@ def skeleton(guides: Path = GUIDES) -> dict:
             'items': rows}
 
 
+# ── 정책만 다시 반영 (질문지 답 Q12) ───────────────────────────
+
+def reapply(conn, allow: dict, files_root: Path | None = None) -> dict:
+    """DB 의 모든 청크 버전에 지금 목록으로 내용 전송 값을 다시 매긴다. **content_transfer_policy 칸만 고친다** (청크 id·
+    본문·임베딩 그대로). commit 하지 않는다 (부른 쪽이 --apply 면 commit, 아니면 rollback).
+
+    문서 종류는 **등록된 문서 행** (MANUAL 이면 버전 파일을 다시 읽어 policies, 아니면 모두 빈칸). 파일을 못 읽거나 파일의
+    청크 구성(unit_key)이 DB 와 다르면 추측하지 않고 그 버전은 건너뛰고 알린다 (값 그대로).
+    결과 {'changes': [(문서 번호, 버전, unit_key, 예전, 새, 조각 수)], 'updated': 고친 청크 수, 'skipped': [...], 'warnings': [...]}."""
+    from app.rag.chunker import chunk_document
+    from app.rag.ingest import ROOT, _audit, _lock_document
+    from app.rag.ingest.upload import resolve_file
+    root = files_root or ROOT
+    versions = conn.execute(
+        'select d.id, d.doc_code, d.doc_type, v.id, v.version, v.file_path from knowledge_documents d '
+        'join document_versions v on v.document_id = d.id '
+        'where exists (select 1 from document_chunks c where c.version_id = v.id) order by d.id, v.id').fetchall()
+    out = {'changes': [], 'updated': 0, 'skipped': [], 'warnings': []}
+    locked = set()
+    for doc_id, doc_no, doc_type, vid, version, path in versions:
+        db: dict[str, list] = {}
+        for cid, unit, policy in conn.execute('select id, unit_key, content_transfer_policy from document_chunks '
+                                              'where version_id = %s order by seq', (vid,)):
+            db.setdefault(unit, []).append((cid, policy))
+        if doc_type == 'MANUAL':
+            try:
+                doc = parse(str(resolve_file(path, root)))
+            except Exception as e:                         # 파일 없음·읽기 실패 — 값을 바꾸지 않는다
+                out['skipped'].append(f'{doc_no} {version}: 파일을 읽지 못해 건너뜀 ({type(e).__name__})')
+                continue
+            doc.meta['doc_no'], doc.meta['version'] = doc_no, version   # 등록값으로 (업로드 적재와 같은 unit_key)
+            chunks = chunk_document(doc)
+            if {c.unit_key for c in chunks} != set(db):
+                out['skipped'].append(f'{doc_no} {version}: 파일의 청크 구성이 DB 와 달라 건너뜀 (다시 적재 필요)')
+                continue
+            want, warns = policies(doc_no, doc, chunks, allow)
+            out['warnings'] += [f'{w} ({version})' for w in warns]
+        else:
+            want = {u: None for u in db}                   # 매뉴얼이 아니면 빈칸 = 버전 정책
+        for unit, rows in db.items():
+            stale = [(cid, p) for cid, p in rows if p != want[unit]]
+            if not stale:
+                continue
+            if doc_id not in locked:                       # 적재·현행 전환과 같은 순서 (문서 먼저)
+                _lock_document(conn, doc_id)
+                locked.add(doc_id)
+            conn.execute('update document_chunks set content_transfer_policy = %s where id = any(%s)',
+                         (want[unit], [cid for cid, _ in stale]))
+            olds = sorted({str(p) for _, p in stale})
+            out['changes'].append((doc_no, version, unit, '/'.join(olds), str(want[unit]), len(stale)))
+            out['updated'] += len(stale)
+            _audit(conn, 'DOCUMENT_POLICY_CHANGE', doc_id, None,
+                   f"{version} {unit.split('/', 1)[-1]} 내용 전송 {'/'.join(olds)} → {want[unit]} (허용 목록 다시 반영)")
+    mixed = conn.execute('select v.version, c.unit_key from document_chunks c join document_versions v on v.id = c.version_id '
+                         'group by v.version, c.unit_key having count(distinct coalesce(c.content_transfer_policy, \'-\')) > 1'
+                         ).fetchall()
+    out['warnings'] += [f'같은 항목의 조각 값이 다릅니다: {u} ({v})' for v, u in mixed]
+    return out
+
+
+def _report(out: dict, applied: bool) -> str:
+    """허용↔차단 바뀐 항목은 한 줄씩, 그 밖(빈칸 ↔ BLOCKED 등)은 개수만."""
+    allow_flip = [c for c in out['changes'] if 'ALLOWED' in (c[3], c[4])]
+    other = len(out['changes']) - len(allow_flip)
+    lines = [f"{'반영함' if applied else '미리보기 (DB 에 쓰지 않음, 쓰려면 --apply)'}: 청크 {out['updated']}개"]
+    lines += ['허용↔차단 바뀐 항목:'] + [f"  {d} {v} {u.split('/', 1)[-1]}: {a} → {b} (조각 {n})"
+                                          for d, v, u, a, b, n in allow_flip] if allow_flip else ['허용↔차단 바뀐 항목: 없음']
+    if other:
+        lines.append(f'그 밖에 바뀐 단위 {other}개 (빈칸 ↔ BLOCKED 등, 전송 결과는 같음)')
+    lines += [f'건너뜀: {s}' for s in out['skipped']] + [f'경고: {w}' for w in out['warnings']]
+    return '\n'.join(lines)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog='python -m app.rag.ingest.allowlist', description=__doc__.split('\n')[0])
     sub = ap.add_subparsers(dest='cmd', required=True)
@@ -198,7 +273,24 @@ def main(argv=None) -> int:
     sk.add_argument('--guides', default=str(GUIDES))
     sk.add_argument('--out', help='쓸 파일 (없으면 화면). 이미 있으면 --force 없이는 덮어쓰지 않는다')
     sk.add_argument('--force', action='store_true')
+    ra = sub.add_parser('reapply', help='정책만 다시 반영: 지금 목록으로 DB 청크의 내용 전송 값만 고친다 (청크·임베딩 그대로)')
+    ra.add_argument('--database-url', required=True, help='고칠 DB (.env 는 읽지 않는다)')
+    ra.add_argument('--allow-remote', action='store_true', help='localhost 가 아닌 DB(공유 DB)에 쓸 때 꼭 준다')
+    ra.add_argument('--apply', action='store_true', help='DB 에 쓴다. 없으면 미리보기 (바뀔 것만 보이고 되돌린다)')
+    ra.add_argument('--files-root', help='버전 file_path 의 기준 폴더 (기본 저장소 루트)')
     a = ap.parse_args(argv)
+    if a.cmd == 'reapply':
+        from app.rag.ingest import connect, is_local
+        if not a.allow_remote and not is_local(a.database_url):
+            print('localhost 가 아닌 DB 입니다. 공유 DB 에 쓰려면 --allow-remote 를 주세요.', file=sys.stderr)
+            return 2
+        allow, notes = load()
+        with connect(a.database_url, a.allow_remote) as conn:
+            out = reapply(conn, allow, Path(a.files_root) if a.files_root else None)
+            out['warnings'] = notes + out['warnings']
+            (conn.commit if a.apply else conn.rollback)()
+        print(_report(out, a.apply))
+        return 0
     data = skeleton(Path(a.guides))
     text = json.dumps(data, ensure_ascii=False, indent=2) + '\n'
     if not a.out:
