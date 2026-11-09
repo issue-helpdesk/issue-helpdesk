@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from app.rag.case_guide import CaseGuideError, _item, _parse_text, receipts
-from app.rag.case_guide.assemble import TODO, _build_new_guide, assemble
+from app.rag.case_guide.assemble import TODO, _build_new_guide, _check_result, assemble
 from app.rag.case_guide.open_basis import skeleton
 from test_case_guide import ticket_row
 from test_ingest_upload import needs_db, url  # noqa: F401  (url 은 fixture)
@@ -81,6 +81,59 @@ def test_build_refuses_no_items_and_marker():
         _build_new_guide(new_cluster(filled() + '\n해결 사례 반영 (X-1)\n'), 'IT-NET-010', 'v1.0', TODAY, [])
 
 
+def _with_fragments(fragments):
+    md = skeleton('재택 프린터 연결 가이드', 'NET', 'VPN·네트워크', fragments, CONTACT)
+    md = md.replace(f'## 1. 개요\n\n{TODO}', f'## 1. 개요\n\n{INTRO}', 1)
+    return md.replace(f'## 2. 먼저 확인할 사항\n\n{TODO}', f'## 2. 먼저 확인할 사항\n\n{CHECK}', 1)
+
+
+@pytest.mark.parametrize('fragments, msg', [
+    (['### 3.N 제목만 있음', '### 3.N 이것도 제목만'], '본문이 없는 항목이 있습니다: 3.1, 3.2'),
+    ([frag('프린터가 안 잡힘'), '### 3.N 제목만 있음'], '본문이 없는 항목이 있습니다: 3.2'),
+])
+def test_build_refuses_heading_only_items(fragments, msg):
+    """항목 표·바로가기 표가 있어도 항목이 제목뿐이면 거부 — 검색될 항목이 없는 가이드가 되지 않게 (PR #370 검수 1)."""
+    with pytest.raises(CaseGuideError, match=re.escape(msg)):
+        _build_new_guide(new_cluster(_with_fragments(fragments)), 'IT-NET-010', 'v1.0', TODAY, [])
+
+
+@pytest.mark.parametrize('extra', [f'## 1. 미작성\n\n{TODO}\n\n## 1. 개요\n\n{INTRO}',      # 앞 장에 자리 표시
+                                   f'## 1. 개요\n\n{INTRO}\n\n## 1. 개요 둘째\n\n{TODO}'])  # 뒤 장에 자리 표시
+def test_build_refuses_duplicate_chapter(extra):
+    """같은 장 번호가 두 번이면 거부하고, 앞·뒤 어느 장의 '(작성 필요)' 도 놓치지 않는다 (PR #370 검수 2)."""
+    md = filled([(f'## 1. 개요\n\n{INTRO}', extra)])
+    with pytest.raises(CaseGuideError) as e:
+        _build_new_guide(new_cluster(md), 'IT-NET-010', 'v1.0', TODAY, [])
+    assert '같은 장이 두 번 이상 있습니다: 1장' in str(e.value) and "'(작성 필요)' 자리가 남아 있습니다: 1장" in str(e.value)
+
+
+def test_build_changes_only_front_matter():
+    """문서 번호·버전은 머리말 안에서만 바꾼다. 본문 코드 예시의 같은 이름 줄은 그대로 (PR #370 검수 4)."""
+    code = '\n```text\ndoc_no: "EX-1"\nversion: "v9.9"\n```'
+    md = _build_new_guide(new_cluster(filled([(INTRO, INTRO + code)])), 'IT-NET-010', 'v1.0', TODAY, [])
+    meta, _ = _parse_text(md)
+    assert (meta['doc_no'], meta['version']) == ('IT-NET-010', 'v1.0') and code.strip('\n') in md
+
+
+@pytest.mark.parametrize('edits, msg', [
+    ([('version: "v1.0"\n', '')], '머리말에 version 줄이 없습니다'),
+    ([('doc_no: ""\n', '')], '머리말에 doc_no 줄이 없습니다'),
+    ([('---\ndoc_no', '--\ndoc_no')], '머리말(--- … ---)이 없습니다'),
+])
+def test_build_refuses_broken_front_matter(edits, msg):
+    """머리말이 없거나 doc_no·version 줄이 없으면 거부 — 본문에서 찾아 바꾸지 않는다 (PR #370 검수 4)."""
+    code = '\n```text\ndoc_no: "EX-1"\nversion: "v9.9"\n```'
+    with pytest.raises(CaseGuideError, match=re.escape(msg)):
+        _build_new_guide(new_cluster(filled([(INTRO, INTRO + code), *edits])), 'IT-NET-010', 'v1.0', TODAY, [])
+
+
+def test_check_result_requires_version():
+    """최종 검사: 버전이 없으면 (다르면만이 아니라) 거부 (PR #370 검수 4)."""
+    md = _build_new_guide(new_cluster(), 'IT-NET-010', 'v1.0', TODAY, []).replace('version: "v1.0"\n', '', 1)
+    with pytest.raises(CaseGuideError, match=re.escape('머리말에 버전(version)이 없습니다')):
+        _check_result('', md, 'IT-NET-010', 'v1.0', [new_cluster()], {})
+
+
 def test_heading_in_code_block_is_not_a_chapter():
     """코드 블록 안의 '## 4. …' 는 장이 아니다 (빈 장 빼기·필수 검사가 코드를 자르지 않는다)."""
     code = '\n```text\n## 4. 자주 묻는 질문\n```'
@@ -136,6 +189,22 @@ def test_assemble_new_guide_first_version_then_searchable(url, tmp_path):
     assert 'IT-NET-010@v1.0/item:3.1' in units and not [u for u in units if '/chapter:4' in u or '/chapter:5' in u]
     with pytest.raises(CaseGuideError, match='이미 현행 버전이 있습니다'):
         _call(url, doc, [new_cluster(cid=2, receipts_=('NG-3',))], tmp_path)
+
+
+@needs_db
+@pytest.mark.parametrize('existing', ['v2.0', 'v1.0'])
+def test_assemble_new_guide_refuses_other_versions(url, tmp_path, existing):
+    """현행은 없어도 다른 버전(업로드 초안·실패한 버전)이 있으면 v2.1 등으로 넘어가지 않고 거부 (PR #370 검수 3)."""
+    from app.rag.ingest import connect
+    doc = _new_document(url, f'IT-NET-01{2 if existing == "v2.0" else 3}')
+    with connect(url) as conn:
+        conn.execute("insert into document_versions (document_id, version, file_path, file_format, view_scope, "
+                     "transfer_policy, is_current, ingest_status) values (%s, %s, 'storage/uploads/x.md', 'MD', 'ALL', "
+                     "'ALLOWED', false, 'FAILED')", (doc, existing))
+        conn.commit()
+    with pytest.raises(CaseGuideError, match=re.escape(f'이미 다른 버전이 있습니다 ({existing})')):
+        _call(url, doc, [new_cluster()], tmp_path)
+    assert not list(Path(tmp_path).rglob('*.md'))
 
 
 @needs_db

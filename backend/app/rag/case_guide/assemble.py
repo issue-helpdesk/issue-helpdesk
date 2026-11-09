@@ -25,6 +25,7 @@ from pathlib import Path
 from app.rag.chunker import validate
 from app.rag.ingest import ROOT, _lock_document
 from app.rag.ingest.upload import resolve_file
+from app.rag.parser.md_parser import FRONT_RE
 
 from . import (CASE_DIR, HANDLING, MARK, TRANSFER_POLICIES, VIEW_SCOPES, CaseGuideError, _add_history, _add_table_row,
                _add_toc, _added_lines, _append_item, _base_md, _chapter3, _chapter3_end, _find, _item_heads, _item_numbers,
@@ -61,8 +62,8 @@ def assemble(conn, document_id: int, clusters: list[dict], draft_version_id: int
     if clusters[0]['judgment'] == 'NEW_GUIDE':
         if cur is not None:                                # 새 가이드는 첫 버전만 (그새 현행이 생겼으면 항목 추가로)
             raise CaseGuideError([f'{doc_code}에 이미 현행 버전이 있습니다. 새 가이드 묶음은 거절하고 항목 추가로 만들어 주세요'])
-        version = _version(conn, document_id, draft_version_id)
-        category = conn.execute('select category_code from knowledge_documents where id = %s', (document_id,)).fetchone()[0]
+        version = _first_version(conn, document_id, draft_version_id)
+        category =conn.execute('select category_code from knowledge_documents where id = %s', (document_id,)).fetchone()[0]
         if category != clusters[0]['draft_basis'].get('category_code'):
             warnings.append(f"새 가이드 분류({clusters[0]['draft_basis'].get('category_code')})와 등록한 문서 분류({category})가 다릅니다")
         base_md, sections = '', {}
@@ -222,6 +223,17 @@ def _version(conn, document_id: int, draft_version_id: int | None) -> str:
     return row[1]
 
 
+def _first_version(conn, document_id: int, draft_version_id: int | None) -> str:
+    """새 가이드의 버전: 문서에 버전이 하나도 없으면 v1.0, 이 사례의 대기 버전을 다시 조립하면 그 버전. 다른 버전(업로드
+    초안·실패한 버전 등)이 있으면 거부 — 다음 번호로 넘어가 '첫 버전 v1.0' 이 조용히 바뀌지 않게 (PR #370 검수 3)."""
+    others = [v for (vid, v) in conn.execute('select id, version from document_versions where document_id = %s order by id',
+                                             (document_id,)) if vid != draft_version_id]
+    if others:
+        raise CaseGuideError([f"이 문서에 이미 다른 버전이 있습니다 ({', '.join(others)}). 새 가이드는 버전이 없는 문서의 "
+                              '첫 버전만 만듭니다. 그 버전을 정리하거나 새 가이드 묶음은 거절해 주세요'])
+    return 'v1.0' if draft_version_id is None else _version(conn, document_id, draft_version_id)
+
+
 def _assign(base_md: str, clusters: list[dict]) -> dict:
     """더하는 조각의 항목 번호. 있는 번호(기준 md·draft_basis.section_no)를 먼저 잡고 없는 조각에 다음 번호."""
     taken = {f'3.{n}' for n in _item_numbers(base_md)}
@@ -323,7 +335,9 @@ def _check_result(base_md: str, md: str, doc_code: str, version: str, clusters: 
         problems.append('머리말에 문서 번호(doc_no)가 없습니다')
     if meta.get('doc_no') and meta['doc_no'] != doc_code:
         problems.append(f"문서 번호가 {meta['doc_no']}입니다 ({doc_code}이어야 합니다)")
-    if meta.get('version') and meta['version'] != version:
+    if not meta.get('version'):                            # 없으면 통과시키지 않는다 (PR #370 검수 4)
+        problems.append('머리말에 버전(version)이 없습니다')
+    elif meta['version'] != version:
         problems.append(f"버전이 {meta['version']}입니다 ({version}이어야 합니다)")
     problems += validate(chunks)
     base = {c.section_no for c in _parse_text(base_md)[1] if c.chunk_type == 'item'} if base_md.strip() else set()
@@ -369,12 +383,17 @@ def _build_new_guide(c: dict, doc_code: str, version: str, today: date, warnings
     problems = []
     if receipts(md) or f'{MARK} (' in md:
         problems.append(f"초안에 반영 표식 '{MARK} (…)' 을 쓰지 않습니다 (등록 때 개정 이력에 자동으로 들어갑니다)")
-    if not re.search(r'^doc_no:.*$', md, re.M):
-        problems.append('머리말에 doc_no 줄이 없습니다 (뼈대 머리말을 지우지 마세요)')
+    front = FRONT_RE.match(md)                             # md 파서와 같은 머리말 규칙. 고치는 건 이 안에서만 (PR #370 검수 4)
+    if front is None:
+        problems.append('문서 맨 앞에 머리말(--- … ---)이 없습니다 (뼈대 머리말을 지우지 마세요)')
+    else:
+        problems += [f'머리말에 {k} 줄이 없습니다 (뼈대 머리말을 지우지 마세요)' for k in ('doc_no', 'version')
+                     if not re.search(rf'^{k}:', front.group(1), re.M)]
     if problems:
         raise CaseGuideError(problems)
-    md = re.sub(r'^doc_no:.*$', f'doc_no: "{doc_code}"', md, count=1, flags=re.M)
-    md = _set_version(md, version, warnings)
+    head = re.sub(r'^doc_no:.*$', f'doc_no: "{doc_code}"', front.group(1), count=1, flags=re.M)
+    head = re.sub(r'^version:.*$', f'version: "{version}"', head, count=1, flags=re.M)
+    md = md[:front.start(1)] + head + md[front.end(1):]
 
     dropped = []
     for key, title, start, body, end in reversed(_chapters(md)):          # 뒤에서부터 지워야 앞 위치가 안 바뀐다
@@ -386,7 +405,11 @@ def _build_new_guide(c: dict, doc_code: str, version: str, today: date, warnings
         if toc is not None:
             md = md[:toc.start()] + md[toc.end() + 1:]
 
-    chapters = {key: md[body:end] for key, _t, _s, body, end in _chapters(md)}
+    found = [(key, md[body:end]) for key, _t, _s, body, end in _chapters(md)]
+    keys = [k for k, _ in found]
+    if dup := sorted({k for k in keys if keys.count(k) > 1}):   # 같은 장이 둘이면 앞 장 검사를 놓친다 (PR #370 검수 2)
+        problems.append(f"같은 장이 두 번 이상 있습니다: {', '.join(f'{k}장' if k[0].isdigit() else k for k in dup)}")
+    chapters = dict(found)
     for key in REQUIRED:
         body = chapters.get(key)
         content = [ln for ln in (body or '').splitlines() if ln.strip() and not ln.lstrip().startswith('#')]
@@ -394,11 +417,16 @@ def _build_new_guide(c: dict, doc_code: str, version: str, today: date, warnings
             problems.append(f'{key}장이 없습니다')
         elif not content:
             problems.append(f'{key}장에 내용이 없습니다')
-    todo = [key for key, body in chapters.items() if any(ln.strip() == TODO for ln in body.splitlines())]
+    todo = list(dict.fromkeys(key for key, body in found if any(ln.strip() == TODO for ln in body.splitlines())))
     if todo:
         problems.append(f"'{TODO}' 자리가 남아 있습니다: {', '.join(f'{k}장' if k[0].isdigit() else k for k in todo)}")
-    if '3' in chapters and not _item_heads(md):
-        problems.append('3장에 항목(### 3.N)이 없습니다')
+    if '3' in chapters and not dup:
+        heads = [m.group(1) for m in _item_heads(md)]
+        bodies = {ch.section_no for ch in _parse_text(md)[1] if ch.chunk_type == 'item' and (ch.body or '').strip()}
+        if not heads:
+            problems.append('3장에 항목(### 3.N)이 없습니다')
+        elif empty := [s for s in heads if s not in bodies]:        # 제목만 있는 항목은 검색되지 않는다 (PR #370 검수 1)
+            problems.append(f"본문이 없는 항목이 있습니다: {', '.join(empty)}")
     if problems:
         raise CaseGuideError(problems)
     group = next((g for g in (_props(md[h.start():])['담당 부서'] for h in _item_heads(md)) if g), '서비스데스크')
