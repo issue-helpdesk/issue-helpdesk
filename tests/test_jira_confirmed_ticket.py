@@ -10,6 +10,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
+from app.integrations.jira import to_jira_fields
 from app.integrations.jira.client import JiraClient, JiraError
 from app.integrations.jira.confirmed_ticket import (
     ConfirmedTicketError, create_from_confirmed_ticket, to_jira_ticket,
@@ -101,11 +102,21 @@ def test_saved_jira_key_returns_without_network_or_requiring_fields_again(ticket
     assert result["jira_url"] == "https://jira.example/browse/ITHD-999"
 
 
-@pytest.mark.parametrize("field", ["id", "draftId", "receiptNo", "summary", "categoryCode", "urgency", "groupId", "group"])
+@pytest.mark.parametrize("field", ["id", "draftId", "receiptNo", "summary", "urgency", "groupId", "group"])
 def test_missing_required_value_never_calls_jira(ticket, field):
     ticket[field] = None
     with client_for(no_network) as jira, pytest.raises(ConfirmedTicketError):
         create_from_confirmed_ticket(jira, ticket)
+
+
+def test_unclassified_ticket_is_created_without_category_field(ticket):
+    """AI 가 분류하지 못한 접수(categoryCode 없음)도 Jira 에 만들어진다. 분류 필드는 보내지 않고 분류명에 '미분류'를 적는다."""
+    ticket.update(categoryCode=None, category=None)
+    fields = to_jira_ticket(ticket)
+
+    assert "category_code" not in fields
+    assert fields["category_name"] == "미분류"
+    assert to_jira_fields(fields).get("customfield_10064") is None      # 분류 옵션 필드는 아예 보내지 않는다
 
 
 @pytest.mark.parametrize("field,value", [("categoryCode", "UNKNOWN"), ("urgency", "P0")])
