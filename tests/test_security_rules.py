@@ -152,3 +152,19 @@ def test_other_ai_failure_creates_no_alert(client, db, headers, ai, taxonomy):
     ai.replies = [LLMError('TIMEOUT', 'mock')]
     start(client, headers)
     assert alerts(db) == []
+
+
+# ── 알림을 못 남겨도 문의·AI 답변 저장은 이어진다 ─────────────────
+# DB 마이그레이션이 덜 적용돼 새 알림 유형을 거부해도, 요청이 500 으로 끝나 AI 답변이 롤백되면 안 된다.
+
+def test_alert_failure_does_not_break_the_inquiry(client, db, owner, headers, ai, taxonomy, monkeypatch):
+    from app.agent.llm import LLMError
+    from app.repositories.security_alert import SecurityAlertRepository
+    monkeypatch.setattr(SecurityAlertRepository, 'add_open', lambda self, alert: False)   # 알림 INSERT 거부 흉내
+    ai.replies = [LLMError('REFUSAL', 'mock')]
+
+    r = start(client, headers)
+
+    assert r.status_code == 201
+    assert any(m['sender'] == 'AI' for m in r.json()['messages'])   # AI 안내가 저장돼 돌아온다
+    assert alerts(db) == []
