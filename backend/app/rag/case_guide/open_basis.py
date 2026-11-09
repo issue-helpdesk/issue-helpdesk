@@ -21,10 +21,9 @@ from app.rag.ingest.upload import resolve_file
 
 from . import (HANDLING, SHORT_NOTE, CaseGuideError, _base_md, _find, _item, _one_line, _read_ticket, _reopened,
                receipts)
-from .assemble import SCHEMA, _fragment_problems, _props, _renumber, item_text
+from .assemble import REQUIRED as _REQUIRED, SCHEMA, TODO, _fragment_problems, _props, _renumber, item_text
 
-TODO = '(작성 필요)'                                        # 새 가이드 뼈대의 자리 표시 (줄 하나가 정확히 이것)
-REQUIRED = ['1', '2', '3']                                 # 새 가이드 등록 전에 꼭 채울 장 (김현나 Q9)
+REQUIRED = list(_REQUIRED)                                 # 새 가이드 등록 전에 꼭 채울 장 (김현나 Q9)
 CONTACT_HEAD = re.compile(r'^## 6\. 문의처[ \t]*$', re.M)
 
 
