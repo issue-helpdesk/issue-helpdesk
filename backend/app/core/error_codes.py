@@ -51,6 +51,8 @@ class ErrorCode(Enum):
     INTEGRATION_JOB_IN_PROGRESS = (409, "이미 연동 작업이 진행 중입니다.")
     INTEGRATION_RETRY_NOT_ALLOWED = (409, "현재 작업 상태에서는 재처리할 수 없습니다.")
     INTEGRATION_ALREADY_SYNCED = (409, "이미 Jira에 연동된 접수입니다.")
+    CLASSIFICATION_REPORT_ALREADY_OPEN = (409, "이미 처리를 기다리는 분류 이상 신고가 있습니다.")
+    CLASSIFICATION_REPORT_NOT_OPEN = (409, "이미 처리된 분류 이상 신고입니다.")
     WEBHOOK_SIGNATURE_INVALID = (401, "웹훅 인증에 실패했습니다.")
     ASSIGNMENT_REASON_REQUIRED = (422, "담당자를 지정·변경할 때는 사유를 입력해 주세요.")
     ASSIGNEE_NOT_ASSIGNABLE = (422, "배정할 수 없는 담당자입니다. 그룹 소속·배정 가능 여부·Jira 계정을 확인해 주세요.")

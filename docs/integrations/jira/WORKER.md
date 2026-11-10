@@ -1,6 +1,6 @@
-# Jira 생성·배정·상태 변경·웹훅 반영 실행기
+# Jira 생성·배정·상태 변경·필드 갱신·웹훅 반영 실행기
 
-`integrations/jira/worker.py`는 생성 → 배정 → 상태 변경 순서로 기존 실행 서비스를 호출한다. 각 종류의 오래된 RUNNING 작업을 해당 서비스의 복구 함수로 되돌리고, 실행 시각이 된 PENDING 작업을 ID 순으로 처리한다. 그 뒤 같은 회차에서 API가 저장해 둔 웹훅 이벤트(`jira_webhook_events`의 PENDING)를 `run_due_webhook_events`로 DB에 반영한다. 웹훅을 작업 뒤에 두는 이유는, ITssue가 보낸 변경이 Jira에서 되돌아온 이벤트가 앞 단계 작업이 끝난 뒤에 값이 같아 그대로 끝나게 하기 위해서다. 마지막으로 웹훅이 빠졌을 때를 대비해, 1분 넘게 Jira와 대조하지 않은 접수를 `run_due_ticket_syncs`로 다시 읽어 맞춘다(주기 대조).
+`integrations/jira/worker.py`는 생성 → 배정 → 상태 변경 → 필드 갱신(분류 변경, `JIRA_UPDATE_FIELDS`) 순서로 기존 실행 서비스를 호출한다. 각 종류의 오래된 RUNNING 작업을 해당 서비스의 복구 함수로 되돌리고, 실행 시각이 된 PENDING 작업을 ID 순으로 처리한다. 그 뒤 같은 회차에서 API가 저장해 둔 웹훅 이벤트(`jira_webhook_events`의 PENDING)를 `run_due_webhook_events`로 DB에 반영한다. 웹훅을 작업 뒤에 두는 이유는, ITssue가 보낸 변경이 Jira에서 되돌아온 이벤트가 앞 단계 작업이 끝난 뒤에 값이 같아 그대로 끝나게 하기 위해서다. 마지막으로 웹훅이 빠졌을 때를 대비해, 1분 넘게 Jira와 대조하지 않은 접수를 `run_due_ticket_syncs`로 다시 읽어 맞춘다(주기 대조).
 
 ## 실행
 
@@ -27,9 +27,9 @@ uv run python backend/app/integrations/jira/worker.py --once --job-types JIRA_AS
 docker compose up -d --build
 ```
 
-`--limit`은 전체 합계가 아니라 **종류별 상한**이다(기본 10, 작업 종류별 한 회차 최대 30건이며, 웹훅은 별도로 Jira를 호출한 이벤트 기준 10건). `--ticket-id`를 주면 웹훅 이벤트와 주기 대조는 접수별로 고르는 기능이 없어 처리하지 않는다. 주기 대조는 `--sync-limit`(한 회차 최대 접수 수, 기본 20)과 `--sync-after-seconds`(이 시간 넘게 대조하지 않은 접수만 대상, 기본 60·최소 30)로 조절한다. `--interval`은 회차 종료 뒤 대기 시간이며 기본 30초다. `--stale-minutes`는 중단 복구 기준이며 기본 5분이다. 이 숫자는 운영 확정값이 아니라 조정 가능한 기본값이다.
+`--limit`은 전체 합계가 아니라 **종류별 상한**이다(기본 10, 작업 네 종류 합계 한 회차 최대 40건이며, 웹훅은 별도로 Jira를 호출한 이벤트 기준 10건). `--ticket-id`를 주면 웹훅 이벤트와 주기 대조는 접수별로 고르는 기능이 없어 처리하지 않는다. 주기 대조는 `--sync-limit`(한 회차 최대 접수 수, 기본 20)과 `--sync-after-seconds`(이 시간 넘게 대조하지 않은 접수만 대상, 기본 60·최소 30)로 조절한다. `--interval`은 회차 종료 뒤 대기 시간이며 기본 30초다. `--stale-minutes`는 중단 복구 기준이며 기본 5분이다. 이 숫자는 운영 확정값이 아니라 조정 가능한 기본값이다.
 
-`docker-compose.yml`은 워커를 2개(`deploy.replicas: 2`) 띄운다. 둘 다 세 종류를 모두 처리하며, 한쪽이 멈춰도 다른 쪽이 이어받는다. 개수를 바꾸려면 `up -d --scale jira-worker=<개수>`를 쓴다.
+`docker-compose.yml`은 워커를 2개(`deploy.replicas: 2`) 띄운다. 둘 다 네 종류를 모두 처리하며, 한쪽이 멈춰도 다른 쪽이 이어받는다. 개수를 바꾸려면 `up -d --scale jira-worker=<개수>`를 쓴다.
 
 워커는 배포 명령으로 API·웹과 함께 항상 뜬다. 다만 Compose에 포함했다고 서버 배포나 상시 실행 검증이 끝났다는 뜻은 아니다. 기존 API 서버의 시작 코드·DB 구조·권한 규칙·작업 payload는 바꾸지 않는다.
 
@@ -41,6 +41,7 @@ docker compose up -d --build
 - 로그에는 작업 종류·ID·결과·예외 형식만 남긴다. payload·접속 문자열·외부 응답 본문은 출력하지 않는다.
 - FIN→WIP(미해결 재처리)도 다른 상태 변경과 같이 ID 순으로 실행한다. Jira 상태를 되돌린 뒤 남은 증상 댓글을 남기며, 이전 처리 결과는 지우지 않는다. 자세한 규칙은 [STATUS_TRANSITION.md](STATUS_TRANSITION.md).
 - 주기 대조는 접수 한 건마다 커밋한다. 대상은 새로고침(TK-14)과 같아서 Jira 연결이 끝나고(SYNCED) 종결(CLS)되지 않은 접수이며, 대조한 지 오래된 순서로 고른다. ITssue 작업이 진행 중인 접수는 건너뛰고 다음 회차에 다시 본다. Jira 오류가 연달아 3건 나면 그 회차의 나머지는 건너뛰어, Jira 장애 때 생성·배정 작업이 밀리지 않게 한다. 워커가 2개여도 접수 행을 잠근 뒤 다시 읽고 반영하므로, 같은 값이면 이력·알림을 또 만들지 않는 구조다(실제 DB에서 두 워커 동시 시험은 아직 하지 않았다).
+- 필드 갱신(`JIRA_UPDATE_FIELDS`, TK-15 분류 변경)은 같은 값을 다시 보내도 결과가 같아 조회 전용 표식 없이 재시도한다. 쓰기 뒤 다시 읽어 보낸 값과 다르면 관리자 확인(NEEDS_ADMIN)이고, 그 사이 분류가 또 바뀌었으면 Jira를 바꾸지 않고 `stale_classification`으로 끝낸다.
 - Ctrl+C/SIGTERM은 현재 회차를 마친 뒤 종료한다. 강제 종료 시 각 서비스의 중단 복구 경로가 필요하다.
 
 ## 남은 범위

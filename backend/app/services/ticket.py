@@ -1,4 +1,4 @@
-"""접수 초안·최종 접수 (TK-01~04). 초안은 문의자가 고치고, 접수 확정 뒤 Jira 생성은 연동 작업이 한다."""
+"""접수 초안·최종 접수·조회·배정·분류 변경 (TK-01~18). 초안은 문의자가 고치고, 접수 확정 뒤 Jira 반영은 연동 작업이 한다."""
 import logging
 import os
 from collections import Counter
@@ -24,6 +24,7 @@ from app.models import (
     InquiryType,
     SupportGroup,
     Ticket,
+    TicketClassificationReport,
     TicketDraft,
     User,
 )
@@ -37,6 +38,10 @@ from app.schemas.inquiry import CategoryRef, GroupRef, InquiryTypeRef, UserRef
 from app.schemas.ticket import (
     AssignmentLog as AssignmentLogView,
     AssignmentRequest,
+    ClassificationReport as ClassificationReportView,
+    ClassificationReportCreate,
+    ClassificationReportUpdate,
+    ClassificationRequest,
     DraftChange,
     DraftUpdateRequest,
     DraftUpdateResult,
@@ -65,6 +70,7 @@ from app.services.inquiry_status import CLOSED_STATUSES, display_status, ticket_
 from app.services.assignment import AssigneeNotAssignable, reserve_assignment
 from app.services.integration_retry import JiraOpenerDep, retry_job
 from app.services.jira_create import enqueue_jira_create
+from app.services.jira_fields import enqueue_jira_update_fields, supersede_field_failures
 from app.services.jira_transition import enqueue_jira_transition
 from app.services.jira_webhook import sync_ticket
 from app.utils import datetime_utils
@@ -301,6 +307,7 @@ class TicketService:
             assign_statuses=query.assign_status,
             needs_admin=query.needs_admin,
             category_codes=query.category_code,
+            classification_report_open=query.classification_report_open,
             urgencies=query.urgency,
             group_id=query.group_id,
             assignee_id=query.assignee_id,
@@ -311,6 +318,7 @@ class TicketService:
             offset=query.offset,
             limit=query.size,
         )
+        reported = self.tickets.tickets_with_open_report([row[0].id for row in rows])
         items = [
             TicketSummary(
                 id=ticket.id,
@@ -330,6 +338,7 @@ class TicketService:
                 transition_status=ticket.transition_status,
                 work_status_confirmed_at=ticket.work_status_confirmed_at,
                 needs_admin=needs_admin(ticket),
+                classification_report_open=ticket.id in reported,
                 display_status=ticket_display_status(ticket),
                 created_at=ticket.created_at,
             )
@@ -340,13 +349,13 @@ class TicketService:
     def get_ticket(self, ticket_id: int, viewer: User) -> TicketView:
         """TK-06."""
         ticket, inquiry = self.find_viewable(ticket_id, viewer)
-        return self.to_ticket(ticket, inquiry)
+        return self.to_ticket(ticket, inquiry, viewer)
 
     def sync_ticket(self, ticket_id: int, viewer: User) -> TicketView:
         """TK-14. 볼 수 있는 사람만. Jira 를 읽지 못해도 마지막 확인 값을 돌려준다."""
         ticket, inquiry = self.find_viewable(ticket_id, viewer)
         sync_ticket(self.db, self.open_jira, ticket)
-        return self.to_ticket(ticket, inquiry)
+        return self.to_ticket(ticket, inquiry, viewer)
 
     def status_history(self, ticket_id: int, viewer: User) -> ItemList[StatusHistory]:
         """TK-08."""
@@ -437,7 +446,7 @@ class TicketService:
         except IntegrityError:
             self.db.rollback()                             # 같은 접수에 다른 요청이 먼저 작업을 등록했다
             raise AppError(ErrorCode.INTEGRATION_JOB_IN_PROGRESS)
-        return self.to_ticket(ticket, inquiry)
+        return self.to_ticket(ticket, inquiry, user)
 
     def assign(self, ticket_id: int, body: AssignmentRequest, user: User) -> TicketView:
         """TK-09. 권한·상태·사유를 확인하고 공용 배정 함수(reserve_assignment)로 예약한다. 감사 로그·커밋은 여기서 한다.
@@ -473,7 +482,7 @@ class TicketService:
         self.audit_logs.add("REASSIGN", "ticket", ticket.id, result=reservation.event, actor_id=user.id,
                             reason=body.reason)
         self.db.commit()
-        return self.to_ticket(ticket, inquiry)
+        return self.to_ticket(ticket, inquiry, user)
 
     def can_assign(self, ticket: Ticket, body: AssignmentRequest, user: User) -> bool:
         """ADMIN 은 모두. MANAGER 는 지금 배정 그룹이 자기 그룹인 접수만, 다른 그룹으로는 자동배정으로만 넘긴다."""
@@ -484,6 +493,138 @@ class TicketService:
         if not self.references.is_group_manager(ticket.group_id, user.id):
             return False
         return body.group_id == ticket.group_id or body.assignee_id is None
+
+    def change_classification(self, ticket_id: int, body: ClassificationRequest, user: User) -> TicketView:
+        """TK-15. ADMIN 확인은 라우터가 한다. 분류는 세부 유형에서 정한다.
+
+        새 세부 유형의 기본 그룹이 지금 그룹과 다르면 그 그룹에서 자동배정한다(TK-09 공용 함수).
+        같으면 담당자는 그대로 둔다. 긴급도는 바꾸지 않는다. Jira 분류 칸은 JIRA_UPDATE_FIELDS 작업이 고친다.
+        열린 분류 이상 신고가 있으면 해결로 닫는다.
+        검사 순서: 접수(404) → 종결(409) → Jira 연동(409) → 진행 중 작업(409) → 입력(422).
+        """
+        ticket = self.tickets.get_for_update(ticket_id)
+        inquiry = self.inquiries.get_for_update(ticket.inquiry_id) if ticket else None
+        if inquiry is None:
+            raise AppError(ErrorCode.TICKET_NOT_FOUND)
+        if ticket.work_status == "CLS":
+            raise AppError(ErrorCode.TICKET_INVALID_TRANSITION, [
+                {"reason": "CURRENT_STATUS", "message": "현재 상태", "value": ticket.work_status},
+            ])
+        # Jira 생성 작업 payload 는 등록 시점 값이라, 생성 전에 바꾸면 Jira 에 옛 분류가 들어간다
+        if ticket.jira_sync_status != "SYNCED" or not ticket.jira_key:
+            raise AppError(ErrorCode.TICKET_NOT_SYNCED)
+        if any(self.tickets.has_active_job(ticket.id, kind) for kind in ("JIRA_ASSIGN", "JIRA_UPDATE_FIELDS")):
+            raise AppError(ErrorCode.INTEGRATION_JOB_IN_PROGRESS)
+        if not body.reason:
+            raise field_error(ErrorCode.VALIDATION_ERROR, "reason", "REQUIRED", "분류를 바꾸는 사유를 입력해 주세요.")
+        new_type = self.inquiries.ref(InquiryType, body.inquiry_type_id)
+        if new_type is None or not new_type.is_active:
+            raise field_error(ErrorCode.VALIDATION_ERROR, "inquiryTypeId", "NOT_FOUND", "사용 중인 세부 유형이 아닙니다.")
+        if new_type.id == ticket.inquiry_type_id:
+            raise field_error(ErrorCode.VALIDATION_ERROR, "inquiryTypeId", "UNCHANGED", "지금과 같은 세부 유형입니다.")
+        group = self.references.get_support_group(new_type.default_group_id)
+        if group is None or not group.is_active:
+            raise field_error(ErrorCode.VALIDATION_ERROR, "inquiryTypeId", "GROUP_INACTIVE",
+                              "이 세부 유형의 기본 담당 그룹이 비활성입니다.")
+
+        old_type = self.inquiries.ref(InquiryType, ticket.inquiry_type_id)
+        change = f"{old_type.code if old_type else '미분류'}→{new_type.code}"
+        category = self.inquiries.ref(Category, new_type.category_code)
+        now = datetime_utils.now()
+        ticket.category_code, ticket.inquiry_type_id = new_type.category_code, new_type.id
+        inquiry.category_code, inquiry.inquiry_type_id = new_type.category_code, new_type.id
+        try:
+            if group.id != ticket.group_id:
+                reserve_assignment(self.db, ticket, group.id, reason=f"분류 변경 {change}: {body.reason}",
+                                   actor_id=user.id, now=now)
+            supersede_field_failures(self.db, ticket.id, now)
+            enqueue_jira_update_fields(self.db, ticket, {
+                "ticketId": ticket.id,
+                "receiptNo": ticket.receipt_no,
+                "jiraKey": ticket.jira_key,
+                "inquiryTypeId": new_type.id,
+                "fields": {
+                    "category_code": new_type.category_code,
+                    "category_name": category.name if category else None,
+                    "inquiry_type_name": new_type.name,
+                    "inquiry_type_code": new_type.code,
+                    "request_kind": new_type.request_kind,
+                },
+                "requestedBy": user.id,
+                "requestedAt": now.isoformat(),
+            })
+        except IntegrityError:
+            self.db.rollback()                 # 같은 접수에 다른 요청이 먼저 작업을 등록했다
+            raise AppError(ErrorCode.INTEGRATION_JOB_IN_PROGRESS)
+        report = self.tickets.open_classification_report(ticket.id, lock=True)
+        if report is not None:
+            close_report(report, "RESOLVED", user, f"분류 변경 {change}: {body.reason}", now)
+        self.audit_logs.add("RECLASSIFY", "ticket", ticket.id, result=change, actor_id=user.id, reason=body.reason)
+        self.db.commit()
+        return self.to_ticket(ticket, inquiry, user)
+
+    def report_classification(self, ticket_id: int, body: ClassificationReportCreate, user: User) -> ClassificationReportView:
+        """TK-16. 담당 그룹 구성원·ADMIN 이 분류가 잘못됐다고 신고한다. 접수당 열린 신고는 하나다."""
+        ticket = self.tickets.get_for_update(ticket_id)
+        inquiry = self.inquiries.get(ticket.inquiry_id) if ticket else None
+        if inquiry is None or not can_view_inquiry(self.inquiries, inquiry, ticket, user):
+            raise AppError(ErrorCode.TICKET_NOT_FOUND)
+        if not self.is_staff(ticket, user):
+            raise AppError(ErrorCode.FORBIDDEN)
+        if ticket.work_status == "CLS":
+            raise AppError(ErrorCode.TICKET_INVALID_TRANSITION, [
+                {"reason": "CURRENT_STATUS", "message": "현재 상태", "value": ticket.work_status},
+            ])
+        if self.tickets.open_classification_report(ticket.id) is not None:
+            raise AppError(ErrorCode.CLASSIFICATION_REPORT_ALREADY_OPEN)
+        if not body.reason:
+            raise field_error(ErrorCode.VALIDATION_ERROR, "reason", "REQUIRED", "분류가 맞지 않는 이유를 입력해 주세요.")
+        if body.suggested_inquiry_type_id is not None:
+            suggested = self.inquiries.ref(InquiryType, body.suggested_inquiry_type_id)
+            if suggested is None or not suggested.is_active:
+                raise field_error(ErrorCode.VALIDATION_ERROR, "suggestedInquiryTypeId", "NOT_FOUND",
+                                  "사용 중인 세부 유형이 아닙니다.")
+        try:
+            report = self.tickets.add(TicketClassificationReport(
+                ticket_id=ticket.id, reporter_id=user.id, reason=body.reason,
+                suggested_inquiry_type_id=body.suggested_inquiry_type_id, status="OPEN",
+            ))
+        except IntegrityError:
+            self.db.rollback()                 # 같은 접수에 다른 신고가 먼저 들어왔다
+            raise AppError(ErrorCode.CLASSIFICATION_REPORT_ALREADY_OPEN)
+        self.audit_logs.add("CLASSIFICATION_REPORT", "ticket", ticket.id, result="OPEN", actor_id=user.id,
+                            reason=body.reason)
+        self.db.commit()
+        return self.to_report(report)
+
+    def classification_reports(self, ticket_id: int, viewer: User) -> ItemList[ClassificationReportView]:
+        """TK-17. 담당 그룹·ADMIN 만. 문의자 본인도 404."""
+        ticket = self.tickets.get(ticket_id)
+        if ticket is None or not self.is_staff(ticket, viewer):
+            raise AppError(ErrorCode.TICKET_NOT_FOUND)
+        return ItemList(items=[self.to_report(r) for r in self.tickets.classification_reports(ticket.id)])
+
+    def reject_classification_report(
+        self, ticket_id: int, report_id: int, body: ClassificationReportUpdate, user: User,
+    ) -> ClassificationReportView:
+        """TK-18. ADMIN 확인은 라우터가 한다. 분류를 그대로 두고 신고를 반려한다."""
+        ticket = self.tickets.get_for_update(ticket_id)
+        if ticket is None:
+            raise AppError(ErrorCode.TICKET_NOT_FOUND)
+        report = self.tickets.get_classification_report_for_update(report_id)
+        if report is None or report.ticket_id != ticket.id:
+            raise AppError(ErrorCode.NOT_FOUND)
+        if report.status != "OPEN":
+            raise AppError(ErrorCode.CLASSIFICATION_REPORT_NOT_OPEN, [
+                {"reason": "CURRENT_STATUS", "message": "현재 상태", "value": report.status},
+            ])
+        if not body.resolution_note:
+            raise field_error(ErrorCode.VALIDATION_ERROR, "resolutionNote", "REQUIRED", "반려 사유를 입력해 주세요.")
+        close_report(report, body.status, user, body.resolution_note, datetime_utils.now())
+        self.audit_logs.add("CLASSIFICATION_REPORT_REJECT", "ticket", ticket.id, result=body.status, actor_id=user.id,
+                            reason=body.resolution_note)
+        self.db.commit()
+        return self.to_report(report)
 
     def assignment_logs(self, ticket_id: int, viewer: User) -> ItemList[AssignmentLogView]:
         """TK-10. 담당 그룹·ADMIN 만. 문의자 본인도 404."""
@@ -522,7 +663,7 @@ class TicketService:
         if result.job is not None:
             return IntegrationJobView.model_validate(result.job)
         ticket = self.tickets.get(ticket_id)
-        return IntegrationRetryResult(ticket=self.to_ticket(ticket, self.inquiries.get(ticket.inquiry_id)),
+        return IntegrationRetryResult(ticket=self.to_ticket(ticket, self.inquiries.get(ticket.inquiry_id), user),
                                       recovery_result=result.recovery)
 
     def is_staff(self, ticket: Ticket, user: User) -> bool:
@@ -557,7 +698,24 @@ class TicketService:
     def to_draft(self, draft: TicketDraft) -> TicketDraftView:
         return draft_view(self.inquiries, draft)
 
-    def to_ticket(self, ticket: Ticket, inquiry: Inquiry) -> TicketView:
+    def to_report(self, report: TicketClassificationReport) -> ClassificationReportView:
+        suggested = self.inquiries.ref(InquiryType, report.suggested_inquiry_type_id)
+        resolver = self.inquiries.ref(User, report.resolved_by)
+        return ClassificationReportView(
+            id=report.id,
+            ticket_id=report.ticket_id,
+            reporter=UserRef.model_validate(self.inquiries.ref(User, report.reporter_id)),
+            reason=report.reason,
+            suggested_inquiry_type=InquiryTypeRef.model_validate(suggested) if suggested else None,
+            status=report.status,
+            resolved_by=UserRef.model_validate(resolver) if resolver else None,
+            resolved_at=report.resolved_at,
+            resolution_note=report.resolution_note,
+            created_at=report.created_at,
+        )
+
+    def to_ticket(self, ticket: Ticket, inquiry: Inquiry, viewer: User | None = None) -> TicketView:
+        """viewer 가 담당 그룹·ADMIN 일 때만 열린 분류 이상 신고를 넣는다. 문의자에게는 내부 검토라 보이지 않는다."""
         requester = self.inquiries.ref(User, inquiry.user_id)
         category = self.inquiries.ref(Category, ticket.category_code)
         inquiry_type = self.inquiries.ref(InquiryType, ticket.inquiry_type_id)
@@ -596,6 +754,7 @@ class TicketService:
             work_status_confirmed_at=ticket.work_status_confirmed_at,
             resolution_confirmed_at=ticket.resolution_confirmed_at,
             needs_admin=needs_admin(ticket),
+            open_classification_report=self.open_report_view(ticket, viewer),
             display_status=display_status(inquiry, ticket),
             resolution_note=ticket.resolution_note,
             created_at=ticket.created_at,
@@ -604,7 +763,18 @@ class TicketService:
         )
 
 
+    def open_report_view(self, ticket: Ticket, viewer: User | None) -> ClassificationReportView | None:
+        if viewer is None or not self.is_staff(ticket, viewer):
+            return None
+        report = self.tickets.open_classification_report(ticket.id)
+        return self.to_report(report) if report else None
+
+
 TicketServiceDep = Annotated[TicketService, Depends(TicketService)]
+
+
+def close_report(report: TicketClassificationReport, status: str, user: User, note: str, now: datetime) -> None:
+    report.status, report.resolved_by, report.resolved_at, report.resolution_note = status, user.id, now, note
 
 
 def required_role(current: str | None, target: str) -> str:

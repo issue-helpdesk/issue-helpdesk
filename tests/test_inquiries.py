@@ -43,7 +43,7 @@ from test_flow_correct import DOC, QUOTE
 
 INQUIRIES = "/api/v1/inquiries"
 INQUIRY_TABLES = TABLES + ["categories", "inquiry_types", "inquiries", "chat_sessions", "messages",
-                           "ticket_drafts", "tickets", "knowledge_documents", "document_versions",
+                           "ticket_drafts", "tickets", "ticket_classification_reports", "knowledge_documents", "document_versions",
                            "document_chunks", "legacy_inquiries", "message_sources", "inquiry_assessments", "llm_calls"]
 VPN = "어제 업데이트 이후로 VPN 접속이 안 돼요.\n재택 중이라 업무를 못 하고 있습니다."
 FACTS = {"summary": "업데이트 이후 VPN 접속 불가", "target_system": "사내 VPN", "symptom": None, "occurred_at": "어제",

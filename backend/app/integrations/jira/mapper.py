@@ -119,23 +119,48 @@ def to_jira_fields(ticket: Mapping[str, Any], m: Mapping[str, Any] | None = None
     for key, code in values.items():
         if key in create["skip"] or key not in m["fields"]:
             continue  # 매핑에 없는 키(초안 항목 등)는 보내지 않는다
-        fdef = m["fields"][key]
-        opt = m["options"].get(key)
-        if fdef["type"] == "option":
-            out[fdef["jira"]] = {"id": _option(m, key, code)["id"]}
-        elif fdef["type"] == "string":
-            # 글자 칸이라도 선택값이 정해진 키(request_kind·channel 등)는 코드 대신 Jira 저장값을 넣는다
-            text = _option(m, key, code)["value"] if opt and opt["field"] == fdef["jira"] else code
-            out[fdef["jira"]] = text[:max_len]
-        # 같은 값을 다른 Jira 칸에도 넣는 경우: urgency → priority, group_name → components
-        if opt and opt["field"] != fdef["jira"]:
-            entry = _option(m, key, code)
-            if opt["field"] == "components":
-                out["components"] = [{"id": entry["id"]}]
-            else:
-                out[opt["field"]] = {"id": entry["id"]}
+        _put_field(out, key, code, m)
 
     return out
+
+
+def to_jira_update_fields(values: Mapping[str, Any], m: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """이미 만든 이슈의 일부 칸만 고칠 때 PUT /rest/api/3/issue/{key} 의 "fields".
+
+    생성(to_jira_fields)과 같은 규칙으로 바꾼다. 값이 비면 그 Jira 칸을 비운다(null).
+    매핑에 없는 키는 받지 않는다. 고칠 칸을 조용히 빠뜨리면 반영된 줄 알게 되기 때문이다.
+    """
+    m = m or load_mapping()
+    unknown = [k for k in values if k not in m["fields"]]
+    if unknown:
+        raise MappingError(f"매핑에 없는 항목입니다: {', '.join(unknown)}")
+    out: dict[str, Any] = {}
+    for key, value in values.items():
+        code = _text(value)
+        if code:
+            _put_field(out, key, code, m)
+        else:
+            out[m["fields"][key]["jira"]] = None
+    return out
+
+
+def _put_field(out: dict[str, Any], key: str, code: str, m: Mapping[str, Any]) -> None:
+    max_len = m["create"]["text_max_length"]
+    fdef = m["fields"][key]
+    opt = m["options"].get(key)
+    if fdef["type"] == "option":
+        out[fdef["jira"]] = {"id": _option(m, key, code)["id"]}
+    elif fdef["type"] == "string":
+        # 글자 칸이라도 선택값이 정해진 키(request_kind·channel 등)는 코드 대신 Jira 저장값을 넣는다
+        text = _option(m, key, code)["value"] if opt and opt["field"] == fdef["jira"] else code
+        out[fdef["jira"]] = text[:max_len]
+    # 같은 값을 다른 Jira 칸에도 넣는 경우: urgency → priority, group_name → components
+    if opt and opt["field"] != fdef["jira"]:
+        entry = _option(m, key, code)
+        if opt["field"] == "components":
+            out["components"] = [{"id": entry["id"]}]
+        else:
+            out[opt["field"]] = {"id": entry["id"]}
 
 
 def work_status_from_jira(status_id: Any, m: Mapping[str, Any] | None = None) -> str | None:

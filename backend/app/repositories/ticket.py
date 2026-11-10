@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated, TypeVar
 
 from fastapi import Depends
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import case, exists, func, or_, select
 from sqlalchemy.orm import aliased
 
 from app.db.session import DbSession
@@ -14,6 +14,7 @@ from app.models import (
     SupportGroup,
     SupportGroupMember,
     Ticket,
+    TicketClassificationReport,
     TicketDraft,
     TicketStatusHistory,
     User,
@@ -23,6 +24,8 @@ T = TypeVar("T")
 
 Assignee = aliased(User)
 Actor = aliased(User)
+OPEN_REPORT = exists().where(TicketClassificationReport.ticket_id == Ticket.id,
+                             TicketClassificationReport.status == "OPEN")
 NEEDS_ADMIN = or_(Ticket.jira_sync_status == "NEEDS_ADMIN", Ticket.assign_status == "NEEDS_ADMIN",
                   Ticket.transition_status == "NEEDS_ADMIN")
 # 업무 상태는 진행 순서로 정렬한다. 생성 전(null)이 가장 앞이다
@@ -71,6 +74,7 @@ class TicketRepository:
         assign_statuses: list[str],
         needs_admin: bool | None,
         category_codes: list[str],
+        classification_report_open: bool | None,
         urgencies: list[str],
         group_id: int | None,
         assignee_id: int | None,
@@ -101,6 +105,8 @@ class TicketRepository:
             conditions.append(NEEDS_ADMIN if needs_admin else ~NEEDS_ADMIN)
         if category_codes:
             conditions.append(Ticket.category_code.in_(category_codes))
+        if classification_report_open is not None:
+            conditions.append(OPEN_REPORT if classification_report_open else ~OPEN_REPORT)
         if urgencies:
             conditions.append(Ticket.urgency.in_(urgencies))
         if group_id is not None:
@@ -161,6 +167,31 @@ class TicketRepository:
         return list(self.db.scalars(
             select(IntegrationJob).where(IntegrationJob.ticket_id == ticket_id)
             .order_by(IntegrationJob.created_at, IntegrationJob.id)
+        ))
+
+    def classification_reports(self, ticket_id: int) -> list[TicketClassificationReport]:
+        """그 접수의 분류 이상 신고. 오래된 것부터."""
+        return list(self.db.scalars(
+            select(TicketClassificationReport).where(TicketClassificationReport.ticket_id == ticket_id)
+            .order_by(TicketClassificationReport.created_at, TicketClassificationReport.id)
+        ))
+
+    def open_classification_report(self, ticket_id: int, *, lock: bool = False) -> TicketClassificationReport | None:
+        query = select(TicketClassificationReport).where(TicketClassificationReport.ticket_id == ticket_id,
+                                                         TicketClassificationReport.status == "OPEN")
+        if lock:
+            query = query.with_for_update().execution_options(populate_existing=True)
+        return self.db.scalar(query)
+
+    def get_classification_report_for_update(self, report_id: int) -> TicketClassificationReport | None:
+        return self.db.get(TicketClassificationReport, report_id, with_for_update=True, populate_existing=True)
+
+    def tickets_with_open_report(self, ticket_ids: list[int]) -> set[int]:
+        if not ticket_ids:
+            return set()
+        return set(self.db.scalars(
+            select(TicketClassificationReport.ticket_id).where(
+                TicketClassificationReport.ticket_id.in_(ticket_ids), TicketClassificationReport.status == "OPEN")
         ))
 
     def has_reopened(self, ticket_id: int) -> bool:

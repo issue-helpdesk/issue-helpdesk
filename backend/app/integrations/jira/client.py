@@ -15,7 +15,8 @@ from typing import Any, Mapping
 
 import httpx
 
-from .mapper import MappingError, _adf, adf_to_text, load_mapping, to_jira_fields, work_status_from_jira
+from .mapper import (MappingError, _adf, adf_to_text, load_mapping, to_jira_fields, to_jira_update_fields,
+                     work_status_from_jira)
 
 DEFAULT_TIMEOUT = 10.0  # 초
 
@@ -143,6 +144,22 @@ class JiraClient:
         sent = to_jira_fields(ticket, self.mapping)
         sent.pop("project", None)
         sent.pop("description", None)  # Jira가 ADF 모양을 조금 바꿔 저장할 수 있어 비교하지 않는다
+        return self._diff_saved(issue_key, sent)
+
+    def update_fields(self, issue_key: str, values: Mapping[str, Any]) -> dict[str, tuple[Any, Any]]:
+        """이미 만든 이슈의 일부 칸(분류 등)을 고치고 다시 읽어 비교한다. 다른 필드만 돌려준다(비면 반영 완료).
+
+        같은 값을 다시 보내도 결과가 같아서(멱등) 시간 초과·통신 오류는 retryable 그대로 올린다.
+        values 의 키는 field_mapping.yaml 의 fields 키(category_code 등)다.
+        """
+        try:
+            fields = to_jira_update_fields(values, self.mapping)
+        except MappingError as e:
+            raise JiraError("invalid_fields", str(e), retryable=False) from e
+        self._request("PUT", f"/rest/api/3/issue/{issue_key}", json={"fields": fields})
+        return self._diff_saved(issue_key, fields)
+
+    def _diff_saved(self, issue_key: str, sent: Mapping[str, Any]) -> dict[str, tuple[Any, Any]]:
         saved = self.get_issue(issue_key, list(sent))["fields"]
         diffs: dict[str, tuple[Any, Any]] = {}
         for field, want in sent.items():
