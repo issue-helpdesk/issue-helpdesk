@@ -1,4 +1,4 @@
-"""다시 맞추기 (해결 사례 가이드화 기획 v4, `작업대/가이드화/draft_basis_구조_초안_20261108.md` 6장 ②, 박민경 Q5).
+"""다시 맞추기 (해결 사례 가이드화 기획 v4). 현행이 바뀐 뒤 새 현행 기준으로 draft_basis 를 다시 만들고 바뀐 항목은 충돌로 돌려준다. 규칙은 같은 폴더 README.md 의 "다시 맞추기" 절.
 
 묶음 초안을 만든 뒤 현행 가이드가 바뀌면 등록·현행 전환이 막힌다 (DC-09·`assemble`). 관리자가 "다시 맞추기"를 누르면
 API(`POST /guide-clusters/{id}/rebase`)가 이 함수를 불러 **새 현행 기준의 `draft_basis`** 를 받는다.
@@ -67,7 +67,7 @@ def rebase(conn, document_id: int, cluster: dict, files_root: Path = ROOT) -> di
                               'old_md': old_md, 'new_md': new_md})
         basis |= {'target_section': target, 'target_md': new_md}
     else:
-        basis['section_no'] = None                         # 새 현행에서 다음 등록 때 다시 정한다 (구조 초안 2장)
+        basis['section_no'] = None                         # 새 현행에서 다음 등록 때 다시 정한다
     if conflicts:                                          # revision: API 가 올린 draft_revision 으로 채움
         basis['conflicts'] = {'revision': None, 'items': copy.deepcopy(conflicts)}   # 결과 목록과 따로 (한쪽을 고쳐도 안 번지게)
     return {'draft_basis': basis, 'conflicts': conflicts, 'warnings': warnings}
@@ -93,5 +93,5 @@ def _unresolved(old: dict, draft_revision, target: str) -> str | None:
         return None                                        # 풀림 (번호를 채우지 않은 값은 등록 API 도 막지 않는다)
     item = next((i for i in c['items'] if isinstance(i, dict) and i.get('section') == target), None)
     if item is None or not isinstance(item.get('old_md'), str):
-        raise bad(f'안 풀린 충돌에 항목 {target} 의 old_md 가 없음')   # 한 묶음 한 항목 (김현나 Q2)
+        raise bad(f'안 풀린 충돌에 항목 {target} 의 old_md 가 없음')   # 한 묶음은 한 항목만 바꾼다
     return item['old_md']

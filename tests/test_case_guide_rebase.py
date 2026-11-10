@@ -1,4 +1,4 @@
-"""다시 맞추기 (app.rag.case_guide.rebase). 구조 초안 6장 ②, 박민경 Q5."""
+"""다시 맞추기 (app.rag.case_guide.rebase). 규칙은 case_guide/README.md 의 "다시 맞추기" 절."""
 import inspect
 
 import pytest

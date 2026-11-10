@@ -1,4 +1,4 @@
-"""초안 만들 때의 기준 (해결 사례 가이드화 기획 v4, `작업대/가이드화/draft_basis_구조_초안_20261108.md` 6장 ③).
+"""초안 만들 때의 기준 (해결 사례 가이드화 기획 v4). 판단별 draft_basis 키는 같은 폴더 README.md 의 "초안 기준" 절.
 
 주간 분석 워커(M4)가 묶음 초안을 만들 때 부른다. 돌려준 `draft_basis`(와 새 가이드면 뼈대 `draft_md`)를 워커가 묶음 표에
 그대로 저장한다. **DB 에 쓰지 않고 commit 도 하지 않는다** (워커가 묶음·티켓 상태를 한 트랜잭션으로 바꾸게).
@@ -9,9 +9,9 @@
                      overview='1장 본문', precheck='2장 본문')                         # 새 가이드 뼈대
     # out = {'draft_basis': {...}, 'draft_md': None | 뼈대, 'warnings': [...]}
     frag, warnings = ticket_fragment(conn, ticket_id)                          # SEC 직접 검토: 티켓 글 → 조각 (AI 없음)
-    warnings = ticket_warnings(conn, [ticket_id, …])                           # 묶음 티켓의 짧은 처리·재처리 경고 (Q8)
+    warnings = ticket_warnings(conn, [ticket_id, …])                           # 묶음 티켓의 짧은 처리·재처리 경고
 
-`draft_basis` 의 키·뜻은 구조 초안 2장. 등록 때 `assemble()` 이 이 값으로 현행과 비교한다 (기준 버전·기준 원문·변경 항목 원문).
+`draft_basis` 의 판단별 키는 README 의 초안 기준 표. 등록 때 `assemble()` 이 이 값으로 현행과 비교한다 (기준 버전·기준 원문·변경 항목 원문).
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from . import (HANDLING, MARK, SHORT_NOTE, CaseGuideError, _base_md, _find, _ite
                receipts)
 from .assemble import FENCE_RE, REQUIRED as _REQUIRED, SCHEMA, TODO, _fragment_problems, _props, _renumber, item_text
 
-REQUIRED = list(_REQUIRED)                                 # 새 가이드 등록 전에 꼭 채울 장 (김현나 Q9)
+REQUIRED = list(_REQUIRED)                                 # 새 가이드 등록 전에 꼭 채울 장
 CONTACT_HEAD = re.compile(r'^## 6\. 문의처[ \t]*$', re.M)
 
 
@@ -72,7 +72,7 @@ def open_basis(conn, judgment: str, *, document_id: int | None = None, target_se
 
 
 def ticket_warnings(conn, ticket_ids: list[int] | tuple) -> list[str]:
-    """묶음의 티켓별 검토 경고 (M4 Q8: 재처리·짧은 처리는 티켓별로 검사해 묶음 경고로 모은다). 워커가 묶음을 만들 때
+    """묶음의 티켓별 검토 경고 (재처리·짧은 처리는 티켓별로 검사해 묶음 경고로 모은다). 워커가 묶음을 만들 때
     불러 `review_info.warnings` 에 넣는다 (프론트가 이 배열을 보여 준다). 1건 가이드화·SEC 조각과 같은 기준
     (`SHORT_NOTE`, FIN→WIP 횟수). 앞선 처리 결과·남은 증상 원문은 넣지 않는다 (TK-08 이력 위치만).
     티켓 순서대로, 같은 id 는 한 번. 없는 티켓 id 는 CaseGuideError. DB 읽기만, commit 하지 않는다."""
@@ -123,7 +123,7 @@ def ticket_fragment(conn, ticket_id: int) -> tuple[str, list[str]]:
 
 def new_guide(conn, category_code: str | None, title: str | None, fragments: list[str], files_root: Path,
               warnings: list[str], *, overview: str | None = None, precheck: str | None = None) -> str:
-    """새 가이드 뼈대 md (M4 Q9): v1.0, 문서 번호는 비워 둠(등록 때 DC-02 문서 번호로), 1장 개요·2장 먼저 확인할
+    """새 가이드 뼈대 md: v1.0, 문서 번호는 비워 둠(등록 때 DC-02 문서 번호로), 1장 개요·2장 먼저 확인할
     사항은 AI 초안(overview·precheck, 11.09 M4 요청) 또는 `(작성 필요)`, 2장 끝에 증상별 바로가기 표, 3장 조각들(3.1부터),
     4·5장·부록은 제목만(비면 등록 때 장째 뺌), 6장 문의처는 같은 분류 현행 가이드에서 복사."""
     problems = []

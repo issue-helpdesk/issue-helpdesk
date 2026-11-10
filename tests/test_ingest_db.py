@@ -258,7 +258,7 @@ def test_activated_at_first_time_and_kept(url, tmp_path):
     assert stamps() == s
 
 
-# ── 코드 검수 지적 (작업대/검수/적재코드_검수.md) ──────────────────
+# ── 적재 회귀 시험 (코드 검수 반영) ──────────────────
 
 def test_failed_replace_rolls_back_document_columns(url, tmp_path):
     """교체가 실패하면 문서 칸(제목 등) 변경도 같이 롤백된다 (검수 #2)."""

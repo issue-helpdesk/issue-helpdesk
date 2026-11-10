@@ -1,4 +1,4 @@
-"""새 가이드 조립·등록 (assemble 의 NEW_GUIDE, 김현나 Q9). 뼈대는 open_basis.skeleton."""
+"""새 가이드 조립·등록 (assemble 의 NEW_GUIDE). 뼈대는 open_basis.skeleton."""
 import re
 from datetime import date
 from pathlib import Path
@@ -68,7 +68,7 @@ def test_build_keeps_written_optional_chapter():
     ([('| ITssue 챗봇 | 포털 | 24시간 |', TODO)], '자리가 남아 있습니다: 6장'),
 ])
 def test_build_refuses_unfinished(edits, msg):
-    """1·2·3장 필수, 어디든 '(작성 필요)' 줄이 남으면 거부 (김현나 Q9)."""
+    """1·2·3장 필수, 어디든 '(작성 필요)' 줄이 남으면 거부."""
     with pytest.raises(CaseGuideError, match=re.escape(msg)):
         _build_new_guide(new_cluster(filled(edits)), 'IT-NET-010', 'v1.0', TODAY, [])
 

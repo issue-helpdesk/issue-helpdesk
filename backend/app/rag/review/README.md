@@ -18,7 +18,7 @@ python -m app.rag.review sheet IT-ACC-001 IT-ACC-002 IT-ACS-001 --name D1
 python -m app.rag.review sheet --category SEC --name D6        # 분류 하나 전체
 
 # 2) 단위 본문을 원문과 비교할 미리보기 (커밋하지 않는 폴더에)
-python -m app.rag.chunker "../dataset/guides/ACC/guide/IT-ACC-001_사내 SSO 로그인 오류 대응 가이드.md" --out ../작업대/미리보기
+python -m app.rag.chunker "../dataset/guides/ACC/guide/IT-ACC-001_사내 SSO 로그인 오류 대응 가이드.md" --out ../dataset/eval_results/미리보기
 
 # 3) 질문을 쓴 뒤 점검 (오류가 0이어야 함)
 python -m app.rag.review check ../dataset/guide_review/D1_질문.csv
