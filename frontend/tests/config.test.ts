@@ -37,8 +37,4 @@ describe('mock 설정', () => {
     expect([c.USE_MOCK_AUTH, c.USE_MOCK_INQUIRY, c.USE_MOCK_TICKET]).toEqual([false, true, true])
   })
 
-  it('서버에 API 가 없는 기능은 항상 모의이다', async () => {
-    const c = await load({ VITE_USE_MOCK: 'false' })
-    expect(c.MOCK_ONLY).toBe(true)
-  })
 })

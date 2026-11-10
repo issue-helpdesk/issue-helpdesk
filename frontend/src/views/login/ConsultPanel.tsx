@@ -1,16 +1,12 @@
 /**
- * 로그인 전 상담 패널 (제안 기능 · 팀 확정 전).
+ * 로그인 전 도움말 패널.
  *
- * 로그인 화면 오른쪽에서 계정·로그인 범위의 공개 Guide 안내만 한다. 글을 입력받지 않고 아래 질문 버튼을 골라 답변·가이드만 받는다.
+ * 질문 버튼을 선택하면 공개용 고정 답변을 보여 준다. 내부 가이드와 연결하지 않는다.
  * Ticket은 만들지 않으며, 비밀번호·인증번호 입력을 요청하지 않는다. (PRD 4.1, SRS PRE-01)
  */
 import { useEffect, useRef, useState } from 'react'
-import { askPreLogin } from '../../api/consult'
-import type { GuideSource } from '../../api/chatTypes'
+import { askPreLogin, PRE_LOGIN_QUESTIONS } from '../../api/consult'
 import type { ConsultReply } from '../../api/types'
-import { sourceFull } from '../../core/format'
-import { Icon } from '../../ui/Icon'
-import { SourcePreview } from '../../ui/SourcePreview'
 import { Pav } from '../../ui/Pav'
 import { RichText } from '../../ui/RichText'
 
@@ -18,7 +14,7 @@ import { RichText } from '../../ui/RichText'
 type Msg = { id: number; role: 'user'; text: string } | { id: number; role: 'ai'; reply: ConsultReply } | { id: number; role: 'typing' }
 
 /** 빠르게 고를 수 있는 질문 */
-const CHIPS = ['계정이 잠겼어요', '비밀번호를 재설정하고 싶어요', '비밀번호가 만료됐다고 나와요', '아이디 또는 비밀번호가 일치하지 않는다고 나와요', '휴대폰을 바꿔서 인증을 못 해요']
+const CHIPS = PRE_LOGIN_QUESTIONS
 
 /** 처음 화면에 보여 줄 인사 대화 */
 const INTRO: Msg[] = [
@@ -29,7 +25,7 @@ const INTRO: Msg[] = [
     reply: {
       sources: [],
       paragraphs: [
-        '로그인 전에는 **계정 잠금, 비밀번호** 안내만 도와드려요. 어떤 증상인지 아래에서 골라 주세요. 접수는 로그인 후에 할 수 있어요.',
+        '로그인에 문제가 있으신가요? 아래에서 겪고 있는 문제를 선택해 주세요.',
       ],
     },
   },
@@ -39,7 +35,6 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
   const [msgs, setMsgs] = useState<Msg[]>(INTRO)
   // 답변을 기다리는 동안은 입력과 중복 전송을 막는다
   const [busy, setBusy] = useState(false)
-  const [preview, setPreview] = useState<GuideSource | null>(null)
   const nextId = useRef(10)
   const thread = useRef<HTMLDivElement>(null)
 
@@ -65,7 +60,7 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
     setMsgs((m) => [...m, { id: uid, role: 'user', text: t }, { id: tid, role: 'typing' }])
 
     const r = await askPreLogin(t)
-    // 실패하면 서버 오류 문구를 답변처럼 보여 준다
+    // 고정 답변을 기존 대화 형식으로 보여 준다
     const base: ConsultReply = r.ok ? r.data : { paragraphs: [r.error.message], sources: [] }
 
     // "처리 중" 표시를 지우고 실제 답변으로 바꾼다
@@ -79,9 +74,9 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
       <div className="row lph" style={{ flexWrap: 'nowrap' }}>
         <Pav size={40} />
         <div>
-          <b>로그인이 안 되시나요?</b>
+          <b>로그인 도움말</b>
           <div className="small muted">
-            로그인 전에도 계정·로그인 문의는 답해 드려요 <span className="tag gray">제안</span>
+            계정과 비밀번호 문제를 확인해 보세요
           </div>
         </div>
       </div>
@@ -107,13 +102,6 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
                 {m.reply.paragraphs.map((p, i) => (
                   <p key={i}><RichText text={p} /></p>
                 ))}
-                {/* 근거로 쓴 Guide 출처 (SRS ANSWER-01) */}
-                {m.reply.sources.map((s) => (
-                  <button className="src" type="button" title="출처 Guide 미리보기" key={`${s.docCode}-${s.section}`} onClick={() => setPreview(s)}>
-                    <Icon name="file" size={16} />
-                    {sourceFull(s)}
-                  </button>
-                ))}
                 {/* 바로가기 (예: 비밀번호를 잊으셨나요? 안내 창 열기) */}
                 {m.reply.ctas?.map((c) => (
                   <p key={c.action}>
@@ -136,7 +124,6 @@ export function ConsultPanel({ onForgot }: { onForgot?: () => void }) {
         ))}
       </div>
 
-      {preview && <SourcePreview source={preview} demo onClose={() => setPreview(null)} />}
     </section>
   )
 }

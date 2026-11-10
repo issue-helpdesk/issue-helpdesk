@@ -40,12 +40,6 @@ export const USE_MOCK_OPS = area(import.meta.env.VITE_USE_MOCK_OPS)
  */
 export const SERVER_INTAKE = raw(import.meta.env.VITE_SERVER_INTAKE) === 'true'
 
-/**
- * 서버에 API 가 아직 없는 기능(로그인 전 상담, 통계 집계)은 위 변수와 상관없이 항상 모의로 동작한다.
- * 서버에 만들어지면 이 값을 쓰는 곳을 영역별 변수로 바꾼다.
- */
-export const MOCK_ONLY: boolean = true
-
 /** API 서버 주소(버전 포함). 비워 두면 같은 출처의 /api/v1 로 호출하고, 개발 서버(Vite)가 FastAPI 로 넘겨 준다. */
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api/v1'
 
