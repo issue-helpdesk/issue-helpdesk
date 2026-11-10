@@ -21,7 +21,8 @@ describe('프론트 목 모드 재분류 흐름',()=>{
    expect(t.assignee).not.toBeNull()
  })
  it('열린 요청 중복과 반려 후 재요청을 막고 반려 사유를 유지한다',()=>{
-   requestClassificationMock(5004,'계정 인증 오류 확인 요청')
+   requestClassificationMock(5004,'계정 인증 오류 확인 요청',{code:'ACC-01',name:'계정 인증'})
+   expect(classificationReport(5004)?.suggestedInquiryType).toEqual({code:'ACC-01',name:'계정 인증'})
    expect(()=>requestClassificationMock(5004,'중복')).toThrow('이미')
    rejectClassificationMock(5004,'현재 분류를 유지합니다.')
    expect(classificationReport(5004)?.resolution).toBe('현재 분류를 유지합니다.')

@@ -39,8 +39,21 @@ export interface TicketSummary {
 }
 
 /** 상세 접수 (Ticket) */
+export interface ClassificationReport {
+  id: number
+  ticketId: number
+  reporter: UserRef
+  reason: string
+  suggestedInquiryType: { code: string; name: string } | null
+  status: 'OPEN' | 'REJECTED' | 'RESOLVED'
+  resolvedBy: UserRef | null
+  resolvedAt: string | null
+  resolutionNote: string | null
+  createdAt: string
+}
+
 export interface TicketDetail extends TicketSummary {
-  openClassificationReport?: { status: 'OPEN'|'REJECTED'|'RESOLVED' } | null
+  openClassificationReport?: ClassificationReport | null
   targetSystem: string | null
   symptom: string | null
   occurredAt: string | null
@@ -115,7 +128,7 @@ export interface TicketTransitionRequest {
 }
 
 /** 연동 작업 (TK-11). 재처리(TK-12)는 이 중 실패한 작업 하나를 지정해서 보낸다 */
-export type IntegrationJobType = 'JIRA_CREATE' | 'JIRA_ASSIGN' | 'JIRA_TRANSITION'
+export type IntegrationJobType = 'JIRA_CREATE' | 'JIRA_ASSIGN' | 'JIRA_TRANSITION' | 'JIRA_UPDATE_FIELDS'
 export interface IntegrationJob {
   id: number
   ticketId: number

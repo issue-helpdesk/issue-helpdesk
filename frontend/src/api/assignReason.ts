@@ -8,6 +8,8 @@ import { cleanServerText } from './errorText'
 const WHY: Record<string, string> = {
   assignment_source_unconfirmed: '재배정 요청 당시 확인한 담당자와 다른 담당자가 ITSM 시스템에 지정되어 있어 반영하지 않았어요. 최신 담당자를 확인한 뒤 다시 요청해 주세요.',
   stale_assignment: '더 최근의 배정이 있어서 이 배정은 반영하지 않았어요.',
+  stale_classification: '더 최근의 분류 변경이 있어 이전 요청은 반영하지 않았어요.',
+  'superseded:reclassify': '분류 변경으로 이전 배정 요청을 대체했어요.',
   reservation_mismatch: '배정 요청 이후 접수의 담당 정보가 바뀌어서 반영하지 않았어요.',
   assignment_not_allowed: '지금 접수 상태에서는 배정할 수 없어요.',
   jira_status_not_assignable: 'ITSM 티켓이 종결됐거나 알 수 없는 상태라 배정할 수 없어요.',
@@ -22,6 +24,7 @@ const WHY: Record<string, string> = {
 }
 
 export function friendlyAssignReason(reason: string): string {
+  if (WHY[reason]) return WHY[reason]
   const m = /^Jira 배정 실행 실패:\s*(\S+)\s*$/.exec(reason)
   if (!m) return cleanServerText(reason)
   const why = WHY[m[1]]

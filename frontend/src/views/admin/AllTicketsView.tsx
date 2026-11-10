@@ -101,6 +101,7 @@ export function AllTicketsView() {
   const [per, setPer] = useState<string>(() => pick('per', ['', 'd', 'm', 'y'] as const, ''))
   // 연동·배정·상태 변경 중 관리자 확인이 필요한 접수만 (서버의 needsAdmin 조건)
   const [needs, setNeeds] = useState(() => params.get('needs') === '1')
+  const [classificationOnly, setClassificationOnly] = useState(() => params.get('classificationReportOpen') === 'true')
   const [aik, setAik] = useState<'' | AiKind>(() => pick('aik', ['', 'ok', 'pend', 'unr'] as const, ''))
   // AI 처리 보기의 검색어·분류 (접수 기간은 담당자 처리와 함께 쓴다)
   const [aiQ, setAiQ] = useState('')
@@ -146,6 +147,7 @@ export function AllTicketsView() {
       sort: sort ? `${SORT_KEY[sort.col]},${sort.dir}` : 'createdAt,desc',
       workStatus: w,
       needsAdmin: needs ? true : undefined,
+      classificationReportOpen: classificationOnly ? true : undefined,
       jiraSyncStatus: st === 'none' ? ['PENDING', 'VERIFYING', 'NEEDS_ADMIN'] : undefined,
       categoryCode: cat ? [cat as CategoryCode] : undefined,
       urgency: pri === 'P12' ? ['P1', 'P2'] : pri ? [pri as Urgency] : undefined,
@@ -154,7 +156,7 @@ export function AllTicketsView() {
       createdFrom: days === undefined ? undefined : daysAgo(days),
       q: q.trim() || undefined,
     }
-  }, [st, needs, cat, pri, team, staff, per, q, page, sort, groups, staffList])
+  }, [st, needs, classificationOnly, cat, pri, team, staff, per, q, page, sort, groups, staffList])
 
   useEffect(() => {
     if (!user || mode !== 'staff') return
@@ -173,7 +175,7 @@ export function AllTicketsView() {
 
   // 상태 탭의 건수: 검색어와 분류·긴급도·팀·담당자·기간 필터를 따라간다. 상태 탭 자체와 "미해결"만 빼고 센다
   // (목록 응답의 상태별 건수 statusCounts 를 읽는다. 검색어를 칠 때마다 보내지 않도록 잠깐 기다린다)
-  const countCond = useMemo((): TicketListQuery => ({ categoryCode: query.categoryCode, urgency: query.urgency, groupId: query.groupId, assigneeId: query.assigneeId, createdFrom: query.createdFrom, q: query.q }), [query.categoryCode, query.urgency, query.groupId, query.assigneeId, query.createdFrom, query.q])
+  const countCond = useMemo((): TicketListQuery => ({ classificationReportOpen: query.classificationReportOpen, categoryCode: query.categoryCode, urgency: query.urgency, groupId: query.groupId, assigneeId: query.assigneeId, createdFrom: query.createdFrom, q: query.q }), [query.classificationReportOpen, query.categoryCode, query.urgency, query.groupId, query.assigneeId, query.createdFrom, query.q])
   useEffect(() => {
     if (!user || mode !== 'staff') return
     let alive = true
@@ -216,7 +218,7 @@ export function AllTicketsView() {
     set(v)
     setPage(1)
   }
-  const active = [cat, pri, team, staff, per, needs && 'n'].filter(Boolean).length
+  const active = [cat, pri, team, staff, per, needs && 'n', classificationOnly && 'c'].filter(Boolean).length
   const clear = () => {
     setCat('')
     setPri('')
@@ -224,6 +226,7 @@ export function AllTicketsView() {
     setStaff('')
     setPer('')
     setNeeds(false)
+    setClassificationOnly(false)
     setPage(1)
   }
   const onSort = (col: SortCol) => {
@@ -444,6 +447,7 @@ export function AllTicketsView() {
               <FilterPill label="담당자" value={staff} options={staffList.map((s) => ({ value: s.name, label: `${s.name} · ${s.group}` }))} onChange={reset(setStaff)} />
               {perChip}
               <FilterPill label="확인 필요" value={needs ? '1' : ''} options={[{ value: '1', label: '확인 필요만' }]} onChange={(v) => reset(setNeeds)(v === '1')} />
+              <FilterPill label="재분류" value={classificationOnly ? '1' : ''} options={[{ value: '1', label: '검토 대기만' }]} onChange={(v) => reset(setClassificationOnly)(v === '1')} />
               {active > 0 && (
                 <button type="button" className="d2clr" onClick={clear}>
                   ✕ 필터 해제
@@ -506,6 +510,7 @@ export function AllTicketsView() {
                                 {t.summary}
                               </button>
                               <small>{t.requester.name}</small>
+                              {t.classificationReportOpen && <span className="tag">재분류 검토 대기</span>}
                             </td>
                             <td className="c">{t.workStatus ? <StaffStatus t={t} /> : <PreStatus t={t} />}</td>
                             <td className="small">

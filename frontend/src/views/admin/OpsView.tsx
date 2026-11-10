@@ -195,12 +195,11 @@ export function OpsView() {
 
   const list = (k: Key, items: TicketSummary[], row: (t: TicketSummary) => ReactNode, none: string) => {
     const shown = more[k] ? items : items.slice(0, 3)
-    const blank = Math.max(0, 3 - shown.length)
     return (
       <>
         <div className="otb">
           {shown.map(row)}
-          {blank > 0 && <div className="onil">{items.length ? '해당하는 건이 더 없어요' : none}</div>}
+            {items.length === 0 && <div className="onil">{none}</div>}
         </div>
         {items.length > 3 && (
           <div className="omore">
@@ -259,10 +258,10 @@ export function OpsView() {
   }
 
   const sec = (title: ReactNode, desc: ReactNode, right: ReactNode, inner: ReactNode, cls?: string, label?: string) => (
-    <section className={`panel${cls ? ` ${cls}` : ''}`} aria-label={label}>
+    <section className="panel" aria-label={label}>
       <div className="sech">
         <div>
-          <h2 className="sht">{title}</h2>
+          <h2 className={`sht${cls ? ` ${cls}` : ''}`}>{title}</h2>
           <p className="shs">{desc}</p>
         </div>
         {right}
