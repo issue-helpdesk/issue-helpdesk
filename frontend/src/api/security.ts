@@ -80,7 +80,6 @@ const adminOnly = (u: User) => (u.serviceRole === 'ADMIN' ? null : fail('FORBIDD
 const find = (id: string) => alerts.find((a) => a.id === id)
 const strip = (a: SecAlert): SecAlert => ({ ...a, log: a.log.map((l) => ({ ...l })) })
 const RANK: Record<SecStatus, number> = { 신규: 0, '확인 중': 1, 종결: 2 }
-const SEV: Record<SecSeverity, number> = { 높음: 0, 중간: 1, 낮음: 2 }
 
 export interface SecCounts {
   신규: number
@@ -101,7 +100,7 @@ export async function listSecurityAlerts(user: User, filter: { status?: SecStatu
   if (!USE_MOCK_INQUIRY) return serverList(filter)
   const items = alerts
     .filter((a) => (!filter.status || a.status === filter.status) && (!filter.type || a.type === filter.type))
-    .sort((a, b) => RANK[a.status] - RANK[b.status] || SEV[a.severity] - SEV[b.severity] || Date.parse(b.at) - Date.parse(a.at))
+    .sort((a, b) => RANK[a.status] - RANK[b.status] || Date.parse(b.at) - Date.parse(a.at))
     .map(strip)
   const n = (s: SecStatus) => alerts.filter((a) => a.status === s).length
   return ok({ items, counts: { 신규: n('신규'), '확인 중': n('확인 중'), 종결: n('종결'), high: alerts.filter((a) => a.severity === '높음' && a.status !== '종결').length, total: alerts.length } })
