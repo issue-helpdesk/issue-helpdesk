@@ -31,16 +31,13 @@ const rows = () => [...document.querySelectorAll('.tbl tbody tr')] as HTMLElemen
 beforeEach(() => resetSecurityMock())
 
 describe('보안·감사 알림 API (시연)', () => {
-  it('미종결(신규→확인 중) 먼저, 같은 상태에서는 최신 감지 먼저, 종결은 맨 아래', async () => {
+  it('상태·심각도와 관계없이 최신 감지 먼저', async () => {
     const r = await listSecurityAlerts(admin())
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.data.counts).toMatchObject({ 신규: 3, '확인 중': 1, 종결: 2, high: 2, total: 6 })
-    const order = r.data.items.map((a) => a.status)
-    expect(order.indexOf('종결')).toBeGreaterThan(order.lastIndexOf('확인 중'))
-    expect(r.data.items[0].status).toBe('신규')
-    const newest = r.data.items.filter((a) => a.status === '신규').map((a) => Date.parse(a.at))
-    expect(newest).toEqual([...newest].sort((x, y) => y - x))
+    const times = r.data.items.map((a) => Date.parse(a.at))
+    expect(times).toEqual([...times].sort((x, y) => y - x))
     expect(r.data.items.every((a) => !('raw' in a))).toBe(true)
   })
 
@@ -66,8 +63,16 @@ describe('보안·감사 알림 API (시연)', () => {
 })
 
 describe('보안·감사 알림 화면', () => {
+  it('처음 열면 신규가 기본이고 전체를 선택하면 모든 상태가 보인다', async () => {
+    renderAs('EMP-1178', '/security')
+    await waitFor(() => expect(rows()).toHaveLength(3), SLOW)
+    expect(screen.getByRole('button', { name: '신규' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(screen.getByRole('button', { name: '전체' }))
+    await waitFor(() => expect(rows()).toHaveLength(6), SLOW)
+  })
+
   it('건수 카드와 목록이 보이고, 상태·유형으로 거르며, 담당자는 들어올 수 없다', async () => {
-    const { unmount } = renderAs('EMP-1178', '/security')
+    const { unmount } = renderAs('EMP-1178', '/security?status=ALL')
     expect(await screen.findByRole('heading', { name: /보안·감사 알림을 확인해요/, level: 1 }, SLOW)).toBeInTheDocument()
     await waitFor(() => expect(rows()).toHaveLength(6), SLOW)
     await userEvent.click(screen.getByRole('button', { name: '종결' }))
@@ -82,7 +87,7 @@ describe('보안·감사 알림 화면', () => {
   })
 
   it('상세에서 원문 열람 사유를 요구하고, 확인 시작 → 종결(사유 필수)까지 처리한다', async () => {
-    renderAs('EMP-1178', '/security')
+    renderAs('EMP-1178', '/security?status=ALL')
     await waitFor(() => expect(rows()).toHaveLength(6), SLOW)
     await userEvent.click(screen.getAllByRole('button', { name: '긴급 징후 후 접수 없이 종료' })[0])
     const dlg = await screen.findByRole('dialog', {}, SLOW)

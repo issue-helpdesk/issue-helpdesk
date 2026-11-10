@@ -1,3 +1,5 @@
+import { classificationEvents } from '../../api/mock/classificationMock'
+import { ClassificationMockSection } from './ClassificationMockSection'
 /**
  * 접수 상세 패널. 처리할 문의 오른쪽에 붙는다. (design/ITssue-Prototype.html 의 티켓 상세, 담당자 보기)
  *
@@ -90,7 +92,7 @@ function statusRows(t: TicketDetail): ReactNode {
     t.assignStatus === 'ASSIGNED' ? (
       <StRow lv="done" label="배정" val="완료" />
     ) : t.assignStatus === 'NEEDS_ADMIN' ? (
-      <StRow lv="live" tone="urg" label="배정" val={<Sbd tone="urg">담당자 배정 확인 필요</Sbd>} sub="개인 배정을 확인해야 해요" />
+      <StRow lv="live" tone="urg" label="배정" val={<Sbd tone="urg">배정 확인</Sbd>} sub="개인 배정을 확인해야 해요" />
     ) : t.jiraSyncStatus === 'SYNCED' ? (
       <StRow lv="live" tone="asg" label="배정" val={<Sbd tone="asg">연결 중</Sbd>} sub="담당 그룹에서 담당자를 정하는 중" />
     ) : (
@@ -259,6 +261,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
   const admin = user.serviceRole === 'ADMIN' // 관리자는 연동 확인·재배정을 한다
   // 처리 이력 = 상태 이력 + 담당자 배정 이력(추천·배정·재배정·실패)을 시간순으로 합친다. 화면에는 최근 것이 위에 온다
   const timeline = [
+    ...(USE_MOCK_TICKET && !requester ? classificationEvents(id).map(c=>({kind:'c' as const,at:c.at,c})) : []),
     ...hist.map((h) => ({ kind: 's' as const, at: h.changedAt, h })),
     ...assigns.map((a) => ({ kind: 'a' as const, at: a.createdAt, a })),
   ].sort((x, y) => Date.parse(y.at) - Date.parse(x.at) || (x.kind === y.kind ? 0 : x.kind === 'a' ? 1 : -1))
@@ -395,7 +398,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
               )}
               {info}
               {!requester && (
-                <div>
+                <div className="ticket-action-group">
                   <TicketWorkActions
                     key={`${id}:${t.workStatus}`}
                     ticket={t}
@@ -424,14 +427,15 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
                       ITSM 확인·재시도
                     </button>
                   )}
-                  {admin && (t.workStatus === 'RDY' || t.workStatus === 'WIP') && (
+                  {admin && !USE_MOCK_TICKET && t.workStatus === 'RDY' && (
                     <button type="button" className={`btn ${t.assignStatus === 'NEEDS_ADMIN' && !t.assignee ? 'pri' : 'sec'} block`} onClick={() => setReassign(t.assignee ? 'reassign' : 'assign')}>
-                      {t.assignee ? '담당자 재배정' : '담당자 지정'}
+                      분류·담당자 변경
                     </button>
                   )}
                   {!mine && !admin && <div className="small muted">다른 담당자가 맡은 접수예요. 상태는 맡은 담당자만 바꿀 수 있어요.</div>}
                 </div>
               )}
+              {USE_MOCK_TICKET && !requester && <ClassificationMockSection key={id} ticket={t} onUpdated={setT} />}
               {/* AI 판단 이력: 관리자만, 서버(IQ-10)에서 읽는다 */}
               <AssessmentHistory inquiryId={t.inquiryId} />
               <div>
@@ -439,6 +443,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
                 <ul className="tl">
                   {timeline.length === 0 && <li className="muted small">아직 이력이 없어요.</li>}
                   {timeline.map((e) => {
+                    if (e.kind === 'c') return <li key={`classification-${e.at}-${e.c.title}`}><Icon name="clock"/><div><b>{e.c.title}</b><small>{formatDateTime(e.at)}</small><p className="tln"><em>사유</em>{e.c.reason}</p></div></li>
                     if (e.kind === 'a') {
                       const x = e.a
                       return (
@@ -515,10 +520,10 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
             t={t}
             mode={reassign}
             onClose={() => setReassign(false)}
-            onDone={(registered) => {
+            onDone={(registered, kind) => {
               setReassign(false)
               getAssignmentLogs(user, id).then((r) => r.ok && setAssigns(r.data.items))
-              say(registered ? '재배정을 등록했어요. 실행기가 ITSM에 반영하면 담당자가 바뀌어요.' : '재배정했어요. 진행 상태는 그대로 유지돼요.')
+              say(kind === 'classification' ? '분류 변경을 요청했어요. 처리 그룹이 바뀌면 담당자가 자동배정돼요.' : registered ? '재배정을 등록했어요. 실행기가 ITSM에 반영하면 담당자가 바뀌어요.' : '재배정했어요. 진행 상태는 그대로 유지돼요.')
             }}
           />
         )}

@@ -46,7 +46,7 @@ function Dots({ t, mode }: { t: TicketSummary; mode: 'link' | 'asg' }) {
   let label: string
   if (mode === 'asg') {
     c = [g, g, r]
-    label = '접수 완료, ITSM 생성 완료, 담당자 배정 확인 필요'
+    label = '접수 완료, ITSM 생성 완료, 배정 확인 필요'
   } else if (t.transitionStatus === 'NEEDS_ADMIN') {
     c = [g, g, g]
     label = '접수 완료, ITSM 생성 완료, 담당자 배정 완료. 상태 동기화 확인 필요'
@@ -71,7 +71,7 @@ function Dots({ t, mode }: { t: TicketSummary; mode: 'link' | 'asg' }) {
 
 const sub = (t: TicketSummary) => `${t.receiptNo} · ${t.group?.name ?? '-'} · ${t.assignee?.name ?? '배정 전'}`
 
-type Key = 'L' | 'A'
+type Key = 'L' | 'A' | 'U' | 'R'
 /** 최근 처리 결과: 같은 접수의 요청 → 결과를 한 건으로 묶는다 */
 interface Res {
   id: number
@@ -87,7 +87,7 @@ export function OpsView() {
   const [team, setTeam] = useState('')
   const [snap, setSnap] = useState<OpsSnapshot | null>(null)
   const [error, setError] = useState('')
-  const [more, setMore] = useState<Record<Key, boolean>>({ L: false, A: false })
+  const [more, setMore] = useState<Record<Key, boolean>>({ L: false, A: false, U: false, R: false })
   const [results, setResults] = useState<Res[]>([])
   const [resMore, setResMore] = useState(false)
   const [pending, setPending] = useState<number[]>([])
@@ -245,7 +245,7 @@ export function OpsView() {
         </button>
       ) : (
         <button type="button" className="btn pri sm" onClick={() => void startAssign(t)}>
-          지정
+          변경
         </button>
       )}
     </div>
@@ -273,6 +273,8 @@ export function OpsView() {
 
   const linkL = snap?.link ?? []
   const asgL = snap?.assign ?? []
+  const unclassifiedL = snap?.unclassified ?? []
+  const reclassificationL = snap?.reclassification ?? []
   const wait = (body: ReactNode) => (snap ? body : <div className="empty" role="status">불러오는 중이에요…</div>)
 
   return (
@@ -403,7 +405,9 @@ export function OpsView() {
               </section>
             )}
 
+            {unclassifiedL.some(t=>t.urgency==='P1'||t.urgency==='P2') && <div className="alert info"><Icon name="alert" /><div>긴급·높음 미분류 문의가 있어요. 분류를 지정하고 담당자 배정을 확인해 주세요.</div></div>}
             <div className="ogrid">
+              {sec(<>미분류 문의 <span className="ocnt">{unclassifiedL.length}건</span></>, '분류가 정해지지 않은 문의예요. 분류 지정 후 담당자를 확인해 주세요.', null, wait(list('U', unclassifiedL, t=><div className="orow l" style={{gridTemplateColumns:'minmax(0,1fr) auto'}} key={t.id}><button className="o-main" style={{gridTemplateColumns:'minmax(0,1fr)'}} onClick={()=>open(t.id)}><span className="o-t"><b>{t.summary}</b><small>{t.receiptNo} · 담당자 미지정</small></span></button><button className="btn pri sm" onClick={()=>open(t.id)}>분류 지정</button></div>, '미분류 문의가 없어요.')),'need')}
               {sec(
                 <>
                   티켓 연동 확인 <span className="ocnt">{linkL.length}건</span>
@@ -413,18 +417,20 @@ export function OpsView() {
                   모두 보기
                 </button>,
                 wait(list('L', linkL, rowC('link'), '연동 확인이 필요한 건이 없어요.')),
-                linkL.length ? 'need' : '',
+                'need',
               )}
+              {sec(<>재분류 요청 <span className="ocnt">{reclassificationL.length}건</span></>, '담당자가 분류 검토를 요청한 문의예요.', null, wait(list('R', reclassificationL, t=><div className="orow l" style={{gridTemplateColumns:'minmax(0,1fr) auto'}} key={t.id}><button className="o-main" style={{gridTemplateColumns:'minmax(0,1fr)'}} onClick={()=>open(t.id)}><span className="o-t"><b>{t.summary}</b><small>{t.receiptNo} · {t.assignee?.name}</small></span></button><button className="btn pri sm" onClick={()=>open(t.id)}>검토</button></div>, '재분류 요청이 없어요.')))}
+
               {sec(
                 <>
                   담당자 배정 확인 <span className="ocnt">{asgL.length}건</span>
                 </>,
-                'ITSM 이슈는 만들어졌지만 담당자가 비어 있는 건',
-                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?needs=1')}>
-                  모두 보기
+                '분류를 확인하고 담당자를 지정해 주세요.',
+                <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets')}>
+                  다른 문의 찾아 변경
                 </button>,
                 wait(list('A', asgL, rowC('asg'), '배정 확인이 필요한 건이 없어요.')),
-                asgL.length ? 'need' : '',
+                '',
               )}
             </div>
             <TeamBoard selectedGroup={team} onGroupChange={setTeam} refreshKey={reload} />
@@ -451,9 +457,9 @@ export function OpsView() {
           t={assign}
           mode="assign"
           onClose={() => setAssign(null)}
-          onDone={(registered) => {
-            note(assign, registered ? '담당자 지정 등록함 · 실행기가 처리하면 반영돼요' : '담당자를 지정했어요')
-            say(registered ? '담당자 지정을 등록했어요. 실행기가 ITSM에 반영하면 담당자가 바뀌어요.' : '담당자를 지정했어요.')
+          onDone={(registered, kind) => {
+            note(assign, kind === 'classification' ? '분류 변경 요청 · 그룹 변경 시 자동배정' : registered ? '담당자 지정 등록함 · 실행기가 처리하면 반영돼요' : '담당자를 지정했어요')
+            say(kind === 'classification' ? '분류 변경을 요청했어요. 처리 그룹이 바뀌면 담당자가 자동배정돼요.' : registered ? '담당자 지정을 등록했어요. 실행기가 ITSM에 반영하면 담당자가 바뀌어요.' : '담당자를 지정했어요.')
             setAssign(null)
             setReload((n) => n + 1)
           }}

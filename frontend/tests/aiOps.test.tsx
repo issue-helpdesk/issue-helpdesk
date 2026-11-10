@@ -53,32 +53,22 @@ describe('AI 운영 API (모의)', () => {
 })
 
 describe('AI 운영 화면', () => {
-  it('KPI·그래프·품질 평가가 보이고, 보완 필요 항목은 가이드로 이동한다. 담당자는 들어올 수 없다', async () => {
+  it('KPI·그래프는 유지하고 품질 평가는 숨긴다. 담당자는 들어올 수 없다', async () => {
     const { unmount } = renderAs('EMP-1178', '/ai')
-    expect(await screen.findByRole('heading', { name: 'AI 비용과 답변 품질을 살펴봐요', level: 1 }, SLOW)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'AI 사용량과 비용을 살펴봐요', level: 1 }, SLOW)).toBeInTheDocument()
     await waitFor(() => expect(screen.getByText('기간 내 AI 상담').closest('.kpi')!.querySelector('b')!.textContent).not.toBe('-'), SLOW)
     expect(screen.getByText('오늘 예산 사용')).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: /상담 건수와 AI 해결 곡선/ }, SLOW)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: '월' }))
     expect(await screen.findByText('이번 달 예산 사용', {}, SLOW)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: '보완 필요' }))
-    await userEvent.click(await screen.findByRole('button', { name: /과거 이력 사례가 현재 가이드와 다른 경우/ }))
-    expect(screen.getByText('과거 사례의 구 절차(v1)를 그대로 인용한 사례가 2건 발견됨')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /해당 가이드로 이동 · IT-NET-001/ }))
-    const row = await screen.findByRole('button', { name: /^IT-NET-001 VPN 접속 장애 대응 가이드\s*현행/ }, SLOW)
-    expect(row).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.queryByText(/답변 품질 평가/)).toBeNull()
+    expect(screen.queryByRole('button', { name: '보완 필요' })).toBeNull()
     unmount()
     renderAs('EMP-1004', '/ai')
     expect(await screen.findByRole('heading', { name: /내 담당 문의/ }, SLOW)).toBeInTheDocument()
   })
 
-  it('품질 평가 필터가 건수를 줄인다', async () => {
-    renderAs('EMP-1178', '/ai')
-    await userEvent.click(await screen.findByRole('button', { name: '기대와 일치' }, SLOW))
-    await waitFor(() => expect(document.querySelectorAll('.gold')).toHaveLength(9), SLOW)
-    await userEvent.click(screen.getByRole('button', { name: '검토 필요' }))
-    await waitFor(() => expect(document.querySelectorAll('.gold')).toHaveLength(1), SLOW)
-  })
+
 })
 
 /* ------------------------------------------------------------------ 서버 모드 */

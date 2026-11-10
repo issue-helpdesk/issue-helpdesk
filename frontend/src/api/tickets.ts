@@ -1,3 +1,4 @@
+import { classificationReport, classificationPending } from './mock/classificationMock'
 /**
  * 담당자 접수 API 어댑터 (처리할 문의 · 상세). (docs/api/03.접수_연동.md)
  *   GET   /tickets                       TK-05 접수 목록 (AGENT 는 소속 그룹, view=ASSIGNED)
@@ -217,6 +218,7 @@ export async function changeTicketStatus(user: User, id: number, body: TicketTra
   const t = findStaffTicket(id)
   if (!t || !canSee(user, t)) return notFound()
   if (user.serviceRole === 'EMPLOYEE') return fail('FORBIDDEN', '이 접수의 상태를 바꿀 수 없어요.')
+  if (classificationReport(id)?.status === 'OPEN' || classificationPending(id)) return fail('INTEGRATION_JOB_IN_PROGRESS', '재분류 검토·자동배정 반영이 끝날 때까지 처리할 수 없어요.')
   if (pending.has(id)) return fail('INTEGRATION_JOB_IN_PROGRESS', '상태 변경을 ITSM에 반영하는 중이에요. 잠시 뒤에 다시 시도해 주세요.')
   if (t.jiraSyncStatus !== 'SYNCED') return fail('TICKET_NOT_SYNCED', 'ITSM 티켓이 아직 만들어지지 않았어요.')
   const to = body.workStatus

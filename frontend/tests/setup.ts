@@ -1,3 +1,4 @@
+import { resetClassificationMock } from '../src/api/mock/classificationMock'
 /** 테스트 공통 설정: jest-dom 판정 추가, 테스트마다 화면·토큰 초기화 */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach } from 'vitest'
@@ -25,6 +26,7 @@ beforeEach(() => {
   mockConfig.saveFail = false
   resetChatMock()
   resetStaffMock()
+  resetClassificationMock()
   resetUsersMock()
 })
 

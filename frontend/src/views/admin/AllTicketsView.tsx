@@ -73,7 +73,7 @@ const daysAgo = (n: number) => {
 function PreStatus({ t }: { t: TicketSummary }) {
   if (t.jiraSyncStatus === 'NEEDS_ADMIN') return <StateBadge tone="urg" label="ITSM 생성 확인 필요" />
   if (t.jiraSyncStatus === 'VERIFYING') return <StateBadge tone="warn" label="생성 여부 확인 중" />
-  if (t.assignStatus === 'NEEDS_ADMIN') return <StateBadge tone="urg" label="담당자 배정 확인 필요" />
+  if (t.assignStatus === 'NEEDS_ADMIN') return <StateBadge tone="urg" label="배정 확인" />
   return <StateBadge tone="recv" label="접수 완료" />
 }
 

@@ -153,3 +153,17 @@ button.o-main:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px;bo
 /* 문서별 조회 범위는 일반 기능 안내(파랑)와 구분해 보라색으로 표시한다. */
 .alert.guide-scope{background:var(--s-prog-bg);color:var(--s-prog-fg)}
 .alert.guide-scope .mono{font-size:12.5px;font-weight:500}
+
+/* 신규 보안 알림: 공통 선택 모달의 구조를 유지하고 경고 토큰만 적용한다. */
+.modal.rdlg:has(.security-notice-lead){border:2px solid var(--s-urg-dot);background:linear-gradient(var(--s-urg-bg),var(--white) 150px);padding-top:20px}
+.security-notice-lead{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:8px}
+.rdlg .security-notice-lead .pav{margin:0}
+.security-notice-label{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--s-urg-dot);border-radius:999px;background:var(--s-urg-bg);color:var(--s-urg-fg);font-size:12px;font-weight:700;line-height:18px}
+.security-notice-label:before{content:'!';display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--s-urg-fg);color:var(--s-urg-bg);font-weight:800}
+.security-notice-count{color:var(--s-urg-fg)}
+.modal.rdlg:has(.security-notice-lead) .btn.pri{color:var(--s-urg-fg);background:var(--s-urg-bg);border-color:var(--s-urg-dot)}
+.modal.rdlg:has(.security-notice-lead) .btn.pri:hover{box-shadow:inset 0 0 0 1px var(--s-urg-fg)}
+
+/* 재분류 반려는 경고 토큰, 주요 동작은 기존 btn pri를 사용한다. */
+.classification-assignment-group .btn.dng{background:var(--s-urg-bg);color:var(--s-urg-fg);border-color:var(--s-urg-dot)}
+.classification-assignment-group .btn.dng:hover{box-shadow:inset 0 0 0 1px var(--s-urg-fg)}

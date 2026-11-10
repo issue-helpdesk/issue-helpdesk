@@ -6,7 +6,7 @@
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import case, func, select
+from sqlalchemy import func, select
 
 from app.agent.sensitive import mask_secrets
 from app.constants.security import SECURITY_RULES
@@ -49,9 +49,8 @@ class SecurityAlertService:
         if query.alert_type:
             where.append(SecurityAlert.alert_type == query.alert_type)
         total = self.db.scalar(select(func.count()).select_from(SecurityAlert).where(*where))
-        status_rank = case({'NEW': 0, 'IN_REVIEW': 1, 'CLOSED': 2}, value=SecurityAlert.status)
-        rows = self.db.scalars(select(SecurityAlert).where(*where).order_by(status_rank,
-            SecurityAlert.first_detected_at.desc(), SecurityAlert.id.desc()).offset(query.offset).limit(query.size))
+        rows = self.db.scalars(select(SecurityAlert).where(*where).order_by(
+            SecurityAlert.last_detected_at.desc(), SecurityAlert.id.desc()).offset(query.offset).limit(query.size))
         return Page.of([self.view(r, history=False) for r in rows], query.page, query.size, total)
 
     def user_ref(self, user_id: int | None) -> UserRef | None:

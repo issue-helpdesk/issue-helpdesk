@@ -32,6 +32,7 @@ export interface TicketSummary {
   requestedWorkStatus: WorkStatus | null
   transitionStatus: TransitionStatus
   workStatusConfirmedAt: string | null
+  classificationReportOpen?: boolean
   needsAdmin: boolean
   displayStatus: DisplayStatus
   createdAt: string
@@ -39,6 +40,7 @@ export interface TicketSummary {
 
 /** 상세 접수 (Ticket) */
 export interface TicketDetail extends TicketSummary {
+  openClassificationReport?: { status: 'OPEN'|'REJECTED'|'RESOLVED' } | null
   targetSystem: string | null
   symptom: string | null
   occurredAt: string | null
@@ -86,6 +88,7 @@ export interface StatusHistory {
 
 /** 접수 목록 조건 (TK-05) */
 export interface TicketListQuery {
+  classificationReportOpen?: boolean
   view?: 'REQUESTER' | 'ASSIGNED' | 'ALL'
   page?: number
   size?: number

@@ -30,7 +30,7 @@ const severities: Record<ServerAlert['severity'], SecSeverity> = { HIGH: '높음
 const historyNames: Record<string, string> = { DETECTED: '이벤트 감지', REVIEW: '확인 시작', CLOSE: '종결', VIEW_ORIGINAL: '저장된 문의 열람' }
 export const serverPath = (id: string) => `/security-alerts/${encodeURIComponent(id.replace(/^SEC-/, ''))}`
 export function toAlert(a: ServerAlert): SecAlert {
-  return { id: `SEC-${a.id}`, at: a.firstDetectedAt, type: labels[a.alertType] ?? a.rule as SecType,
+  return { id: `SEC-${a.id}`, at: a.lastDetectedAt, type: labels[a.alertType] ?? a.rule as SecType,
     severity: severities[a.severity], status: statuses[a.status], name: a.subject.name, employeeNo: a.subject.employeeNo,
     dept: a.subjectDepartmentName ?? '—', mask: a.summary, rule: `${a.alertType} · ${a.rule}`, hitCount: a.occurrenceCount,
     hasOriginal: a.hasOriginal,

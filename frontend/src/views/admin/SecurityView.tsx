@@ -5,7 +5,7 @@
  * 문의 서버 모드에서는 실제 탐지·처리 이력을 읽는다. 인증정보 원문은 복구하지 않는다.
  */
 import { useEffect, useId, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import {
   SEC_TYPES,
   closeSecurityAlert,
@@ -65,11 +65,22 @@ function Cell({ cls, label, n, hint }: { cls?: string; label: string; n: number;
 
 export function SecurityView() {
   const { user } = useAuth()
-  const [status, setStatus] = useState<SecStatus | ''>('')
+  const [params, setParams] = useSearchParams()
+  const statusCodes: Record<SecStatus, string> = { '신규': 'NEW', '확인 중': 'IN_REVIEW', '종결': 'CLOSED' }
+  const status = (Object.keys(statusCodes) as SecStatus[]).find((s) => statusCodes[s] === params.get('status')) ?? (params.get('status') === 'ALL' ? '' : '신규')
+  const setStatus = (value: SecStatus | '') => {
+    const next = new URLSearchParams(params)
+    if (value) next.set('status', statusCodes[value])
+    else next.set('status', 'ALL')
+    setParams(next, { replace: true })
+  }
   const [type, setType] = useState<SecType | ''>('')
-  const [sort, setSort] = useState<{ col: Col; dir: 'asc' | 'desc' } | null>(null)
+  const [sort, setSort] = useState<{ col: Col; dir: 'asc' | 'desc' } | null>({ col: 'time', dir: 'desc' })
   const [data, setData] = useState<SecPage | null>(null)
-  const [page, setPage] = useState(1)
+  const filterKey = params.toString()
+  const [pageState, setPageState] = useState({ filterKey, value: 1 })
+  const page = pageState.filterKey === filterKey ? pageState.value : 1
+  const setPage = (value: number) => setPageState({ filterKey, value })
   const [error, setError] = useState('')
   const [tick, setTick] = useState(0)
   const [openId, setOpenId] = useState<string | null>(null)

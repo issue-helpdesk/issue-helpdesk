@@ -39,8 +39,8 @@ describe('접수 목록·상세 API (모의)', () => {
       const r = await listTickets(u, { assigneeId: u.id, ...q })
       return r.ok ? r.data.items.map((i) => i.summary) : []
     }
-    expect(await by({ workStatus: ['RDY', 'WIP'] })).toHaveLength(8)
-    expect(await by({ workStatus: ['FIN'] })).toHaveLength(3)
+    expect(await by({ workStatus: ['RDY', 'WIP'] })).toHaveLength(9)
+    expect(await by({ workStatus: ['FIN'] })).toHaveLength(2)
     expect(await by({ workStatus: ['CLS'] })).toHaveLength(4)
     expect(await by({ urgency: ['P1'] })).toEqual(['악성 첨부파일 의심 메일 수신'])
     expect(await by({ q: '프린터' })).toEqual(['프린터 네트워크 연결 오류'])
@@ -68,8 +68,8 @@ describe('처리할 문의 화면', () => {
   it('탭에 건수가 보이고 진행 중 목록이 긴급도 순으로 나온다', async () => {
     renderAs('EMP-1004', '/queue')
     const tab = await screen.findByRole('tab', { name: /진행 중/ }, SLOW)
-    await waitFor(() => expect(tab).toHaveTextContent('8'), SLOW)
-    expect(screen.getByRole('tab', { name: /해결 확인 대기/ })).toHaveTextContent('3')
+    await waitFor(() => expect(tab).toHaveTextContent('9'), SLOW)
+    expect(screen.getByRole('tab', { name: /해결 확인 대기/ })).toHaveTextContent('2')
     const rows = await within(await screen.findByRole('table')).findAllByRole('row')
     expect(rows[1]).toHaveTextContent('악성 첨부파일 의심 메일 수신') // P1 먼저
   })
@@ -77,15 +77,15 @@ describe('처리할 문의 화면', () => {
   it('검색하면 탭의 건수도 검색 결과에 맞게 바뀌고, 지우면 돌아온다', async () => {
     renderAs('EMP-1004', '/queue')
     const open = await screen.findByRole('tab', { name: /진행 중/ }, SLOW)
-    await waitFor(() => expect(open).toHaveTextContent('8'), SLOW)
+    await waitFor(() => expect(open).toHaveTextContent('9'), SLOW)
     const box = await screen.findByLabelText('처리할 문의 검색', undefined, SLOW)
     await userEvent.type(box, '프린터')
     await waitFor(() => expect(screen.getByRole('tab', { name: /진행 중/ })).toHaveTextContent('1'), SLOW)
-    expect(screen.getByRole('tab', { name: /진행 중/ })).not.toHaveTextContent('8')
+    expect(screen.getByRole('tab', { name: /진행 중/ })).not.toHaveTextContent('9')
     expect(screen.getByRole('tab', { name: /해결 확인 대기/ })).toHaveTextContent('0') // 프린터 건은 진행 중에만 있다
     await userEvent.clear(box)
-    await waitFor(() => expect(screen.getByRole('tab', { name: /진행 중/ })).toHaveTextContent('8'), SLOW)
-    expect(screen.getByRole('tab', { name: /해결 확인 대기/ })).toHaveTextContent('3')
+    await waitFor(() => expect(screen.getByRole('tab', { name: /진행 중/ })).toHaveTextContent('9'), SLOW)
+    expect(screen.getByRole('tab', { name: /해결 확인 대기/ })).toHaveTextContent('2')
   })
 
   it('검색어로 목록을 줄인다', async () => {
@@ -157,8 +157,8 @@ describe('담당자 내 대시보드', () => {
 
   it('상태별 건수와 먼저 볼 문의가 보이고, 서버 API 가 없는 "우리 팀 현황"은 없다', async () => {
     renderAs('EMP-1004', '/my')
-    expect(await screen.findByRole('button', { name: /^처리 중 7건/ }, SLOW)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^해결 확인 대기 3건/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^처리 중 6건/ }, SLOW)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^해결 확인 대기 2건/ })).toBeInTheDocument()
     const first = await screen.findByRole('region', { name: '먼저 볼 문의' })
     expect(await within(first).findByText('악성 첨부파일 의심 메일 수신', undefined, SLOW)).toBeInTheDocument() // P1 이 맨 위
     // 팀 현황 카드는 서버에 API 가 없어 모의 숫자만 나왔기 때문에 뺐다 (팀 업무량은 통계 화면의 팀 보기)
@@ -175,7 +175,7 @@ describe('담당자 내 대시보드', () => {
   it('건수 칸을 누르면 그 상태의 목록으로 이어지고, 검색하면 검색 결과만 나온다', async () => {
     renderAs('EMP-1004', '/my')
     await userEvent.click(await screen.findByRole('button', { name: /^처리 대기/ }, SLOW))
-    expect(await screen.findByRole('button', { name: /처리 대기 1/ }, SLOW)).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByRole('button', { name: /처리 대기 3/ }, SLOW)).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('검색어를 넣으면 대시보드 대신 검색 결과가 나온다', async () => {
@@ -190,7 +190,7 @@ describe('담당자 통계', () => {
   it('내 통계에는 상태별 현황·접수 추이가 있고(긴급도 분포는 내 대시보드로 옮겼다) 팀원별 진행도는 없다', async () => {
     renderAs('EMP-1004', '/stats')
     const sum = await screen.findByRole('region', { name: '상태별 현황' }, SLOW)
-    expect(await within(sum).findByRole('button', { name: /^처리 중 7건/ }, SLOW)).toBeInTheDocument()
+    expect(await within(sum).findByRole('button', { name: /^처리 중 6건/ }, SLOW)).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: /접수 추이 곡선 그래프/ }, SLOW)).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: '긴급도 분포' })).toBeNull()
     expect(screen.queryByRole('region', { name: '팀원별 진행도' })).toBeNull()
