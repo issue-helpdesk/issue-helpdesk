@@ -31,5 +31,8 @@ frontend/dist/
 # 서버가 만드는 파일 (해결 사례 가이드 md 등). 저장 위치가 정해지면 옮긴다
 /storage/
 
+# 검색·판단 평가 실행 결과 (app.rag.evaluation 의 기본 --out). 실행마다 폴더가 생겨 올리지 않는다
+/dataset/eval_results/
+
 # db/demo_seed.py --apply 가 남기는 넣은 id 목록 (되돌리기용, 각자 보관)
 demo_seed_ids_*.json
