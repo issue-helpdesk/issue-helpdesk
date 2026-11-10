@@ -3,7 +3,6 @@
 - exclude        : EXCLUDED 와 이유 (AI 판단 또는 서버 사전 제외)
 - record_failure : 실패. 상태는 그대로 두고 사유와 횟수만 (행이 없으면 상태가 빈 행을 만든다)
 - clear_failure  : 판단에 성공했지만 아직 묶기 전. 실패 기록만 0 으로
-- add_sec        : SEC 티켓 1건 = SEC_MANUAL 묶음 1개. 티켓은 REVIEWING (묶음 상태 = 티켓 상태)
 - add_cluster    : 새 묶음 + 티켓 REVIEWING
 - attach         : 검토 중 묶음의 근거 티켓에 추가 (초안은 그대로)
 - wait           : WAITING (같은 주제의 등록된 묶음이 있음)
@@ -17,9 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.agent.guide.judge import JudgeOutcome
 from app.agent.llm.call import LlmCallRecord
-from app.models import GuideCluster, LlmCall, Ticket, TicketGuideState
-
-SEC_REASON = 'SEC 티켓은 외부 모델에 보내지 않아 AI 판단 없이 관리자가 직접 검토한다'
+from app.models import GuideCluster, LlmCall, TicketGuideState
 
 
 def _now() -> datetime:
@@ -59,17 +56,6 @@ def clear_failure(session: Session, ticket_id: int) -> None:
     state = session.get(TicketGuideState, ticket_id)
     if state is not None and (state.fail_code or state.fail_count):
         state.fail_code, state.fail_count, state.updated_at = None, 0, _now()
-
-
-def add_sec(session: Session, t: Ticket, draft_md: str | None = None, warnings: list[str] | tuple = ()) -> GuideCluster:
-    """초안 글은 김태연 님 `ticket_fragment` 조각 (AI 없음). 넣을 문서는 관리자가 고른다 (GC-08)."""
-    cluster = GuideCluster(category_code=t.category_code, judgment='SEC_MANUAL', status='REVIEWING',
-                           title=t.summary, draft_md=draft_md,
-                           review_info={'reason': SEC_REASON, 'warnings': list(warnings)})
-    session.add(cluster)
-    session.flush()
-    _review(session, [t.id], cluster.id)
-    return cluster
 
 
 def _review(session: Session, ticket_ids, cluster_id: int) -> None:
