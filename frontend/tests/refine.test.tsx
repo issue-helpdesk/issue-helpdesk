@@ -224,8 +224,8 @@ describe('비밀번호를 잊으셨나요? 안내와 모달 초점', () => {
   it('로그인 전 상담의 비밀번호 답변에서도 같은 창을 열 수 있다', async () => {
     const user = userEvent.setup()
     renderAt('/login')
-    await user.click(screen.getByRole('button', { name: '비밀번호를 재설정하고 싶어요' }))
-    const open = await screen.findByRole('button', { name: '비밀번호를 잊으셨나요? 열기' }, SLOW)
+    await user.click(screen.getByRole('button', { name: '비밀번호를 잊었어요' }))
+    const open = await screen.findByRole('button', { name: '비밀번호 분실 안내 보기' }, SLOW)
     await user.click(open)
     expect(await screen.findByRole('dialog', { name: '비밀번호를 잊으셨나요?' })).toBeInTheDocument()
     await user.keyboard('{Escape}')

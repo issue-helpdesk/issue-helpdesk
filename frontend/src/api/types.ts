@@ -74,11 +74,11 @@ export interface LoginData {
   user: User
 }
 
-/** 로그인 전 상담 응답 (제안 기능, PRD 4.1 · SRS PRE-01) */
+/** 로그인 전 공개 도움말 응답. 내부 가이드 출처는 제공하지 않는다. */
 export interface ConsultReply {
   /** 문단 목록. **굵게** 표시를 지원한다. */
   paragraphs: string[]
-  /** 근거 Guide 출처. 문의 화면 답변과 같은 형태 */
+  /** 기존 답변 형식과의 호환용. 공개 도움말에서는 빈 배열이다. */
   sources: GuideSource[]
   /** 답변에 붙는 바로가기 버튼 (예: 비밀번호를 잊으셨나요? 안내 창 열기). 없으면 버튼을 그리지 않는다. */
   ctas?: ConsultCta[]
