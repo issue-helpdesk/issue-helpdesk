@@ -1,7 +1,7 @@
 """해결 사례 가이드화: 판단에 쓸 값 모으기 (기획 1·2단계). DB 를 읽기만 한다.
 
 - targets       : 이번 회차 대상 CLS 티켓 (상태 행이 없거나, 상태가 비었거나, WAITING)
-- precheck      : AI 없이 서버가 정하는 것 (SEC 직접 검토, 제외 3가지)
+- precheck      : AI 없이 서버가 정하는 제외 (분류 없음, SEC, 처리 결과 없음·짧음)
 - guides_for    : 같은 분류의 임직원용 가이드 (넣을 문서 후보)
 - compare_items : 비교할 가이드·매뉴얼 항목. 기존 검색을 관리자 권한으로 부른다
 """
@@ -19,6 +19,8 @@ SearchFn = Callable[[SearchRequest], SearchResponse]
 SHORT_NOTE = 20                 # 처리 결과가 이보다 짧으면 AI 없이 제외 (case_guide.SHORT_NOTE 와 같은 기준)
 TOP_K = 5                       # 비교 항목 수
 SEC = 'SEC'
+# 보안 티켓은 AI 에 보내지 않아 초안이 티켓 글 복사뿐이고, 보안 글을 초안으로 한 번 더 저장하게 된다 (M4 결정, 2026-11-10)
+SEC_REASON = 'SEC 티켓은 가이드화하지 않음'
 
 
 def targets(session: Session) -> list[Ticket]:
@@ -32,19 +34,16 @@ def targets(session: Session) -> list[Ticket]:
 
 
 def precheck(t: Ticket) -> tuple[str, str | None]:
-    """('SEC', None) · ('EXCLUDE', 이유) · ('JUDGE', None). 순서: 분류 → 처리 결과 → SEC.
-
-    SEC 도 처리 결과가 없거나 짧으면 제외한다. 관리자가 직접 검토해도 가이드로 옮길 절차가 없기 때문이다.
-    """
+    """('EXCLUDE', 이유) · ('JUDGE', None). 순서: 분류 → SEC → 처리 결과."""
     if not t.category_code:
         return 'EXCLUDE', '분류 없음'
+    if t.category_code == SEC:
+        return 'EXCLUDE', SEC_REASON
     note = (t.resolution_note or '').strip()
     if not note:
         return 'EXCLUDE', '처리 결과 없음'
     if len(note) < SHORT_NOTE:
         return 'EXCLUDE', f'처리 결과가 짧아 해결 방법을 알 수 없음 ({SHORT_NOTE}자 미만)'
-    if t.category_code == SEC:
-        return SEC, None
     return 'JUDGE', None
 
 

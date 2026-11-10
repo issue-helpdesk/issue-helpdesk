@@ -103,7 +103,7 @@ def test_excluded(db, judgment, target_doc, target_item, reason_start):
 @pytest.mark.parametrize('note, category, reason', [
     ('', 'NET', '처리 결과 없음'),
     ('처리 완료', 'NET', '처리 결과가 짧아 해결 방법을 알 수 없음 (20자 미만)'),
-    ('확인 완료', 'SEC', '처리 결과가 짧아 해결 방법을 알 수 없음 (20자 미만)'),     # SEC 도 묶음을 만들지 않는다
+    ('확인 완료', 'SEC', 'SEC 티켓은 가이드화하지 않음'),          # SEC 는 처리 결과와 상관없이 뺀다
 ])
 def test_precheck_excluded_without_ai(db, note, category, reason):
     t = cls_ticket(db, note=note, category=category)
@@ -120,14 +120,15 @@ def test_no_category_excluded(db):
     assert state(db, t).exclude_reason == '분류 없음'
 
 
-def test_sec_becomes_cluster_without_ai(db):
+def test_sec_excluded_without_ai(db):
+    """SEC 는 가이드화하지 않는다 (M4 결정, 2026-11-10). 묶음을 만들지 않고 AI 도 부르지 않는다"""
     t = cls_ticket(db, category='SEC')
     port = MockAdapter()
     run = judge_round(db, port, search_fn)
-    cluster = db.scalars(select(GuideCluster)).one()
-    assert (run.sec, port.requests) == (1, [])
-    assert (cluster.judgment, cluster.status, cluster.category_code, cluster.draft_md) == ('SEC_MANUAL', 'REVIEWING', 'SEC', None)
-    assert (state(db, t).status, state(db, t).cluster_id) == ('REVIEWING', cluster.id)
+    assert (run.excluded, run.sec, port.requests) == (1, 0, [])
+    assert (state(db, t).status, state(db, t).exclude_reason, state(db, t).cluster_id) == (
+        'EXCLUDED', 'SEC 티켓은 가이드화하지 않음', None)
+    assert db.scalars(select(GuideCluster)).all() == []
 
 
 def test_failure_keeps_status_and_counts(db):

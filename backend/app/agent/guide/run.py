@@ -7,7 +7,6 @@
 """
 import logging
 from collections import defaultdict
-from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from sqlalchemy import select
@@ -24,8 +23,6 @@ from app.rag.case_guide import CaseGuideError, _added_lines, sensitive_warnings
 
 logger = logging.getLogger(__name__)
 
-SecFragment = Callable[[int], tuple[str, list[str]]]
-
 
 @dataclass(frozen=True)
 class Forwarded:
@@ -40,7 +37,7 @@ class JudgeRun:
     forwarded: list[Forwarded] = field(default_factory=list)
     excluded: int = 0
     failed: int = 0
-    sec: int = 0
+    sec: int = 0                # 늘 0. SEC 는 제외로 센다 (11-10). services/guide_analysis.py 가 읽어 남겨 둔다
 
 
 @dataclass
@@ -54,16 +51,14 @@ class DraftRun:
 
 # ── 1~3단계: 판단 ────────────────────────────────────────
 
-def judge_round(session: Session, port: LLMPort, search_fn: SearchFn,
-                sec_fragment: SecFragment | None = None) -> JudgeRun:
-    """sec_fragment: SEC 티켓 글 → 조각 (없으면 SEC 초안을 비워 둔다)."""
+def judge_round(session: Session, port: LLMPort, search_fn: SearchFn) -> JudgeRun:
     run = JudgeRun()
     names = collect.staff_names(session)
     guides: dict[str, list[GuideDoc]] = {}
     for t in collect.targets(session):
         ticket_id = t.id
         try:
-            result, forwarded = _one(session, port, search_fn, names, guides, t, sec_fragment)
+            result, forwarded = _one(session, port, search_fn, names, guides, t)
             session.commit()
         except Exception as e:                  # 티켓 하나의 오류로 회차를 멈추지 않는다
             session.rollback()
@@ -75,31 +70,16 @@ def judge_round(session: Session, port: LLMPort, search_fn: SearchFn,
             run.forwarded.append(forwarded)
         else:
             setattr(run, result, getattr(run, result) + 1)
-    logger.info('가이드화 판단: 넘김 %d, 제외 %d, 실패 %d, SEC %d',
-                len(run.forwarded), run.excluded, run.failed, run.sec)
+    logger.info('가이드화 판단: 넘김 %d, 제외 %d, 실패 %d', len(run.forwarded), run.excluded, run.failed)
     return run
 
 
-def _sec(session, t, sec_fragment, names) -> None:
-    md, warnings = None, []
-    if sec_fragment is not None:
-        try:
-            md, warnings = sec_fragment(t.id)
-            warnings = [*warnings, *sensitive_warnings(md, list(range(1, len(md.splitlines()) + 1)), names)]
-        except CaseGuideError as e:
-            md, warnings = None, [f'티켓 글을 초안으로 옮기지 못했습니다: {p}' for p in e.problems]
-    store.add_sec(session, t, md, warnings)
-
-
-def _one(session, port, search_fn, names, guides, t, sec_fragment) -> tuple[str, Forwarded | None]:
-    """('excluded' · 'sec' · 'failed' · 'forwarded', 넘길 티켓)."""
+def _one(session, port, search_fn, names, guides, t) -> tuple[str, Forwarded | None]:
+    """('excluded' · 'failed' · 'forwarded', 넘길 티켓)."""
     kind, reason = collect.precheck(t)
     if kind == 'EXCLUDE':
         store.exclude(session, t.id, reason)
         return 'excluded', None
-    if kind == collect.SEC:
-        _sec(session, t, sec_fragment, names)
-        return 'sec', None
 
     text = collect.ticket_text(session, t)
     if text.category_code not in guides:
@@ -321,5 +301,5 @@ def run_round(session: Session, port: LLMPort, search_fn: SearchFn, embed_fn: cl
               case: CaseFns | None = None) -> tuple[JudgeRun, DraftRun]:
     """판단 → 묶기 → 초안. case 를 주지 않으면 이 Session 의 PostgreSQL 연결로 case_guide 함수를 부른다."""
     case = case or CaseFns.for_session(session)
-    judged = judge_round(session, port, search_fn, sec_fragment=case.ticket_fragment)
+    judged = judge_round(session, port, search_fn)
     return judged, draft_round(session, port, judged.forwarded, embed_fn, case)

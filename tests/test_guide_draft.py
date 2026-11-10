@@ -119,7 +119,6 @@ class Case:
 
     def fns(self):
         return CaseFns(open_basis=self.open_basis,
-                       ticket_fragment=lambda tid: (f'### 3.N SEC 사례\n\n- 티켓 {tid} 글\n', ['옮긴 글 경고']),
                        ticket_warnings=lambda ids: [f'{i}: 짧은 처리' for i in ids])
 
 
@@ -368,13 +367,12 @@ def test_handling_majority_and_warning(db):
     assert any(w.startswith('티켓마다 담당 부서가 다릅니다 (네트워크팀 2건, 서비스데스크 1건)') for w in c.review_info['warnings'])
 
 
-def test_sec_cluster_gets_ticket_fragment(db):
-    t = ticket(db, category='SEC')
+def test_sec_makes_no_cluster(db):
+    """한 회차 전체에서도 SEC 묶음은 생기지 않는다 (M4 결정, 2026-11-10)"""
+    ticket(db, category='SEC')
     port = MockAdapter()
-    go(db, port)
-    c = clusters(db)[0]
-    assert (c.judgment, c.draft_md, port.requests) == ('SEC_MANUAL', f'### 3.N SEC 사례\n\n- 티켓 {t.id} 글\n', [])
-    assert c.review_info['warnings'] == ['옮긴 글 경고']
+    judged, drafted = go(db, port)
+    assert (clusters(db), judged.excluded, drafted.created, port.requests) == ([], 1, 0, [])
 
 
 @pytest.mark.parametrize('word, out', [('네트워크팀', '네트워크팀이'), ('서비스데스크', '서비스데스크가'), ('IT', 'IT이(가)')])
