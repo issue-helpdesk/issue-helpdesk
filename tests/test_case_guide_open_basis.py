@@ -1,4 +1,4 @@
-"""초안 기준 (app.rag.case_guide.open_basis): 워커가 묶음 초안을 만들 때 부른다. 구조 초안 6장 ③."""
+"""초안 기준 (app.rag.case_guide.open_basis): 워커가 묶음 초안을 만들 때 부른다. 규칙은 case_guide/README.md 의 "초안 기준" 절."""
 import inspect
 import re
 
@@ -88,7 +88,7 @@ def test_manual_candidate_has_no_draft():
 
 
 def test_never_commits():
-    """워커 트랜잭션 안에서 부르므로 commit·rollback 을 하지 않는다 (구조 초안 6장)."""
+    """워커 트랜잭션 안에서 부르므로 commit·rollback 을 하지 않는다."""
     src = inspect.getsource(ob)
     assert '.commit(' not in src and '.rollback(' not in src
 
@@ -223,7 +223,7 @@ def test_ticket_fragment_warns_when_it_breaks_fragment_rules(url):
 
 @needs_db
 def test_ticket_warnings_for_cluster(url):
-    """M4 Q8: 묶음 티켓별 짧은 처리·재처리 경고를 모은다. 티켓 순서대로·같은 id 한 번, 앞선 처리 원문은 넣지 않는다.
+    """묶음 티켓별 짧은 처리·재처리 경고를 모은다. 티켓 순서대로·같은 id 한 번, 앞선 처리 원문은 넣지 않는다.
     문제없는 티켓은 경고 없음, 없는 id 는 거부."""
     from app.rag.ingest import connect
     ok = _ticket(url, 'OB-W-1', code='SW-01')

@@ -1,4 +1,4 @@
-"""묶음 등록용 조립 (app.rag.case_guide.assemble). 구조: 작업대/가이드화/draft_basis_구조_초안_20261108.md 6장 ①."""
+"""묶음 등록용 조립 (app.rag.case_guide.assemble). 규칙은 case_guide/README.md 의 "묶음 등록 조립" 절."""
 import re
 from datetime import date
 from pathlib import Path
