@@ -40,9 +40,9 @@ export function formatStart(iso: string, now: Date = new Date()): string {
   return `문의 시작 · ${d.getFullYear() === now.getFullYear() ? md : `${String(d.getFullYear()).slice(2)}.${md}`}`
 }
 
-/** 출처 버튼 표시: 문서번호 + 위치 (예: IT-NET-001 3.1). 제목·버전은 열었을 때 보여 준다. */
-export function sourceLabel(s: { docCode: string; section: string }): string {
-  return [s.docCode, s.section].filter(Boolean).join(' ')
+/** 출처 버튼은 문서번호·제목·위치를 표시한다. 제목이 없는 이전 응답도 지원한다. */
+export function sourceLabel(s: { docCode: string; title?: string; section: string }): string {
+  return [s.docCode, s.title, s.section].filter(Boolean).join(' ')
 }
 
 /** 출처 전체 표시 (예: IT-NET-001 VPN 접속 장애 대응 가이드 v2 · 3.1) */

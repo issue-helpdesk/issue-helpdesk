@@ -155,9 +155,9 @@ function UsedSources({ guides, failed }: { guides: UsedGuide[] | null; failed: b
           </div>
         ) : (
           docs.map((g, i) => (
-            <button key={i} type="button" className="src" title="AI가 근거로 쓴 본문 보기" onClick={() => setPreview({ docCode: g.docCode ?? '', title: '', version: g.version ?? '', section: g.location ?? '', excerpt: g.excerpt ?? '', images: g.images })}>
+            <button key={i} type="button" className="src" title="AI가 근거로 쓴 본문 보기" onClick={() => setPreview({ docCode: g.docCode ?? '', title: g.title ?? '', version: g.version ?? '', section: g.location ?? '', excerpt: g.excerpt ?? '', images: g.images })}>
               <Icon name="file" size={16} />
-              {[g.docCode, g.version].filter(Boolean).join(' ')}
+              {[g.docCode, g.title, g.version].filter(Boolean).join(' ')}
               {g.location ? ` · ${g.location}` : ''}
             </button>
           ))

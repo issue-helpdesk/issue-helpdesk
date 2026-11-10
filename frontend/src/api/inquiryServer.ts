@@ -18,6 +18,8 @@ import { fail, ok, type ApiResult, type DisplayStatus, type InquirySummary, type
 
 /* ------------------------------------------------------------------ 서버 응답 모양 (docs/api/02) */
 interface SSource {
+  /** Older servers and LEGACY sources may not provide a title. */
+  title?: string | null
   id: number
   sourceKind: 'DOCUMENT' | 'LEGACY'
   docCode: string | null
@@ -148,7 +150,7 @@ const idemPost = async <T,>(path: string, body: unknown, method: 'POST' | 'PUT' 
 }
 
 /* ------------------------------------------------------------------ 서버 → 화면 변환 */
-const GUIDE = (s: SSource) => ({ docCode: s.docCode ?? '', title: '', version: s.version ?? '', section: s.location ?? '', excerpt: s.excerpt ?? '', images: s.images?.length ? s.images : undefined })
+const GUIDE = (s: SSource) => ({ docCode: s.docCode ?? '', title: s.title ?? '', version: s.version ?? '', section: s.location ?? '', excerpt: s.excerpt ?? '', images: s.images?.length ? s.images : undefined })
 
 /**
  * 줄바꿈 없이 한 줄로 온 답변 중 "1) … 2) …" 단계가 들어 있는 것은 문장 단위로 줄을 나눈다.

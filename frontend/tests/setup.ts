@@ -9,6 +9,9 @@ import { resetStaffMock } from '../src/api/mock/staffTickets'
 import { resetUsersMock } from '../src/api/mock/users'
 import { tokenStore } from '../src/core/tokenStore'
 
+// jsdom에는 실제 스크롤 API가 없어 가이드 위치 이동 타이머가 예외를 내므로 테스트에서만 대체한다.
+if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = () => {}
+
 beforeEach(() => {
   // 토큰은 메모리에도 있으므로 sessionStorage 와 함께 비운다
   tokenStore.clear()

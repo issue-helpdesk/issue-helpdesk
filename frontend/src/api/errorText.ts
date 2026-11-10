@@ -6,7 +6,7 @@
  *
  * - 해요체, 실패한 대상과 다음 행동을 알린다. 연락처는 서버 문구와 같은 "IT 헬프데스크(내선 1000)"로 통일한다.
  * - 서버가 details 로 준 값(파일 크기 제한, 겹친 문서 번호·버전 등)은 문구에 끼워 쓴다. 값이 없으면 숫자 없는 문구를 쓴다.
- * - 사전에 없는 코드는 서버 문구를 그대로 쓰되 "Jira" 는 "ITSM" 으로 바꾼다.
+ * - 사전에 없는 코드는 서버 문구를 그대로 쓰되 "Jira" 는 "ITSM 시스템"으로 바꾼다.
  * - REQUEST_IN_PROGRESS·IDEMPOTENCY_KEY_REUSED 는 서버가 보내지 않으므로(소스에 없음) 만들지 않았다. 서버 간 호출인 웹훅 서명 오류도 화면 문구가 없다.
  * - 화면이 코드를 보고 문구 대신 동작을 정하는 곳(로그인 폼, 초안 충돌 때의 다시 읽기 등)은 각 화면에 그대로 있고, 거기서 쓰는 글도 이 사전에서 가져온다.
  */
@@ -144,8 +144,8 @@ export function errorText(code: string, details?: ErrorDetail[]): string | null 
   return typeof t === 'function' ? t(details) : t
 }
 
-/** 사전에 없는 코드의 서버 문구: 용어만 맞춘다 (Jira → ITSM) */
-export const cleanServerText = (message: string) => message.replace(/\bJira\b/g, 'ITSM')
+/** 사전에 없는 코드의 서버 문구: 용어만 맞춘다 (Jira → ITSM 시스템) */
+export const cleanServerText = (message: string) => message.replace(/\bJira\b(?:\s*시스템)?/gi, 'ITSM 시스템')
 
 /** 서버 오류 하나의 화면 문구: 사전 → (없으면) 서버 문구 */
 export function displayMessage(code: string, serverMessage: string, details?: ErrorDetail[]): string {

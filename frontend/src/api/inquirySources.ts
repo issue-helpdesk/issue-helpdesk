@@ -11,6 +11,7 @@ import type { GuideImageRef } from './chatTypes'
 import { ok, type ApiResult } from './types'
 
 export interface UsedGuide {
+  title?: string | null
   /** 과거 처리 사례(LEGACY)는 문서 코드가 없다 */
   docCode: string | null
   version: string | null
@@ -23,6 +24,7 @@ export interface UsedGuide {
 }
 
 interface SourceItem {
+  title?: string | null
   sourceKind: 'DOCUMENT' | 'LEGACY'
   docCode: string | null
   version: string | null
@@ -51,7 +53,7 @@ export async function listUsedGuides(inquiryId: number | null, mockText = '', mo
       const key = s.sourceKind === 'LEGACY' ? `LEGACY|${s.excerpt ?? ''}` : `${s.sourceKind}|${s.docCode}|${s.version}|${s.location}`
       if (seen.has(key)) continue
       seen.add(key)
-      out.push({ docCode: s.docCode, version: s.version, location: s.location, kind: s.sourceKind, excerpt: s.excerpt ?? null, images: s.images?.length ? s.images : undefined })
+      out.push({ title: s.title ?? null, docCode: s.docCode, version: s.version, location: s.location, kind: s.sourceKind, excerpt: s.excerpt ?? null, images: s.images?.length ? s.images : undefined })
     }
   }
   return ok(out)

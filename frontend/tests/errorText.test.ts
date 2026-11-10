@@ -19,8 +19,9 @@ describe('코드별 문구 사전', () => {
   })
 
   it('사전에 없는 코드는 서버 문구를 쓰되 Jira 는 ITSM 으로 바꾼다', () => {
-    expect(displayMessage('SOME_NEW_CODE', '새 코드입니다. Jira 확인.')).toBe('새 코드입니다. ITSM 확인.')
-    expect(cleanServerText('Jiraffe')).toBe('Jiraffe') // 단어 일부는 건드리지 않는다
+    expect(displayMessage('SOME_NEW_CODE', '새 코드입니다. Jira 확인.')).toBe('새 코드입니다. ITSM 시스템 확인.')
+    expect(cleanServerText('Jiraffe')).toBe('Jiraffe')
+    expect(cleanServerText('JIRA 시스템 확인')).toBe('ITSM 시스템 확인') // 단어 일부는 건드리지 않는다
     expect(errorText('SOME_NEW_CODE')).toBeNull()
   })
 
@@ -70,7 +71,7 @@ describe('요청 클라이언트의 오류 문구', () => {
   it('사전에 없는 코드의 서버 문구에서 Jira 를 ITSM 으로 바꾼다', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => err('UNLISTED', 'Jira 작업 실패')))
     const r = await request('/x')
-    expect(!r.ok && r.error.message).toBe('ITSM 작업 실패')
+    expect(!r.ok && r.error.message).toBe('ITSM 시스템 작업 실패')
   })
 
   it('연결이 끊기면 조회는 "불러오지 못했어요", 변경 요청은 "처리 결과를 확인하지 못했어요"라고 한다 (처리 실패로 단정하지 않는다)', async () => {
