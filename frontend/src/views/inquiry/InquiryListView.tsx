@@ -3,7 +3,7 @@
  * (design/ITssue-Prototype.html 의 문의 내역과 같은 구성)
  *
  * 조건은 API 의 문의 목록 조건(IQ-02)으로 만들어 listInquiries 에 보낸다. 모의 모드에서는 같은 조건으로 걸러 주고,
- * 서버가 생기면 서버가 걸러 준다. 기간은 문의 시작일 기준이다. 미확인·미해결·미접수 종료 문의는 열면 이어가기 창이 뜬다.
+ * 서버가 목록을 필터링하며 기간은 문의 시작일 기준이다. 이어가기는 서버가 허용한 단계에서만 제공한다.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -178,7 +178,7 @@ export function InquiryListView() {
             <div className="eyebrow">MY INQUIRIES</div>
             <h1>내 문의를 한눈에 확인해요</h1>
             <p className="muted" style={{ marginTop: 4 }}>
-              진행 중인 문의와 해결된 문의를 상태별로 확인하세요. 해결 여부를 확인하지 않았거나 미해결·미접수로 종료한 문의는 다시 이어갈 수 있어요.
+              진행 중인 문의와 처리 결과를 상태별로 확인해요. 종료된 문의는 기록만 볼 수 있으며, 추가 문의는 새 문의로 시작해 주세요.
             </p>
           </div>
 

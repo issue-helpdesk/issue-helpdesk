@@ -15,9 +15,9 @@ import titleOps from '../../assets/mascot/title-ops.webp'
 import { formatDateTime } from '../../core/format'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
-import { watchTickets } from '../../api/tickets'
 import { listUsers } from '../../api/users'
 import { Pager } from '../../ui/Pager'
+import { Icon } from '../../ui/Icon'
 import { SelectBox } from '../../ui/SelectBox'
 import { StateBadge } from '../../ui/StateBadge'
 import { Topbar } from '../../ui/Topbar'
@@ -45,7 +45,10 @@ export function AuditLogView() {
   const [openId, setOpenId] = useState<number | null>(null)
   const [slide, setSlide] = useState(false)
   const [tick, setTick] = useState(0)
-  useEffect(() => watchTickets(() => setTick((n) => n + 1)), [])
+  const [settled, setSettled] = useState('')
+  const loadKey = JSON.stringify([user?.id, target, event, period, page, tick])
+  const loading = settled !== loadKey
+  const [asOf, setAsOf] = useState('')
   const openTicket = (id: number) => {
     if (openId === null) setSlide(true)
     setOpenId(id)
@@ -81,12 +84,14 @@ export function AuditLogView() {
       if (r.ok) {
         setData(r.data)
         setError('')
+        setAsOf(new Date().toISOString())
       } else setError(r.error.message)
+      setSettled(loadKey)
     })
     return () => {
       alive = false
     }
-  }, [user, admin, target, event, period, page])
+  }, [user, admin, target, event, period, page, tick, loadKey])
 
   if (user && !admin) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
   if (!user) return null
@@ -103,12 +108,20 @@ export function AuditLogView() {
       <Topbar title="운영 기록" sub="ITssue에서 일어난 주요 처리 기록" lead={<img className="tti" src={titleOps} alt="" width={56} height={56} />} />
       <div className="scroll">
         <div className="page">
-          <div className="phead">
-            <div className="eyebrow">AUDIT LOG</div>
-            <h1>운영 기록을 확인해요</h1>
-            <p className="muted" style={{ marginTop: 4 }}>
-              AI 판단·접수 확정·담당자 배정·실패 같은 주요 처리 기록이에요. 대화 원문은 남기지 않고 <b>결과와 사유</b>만 보여요.
-            </p>
+          <div className="phead audit-head">
+            <div>
+              <div className="eyebrow">AUDIT LOG</div>
+              <h1>운영 기록을 확인해요</h1>
+              <p className="muted" style={{ marginTop: 4 }}>
+                AI 판단·접수 확정·담당자 배정·실패 같은 주요 처리 기록이에요. 대화 원문은 남기지 않고 <b>결과와 사유</b>만 보여요.
+              </p>
+            </div>
+            <span className="small muted dsy">
+              {asOf && <span>마지막 조회 {formatDateTime(asOf)}</span>}
+              <button type="button" className="btn ghost sm" disabled={loading} onClick={() => setTick((n) => n + 1)}>
+                <Icon name="refresh" /> {loading ? '불러오는 중…' : '새로고침'}
+              </button>
+            </span>
           </div>
 
           <div className="aufil">

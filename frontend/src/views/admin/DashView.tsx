@@ -8,7 +8,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { CATEGORIES, URGENCY_LABEL, urgencyText } from '../../api/catalog'
 import type { CategoryCode } from '../../api/chatTypes'
 import { getDashSnapshot, searchTickets, type DashSnapshot } from '../../api/dash'
-import { countSecurityAlerts, watchSecurity, type SecCounts } from '../../api/security'
+import { watchSecurityCounts, type SecCounts } from '../../api/security'
 import { watchTickets } from '../../api/tickets'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
@@ -114,9 +114,7 @@ export function DashView() {
 
   useEffect(() => {
     if (!user || !admin) return
-    return watchSecurity(() => {
-      countSecurityAlerts(user).then(setSec)
-    })
+    return watchSecurityCounts(user, setSec)
   }, [user, admin])
 
   useEffect(() => {

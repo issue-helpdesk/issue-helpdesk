@@ -81,7 +81,7 @@ describe('민감정보 가리기', () => {
 
   it('가린 종류에 맞는 안내 문구를 만든다 (docs/10 6.1)', () => {
     expect(maskNotices(maskSensitive('인증번호: 123456'))).toEqual([MASK_NOTICE])
-    expect(maskNotices(maskSensitive('비밀번호는 abc12345'))[0]).toContain('비밀번호 재설정 포털에서 변경해 주세요')
+    expect(maskNotices(maskSensitive('비밀번호는 abc12345'))[0]).toContain('해당 서비스에서 비밀번호를 변경해 주세요')
     expect(maskNotices(maskSensitive('주민번호 900101-1234567'))).toEqual([MASK_NOTICE_IDENTITY])
     expect(maskNotices(maskSensitive('그냥 문장'))).toEqual([])
   })

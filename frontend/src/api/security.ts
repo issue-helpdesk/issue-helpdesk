@@ -8,6 +8,8 @@ import { request } from '../core/apiClient'
 import { serverAction, serverCounts, serverGet, serverList, serverPath } from './securityServer'
 import { USE_MOCK_INQUIRY } from '../core/config'
 import { nowIso } from '../core/format'
+import { visiblePoll } from '../core/poll'
+import { createSharedPoll } from '../core/sharedPoll'
 import { subscribe, notify } from './mock/chatStore'
 import { fail, ok, type ApiResult, type User } from './types'
 
@@ -68,11 +70,25 @@ export function resetSecurityMock() {
 resetSecurityMock()
 
 /** 보안 알림이 바뀔 때 알려 준다 (사이드바 배지·대시보드 띠가 다시 읽는다). 구독하자마자 한 번 알린다 */
-export function watchSecurity(onChange: () => void): () => void {
-  onChange()
-  const unsubscribe = subscribe(onChange)
-  const timer = USE_MOCK_INQUIRY ? undefined : window.setInterval(onChange, 30_000)
-  return () => { unsubscribe(); window.clearInterval(timer) }
+export function watchSecurity(onChange: () => void | Promise<void>): () => void {
+  let alive = true
+  let running = false
+  let again = false
+  const load = async (force = false) => {
+    if (!alive || !USE_MOCK_INQUIRY && document.visibilityState === 'hidden') return
+    if (running) { if (force) again = true; return }
+    running = true
+    try { await onChange() } catch {
+      // 조회 실패는 다음 주기나 탭 복귀에서 다시 확인한다.
+    } finally {
+      running = false
+      if (alive && again) { again = false; void load() }
+    }
+  }
+  void load()
+  const unsubscribe = subscribe(() => void load(true))
+  const stop = USE_MOCK_INQUIRY ? undefined : visiblePoll(() => void load(), 30_000, () => void load(true))
+  return () => { alive = false; unsubscribe(); stop?.() }
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -87,6 +103,24 @@ export interface SecCounts {
   /** 미종결 중 심각도 높음 */
   high: number
   total: number
+}
+
+/** 사이드바와 대시보드의 같은 관리자 건수 조회를 공유한다. */
+const countPolls = new Map<number, ReturnType<typeof createSharedPoll<SecCounts>>>()
+export function watchSecurityCounts(user: User, receive: (counts: SecCounts) => void): () => void {
+  if (user.serviceRole !== 'ADMIN') return () => {}
+  let poll = countPolls.get(user.id)
+  if (!poll) {
+    poll = createSharedPoll(() => countSecurityAlerts(user), 30_000, (a, b) => a.신규 === b.신규 && a['확인 중'] === b['확인 중'] && a.종결 === b.종결 && a.high === b.high && a.total === b.total)
+    countPolls.set(user.id, poll)
+  }
+  const stop = poll.watch(receive)
+  const off = subscribe(() => poll.refresh())
+  return () => {
+    off()
+    stop()
+    if (!poll.active && countPolls.get(user.id) === poll) countPolls.delete(user.id)
+  }
 }
 
 export interface SecPage { items: SecAlert[]; counts: SecCounts; page?: number; totalPages?: number; totalCount?: number }

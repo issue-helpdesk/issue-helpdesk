@@ -4,13 +4,14 @@
  * 문의자가 AI와 대화하며 해결하고, 해결되지 않으면 접수 초안을 확인해 담당자에게 연결한다.
  * 접수 이후에는 같은 화면에서 진행 카드(접수 → 담당자 배정 → 처리 중 → 해결 완료)를 보고,
  * 담당자가 처리 결과를 등록하면 해결 여부를 직접 확인한다.
- * 끝난 문의는 입력창을 잠그고 상태만 안내한다. 미확인·미해결·미접수 종료 문의는 열 때 이어가기 창이 뜨고(✕로 닫은 뒤에는
- * 잠긴 입력창을 누르면 다시 뜬다), AI 해결과 해결 완료 문의는 이어갈 수 없다.
+ * 끝난 문의는 입력창을 잠그고 상태만 안내한다. 이어가기는 서버가 허용한 단계에서만 제공하며,
+ * 담당자 연결을 거절하거나 접수를 취소해 종료한 문의는 새 문의로 안내한다.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { cancelChatDraft, isStaleInquiry, confirmChatDraft, editDraft, getChat, idleBackChat, idleDeleteChat, idleWarnChat, leaveChat, peekChat, rejectChat, replyChat, resolveChat, resumeChat, sendChat, watchChat } from '../../api/chat'
 import { IDLE_TEXT, type DraftEdit, type GuideSource, type Inquiry, type LegacyCase } from '../../api/chatTypes'
+import { LegacyCasePreview } from './LegacyCasePreview'
 import { displayStatusOf, inquiryState } from '../../api/inquiryState'
 import { markTicketRead, refreshUnread } from '../../api/notifications'
 import { syncTicket } from '../../api/tickets'
@@ -508,25 +509,7 @@ export function ChatView() {
       {modal?.kind === 'source' && <SourcePreview source={modal.source} demo={USE_MOCK_INQUIRY} onClose={() => setModal(null)} />}
 
       {modal?.kind === 'legacy' && (
-        <Modal title={`과거 처리 사례 · ${modal.legacy.no}`} onClose={() => setModal(null)}>
-          <p className="small muted">도입 이전 처리 이력 (읽기 전용, 시연용 가상 데이터)</p>
-          <div className="card w">
-            <b>{modal.legacy.title}</b>
-            <dl className="dl" style={{ marginTop: 8 }}>
-              <dt>증상</dt>
-              <dd>{modal.legacy.symptom}</dd>
-              <dt>해결 방법</dt>
-              <dd>{modal.legacy.solution}</dd>
-              <dt>활용 원칙</dt>
-              <dd>현재 Guide·정책과 충돌하지 않을 때만 참고하고, 충돌하면 Guide를 우선해요.</dd>
-            </dl>
-          </div>
-          <div className="acts">
-            <button type="button" className="btn pri" onClick={() => setModal(null)}>
-              닫기
-            </button>
-          </div>
-        </Modal>
+        <LegacyCasePreview legacy={modal.legacy} onClose={() => setModal(null)} />
       )}
 
       {/* 삭제 전에 돌아왔을 때: 채팅 영역 가운데 창에서 고를 때까지 뒤 화면은 어둡고 흐리게 막는다. 새 문의를 시작해도 이전 문의는 지우지 않는다. */}

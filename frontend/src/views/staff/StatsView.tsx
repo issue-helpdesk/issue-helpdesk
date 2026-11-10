@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { Urgency, WorkStatus } from '../../api/chatTypes'
-import { getStatsSource, watchTickets } from '../../api/tickets'
+import { getStatsSource } from '../../api/tickets'
 import type { ApiResult, User } from '../../api/types'
 import type { TicketSummary } from '../../api/ticketTypes'
 import titleOps from '../../assets/mascot/title-ops.webp'
@@ -506,22 +506,13 @@ export function StatsView() {
   const [per, setPer] = useState<Per>('m')
   const [unit, setUnit] = useState<Unit>(UDEF.m)
   const [member, setMember] = useState<string | null>(null)
-  const [tick, setTick] = useState(0)
-  // watchTickets 는 구독하자마자 한 번 알리므로 처음 알림은 건너뛴다 (구역은 이미 읽는 중이다)
-  useEffect(() => {
-    let first = true
-    return watchTickets(() => {
-      if (first) first = false
-      else setTick((n) => n + 1)
-    })
-  }, [])
-
   const scope = team ? 'team' : 'me'
   const unitNow = UNITS[per].includes(unit) ? unit : UDEF[per]
   // 상태별 현황·팀원별 진행도는 서버 집계(내 접수와 내 팀), 추이·긴급도는 접수 목록으로 센다
   const loadMineCb = useCallback((u: User) => loadMine(u, per), [per])
-  const mine = useSection('ovme', per, tick, loadMineCb)
-  const trend = useSection('trend', `${per}|${scope}|${unitNow}`, tick)
+  // 통계는 재진입·조회 조건 변경·구역별 새로고침 때 읽는다.
+  const mine = useSection('ovme', per, 0, loadMineCb)
+  const trend = useSection('trend', `${per}|${scope}|${unitNow}`, 0)
   const uid = user?.id ?? 0
 
   const trendWin = useMemo(() => windowOf(trend, per, team, uid), [trend, per, team, uid])
