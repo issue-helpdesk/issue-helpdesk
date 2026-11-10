@@ -1,6 +1,6 @@
 /**
  * 관리자 대시보드 (/dash). (design/ITssue-Prototype.html viewDash)
- * 처리 현황(건수), 연동·배정 확인 띠, 긴급·높음 미해결 상위 3건을 한 화면에 모은다.
+ * 처리 현황(건수), 연동·배정 확인 띠, 긴급 미해결 상위 3건을 한 화면에 모은다.
  * 건수와 띠는 전체 문의·운영 현황의 해당 조건으로 이어진다. 검색하면 대시보드 대신 검색 결과만 보인다.
  */
 import { useCallback, useEffect, useState } from 'react'
@@ -309,13 +309,13 @@ export function DashView() {
                   </div>
                 </Section>
 
-                <section className="panel urg" aria-label="긴급·높음 미해결" style={{ padding: '22px 24px' }}>
+                <section className="panel urg" aria-label="긴급 미해결" style={{ padding: '22px 24px' }}>
                   <div className="sech">
                     <div>
-                      <h2 className="sht">긴급·높음 미해결</h2>
-                      <p className="shs">긴급도가 높은 문의 중 처리 대기·처리 중인 문의</p>
+                      <h2 className="sht">긴급 미해결</h2>
+                      <p className="shs">긴급 문의 중 처리 대기·처리 중인 문의</p>
                     </div>
-                    <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P12&st=open')}>
+                    <button type="button" className="btn ghost sm" onClick={() => navigate('/tickets?pri=P1&st=open')}>
                       전체 문의에서 보기
                     </button>
                   </div>
@@ -337,11 +337,11 @@ export function DashView() {
                         ))}
                       </div>
                       <p className="small muted" style={{ marginTop: 10 }}>
-                        긴급 → 높음 순, 접수가 오래된 순으로 3건만 보여요.
+                        긴급 문의 중 접수가 오래된 순으로 3건만 보여요.
                       </p>
                     </>
                   ) : (
-                    <div className="empty">처리 대기·처리 중인 긴급·높음 문의가 없어요.</div>
+                    <div className="empty">처리 대기·처리 중인 긴급 문의가 없어요.</div>
                   )}
                 </section>
 

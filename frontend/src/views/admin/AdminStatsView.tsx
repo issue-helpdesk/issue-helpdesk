@@ -5,11 +5,10 @@
  * 값은 서버 운영 집계(OP-01)와 문의 목록(IQ-02)이다. 서버 집계는 선택 기간(접수한 날 기준)의 티켓을 센다. 모의 모드는 접수 목록으로 같은 모양의 값을 만든다.
  * 분류별 진행도와 개인별 분류 분포는 서버 집계에 분류별 상태 건수가 없어 두지 않는다. (요청 R-01)
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { getAdminStatsSource, type AdminStatKey, type StatCounts, type StatsOverview } from '../../api/adminStats'
 import type { AiPage } from '../../api/inquiries'
-import { watchTickets } from '../../api/tickets'
 import titleOps from '../../assets/mascot/title-ops.webp'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
@@ -27,12 +26,12 @@ type Counts = AiPage['counts']
 
 const ZERO: StatCounts = { RDY: 0, WIP: 0, FIN: 0, CLS: 0 }
 
-function Kpi({ label, n, to, dot, cls, hint, aria }: { label: string; n: number; to?: string; dot?: string; cls?: string; hint?: string; aria?: string }) {
+function Kpi({ label, n, to, dot, ring, cls, hint, aria }: { label: string; n: number; to?: string; dot?: string; ring?: boolean; cls?: string; hint?: string; aria?: string }) {
   const navigate = useNavigate()
   const body = (
     <>
       <div className="l">
-        {dot && <i className="dt" style={{ background: dot }} />}
+        {dot && <i className="dt" aria-hidden="true" style={{ background: ring ? 'transparent' : dot, ...(ring ? { border: `2px solid ${dot}` } : {}) }} />}
         {label}
       </div>
       <div className="v">
@@ -97,16 +96,6 @@ export function AdminStatsView() {
   const [unit, setUnit] = useState<Unit>(UDEF.m)
   const [sel, setSel] = useState<string | null>(null)
   const [member, setMember] = useState<string | null>(null)
-  const [tick, setTick] = useState(0)
-  // watchTickets 는 구독하자마자 한 번 알리므로 처음 알림은 건너뛴다
-  useEffect(() => {
-    let first = true
-    return watchTickets(() => {
-      if (first) first = false
-      else setTick((n) => n + 1)
-    })
-  }, [])
-
   const admin = user?.serviceRole === 'ADMIN'
   const unitNow = UNITS[per].includes(unit) ? unit : UDEF[per]
   const loadAi = useCallback((u: NonNullable<typeof user>) => getAdminStatsSource(u, 'ai' as AdminStatKey, per), [per])
@@ -114,9 +103,10 @@ export function AdminStatsView() {
   const loadMain = useCallback((u: NonNullable<typeof user>) => loadOverview(u, per, 'd'), [per])
   const loadTrend = useCallback((u: NonNullable<typeof user>) => loadOverview(u, per, unitNow), [per, unitNow])
 
-  const ai = useSection('ai', per, tick, loadAi)
-  const main = useSection('ov', per, tick, loadMain)
-  const trend = useSection('ovt', `${per}|${unitNow}`, tick, loadTrend)
+  // 통계는 주기 조회하지 않는다. 화면 재진입·조회 조건 변경·구역별 새로고침 때만 읽는다.
+  const ai = useSection('ai', per, 0, loadAi)
+  const main = useSection('ov', per, 0, loadMain)
+  const trend = useSection('ovt', `${per}|${unitNow}`, 0, loadTrend)
   const tip = useStatTip()
 
   if (user && !admin) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
@@ -206,9 +196,9 @@ export function AdminStatsView() {
 
             <Section title="AI 상담 결과" kind="ai" sec={ai} note="티켓이 만들어지지 않은 문의 · 문의를 시작한 날 기준이에요.">
               <div className="sk" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))' }}>
-                <Kpi label="AI 해결" n={counts?.ok ?? 0} to={`/tickets?mode=ai&aik=ok&${q}`} aria={`AI 해결 ${counts?.ok ?? 0}건. AI 해결 목록 보기`} hint="AI 답변으로 해결된 문의" />
-                <Kpi label="해결 확인 대기 (AI 답변 후)" n={counts?.pend ?? 0} to={`/tickets?mode=ai&aik=pend&${q}`} aria={`해결 확인 대기 ${counts?.pend ?? 0}건. 해당 목록 보기`} hint="미확인 · 해결·미해결을 아직 고르지 않았어요" />
-                <Kpi label="미연결 종료" n={counts?.unr ?? 0} to={`/tickets?mode=ai&aik=unr&${q}`} aria={`미연결 종료 ${counts?.unr ?? 0}건. 해당 목록 보기`} hint="해결되지 않고 끝난 문의 (접수하지 않고 끝낸 문의 포함)" />
+                <Kpi label="AI 해결" dot="var(--s-ok-dot)" n={counts?.ok ?? 0} to={`/tickets?mode=ai&aik=ok&${q}`} aria={`AI 해결 ${counts?.ok ?? 0}건. AI 해결 목록 보기`} hint="AI 답변으로 해결된 문의" />
+                <Kpi label="해결 확인 대기 (AI 답변 후)" dot="var(--s-need-dot)" n={counts?.pend ?? 0} to={`/tickets?mode=ai&aik=pend&${q}`} aria={`해결 확인 대기 ${counts?.pend ?? 0}건. 해당 목록 보기`} hint="미확인 · 해결·미해결을 아직 고르지 않았어요" />
+                <Kpi label="미연결 종료" dot="var(--s-recv-dot)" ring n={counts?.unr ?? 0} to={`/tickets?mode=ai&aik=unr&${q}`} aria={`미연결 종료 ${counts?.unr ?? 0}건. 해당 목록 보기`} hint="해결되지 않고 끝난 문의 (접수하지 않고 끝낸 문의 포함)" />
               </div>
               <p className="small muted secnote">담당자 처리(티켓)와는 따로 세요. AI 해결과 해결 완료는 합치지 않아요.</p>
             </Section>

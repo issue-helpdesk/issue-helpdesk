@@ -27,7 +27,7 @@ function renderAs(employeeNo: string, path: string) {
 const admin = (): User => MOCK_ACCOUNTS.find((u) => u.employeeNo === 'EMP-1178')!
 
 describe('대시보드 API (모의)', () => {
-  it('상태별 건수, 연동·배정 확인 원인별 건수, 긴급·높음 미해결 상위 3건을 준다', async () => {
+  it('상태별 건수, 연동·배정 확인 원인별 건수, 긴급 미해결 상위 3건을 준다', async () => {
     const r = await getDashSnapshot(admin())
     expect(r.ok).toBe(true)
     if (!r.ok) return
@@ -40,9 +40,10 @@ describe('대시보드 API (모의)', () => {
     expect(a.assign).toBe(2)
     const u = r.data.unresolved
     expect(u.total).toBe(u.p1 + u.p2)
-    expect(u.top).toHaveLength(3)
-    // P1 이 먼저
-    expect(u.top[0].urgency).toBe('P1')
+    expect(u.top).toHaveLength(Math.min(3, u.total))
+    // 높음(P2)은 긴급 미해결 건수와 목록 모두에서 제외한다.
+    expect(u.p2).toBe(0)
+    expect(u.top.every((t) => t.urgency === 'P1')).toBe(true)
     // 처리 대기·처리 중만 (해결 확인 대기·ITSM 생성 전 건은 넣지 않는다)
     expect(u.top.every((t) => t.workStatus === 'RDY' || t.workStatus === 'WIP')).toBe(true)
   })
@@ -64,9 +65,9 @@ describe('대시보드 화면', () => {
     expect(await screen.findByRole('region', { name: '연동·배정 확인 필요' }, SLOW)).toBeInTheDocument()
     // ITSM 댓글·멘션 알림은 이번 기능에서 제외했다
     expect(screen.queryByRole('region', { name: '확인할 ITSM 알림' })).toBeNull()
-    const urg = screen.getByRole('region', { name: '긴급·높음 미해결' })
-    await waitFor(() => expect(urg.querySelectorAll('.orow')).toHaveLength(3), SLOW)
-    // 긴급도 분포는 긴급·높음 미해결 카드 바로 위에 있다
+    const urg = screen.getByRole('region', { name: '긴급 미해결' })
+    await waitFor(() => expect(urg.querySelectorAll('.orow')).toHaveLength(2), SLOW)
+    // 긴급도 분포는 긴급 미해결 카드 바로 위에 있다
     const dist = await screen.findByRole('region', { name: '긴급도 분포' }, SLOW)
     expect(dist.compareDocumentPosition(urg) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(await within(dist).findByRole('button', { name: /^긴급 [0-9]+건/ }, SLOW)).toBeInTheDocument()

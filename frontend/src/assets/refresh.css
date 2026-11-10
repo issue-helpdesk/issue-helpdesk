@@ -274,7 +274,8 @@
 
 /* ---- 목록 표 열 너비 고정: 필터를 바꿔 내용이 달라져도 열 폭이 흔들리지 않게 한다 ---- */
 
-.tbl.fx{table-layout:fixed;width:100%}
+/* 좁은 화면·상세 패널 옆에서도 열을 읽을 수 있게 유지하고, 바깥 .tw 안에서 좌우로 스크롤한다. */
+.tbl.fx{table-layout:fixed;width:100%;min-width:760px}
 
 .tbl.fx td .lk{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 
