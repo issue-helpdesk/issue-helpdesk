@@ -24,7 +24,7 @@ const inquiry = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 const msg = (id: number, sender: string, content: string, sources: unknown[] = []) => ({ id, sessionId: 140, seq: id, sender, content, sources, createdAt: '2026-10-21T10:12:03+09:00' })
-const DOC = { id: 77, sourceKind: 'DOCUMENT', docCode: 'IT-NET-001', version: 'v1.2', location: '3.2', excerpt: '3.2 업데이트 후 접속 불가', rank: 1 }
+const DOC = { id: 77, sourceKind: 'DOCUMENT', docCode: 'IT-NET-001', title: 'VPN 접속 장애 대응 가이드', version: 'v1.2', location: '3.2', excerpt: '3.2 업데이트 후 접속 불가', rank: 1 }
 const LEGACY = { id: 78, sourceKind: 'LEGACY', docCode: null, version: null, location: null, excerpt: '재설치 후 정상 접속 확인', rank: 2 }
 
 let fetchMock: ReturnType<typeof vi.fn>
@@ -81,7 +81,7 @@ describe('서버 모드 문의 시작·읽기', () => {
     expect(r.data.messages.map((m) => m.role)).toEqual(['user', 'assistant'])
     const a = r.data.messages[1]
     expect(a.blocks).toEqual([{ type: 'p', text: '다음을 확인해 주세요.' }, { type: 'ol', items: ['클라이언트를 다시 설치해요.', 'PC 를 재부팅해요.'] }, { type: 'p', text: '그래도 안 되면 알려 주세요.' }])
-    expect(a.sources).toEqual([{ docCode: 'IT-NET-001', title: '', version: 'v1.2', section: '3.2', excerpt: '3.2 업데이트 후 접속 불가' }])
+    expect(a.sources).toEqual([{ docCode: 'IT-NET-001', title: 'VPN 접속 장애 대응 가이드', version: 'v1.2', section: '3.2', excerpt: '3.2 업데이트 후 접속 불가' }])
     expect(a.legacy).toMatchObject({ title: '과거 처리 사례 참고', solution: '재설치 후 정상 접속 확인' })
     expect(a.replies?.map((x) => x.action)).toEqual(['resolved', 'unresolved']) // 해결·미해결 버튼은 마지막 AI 답변에만
   })

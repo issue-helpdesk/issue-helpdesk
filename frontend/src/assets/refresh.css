@@ -205,7 +205,9 @@
 
 /* ---- 출처 목록(같은 가이드는 제목 한 번) · 추천 FAQ 카드 ---- */
 
-.srcl{display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px 10px;color:var(--mute)}
+.srcl{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px 12px;color:var(--mute)}
+/* 4px spacing scale: separate a preceding source button from the grouped source list. */
+.src + .srcl{margin-top:16px}
 
 .srcl-k{font-weight:600;color:var(--ink2);line-height:28px}
 

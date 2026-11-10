@@ -409,7 +409,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
                   />
                   {pending && (
                     <div className="small muted" style={{ marginTop: 8 }} role="status">
-                      ITSM 반영을 확인하는 중이에요. 확인되면 상태가 바뀌어요.
+                      ITSM 시스템 반영을 확인하고 있어요. 확인되면 상태가 바뀌어요.
                     </div>
                   )}
                   {mine && t.workStatus === 'FIN' && (

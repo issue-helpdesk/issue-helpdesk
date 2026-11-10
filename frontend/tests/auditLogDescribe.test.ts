@@ -14,6 +14,7 @@ describe('이벤트 사전', () => {
       'SECURITY_ALERT_CLOSE',
       'SECURITY_ALERT_VIEW',
       'SENSITIVE_INPUT',
+      'SECURITY_REVIEW',
       'BLOCK',
       'FAIL',
       'URGENT_CLOSED',
@@ -124,5 +125,14 @@ describe('describeAudit', () => {
     expect(d('SOMETHING_NEW', 'X', '사유')).toEqual({ name: '', out: 'X', reason: '사유' })
     expect(d('INTEGRATION_RETRY', 'NEW_VALUE').out).toBe('NEW_VALUE')
     expect(d('FAIL', null).out).toBe('')
+  })
+})
+
+
+describe('보안 검토 기록', () => {
+  it('보안 검토 유형은 설명으로 표시하고 알 수 없는 값은 보존한다', () => {
+    expect(d('SECURITY_REVIEW', 'S01').out).toBe('보안 사고 의심')
+    expect(d('SECURITY_REVIEW', 'S06').out).toBe('AI 통제 우회 요청')
+    expect(d('SECURITY_REVIEW', 'S99').out).toBe('S99')
   })
 })

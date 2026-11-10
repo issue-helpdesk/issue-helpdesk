@@ -9,6 +9,7 @@
  * 모의 모드는 서버가 주는 모양 그대로의 시연 기록 24건으로 같은 조건을 걸러 준다.
  */
 import { request } from '../core/apiClient'
+import { cleanServerText } from './errorText'
 import { findStaffTicket } from './mock/staffTickets'
 import { USE_MOCK_OPS } from '../core/config'
 import type { Page } from './inquiries'
@@ -46,6 +47,7 @@ export const EVENT_LABEL: Record<string, { label: string; tone: string }> = {
   SECURITY_ALERT_VIEW: { label: '보안 알림 문의 열람', tone: 'recv' },
   // 문의
   SENSITIVE_INPUT: { label: '민감정보 가림', tone: 'recv' },
+  SECURITY_REVIEW: { label: '보안 검토 감지', tone: 'warn' },
   BLOCK: { label: '근거 차단', tone: 'urg' },
   FAIL: { label: 'AI 실패', tone: 'urg' },
   URGENT_CLOSED: { label: '긴급 건 종료', tone: 'warn' },
@@ -97,7 +99,7 @@ interface AuditText {
 export function describeAudit(x: Pick<AuditLog, 'eventType' | 'result' | 'reason'>): AuditText {
   const res = x.result ?? ''
   const reason = x.reason ?? ''
-  const t = (name: string, out: string, why = reason): AuditText => ({ name, out, reason: why })
+  const t = (name: string, out: string, why = reason): AuditText => ({ name, out: cleanServerText(out), reason: cleanServerText(why) })
   switch (x.eventType) {
     case 'SECURITY_ALERT_REVIEW':
     case 'SECURITY_ALERT_CLOSE':
@@ -124,6 +126,8 @@ export function describeAudit(x: Pick<AuditLog, 'eventType' | 'result' | 'reason
     case 'FAIL':
       // 사유 앞의 "④ "는 서버 내부의 민감정보 필터 적용 지점 번호라 관리자에게는 뜻이 없어 뗀다 (docs/api/06 확인 문구 4번)
       return t('', { FILTER_FAILED: '민감정보 필터 실패', AI_FAILED: 'AI 답변 실패' }[res] ?? res, reason.replace(/^[①-⑳]\s*/, ''))
+    case 'SECURITY_REVIEW':
+      return t('', ({ S01: '보안 사고 의심', S02: '권한·승인 우회 요청', S03: '보안 통제 해제·기록 은폐 요청', S04: '제한 정보 추출 요청', S05: '자료 반출 우회 요청', S06: 'AI 통제 우회 요청' } as Record<string, string>)[res] ?? res)
     case 'SENSITIVE_INPUT':
       return t('', `가린 항목: ${SENSITIVE_LABEL[res] ?? res}`)
     case 'URGENT_CLOSED':
