@@ -4,11 +4,12 @@
  * 관리자만 열 수 있다. 서버는 page·size(최대 100)·sort(createdAt,desc)·eventType(반복)·targetType·targetId·actorId·createdFrom/To 를 받는다.
  *
  * 서버가 주는 값은 영문 코드(eventType)와 코드·내부 번호(result·targetId)라서, 화면 말은 이 파일의 사전(EVENT_LABEL)과
- * describeAudit()으로 바꾼다. 사전은 서버가 지금 운영 기록에 남기는 20가지 이벤트 기준이다 (backend services 의 audit_logs.add 호출).
+ * describeAudit()으로 바꾼다. 사전은 서버의 운영 기록 이벤트를 기준으로 한다 (backend services 의 audit_logs.add 호출).
  * 서버에 새 이벤트가 생기면 여기에 한 줄 추가한다. 사전에 없는 이벤트·값은 서버가 준 글 그대로 보여 준다.
  * 모의 모드는 서버가 주는 모양 그대로의 시연 기록 24건으로 같은 조건을 걸러 준다.
  */
 import { request } from '../core/apiClient'
+import { cleanServerText } from './errorText'
 import { findStaffTicket } from './mock/staffTickets'
 import { USE_MOCK_OPS } from '../core/config'
 import type { Page } from './inquiries'
@@ -33,15 +34,20 @@ export interface AuditLog {
 }
 
 /** 대상 종류 (서버 값 → 화면 말) */
-export const TARGET_LABEL: Record<string, string> = { inquiry: '문의', ticket: '접수', document: '문서', user: '사용자', faq: 'FAQ' }
-export const TARGET_KINDS = ['inquiry', 'ticket', 'document', 'user', 'faq'] as const
+export const TARGET_LABEL: Record<string, string> = { inquiry: '문의', ticket: '접수', document: '문서', user: '사용자', faq: 'FAQ', guide_cluster: 'AI 가이드 제안', security_alert: '보안 알림' }
+export const TARGET_KINDS = ['inquiry', 'ticket', 'document', 'user', 'faq', 'guide_cluster', 'security_alert'] as const
 /**
- * 이벤트 → 화면 이름·배지 색 (서버가 남기는 20가지, 대상별로 묶어 둔다). 선택 상자도 이 순서로 보인다.
+ * 이벤트 → 화면 이름·배지 색 (대상별로 묶어 둔다). 선택 상자도 이 순서로 보인다.
  * 서버 코드는 화면에서 이름 아래에 작게 같이 보여 준다.
  */
 export const EVENT_LABEL: Record<string, { label: string; tone: string }> = {
+  // 보안 알림 관리 API가 남기는 처리 기록이다.
+  SECURITY_ALERT_REVIEW: { label: '보안 알림 확인 시작', tone: 'prog' },
+  SECURITY_ALERT_CLOSE: { label: '보안 알림 종결', tone: 'ok' },
+  SECURITY_ALERT_VIEW: { label: '보안 알림 문의 열람', tone: 'recv' },
   // 문의
   SENSITIVE_INPUT: { label: '민감정보 가림', tone: 'recv' },
+  SECURITY_REVIEW: { label: '보안 검토 감지', tone: 'warn' },
   BLOCK: { label: '근거 차단', tone: 'urg' },
   FAIL: { label: 'AI 실패', tone: 'urg' },
   URGENT_CLOSED: { label: '긴급 건 종료', tone: 'warn' },
@@ -55,6 +61,13 @@ export const EVENT_LABEL: Record<string, { label: string; tone: string }> = {
   DOCUMENT_VERSION_ACTIVATE: { label: '현행 버전 전환', tone: 'prog' },
   DOCUMENT_VERSION_RETRY: { label: '버전 재처리', tone: 'asg' },
   DOCUMENT_POLICY_CHANGE: { label: '열람·전송 정책 변경', tone: 'warn' },
+  // 해결 사례 가이드화: 예전 단건 등록 기록과 현재 묶음 검토 기록을 함께 지원한다.
+  CASE_GUIDE_REGISTER: { label: '해결 사례 가이드 등록', tone: 'ok' },
+  GUIDE_CLUSTER_REGISTER: { label: 'AI 가이드 초안 등록', tone: 'ok' },
+  GUIDE_CLUSTER_REBASE: { label: 'AI 제안 기준 다시 맞추기', tone: 'prog' },
+  GUIDE_CLUSTER_TARGET_CHANGE: { label: 'AI 제안 넣을 문서 변경', tone: 'prog' },
+  GUIDE_CLUSTER_REJECT: { label: 'AI 제안 반영 안함', tone: 'recv' },
+  GUIDE_CLUSTER_APPLY: { label: 'AI 제안 직접 반영 표시', tone: 'ok' },
   // 사용자
   USER_CREATE: { label: '계정 생성', tone: 'ok' },
   USER_ROLE_CHANGE: { label: '역할 변경', tone: 'prog' },
@@ -86,8 +99,12 @@ interface AuditText {
 export function describeAudit(x: Pick<AuditLog, 'eventType' | 'result' | 'reason'>): AuditText {
   const res = x.result ?? ''
   const reason = x.reason ?? ''
-  const t = (name: string, out: string, why = reason): AuditText => ({ name, out, reason: why })
+  const t = (name: string, out: string, why = reason): AuditText => ({ name, out: cleanServerText(out), reason: cleanServerText(why) })
   switch (x.eventType) {
+    case 'SECURITY_ALERT_REVIEW':
+    case 'SECURITY_ALERT_CLOSE':
+    case 'SECURITY_ALERT_VIEW':
+      return t('', ({ REVIEW: '확인 시작', CLOSE: '종결', VIEW_ORIGINAL: '저장된 문의 열람' } as Record<string, string>)[res] ?? res)
     case 'CONFIRM':
       return t(res, '접수 확정')
     case 'DOCUMENT_ACTIVATE':
@@ -109,6 +126,8 @@ export function describeAudit(x: Pick<AuditLog, 'eventType' | 'result' | 'reason
     case 'FAIL':
       // 사유 앞의 "④ "는 서버 내부의 민감정보 필터 적용 지점 번호라 관리자에게는 뜻이 없어 뗀다 (docs/api/06 확인 문구 4번)
       return t('', { FILTER_FAILED: '민감정보 필터 실패', AI_FAILED: 'AI 답변 실패' }[res] ?? res, reason.replace(/^[①-⑳]\s*/, ''))
+    case 'SECURITY_REVIEW':
+      return t('', ({ S01: '보안 사고 의심', S02: '권한·승인 우회 요청', S03: '보안 통제 해제·기록 은폐 요청', S04: '제한 정보 추출 요청', S05: '자료 반출 우회 요청', S06: 'AI 통제 우회 요청' } as Record<string, string>)[res] ?? res)
     case 'SENSITIVE_INPUT':
       return t('', `가린 항목: ${SENSITIVE_LABEL[res] ?? res}`)
     case 'URGENT_CLOSED':
@@ -122,6 +141,18 @@ export function describeAudit(x: Pick<AuditLog, 'eventType' | 'result' | 'reason
       const m = res.match(/^(\S+) (\w+)\/(\w+) → (\w+)\/(\w+)$/)
       return t('', m ? `${m[1]} · 열람 ${SCOPE_LABEL[m[2]] ?? m[2]} → ${SCOPE_LABEL[m[4]] ?? m[4]} / 외부 전송 ${POLICY_LABEL[m[3]] ?? m[3]} → ${POLICY_LABEL[m[5]] ?? m[5]}` : res)
     }
+    case 'CASE_GUIDE_REGISTER':
+      return t('', res)
+    case 'GUIDE_CLUSTER_REGISTER':
+    case 'GUIDE_CLUSTER_REBASE':
+    case 'GUIDE_CLUSTER_TARGET_CHANGE':
+    case 'GUIDE_CLUSTER_REJECT':
+    case 'GUIDE_CLUSTER_APPLY':
+      // 결과의 알려진 코드만 바꾸고, 버전·내부 번호·모르는 값과 사유는 원문을 유지한다.
+      return t('', res.replace(/\b(ADD_ITEM|CHANGE|NEW_GUIDE|MANUAL_CANDIDATE|SEC_MANUAL|REVIEWING|REJECTED|APPLIED)\b/g, (code) => ({
+        ADD_ITEM: '항목 추가', CHANGE: '항목 변경', NEW_GUIDE: '새 가이드', MANUAL_CANDIDATE: '매뉴얼 후보',
+        SEC_MANUAL: '보안 사고 직접 검토', REVIEWING: '검토 중', REJECTED: '반영 안함', APPLIED: '반영 완료',
+      })[code] ?? code))
     case 'USER_CREATE':
       return t('', `계정 생성 (역할: ${ROLE_LABEL[res as ServiceRole] ?? res})`)
     case 'USER_ROLE_CHANGE':

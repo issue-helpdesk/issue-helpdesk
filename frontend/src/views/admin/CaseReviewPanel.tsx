@@ -123,7 +123,8 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
   const srv = CASES_FROM_SERVER
   const waiting = srv && !c.server?.detail
   const canEdit = review && (!srv || !!c.server?.hasDraft)
-  const changed = baseChanged(c) && c.state === 'review'
+  // 등록 후에도 현행이 바뀔 수 있다. 이때도 최신 기준으로 다시 맞출 수 있어야 한다.
+  const changed = baseChanged(c) && (review || (srv && !!c.registered && c.state !== 'live' && c.state !== 'applied' && c.state !== 'dropped'))
   const todo = srv && c.kind === 'new' && review ? todoChapters(after) : []
   const info = c.server?.info
   // 서버 연결: 등록할 수 없는 이유 (있으면 단추를 막고 이유를 보여 준다)
@@ -241,7 +242,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
   return (
     <>
       <aside
-        className={`detail crev${wide ? ' wide' : ''}${!slid && !leaving ? ' slide' : ''}${leaving ? ' leave' : ''}`}
+        className={`detail crev${c.kind === 'sec' ? ' case-sec' : ''}${wide ? ' wide' : ''}${!slid && !leaving ? ' slide' : ''}${leaving ? ' leave' : ''}`}
         role="complementary"
         aria-label="가이드 초안 검토"
         onAnimationEnd={() => {
@@ -439,10 +440,10 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
             </div>
           </section>
 
-          <section className="cgs" aria-label="AI 판단">
-            <h3>AI 판단</h3>
+          <section className="cgs" aria-label={c.kind === 'sec' ? '검토 안내' : 'AI 판단'}>
+            <h3>{c.kind === 'sec' ? '검토 안내' : 'AI 판단'}</h3>
             {/* 판단 이유는 티켓마다 한 줄씩 줄바꿈으로 온다 */}
-            {c.reason.split('\n').filter((l) => l.trim()).map((l) => (
+            {(c.kind === 'sec' ? '보안 사고 사례는 자동 가이드화 대상에서 제외돼요.' : c.reason).split('\n').filter((l) => l.trim()).map((l) => (
               <p key={l} style={{ margin: '0 0 6px' }}>
                 {l}
               </p>
@@ -480,7 +481,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
 
           <section className="cgs" aria-label="가이드 내용">
             <h3>{c.kind === 'amend' ? (c.before !== undefined ? '기존 내용과 AI 수정 제안' : 'AI 수정 제안') : c.kind === 'new' ? '신규 가이드 초안' : c.kind === 'sec' ? '보안 사고 사례' : '매뉴얼 후보'}</h3>
-            {srv && !c.server?.hasDraft ? (
+            {srv && !c.server?.hasDraft && c.kind !== 'sec' ? (
               <>
                 {info?.manualNote ? (
                   <div className="field">
@@ -491,7 +492,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
                   <p className="small muted" style={{ margin: '0 0 8px' }}>AI가 정리한 내용이 없어요. 근거 티켓을 보고 판단해 주세요.</p>
                 )}
                 {(info?.manualItems.length ?? 0) > 0 && (
-                  <div className="field">
+                  <div className="field" style={{ marginTop: 20 }}>
                     <div className="asl">가까운 매뉴얼 항목</div>
                     <ul className="cgw">
                       {info?.manualItems.map((m) => (
@@ -540,7 +541,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
               </>
             ) : c.kind === 'sec' ? (
               <p style={{ margin: 0 }}>
-                의심 사고 티켓 <b>{c.ticketCount}건</b>이 접수되어 해결됐어요. 처리 방법을 <b>가이드나 매뉴얼에 남길지</b> 위 근거 티켓을 보고 판단해 주세요. AI가 만든 초안은 없어요.
+                근거 티켓의 처리 내용을 확인해 <b>가이드나 매뉴얼에 직접 반영할지</b> 판단해 주세요.
                 <span className="small muted" style={{ display: 'block', marginTop: 6 }}>가이드나 매뉴얼에 직접 반영했다면 "가이드·매뉴얼에 반영했어요"를, 남길 필요가 없다면 "반영 안함"을 눌러 주세요.</span>
               </p>
             ) : c.kind === 'manual' ? (
@@ -665,12 +666,12 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
           {c.state === 'ready' && (
             <>
               {srv && (
-                <button type="button" className="btn sec" disabled={busy} title="같은 버전에 거절한 제안이 들어 있을 때, 거절한 항목을 빼고 이 버전을 다시 만들어요." onClick={() => setSetOpen(true)}>
+                <button type="button" className="btn sec" disabled={busy || changed} title={changed ? '다시 맞추기로 최신 현행 기준을 먼저 확인해 주세요.' : '같은 버전에 거절한 제안이 들어 있을 때, 거절한 항목을 빼고 이 버전을 다시 만들어요.'} onClick={() => setSetOpen(true)}>
                   거절한 항목 빼고 다시 등록
                 </button>
               )}
               <span style={{ flex: 1 }} />
-              <button type="button" className="btn pri" onClick={() => onGoLive(c)}>
+              <button type="button" className="btn pri" disabled={changed} title={changed ? '다시 맞추기로 최신 현행 기준을 먼저 확인해 주세요.' : undefined} onClick={() => onGoLive(c)}>
                 현행으로 전환
               </button>
             </>

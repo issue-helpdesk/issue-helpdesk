@@ -163,6 +163,59 @@ def test_different_existing_account_is_not_overwritten_and_reservation_is_releas
     assert len(db.scalars(select(AssignmentLog).where(AssignmentLog.event == "FAIL")).all()) == 1
 
 
+NEXT_ACCOUNT = "next-account"
+
+
+def reserve_reassignment(db, group_id=3):
+    """Jira 에 18번이 배정된 접수를 20번에게 넘기는 TK-09 예약."""
+    if group_id != 3:
+        db.add(SupportGroup(id=group_id, name="시스템팀"))
+    db.add(User(id=20, employee_no="EMP-NEXT", name="다음 담당자", email="next@example.com",
+                service_role="AGENT", account_status="ACTIVE", password_hash="x"))
+    db.flush()
+    db.add(SupportGroupMember(group_id=group_id, user_id=20, member_role="AGENT", assignable=True,
+                              jira_account_id=NEXT_ACCOUNT))
+    ticket = make_ticket(db, jira_key="ITHD-42", jira_sync_status="SYNCED", work_status="RDY",
+                         assignee_id=18, assign_status="ASSIGNED", assignment_revision=1)
+    reservation = reserve_assignment(db, ticket, group_id, reason="담당 업무 아님", actor_id=19, assignee_id=20, now=T0)
+    db.commit()
+    return ticket, reservation
+
+
+@pytest.mark.parametrize("group_id", [3, 4])
+def test_approved_reassignment_replaces_previous_jira_assignee(assign_db, group_id):
+    db = assign_db
+    ticket, reservation = reserve_reassignment(db, group_id)
+    assert reservation.job.payload["previousJiraAccountId"] == ACCOUNT
+    jira = FakeAssignment(ACCOUNT)
+    assert service.run_jira_assign_job(db, jira.client(), reservation.job.id, now=NOW).outcome == "ASSIGNED"
+    ticket = reload(db, Ticket, ticket.id)
+    assert (ticket.group_id, ticket.assignee_id, ticket.assign_status, ticket.work_status) == (group_id, 20, "ASSIGNED", "RDY")
+    assert (jira.account, jira.puts) == (NEXT_ACCOUNT, 1)
+    assert [(n.recipient_id, n.kind) for n in db.scalars(select(Notification))] == [(20, "ASSIGNED")]
+
+
+def test_reassignment_does_not_overwrite_jira_change_made_after_request(assign_db):
+    db = assign_db
+    ticket, reservation = reserve_reassignment(db)
+    jira = FakeAssignment("another-account")
+    result = service.run_jira_assign_job(db, jira.client(), reservation.job.id, now=NOW)
+    assert (result.outcome, result.reason) == ("NEEDS_ADMIN", "assignment_source_unconfirmed")
+    assert (jira.account, jira.puts) == ("another-account", 0)
+    assert reload(db, Ticket, ticket.id).assign_status == "NEEDS_ADMIN"
+
+
+def test_reassignment_with_unknown_write_result_is_only_verified(assign_db):
+    db = assign_db
+    ticket, reservation = reserve_reassignment(db)
+    reservation.job.last_error = service.VERIFY_ONLY + "stale_running"
+    db.commit()
+    jira = FakeAssignment(ACCOUNT)
+    service.run_jira_assign_job(db, jira.client(), reservation.job.id, now=NOW)
+    assert (jira.account, jira.puts) == (ACCOUNT, 0)
+    assert reload(db, Ticket, ticket.id).assignee_id == 20
+
+
 def test_old_revision_does_not_touch_latest_reservation_or_call_jira(assign_db):
     db = assign_db
     ticket, job = make_assignment(db)
@@ -351,7 +404,8 @@ def test_due_runner_respects_next_retry_and_limit(assign_db):
 
 
 @pytest.mark.parametrize("field,value", [("ticketId", 999), ("jiraKey", "ITHD-999"),
-                                        ("jiraAccountId", " "), ("assignmentRevision", True),
+                                        ("jiraAccountId", " "), ("previousJiraAccountId", " "),
+                                        ("previousJiraAccountId", 7), ("assignmentRevision", True),
                                         ("requestedBy", []), ("requestedAt", "bad")])
 def test_invalid_payload_does_not_call_jira(assign_db, field, value):
     db = assign_db

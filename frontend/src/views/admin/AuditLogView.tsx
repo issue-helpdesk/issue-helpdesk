@@ -195,7 +195,8 @@ export function AuditLogView() {
                           </td>
                           <td>
                             <StateBadge tone={ev?.tone ?? 'recv'} label={ev?.label ?? x.eventType} />
-                            <span className="aucode">{x.eventType}</span>
+                            {/* 긴 코드는 단어 사이에서 줄바꿈하되 복사되는 원문은 그대로 둔다. */}
+                            <span className="aucode">{x.eventType.split('_').flatMap((part, i) => i === 0 ? [part] : ['_', <wbr key={i} />, part])}</span>
                           </td>
                           <td>{x.actor ? x.actor.name : <span className="muted">시스템</span>}</td>
                           <td>

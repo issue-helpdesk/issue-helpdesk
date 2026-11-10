@@ -21,6 +21,13 @@ class AssignmentRepository:
         """같은 그룹의 선정을 줄 세운다. 동시에 접수된 두 건이 한 사람에게 몰리지 않게 한다 (docs/11 3장 동시 선정 방지)."""
         return self.db.get(SupportGroup, group_id, with_for_update=True, populate_existing=True)
 
+    def jira_account(self, group_id: int | None, user_id: int | None) -> str | None:
+        """그룹 구성원의 Jira 계정. 구성원이 아니거나 계정이 비어 있으면 None."""
+        if group_id is None or user_id is None:
+            return None
+        member = self.db.get(SupportGroupMember, (group_id, user_id))
+        return ((member.jira_account_id or "").strip() or None) if member else None
+
     def members(self, group_id: int, exclude_ticket_id: int | None = None) -> list[Member]:
         """그룹 구성원 전원을 pick_assignee 입력으로. 거르는 일은 pick_assignee 가 하고 빠진 이유도 남긴다.
 

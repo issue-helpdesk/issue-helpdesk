@@ -2,7 +2,7 @@
  * 보안·감사 알림 (관리자, /security). (design/ITssue-Prototype.html viewSec)
  * 문의가 접수되지 않았어도 ITssue 안에서 감지한 신호를 모아 본다. 사내 보안 관제를 대체하지 않고 티켓과도 따로 관리한다.
  * 민감정보를 가린 내용만 보이고, 원문은 사유를 적어야 볼 수 있으며 열람 기록이 남는다. 상태: 신규 → 확인 중 → 종결(사유 필수).
- * 서버에는 이 기능의 API 가 없어 서버 모드에서도 시연 데이터로 동작한다. (api/security.ts, 요청 R-20)
+ * 문의 서버 모드에서는 실제 탐지·처리 이력을 읽는다. 인증정보 원문은 복구하지 않는다.
  */
 import { useEffect, useId, useState } from 'react'
 import { Navigate } from 'react-router-dom'
@@ -15,12 +15,13 @@ import {
   viewSecurityRaw,
   watchSecurity,
   type SecAlert,
-  type SecCounts,
   type SecSeverity,
   type SecStatus,
   type SecType,
+  type SecPage,
 } from '../../api/security'
 import titleOps from '../../assets/mascot/title-ops.webp'
+import { USE_MOCK_INQUIRY } from '../../core/config'
 import { formatDateTime } from '../../core/format'
 import { HOME_BY_ROLE } from '../../core/roles'
 import { useAuth } from '../../core/session'
@@ -67,7 +68,8 @@ export function SecurityView() {
   const [status, setStatus] = useState<SecStatus | ''>('')
   const [type, setType] = useState<SecType | ''>('')
   const [sort, setSort] = useState<{ col: Col; dir: 'asc' | 'desc' } | null>(null)
-  const [data, setData] = useState<{ items: SecAlert[]; counts: SecCounts } | null>(null)
+  const [data, setData] = useState<SecPage | null>(null)
+  const [page, setPage] = useState(1)
   const [error, setError] = useState('')
   const [tick, setTick] = useState(0)
   const [openId, setOpenId] = useState<string | null>(null)
@@ -78,7 +80,7 @@ export function SecurityView() {
   useEffect(() => {
     if (!user || !admin) return
     let alive = true
-    listSecurityAlerts(user, { status, type }).then((r) => {
+    listSecurityAlerts(user, { status, type, page }).then((r) => {
       if (!alive) return
       if (r.ok) {
         setData(r.data)
@@ -88,7 +90,7 @@ export function SecurityView() {
     return () => {
       alive = false
     }
-  }, [user, admin, status, type, tick])
+  }, [user, admin, status, type, page, tick])
 
   if (user && !admin) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
   if (!user) return null
@@ -114,7 +116,7 @@ export function SecurityView() {
           <div className="page">
             <div className="phead">
               <div className="eyebrow">
-                SECURITY <span className="tag gray">시연 데이터</span>
+                SECURITY {USE_MOCK_INQUIRY && <span className="tag gray">시연 데이터</span>}
               </div>
               <h1>보안·감사 알림을 확인해요</h1>
               <p className="muted" style={{ marginTop: 4 }}>
@@ -144,7 +146,7 @@ export function SecurityView() {
             <div className="alert info">
               <Icon name="shield" />
               <div>
-                민감정보를 가린 내용을 보여 드려요. 원문은 <b>사유를 입력</b>하면 볼 수 있고 열람 기록이 남아요.
+                {USE_MOCK_INQUIRY ? <>민감정보를 가린 내용을 보여 드려요. 원문은 <b>사유를 입력</b>하면 볼 수 있고 열람 기록이 남아요.</> : <>검토가 필요한 신호예요. 사고나 위반이 확정된 것은 아니에요. 저장된 문의는 사유를 적어 열람하며, 비밀번호·인증번호 원문은 복구하지 않아요.</>}
               </div>
             </div>
 
@@ -158,7 +160,7 @@ export function SecurityView() {
             <div className="row">
               <div className="d2seg" role="group" aria-label="처리 상태">
                 {(['', '신규', '확인 중', '종결'] as const).map((s) => (
-                  <button key={s} type="button" className={status === s ? 'on' : ''} aria-pressed={status === s} onClick={() => setStatus(s)}>
+                  <button key={s} type="button" className={status === s ? 'on' : ''} aria-pressed={status === s} onClick={() => { setStatus(s); setPage(1) }}>
                     {s || '전체'}
                   </button>
                 ))}
@@ -169,10 +171,15 @@ export function SecurityView() {
                 ariaLabel="유형"
                 value={type}
                 options={[{ value: '', label: '유형: 전체' }, ...SEC_TYPES.map((t) => ({ value: t, label: t }))]}
-                onChange={(v) => setType(v as SecType | '')}
+                onChange={(v) => { setType(v as SecType | ''); setPage(1) }}
               />
             </div>
 
+            {(data?.totalPages ?? 1) > 1 && <div className="row" aria-label="알림 페이지">
+              <button className="btn sec sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>이전</button>
+              <span>{page} / {data?.totalPages} 페이지 · 전체 {data?.totalCount}건</span>
+              <button className="btn sec sm" disabled={page >= (data?.totalPages ?? 1)} onClick={() => setPage(page + 1)}>다음</button>
+            </div>}
             <div className="panel" style={{ padding: '6px 10px' }} aria-live="polite">
               {!data ? (
                 <div className="empty" role="status">
@@ -293,7 +300,10 @@ function SecurityDialog({ id, onClose, onToast }: { id: string; onClose: () => v
       <Modal title="알림 종결" onClose={() => setEnding(false)}>
         <div className="field">
           <label htmlFor={`${uid}-e`}>종결 사유 (필수)</label>
-          <input id={`${uid}-e`} className={`inp${endErr ? ' err' : ''}`} value={endWhy} placeholder="예) 정상 문의로 확인" autoComplete="off" aria-invalid={!!endErr} onChange={(e) => { setEndWhy(e.target.value); setEndErr('') }} />
+          <input id={`${uid}-e`} className={`inp${endErr ? ' err' : ''}`} maxLength={500} aria-describedby={`${uid}-end-count`} value={endWhy} placeholder="예) 정상 문의로 확인" autoComplete="off" aria-invalid={!!endErr} onChange={(e) => { setEndWhy(e.target.value); setEndErr('') }} />
+          <div className="wcnt" style={{ justifyContent: 'flex-end' }}>
+            <span id={`${uid}-end-count`} className="hint">{endWhy.length}/500</span>
+          </div>
           {endErr && (
             <div className="ferr" role="alert">
               {endErr}
@@ -331,19 +341,22 @@ function SecurityDialog({ id, onClose, onToast }: { id: string; onClose: () => v
         <dd>{a.mask}</dd>
         {raw !== null && (
           <>
-            <dt>원문 (열람 기록 남음)</dt>
+            <dt>{USE_MOCK_INQUIRY ? '원문 (열람 기록 남음)' : '저장된 문의 (비밀값 가림·열람 기록 남음)'}</dt>
             <dd>{raw}</dd>
           </>
         )}
       </dl>
-      {raw === null && (
+      {raw === null && a.hasOriginal !== false && (
         <div className="field">
-          <label htmlFor={`${uid}-w`}>원문 열람 사유 (필수)</label>
+          <label htmlFor={`${uid}-w`}>{USE_MOCK_INQUIRY ? '원문 열람 사유 (필수)' : '문의 열람 사유 (필수)'}</label>
           <div className="row" style={{ flexWrap: 'nowrap' }}>
-            <input id={`${uid}-w`} className={`inp${whyErr ? ' err' : ''}`} value={why} placeholder="예) 정상 문의 여부 확인" autoComplete="off" aria-invalid={!!whyErr} onChange={(e) => { setWhy(e.target.value); setWhyErr('') }} />
+            <input id={`${uid}-w`} className={`inp${whyErr ? ' err' : ''}`} maxLength={500} aria-describedby={`${uid}-raw-count`} value={why} placeholder="예) 정상 문의 여부 확인" autoComplete="off" aria-invalid={!!whyErr} onChange={(e) => { setWhy(e.target.value); setWhyErr('') }} />
             <button type="button" className="btn sec" disabled={busy} onClick={() => void showRaw()}>
-              원문 보기
+              {USE_MOCK_INQUIRY ? '원문 보기' : '저장된 문의 보기'}
             </button>
+          </div>
+          <div className="wcnt" style={{ justifyContent: 'flex-end' }}>
+            <span id={`${uid}-raw-count`} className="hint">{why.length}/500</span>
           </div>
           {whyErr && (
             <div className="ferr" role="alert">

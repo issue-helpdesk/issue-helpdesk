@@ -23,7 +23,7 @@ const overview = {
     { groupId: 6, name: '서비스데스크', rdy: 1, wip: 1, fin: 0, cls: 4 },
   ],
   byMember: [
-    { userId: 9, name: '조민재', groupId: 5, rdy: 1, wip: 2, fin: 1, cls: 10 },
+    { userId: 9, name: '조민재', groupId: 5, rdy: 1, wip: 2, fin: 1, cls: 10, oldestWipSince: '2026-10-30T09:12:00+09:00' },
     { userId: 8, name: '성민경', groupId: 5, rdy: 1, wip: 3, fin: 2, cls: 30 },
     { userId: 3, name: '김수아', groupId: 6, rdy: 1, wip: 1, fin: 0, cls: 4 },
   ],
@@ -60,6 +60,8 @@ describe('운영 집계 읽기 (서버 모드)', () => {
       ['네트워크팀', ['조민재', '성민경']],
       ['서비스데스크', ['김수아']],
     ])
+    // 가장 오래된 WIP 시작 시각은 구성원에게 그대로 붙고, 서버가 안 주면 null 이다
+    expect(o.groups[0].members.map((m) => m.oldestWipSince)).toEqual(['2026-10-30T09:12:00+09:00', null])
     expect(o.trend?.recv).toEqual([20, 25, 15])
     expect(o.trend?.done).toEqual([15, 20, 9])
     expect(o.trend?.labels[0]).toBe('10.6~10.12')
@@ -80,6 +82,23 @@ describe('운영 집계 읽기 (서버 모드)', () => {
     expect(bucketLabel('2026-10-29', 'WEEK', '2026-11-04')).toBe('10.29~11.4')
     expect(bucketLabel('2026-11-01', 'WEEK', '2026-11-04')).toBe('11.1~11.4')
     expect(bucketLabel('2026-10-01', 'MONTH', '2026-11-04')).toBe('26.10')
+  })
+})
+
+describe('팀원 카드: 가장 오래 처리 중인 건', () => {
+  it('펼치면 경과 시간을 보여 주고, 없으면 보여 주지 않는다', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-10T12:00:00+09:00'))
+    const v = { RDY: 0, WIP: 1, FIN: 0, CLS: 0 }
+    const members = [
+      { id: 1, name: '조민재', v, oldestWipSince: '2026-11-07T09:00:00+09:00' },
+      { id: 2, name: '성민경', v, oldestWipSince: null },
+    ]
+    const { rerender } = render(<MemberCards members={members} open="조민재" onOpen={() => {}} onList={() => {}} />)
+    expect(screen.getByText(/처리 중 가장 오래된 건/)).toHaveTextContent('3일 3시간 경과')
+    rerender(<MemberCards members={members} open="성민경" onOpen={() => {}} onList={() => {}} />)
+    expect(screen.queryByText(/처리 중 가장 오래된 건/)).not.toBeInTheDocument()
+    vi.useRealTimers()
   })
 })
 
@@ -104,6 +123,8 @@ describe('팀원 카드', () => {
     expect(screen.getByText('전체 14건 · 완료 71%')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /티켓 목록/ }))
     expect(onList).toHaveBeenCalledWith('조민재')
+    // 가장 오래 처리 중인 건이 없으면 그 줄을 그리지 않는다
+    expect(screen.queryByText(/처리 중 가장 오래된 건/)).not.toBeInTheDocument()
     // 건수가 없는 팀원은 완료율 대신 - 를 보인다
     expect(screen.getByRole('button', { name: /^성민경 처리 상태 0건/ })).toBeInTheDocument()
   })

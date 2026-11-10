@@ -7,6 +7,10 @@ from app.schemas.common import CountedPage, ItemList
 from app.schemas.ticket import (
     AssignmentLog,
     AssignmentRequest,
+    ClassificationReport,
+    ClassificationReportCreate,
+    ClassificationReportUpdate,
+    ClassificationRequest,
     DraftUpdateRequest,
     DraftUpdateResult,
     IntegrationJob,
@@ -22,7 +26,7 @@ from app.schemas.ticket import (
 )
 from app.services.ticket import TicketServiceDep
 
-# 접수 (TK-01~11). 초안 생성은 문의 아래 경로라 prefix 없이 둔다
+# 접수 (TK-01~18). 초안 생성은 문의 아래 경로라 prefix 없이 둔다
 router = APIRouter(tags=["tickets"])
 
 
@@ -90,6 +94,30 @@ def assign(ticket_id: int, body: AssignmentRequest, auth: CurrentAuth, service: 
 @router.get("/tickets/{ticket_id}/assignment-logs", response_model=ItemList[AssignmentLog])
 def assignment_logs(ticket_id: int, auth: CurrentAuth, service: TicketServiceDep) -> ItemList[AssignmentLog]:
     return service.assignment_logs(ticket_id, auth.user)
+
+
+@router.put("/tickets/{ticket_id}/classification", response_model=Ticket)
+def change_classification(ticket_id: int, body: ClassificationRequest, auth: AdminAuth,
+                          service: TicketServiceDep) -> Ticket:
+    return service.change_classification(ticket_id, body, auth.user)
+
+
+@router.post("/tickets/{ticket_id}/classification-reports", response_model=ClassificationReport,
+             status_code=status.HTTP_201_CREATED)
+def report_classification(ticket_id: int, body: ClassificationReportCreate, auth: CurrentAuth,
+                          service: TicketServiceDep) -> ClassificationReport:
+    return service.report_classification(ticket_id, body, auth.user)
+
+
+@router.get("/tickets/{ticket_id}/classification-reports", response_model=ItemList[ClassificationReport])
+def classification_reports(ticket_id: int, auth: CurrentAuth, service: TicketServiceDep) -> ItemList[ClassificationReport]:
+    return service.classification_reports(ticket_id, auth.user)
+
+
+@router.patch("/tickets/{ticket_id}/classification-reports/{report_id}", response_model=ClassificationReport)
+def reject_classification_report(ticket_id: int, report_id: int, body: ClassificationReportUpdate, auth: AdminAuth,
+                                 service: TicketServiceDep) -> ClassificationReport:
+    return service.reject_classification_report(ticket_id, report_id, body, auth.user)
 
 
 @router.get("/tickets/{ticket_id}/integration-jobs", response_model=ItemList[IntegrationJob])

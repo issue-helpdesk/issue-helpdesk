@@ -6,19 +6,18 @@ describe('배정 실패 사유 표시', () => {
   it('알려진 코드는 풀어 쓰고 Jira 는 ITSM 으로 쓴다', () => {
     const r = friendlyAssignReason('Jira 배정 실행 실패: assignment_source_unconfirmed')
     expect(r).toContain('ITSM 배정 실행 실패')
-    expect(r).toContain('이미 다른 담당자')
+    expect(r).toContain('요청 당시 확인한 담당자와 다른 담당자')
     expect(r).not.toMatch(/Jira|assignment_source_unconfirmed/)
   })
-  it('재배정이 반영되지 않은 원인을 접수 상태와 무관하게 안내한다 (백엔드가 다른 담당자를 덮어쓰지 않음)', () => {
+  it('재배정이 반영되지 않은 원인을 접수 상태와 무관하게 안내한다 (요청 이후 담당 정보 변경)', () => {
     const r = friendlyAssignReason('Jira 배정 실행 실패: assignment_source_unconfirmed')
-    expect(r).toContain('재배정이 반영되지 않았어요')
-    expect(r).toContain('접수 상태(대기·처리 중)와 관계없이')
-    expect(r).toContain('ITSM에서 담당자를 비운 뒤')
+    expect(r).toContain('최신 담당자를 확인한 뒤 다시 요청')
+    expect(r).not.toContain('담당자를 비운')
     expect(r).not.toContain('처리 중이라')
   })
   it('모르는 코드는 코드를 그대로 두고, 다른 문구의 Jira 만 ITSM 으로 바꾼다', () => {
     expect(friendlyAssignReason('Jira 배정 실행 실패: brand_new_code')).toBe('ITSM 배정 실행 실패: brand_new_code')
-    expect(friendlyAssignReason('Jira 응답 시간 초과')).toBe('ITSM 응답 시간 초과')
+    expect(friendlyAssignReason('Jira 응답 시간 초과')).toBe('ITSM 시스템 응답 시간 초과')
     expect(friendlyAssignReason('전문 분야·업무량 기준 자동 배정')).toBe('전문 분야·업무량 기준 자동 배정')
   })
 })

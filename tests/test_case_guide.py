@@ -425,7 +425,7 @@ def test_cli(url, tmp_path, capsys):
     assert main([*base, 'register', '--file', str(bare), '--embedder', 'fake', *POLICY_ARGS]) == 2   # 초안 정보 없이는 등록 안 됨
 
 
-# ── 검수 반영 (작업대/검수/M2-3-2_리뷰.md) ──────────────────────
+# ── 검수 반영 회귀 시험 ──────────────────────
 
 @needs_db
 def test_append_while_old_ingest_runs_keeps_latest(url, tmp_path):

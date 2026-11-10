@@ -20,6 +20,7 @@ from app.models import AssignmentLog, IntegrationJob, Ticket
 from app.repositories.audit_log import AuditLogRepository
 from app.repositories.ticket import TicketRepository
 from app.services.jira_create import save_create_success, work_status_to_fill
+from app.services.jira_fields import is_current
 from app.services.jira_transition import matches_result, validate_request, run_jira_transition_job
 from app.utils import datetime_utils
 
@@ -59,6 +60,9 @@ def retry_job(
         # 배정은 실행기가 Jira 담당자를 먼저 읽고 같으면 쓰지 않으므로 여기서 읽지 않는다
         if source.job_type == "JIRA_ASSIGN":
             return retry_assign(db, ticket_id, source_id, *context)
+        # 필드 갱신은 같은 값을 다시 보내도 되므로 Jira 를 미리 읽지 않는다
+        if source.job_type == "JIRA_UPDATE_FIELDS":
+            return retry_fields(db, ticket_id, source_id, *context)
         with open_jira() as jira:
             if source.job_type == "JIRA_CREATE":
                 return retry_create(db, jira, ticket_id, source_id, *context)
@@ -131,6 +135,13 @@ def retry_assign(db, ticket_id, source_id, actor_id, reason, now) -> RetryResult
         db.add(AssignmentLog(ticket_id=ticket.id, event="ASSIGN", group_id=ticket.group_id, assignee_id=assignee_id,
                              actor_id=actor_id, reason=reason))
     ticket.assign_status = "PENDING"
+    return register(db, ticket, source, actor_id, reason)
+
+
+def retry_fields(db, ticket_id, source_id, actor_id, reason, now) -> RetryResult:
+    ticket, source = load(db, ticket_id, source_id, lock=True)
+    if not is_current(ticket, payload_of(source)):          # 그 뒤 분류가 또 바뀌었다. 옛 분류를 다시 보내지 않는다
+        raise not_allowed("CLASSIFICATION", "현재 세부 유형", ticket.inquiry_type_id)
     return register(db, ticket, source, actor_id, reason)
 
 

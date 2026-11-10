@@ -137,6 +137,20 @@ const openTab = async () => {
 describe('해결 사례 탭 화면', () => {
   beforeEach(reset)
 
+  it('상세를 아직 읽지 않은 제안도 근거 건수순이며 상세를 읽어도 순서가 바뀌지 않는다', async () => {
+    // 서버 목록처럼 상세 배열이 비어 있는 경우를 모의 데이터로 재현한다.
+    for (const c of getCases()) if (c.state === 'review') c.tickets = []
+    renderAdmin()
+    await openTab()
+    const counts = () => cardsOf().map((c) => /근거 티켓\s*(\d+)건/.exec(c.textContent ?? '')![1])
+    expect(counts()).toEqual(['7', '5', '4'])
+    await act(async () => { get('c1').tickets = [{ no: 'RCPT-TEST', summary: '상세 조회', result: '처리 완료' }] })
+    // 탭 전환으로 다시 그려도 상세 배열 길이가 정렬 기준이 되지 않는다.
+    await userEvent.click(screen.getByRole('button', { name: /^가이드화 승인/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^검토 대상/ }))
+    expect(counts()).toEqual(['7', '5', '4'])
+  })
+
   it('탭 이름 옆 건수·검토 필요 라벨·세 가지 보기·카드 정렬이 맞고, 개발 용어와 퍼센트가 없다', async () => {
     renderAdmin()
     await openTab()
@@ -219,6 +233,22 @@ describe('해결 사례 탭 화면', () => {
     await waitFor(() => expect(get('c6').state).toBe('live'), SLOW)
   })
 
+  it('문서의 제안 보기는 해당 가이드만 표시하고 전체 보기로 해제할 수 있다', async () => {
+    renderAdmin()
+    await userEvent.click(await screen.findByRole('button', { name: /^VPN·네트워크/ }, SLOW))
+    await userEvent.click(await screen.findByRole('button', { name: '제안 보기' }, SLOW))
+    expect(await screen.findByRole('status', { name: '가이드별 제안' })).toHaveTextContent('IT-NET-001 VPN 접속 장애 대응 가이드')
+    // 조회 범위 안내는 상태 탭 뒤, 카드 앞에 있어야 한다.
+    const scope = screen.getByRole('status', { name: '가이드별 제안' })
+    expect(scope.previousElementSibling).toHaveTextContent('검토 대상')
+    await waitFor(() => expect(cardsOf()).toHaveLength(1))
+    expect(cardsOf()[0]).toHaveTextContent(get('c1').topic)
+    expect(screen.getByRole('button', { name: /^검토 대상/ })).toHaveTextContent('1')
+    await userEvent.click(screen.getByRole('button', { name: '전체 제안 보기' }))
+    expect(cardsOf()).toHaveLength(3)
+    expect(screen.queryByText('이 가이드에 해당하는 제안만 보고 있어요.')).toBeNull()
+  })
+
   it('검토 중인 제안이 걸린 문서에는 제안 건수가 보이고, 그 문서에 새 버전을 올리려 하면 안내가 뜬다', async () => {
     renderAdmin()
     await userEvent.click(await screen.findByRole('button', { name: /^VPN·네트워크/ }, SLOW))
@@ -252,6 +282,9 @@ describe('해결 사례 탭 화면', () => {
     expect(v.ok && v.data.find((x) => x.version === 'v2')?.state).toBe('현행')
     await userEvent.click(within(dlg).getByRole('button', { name: 'AI 가이드 제안 보기' }))
     expect(await screen.findByRole('button', { name: /^검토 대상/ }, SLOW)).toBeInTheDocument()
+    expect(screen.getByText('이 가이드에 해당하는 제안만 보고 있어요.')).toBeInTheDocument()
+    expect(cardsOf()).toHaveLength(1)
+    expect(cardsOf()[0]).toHaveTextContent(get('c1').topic)
   })
 
   it('등록 버전 보기는 등록한 본문을, 처리 이력 상세 보기는 근거 티켓과 판단을 보여 준다', async () => {

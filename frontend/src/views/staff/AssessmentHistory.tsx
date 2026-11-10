@@ -54,8 +54,10 @@ export function AssessmentHistory({ inquiryId, preset }: { inquiryId: number; pr
       {error && <div className="small muted">{error}</div>}
       {items && items.length === 0 && <div className="small muted">AI 판단 기록이 없어요.</div>}
       {items?.map((a, i) => {
-        const aiUrgency = a.aiOutput.urgencySuggested ?? a.urgency
-        const conf = typeof a.aiOutput.confidence === 'number' ? a.aiOutput.confidence : null
+        // 안전 거절·AI 실패로 기본값이 나간 판단은 AI 원래 판단(aiOutput)이 null 이다
+        const ai = a.aiOutput
+        const aiUrgency = ai?.urgencySuggested ?? a.urgency
+        const conf = typeof ai?.confidence === 'number' ? ai.confidence : null
         // 추가 질문(ASK_MORE) 뒤에는 AI 가 더 물어본 항목을 화살표로 보여 준다. 다음 판단이 없으면 그 사실도 알린다
         const asked = a.action === 'ASK_MORE'
         const next = items[i + 1]
@@ -72,11 +74,15 @@ export function AssessmentHistory({ inquiryId, preset }: { inquiryId: number; pr
             </div>
             <div className="asai">
               <div className="asl">AI 원래 판단</div>
-              <div className="asv">
-                긴급도 <b>{urgencyText(aiUrgency)}</b>
-                {a.aiOutput.categoryCode && a.aiOutput.categoryCode !== a.categoryCode ? ` · 분류 ${catName(a.aiOutput.categoryCode)}` : ''}
-                {conf !== null ? ` · 신뢰도 ${conf}` : ''}
-              </div>
+              {ai ? (
+                <div className="asv">
+                  긴급도 <b>{urgencyText(aiUrgency)}</b>
+                  {ai.categoryCode && ai.categoryCode !== a.categoryCode ? ` · 분류 ${catName(ai.categoryCode)}` : ''}
+                  {conf !== null ? ` · 신뢰도 ${conf}` : ''}
+                </div>
+              ) : (
+                <div className="asv small muted">AI 판단 없음 (안전 거절·AI 실패로 기본값 적용)</div>
+              )}
             </div>
             {a.overrideReasons.length ? (
               <div className="aso">

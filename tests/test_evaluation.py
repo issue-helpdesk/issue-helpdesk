@@ -102,7 +102,7 @@ def test_vector_retriever_groups_parts_by_unit():
     assert hits[0].score == pytest.approx(1.0)
 
 
-# ── Codex 리뷰(작업대/검수/M2-2-2_리뷰.md) 회귀 시험 ──────────────────────
+# ── 검색 평가 회귀 시험 (검수 반영) ──────────────────────
 
 def _q(ans, docs=None):
     return Question('guide', 'X#1', 'q', set(ans), set(docs or {a.split('/')[0] for a in ans}), ['전체'])

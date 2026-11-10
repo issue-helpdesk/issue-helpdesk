@@ -19,7 +19,6 @@ import { Modal } from '../../ui/Modal'
 import { SelectBox } from '../../ui/SelectBox'
 import { Topbar } from '../../ui/Topbar'
 import { useToast } from '../../ui/useToast'
-import { TeamBoard } from '../admin/TeamBoard'
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토']
 const KIND_CLS: Record<TimeOffType, string> = { ANNUAL: 'an', HALF_AM: 'am', HALF_PM: 'pm' }
@@ -227,7 +226,6 @@ export function CalendarView() {
             )}
             <p className="small muted">날짜 칸을 누르면 그날 일정을 모두 보고 등록할 수 있어요. 내 일정(굵은 테두리)을 누르면 삭제할 수 있어요.</p>
 
-            {admin && <TeamBoard />}
           </div>
         </div>
       </main>

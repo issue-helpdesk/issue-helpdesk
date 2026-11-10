@@ -17,6 +17,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+from app.agent.sensitive import install_log_filter
 from app.services.guide_analysis import SessionFactory, abandon_running, due_slot, run_once
 from app.utils import datetime_utils
 
@@ -83,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error('poll-seconds 는 양수여야 합니다.')
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+    install_log_filter()
 
     from app.db.session import get_engine
 

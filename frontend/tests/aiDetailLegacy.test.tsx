@@ -103,7 +103,7 @@ describe('서버 응답에서 과거 사례 읽기', () => {
     const src = (id: number, kind: string, over: Record<string, unknown> = {}) => ({ id, sourceKind: kind, docCode: null, version: null, location: null, excerpt: null, rank: id, ...over })
     const body = {
       items: [
-        { sources: [src(1, 'DOCUMENT', { docCode: 'IT-NET-001', version: 'v2', location: '3.1' }), src(2, 'LEGACY', { excerpt: '재설치 후 정상' })] },
+        { sources: [src(1, 'DOCUMENT', { docCode: 'IT-NET-001', title: 'VPN 접속 장애 대응 가이드', version: 'v2', location: '3.1' }), src(2, 'LEGACY', { excerpt: '재설치 후 정상' })] },
         { sources: [src(3, 'DOCUMENT', { docCode: 'IT-NET-001', version: 'v2', location: '3.1' }), src(4, 'LEGACY', { excerpt: '인증서 갱신' }), src(5, 'LEGACY', { excerpt: '재설치 후 정상' })] },
       ],
     }
@@ -111,6 +111,8 @@ describe('서버 응답에서 과거 사례 읽기', () => {
     const api = await vi.importActual<typeof import('../src/api/inquirySources')>('../src/api/inquirySources') // 위에서 가짜로 바꾼 것이 아니라 실제 코드
     const r = await api.listUsedGuides(7)
     await waitFor(() => expect(r.ok).toBe(true))
+    expect(r.ok && r.data[0].title).toBe('VPN 접속 장애 대응 가이드')
+    expect(r.ok && r.data[1].title).toBeNull()
     expect(r.ok && r.data.map((g) => [g.kind, g.docCode, g.excerpt])).toEqual([
       ['DOCUMENT', 'IT-NET-001', null],
       ['LEGACY', null, '재설치 후 정상'],

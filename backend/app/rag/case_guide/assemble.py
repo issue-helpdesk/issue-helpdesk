@@ -1,6 +1,6 @@
-"""묶음 등록용 조립 (해결 사례 가이드화 기획 v4, `작업대/가이드화/draft_basis_구조_초안_20261108.md` 6장 ①).
+"""묶음 등록용 조립 (해결 사례 가이드화 기획 v4). 입력·조립·거부 조건은 같은 폴더 README.md 의 "묶음 등록 조립" 절.
 
-등록 API(박민경)가 묶음 하나의 등록 요청을 받으면, 그 문서에 이어 쓸 대기 버전이 있으면 [그 버전 묶음(거절 제외) + 이번 묶음],
+등록 API 가 묶음 하나의 등록 요청을 받으면, 그 문서에 이어 쓸 대기 버전이 있으면 [그 버전 묶음(거절 제외) + 이번 묶음],
 없으면 [이번 묶음] 을 계산해 이 함수에 넘긴다. 이 함수는 **현행 md + 조각들** 로 문서를 처음부터 다시 조립한다.
 
     out = assemble(conn, document_id, clusters, draft_version_id, view_scope='ALL', transfer_policy='ALLOWED', actor_id=1)
@@ -8,7 +8,7 @@
 
 - 묶음 하나 = {'id', 'judgment', 'draft_md', 'draft_basis', 'receipts'}. 판단은 ADD_ITEM·SEC_MANUAL(항목 하나 더함),
   CHANGE(항목 하나를 관리자가 고친 조각으로 바꿔 끼움), NEW_GUIDE(현행이 없는 문서의 첫 버전 — 관리자가 채운 뼈대 전체,
-  묶음 하나만. 김현나 Q9: 1~3장 필수·`(작성 필요)` 남으면 거부, 빈 4·5장·부록은 장째 뺌, 문서 번호·v1.0 채움).
+  묶음 하나만. 새 가이드 등록 조건: 1~3장 필수·`(작성 필요)` 남으면 거부, 빈 4·5장·부록은 장째 뺌, 문서 번호·v1.0 채움).
 - 항목 번호: 기준 md 의 3장 번호와 `draft_basis.section_no` 가 있는 조각의 번호를 먼저 잡고, 없는 조각에 다음 번호를 준다.
   돌려준 `sections` 를 API 가 각 묶음 `draft_basis.section_no` 에 저장한다 (같은 대기 버전을 다시 조립할 때 유지).
 - **DB commit·rollback 을 하지 않는다** (트랜잭션은 API 것). 파일은 쓸 때마다 새 경로. 돌려주기 전에 실패하면 이번에
@@ -36,7 +36,7 @@ SCHEMA = 1                                                 # draft_basis.schema
 ADD_KINDS = ('ADD_ITEM', 'SEC_MANUAL')                     # 3장 끝에 항목 하나 더함
 SUPPORTED = (*ADD_KINDS, 'CHANGE', 'NEW_GUIDE')
 TODO = '(작성 필요)'                                        # 새 가이드 뼈대의 자리 표시 (줄 하나가 정확히 이것)
-REQUIRED = ('1', '2', '3')                                 # 새 가이드 등록 전에 꼭 채울 장 (김현나 Q9)
+REQUIRED = ('1', '2', '3')                                 # 새 가이드 등록 전에 꼭 채울 장
 OPTIONAL = ('4', '5', '부록')                               # 비어 있으면 장째 뺀다 (빈 장이 검색 조각이 되지 않게)
 HEAD_RE = re.compile(r'^### (3\.(?:\d+|N))[ \t]+(\S.*)$')   # 조각 첫 줄. 번호는 아무거나 (조립 때 바꾼다)
 FENCE_RE = re.compile(r'^\s*(`{3,})')
@@ -211,7 +211,7 @@ def _version(conn, document_id: int, draft_version_id: int | None) -> str:
     if draft_version_id is None:
         versions = [v for (v,) in conn.execute('select version from document_versions where document_id = %s',
                                                 (document_id,))]
-        return next_version(versions) if versions else 'v1.0'           # 버전이 하나도 없는 새 문서는 v1.0 (김현나 Q9)
+        return next_version(versions) if versions else 'v1.0'           # 버전이 하나도 없는 새 문서는 v1.0
     row = conn.execute('select document_id, version, file_path, is_current, activated_at from document_versions '
                        'where id = %s', (draft_version_id,)).fetchone()
     if row is None or row[0] != document_id:
@@ -356,7 +356,7 @@ def _check_result(base_md: str, md: str, doc_code: str, version: str, clusters: 
         raise CaseGuideError(problems)
 
 
-# ── 새 가이드 (김현나 Q9) ──────────────────────────────────────
+# ── 새 가이드 (NEW_GUIDE) ──────────────────────────────────────
 
 CHAPTER_HEAD = re.compile(r'^## (.+?)[ \t]*$', re.M)
 

@@ -108,8 +108,8 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   useEffect(() => {
     if (!user || agentId === null) return
     return watchTickets(() => {
-      listTickets(user, { view: 'ASSIGNED', assigneeId: agentId, size: 100 }).then((r) => {
-        if (r.ok) setQueue((q) => ({ n: r.data.items.filter((t) => t.workStatus && t.workStatus !== 'CLS').length, nw: q.nw }))
+      listTickets(user, { view: 'ASSIGNED', assigneeId: agentId, size: 1 }).then((r) => {
+        if (r.ok) setQueue((q) => ({ n: ['RDY', 'WIP', 'FIN'].reduce((sum, state) => sum + (r.data.statusCounts?.[state] ?? 0), 0), nw: q.nw }))
       })
     })
   }, [user, agentId])

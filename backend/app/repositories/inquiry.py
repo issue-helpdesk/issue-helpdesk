@@ -199,11 +199,11 @@ class InquiryRepository:
         rows = self.db.execute(select(DocumentChunk.id, DocumentChunk.meta).where(DocumentChunk.id.in_(chunk_ids)))
         return {chunk_id: meta or {} for chunk_id, meta in rows}
 
-    def sources_with_scope(self, message_ids: list[int]) -> list[tuple[MessageSource, str | None]]:
+    def sources_with_scope(self, message_ids: list[int]) -> list[tuple[MessageSource, str | None, str | None]]:
         if not message_ids:
             return []
         rows = self.db.execute(
-            select(MessageSource, func.coalesce(DocumentVersion.view_scope, LegacyInquiry.view_scope))
+            select(MessageSource, func.coalesce(DocumentVersion.view_scope, LegacyInquiry.view_scope), KnowledgeDocument.title)
             .outerjoin(KnowledgeDocument, KnowledgeDocument.doc_code == MessageSource.doc_code)
             .outerjoin(DocumentVersion, and_(
                 DocumentVersion.document_id == KnowledgeDocument.id,

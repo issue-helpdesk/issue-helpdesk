@@ -45,6 +45,8 @@ export interface OverviewMember {
   id: number
   name: string
   v: StatCounts
+  /** 지금 처리 중인 접수 가운데 WIP 가 가장 오래된 시작 시각 (선택 기간과 무관, 없으면 null) */
+  oldestWipSince?: string | null
 }
 export interface OverviewGroup {
   id: number
@@ -75,7 +77,7 @@ interface SOverview {
   totals: { ticketCount: number }
   byUrgency: { urgency: Urgency; ticketCount: number }[]
   byGroup: (SCounts & { groupId: number; name: string })[]
-  byMember: (SCounts & { userId: number; name: string; groupId: number })[]
+  byMember: (SCounts & { userId: number; name: string; groupId: number; oldestWipSince?: string | null })[]
   trend: { date: string; ticketCount: number; closedCount: number }[]
 }
 
@@ -108,7 +110,7 @@ export async function getAdminOverview(per: Per, unit: Unit): Promise<ApiResult<
     id: g.groupId,
     name: g.name,
     v: counts(g),
-    members: o.byMember.filter((m) => m.groupId === g.groupId).map((m) => ({ id: m.userId, name: m.name, v: counts(m) })),
+    members: o.byMember.filter((m) => m.groupId === g.groupId).map((m) => ({ id: m.userId, name: m.name, v: counts(m), oldestWipSince: m.oldestWipSince ?? null })),
   }))
   // 업무 상태별 합계: 팀이 정해진 접수 기준(서버 집계가 팀별로만 상태를 준다)
   const states = groups.reduce<StatCounts>((a, g) => ({ RDY: a.RDY + g.v.RDY, WIP: a.WIP + g.v.WIP, FIN: a.FIN + g.v.FIN, CLS: a.CLS + g.v.CLS }), { RDY: 0, WIP: 0, FIN: 0, CLS: 0 })

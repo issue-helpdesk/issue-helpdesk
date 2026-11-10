@@ -1,6 +1,6 @@
 /**
  * 운영 현황 (관리자, /ops). (design/ITssue-Prototype.html viewExc)
- * 현재 미처리 문의 중 지금 확인하고 처리할 일만 모았다: 긴급 조치(P1), 당일 미종결 예외, 티켓 연동 확인, 담당자 배정 확인. (팀별 개인 현황은 캘린더 화면 맨 아래에 있다)
+ * 티켓 연동·담당자 배정 확인과 팀별 개인 현황을 함께 보여 준다.
  *
  * 목록은 접수 목록(TK-05 view=ALL)을 조건별로 받아 나눈다 (api/ops.ts). 
  * 확인·재시도는 접수를 서버로 보내는 환경(VITE_SERVER_INTAKE)에서 연동 작업 재처리(TK-12)를 등록한다. 서버는 등록만 하고 실행기가 나중에 처리한다.
@@ -25,6 +25,7 @@ import { CheckDialog } from './CheckDialog'
 import { linkWhy } from './checkText'
 import { ReassignDialog } from './ReassignDialog'
 import { TicketDetailPanel } from '../staff/TicketDetailPanel'
+import { TeamBoard } from './TeamBoard'
 
 const hm = (iso: string) => {
   const d = new Date(iso)
@@ -284,7 +285,7 @@ export function OpsView() {
               <div className="eyebrow">NOW</div>
               <h1>운영 현황</h1>
               <p className="muted" style={{ marginTop: 4 }}>
-                현재 미처리 문의 중 지금 확인하고 처리할 일만 모았어요.
+                연동·배정 확인이 필요한 문의와 팀원별 진행 중인 업무를 확인해요.
               </p>
             </div>
 
@@ -426,6 +427,7 @@ export function OpsView() {
                 asgL.length ? 'need' : '',
               )}
             </div>
+            <TeamBoard selectedGroup={team} onGroupChange={setTeam} refreshKey={reload} />
           </div>
         </div>
       </main>

@@ -116,15 +116,17 @@ class AssignmentLog(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
-ACTIVE_JOB = "status in ('PENDING', 'RUNNING') and job_type in ('JIRA_ASSIGN', 'JIRA_TRANSITION')"
+JOB_TYPES = ('JIRA_CREATE', 'JIRA_ASSIGN', 'JIRA_TRANSITION', 'JIRA_UPDATE_FIELDS')
+ACTIVE_JOB = ("status in ('PENDING', 'RUNNING') "
+              "and job_type in ('JIRA_ASSIGN', 'JIRA_TRANSITION', 'JIRA_UPDATE_FIELDS')")
 
 
 class IntegrationJob(Base):
     __tablename__ = "integration_jobs"
     __table_args__ = (
-        CheckConstraint("job_type in ('JIRA_CREATE', 'JIRA_ASSIGN', 'JIRA_TRANSITION')", name="job_type"),
+        CheckConstraint("job_type in (" + ", ".join(repr(t) for t in JOB_TYPES) + ")", name="job_type"),
         CheckConstraint("status in ('PENDING', 'RUNNING', 'DONE', 'FAILED', 'NEEDS_ADMIN')", name="status"),
-        # 배정·상태 변경은 접수·종류별 진행 중 작업을 하나로 제한한다 (06 v0.8)
+        # 배정·상태 변경·필드 갱신은 접수·종류별 진행 중 작업을 하나로 제한한다 (06 v0.8)
         Index("uq_integration_jobs_one_active", "ticket_id", "job_type", unique=True,
               postgresql_where=text(ACTIVE_JOB), sqlite_where=text(ACTIVE_JOB)),
     )
@@ -174,4 +176,31 @@ class Notification(Base):
     recipient_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     kind: Mapped[str]
     read_at: Mapped[datetime | None]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+OPEN_REPORT = "status = 'OPEN'"
+
+
+class TicketClassificationReport(Base):
+    """분류 이상 신고 (TK-16~18). 담당 그룹이 신고하고 ADMIN 이 분류 변경(TK-15)이나 반려로 닫는다."""
+    __tablename__ = "ticket_classification_reports"
+    __table_args__ = (
+        CheckConstraint("status in ('OPEN', 'RESOLVED', 'REJECTED')", name="status"),
+        CheckConstraint("status = 'OPEN' or (resolved_by is not null and resolved_at is not null "
+                        "and resolution_note is not null)", name="resolved_ref"),
+        # 접수당 열린 신고는 하나
+        Index("uq_ticket_classification_reports_one_open", "ticket_id", unique=True,
+              postgresql_where=text(OPEN_REPORT), sqlite_where=text(OPEN_REPORT)),
+    )
+
+    id: Mapped[int] = mapped_column(Identity(), primary_key=True)
+    ticket_id: Mapped[int] = mapped_column(ForeignKey("tickets.id"), index=True)
+    reporter_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    reason: Mapped[str]
+    suggested_inquiry_type_id: Mapped[int | None] = mapped_column(ForeignKey("inquiry_types.id"))
+    status: Mapped[str] = mapped_column(server_default=text("'OPEN'"))
+    resolved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    resolved_at: Mapped[datetime | None]
+    resolution_note: Mapped[str | None]         # 반려 사유, 또는 분류 변경 사유
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

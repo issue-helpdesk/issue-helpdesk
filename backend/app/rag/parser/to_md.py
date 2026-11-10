@@ -1,6 +1,6 @@
 """파싱 결과(ParsedDocument) → 가이드 md (정리본과 같은 모양).
 
-시스템 안의 가이드는 md 로 통일한다 (작업대 결정 11.06). 현행이 docx·pptx·pdf 인 가이드를 가이드화할 때 기준 md 로 쓰고,
+시스템 안의 가이드는 md 로 통일한다 (11.06 결정). 현행이 docx·pptx·pdf 인 가이드를 가이드화할 때 기준 md 로 쓰고,
 나중에 업로드 때도 같은 함수로 md 를 만든다. 만든 md 를 다시 파싱·청킹하면 원래 파일의 청크와 같다
 (tests/test_to_md.py, dataset/guides 57종 × 4형식). 다만 md 에 자리가 없는 것은 빠진다:
 - 쪽 번호 (pptx·pdf 의 page_start·page_end)

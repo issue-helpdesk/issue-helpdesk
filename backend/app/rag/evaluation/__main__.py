@@ -8,7 +8,7 @@
 search: · db: 는 uv sync --extra embedding 이 필요하다.
 
 DB는 읽기만 한다. 주소는 --database-url 로만 받고 .env 는 읽지 않는다.
-결과는 작업대/평가결과/<날짜시각>_<검색기>_<역할>/ 에 질문별.csv · 요약.md · 요약.json.
+결과는 dataset/eval_results/<날짜시각>_<검색기>_<역할>/ 에 질문별.csv · 요약.md · 요약.json.
 """
 import argparse
 import glob

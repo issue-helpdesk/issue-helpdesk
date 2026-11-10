@@ -22,7 +22,7 @@ judged, drafted = run_round(session, port, search_fn, embed_fn)   # 판단 → �
 | `judge.py` | 판단 프롬프트, 출력 형식, 가림·치환, 호출과 검사 |
 | `cluster.py` | 그룹 나누기, 유사도로 묶기, 기존 묶음과 비교 (AI 없음) |
 | `draft.py` | 초안 프롬프트, 출력 형식, 검사, 조각 조립 |
-| `case.py` | 김태연 님 `open_basis`·`ticket_fragment`·`ticket_warnings` 연결 (psycopg 연결을 넘김) |
+| `case.py` | 김태연 님 `open_basis`·`ticket_warnings` 연결 (psycopg 연결을 넘김) |
 | `store.py` | 티켓 상태·묶음·호출 기록 저장 |
 
 ## 한 회차 흐름
@@ -33,8 +33,11 @@ judged, drafted = run_round(session, port, search_fn, embed_fn)   # 판단 → �
    | 조건 | 처리 |
    | --- | --- |
    | 분류 없음 | `EXCLUDED` "분류 없음" |
-   | 처리 결과 없음, 20자 미만 | `EXCLUDED`. SEC 도 같다 |
-   | SEC | `SEC_MANUAL` 묶음 1개 + 티켓 `REVIEWING`. 초안은 `ticket_fragment` 로 티켓 글을 옮긴 조각 + 민감정보 경고. 넣을 문서는 관리자가 고른다 (GC-08) |
+   | SEC | `EXCLUDED` "SEC 티켓은 가이드화하지 않음" (M4 결정, 2026-11-10) |
+   | 처리 결과 없음, 20자 미만 | `EXCLUDED` |
+
+   SEC 를 빼는 이유: 보안 티켓은 AI 에 보내지 않아 초안이 티켓 글을 옮긴 것뿐이고, 보안 글을 초안으로 한 번 더 저장하게 된다.
+   보안 가이드(IT-SEC-*)는 관리자가 직접 고친다. `SEC_MANUAL` 판단값·화면 칸은 남아 있지만 이 워커는 만들지 않는다.
 
 3. **비교 항목:** 요약·증상·처리 결과로 같은 분류 문서를 관리자 권한으로 검색해 상위 5개
 4. **AI 판단:** 티켓 1건당 1회 (thinking 켬). 실패하면 한 번 다시 부른다

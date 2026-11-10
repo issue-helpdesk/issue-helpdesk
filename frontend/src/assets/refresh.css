@@ -205,7 +205,9 @@
 
 /* ---- 출처 목록(같은 가이드는 제목 한 번) · 추천 FAQ 카드 ---- */
 
-.srcl{display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px 10px;color:var(--mute)}
+.srcl{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px 12px;color:var(--mute)}
+/* 4px spacing scale: separate a preceding source button from the grouped source list. */
+.src + .srcl{margin-top:16px}
 
 .srcl-k{font-weight:600;color:var(--ink2);line-height:28px}
 
@@ -549,7 +551,7 @@
 .auditt td{overflow-wrap:anywhere}
 .auditt .aukd{font-size:13px;color:var(--ink2)}
 .auditt .aunm{margin-top:2px;font-weight:600;font-size:12.5px}
-.auditt .aucode{display:block;margin-top:3px;font-family:var(--mono);font-size:10.5px;color:var(--mute);letter-spacing:.01em}
+.auditt .aucode{display:block;margin-top:3px;font-family:var(--mono);font-size:12.5px;color:var(--mute);letter-spacing:.01em}
 
 /* FAQ 등록·수정: 출처 가이드 고르기 (가이드 사이에 구분선) */
 .fsl{max-height:210px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:4px}
@@ -607,10 +609,18 @@ td.nw{white-space:nowrap;font-size:13px;color:var(--ink2)}
 .cgk{font-weight:700;color:var(--link)}
 .cgx{line-height:1.6}
 .cga{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:4px}
+/* 검토 대상은 버튼용 하단 줄을 없애고 오른쪽 아래에 배치한다. 여러 동작이 있는 승인 카드는 기존 배치를 유지한다. */
+.cgc-review{position:relative;padding-right:132px;min-height:96px}
+.cgc-review .cgm{font-size:12px}
+.cgc-review .cga{position:absolute;right:22px;bottom:18px;margin:0}
+@media(max-width:700px){.cgc-review{padding-right:22px;min-height:0}.cgc-review .cga{position:static;align-self:flex-end}.cgc-review .cgh{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.cgc-review .cgh>.tag{grid-column:1;justify-self:start}.cgc-review .cgt{grid-column:1/-1;grid-row:2}.cgc-review .cgh>.badge{grid-column:2;grid-row:1;justify-self:end}}
 .app .detail.crev{width:min(920px,100vw);transition:width .28s cubic-bezier(.2,.8,.2,1)}
 .app .detail.crev.wide{width:100vw}
 .detail.crev .db.crb{flex:1}
 .detail.crev .cgs>h3,.detail.crev .cgs>h4{margin-bottom:10px;display:flex;align-items:center;gap:8px}
+/* 보안 사례의 제목-내용 간격만 8px로 통일하고 표 머리글의 중복 위 여백을 뺀다. */
+.detail.crev.case-sec .cgs:is([aria-label="근거 티켓"],[aria-label="검토 안내"],[aria-label="가이드 내용"])>h3{margin-bottom:8px}
+.detail.crev.case-sec .cgs[aria-label="근거 티켓"] .tbl th{padding-top:0}
 .detail.crev .cgcmp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:8px}
 .detail.crev .cgpre{margin:6px 0 0;padding:12px 14px;border-radius:12px;background:var(--shell);white-space:pre-wrap;font:inherit;font-size:13.5px;line-height:1.7;color:var(--ink2)}
 .detail.crev .cgpre.new{background:var(--osoft)}

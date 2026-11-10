@@ -35,6 +35,7 @@ ANSWER = {
     'reply': 'VPN 클라이언트를 최신 버전으로 업데이트한 뒤 다시 연결해 보세요.',
     'evidence': [{'kind': 'DOCUMENT', 'source_id': 'IT-NET-001@v2.0/item:3.1', 'quote': 'VPN 클라이언트가 구버전입니다'}],
     'questions': [], 'missing_items': [], 'escalation_reason': None, 'confidence': 0.82,
+    'security_rule_ids': [],
 }
 ANSWER_JSON = json.dumps(ANSWER, ensure_ascii=False)
 

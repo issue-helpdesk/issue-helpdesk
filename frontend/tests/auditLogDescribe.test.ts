@@ -1,16 +1,20 @@
 /**
  * 운영 기록: 서버가 준 영문 코드·내부 값을 화면 말로 바꾸는 사전과 describeAudit().
- * 서버가 지금 남기는 20가지 이벤트가 모두 사전에 있고, 값마다 사람이 읽는 말로 바뀐다.
+ * 서버가 지금 남기는 기존 이벤트와 가이드화 이벤트가 모두 사전에 있고, 값마다 사람이 읽는 말로 바뀐다.
  */
 import { describe, expect, it } from 'vitest'
-import { EVENT_LABEL, describeAudit } from '../src/api/auditLogs'
+import { EVENT_LABEL, TARGET_LABEL, TARGET_KINDS, describeAudit } from '../src/api/auditLogs'
 
 const d = (eventType: string, result: string | null, reason: string | null = null) => describeAudit({ eventType, result, reason })
 
 describe('이벤트 사전', () => {
-  it('서버가 남기는 20가지가 모두 한글 이름과 색을 가진다', () => {
+  it('지원하는 이벤트가 모두 한글 이름과 색을 가진다', () => {
     const server = [
+      'SECURITY_ALERT_REVIEW',
+      'SECURITY_ALERT_CLOSE',
+      'SECURITY_ALERT_VIEW',
       'SENSITIVE_INPUT',
+      'SECURITY_REVIEW',
       'BLOCK',
       'FAIL',
       'URGENT_CLOSED',
@@ -30,6 +34,12 @@ describe('이벤트 사전', () => {
       'ACCOUNT_LOCKED',
       'FAQ_DELETE',
       'FAQ_AUTO_UNPUBLISH',
+      'CASE_GUIDE_REGISTER',
+      'GUIDE_CLUSTER_REGISTER',
+      'GUIDE_CLUSTER_REBASE',
+      'GUIDE_CLUSTER_TARGET_CHANGE',
+      'GUIDE_CLUSTER_REJECT',
+      'GUIDE_CLUSTER_APPLY',
     ]
     expect(Object.keys(EVENT_LABEL).sort()).toEqual([...server].sort())
     for (const k of server) expect(EVENT_LABEL[k].label).not.toBe(k)
@@ -37,6 +47,26 @@ describe('이벤트 사전', () => {
 })
 
 describe('describeAudit', () => {
+  it('보안 알림의 대상·결과를 번역하고 사유와 알 수 없는 결과는 보존한다', () => {
+    expect(TARGET_LABEL.security_alert).toBe('보안 알림')
+    expect(TARGET_KINDS).toContain('security_alert')
+    expect(d('SECURITY_ALERT_REVIEW', 'REVIEW').out).toBe('확인 시작')
+    expect(d('SECURITY_ALERT_CLOSE', 'CLOSE', '정상 문의 확인')).toMatchObject({ out: '종결', reason: '정상 문의 확인' })
+    expect(d('SECURITY_ALERT_VIEW', 'VIEW_ORIGINAL').out).toBe('저장된 문의 열람')
+    expect(d('SECURITY_ALERT_VIEW', 'UNKNOWN').out).toBe('UNKNOWN')
+  })
+  it('가이드화 결과의 종류·상태만 번역하고 번호·버전·사유와 모르는 값은 보존한다', () => {
+    expect(TARGET_LABEL.guide_cluster).toBe('AI 가이드 제안')
+    expect(TARGET_KINDS).toContain('guide_cluster')
+    expect(d('GUIDE_CLUSTER_REGISTER', 'ADD_ITEM → v2.1').out).toBe('항목 추가 → v2.1')
+    expect(d('GUIDE_CLUSTER_REJECT', 'NEW_GUIDE REVIEWING → REJECTED', '중복이에요')).toMatchObject({ out: '새 가이드 검토 중 → 반영 안함', reason: '중복이에요' })
+    expect(d('GUIDE_CLUSTER_APPLY', 'MANUAL_CANDIDATE REVIEWING → APPLIED').out).toBe('매뉴얼 후보 검토 중 → 반영 완료')
+    expect(d('GUIDE_CLUSTER_REBASE', 'CHANGE 기준 버전 12 → 34, 충돌 2건').out).toBe('항목 변경 기준 버전 12 → 34, 충돌 2건')
+    expect(d('GUIDE_CLUSTER_TARGET_CHANGE', 'CHANGE 문서 3 → 9 항목 3.2').out).toBe('항목 변경 문서 3 → 9 항목 3.2')
+    expect(d('GUIDE_CLUSTER_REGISTER', 'FUTURE_KIND → v3').out).toBe('FUTURE_KIND → v3')
+    expect(d('CASE_GUIDE_REGISTER', 'RCPT-0001 → v2').out).toBe('RCPT-0001 → v2')
+  })
+
   it('재배정: 배정 · 재배정 · 배정 실패', () => {
     expect(d('REASSIGN', 'ASSIGN').out).toBe('배정')
     expect(d('REASSIGN', 'REASSIGN', '기존 담당자 휴가')).toMatchObject({ out: '재배정', reason: '기존 담당자 휴가' })
@@ -95,5 +125,14 @@ describe('describeAudit', () => {
     expect(d('SOMETHING_NEW', 'X', '사유')).toEqual({ name: '', out: 'X', reason: '사유' })
     expect(d('INTEGRATION_RETRY', 'NEW_VALUE').out).toBe('NEW_VALUE')
     expect(d('FAIL', null).out).toBe('')
+  })
+})
+
+
+describe('보안 검토 기록', () => {
+  it('보안 검토 유형은 설명으로 표시하고 알 수 없는 값은 보존한다', () => {
+    expect(d('SECURITY_REVIEW', 'S01').out).toBe('보안 사고 의심')
+    expect(d('SECURITY_REVIEW', 'S06').out).toBe('AI 통제 우회 요청')
+    expect(d('SECURITY_REVIEW', 'S99').out).toBe('S99')
   })
 })

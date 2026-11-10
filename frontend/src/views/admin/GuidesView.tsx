@@ -69,6 +69,12 @@ export function GuidesView() {
   const [vers, setVers] = useState<Record<number, GuideVersion[]>>({})
   const [error, setError] = useState('')
   const [tab, setTab] = useState<Tab>('list')
+  const [caseGuide, setCaseGuide] = useState<{ docCode: string; title: string } | null>(null)
+  // 문서에서 제안으로 이동할 때 문맥을 함께 넘긴다. 전체 제안 탭은 이 조건을 해제한다.
+  const showCases = (g?: Guide) => {
+    setCaseGuide(g ? { docCode: g.docCode, title: g.title } : null)
+    setTab('case')
+  }
   const [catOpen, setCatOpen] = useState<Record<string, boolean>>({})
   const [openId, setOpenId] = useState<number | null>(null)
   const [tick, setTick] = useState(0)
@@ -149,6 +155,11 @@ export function GuidesView() {
   // 해결 사례 → 현행으로 전환: 바로 바꾸지 않고 가이드 목록의 그 문서를 펼쳐 열람 범위를 눈으로 확인한 뒤 거기서 전환하게 한다
   // 문서마다 이 문서에 걸린 AI 제안: 검토 중(review)인 것과, 등록해서 현행 전환을 기다리는(preparing·ready) 것
   const cases = useSyncExternalStore(subscribeAllCases, getAllCases)
+  useEffect(() => {
+    if (!CASES_FROM_SERVER || !cases.some((c) => c.state === 'preparing')) return
+    // 등록 뒤 패널을 열어 둬도 검색 준비 완료를 읽는다. 숨겨진 탭에서는 조회하지 않는다.
+    return visiblePoll(() => void loadCases(), 10_000)
+  }, [cases])
   const caseInfo = useMemo(() => {
     const m = new Map<string, { review: number; waiting: number; next?: CaseItem }>()
     const at = (code: string) => m.get(code) ?? m.set(code, { review: 0, waiting: 0 }).get(code)!
@@ -237,6 +248,8 @@ export function GuidesView() {
     if (n > 0) return setDlg({ kind: 'blocked', g, n })
     const r = await setGuideCurrent(user, g.id, v.id)
     if (!r.ok) return fail(r.error.message)
+    // 현행 전환된 제안이 계속 '전환 대기'로 안내되지 않도록 서버 사본도 갱신한다.
+    if (CASES_FROM_SERVER) await loadCases()
     say(v.state === '만료' ? `${v.version}을(를) 다시 현행으로 되돌렸어요.` : '현행 버전을 바꿨어요.')
     reload()
   }
@@ -246,7 +259,7 @@ export function GuidesView() {
     const list = vers[g.id] ?? g.versions
     const ci = caseInfo.get(g.docCode)
     return (
-      <div className={`gprow${g.isActive ? '' : ' off'}${focus?.docId === g.id ? ' gfocus' : ''}`} key={g.id} data-doc={g.id}>
+      <div className={`gprow${g.isActive ? '' : ' off'}`} key={g.id} data-doc={g.id}>
         <div className="gprh">
         <button type="button" className="grb" aria-expanded={open} onClick={() => setOpenId(open ? null : g.id)}>
           <span className="grt">
@@ -292,7 +305,7 @@ export function GuidesView() {
                 <i className="gd rv" aria-hidden="true" />
                 <span>
                   검토할 AI 제안이 <b>{ci.review}건</b> 있어요.{' '}
-                  <button type="button" className="lnk" onClick={() => setTab('case')}>
+                  <button type="button" className="lnk" onClick={() => showCases(g)}>
                     제안 보기
                   </button>
                 </span>
@@ -336,6 +349,7 @@ export function GuidesView() {
                     <tr key={v.id} data-ver={v.id} className={[v.state === '현행' ? 'vcur' : v.state === '만료' ? 'vold' : '', focus?.versionId === v.id && focus.docId === g.id ? 'vfocus' : ''].filter(Boolean).join(' ') || undefined}>
                       <td>
                         <b>{v.version}</b>
+                        {focus?.docId === g.id && focus.versionId === v.id && v.state !== '현행' && <span className="vfocus-note">전환할 버전</span>}
                       </td>
                       <td className="c">
                         <StateBadge tone={v.state === '현행' ? 'ok' : v.state === '초안' ? 'warn' : 'recv'} label={v.state} />
@@ -428,7 +442,7 @@ export function GuidesView() {
           {reviewTotal > 0 && (
             <>
               {' · '}
-              <button type="button" className="lnk" onClick={() => setTab('case')}>
+              <button type="button" className="lnk" onClick={() => showCases()}>
                 AI 제안 {reviewTotal}건 보기
               </button>
             </>
@@ -503,7 +517,7 @@ export function GuidesView() {
                 <button type="button" className={tab === 'list' ? 'on' : ''} aria-pressed={tab === 'list'} onClick={() => setTab('list')}>
                   가이드 목록 <span className="count">{guides?.length ?? 0}</span>
                 </button>
-                <button type="button" className={tab === 'case' ? 'on' : ''} aria-pressed={tab === 'case'} onClick={() => setTab('case')}>
+                <button type="button" className={tab === 'case' ? 'on' : ''} aria-pressed={tab === 'case'} onClick={() => showCases()}>
                   AI 가이드 제안 <span className="count">{reviewN}</span>
                 </button>
               </div>
@@ -537,6 +551,9 @@ export function GuidesView() {
               )
             ) : (
               <CaseGuideTab
+                key={caseGuide?.docCode ?? 'all'}
+                guide={caseGuide}
+                onClearGuide={() => setCaseGuide(null)}
                 onReview={(c) => {
                   setReader(null)
                   setCasePanel(c.id)
@@ -602,7 +619,7 @@ export function GuidesView() {
               className="btn pri"
               onClick={() => {
                 setDlg(null)
-                setTab('case')
+                showCases(dlg.g)
               }}
             >
               AI 가이드 제안 보기

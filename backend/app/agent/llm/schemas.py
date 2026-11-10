@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.constants.security import AI_SECURITY_RULE_IDS
 from app.rag.search.result import SearchResponse
 
 SCHEMA_VERSION = '1.0'
@@ -40,6 +41,7 @@ WorkStopped = Annotated[str, _enum(WORK_STOPPED)]
 MissingItem = Annotated[str, _enum(MISSING_ITEMS)]
 EvidenceKind = Annotated[str, _enum(EVIDENCE_KINDS)]
 EscalationReason = Annotated[str | None, _enum(ESCALATION_REASONS, nullable=True)]
+SecurityRuleId = Annotated[str, _enum(AI_SECURITY_RULE_IDS)]
 
 
 class _Strict(BaseModel):
@@ -119,13 +121,16 @@ class AIOutput(_Strict):
     missing_items: list[MissingItem]
     escalation_reason: EscalationReason
     confidence: float | None = Field(ge=0, le=1)
+    # 해당하는 보안 검토 기준(S01~S06). 없으면 []. 개수 상한(max_length)은 걸지 않는다:
+    # 출력 형식이 maxItems 를 받지 않아 모든 호출이 400 으로 실패한다 (PR #325 되돌림 원인). 중복·잘못된 값은 correct 가 정리한다
+    security_rule_ids: list[SecurityRuleId]
 
     @model_validator(mode='before')
     @classmethod
     def _old_output(cls, v):
-        """questions 가 생기기 전 모양도 읽는다 (평가 도구·Mock). 출력 형식에서는 필수 칸이다."""
-        if isinstance(v, dict) and 'questions' not in v:
-            return {**v, 'questions': []}
+        """questions·security_rule_ids 가 생기기 전 모양도 읽는다 (평가 도구·Mock). 출력 형식에서는 필수 칸이다."""
+        if isinstance(v, dict):
+            return {'questions': [], 'security_rule_ids': [], **v}
         return v
 
 
@@ -161,7 +166,7 @@ def _clean(node):
             return {'enum': node['enum']}
         # 값이 dict 인 'title' 은 출력 칸 이름(AIOutput.title)이라 남긴다
         return {k: _clean(v) for k, v in node.items()
-                if not (k in ('title', 'description', 'minimum', 'maximum') and not isinstance(v, dict))}
+                if not (k in ('title', 'description', 'minimum', 'maximum', 'maxItems') and not isinstance(v, dict))}
     if isinstance(node, list):
         return [_clean(v) for v in node]
     return node
@@ -177,18 +182,26 @@ def second_output_json_schema() -> dict:
     return _clean(SecondOutput.model_json_schema())
 
 
-def safe_default(escalation_reason: str = '전문판단', reason: str = 'AI 판단 실패') -> AIOutput:
-    """AI 출력을 쓸 수 없을 때 쓰는 값 (08 3.3). ALL_BLOCKED 는 escalation_reason='전송제한'."""
+# AI 가 안전 판단으로 거절(REFUSAL)했을 때 사용자에게 보이는 글. 시스템 오류처럼 보이지 않게 정책 때문임을 알리되,
+# 어떤 기준에 걸렸는지는 말하지 않는다 (우회 힌트 방지)
+REFUSED_TITLE = 'IT 문의 (직접 안내가 어려운 요청)'
+REFUSED_REPLY = '회사 보안 정책상 AI가 직접 처리할 수 없는 요청이에요. 필요하면 담당자가 확인해 드릴게요.'
+
+
+def safe_default(escalation_reason: str = '전문판단', reason: str = 'AI 판단 실패', refused: bool = False) -> AIOutput:
+    """AI 출력을 쓸 수 없을 때 쓰는 값 (08 3.3). ALL_BLOCKED 는 escalation_reason='전송제한'.
+    refused=True 는 Claude 가 안전 판단으로 거절했을 때(REFUSAL)로, 제목·안내만 정책 안내 글로 바꾼다."""
     return AIOutput(
         schema_version=SCHEMA_VERSION, action='ESCALATE', urgent_signal=False,
-        title='IT 문의 (자동 분류 실패)', category_code=None, inquiry_type_code=None, request_kind=None,
+        title=REFUSED_TITLE if refused else 'IT 문의 (자동 분류 실패)', category_code=None, inquiry_type_code=None, request_kind=None,
         urgency_suggested=None,
         facts=Facts(summary='', target_system=None, symptom=None, situation=None, occurred_at=None, impact_scope=None,
                     work_stopped='unknown', has_workaround=None, time_constraint=None, business_impact=None,
                     security_suspected=False, tried_actions=[]),
         rationale=Rationale(category='', urgency_reasons=[], action=reason),
-        reply='지금은 자동으로 확인하기 어려워요. 담당자에게 연결해 드릴까요?',
+        reply=REFUSED_REPLY if refused else '지금은 자동으로 확인하기 어려워요. 담당자에게 연결해 드릴까요?',
         questions=[], evidence=[], missing_items=[], escalation_reason=escalation_reason, confidence=None,
+        security_rule_ids=[],
     )
 
 

@@ -44,7 +44,7 @@ def test_success_paths_reserve_once_without_assigning_jira(assign_db, path):
     assert assignment.status == "PENDING"
     assert assignment.payload == {
         "ticketId": ticket.id, "receiptNo": ticket.receipt_no, "jiraKey": ticket.jira_key,
-        "groupId": 3, "assigneeId": 18, "jiraAccountId": ACCOUNT, "assignmentRevision": 1,
+        "groupId": 3, "assigneeId": 18, "jiraAccountId": ACCOUNT, "previousJiraAccountId": None, "assignmentRevision": 1,
         "requestedBy": None, "requestedAt": T0.isoformat(),
     }
     assert [(log.event, log.actor_id) for log in logs(db, ticket)] == [("ASSIGN", None)]

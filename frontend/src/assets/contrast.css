@@ -101,6 +101,8 @@
 
 /* ---- 안내·오류 박스: 아이콘 + 글자 + 2px 윤곽선 (색만으로 구분하지 않음) ---- */
 :root[data-contrast="high"] .alert{box-shadow:inset 0 0 0 2px currentColor}
+/* 조회 범위 안내는 정보 안내와 색이 합쳐져도 중립 면과 굵은 왼쪽 선으로 구분한다. */
+:root[data-contrast="high"] .alert.guide-scope{background:var(--white);color:var(--ink);box-shadow:inset 4px 0 0 var(--link),inset 0 0 0 3px var(--hc-strong)}
 
 /* ---- 검색어 강조 · AI 평가 · 타임라인 현재 라벨 ---- */
 :root[data-contrast="high"] mark.hl{background:var(--hc-accent);color:#000;box-shadow:inset 0 -2px 0 #000;font-weight:700}

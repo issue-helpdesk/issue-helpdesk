@@ -4,7 +4,7 @@ payload 에 그룹·담당자·assignment_revision 을 남긴다. 실행기는 �
 payload 의 값이 다르면 더 새 배정이 있는 것이므로 Jira 를 바꾸지 않는다 (06 연동 보완).
 
 저장된 예약의 공통 자격을 다시 확인한 뒤 미배정 Jira 지정·재조회·DB 확정을 수행한다.
-다른 Jira 담당자가 있으면 변경 전 담당자 정보가 없는 현재 payload로 덮어쓰지 않는다.
+Jira 담당자가 payload 의 변경 전 계정(previousJiraAccountId)이면 승인된 재배정으로 바꾸고, 그 외 계정이면 덮어쓰지 않는다.
 후보 선정·최초 자동배정·worker 등록은 별도 연결한다.
 """
 import uuid
@@ -95,7 +95,7 @@ def run_jira_assign_job(
         _validate(db, jira, job, ticket)
         key, account = p["jiraKey"], p["jiraAccountId"].strip()
         actual = _read_assignment(jira, key)
-        if actual is not None and actual != account:
+        if actual is not None and actual not in (account, p.get("previousJiraAccountId")):
             raise JiraError("assignment_source_unconfirmed", "다른 담당자를 임의로 덮어쓰지 않습니다.", retryable=False)
         if actual != account:
             if (job.last_error or "").startswith(VERIFY_ONLY):
@@ -157,6 +157,9 @@ def _validate(db: Session, jira: JiraClient, job: IntegrationJob, ticket: Ticket
         raise JiraError("assignment_not_allowed", "현재 접수 상태에서는 배정할 수 없습니다.", retryable=False)
     if not isinstance(p["jiraAccountId"], str) or not p["jiraAccountId"].strip():
         raise JiraError("invalid_job", "Jira 계정이 없습니다.", retryable=False)
+    previous = p.get("previousJiraAccountId")          # 이 필드가 없던 기존 작업은 미배정 접수처럼 처리한다
+    if previous is not None and (not isinstance(previous, str) or not previous.strip()):
+        raise JiraError("invalid_job", "변경 전 Jira 계정이 올바르지 않습니다.", retryable=False)
     try:
         requested_at = datetime.fromisoformat(p["requestedAt"].replace("Z", "+00:00"))
         if requested_at.tzinfo is None:

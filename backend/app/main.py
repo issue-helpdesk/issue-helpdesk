@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 
 from app import __version__
+from app.agent.sensitive import install_log_filter
 from app.api import (
     audit_logs,
     auth,
@@ -17,6 +18,7 @@ from app.api import (
     jira_webhook,
     notifications,
     reference,
+    security_alerts,
     tickets,
     time_off,
     users,
@@ -26,6 +28,8 @@ from app.core.errors import register_error_handlers
 from app.core.upload_limit import UploadLimitMiddleware
 from app.rag.search import runtime as search_runtime
 from app.services.document_ingest import resume_periodically, submit_cleanup, submit_resume
+
+install_log_filter()    # uvicorn 은 앱을 불러오기 전에 로그를 설정하므로 여기서 불러도 된다
 
 
 @asynccontextmanager
@@ -70,3 +74,4 @@ app.include_router(jira_webhook.router, prefix=API_VERSION_V1)
 app.include_router(notifications.router, prefix=API_VERSION_V1)
 app.include_router(dashboard.router, prefix=API_VERSION_V1)
 app.include_router(audit_logs.router, prefix=API_VERSION_V1)
+app.include_router(security_alerts.router, prefix=API_VERSION_V1)

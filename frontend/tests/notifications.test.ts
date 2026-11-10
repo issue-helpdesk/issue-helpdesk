@@ -35,7 +35,7 @@ describe('알림 API', () => {
     expect(list.ok && list.data[0].inquiryId).toBe(7)
     const read = await api.markTicketRead(42)
     expect(read.ok && read.data.updatedCount).toBe(2)
-    expect(calls()).toEqual(['GET /api/v1/notifications/unread-count', 'GET /api/v1/notifications?unreadOnly=true&size=100', 'POST /api/v1/notifications/read'])
+    expect(calls()).toEqual(['GET /api/v1/notifications/unread-count', 'GET /api/v1/notifications?unreadOnly=true&size=100&page=1', 'POST /api/v1/notifications/read'])
     expect(JSON.parse(String((fetchMock.mock.calls[2][1] as RequestInit).body))).toEqual({ ticketId: 42 })
   })
 

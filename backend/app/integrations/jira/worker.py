@@ -1,9 +1,9 @@
-"""Jira 연동 작업 독립 실행기 — 생성·배정·상태 변경과 웹훅 이벤트 반영을 별도 프로세스에서 처리한다.
+"""Jira 연동 작업 독립 실행기 — 생성·배정·상태 변경·필드 갱신과 웹훅 이벤트 반영을 별도 프로세스에서 처리한다.
 
     uv run python backend/app/integrations/jira/worker.py --once            # 한 번만 돌고 종료
     uv run python backend/app/integrations/jira/worker.py --interval 30     # 30초마다 반복 (Ctrl+C 로 종료)
 
-한 번 돌 때 생성 → 배정 → 상태 변경 순으로 각 서비스의 중단 복구·단건 실행 함수를 호출하고,
+한 번 돌 때 생성 → 배정 → 상태 변경 → 필드 갱신(분류 변경) 순으로 각 서비스의 중단 복구·단건 실행 함수를 호출하고,
 API 가 저장해 둔 웹훅 이벤트(PENDING)를 run_due_webhook_events 로 DB 에 반영하고,
 마지막으로 웹훅이 빠졌을 때를 대비해 1분 넘게 Jira 와 대조하지 않은 접수를 run_due_ticket_syncs 로 다시 맞춘다.
 웹훅을 그 앞에 두는 이유: ITssue 가 보낸 변경이 되돌아온 이벤트는 위 작업이 끝난 뒤라야 값이 같아 그대로 끝난다.
@@ -34,16 +34,17 @@ from sqlalchemy.orm import Session  # noqa: E402
 
 from app.integrations.jira.client import JiraClient  # noqa: E402
 from app.models import IntegrationJob  # noqa: E402
-from app.services import jira_assign, jira_create, jira_transition, jira_webhook  # noqa: E402
+from app.services import jira_assign, jira_create, jira_fields, jira_transition, jira_webhook  # noqa: E402
 from app.utils import datetime_utils  # noqa: E402
 from app.services.jira_create import JobResult  # noqa: E402
 from app.services.jira_assign import AssignmentResult  # noqa: E402
+from app.services.jira_fields import FieldsResult  # noqa: E402
 from app.services.jira_transition import TransitionResult  # noqa: E402
 from app.services.jira_webhook import PERIODIC_SYNC_AFTER, SYNC_INTERVAL, TicketSyncResult, WebhookResult  # noqa: E402
 
 logger = logging.getLogger("jira_worker")
 
-JOB_TYPES = ("JIRA_CREATE", "JIRA_ASSIGN", "JIRA_TRANSITION")
+JOB_TYPES = ("JIRA_CREATE", "JIRA_ASSIGN", "JIRA_TRANSITION", "JIRA_UPDATE_FIELDS")
 WEBHOOK_KIND = "WEBHOOK"     # 작업표(IntegrationJob)의 종류가 아니라 jira_webhook_events 를 처리하는 단계의 이름
 SYNC_KIND = "SYNC"           # 마찬가지로 작업표 밖의 단계: 오래 대조하지 않은 접수를 Jira 와 다시 맞추는 주기 대조
 
@@ -53,7 +54,7 @@ class RoundReport:
     """한 번 돈 결과."""
 
     requeued: int
-    results: list[JobResult | AssignmentResult | TransitionResult | WebhookResult | TicketSyncResult]
+    results: list[JobResult | AssignmentResult | TransitionResult | FieldsResult | WebhookResult | TicketSyncResult]
     result_types: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
@@ -103,6 +104,7 @@ def run_round(
         "JIRA_CREATE": (jira_create.requeue_stale_running_jobs, jira_create.run_jira_create_job),
         "JIRA_ASSIGN": (jira_assign.requeue_stale_assign_jobs, jira_assign.run_jira_assign_job),
         "JIRA_TRANSITION": (jira_transition.requeue_stale_transition_jobs, jira_transition.run_jira_transition_job),
+        "JIRA_UPDATE_FIELDS": (jira_fields.requeue_stale_field_jobs, jira_fields.run_jira_update_fields_job),
     }
     report = RoundReport(0, [])
     for kind in JOB_TYPES:
@@ -210,13 +212,13 @@ def run_loop(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Jira 생성·배정·상태 변경·웹훅 반영 독립 실행기")
+    parser = argparse.ArgumentParser(description="Jira 생성·배정·상태 변경·필드 갱신·웹훅 반영 독립 실행기")
     parser.add_argument("--once", action="store_true", help="한 번만 돌고 종료")
     parser.add_argument("--interval", type=float, default=30.0, help="반복 주기(초), 기본 30")
     parser.add_argument("--limit", type=int, default=10, help="종류별 한 회차 최대 작업 수, 기본 10")
     parser.add_argument("--stale-minutes", type=float, default=5.0, help="이 시간 넘게 RUNNING 이면 방치로 보고 되돌림, 기본 5분")
     parser.add_argument("--job-types", nargs="+", choices=JOB_TYPES, default=list(JOB_TYPES),
-                        help="처리할 작업 종류, 기본값은 생성·배정·상태 변경 모두")
+                        help="처리할 작업 종류, 기본값은 생성·배정·상태 변경·필드 갱신 모두")
     parser.add_argument("--ticket-id", type=int, help="지정한 접수만 복구·실행 (단건 시험용, 웹훅 반영·주기 대조는 하지 않음)")
     parser.add_argument("--no-webhook", action="store_true", help="웹훅 이벤트 반영을 건너뜀 (기본은 매 회차 반영)")
     parser.add_argument("--no-sync", action="store_true", help="오래 대조하지 않은 접수의 주기 대조를 건너뜀 (기본은 매 회차 실행)")

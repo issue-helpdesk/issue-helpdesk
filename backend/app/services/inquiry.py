@@ -296,7 +296,10 @@ class InquiryService:
         따르고, 본문은 서로 다른 것만 이어 붙이며 그림은 모은다. 과거 사례는 문서 번호·위치가 없어 합치지 않는다.
         """
         allowed = visible_scopes(viewer.service_role)
-        rows = [source for source, scope in self.inquiries.sources_with_scope([m.id for m in messages]) if scope in allowed]
+        visible = [(source, title) for source, scope, title in self.inquiries.sources_with_scope([m.id for m in messages])
+                   if scope in allowed]
+        rows = [source for source, _ in visible]
+        titles = {source.id: title for source, title in visible}
         metas = self.inquiries.chunk_metas([s.chunk_id for s in rows if s.chunk_id is not None])
 
         def unit(s: MessageSource) -> tuple:
@@ -312,6 +315,7 @@ class InquiryService:
             first = pieces[0]
             excerpts = dict.fromkeys(p.excerpt for p in pieces if p.excerpt)
             view = MessageSourceView.model_validate(first).model_copy(update={
+                "title": titles[first.id],
                 "excerpt": "\n\n".join(excerpts) or first.excerpt,
                 "images": images_of(metas.get(p.chunk_id) for p in pieces),
             })
@@ -347,8 +351,28 @@ class InquiryService:
             self.inquiries.add(MessageSource(message_id=message.id, **row))
         for event_type, outcome, reason in ai_audit_events(result):
             self.audit_logs.add(event_type, "inquiry", inquiry_id, result=outcome, reason=reason)
+        types = []
         if result.failure == "ALL_BLOCKED":
-            detect(self.alerts, "BLOCKED_DOC_QUERY", inquiry.user_id, "inquiry", inquiry_id)
+            types.append("BLOCKED_DOC_QUERY")
+        # AI 가 안전 판단으로 거절하면(REFUSAL) 보안 유형을 못 내고 기본값으로 끝난다. 그 문의를 놓치지 않게 알림을 남긴다
+        if result.failure == "AI_FAILED" and result.error_code == "REFUSAL":
+            types.append("AI_REFUSED")
+        # AI 가 보안 검토 기준(S01~S06)에 해당한다고 판단한 문의. 기준마다 알림 하나로 합쳐진다
+        types.extend(dict.fromkeys(result.output.security_rule_ids))
+        for alert_type in types:
+            self.detect_alert(alert_type, inquiry)
+
+    def detect_alert(self, alert_type: str, inquiry: Inquiry) -> None:
+        """알림을 남긴다. 알림을 못 남겨도 사용자의 문의·AI 답변 저장은 그대로 이어간다.
+
+        알림 쪽 오류(예: DB 마이그레이션 미적용으로 새 알림 유형이 거부됨)가 요청 전체를 500 으로 만들어
+        AI 답변까지 롤백되면, 사용자는 답변도 알림도 없는 문의를 보게 된다. 실패는 로그로 남긴다.
+        """
+        try:
+            with self.db.begin_nested():
+                detect(self.alerts, alert_type, inquiry.user_id, "inquiry", inquiry.id)
+        except Exception:
+            logger.exception("보안 알림 생성 실패 type=%s inquiry_id=%s", alert_type, inquiry.id)
 
     def find_viewable(self, inquiry_id: int, viewer: User) -> Inquiry:
         inquiry = self.inquiries.get(inquiry_id)
@@ -506,6 +530,7 @@ def ai_audit_events(result: FlowResult) -> list[tuple[str, str, str | None]]:
         events.append(("FAIL", "FILTER_FAILED", "④ 외부 모델 호출 직전"))
     elif result.failure == "AI_FAILED":
         events.append(("FAIL", "AI_FAILED", result.error_code))
+    events += [("SECURITY_REVIEW", rule, None) for rule in dict.fromkeys(result.output.security_rule_ids)]
     return events
 
 

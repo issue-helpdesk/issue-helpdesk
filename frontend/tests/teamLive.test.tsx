@@ -77,6 +77,33 @@ afterEach(() => {
 })
 
 describe('서버 모드 담당 그룹 구성원', () => {
+  it('접수가 100건을 넘으면 다음 쪽까지 읽어 팀원별 상태와 긴급도를 합산한다', async () => {
+    const api = await load()
+    server()
+    const base = fetchMock.getMockImplementation()! as (url: string) => Promise<Response>
+    fetchMock.mockImplementation(async (url: string) => {
+      if (!url.startsWith('/api/v1/tickets')) return base(url)
+      const n = Number(new URL(url, 'http://test').searchParams.get('page'))
+      return json(200, { items: n === 1 ? Array.from({ length: 100 }, (_, i) => ticket(i + 1, 10, 'RDY', 'P2')) : [ticket(101, 10, 'WIP', 'P1')], page: n, size: 100, totalCount: 101, totalPages: 2 })
+    })
+    const r = await api.listBoard(admin)
+    expect(r.ok && r.data['네트워크팀'][0]).toMatchObject({ rdy: 100, wip: 1, pri: { P1: 1, P2: 100 } })
+    expect(urls().filter((url) => url.startsWith('/api/v1/tickets')).map((url) => new URL(url, 'http://test').searchParams.get('page'))).toEqual(['1', '2'])
+  })
+
+  it('다음 쪽 조회가 실패하면 일부 집계를 전체 건수나 0건으로 표시하지 않는다', async () => {
+    const api = await load()
+    server()
+    const base = fetchMock.getMockImplementation()! as (url: string) => Promise<Response>
+    fetchMock.mockImplementation(async (url: string) => {
+      if (!url.startsWith('/api/v1/tickets')) return base(url)
+      return new URL(url, 'http://test').searchParams.get('page') === '2'
+        ? json(500, { error: { code: 'INTERNAL_ERROR', message: '다음 쪽 조회 실패' } })
+        : json(200, { ...page([ticket(1, 10, 'RDY', 'P2')]), totalPages: 2 })
+    })
+    expect(await api.listBoard(admin)).toMatchObject({ ok: false, error: { code: 'INTERNAL_ERROR' } })
+  })
+
   it('RF-04·TO-01·TK-05 를 합쳐 부재 사유·ITSM 연결·업무량·긴급도 분포를 만든다', async () => {
     const api = await load()
     server()

@@ -104,6 +104,7 @@ class MessageSource(CamelModel):
     id: int
     source_kind: str
     doc_code: str | None
+    title: str | None = None                # 문서 제목. LEGACY 는 null
     version: str | None
     location: str | None
     excerpt: str | None

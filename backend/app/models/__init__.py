@@ -4,8 +4,8 @@ from app.models.auth import AuthSession
 from app.models.support import MemberSkill, RoutingRule, SupportGroup, SupportGroupMember
 from app.models.taxonomy import Category, InquiryType
 from app.models.inquiry import ChatSession, Inquiry, InquiryAssessment, Message, MessageSource
-from app.models.ticket import (AssignmentLog, IntegrationJob, JiraWebhookEvent, Notification, Ticket, TicketDraft,
-                               TicketStatusHistory)
+from app.models.ticket import (AssignmentLog, IntegrationJob, JiraWebhookEvent, Notification, Ticket,
+                               TicketClassificationReport, TicketDraft, TicketStatusHistory)
 from app.models.knowledge import DocumentChunk, DocumentVersion, Faq, FaqSourceDocument, KnowledgeDocument, LegacyInquiry
 from app.models.embedding import DocumentChunkEmbedding, LegacyInquiryEmbedding
 from app.models.ops import AuditLog, LlmCall, SecurityAlert
@@ -33,6 +33,7 @@ __all__ = [
     "JiraWebhookEvent",
     "Notification",
     "Ticket",
+    "TicketClassificationReport",
     "TicketDraft",
     "TicketStatusHistory",
     "DocumentChunk",

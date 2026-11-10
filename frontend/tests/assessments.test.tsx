@@ -5,11 +5,12 @@ import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/App'
-import { listAssessments } from '../src/api/assessments'
+import { listAssessments, type Assessment } from '../src/api/assessments'
 import { MOCK_ACCOUNTS } from '../src/api/mock/accounts'
 import type { User } from '../src/api/types'
 import { AuthProvider } from '../src/core/session'
 import { tokenStore } from '../src/core/tokenStore'
+import { AssessmentHistory } from '../src/views/staff/AssessmentHistory'
 
 const SLOW = { timeout: 3000 }
 const admin = (): User => MOCK_ACCOUNTS.find((u) => u.employeeNo === 'EMP-1178')!
@@ -90,5 +91,24 @@ describe('접수 상세의 AI 판단 이력 (화면)', () => {
     const p2 = await screen.findByRole('complementary', { name: '티켓 상세' }, SLOW)
     await within(p2).findByRole('heading', { name: '처리 이력' }, SLOW)
     expect(within(p2).queryByRole('heading', { name: 'AI 판단 이력' })).toBeNull()
+  })
+})
+
+describe('AI 판단 이력: AI 원래 판단이 없는 경우', () => {
+  it('안전 거절·AI 실패로 aiOutput 이 null 이어도 화면이 깨지지 않고 안내를 보여 준다', async () => {
+    tokenStore.set('mock.EMP-1178')
+    const refused: Assessment = {
+      id: 1, inquiryId: 677, facts: { summary: '' }, missingItems: [], urgentSignal: false, categoryCode: null, inquiryTypeId: null,
+      urgency: 'P3', urgencyReason: null, action: 'ESCALATE', aiOutput: null, overrideReasons: [], createdAt: '2026-11-10T01:10:00+09:00',
+    }
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <AssessmentHistory inquiryId={677} preset={[refused]} />
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText(/AI 판단 없음/, {}, SLOW)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'AI 판단 이력' })).toBeInTheDocument()
   })
 })

@@ -165,6 +165,24 @@ describe('검토 패널 (서버 연결)', () => {
     expect(within(panel).getByRole('button', { name: '다시 맞추기' })).toBeInTheDocument()
   })
 
+  it('등록한 초안의 기준이 바뀌어도 다시 맞추기로 검토·재등록을 이어갈 수 있다', async () => {
+    let rebased = false
+    route = (m, p) => {
+      if (m === 'POST' && p === '/guide-clusters/12/rebase') {
+        rebased = true
+        return json(200, detail({ draftRevision: 3, currentVersion: ver({ id: 33, version: 'v2.1' }), baseVersion: ver({ id: 33, version: 'v2.1' }) }))
+      }
+      if (m === 'GET' && p === '/guide-clusters/12') return json(200, detail({ registeredVersion: rebased ? null : ver({ id: 40, version: 'v2.2', isCurrent: false }), baseChanged: !rebased, currentVersion: ver({ id: 33, version: 'v2.1' }) }))
+    }
+    await mountPanel()
+    const panel = await screen.findByRole('complementary', { name: '가이드 초안 검토' })
+    const rebase = await within(panel).findByRole('button', { name: '다시 맞추기' })
+    expect(within(panel).getByRole('button', { name: '현행으로 전환' })).toBeDisabled()
+    await userEvent.click(rebase)
+    expect(await within(panel).findByRole('button', { name: '승인하고 초안 등록' })).toBeEnabled()
+    expect(bodyOf('POST', '/guide-clusters/12/rebase')).toEqual({ draftRevision: 2 })
+  })
+
   it('풀리지 않은 충돌은 예전 원문과 지금 현행 원문을 나란히 보이고 등록을 막는다', async () => {
     route = (m, p) =>
       m === 'GET' && p === '/guide-clusters/12'
@@ -178,17 +196,21 @@ describe('검토 패널 (서버 연결)', () => {
     expect(within(panel).getByRole('button', { name: '승인하고 초안 등록' })).toBeDisabled()
   })
 
-  it('보안 사고 사례는 초안 편집·등록 없이 근거 티켓을 보고 "반영했어요"나 "반영 안함"만 고른다', async () => {
-    route = (m, p) => (m === 'GET' && p === '/guide-clusters/12' ? json(200, detail({ judgment: 'SEC_MANUAL', category: { code: 'SEC', name: '정보보안' }, draftMd: '### 의심 메일' })) : undefined)
+  it.each([null, '### 이전 서버가 내려준 초안'])('기존 SEC 응답은 초안 유무(%s)와 관계없이 직접 검토만 제공한다', async (draftMd) => {
+    route = (m, p) => m === 'GET' && p === '/guide-clusters/12' ? json(200, detail({ judgment: 'SEC_MANUAL', category: { code: 'SEC', name: '정보보안' }, draftMd })) : undefined
     await mountPanel()
     const panel = await screen.findByRole('complementary', { name: '가이드 초안 검토' })
     expect(await within(panel).findByText('보안 사고 사례', { selector: 'h3' })).toBeInTheDocument()
-    expect(within(panel).getByText(/AI가 만든 초안은 없어요/)).toBeInTheDocument()
+    expect(within(panel).getByRole('region', { name: '검토 안내' })).toHaveTextContent('자동 가이드화 대상에서 제외')
+    expect(within(panel).queryByRole('region', { name: 'AI 판단' })).toBeNull()
     expect(within(panel).queryByRole('button', { name: '승인하고 초안 등록' })).toBeNull()
     expect(within(panel).queryByRole('button', { name: '임시 저장' })).toBeNull()
+    expect(within(panel).queryByRole('button', { name: '문서 연결' })).toBeNull()
     expect(within(panel).queryByRole('textbox')).toBeNull()
+    expect(within(panel).queryByText('### 이전 서버가 내려준 초안')).toBeNull()
     expect(within(panel).getByRole('button', { name: '반영 안함' })).toBeInTheDocument()
     expect(within(panel).getByRole('button', { name: '가이드·매뉴얼에 반영했어요' })).toBeInTheDocument()
+    expect(within(panel).queryByText(/AI가 만든 초안은 없어요/)).toBeNull()
   })
 
   it('새 가이드는 문서를 연결하기 전에는 등록할 수 없고, 새 문서를 만들어 연결할 수 있다', async () => {

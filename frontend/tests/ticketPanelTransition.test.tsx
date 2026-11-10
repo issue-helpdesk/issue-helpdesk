@@ -60,7 +60,7 @@ describe('패널의 서버 상태 변경', () => {
     expect(api.changeTicketStatus).toHaveBeenCalledExactlyOnceWith(agent, 7, { workStatus: 'WIP' })
     expect(screen.getByRole('button', { name: '처리 시작' })).toBeDisabled()
     expect(screen.queryByLabelText(/처리 결과/)).toBeNull()
-    expect(screen.getByRole('status')).toHaveTextContent('반영을 확인하는 중')
+    expect(screen.getByRole('status')).toHaveTextContent('ITSM 시스템 반영을 확인하고 있어요')
     const refreshes = api.refreshTickets.mock.calls.length
     latest = { ...latest, workStatus: 'WIP', requestedWorkStatus: null, transitionStatus: 'IDLE' }
     history = [{ id: 1, ticketId: 7, fromStatus: 'RDY', toStatus: 'WIP', source: 'ITSSUE', actor: agent, reason: null, changedAt: '2026-11-06T09:01:00+09:00' }]
@@ -84,7 +84,7 @@ describe('패널의 서버 상태 변경', () => {
     await userEvent.click(screen.getByRole('button', { name: '처리 시작' }))
     await act(async () => finishOldRead(ok(base)))
     expect(screen.getByRole('button', { name: '처리 시작' })).toBeDisabled()
-    expect(screen.getByRole('status')).toHaveTextContent('반영을 확인하는 중')
+    expect(screen.getByRole('status')).toHaveTextContent('ITSM 시스템 반영을 확인하고 있어요')
   })
 
   it('반영 중에는 3초마다 확인하고, 확인 필요 상태가 되면 잠금을 유지하고 조회 주기를 멈춘다', async () => {
