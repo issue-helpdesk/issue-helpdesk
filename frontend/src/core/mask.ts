@@ -93,7 +93,7 @@ export const hasMask = (text: string) => /●{3,}/.test(text)
  */
 export const MASK_NOTICE = '민감정보가 감지되었어요.\n입력하신 정보는 안전을 위해 ●●●로 가림 처리했어요. 비밀번호나 인증번호는 입력하지 말아 주세요.'
 /** 비밀번호로 확인된 경우 위 설명 뒤에 덧붙인다 */
-const MASK_NOTICE_PASSWORD = '실제 사용 중인 비밀번호라면 비밀번호 재설정 포털에서 변경해 주세요.'
+const MASK_NOTICE_PASSWORD = '실제 사용 중인 비밀번호라면 해당 서비스에서 비밀번호를 변경해 주세요.'
 export const MASK_NOTICE_IDENTITY = '개인정보가 감지되었어요.\n입력하신 정보는 안전을 위해 ●●●로 가림 처리했어요. 문의에 필요하지 않은 개인정보는 입력하지 말아 주세요.'
 /** 접수 초안을 고치는 글에서 가렸을 때 초안 카드 위에 보여 준다 */
 export const MASK_NOTICE_DRAFT = '민감정보가 가림 처리되었어요.\n입력하신 내용에 민감정보가 포함되어 있어 일부 내용을 가렸어요. 접수 전 내용을 확인해 주세요.'

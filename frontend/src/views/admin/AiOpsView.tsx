@@ -141,6 +141,7 @@ export function AiOpsView() {
                 </>
               )}
               {usage && !b && <div className="small muted" style={{ marginTop: 8 }}>설정된 예산이 없어요</div>}
+              {b && <div className="small muted" style={{ marginTop: 8 }}>비용 비교를 위한 기준 금액이에요. 예산을 초과해도 AI 호출을 자동으로 차단하지는 않아요.</div>}
             </div>
           </div>
 

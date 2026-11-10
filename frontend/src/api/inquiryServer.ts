@@ -308,6 +308,11 @@ const extraId = (m: SMessage, n: number) => -(1000 + m.id * 10 + n)
  * - DRAFT_CARD: 초안 안내 + 초안 카드 (draft.status 가 EDITING 일 때만 수정·접수·취소가 되고 그 밖에는 읽기 전용)
  * - TICKET_CARD: 접수·재확인 안내. 진행 카드는 마지막 하나만 보이고(지난 시점의 상태는 저장하지 않는다) 앞의 것은 안내 글만 남는다
  */
+/** LEGACY 응답의 location은 사례 번호다. 증상·해결 방법을 따로 제공하지 않으므로 본문만 전달한다. */
+function legacySource(source: SSource): LegacyCase {
+  return { no: source.location?.trim() ?? '', title: source.title?.trim() || '과거 처리 사례 참고', symptom: '', solution: source.excerpt?.trim() ?? '' }
+}
+
 function toMessagesFromKinds(list: SMessage[], i: SInquiry): ChatMessage[] {
   const out: ChatMessage[] = []
   const lastTicketCard = [...list].reverse().find((m) => m.kind === 'TICKET_CARD')?.id
@@ -323,7 +328,7 @@ function toMessagesFromKinds(list: SMessage[], i: SInquiry): ChatMessage[] {
       else if (m.sender === 'SYSTEM') out.push({ id: m.id, role: 'sys', text: content, createdAt: m.createdAt })
       else {
         const legacy = m.sources?.find((s) => s.sourceKind === 'LEGACY')
-        const legacyCase: LegacyCase | undefined = legacy ? { no: '', title: '과거 처리 사례 참고', symptom: '', solution: legacy.excerpt ?? '' } : undefined
+        const legacyCase = legacy ? legacySource(legacy) : undefined
         out.push({ id: m.id, role: 'assistant', blocks: toBlocks(content), sources: (m.sources ?? []).filter((s) => s.sourceKind === 'DOCUMENT').map(GUIDE), legacy: legacyCase, questions: toQuestions(m.questions), createdAt: m.createdAt })
       }
       return
@@ -368,7 +373,7 @@ function toMessages(list: SMessage[], step: ChatStep, i: SInquiry, answering = f
     if (m.sender === 'USER') return { id: m.id, role: 'user', text: content, createdAt: m.createdAt }
     if (m.sender === 'SYSTEM') return { id: m.id, role: 'sys', text: content, createdAt: m.createdAt, tone: /민감정보|개인정보가 감지|가림|가려|가렸|마스킹/.test(content) ? 'sens' : undefined }
     const legacy = m.sources.find((s) => s.sourceKind === 'LEGACY')
-    const legacyCase: LegacyCase | undefined = legacy ? { no: '', title: '과거 처리 사례 참고', symptom: '', solution: legacy.excerpt ?? '' } : undefined
+    const legacyCase = legacy ? legacySource(legacy) : undefined
     return { id: m.id, role: 'assistant', blocks: toBlocks(content), sources: m.sources.filter((s) => s.sourceKind === 'DOCUMENT').map(GUIDE), legacy: legacyCase, questions: toQuestions(m.questions), createdAt: m.createdAt }
   })
   // 지금 답할 수 있는 질문: 서버가 준 마지막 메시지가 질문이 있는 AI 메시지이고, 문의가 진행 중(IN_PROGRESS)·추가 질문(ASK_MORE)일 때만이다.

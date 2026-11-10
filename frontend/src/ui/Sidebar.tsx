@@ -12,7 +12,7 @@ import { markInquirySeen } from '../api/inquirySeen'
 import { watchUnread } from '../api/notifications'
 import { getIngestFailures, watchIngest } from '../api/guideWatch'
 import { countOpsAttention } from '../api/ops'
-import { countSecurityAlerts, watchSecurity } from '../api/security'
+import { watchSecurityCounts } from '../api/security'
 import { listTickets, watchTickets } from '../api/tickets'
 import type { InquirySummary, ServiceRole } from '../api/types'
 import { USE_MOCK_INQUIRY, USE_MOCK_NOTIFY } from '../core/config'
@@ -101,9 +101,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   // 관리자: 신규 보안·감사 알림 수 (보안·감사 알림 메뉴 옆)
   useEffect(() => {
     if (!user || !isAdmin) return
-    return watchSecurity(() => {
-      countSecurityAlerts(user).then((c) => setSecNew(c?.신규 ?? 0))
-    })
+    return watchSecurityCounts(user, (c) => setSecNew(c.신규))
   }, [user, isAdmin])
   useEffect(() => {
     if (!user || agentId === null) return

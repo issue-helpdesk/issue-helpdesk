@@ -7,6 +7,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/App'
 import { listAuditLogs } from '../src/api/auditLogs'
+import * as auditApi from '../src/api/auditLogs'
 import { MOCK_ACCOUNTS } from '../src/api/mock/accounts'
 import type { User } from '../src/api/types'
 import { AuthProvider } from '../src/core/session'
@@ -76,6 +77,22 @@ describe('운영 기록 (서버 모드)', () => {
 })
 
 describe('운영 기록 화면', () => {
+  it('새로고침은 현재 구분 조건을 유지해 목록을 다시 읽는다', async () => {
+    const read = vi.spyOn(auditApi, 'listAuditLogs')
+    try {
+      renderAs('EMP-1178', '/audit')
+      await screen.findByRole('button', { name: '새로고침' }, SLOW)
+      const types = screen.getByRole('group', { name: '구분' })
+      await userEvent.click(within(types).getByRole('button', { name: '문서' }))
+      const refresh = await screen.findByRole('button', { name: '새로고침' }, SLOW)
+      const before = read.mock.calls.length
+      await userEvent.click(refresh)
+      await waitFor(() => expect(read.mock.calls.length).toBe(before + 1), SLOW)
+      expect(read).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ targetType: 'document', page: 1 }))
+      expect(within(types).getByRole('button', { name: '문서' })).toHaveAttribute('aria-pressed', 'true')
+    } finally { read.mockRestore() }
+  })
+
   it('기록을 한글로 보여 주고(이벤트 이름 + 서버 코드), 구분·이벤트로 거른다', async () => {
     renderAs('EMP-1178', '/audit')
     const nav = await screen.findByRole('navigation', { name: '주 메뉴' }, SLOW)

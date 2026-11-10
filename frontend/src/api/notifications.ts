@@ -10,7 +10,7 @@
  */
 import { request } from '../core/apiClient'
 import { USE_MOCK_NOTIFY } from '../core/config'
-import { visiblePoll } from '../core/poll'
+import { createSharedPoll } from '../core/sharedPoll'
 import { ok, type ApiResult } from './types'
 
 interface UnreadCount {
@@ -62,28 +62,16 @@ export async function markTicketRead(ticketId: number): Promise<ApiResult<{ upda
   return request<{ updatedCount: number }>('/notifications/read', { method: 'POST', body: JSON.stringify({ ticketId }) })
 }
 
-const watchers = new Set<() => void>()
+const unread = createSharedPoll<UnreadCount>(async () => {
+  const result = await getUnreadCount()
+  return result.ok ? result.data : null
+}, 60_000, (a, b) => a.count === b.count && [...a.ticketIds].sort().join(',') === [...b.ticketIds].sort().join(','))
+
 /** 안 읽은 개수를 다시 읽게 한다 (읽음 처리 직후 등) */
-export const refreshUnread = () => watchers.forEach((f) => f())
+export const refreshUnread = () => unread.refresh()
 
 /** 안 읽은 개수가 바뀔 때마다 알려 준다. 처음 한 번 읽어서 알리고, 이후는 1분마다 읽되 값이 같으면 알리지 않는다 */
 export function watchUnread(onChange: (c: UnreadCount) => void, ms = 60_000): () => void {
   if (USE_MOCK_NOTIFY) return () => {}
-  let last = ''
-  const load = () => {
-    getUnreadCount().then((r) => {
-      if (!r.ok) return
-      const key = `${r.data.count}:${[...r.data.ticketIds].sort().join(',')}`
-      if (key === last) return
-      last = key
-      onChange(r.data)
-    })
-  }
-  load()
-  watchers.add(load)
-  const stop = visiblePoll(load, ms)
-  return () => {
-    stop()
-    watchers.delete(load)
-  }
+  return unread.watch(onChange, ms)
 }
