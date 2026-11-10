@@ -196,17 +196,21 @@ describe('검토 패널 (서버 연결)', () => {
     expect(within(panel).getByRole('button', { name: '승인하고 초안 등록' })).toBeDisabled()
   })
 
-  it('보안 사고 사례는 초안 편집·등록 없이 근거 티켓을 보고 "반영했어요"나 "반영 안함"만 고른다', async () => {
-    route = (m, p) => (m === 'GET' && p === '/guide-clusters/12' ? json(200, detail({ judgment: 'SEC_MANUAL', category: { code: 'SEC', name: '정보보안' }, draftMd: '### 의심 메일' })) : undefined)
+  it.each([null, '### 이전 서버가 내려준 초안'])('기존 SEC 응답은 초안 유무(%s)와 관계없이 직접 검토만 제공한다', async (draftMd) => {
+    route = (m, p) => m === 'GET' && p === '/guide-clusters/12' ? json(200, detail({ judgment: 'SEC_MANUAL', category: { code: 'SEC', name: '정보보안' }, draftMd })) : undefined
     await mountPanel()
     const panel = await screen.findByRole('complementary', { name: '가이드 초안 검토' })
     expect(await within(panel).findByText('보안 사고 사례', { selector: 'h3' })).toBeInTheDocument()
-    expect(within(panel).getByText(/AI가 만든 초안은 없어요/)).toBeInTheDocument()
+    expect(within(panel).getByRole('region', { name: '검토 안내' })).toHaveTextContent('자동 가이드화 대상에서 제외')
+    expect(within(panel).queryByRole('region', { name: 'AI 판단' })).toBeNull()
     expect(within(panel).queryByRole('button', { name: '승인하고 초안 등록' })).toBeNull()
     expect(within(panel).queryByRole('button', { name: '임시 저장' })).toBeNull()
+    expect(within(panel).queryByRole('button', { name: '문서 연결' })).toBeNull()
     expect(within(panel).queryByRole('textbox')).toBeNull()
+    expect(within(panel).queryByText('### 이전 서버가 내려준 초안')).toBeNull()
     expect(within(panel).getByRole('button', { name: '반영 안함' })).toBeInTheDocument()
     expect(within(panel).getByRole('button', { name: '가이드·매뉴얼에 반영했어요' })).toBeInTheDocument()
+    expect(within(panel).queryByText(/AI가 만든 초안은 없어요/)).toBeNull()
   })
 
   it('새 가이드는 문서를 연결하기 전에는 등록할 수 없고, 새 문서를 만들어 연결할 수 있다', async () => {

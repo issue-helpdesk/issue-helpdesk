@@ -242,7 +242,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
   return (
     <>
       <aside
-        className={`detail crev${wide ? ' wide' : ''}${!slid && !leaving ? ' slide' : ''}${leaving ? ' leave' : ''}`}
+        className={`detail crev${c.kind === 'sec' ? ' case-sec' : ''}${wide ? ' wide' : ''}${!slid && !leaving ? ' slide' : ''}${leaving ? ' leave' : ''}`}
         role="complementary"
         aria-label="가이드 초안 검토"
         onAnimationEnd={() => {
@@ -440,10 +440,10 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
             </div>
           </section>
 
-          <section className="cgs" aria-label="AI 판단">
-            <h3>AI 판단</h3>
+          <section className="cgs" aria-label={c.kind === 'sec' ? '검토 안내' : 'AI 판단'}>
+            <h3>{c.kind === 'sec' ? '검토 안내' : 'AI 판단'}</h3>
             {/* 판단 이유는 티켓마다 한 줄씩 줄바꿈으로 온다 */}
-            {c.reason.split('\n').filter((l) => l.trim()).map((l) => (
+            {(c.kind === 'sec' ? '보안 사고 사례는 자동 가이드화 대상에서 제외돼요.' : c.reason).split('\n').filter((l) => l.trim()).map((l) => (
               <p key={l} style={{ margin: '0 0 6px' }}>
                 {l}
               </p>
@@ -481,7 +481,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
 
           <section className="cgs" aria-label="가이드 내용">
             <h3>{c.kind === 'amend' ? (c.before !== undefined ? '기존 내용과 AI 수정 제안' : 'AI 수정 제안') : c.kind === 'new' ? '신규 가이드 초안' : c.kind === 'sec' ? '보안 사고 사례' : '매뉴얼 후보'}</h3>
-            {srv && !c.server?.hasDraft ? (
+            {srv && !c.server?.hasDraft && c.kind !== 'sec' ? (
               <>
                 {info?.manualNote ? (
                   <div className="field">
@@ -541,7 +541,7 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
               </>
             ) : c.kind === 'sec' ? (
               <p style={{ margin: 0 }}>
-                의심 사고 티켓 <b>{c.ticketCount}건</b>이 접수되어 해결됐어요. 처리 방법을 <b>가이드나 매뉴얼에 남길지</b> 위 근거 티켓을 보고 판단해 주세요. AI가 만든 초안은 없어요.
+                근거 티켓의 처리 내용을 확인해 <b>가이드나 매뉴얼에 직접 반영할지</b> 판단해 주세요.
                 <span className="small muted" style={{ display: 'block', marginTop: 6 }}>가이드나 매뉴얼에 직접 반영했다면 "가이드·매뉴얼에 반영했어요"를, 남길 필요가 없다면 "반영 안함"을 눌러 주세요.</span>
               </p>
             ) : c.kind === 'manual' ? (
