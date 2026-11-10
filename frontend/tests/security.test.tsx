@@ -31,14 +31,16 @@ const rows = () => [...document.querySelectorAll('.tbl tbody tr')] as HTMLElemen
 beforeEach(() => resetSecurityMock())
 
 describe('보안·감사 알림 API (시연)', () => {
-  it('미종결(신규→확인 중) 먼저, 같은 상태에서는 심각도 높은 것 먼저, 종결은 맨 아래', async () => {
+  it('미종결(신규→확인 중) 먼저, 같은 상태에서는 최신 감지 먼저, 종결은 맨 아래', async () => {
     const r = await listSecurityAlerts(admin())
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.data.counts).toMatchObject({ 신규: 3, '확인 중': 1, 종결: 2, high: 2, total: 6 })
     const order = r.data.items.map((a) => a.status)
     expect(order.indexOf('종결')).toBeGreaterThan(order.lastIndexOf('확인 중'))
-    expect(r.data.items[0]).toMatchObject({ status: '신규', severity: '높음' })
+    expect(r.data.items[0].status).toBe('신규')
+    const newest = r.data.items.filter((a) => a.status === '신규').map((a) => Date.parse(a.at))
+    expect(newest).toEqual([...newest].sort((x, y) => y - x))
     expect(r.data.items.every((a) => !('raw' in a))).toBe(true)
   })
 

@@ -50,8 +50,7 @@ class SecurityAlertService:
             where.append(SecurityAlert.alert_type == query.alert_type)
         total = self.db.scalar(select(func.count()).select_from(SecurityAlert).where(*where))
         status_rank = case({'NEW': 0, 'IN_REVIEW': 1, 'CLOSED': 2}, value=SecurityAlert.status)
-        severity_rank = case({'HIGH': 0, 'MEDIUM': 1, 'LOW': 2}, value=SecurityAlert.severity)
-        rows = self.db.scalars(select(SecurityAlert).where(*where).order_by(status_rank, severity_rank,
+        rows = self.db.scalars(select(SecurityAlert).where(*where).order_by(status_rank,
             SecurityAlert.first_detected_at.desc(), SecurityAlert.id.desc()).offset(query.offset).limit(query.size))
         return Page.of([self.view(r, history=False) for r in rows], query.page, query.size, total)
 

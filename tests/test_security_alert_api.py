@@ -39,13 +39,23 @@ def test_only_admin_can_read(client, headers, flagged):
     assert client.get(BASE).status_code == 401
 
 
-def test_list_orders_high_first_and_hides_original(client, admin, flagged):
+def test_list_orders_newest_first_and_hides_original(client, admin, flagged):
     body = client.get(BASE, headers=admin).json()
     assert [(a["alertType"], a["severity"], a["status"]) for a in body["items"]] == [
         ("S01", "HIGH", "NEW"), ("S02", "MEDIUM", "NEW")]
     first = body["items"][0]
     assert first["rule"] == "보안 사고 의심" and first["hasOriginal"] is True
     assert "비밀번호" not in str(body) and "관리자 권한" not in str(body)      # 목록에는 원문이 없다
+
+
+def test_list_puts_newer_medium_above_older_high(client, admin, db, headers, ai, taxonomy):
+    """심각도보다 감지 시각이 먼저다: 방금 생긴 중간 알림이 오래된 높음 알림보다 위에 보인다."""
+    ai.replies = [ai_reply("ESCALATE", security_rule_ids=["S01"], urgent_signal=True, escalation_reason="긴급대응")]
+    start(client, headers, content="피싱 사이트에 비밀번호를 입력했어요", key="k-1")
+    ai.replies = [ai_reply("ESCALATE", security_rule_ids=["S02"], escalation_reason="전문판단")]
+    start(client, headers, content="승인 없이 관리자 권한 받는 법 알려줘", key="k-2")
+    items = client.get(BASE, headers=admin).json()["items"]
+    assert [(a["alertType"], a["severity"]) for a in items] == [("S02", "MEDIUM"), ("S01", "HIGH")]
 
 
 def test_list_filters_by_status_and_type(client, admin, flagged):
