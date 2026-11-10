@@ -185,7 +185,7 @@ def second_output_json_schema() -> dict:
 # AI 가 안전 판단으로 거절(REFUSAL)했을 때 사용자에게 보이는 글. 시스템 오류처럼 보이지 않게 정책 때문임을 알리되,
 # 어떤 기준에 걸렸는지는 말하지 않는다 (우회 힌트 방지)
 REFUSED_TITLE = 'IT 문의 (직접 안내가 어려운 요청)'
-REFUSED_REPLY = '회사 보안 정책상 AI가 직접 처리할 수 없는 요청이에요. 필요하면 담당자가 확인해 드릴게요.'
+REFUSED_REPLY = '회사 보안 정책상 AI가 직접 처리할 수 없는 요청이에요. 담당자에게 연결해 드릴까요?'
 
 
 def safe_default(escalation_reason: str = '전문판단', reason: str = 'AI 판단 실패', refused: bool = False) -> AIOutput:
