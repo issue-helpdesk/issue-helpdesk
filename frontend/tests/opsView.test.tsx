@@ -100,7 +100,7 @@ describe('운영 현황 화면', () => {
     expect(screen.queryByRole('heading', { name: /긴급 조치 필요|당일 미종결 예외/ })).toBeNull()
     expect(within(section(/티켓 연동 확인/)).getByText(/^\d+건$/)).toBeInTheDocument()
     expect(within(section(/담당자 배정 확인/)).getByText(/^\d+건$/)).toBeInTheDocument()
-    expect(section(/티켓 연동 확인/)).toHaveClass('need')
+    expect(section(/티켓 연동 확인/)).not.toHaveClass('need')
     expect(await screen.findByRole('region', { name: '팀별 개인 현황' }, SLOW)).toBeInTheDocument()
     expect(await screen.findByRole('group', { name: '담당 그룹' }, SLOW)).toBeInTheDocument()
     unmount()
@@ -196,12 +196,11 @@ describe('운영 현황 화면', () => {
 })
 
 
-it('미분류와 재분류 카드에도 기존 공통 빈 줄과 구분선을 사용한다', async () => {
+it('항목이 있는 운영 카드에는 빈 상태나 목록 끝 문구를 덧붙이지 않는다', async () => {
   renderAs('EMP-1178', '/ops')
   for (const name of [/미분류 문의/, /재분류 요청/]) {
     await waitFor(() => expect(section(name).querySelectorAll('.orow')).toHaveLength(1), SLOW)
-    const tail = within(section(name)).getByText('해당하는 건이 더 없어요')
-    expect(tail).toHaveClass('onil')
-    expect(tail.parentElement).toHaveClass('otb')
+    expect(within(section(name)).queryByText('해당하는 건이 더 없어요')).toBeNull()
+    expect(section(name).querySelector('.onil')).toBeNull()
   }
 })

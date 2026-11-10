@@ -2,9 +2,10 @@
 import { USE_MOCK_TICKET } from '../../core/config'
 import { CATEGORIES } from '../catalog'
 import type { CategoryCode } from '../chatTypes'
+import type { UserRef } from '../ticketTypes'
 import { allStaffTickets, findStaffTicket, GROUP_ID, GROUP_STAFF, mutateSeed, workloadOf } from './staffTickets'
 
-export interface MockClassificationReport { status: 'OPEN'|'REJECTED'|'RESOLVED'; reason: string; resolution?: string }
+export interface MockClassificationReport { status: 'OPEN'|'REJECTED'|'RESOLVED'; reason: string; resolution?: string; suggestedInquiryType?: { code: string; name: string }; reporter?: UserRef; resolvedBy?: UserRef }
 export interface ClassificationEvent { at:string; title:string; reason:string }
 const events = new Map<number,ClassificationEvent[]>()
 export const classificationEvents = (id:number) => events.get(id) ?? []
@@ -12,7 +13,7 @@ const record = (id:number,title:string,reason:string) => events.set(id,[...(even
 const requireReady = (id:number) => {if(findStaffTicket(id)?.workStatus!=='RDY')throw new Error('처리 대기 상태에서만 재분류할 수 있어요.')}
 const reports = new Map<number, MockClassificationReport>()
 const pending = new Set<number>()
-const touch = (id: number) => mutateSeed(id, () => {})
+const touch = (id: number) => mutateSeed(id, (t) => { t.classificationReportOpen = reports.get(id)?.status === 'OPEN' })
 const enabled = () => { if (!USE_MOCK_TICKET) throw new Error('목 모드에서만 사용할 수 있어요.') }
 export function resetClassificationMock() {
   reports.clear(); pending.clear(); events.clear()
@@ -21,7 +22,7 @@ export function resetClassificationMock() {
   for(const id of [5005,5008])mutateSeed(id,t=>{t.workStatus='RDY';t.displayStatus='assigned';t.resolutionNote=null;t.finishedAt=null;t.closedAt=null})
   reports.set(5005,{status:'OPEN',reason:'VPN보다 계정 인증 문제로 보여 재분류 검토를 요청해요.'})
   reports.set(5008,{status:'REJECTED',reason:'다른 처리 그룹의 검토가 필요해 보여 요청했어요.',resolution:'네트워크 장비 확인이 필요한 문의로 현재 분류를 유지합니다.'})
-  for(const [id,report] of reports){record(id,'재분류 요청',report.reason);if(report.status==='REJECTED')record(id,'재분류 반려',report.resolution??'')}
+  for(const [id,report] of reports){record(id,'재분류 요청',report.reason);if(report.status==='REJECTED')record(id,'재분류 반려',report.resolution??'');touch(id)}
 }
 resetClassificationMock()
 export const classificationReport = (id: number) => reports.get(id)
@@ -30,17 +31,17 @@ export const unclassifiedMockTickets = () => USE_MOCK_TICKET ? allStaffTickets()
 // 기존 시드의 inquiryType은 대부분 null이므로, 목 시연에서 미분류는 category=null인 접수로 한정한다.
 export const missingCategoryMockTickets = () => unclassifiedMockTickets().filter(t=>!t.category)
 export const openClassificationMockTickets = () => USE_MOCK_TICKET ? allStaffTickets().filter(t=>reports.get(t.id)?.status==='OPEN') : []
-export function requestClassificationMock(id:number, reason:string) {
+export function requestClassificationMock(id:number, reason:string, suggestedInquiryType?: { code: string; name: string }, reporter?: UserRef) {
   enabled();requireReady(id);if(!reason.trim())throw new Error('요청 사유를 입력해 주세요.')
   if(reports.get(id)?.status==='OPEN')throw new Error('이미 재분류 검토 중이에요.')
   if(reports.get(id)?.status==='REJECTED')throw new Error('반려된 문의는 다시 요청할 수 없어요.')
-  reports.set(id,{status:'OPEN',reason:reason.trim()});record(id,'재분류 요청',reason.trim());touch(id)
+  reports.set(id,{status:'OPEN',reason:reason.trim(),suggestedInquiryType,reporter});record(id,'재분류 요청',reason.trim());touch(id)
 }
-export function rejectClassificationMock(id:number, reason:string) {
+export function rejectClassificationMock(id:number, reason:string, resolvedBy?: UserRef) {
   enabled();requireReady(id);const report=reports.get(id)
   if(!reason.trim())throw new Error('반려 사유를 입력해 주세요.')
   if(report?.status!=='OPEN')throw new Error('검토할 요청이 없어요.')
-  reports.set(id,{...report,status:'REJECTED',resolution:reason.trim()});record(id,'재분류 반려',reason.trim());touch(id)
+  reports.set(id,{...report,status:'REJECTED',resolution:reason.trim(),resolvedBy});record(id,'재분류 반려',reason.trim());touch(id)
 }
 export function changeClassificationMock(id:number, code:CategoryCode, reason:string) {
   enabled();const t=findStaffTicket(id)

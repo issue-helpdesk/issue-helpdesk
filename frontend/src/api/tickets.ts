@@ -80,6 +80,7 @@ export async function listTickets(user: User, query: TicketListQuery = {}): Prom
   rows = rows.filter((t) => {
     if (assigneeId && t.assignee?.id !== assigneeId) return false
     if (groupId && t.group?.id !== groupId) return false
+    if (query.classificationReportOpen !== undefined && (classificationReport(t.id)?.status === 'OPEN') !== query.classificationReportOpen) return false
     if (jiraSyncStatus?.length && !jiraSyncStatus.includes(t.jiraSyncStatus)) return false
     if (needsAdmin !== undefined && t.needsAdmin !== needsAdmin) return false
     if (categoryCode?.length && !(t.category && categoryCode.includes(t.category.code))) return false

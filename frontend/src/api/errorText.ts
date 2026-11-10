@@ -61,11 +61,15 @@ const TEXT: Record<string, string | Make> = {
   // 티켓
   TICKET_NOT_FOUND: '티켓을 찾을 수 없어요. 목록을 다시 불러와 주세요.',
   TICKET_INVALID_TRANSITION: '티켓 상태가 바뀌어 요청한 작업을 진행할 수 없어요. 최신 상태를 확인해 주세요.',
-  TICKET_NOT_SYNCED: '아직 ITSM 연동이 완료되지 않아 상태를 변경할 수 없어요.',
+  TICKET_NOT_SYNCED: '아직 ITSM 연동이 완료되지 않아 이 작업을 진행할 수 없어요.',
   TICKET_RESOLUTION_NOTE_REQUIRED: '처리 결과를 입력해 주세요.',
   TICKET_SAVE_FAILED: `접수를 저장하지 못했어요. 작성한 내용은 보존돼 있으니 잠시 후 다시 시도하거나 ${HELPDESK}·그룹웨어 IT 요청 메뉴를 이용해 주세요.`,
   // ITSM 연동·배정
   INTEGRATION_JOB_IN_PROGRESS: '연동 작업이 진행 중이에요. 최신 상태를 확인해 주세요.',
+  CLASSIFICATION_REPORT_ALREADY_OPEN: '이미 재분류 검토 중이에요. 검토 결과를 기다려 주세요.',
+  CLASSIFICATION_REPORT_NOT_OPEN: '재분류 요청이 이미 처리됐어요. 현재 상태를 다시 확인해 주세요.',
+  // 프론트 정책: 반려 뒤 같은 문의에서 재요청하지 않는다. 서버가 보내는 코드는 아니다.
+  CLASSIFICATION_REPORT_REJECTED: '반려된 문의는 다시 재분류를 요청할 수 없어요.',
   INTEGRATION_RETRY_NOT_ALLOWED: '작업 상태가 바뀌어 다시 처리할 수 없어요. 최신 상태를 확인해 주세요.',
   INTEGRATION_ALREADY_SYNCED: '이미 ITSM에 연동된 티켓이에요. 최신 상태를 확인해 주세요.',
   ASSIGNMENT_REASON_REQUIRED: '담당자 지정·변경 사유를 입력해 주세요.',

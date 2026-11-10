@@ -20,6 +20,9 @@ describe('이벤트 사전', () => {
       'URGENT_CLOSED',
       'CONFIRM',
       'REASSIGN',
+      'RECLASSIFY',
+      'CLASSIFICATION_REPORT',
+      'CLASSIFICATION_REPORT_REJECT',
       'INTEGRATION_RETRY',
       'DOCUMENT_ACTIVATE',
       'DOCUMENT_DEACTIVATE',
@@ -47,6 +50,11 @@ describe('이벤트 사전', () => {
 })
 
 describe('describeAudit', () => {
+  it('재분류 기록의 상태는 번역하고 유형 코드와 사유는 보존한다', () => {
+    expect(d('RECLASSIFY', 'NET-02→SEC-01', '보안 문의 확인')).toMatchObject({ out: '분류 변경 · NET-02→SEC-01', reason: '보안 문의 확인' })
+    expect(d('CLASSIFICATION_REPORT', 'OPEN').out).toBe('검토 대기')
+    expect(d('CLASSIFICATION_REPORT_REJECT', 'REJECTED').out).toBe('반려')
+  })
   it('보안 알림의 대상·결과를 번역하고 사유와 알 수 없는 결과는 보존한다', () => {
     expect(TARGET_LABEL.security_alert).toBe('보안 알림')
     expect(TARGET_KINDS).toContain('security_alert')
