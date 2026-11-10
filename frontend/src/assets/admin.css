@@ -82,6 +82,10 @@ button.orow{cursor:pointer}button.orow:hover{background:var(--osoft)}
 .srow .sl small{font-size:12px;color:var(--mute)}
 .nest .nh{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;font-size:13px}.nest .nh .btn{margin-left:auto}
 
+/* 로그인 보안 신호는 긴급도 토큰으로 일반 안내와 구분한다. 점멸 없이 아이콘과 건수도 함께 표시한다. */
+.security-notice-signal{display:flex;align-items:center;justify-content:center;width:84px;height:84px;border:2px solid var(--s-urg-fg);border-radius:50%;background:var(--s-urg-bg);color:var(--s-urg-fg);margin:0 auto 12px}
+.security-notice-count{color:var(--s-urg-fg);font-size:20px;line-height:28px;white-space:nowrap}
+
 /* 보안·감사 알림 (시안 CSS) */
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .tbl tr.sdone td,.tbl tr.sdone .lk{color:var(--mute)}
