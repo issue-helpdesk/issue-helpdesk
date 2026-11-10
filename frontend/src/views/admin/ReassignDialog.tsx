@@ -89,6 +89,7 @@ export function ReassignDialog({ t, mode = 'reassign', embedded = false, initial
       <p className="small muted" style={{ margin: 0 }}>
         현재 분류 <b>{t.category?.name ?? '미분류'}</b>
       </p>
+      <p className="small muted" style={{ margin: 0 }}>배정 대상 팀 <b>{group || '미지정'}</b> · 이 팀의 구성원만 표시해요.</p>
       {loadErr ? (
         <div className="alert err" role="alert">
           <div>{loadErr}</div>

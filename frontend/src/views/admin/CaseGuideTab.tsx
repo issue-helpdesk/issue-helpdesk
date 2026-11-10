@@ -9,7 +9,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { CATEGORIES } from '../../api/catalog'
 import { CASES_FROM_SERVER, getAllCases, getAnalysisStatus, getServerLoad, loadAnalysisStatus, loadCases, subscribeAllCases, subscribeServerCases } from '../../api/caseClusters'
-import type { CategoryCode } from '../../api/chatTypes'
 import { retryGuideIngest } from '../../api/guides'
 import { CASE_KIND_TONE, CASE_STATE_LABEL, CASE_STATE_TONE, baseChanged, kindLabel, retryCase, type CaseItem } from '../../api/mock/caseGuides'
 import { useAuth } from '../../core/session'
@@ -46,7 +45,7 @@ export function CaseGuideTab({ guide, onClearGuide, onReview, onVersion, onGoLiv
     }
   }, [])
   const [view, setView] = useState<View>('review')
-  const [cat, setCat] = useState('')
+  const [kind, setKind] = useState('')
   const { say, fail } = useToast()
   const t = analysisTimes()
   const guideNotice = useRef<HTMLDivElement>(null)
@@ -57,13 +56,11 @@ export function CaseGuideTab({ guide, onClearGuide, onReview, onVersion, onGoLiv
   // 탭 건수와 목록에 같은 문서 조건을 적용해, 다른 가이드의 제안과 섞이지 않게 한다.
   const scoped = guide ? cases.filter((c) => c.target?.docCode === guide.docCode || c.registered?.docCode === guide.docCode) : cases
   const pool = scoped.filter((c) => inView(view, c))
-  const cats = (Object.keys(CATEGORIES) as CategoryCode[]).filter((k) => pool.some((c) => c.cat === k))
   // 목록에는 상세 티켓이 없을 수 있어, 패널 조회 여부와 무관한 서버의 근거 건수로 정렬한다.
-  const shown = pool.filter((c) => !cat || c.cat === cat).sort((a, b) => b.ticketCount - a.ticketCount || a.topic.localeCompare(b.topic))
+  const shown = pool.filter((c) => !kind || (kind === 'guide' ? c.kind === 'amend' || c.kind === 'new' : c.kind === kind)).sort((a, b) => b.ticketCount - a.ticketCount || a.topic.localeCompare(b.topic))
   const count = (v: View) => scoped.filter((c) => inView(v, c)).length
   const go = (v: View) => {
     setView(v)
-    setCat('')
   }
 
   return (
@@ -95,7 +92,8 @@ export function CaseGuideTab({ guide, onClearGuide, onReview, onVersion, onGoLiv
               반영 안함 <span className="count">{count('dropped')}</span>
             </button>
           </div>
-          <FilterPill label="분류" value={cat} options={cats.map((k) => ({ value: k, label: CATEGORIES[k].name }))} onChange={setCat} />
+          {/* 처리 상태를 바꿔도 제안 종류 조건은 유지해 승인·반영 안함 내역까지 이어서 확인한다. */}
+          <FilterPill label="제안 종류" value={kind} options={[{ value: 'guide', label: '가이드 제안' }, { value: 'manual', label: '매뉴얼 후보' }, { value: 'sec', label: '보안 사고 사례' }]} onChange={setKind} />
         </div>
         {!CASES_FROM_SERVER && (
           <span className="small muted">

@@ -137,6 +137,21 @@ const openTab = async () => {
 describe('해결 사례 탭 화면', () => {
   beforeEach(reset)
 
+  it('제안 종류로 필터링하고 처리 상태 탭을 바꿔도 선택을 유지한다', async () => {
+    renderAdmin()
+    await openTab()
+    await userEvent.click(screen.getByRole('button', { name: /^제안 종류/ }))
+    await userEvent.click(screen.getByRole('option', { name: '가이드 제안' }))
+    expect(cardsOf()).toHaveLength(3)
+    await userEvent.click(screen.getByRole('button', { name: /^가이드화 승인/ }))
+    expect(screen.getByRole('button', { name: /제안 종류.*가이드 제안/ })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^검토 대상/ }))
+    expect(cardsOf()).toHaveLength(3)
+    await userEvent.click(screen.getByRole('button', { name: /^제안 종류.*가이드 제안/ }))
+    await userEvent.click(screen.getByRole('option', { name: '보안 사고 사례' }))
+    expect(screen.queryAllByRole('region').filter((r) => r.classList.contains('cgc'))).toHaveLength(0)
+  })
+
   it('상세를 아직 읽지 않은 제안도 근거 건수순이며 상세를 읽어도 순서가 바뀌지 않는다', async () => {
     // 서버 목록처럼 상세 배열이 비어 있는 경우를 모의 데이터로 재현한다.
     for (const c of getCases()) if (c.state === 'review') c.tickets = []

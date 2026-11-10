@@ -93,6 +93,21 @@ describe('전체 문의 API (모의)', () => {
 })
 
 describe('전체 문의 화면', () => {
+  it('전체와 배정 전 사이의 처리 대기 탭에서 RDY 문의만 모아 본다', async () => {
+    renderAs('EMP-1178', '/tickets')
+    const seg = await screen.findByRole('group', { name: '처리 상태' }, SLOW)
+    const expected = await listTickets(admin(), { view: 'ALL', workStatus: ['RDY'], size: 100 })
+    if (!expected.ok) throw new Error('시연 조회 실패')
+    const tab = await within(seg).findByRole('button', { name: new RegExp(`^처리 대기 ${expected.data.totalCount}$`) }, SLOW)
+    expect(within(seg).getAllByRole('button').slice(0, 3).map((b) => b.textContent?.replace(/\s*\d+$/, '').trim())).toEqual(['전체', '처리 대기', '배정 전'])
+    await userEvent.click(tab)
+    await waitFor(() => expect(rows()).toHaveLength(expected.data.totalCount), SLOW)
+    // RDY라도 연동·배정 확인이 필요하면 행 배지는 그 확인 사유를 우선 표시한다.
+    for (const ticket of expected.data.items) expect(screen.getByRole('button', { name: ticket.summary })).toBeInTheDocument()
+    expect(tab).toHaveAttribute('aria-pressed', 'true')
+    expect(within(seg).getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true')).toHaveLength(1)
+  })
+
   it('상태 탭 건수와 팀 필터, 담당 열이 보이고, 문의자·담당자는 들어올 수 없다', async () => {
     const { unmount } = renderAs('EMP-1178', '/tickets')
     const seg = await screen.findByRole('group', { name: '처리 상태' }, SLOW)

@@ -33,10 +33,11 @@ import { AiDetailPanel, AiKindBadge } from './AiDetailPanel'
 
 const PAGE_SIZE = 20
 type Mode = 'staff' | 'ai'
-/** 상태 탭: '' 전체 · none 배정 전(아직 ITSM 생성 전) · open 진행 중(처리 대기+처리 중) */
+/** 상태 탭: '' 전체 · RDY 처리 대기 · none 배정 전(ITSM 생성 전) · open 진행 중(처리 대기+처리 중) */
 type St = '' | 'none' | 'open' | 'RDY' | 'WIP' | 'FIN' | 'CLS'
 const ST_TABS: { key: St; label: string }[] = [
   { key: '', label: '전체' },
+  { key: 'RDY', label: '처리 대기' },
   { key: 'none', label: '배정 전' },
   { key: 'open', label: '진행 중' },
   { key: 'FIN', label: '해결 확인 대기' },
@@ -247,7 +248,7 @@ export function AllTicketsView() {
   }
   const open = (id: number) => navigate(`/tickets/${id}`)
   const items = data?.items ?? []
-  const subOpen = st === 'open' || st === 'RDY' || st === 'WIP'
+  const subOpen = st === 'open' || st === 'WIP'
   const perChip = per && (
     <span className="d2p act">
       <small>접수 기간</small>
@@ -410,7 +411,7 @@ export function AllTicketsView() {
 
             <div className="d2seg" role="group" aria-label="처리 상태">
               {ST_TABS.map((x) => {
-                const on = st === x.key || (x.key === 'open' && (st === 'RDY' || st === 'WIP'))
+                const on = st === x.key || (x.key === 'open' && st === 'WIP')
                 return (
                   <button key={x.key || 'all'} type="button" className={on ? 'on' : ''} aria-pressed={on} onClick={() => reset(setSt)(x.key)}>
                     {x.label} {counts && <em>{counts[x.key]}</em>}
