@@ -1,3 +1,4 @@
+import { CATEGORIES } from '../catalog'
 /**
  * 세부 유형 (inquiry_types) 시연 데이터와 키워드 판정.
  * 코드는 데이터셋 시나리오 ID(예: NET-02)와 같다. 실제 API 에서는 서버가 판단해 inquiryTypeCode 로 준다.
@@ -69,4 +70,15 @@ export function detectInquiryType(category: CategoryCode | null, text: string): 
   if (!category) return null
   const hit = RULES[category].find((r) => r.re.test(text))
   return hit ? { code: hit.code, name: hit.name } : null
+}
+
+/** RF-02와 같은 형식의 목 후보. ID는 목 데이터 전용. */
+export function mockInquiryTypes() {
+  const groupIds: Record<string,number> = { '서비스데스크':1,'엔드포인트지원팀':2,'네트워크팀':3,'시스템인프라팀':4,'업무시스템팀':5,'정보보안팀':6 }
+  let id=1
+  return Object.entries(RULES).flatMap(([category,rows])=>rows.map(row=>{
+    const categoryCode=category as CategoryCode
+    const name=CATEGORIES[categoryCode].groupName
+    return {id:id++,code:row.code,name:row.name,categoryCode,defaultGroup:{id:groupIds[name],name},isActive:true}
+  }))
 }

@@ -131,3 +131,17 @@ def test_detail_has_history(client, admin, flagged):
     client.post(f"{BASE}/{alert_id}/review", headers=admin)
     kinds = [h["kind"] for h in client.get(f"{BASE}/{alert_id}", headers=admin).json()["history"]]
     assert kinds == ["REVIEW", "DETECTED"]
+
+
+def test_latest_detection_orders_across_statuses_and_pages(client, admin, db, flagged):
+    from datetime import timedelta
+    rows = list(db.scalars(select(SecurityAlert).order_by(SecurityAlert.id)))
+    older, newer = rows
+    assert client.post(f"{BASE}/{older.id}/review", headers=admin).status_code == 200
+    assert client.post(f"{BASE}/{older.id}/close", headers=admin, json={"reason": "정상 문의 확인"}).status_code == 200
+    older.last_detected_at = newer.last_detected_at + timedelta(minutes=5)
+    db.commit()
+    first = client.get(BASE, params={"size": 1, "page": 1}, headers=admin).json()
+    second = client.get(BASE, params={"size": 1, "page": 2}, headers=admin).json()
+    assert first["items"][0]["id"] == older.id
+    assert second["items"][0]["id"] == newer.id

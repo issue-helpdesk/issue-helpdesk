@@ -65,7 +65,7 @@ describe('배정 상태가 확인 필요로 남은 접수의 진행 단계', () 
 describe('운영 확인 목록에서 해결 완료 접수 제외 (서버 모드)', () => {
   const admin = (): User => MOCK_ACCOUNTS.find((u) => u.employeeNo === 'EMP-1178')!
   const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
-  const sum = (id: number, over: Record<string, unknown>) => ({ id, receiptNo: `RCPT-000${id}`, jiraKey: null, summary: `접수 ${id}`, requester: { id: 1, employeeNo: 'E', name: '문의자' }, urgency: 'P3', group: { id: 1, name: '네트워크팀' }, assignee: null, jiraSyncStatus: 'SYNCED', assignStatus: 'NEEDS_ADMIN', workStatus: 'RDY', transitionStatus: 'IDLE', needsAdmin: true, createdAt: '2026-11-03T10:00:00+09:00', ...over })
+  const sum = (id: number, over: Record<string, unknown>) => ({ id, receiptNo: `RCPT-000${id}`, jiraKey: null, summary: `접수 ${id}`, category: {code:'NET',name:'VPN·네트워크'}, requester: { id: 1, employeeNo: 'E', name: '문의자' }, urgency: 'P3', group: { id: 1, name: '네트워크팀' }, assignee: null, jiraSyncStatus: 'SYNCED', assignStatus: 'NEEDS_ADMIN', workStatus: 'RDY', transitionStatus: 'IDLE', needsAdmin: true, createdAt: '2026-11-03T10:00:00+09:00', ...over })
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
   })
@@ -79,7 +79,7 @@ describe('운영 확인 목록에서 해결 완료 접수 제외 (서버 모드)
     vi.stubEnv('VITE_USE_MOCK_TICKET', 'false')
     const items = [sum(3, {}), sum(4, { workStatus: 'CLS' })]
     const page = { items, page: 1, size: 100, totalCount: 2, totalPages: 1 }
-    const fetchMock = vi.fn().mockImplementation(async () => json(page))
+    const fetchMock = vi.fn().mockImplementation(async (url) => json(String(url).includes('classificationReportOpen=true') ? {...page,items:[],totalCount:0} : page))
     vi.stubGlobal('fetch', fetchMock)
     const ops = await import('../src/api/ops')
     const snap = await ops.getOpsSnapshot(admin())

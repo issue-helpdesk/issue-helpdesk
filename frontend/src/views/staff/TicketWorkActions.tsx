@@ -1,3 +1,5 @@
+import { USE_MOCK_TICKET } from '../../core/config'
+import { classificationReport, classificationPending } from '../../api/mock/classificationMock'
 /**
  * 담당자 패널의 상태 변경 요청. 상태 확정과 권한 검증은 서버가 맡는다.
  * 처리 시작은 바로 요청하고, 처리 완료는 창을 띄워 처리 결과(문의자에게 보이는 내용)를 적게 한다.
@@ -27,7 +29,8 @@ export function TicketWorkActions({ ticket, user, onRequested }: {
   if (user.serviceRole !== 'AGENT' || ticket.assignee?.id !== user.id) return null
   if (ticket.workStatus !== 'RDY' && ticket.workStatus !== 'WIP') return null
 
-  const locked = sending || ticket.transitionStatus !== 'IDLE' || ticket.jiraSyncStatus !== 'SYNCED' || ticket.assignStatus !== 'ASSIGNED'
+  const classificationBlocked = !!ticket.classificationReportOpen || ticket.openClassificationReport?.status === 'OPEN' || (USE_MOCK_TICKET && (classificationReport(ticket.id)?.status === 'OPEN' || classificationPending(ticket.id)))
+  const locked = classificationBlocked || sending || ticket.transitionStatus !== 'IDLE' || ticket.jiraSyncStatus !== 'SYNCED' || ticket.assignStatus !== 'ASSIGNED'
   const finishing = ticket.workStatus === 'WIP'
 
   const submit = async () => {
@@ -69,7 +72,7 @@ export function TicketWorkActions({ ticket, user, onRequested }: {
       <button type="button" className="btn pri block" disabled={locked} onClick={finishing ? () => setModal(true) : submit}>
         {sending && !modal ? '요청 중…' : finishing ? '처리 완료' : '처리 시작'}
       </button>
-      <p className="small muted" style={{ marginTop: 8 }}>ITSM 시스템에 반영된 것을 확인한 뒤 상태가 바뀌어요. 처리 완료 후에는 문의자가 해결 여부를 확인해요.</p>
+      <p className="small muted" style={{ marginTop: 8 }}>{classificationBlocked ? '재분류 검토·자동배정 반영이 끝날 때까지 처리 시작·완료를 할 수 없어요.' : 'ITSM 시스템에 반영된 것을 확인한 뒤 상태가 바뀌어요. 처리 완료 후에는 문의자가 해결 여부를 확인해요.'}</p>
       {modal && (
         <Modal title="처리 결과 등록" onClose={close}>
           <p className="small muted">문의자에게 보이는 내용이에요. 비밀번호·인증번호는 적지 마세요.</p>
