@@ -29,7 +29,7 @@ REPO = os.path.abspath(os.path.join(HERE, '..', '..', '..', '..'))
 QUESTIONS_DIR = os.path.join(REPO, 'dataset', 'guide_review')
 EVAL_CSV = os.path.join(REPO, 'dataset', 'data', 'eval_inquiries.csv')
 TAXONOMY = os.path.join(REPO, 'dataset', 'data', 'taxonomy.json')
-OUT = os.path.join(REPO, '작업대', '평가결과')
+OUT = os.path.join(REPO, 'dataset', 'eval_results')          # 실행 결과 (git 무시, .gitignore)
 
 TOP_K = (1, 3, 5)
 MRR_K = 10
