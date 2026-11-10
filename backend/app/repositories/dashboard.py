@@ -2,10 +2,10 @@ from datetime import datetime
 from typing import Annotated, NamedTuple
 
 from fastapi import Depends
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.db.session import DbSession
-from app.models import Category, Inquiry, LlmCall, SupportGroup, SupportGroupMember, Ticket, User
+from app.models import Category, Inquiry, LlmCall, SupportGroup, SupportGroupMember, Ticket, TicketStatusHistory, User
 from app.repositories.ticket import NEEDS_ADMIN
 from app.services.inquiry_status import display_status_column
 
@@ -65,6 +65,24 @@ class DashboardRepository:
             .where(Ticket.created_at >= start, Ticket.created_at < before)
         )
         return [TicketRow(*r) for r in rows]
+
+    def wip_since(self) -> dict[tuple[int, int], datetime]:
+        """(그룹, 담당자)별로 지금 처리 중(WIP)인 접수 가운데 WIP 가 가장 오래된 시작 시각.
+
+        선택 기간과 무관하다. 기간 밖에서 접수돼 아직 처리 중인 건도 센다. 시작 시각은 가장 최근에 WIP 가 된 이력이고,
+        이력이 없으면 접수 시각으로 대신한다. 업무량(assignment.workload)과 같게 배정이 확인된(ASSIGNED) 접수만 본다.
+        """
+        entered = (select(TicketStatusHistory.ticket_id, func.max(TicketStatusHistory.changed_at).label("at"))
+                   .where(TicketStatusHistory.to_status == "WIP")
+                   .group_by(TicketStatusHistory.ticket_id).subquery())
+        rows = self.db.execute(
+            select(Ticket.group_id, Ticket.assignee_id, func.min(func.coalesce(entered.c.at, Ticket.created_at)))
+            .outerjoin(entered, entered.c.ticket_id == Ticket.id)
+            .where(Ticket.work_status == "WIP", Ticket.assign_status == "ASSIGNED",
+                   Ticket.group_id.is_not(None), Ticket.assignee_id.is_not(None))
+            .group_by(Ticket.group_id, Ticket.assignee_id)
+        )
+        return {(group_id, user_id): since for group_id, user_id, since in rows}
 
     def llm_calls(self, start: datetime, before: datetime) -> list[LlmRow]:
         rows = self.db.execute(

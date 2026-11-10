@@ -12,7 +12,7 @@ import type { CategoryCode } from '../chatTypes'
 import { mockRegisterCaseDraft, mockRetryCaseDraft, mockVersionState, type GuideReady, type GuideScope, type GuideTx } from '../guides'
 import { subscribe as subscribeStore } from './chatStore'
 
-/** amend=기존 가이드 보강, new=신규 가이드. manual·sec 는 서버 연결 화면에만 있다 (매뉴얼 후보·SEC 직접 검토: 초안을 등록하지 않고 직접 반영한다) */
+/** amend=기존 가이드 보강, new=신규 가이드. manual은 직접 반영만 지원한다. sec는 신규 생성되지 않으며 기존 SEC_MANUAL 응답의 직접 검토 표시를 호환한다 */
 export type CaseKind = 'amend' | 'new' | 'manual' | 'sec'
 export type CaseState = 'review' | 'preparing' | 'failed' | 'ready' | 'live' | 'applied' | 'dropped'
 

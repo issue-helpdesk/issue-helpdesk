@@ -59,7 +59,8 @@ def test_load_items_reads_whole_eval_set():
     assert len(items) == 50
     assert sum(i.split == '기존 평가 40건' for i in items.values()) == 40
     scoring = [i.team_scoring for i in items.values()]
-    assert (scoring.count(TEAM_ASSIGNED), scoring.count(TEAM_GUIDED), scoring.count(TEAM_SKIP)) == (26, 22, 2)
+    assert (scoring.count(TEAM_ASSIGNED), scoring.count(TEAM_GUIDED), scoring.count(TEAM_SKIP)) == (24, 23, 3)
+    assert items['EV-037'].action == 'OUT_OF_SCOPE' and items['EV-037'].team is None         # 4판: 회의실 예약 = 범위 밖
     oos = items['EV-038']                                    # 범위 밖: '-' 는 None
     assert (oos.category, oos.scenario, oos.urgency, oos.team, oos.action) == (None, None, None, None, 'OUT_OF_SCOPE')
     assert items['EV-001'].answer_docs and not items['EV-039'].answer_docs      # 시나리오 없는 문항은 정답 가이드 없음
