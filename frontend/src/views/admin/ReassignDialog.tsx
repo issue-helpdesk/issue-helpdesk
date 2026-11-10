@@ -1,3 +1,4 @@
+import { ClassificationForm } from './ClassificationForm'
 /**
  * 담당자 재배정 창 (관리자). (design/ITssue-Prototype.html 'rs-open')
  * 같은 담당 그룹의 구성원을 오늘 상태·업무량·긴급도·ITSM 계정과 함께 보여 주고, 하나를 골라 사유와 함께 재배정한다.
@@ -20,8 +21,9 @@ const URGS: Urgency[] = ['P1', 'P2', 'P3', 'P4']
 const WHY_ASSIGN = ['자동배정 실패', '업무량 분배', '휴가·부재 대체', '전문 분야 담당', '긴급 건 우선 배정']
 const WHY_REASSIGN = ['휴가·부재', '업무량 분배', '전문 분야 변경', '팀 내 재조정', '긴급 건 우선 배정']
 
-export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: TicketDetail; mode?: 'reassign' | 'assign'; onClose: () => void; /** registered: 서버가 배정을 예약만 했고 ITSM 실행기가 나중에 반영한다 */ onDone: (registered: boolean) => void }) {
+export function ReassignDialog({ t, mode = 'reassign', embedded = false, initialMode = 'assignee', onClose, onDone }: { t: TicketDetail; mode?: 'reassign' | 'assign'; embedded?: boolean; initialMode?: 'assignee'|'classification'; onClose: () => void; /** registered: 서버가 배정을 예약만 했고 ITSM 실행기가 나중에 반영한다 */ onDone: (registered: boolean, kind?: 'assignee'|'classification') => void }) {
   const { user } = useAuth()
+  const [changeCategory,setChangeCategory] = useState(initialMode==='classification')
   const uid = useId()
   const [list, setList] = useState<Candidate[] | null>(null)
   const [loadErr, setLoadErr] = useState('')
@@ -33,7 +35,7 @@ export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: T
   const group = t.group?.name ?? ''
   const cur = t.assignee?.id ?? null
   const assign = mode === 'assign'
-  const verb = assign ? '담당자 지정' : '담당자 재배정'
+  const verb = '분류·담당자 변경'
 
   useEffect(() => {
     let alive = true
@@ -66,8 +68,12 @@ export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: T
     onDone(r.data.assignStatus === 'PENDING')
   }
 
-  return (
-    <Modal title={verb} onClose={onClose}>
+  if(changeCategory && !embedded) return <Modal title="분류·담당자 변경" onClose={onClose}>
+    <div className="seg tx" role="group" aria-label="변경 방식"><button type="button" aria-pressed="false" onClick={()=>setChangeCategory(false)}>담당자만 변경</button><button type="button" className="on" aria-pressed="true" onClick={()=>setChangeCategory(true)}>분류부터 변경</button></div>
+    <ClassificationForm ticket={t} onCancel={onClose} onDone={()=>onDone(true,'classification')}/>
+  </Modal>
+  const content = (
+    <>
       <p className="small muted" style={{ margin: 0 }}>
         {t.receiptNo} · {group} · {t.urgency && <span className={`pri-${t.urgency.toLowerCase()}`}>{URGENCY_LABEL[t.urgency]}</span>}
       </p>
@@ -76,6 +82,13 @@ export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: T
           현재 담당 <b>{t.assignee?.name ?? '-'}</b>
         </p>
       )}
+      {!embedded && <div className="seg tx" role="group" aria-label="변경 방식">
+        <button type="button" className="on" aria-pressed="true" onClick={()=>setChangeCategory(false)}>담당자만 변경</button>
+        <button type="button" disabled={t.workStatus!=='RDY'} aria-pressed="false" onClick={()=>setChangeCategory(true)}>분류부터 변경</button>
+      </div>}
+      <p className="small muted" style={{ margin: 0 }}>
+        현재 분류 <b>{t.category?.name ?? '미분류'}</b>
+      </p>
       {loadErr ? (
         <div className="alert err" role="alert">
           <div>{loadErr}</div>
@@ -190,6 +203,7 @@ export function ReassignDialog({ t, mode = 'reassign', onClose, onDone }: { t: T
           {assign ? '지정' : '재배정'}
         </button>
       </div>
-    </Modal>
+    </>
   )
+  return embedded ? content : <Modal title={verb} onClose={onClose}>{content}</Modal>
 }

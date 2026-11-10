@@ -31,15 +31,18 @@ const staff = (): User => MOCK_ACCOUNTS.find((u) => u.employeeNo === 'EMP-1004')
 const section = (name: RegExp) => screen.getByRole('heading', { name }).closest('section') as HTMLElement
 
 describe('운영 현황 API (모의)', () => {
-  it('연동 확인·배정 확인 목록만 나눠 준다 (긴급·높음 미해결은 대시보드에서 본다)', async () => {
+  it('미분류·재분류 요청과 연동·배정 확인을 분리한다', async () => {
     const r = await getOpsSnapshot(admin())
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(Object.keys(r.data).sort()).toEqual(['asOf', 'assign', 'link'])
+    expect(Object.keys(r.data).sort()).toEqual(['asOf', 'assign', 'link', 'reclassification', 'unclassified'])
     expect(r.data.link.every((t) => t.jiraSyncStatus !== 'SYNCED' || t.transitionStatus === 'NEEDS_ADMIN')).toBe(true)
     expect(r.data.assign.every((t) => t.jiraSyncStatus === 'SYNCED' && t.assignStatus === 'NEEDS_ADMIN')).toBe(true)
     expect(r.data.link.length).toBe(3)
-    expect(r.data.assign.length).toBe(2)
+    expect(r.data.assign.length).toBe(1)
+    expect(r.data.unclassified?.length).toBe(1)
+    expect(r.data.reclassification?.length).toBe(1)
+    expect(r.data.assign.every(t=>!!t.category)).toBe(true)
   })
 
   it('담당 그룹으로 좁힌다', async () => {
@@ -97,7 +100,7 @@ describe('운영 현황 화면', () => {
     expect(screen.queryByRole('heading', { name: /긴급 조치 필요|당일 미종결 예외/ })).toBeNull()
     expect(within(section(/티켓 연동 확인/)).getByText(/^\d+건$/)).toBeInTheDocument()
     expect(within(section(/담당자 배정 확인/)).getByText(/^\d+건$/)).toBeInTheDocument()
-    expect(section(/티켓 연동 확인/)).toHaveClass('need')
+    expect(section(/티켓 연동 확인/)).not.toHaveClass('need')
     expect(await screen.findByRole('region', { name: '팀별 개인 현황' }, SLOW)).toBeInTheDocument()
     expect(await screen.findByRole('group', { name: '담당 그룹' }, SLOW)).toBeInTheDocument()
     unmount()
@@ -109,7 +112,7 @@ describe('운영 현황 화면', () => {
     renderAs('EMP-1178', '/ops')
     await waitFor(() => expect(section(/담당자 배정 확인/).querySelectorAll('.orow').length).toBeGreaterThan(0), SLOW)
     const asg = () => section(/담당자 배정 확인/).querySelectorAll('.orow').length
-    expect(asg()).toBe(2)
+    expect(asg()).toBe(1)
     await userEvent.click(screen.getByRole('button', { name: /^담당 그룹\s*전체/ }))
     await userEvent.click(await screen.findByRole('option', { name: '정보보안팀' }))
     const teamTabs = screen.getByRole('group', { name: '담당 그룹' })
@@ -142,7 +145,7 @@ describe('운영 현황 화면', () => {
   it('담당자 지정은 후보를 고르고 사유를 적어야 한다', async () => {
     renderAs('EMP-1178', '/ops')
     await waitFor(() => expect(section(/담당자 배정 확인/).querySelectorAll('.orow').length).toBeGreaterThan(0), SLOW)
-    await userEvent.click(within(section(/담당자 배정 확인/)).getAllByRole('button', { name: '지정' })[0])
+    await userEvent.click(within(section(/담당자 배정 확인/)).getAllByRole('button', { name: '변경' })[0])
     const dlg = await screen.findByRole('dialog', {}, SLOW)
     expect(within(dlg).getByText('지정 사유 (필수)')).toBeInTheDocument()
     expect(await within(dlg).findByText('자동배정 추천 (가용 + 업무량 최소)', {}, SLOW)).toBeInTheDocument()
@@ -190,4 +193,14 @@ describe('운영 현황 화면', () => {
     // 이미 상세를 보고 있으니 창에 "상세" 단추는 없다
     expect(within(dlg).queryByRole('button', { name: '상세' })).toBeNull()
   })
+})
+
+
+it('항목이 있는 운영 카드에는 빈 상태나 목록 끝 문구를 덧붙이지 않는다', async () => {
+  renderAs('EMP-1178', '/ops')
+  for (const name of [/미분류 문의/, /재분류 요청/]) {
+    await waitFor(() => expect(section(name).querySelectorAll('.orow')).toHaveLength(1), SLOW)
+    expect(within(section(name)).queryByText('해당하는 건이 더 없어요')).toBeNull()
+    expect(section(name).querySelector('.onil')).toBeNull()
+  }
 })

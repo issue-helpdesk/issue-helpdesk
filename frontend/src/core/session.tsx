@@ -15,6 +15,8 @@ import { tokenStore } from './tokenStore'
 type LoginNote = 'pw-changed' | 'expired'
 
 interface AuthState {
+  /** 로그인 성공 횟수. 토큰 복원·갱신은 새 로그인으로 세지 않는다. */
+  loginSequence: number
   /** 로그인한 사용자. 로그인 전이면 null */
   user: User | null
   /** 새로고침 직후 저장된 토큰으로 사용자를 확인하는 중인지 */
@@ -39,6 +41,7 @@ interface AuthState {
 const Ctx = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [loginSequence, setLoginSequence] = useState(0)
   const [user, setUser] = useState<User | null>(null)
   // 저장된 토큰이 있으면 사용자 확인이 끝날 때까지 loading 상태로 시작한다
   const [loading, setLoading] = useState<boolean>(() => !!tokenStore.get())
@@ -91,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /** 로그인 응답이 성공이면 토큰과 사용자를 저장하고, 결과는 화면에 그대로 돌려준다. */
   const accept = useCallback((r: ApiResult<LoginData>) => {
     if (r.ok) {
+      setLoginSequence((n) => n + 1)
       tokenStore.set(r.data.accessToken)
       bindSessionUser(r.data.user)
       setUser(r.data.user)
@@ -102,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthState>(
     () => ({
       user,
+      loginSequence,
       loading,
       loginNote,
       login: async (req) => accept(await authApi.login(req)),
@@ -116,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoginNote(note ?? null)
       },
     }),
-    [user, loading, loginNote, accept],
+    [user, loginSequence, loading, loginNote, accept],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

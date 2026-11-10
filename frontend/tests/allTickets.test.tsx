@@ -179,14 +179,14 @@ describe('전체 문의 화면', () => {
     expect(await screen.findByRole('button', { name: '✕ 필터 해제' })).toBeInTheDocument()
   })
 
-  it('상세를 열면 관리자는 상태 버튼 없이 재배정만 하고, 사유와 담당자를 골라 바꾼다', async () => {
+  it('RDY 상세에서 관리자는 처리 상태를 바꾸지 않고 담당자와 사유를 골라 변경한다', async () => {
     renderAs('EMP-1178', '/tickets')
-    await userEvent.click(await screen.findByRole('button', { name: '계정 잠금 해제 요청' }, SLOW))
+    await userEvent.click(await screen.findByRole('button', { name: '임시 비밀번호가 작동하지 않아요' }, SLOW))
     const panel = await screen.findByRole('complementary', { name: '티켓 상세' }, SLOW)
     expect(within(panel).queryByRole('button', { name: /처리 시작|처리 결과 등록/ })).toBeNull()
     expect(within(panel).queryByText(/다른 담당자가 맡은 접수예요/)).toBeNull()
-    await userEvent.click(await within(panel).findByRole('button', { name: '담당자 재배정' }, SLOW))
-    const dlg = await screen.findByRole('dialog', { name: '담당자 재배정' })
+    await userEvent.click(await within(panel).findByRole('button', { name: '담당자 변경' }, SLOW))
+    const dlg = await screen.findByRole('dialog', { name: '분류·담당자 변경' })
     expect(await within(dlg).findByText('추천 (가용 + 업무량 최소)', undefined, SLOW)).toBeInTheDocument()
     expect(within(dlg).getByText('부재 (연차)')).toBeInTheDocument() // 최하은
     await userEvent.click(within(dlg).getByRole('button', { name: '재배정' }))

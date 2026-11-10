@@ -153,3 +153,7 @@ button.o-main:focus-visible{outline:2px solid var(--btn-l);outline-offset:2px;bo
 /* 문서별 조회 범위는 일반 기능 안내(파랑)와 구분해 보라색으로 표시한다. */
 .alert.guide-scope{background:var(--s-prog-bg);color:var(--s-prog-fg)}
 .alert.guide-scope .mono{font-size:12.5px;font-weight:500}
+
+/* 반려도 공통 보조 버튼 구조를 사용한다. 고대비의 표면·경계는 공통 규칙을 따른다. */
+.btn.sec.dng{color:var(--s-urg-fg)}
+.btn.sec.dng:hover{background:var(--s-urg-bg)}

@@ -1,3 +1,6 @@
+import { classificationEvents } from '../../api/mock/classificationMock'
+import { ClassificationSection } from './ClassificationSection'
+import { listClassificationReports } from '../../api/classification'
 /**
  * 접수 상세 패널. 처리할 문의 오른쪽에 붙는다. (design/ITssue-Prototype.html 의 티켓 상세, 담당자 보기)
  *
@@ -11,7 +14,7 @@ import { markTicketRead, refreshUnread } from '../../api/notifications'
 import { urgencyReasonText } from '../../api/urgencyReason'
 import { friendlyAssignReason } from '../../api/assignReason'
 import { getAssignmentLogs, getTicket, getTicketHistory, refreshTickets, syncTicket } from '../../api/tickets'
-import type { AssignmentLog, StatusHistory, TicketDetail } from '../../api/ticketTypes'
+import type { AssignmentLog, ClassificationReport, StatusHistory, TicketDetail } from '../../api/ticketTypes'
 import { USE_MOCK_TICKET } from '../../core/config'
 import { formatDateTime } from '../../core/format'
 import { useAuth } from '../../core/session'
@@ -19,7 +22,6 @@ import { AssessmentHistory } from './AssessmentHistory'
 import { Icon } from '../../ui/Icon'
 import { useOutsideClose } from '../../ui/useOutsideClose'
 import { CheckDialog } from '../admin/CheckDialog'
-import { ReassignDialog } from '../admin/ReassignDialog'
 import { recheckTransition, retryJiraCreate } from '../../api/ops'
 import { useToast } from '../../ui/useToast'
 import { UrgencyChip } from './QueueView'
@@ -90,7 +92,7 @@ function statusRows(t: TicketDetail): ReactNode {
     t.assignStatus === 'ASSIGNED' ? (
       <StRow lv="done" label="배정" val="완료" />
     ) : t.assignStatus === 'NEEDS_ADMIN' ? (
-      <StRow lv="live" tone="urg" label="배정" val={<Sbd tone="urg">담당자 배정 확인 필요</Sbd>} sub="개인 배정을 확인해야 해요" />
+      <StRow lv="live" tone="urg" label="배정" val={<Sbd tone="urg">배정 확인</Sbd>} sub="개인 배정을 확인해야 해요" />
     ) : t.jiraSyncStatus === 'SYNCED' ? (
       <StRow lv="live" tone="asg" label="배정" val={<Sbd tone="asg">연결 중</Sbd>} sub="담당 그룹에서 담당자를 정하는 중" />
     ) : (
@@ -158,8 +160,8 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
   const [hist, setHist] = useState<StatusHistory[]>([])
   // 담당자 배정 이력(재배정 포함). 못 읽으면(권한 등) 조용히 비워 두고 상태 이력만 보인다
   const [assigns, setAssigns] = useState<AssignmentLog[]>([])
-  // 담당자 재배정 (관리자)
-  const [reassign, setReassign] = useState<false | 'assign' | 'reassign'>(false)
+  const [reports, setReports] = useState<ClassificationReport[] | null>(null)
+  const [reportError, setReportError] = useState('')
   // ITSM 확인·재시도 (연동 실패·상태 동기화 확인 필요). 어느 화면에서 열어도 같은 단추와 창을 쓴다
   const [check, setCheck] = useState(false)
   const [checkBusy, setCheckBusy] = useState(false)
@@ -227,6 +229,11 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
     })
     // 서버는 문의자에게 배정 이력을 주지 않고 404 로 답한다 (담당 그룹·관리자만). 문의자는 아예 요청하지 않는다
     if (user.serviceRole !== 'EMPLOYEE') {
+      listClassificationReports(id).then((r) => {
+        if (!current()) return
+        if (r.ok) { setReports(r.data); setReportError('') }
+        else setReportError(r.error.message)
+      })
       getAssignmentLogs(user, id).then((r) => {
         if (current() && r.ok) setAssigns(r.data.items)
       })
@@ -259,6 +266,11 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
   const admin = user.serviceRole === 'ADMIN' // 관리자는 연동 확인·재배정을 한다
   // 처리 이력 = 상태 이력 + 담당자 배정 이력(추천·배정·재배정·실패)을 시간순으로 합친다. 화면에는 최근 것이 위에 온다
   const timeline = [
+    ...(USE_MOCK_TICKET && !requester ? classificationEvents(id).map(c=>({kind:'c' as const,at:c.at,c})) : []),
+    ...(!USE_MOCK_TICKET && !requester ? (reports ?? []).flatMap((r) => [
+      { kind: 'c' as const, at: r.createdAt, c: { title: '재분류 요청', reason: `${r.reason}${r.suggestedInquiryType ? ` · 제안 유형: ${r.suggestedInquiryType.name}` : ''}` } },
+      ...(r.resolvedAt ? [{ kind: 'c' as const, at: r.resolvedAt, c: { title: r.status === 'REJECTED' ? '재분류 반려' : '재분류 요청 처리', reason: r.resolutionNote ?? '' } }] : []),
+    ]) : []),
     ...hist.map((h) => ({ kind: 's' as const, at: h.changedAt, h })),
     ...assigns.map((a) => ({ kind: 'a' as const, at: a.createdAt, a })),
   ].sort((x, y) => Date.parse(y.at) - Date.parse(x.at) || (x.kind === y.kind ? 0 : x.kind === 'a' ? 1 : -1))
@@ -394,8 +406,8 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
                 statusRows(t)
               )}
               {info}
-              {!requester && (
-                <div>
+              {!requester && (user.serviceRole === 'AGENT' && mine && (t.workStatus === 'RDY' || t.workStatus === 'WIP') || pending || t.workStatus === 'FIN' || admin && t.workStatus !== 'CLS' && (t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.transitionStatus === 'NEEDS_ADMIN')) && (
+                <div className="ticket-action-group">
                   <TicketWorkActions
                     key={`${id}:${t.workStatus}`}
                     ticket={t}
@@ -424,14 +436,16 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
                       ITSM 확인·재시도
                     </button>
                   )}
-                  {admin && (t.workStatus === 'RDY' || t.workStatus === 'WIP') && (
-                    <button type="button" className={`btn ${t.assignStatus === 'NEEDS_ADMIN' && !t.assignee ? 'pri' : 'sec'} block`} onClick={() => setReassign(t.assignee ? 'reassign' : 'assign')}>
-                      {t.assignee ? '담당자 재배정' : '담당자 지정'}
-                    </button>
-                  )}
                   {!mine && !admin && <div className="small muted">다른 담당자가 맡은 접수예요. 상태는 맡은 담당자만 바꿀 수 있어요.</div>}
                 </div>
               )}
+              {!requester && <ClassificationSection key={id} ticket={t} reports={reports} reportError={reportError} onReload={() => setReload((n) => n + 1)} onUpdated={(updated) => {
+                // 저장 전 시작된 조회가 새 신고·분류 결과를 덮지 않도록 구분한다.
+                mutationVersion.current += 1
+                setT(updated)
+                refreshTickets()
+                setReload((n) => n + 1)
+              }} />}
               {/* AI 판단 이력: 관리자만, 서버(IQ-10)에서 읽는다 */}
               <AssessmentHistory inquiryId={t.inquiryId} />
               <div>
@@ -439,6 +453,7 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
                 <ul className="tl">
                   {timeline.length === 0 && <li className="muted small">아직 이력이 없어요.</li>}
                   {timeline.map((e) => {
+                    if (e.kind === 'c') return <li key={`classification-${e.at}-${e.c.title}`}><Icon name="clock"/><div><b>{e.c.title}</b><small>{formatDateTime(e.at)}</small><p className="tln"><em>사유</em>{e.c.reason}</p></div></li>
                     if (e.kind === 'a') {
                       const x = e.a
                       return (
@@ -507,18 +522,6 @@ export function TicketDetailPanel({ id, tick, slide = true, onSlideEnd, onClose,
               say(r.data.outcome === 'REGISTERED' ? '재처리를 등록했어요. 실행기가 처리하면 상태가 바뀌어요.' : '재처리를 등록했어요. 잠시 뒤 반영돼요.')
               refreshTickets()
               setReload((n) => n + 1)
-            }}
-          />
-        )}
-        {reassign && t && (
-          <ReassignDialog
-            t={t}
-            mode={reassign}
-            onClose={() => setReassign(false)}
-            onDone={(registered) => {
-              setReassign(false)
-              getAssignmentLogs(user, id).then((r) => r.ok && setAssigns(r.data.items))
-              say(registered ? '재배정을 등록했어요. 실행기가 ITSM에 반영하면 담당자가 바뀌어요.' : '재배정했어요. 진행 상태는 그대로 유지돼요.')
             }}
           />
         )}

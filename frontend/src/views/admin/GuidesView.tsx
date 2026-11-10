@@ -507,11 +507,12 @@ export function GuidesView() {
                 현재 사용 중인 버전 중 검색 준비가 완료된 버전만 AI 답변에 활용돼요.
               </p>
             </div>
-            <div>
+            <details>
+              <summary className="small muted">열람 범위·외부 AI 전송 정책 알아보기</summary>
               <p className="muted">
                 <b>외부 AI 전송</b>은 이 가이드 내용을 AI 모델에 보내 답변을 만들어도 되는지에 관한 설정이에요(문서 열람 권한인 열람 범위와는 별개). <b>허용</b>은 그대로 보내고, <b>마스킹 후 허용</b>은 민감정보를 가린 내용만 보내요. <b>금지</b>인 가이드 내용은 외부 AI에 보내지 않아요. 사용할 수 있는 근거가 없으면 담당자 연결을 제안해요. 열람 범위와 전송 정책을 정하지 않으면 관리자만·금지로 처리돼요.
               </p>
-            </div>
+            </details>
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
               <div className="seg" role="group" aria-label="보기">
                 <button type="button" className={tab === 'list' ? 'on' : ''} aria-pressed={tab === 'list'} onClick={() => setTab('list')}>

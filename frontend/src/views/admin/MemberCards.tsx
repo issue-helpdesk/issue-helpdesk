@@ -81,7 +81,7 @@ export function MemberCards({ members, open, onOpen, onList, meName, canList }: 
                   </ul>
                   {m.oldestWipSince && (
                     <p className="small muted">
-                      처리 중 가장 오래된 건 · <b>{formatElapsed(m.oldestWipSince)}</b> 경과
+                      현재 처리 중 가장 오래된 건 · <b>{formatElapsed(m.oldestWipSince)}</b> 경과
                     </p>
                   )}
                   <div className="mcf">

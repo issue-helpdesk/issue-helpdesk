@@ -54,6 +54,9 @@ export const EVENT_LABEL: Record<string, { label: string; tone: string }> = {
   // 접수
   CONFIRM: { label: '접수 확정', tone: 'ok' },
   REASSIGN: { label: '재배정', tone: 'warn' },
+  RECLASSIFY: { label: '분류 변경', tone: 'prog' },
+  CLASSIFICATION_REPORT: { label: '재분류 요청', tone: 'warn' },
+  CLASSIFICATION_REPORT_REJECT: { label: '재분류 반려', tone: 'recv' },
   INTEGRATION_RETRY: { label: '연동 재처리', tone: 'asg' },
   // 문서
   DOCUMENT_ACTIVATE: { label: '문서 활성화', tone: 'ok' },
@@ -101,6 +104,12 @@ export function describeAudit(x: Pick<AuditLog, 'eventType' | 'result' | 'reason
   const reason = x.reason ?? ''
   const t = (name: string, out: string, why = reason): AuditText => ({ name, out: cleanServerText(out), reason: cleanServerText(why) })
   switch (x.eventType) {
+    case 'RECLASSIFY':
+      return t('', `분류 변경${res ? ` · ${res}` : ''}`)
+    case 'CLASSIFICATION_REPORT':
+      return t('', res === 'OPEN' ? '검토 대기' : res)
+    case 'CLASSIFICATION_REPORT_REJECT':
+      return t('', res === 'REJECTED' ? '반려' : res)
     case 'SECURITY_ALERT_REVIEW':
     case 'SECURITY_ALERT_CLOSE':
     case 'SECURITY_ALERT_VIEW':

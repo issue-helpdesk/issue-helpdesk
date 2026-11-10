@@ -1,3 +1,4 @@
+import { missingCategoryMockTickets, openClassificationMockTickets } from './mock/classificationMock'
 /**
  * 운영 현황 (관리자). (design/ITssue-Prototype.html viewExc)
  * 관리자가 직접 확인해야 풀리는 일만 모아 보여 준다: 티켓 연동 확인, 담당자 배정 확인. (긴급·높음 미해결은 대시보드에서 본다)
@@ -17,6 +18,8 @@ import { fail, ok, type ApiResult, type User } from './types'
 
 export interface OpsSnapshot {
   /** ITSM 이슈가 안 만들어졌거나(확인 필요·결과 확인 중) 상태 변경을 ITSM 에서 확인하지 못한 접수 */
+  unclassified?: TicketSummary[]
+  reclassification?: TicketSummary[]
   link: TicketSummary[]
   /** ITSM 이슈는 만들어졌지만 담당자가 비어 있는 접수 */
   assign: TicketSummary[]
@@ -34,8 +37,16 @@ export async function getOpsSnapshot(user: User, groupId?: number): Promise<ApiR
   const isLink = (t: TicketSummary) => t.jiraSyncStatus === 'NEEDS_ADMIN' || t.jiraSyncStatus === 'VERIFYING' || t.transitionStatus === 'NEEDS_ADMIN'
   // 어느 쪽에도 안 맞는 확인 필요 건(예: 연동이 아직 진행 중인데 배정 확인이 필요)도 빠지지 않게 연동 확인으로 보인다
   const link = open.filter((t) => isLink(t) || !isAssign(t))
-  const assign = open.filter(isAssign)
-  return ok({ link, assign, asOf: nowIso() })
+  const assign = open.filter((t) => isAssign(t) && !!t.category)
+  const unclassified = USE_MOCK_TICKET ? missingCategoryMockTickets().filter(t=>!groupId||t.group?.id===groupId) : open.filter(t=>!t.category)
+  let reclassification: TicketSummary[]
+  if(USE_MOCK_TICKET) reclassification=openClassificationMockTickets().filter(t=>!groupId||t.group?.id===groupId)
+  else {
+    const reports=await listAllTickets(user,{...base,classificationReportOpen:true,sort:'createdAt,asc'})
+    if(!reports.ok)return reports
+    reclassification=reports.data.items.filter(t=>t.workStatus!=='CLS')
+  }
+  return ok({ link, assign, unclassified, reclassification, asOf: nowIso() })
 }
 
 /** 사이드바 배지용: 연동·배정 확인이 필요한 접수 수 */

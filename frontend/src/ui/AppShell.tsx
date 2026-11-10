@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../core/session'
+import { SecurityLoginNotice } from './SecurityLoginNotice'
 import { GuideIngestAlert } from './GuideIngestAlert'
 import { PasswordDialog } from './PasswordDialog'
 import { ScrollTop } from './ScrollTop'
@@ -115,6 +116,7 @@ export function AppShell() {
         <ScrollTop />
         {/* 가이드 적재 실패 알림 창 (관리자, 어느 화면에서나) */}
         <GuideIngestAlert />
+        <SecurityLoginNotice blocked={forced || profileOpen} />
         {/* 어느 화면의 토스트든 여기에 쌓여 보인다 */}
         <ToastHost />
         {(forced || profileOpen) && <PasswordDialog forced={forced} onClose={() => setProfileOpen(false)} />}
