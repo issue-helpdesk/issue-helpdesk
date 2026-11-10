@@ -50,6 +50,7 @@ class TicketListQuery(PageQuery):
     created_from: date | None = None
     created_to: date | None = None
     q: trimmed_str(max_length=100) | None = None
+    classification_report_open: bool | None = None     # true 면 처리를 기다리는 분류 이상 신고가 있는 접수만 (TK-16)
 
 
 class TicketSummary(CamelModel):
@@ -70,6 +71,7 @@ class TicketSummary(CamelModel):
     transition_status: str
     work_status_confirmed_at: KstDatetime | None
     needs_admin: bool
+    classification_report_open: bool
     display_status: str
     created_at: KstDatetime
 
@@ -97,6 +99,34 @@ class AssignmentRequest(CamelModel):
     group_id: int
     assignee_id: int | None                                  # 필수. null 이면 그 그룹에서 자동배정
     reason: trimmed_str(max_length=500) | None = None        # 비면 ASSIGNMENT_REASON_REQUIRED
+
+
+class ClassificationRequest(CamelModel):
+    inquiry_type_id: int                                     # 분류(category)는 세부 유형에서 정한다
+    reason: trimmed_str(max_length=500) | None = None        # 비면 VALIDATION_ERROR (field reason)
+
+
+class ClassificationReportCreate(CamelModel):
+    reason: trimmed_str(max_length=1000) | None = None       # 비면 VALIDATION_ERROR (field reason)
+    suggested_inquiry_type_id: int | None = None             # 맞다고 보는 세부 유형 (선택)
+
+
+class ClassificationReportUpdate(CamelModel):
+    status: Literal["REJECTED"]                              # 분류를 바꿔 닫는 것은 TK-15 가 한다
+    resolution_note: trimmed_str(max_length=1000) | None = None   # 비면 VALIDATION_ERROR (field resolutionNote)
+
+
+class ClassificationReport(CamelModel):
+    id: int
+    ticket_id: int
+    reporter: UserRef
+    reason: str
+    suggested_inquiry_type: InquiryTypeRef | None
+    status: Literal["OPEN", "RESOLVED", "REJECTED"]
+    resolved_by: UserRef | None
+    resolved_at: KstDatetime | None
+    resolution_note: str | None
+    created_at: KstDatetime
 
 
 class AssignmentLog(CamelModel):
@@ -177,6 +207,7 @@ class Ticket(CamelModel):
     work_status_confirmed_at: KstDatetime | None
     resolution_confirmed_at: KstDatetime | None
     needs_admin: bool
+    open_classification_report: ClassificationReport | None    # 처리를 기다리는 분류 이상 신고 (TK-16)
     display_status: str
     resolution_note: str | None
     created_at: KstDatetime
