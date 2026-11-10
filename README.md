@@ -111,6 +111,7 @@ uv run poe dev
 | [시스템 설계서](docs/04.시스템_설계서.md) | 아키텍처·DB·API |
 | [가상 기업 환경 정의서](docs/05.가상기업_환경정의서.md) | 조직·사용자·IT 환경 |
 | [Jira Ticket 담당자 배정 로직](docs/11.Jira_티켓_담당자_배정_로직.md) | 담당자 선정 기준·Jira 호출·확인 필요 사항 |
+| [사용자 매뉴얼](docs/12.사용자_매뉴얼.md) | 문의자·담당자·관리자 화면 사용법·문제 해결 |
 | [Git 협업 가이드](docs/git-collaboration-guide.md) | 브랜치·커밋·PR 규칙 |
 | [데이터셋 설명](dataset/README.md) | 데이터 파일과 코드 |
 
