@@ -5,6 +5,7 @@
  * 도넛은 화면에 들어올 때 호가 차오른다(.donut 의 공통 모션). 개인별 분류 분포는 서버 집계에 없어 보여 주지 않는다.
  */
 import type { StatCounts } from '../../api/adminStats'
+import { formatElapsed } from '../../core/format'
 import { StatSr } from '../../ui/StatSr'
 import { useStatTip } from '../../ui/StatTip'
 import { STATES, sumOf } from '../staff/StatsView'
@@ -43,6 +44,8 @@ interface MemberCardData {
   id: number
   name: string
   v: StatCounts
+  /** 지금 처리 중인 접수 가운데 가장 오래된 WIP 의 시작 시각. 오래 멈춘 건을 관리자가 보고 재배정을 판단하는 용도 */
+  oldestWipSince?: string | null
 }
 
 /** meName 이 있으면 그 카드에 "나" 표시, canList 로 티켓 목록 버튼을 보일 카드를 정한다 (담당자는 자기 카드만) */
@@ -76,6 +79,11 @@ export function MemberCards({ members, open, onOpen, onList, meName, canList }: 
                       </li>
                     ))}
                   </ul>
+                  {m.oldestWipSince && (
+                    <p className="small muted">
+                      처리 중 가장 오래된 건 · <b>{formatElapsed(m.oldestWipSince)}</b> 경과
+                    </p>
+                  )}
                   <div className="mcf">
                     <span className="small muted">
                       전체 {total}건 · 완료 {total ? Math.round((m.v.CLS / total) * 100) : 0}%
