@@ -62,7 +62,7 @@ def to_jira_ticket(ticket: Mapping[str, Any]) -> dict[str, str]:
     """
     _, receipt = _identity(ticket)
     summary = _text(ticket, "summary", required=True)
-    category = _text(ticket, "categoryCode", required=True)
+    category = _text(ticket, "categoryCode")      # AI 가 분류하지 못한 접수는 비어 있다(미분류). Jira 는 분류 없이도 만들어진다
     urgency = _text(ticket, "urgency", required=True)
     group_id = _positive_id(ticket, "groupId")
     group = ticket.get("group")
@@ -76,10 +76,11 @@ def to_jira_ticket(ticket: Mapping[str, Any]) -> dict[str, str]:
     result = {
         "receipt_no": receipt,
         "title": _text(ticket, "title") or summary,
-        "category_code": category,
         "urgency": urgency,
         "group_name": group_name,
     }
+    if category:
+        result["category_code"] = category
     # 기존 매핑에 있는 선택 항목만 전달한다. 누락값을 코드 등에서 추측하지 않는다.
     for source, field, target in (
         ("category", "name", "category_name"),
@@ -98,6 +99,8 @@ def to_jira_ticket(ticket: Mapping[str, Any]) -> dict[str, str]:
             raise ConfirmedTicketError("invalid_type", (f"{source}.{field}",))
         if value.strip():
             result[target] = value.strip()
+    if "category_name" not in result and not category:
+        result["category_name"] = "미분류"          # 담당자가 Jira 에서 분류가 비었음을 알 수 있게 한다
     # 티켓 유형(장애·요청·문의)은 세부 유형이 가진 값을 그대로 넘긴다
     kind = ticket.get("inquiryType")
     if isinstance(kind, Mapping) and _text(kind, "requestKind"):
