@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import ConfigDict, Field
 
-from app.schemas.common import CamelModel
+from app.schemas.common import CamelModel, KstDatetime
 
 Interval = Literal["DAY", "WEEK", "MONTH"]
 
@@ -71,6 +71,7 @@ class MemberCounts(WorkCounts):
     user_id: int
     name: str
     group_id: int
+    oldest_wip_since: KstDatetime | None = None     # 지금 처리 중인 접수 중 가장 오래된 WIP 시작 시각. 선택 기간과 무관
 
 
 class OverviewTrend(CamelModel):

@@ -114,7 +114,9 @@ class DashboardService:
         former = self.dashboard.user_names({user_id for pair in counts if pair not in names for user_id in pair[1:]})
         for pair in counts:
             names.setdefault(pair, former.get(pair[1], ""))
-        rows = [MemberCounts(user_id=user_id, name=name, group_id=group_id, **counts.get((group_id, user_id), {}))
+        wip_since = self.dashboard.wip_since()      # 오래 멈춘 건을 관리자가 보고 재배정하게 한다 (기간과 무관)
+        rows = [MemberCounts(user_id=user_id, name=name, group_id=group_id, oldest_wip_since=wip_since.get((group_id, user_id)),
+                             **counts.get((group_id, user_id), {}))
                 for (group_id, user_id), name in names.items()]
         return sorted(rows, key=lambda m: (m.name, m.group_id, m.user_id))
 

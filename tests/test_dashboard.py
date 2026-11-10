@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.constants import llm as llm_constants
-from app.models import AuditLog, Category, Inquiry, LlmCall, SupportGroup, SupportGroupMember, Ticket
+from app.models import AuditLog, Category, Inquiry, LlmCall, SupportGroup, SupportGroupMember, Ticket, TicketStatusHistory
 from test_auth import TABLES, add_user, bearer, client, error_code, login  # noqa: F401
 from test_inquiries import create_sqlite_tables
 
@@ -23,7 +23,7 @@ def at(day, hour=12):
 @pytest.fixture
 def db():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    create_sqlite_tables(engine, TABLES + ["categories", "inquiries", "tickets", "llm_calls"])
+    create_sqlite_tables(engine, TABLES + ["categories", "inquiries", "tickets", "ticket_status_history", "llm_calls"])
     with Session(engine) as session:
         yield session
     engine.dispose()
@@ -203,11 +203,45 @@ def test_overview_breakdowns(client, db, users):
         {"groupId": 2, "name": "SW팀", "rdy": 0, "wip": 0, "fin": 0, "cls": 0},
         {"groupId": 3, "name": "해체팀", "rdy": 0, "wip": 1, "fin": 0, "cls": 0},
     ]
+    wip_at = "2026-10-10T12:00:00+09:00"          # WIP 이력이 없으면 접수 시각이 시작 시각이다
     assert body["byMember"] == [
-        {"userId": colleague, "name": "가동료", "groupId": 1, "rdy": 0, "wip": 1, "fin": 0, "cls": 0},
-        {"userId": agent, "name": "나담당", "groupId": 1, "rdy": 0, "wip": 0, "fin": 0, "cls": 1},
-        {"userId": agent, "name": "나담당", "groupId": 3, "rdy": 0, "wip": 1, "fin": 0, "cls": 0},
+        {"userId": colleague, "name": "가동료", "groupId": 1, "rdy": 0, "wip": 1, "fin": 0, "cls": 0, "oldestWipSince": wip_at},
+        {"userId": agent, "name": "나담당", "groupId": 1, "rdy": 0, "wip": 0, "fin": 0, "cls": 1, "oldestWipSince": None},
+        {"userId": agent, "name": "나담당", "groupId": 3, "rdy": 0, "wip": 1, "fin": 0, "cls": 0, "oldestWipSince": wip_at},
     ]
+
+
+def add_wip_entry(db, ticket, changed_at):
+    db.add(TicketStatusHistory(ticket_id=ticket.id, from_status="RDY", to_status="WIP", source="JIRA", changed_at=changed_at))
+
+
+def test_overview_member_oldest_wip_since(client, db, users):
+    me, agent, colleague = users["employee"]["id"], users["agent"]["id"], users["colleague"]["id"]
+    old = add_ticket(db, me, "WIP", assignee=agent, created_at=at(2))
+    add_wip_entry(db, old, at(3))
+    newer = add_ticket(db, me, "WIP", assignee=agent, created_at=at(5))
+    add_wip_entry(db, newer, at(6))
+    returned = add_ticket(db, me, "WIP", assignee=colleague, created_at=at(1))     # FIN 에서 되돌아온 건은 다시 WIP 가 된 시각부터
+    add_wip_entry(db, returned, at(2))
+    add_wip_entry(db, returned, at(8))
+    add_ticket(db, me, "RDY", assignee=colleague, created_at=at(1))                # 아직 시작 전
+    add_ticket(db, me, "WIP", assignee=colleague, created_at=at(1), assign="PENDING")   # 예약은 처리 중이 아니다
+    db.commit()
+
+    by_member = {m["userId"]: m for m in get(client, users, "admin", "/dashboard/overview").json()["byMember"]}
+    assert by_member[agent]["oldestWipSince"] == "2026-10-03T12:00:00+09:00"
+    assert by_member[colleague]["oldestWipSince"] == "2026-10-08T12:00:00+09:00"
+
+
+def test_overview_member_oldest_wip_since_ignores_selected_period(client, db, users):
+    me, agent = users["employee"]["id"], users["agent"]["id"]
+    ticket = add_ticket(db, me, "WIP", assignee=agent, created_at=at(2))            # 선택 기간(10.20~10.31) 밖에서 접수
+    add_wip_entry(db, ticket, at(3))
+    db.commit()
+
+    body = get(client, users, "admin", "/dashboard/overview", **{"from": "2026-10-20", "to": "2026-10-31"}).json()
+    member = next(m for m in body["byMember"] if m["userId"] == agent)
+    assert (member["wip"], member["oldestWipSince"]) == (0, "2026-10-03T12:00:00+09:00")   # 기간 집계에는 안 잡혀도 멈춘 건은 보인다
 
 
 def test_overview_ticket_without_work_status_is_not_in_work_counts(client, db, users):
