@@ -543,7 +543,9 @@ describe('대화 화면', () => {
     expect(await screen.findByRole('button', { name: '접수하기' }, SLOW)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '접수 안 함' }))
     const dlg = await screen.findByRole('alertdialog', { name: '접수하지 않고 문의를 종료할까요?' })
-    expect(dlg).toHaveTextContent('문의 내역에서 다시 상담을 이어갈 수 있어요')
+    // 접수 없이 종료한 문의는 이어갈 수 없다: 대화 기록만 볼 수 있고 추가 문의는 새 문의로 안내한다
+    expect(dlg).toHaveTextContent('문의 내역에서 대화 기록만 확인할 수 있어요')
+    expect(dlg).not.toHaveTextContent('다시 상담을 이어갈 수 있어요')
     // 돌아가기: 종료하지 않고 초안과 버튼이 그대로 남는다
     await user.click(within(dlg).getByRole('button', { name: '돌아가기' }))
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()

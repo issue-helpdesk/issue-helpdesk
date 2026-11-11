@@ -16,6 +16,7 @@ import { retryGuideIngest } from '../../api/guides'
 import { CASE_KIND_TONE, CASE_STATE_LABEL, CASE_STATE_TONE, approveCase, baseChanged, dropCase, kindLabel, rebaseCase, retryCase, saveCase, type CaseItem } from '../../api/mock/caseGuides'
 import { useAuth } from '../../core/session'
 import { Icon } from '../../ui/Icon'
+import { Markdown } from '../../ui/Markdown'
 import { MarkdownField } from '../../ui/MarkdownField'
 import { Modal } from '../../ui/Modal'
 import { PolicyModal } from '../../ui/PolicyModal'
@@ -521,7 +522,13 @@ export function CaseReviewPanel({ id, onClose, onGoLive }: { id: string; onClose
                   <div className="cgcmp">
                     <div>
                       <div className="asl">기존 내용 ({c.target.baseVersion})</div>
-                      <pre className="cgpre">{c.before}</pre>
+                      {/* 글(마크다운 기호)이 아니라 가이드에 보이는 모양 그대로. 오른쪽 미리보기와 같은 방식으로 그리고, 위쪽 줄은 오른쪽의 편집·미리보기 선택 줄과 높이를 맞춘다 */}
+                      <div className="cgbar">
+                        <span className="small muted">현재 가이드 · 읽기 전용</span>
+                      </div>
+                      <div className="cgrend" role="region" aria-label={`기존 내용 ${c.target.baseVersion ?? ''} 미리보기`}>
+                        {c.before.trim() ? <Markdown text={c.before} /> : <p className="small muted">기존 내용이 없어요.</p>}
+                      </div>
                     </div>
                     <div>
                       <label className="asl" htmlFor={`${uid}-after`}>
