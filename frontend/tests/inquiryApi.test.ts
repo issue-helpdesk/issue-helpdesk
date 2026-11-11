@@ -196,6 +196,13 @@ describe('서버 모드 메시지·해결 확인·종료', () => {
 })
 
 describe('서버 모드 문의 목록', () => {
+  it('최근 문의는 기본 5건, 건수를 주면(문의자 화면은 7건) 그만큼 요청한다', async () => {
+    const { list } = await load()
+    route((u) => (u.includes('/inquiries?') ? json(200, { items: [], page: 1, size: 7, totalCount: 0, totalPages: 1 }) : undefined))
+    await list.listMyInquiries('EMP-1300', undefined, 7)
+    expect(sent()[0].url).toBe('/api/v1/inquiries?size=7&sort=updatedAt,desc')
+  })
+
   it('최근 문의와 문의 내역은 Page 를 화면의 요약으로 바꾼다', async () => {
     const { list } = await load()
     const item = { id: 128, user: { id: 1 }, title: null, status: 'RECEIVED', displayStatus: 'awaiting_confirm', category: { code: 'NET', name: 'VPN' }, urgency: 'P2', receiptNo: 'RCPT-0042', createdAt: '2026-10-21T10:12:03+09:00', updatedAt: null }

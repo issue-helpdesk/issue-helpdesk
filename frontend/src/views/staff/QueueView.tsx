@@ -109,7 +109,8 @@ export function QueueView() {
       page,
       size: PAGE_SIZE,
       // 정렬을 고르기 전에는 긴급도 높은 순 (열 머리는 강조하지 않는다)
-      sort: sort ? `${SORT_KEY[sort.col]},${sort.dir}` : 'urgency,asc',
+      // 처음에는 상태 순(처리 대기, 처리 중, 해결 확인 대기, 해결 완료)이고, 같은 상태 안에서는 긴급한 건·오래된 건이 먼저다
+      sort: sort ? `${SORT_KEY[sort.col]},${sort.dir}` : ['workStatus,asc', 'urgency,asc', 'createdAt,asc'],
       workStatus: tab === 'open' && sub ? [sub] : t.statuses,
       urgency: pri ? [pri as Urgency] : undefined,
       createdFrom: days === undefined ? undefined : daysAgo(days),

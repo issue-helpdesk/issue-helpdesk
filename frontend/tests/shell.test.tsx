@@ -69,6 +69,12 @@ describe('사이드바', () => {
     expect(within(list).getByText('1')).toBeInTheDocument()
   })
 
+  it('문의자의 최근 문의는 5건을 넘겨 7건까지 보인다 (시연 계정은 문의가 7건)', async () => {
+    renderAs('EMP-1001')
+    await screen.findByText('최근 문의', {}, SLOW)
+    await waitFor(() => expect(document.querySelectorAll('.side .recent .rt').length).toBe(7), SLOW)
+  })
+
   it('문의가 없는 계정은 최근 문의 영역을 보여 주지 않는다', async () => {
     renderAs('EMP-1003')
     await screen.findByRole('navigation', { name: '주 메뉴' }, SLOW)

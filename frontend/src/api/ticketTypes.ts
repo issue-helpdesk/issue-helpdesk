@@ -106,7 +106,8 @@ export interface TicketListQuery {
   page?: number
   size?: number
   /** "기준,방향". 가능: createdAt · urgency · workStatus (제목·접수번호 정렬은 프로토타입용 임시 값) */
-  sort?: string
+  /** '필드,방향' 하나, 또는 여러 개(앞에 있는 기준이 우선. 서버도 같은 방식으로 받는다) */
+  sort?: string | string[]
   workStatus?: WorkStatus[]
   needsAdmin?: boolean
   categoryCode?: CategoryCode[]

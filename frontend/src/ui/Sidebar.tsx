@@ -7,7 +7,7 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { watchMyInquiries } from '../api/inquiries'
+import { RECENT_FOR_EMPLOYEE, RECENT_DEFAULT, watchMyInquiries } from '../api/inquiries'
 import { markInquirySeen } from '../api/inquirySeen'
 import { watchUnread } from '../api/notifications'
 import { getIngestFailures, watchIngest } from '../api/guideWatch'
@@ -121,10 +121,12 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   const employeeNo = user?.employeeNo
   // 관리자는 서버가 모든 사용자의 문의를 주므로 본인 번호를 보내 내 문의만 받는다
   const ownerId = user?.serviceRole === 'ADMIN' ? user.id : undefined
+  // 최근 문의는 문의자 화면에서만 7건까지, 담당자·관리자는 메뉴가 길어서 5건까지 보인다
+  const recentMax = user?.serviceRole === 'EMPLOYEE' ? RECENT_FOR_EMPLOYEE : RECENT_DEFAULT
   useEffect(() => {
     if (!employeeNo) return
-    return watchMyInquiries(employeeNo, setRecent, ownerId)
-  }, [employeeNo, ownerId])
+    return watchMyInquiries(employeeNo, setRecent, ownerId, recentMax)
+  }, [employeeNo, ownerId, recentMax])
   // 서버가 변화를 알려 주지 않으므로 화면을 옮길 때 한 번 다시 읽는다 (짧은 시간에 여러 번 옮겨도 15초에 한 번만)
   const lastRefresh = useRef<number | null>(null)
   useEffect(() => {
@@ -237,7 +239,7 @@ export function Sidebar({ onNavigate }: { onNavigate: () => void }) {
             </button>
           </div>
           <div className="recent">
-            {shown.slice(0, shortRecent ? 2 : 5).map((i) => {
+            {shown.slice(0, shortRecent ? 2 : recentMax).map((i) => {
               const sv = stateView(i)
               const tone = sv.tone
               return (
