@@ -59,8 +59,9 @@ export function ChatView() {
   const navigate = useNavigate()
   const fromNew = !!(useLocation().state as { fresh?: boolean } | null)?.fresh // 새 문의에서 막 넘어온 화면
   const id = Number(idParam)
-  // 새 문의의 답이 막 와서 넘어왔으면, 대화 화면을 불러오는 빈 화면 없이 받은 내용으로 바로 시작한다 (서버 모드)
-  const [seed] = useState(() => (fromNew && id ? peekChat(id) : undefined))
+  // 이미 받아 둔 문의가 있으면(새 문의의 답이 막 왔거나, 전에 읽은 대화), 「불러오는 중이에요…」 빈 화면 없이 그 내용으로 바로 시작하고
+  // 뒤에서 새로 읽는다 (서버 모드)
+  const [seed] = useState(() => (id ? peekChat(id) : undefined))
   const { user } = useAuth()
   const employeeNo = user?.employeeNo
   // 어느 문의를 불러왔는지 함께 기억해, 다른 문의로 옮겼을 때 이전 내용이 잠깐 보이지 않게 한다
@@ -168,7 +169,7 @@ export function ChatView() {
   // 새로 생긴 AI 답변만 한 번 움직인다. 처음 불러온 메시지와 단순한 다시 그리기에서는 움직이지 않는다.
   // 내가 보낸 글은 먼저 임시 글로 보였다가 진짜 글로 바뀌는데, 같은 글은 같은 키를 이어 써서 지워졌다 다시 생기지 않게 한다 (messageKeys.ts)
   // 새 문의에서 넘어왔으면 내가 보낸 글은 이미 화면에 있던 것으로 치고, 답변만 새로 나타나게 한다
-  const [known, setKnown] = useState<KnownMessages | null>(() => (seed ? nextKnown(null, id, seed.messages.filter((m) => m.role === 'user')) : null))
+  const [known, setKnown] = useState<KnownMessages | null>(() => (seed ? nextKnown(null, id, fromNew ? seed.messages.filter((m) => m.role === 'user') : seed.messages) : null))
   if (inquiry) {
     const next = nextKnown(known, id, inquiry.messages)
     if (next !== known) setKnown(next)
