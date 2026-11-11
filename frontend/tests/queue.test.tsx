@@ -74,6 +74,20 @@ describe('처리할 문의 화면', () => {
     expect(rows[1]).toHaveTextContent('악성 첨부파일 의심 메일 수신') // P1 먼저
   })
 
+  it('탭은 전체 상태, 처리 대기, 진행 중 순서로 있고, 처리 대기 탭은 처리 대기 접수만 모아 보인다', async () => {
+    renderAs('EMP-1004', '/queue')
+    await screen.findByRole('tab', { name: /진행 중/ }, SLOW)
+    expect(screen.getAllByRole('tab').map((t) => t.textContent?.replace(/\d+$/, '').trim())).toEqual(['전체 상태', '처리 대기', '진행 중', '해결 확인 대기', '해결 완료'])
+    const rdy = screen.getByRole('tab', { name: /^처리 대기/ })
+    const open = screen.getByRole('tab', { name: /진행 중/ })
+    await waitFor(() => expect(Number(rdy.textContent?.replace(/\D/g, ''))).toBeGreaterThan(0), SLOW)
+    // 처리 대기는 진행 중(처리 대기 + 처리 중)에 포함된다
+    expect(Number(rdy.textContent?.replace(/\D/g, ''))).toBeLessThanOrEqual(Number(open.textContent?.replace(/\D/g, '')))
+    await userEvent.click(rdy)
+    expect(rdy).toHaveAttribute('aria-selected', 'true')
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(`${rdy.textContent?.replace(/\D/g, '')}건`), SLOW)
+  })
+
   it('검색하면 탭의 건수도 검색 결과에 맞게 바뀌고, 지우면 돌아온다', async () => {
     renderAs('EMP-1004', '/queue')
     const open = await screen.findByRole('tab', { name: /진행 중/ }, SLOW)
