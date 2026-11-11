@@ -1,4 +1,4 @@
-"""김태연 님 case_guide 함수 연결 (open_basis · ticket_warnings).
+"""case_guide 함수 연결 (open_basis · ticket_warnings).
 
 이 함수들은 psycopg 연결(`%s` 형식)을 받는다. 워커는 SQLAlchemy Session 을 쓰므로, API(services/guide_cluster.py)와
 같은 방법(`session.connection().connection.driver_connection`)으로 같은 트랜잭션의 연결을 넘긴다.

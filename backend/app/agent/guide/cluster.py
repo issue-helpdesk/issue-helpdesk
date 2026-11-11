@@ -24,7 +24,7 @@ EmbedFn = Callable[[list[str]], list[list[float]]]      # 글들 → 벡터들 (
 
 
 def group_key(category_code: str, judgment: str, target_doc: str | None, target_item: str | None) -> tuple:
-    """묶을 그룹. 항목 추가는 넣을 문서, 변경은 문서+항목까지 같아야 한다 (김태연 님 Q2 "한 묶음은 한 항목")."""
+    """묶을 그룹. 항목 추가는 넣을 문서, 변경은 문서+항목까지 같아야 한다 (한 묶음은 한 항목만 바꾼다)."""
     if judgment == 'ADD_ITEM':
         return category_code, judgment, target_doc, None
     if judgment == 'CHANGE':
