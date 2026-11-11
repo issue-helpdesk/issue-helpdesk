@@ -486,6 +486,31 @@ describe('대화 화면', () => {
     expect((await listMyInquiries('EMP-1003')).ok).toBe(true)
   })
 
+  it('담당자의 처리 결과는 해결되어 종료된 뒤에도 접수 카드에 남고, 미해결로 다시 처리 중이 되면 사라진다', async () => {
+    const NOTE = '서버 설정을 조정해 접속 지연을 해소했습니다'
+    // 해결: 종료된 뒤에도 처리 결과가 카드에 보인다
+    const first = renderAs('EMP-1001', '/chat/105')
+    await screen.findByText(/처리 결과 · /, {}, SLOW)
+    expect(screen.getByText(new RegExp(NOTE))).toBeInTheDocument()
+    await userEvent.click(screen.getAllByRole('button', { name: '해결' }).find((b) => !(b as HTMLButtonElement).disabled)!)
+    await screen.findByText('문의자 확인으로 종료되었어요. 감사합니다.', {}, SLOW)
+    expect(screen.getByText(/처리 결과 · /)).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(NOTE))).toBeInTheDocument()
+    first.unmount()
+  })
+
+  it('미해결을 고르면 처리 결과가 카드에서 사라진다', async () => {
+    renderAs('EMP-1001', '/chat/105')
+    await screen.findByText(/처리 결과 · /, {}, SLOW)
+    await userEvent.click(screen.getAllByRole('button', { name: '미해결' }).find((b) => !(b as HTMLButtonElement).disabled)!)
+    await userEvent.type(await screen.findByLabelText('남은 증상', {}, SLOW), '안내대로 했지만 같은 오류가 나요')
+    await userEvent.click(screen.getByRole('button', { name: '다시 확인 요청' }))
+    // 지금의 접수 카드는 처리 중으로 돌아가 처리 결과가 없다 (대화에 남은 지난 카드는 그때의 모습 그대로다)
+    const now = (await screen.findByText(/담당자가 처리하고 있어요/, {}, SLOW)).closest('.card')!
+    expect(now).not.toHaveTextContent('처리 결과')
+    expect(now).toHaveTextContent('처리 중')
+  })
+
   it('접수된 건은 해결 확인 단계에서도 응답 없음 안내나 삭제를 쓰지 않는다', async () => {
     renderAs('EMP-1001', '/chat/101')
     await screen.findByRole('list', { name: '접수 진행 단계' }, SLOW)
