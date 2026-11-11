@@ -177,7 +177,7 @@ export function DraftCard({ draft: d, state, note, active, busy, onConfirm, onSa
       )}
       {askCancel && (
         <Modal title="접수하지 않고 문의를 종료할까요?" role="alertdialog" onClose={() => setAskCancel(false)}>
-          <p>담당자에게 접수되지 않고 이 대화는 종료돼요. 문의 내역에서 다시 상담을 이어갈 수 있어요.</p>
+          <p>담당자에게 접수되지 않고 이 대화는 종료돼요. 종료 후에는 문의 내역에서 대화 기록만 확인할 수 있어요. 추가 문의는 새 문의로 시작해 주세요.</p>
           <div className="acts">
             <button type="button" className="btn sec" data-autofocus onClick={() => setAskCancel(false)}>
               돌아가기

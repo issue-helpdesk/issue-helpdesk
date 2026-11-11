@@ -23,6 +23,26 @@ afterEach(() => {
 })
 
 describe('알림 API', () => {
+  it('알림 종과 배지는 한 번 조회하고 읽음 처리 후 함께 갱신한다', async () => {
+    const api = await import('../src/api/notifications')
+    let count = 2
+    fetchMock.mockImplementation(async () => json({ count, ticketIds: count ? [42] : [] }))
+    const a = vi.fn(), b = vi.fn()
+    const offA = api.watchUnread(a), offB = api.watchUnread(b)
+    try {
+      await vi.advanceTimersByTimeAsync(0)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(a).toHaveBeenCalledWith({ count: 2, ticketIds: [42] })
+      expect(b).toHaveBeenCalledWith({ count: 2, ticketIds: [42] })
+      count = 0
+      api.refreshUnread()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(a).toHaveBeenLastCalledWith({ count: 0, ticketIds: [] })
+      expect(b).toHaveBeenLastCalledWith({ count: 0, ticketIds: [] })
+    } finally { offA(); offB() }
+  })
+
   it('안 읽은 개수·목록·접수 단위 읽음을 서버 경로로 부른다', async () => {
     const api = await import('../src/api/notifications')
     fetchMock.mockImplementation(async (url: string) => {

@@ -3,7 +3,7 @@
  * 접수 목록(TK-05 view=ALL)을 조건별로 받아 건수와 먼저 볼 문의를 만든다. 서버에는 집계 API 가 없어 건수는 size=1 로 받은 총건수를 쓴다.
  *   처리 현황       workStatus=RDY / WIP / FIN 각각의 totalCount
  *   연동·배정 확인  needsAdmin=true (원인별 건수는 목록의 jiraSyncStatus·assignStatus·transitionStatus 로 나눈다)
- *   긴급·높음 미해결 urgency=P1,P2 · workStatus=RDY,WIP (처리 대기·처리 중). ITSM 생성 전 접수는 운영 현황의 연동 확인에서 본다
+ *   긴급 미해결 urgency=P1 · workStatus=RDY,WIP (처리 대기·처리 중).
  */
 import { listAllTickets, listTickets } from './tickets'
 import type { TicketSummary } from './ticketTypes'
@@ -15,7 +15,7 @@ export interface DashSnapshot {
   fin: number
   /** 연동·배정 확인이 필요한 접수 수와 원인별 건수 */
   attention: { total: number; jira: number; sync: number; assign: number }
-  /** 긴급·높음 미해결: 긴급(P1)이 먼저, 같은 긴급도에서는 접수가 오래된 건 먼저 */
+  /** 긴급(P1) 미해결: 접수가 오래된 건 먼저 */
   unresolved: { total: number; p1: number; p2: number; top: TicketSummary[] }
   asOf: string
 }
@@ -26,7 +26,7 @@ export async function getDashSnapshot(user: User): Promise<ApiResult<DashSnapsho
   const [counts, need, open] = await Promise.all([
     listTickets(user, { ...base, size: 1 }),
     listAllTickets(user, { ...base, needsAdmin: true, size: 100 }),
-    listAllTickets(user, { ...base, urgency: ['P1', 'P2'], workStatus: ['RDY', 'WIP'], size: 100, sort: 'createdAt,asc' }),
+    listAllTickets(user, { ...base, urgency: ['P1'], workStatus: ['RDY', 'WIP'], size: 100, sort: 'createdAt,asc' }),
   ])
   if (!counts.ok) return counts
   if (!need.ok) return need

@@ -1,4 +1,5 @@
 import { request } from '../core/apiClient'
+import { tokenStore } from '../core/tokenStore'
 import { ok, type ApiResult } from './types'
 import type { SecAlert, SecCounts, SecSeverity, SecStatus, SecType } from './security'
 
@@ -37,9 +38,15 @@ export function toAlert(a: ServerAlert): SecAlert {
     log: (a.history ?? []).map((h) => ({ at: h.createdAt, who: h.actor?.name ?? 'ITssue',
       what: `${historyNames[h.kind] ?? h.kind}${h.reason ? ` · ${h.reason}` : ''}` })) }
 }
+let countsFlight: { session: string | null; promise: Promise<ApiResult<SecCounts>> } | null = null
 export async function serverCounts(): Promise<ApiResult<SecCounts>> {
-  const r = await request<{ new: number; inReview: number; closed: number; openHigh: number; total: number }>('/security-alerts/counts')
-  return r.ok ? ok({ 신규: r.data.new, '확인 중': r.data.inReview, 종결: r.data.closed, high: r.data.openHigh, total: r.data.total }) : r
+  // 로그인 안내·보안 목록과 배지의 동시 조회도 하나로 합친다. 완료한 값은 저장하지 않는다.
+  const session = tokenStore.get()
+  if (countsFlight?.session === session) return countsFlight.promise
+  const promise = request<{ new: number; inReview: number; closed: number; openHigh: number; total: number }>('/security-alerts/counts')
+    .then((r): ApiResult<SecCounts> => r.ok ? ok({ 신규: r.data.new, '확인 중': r.data.inReview, 종결: r.data.closed, high: r.data.openHigh, total: r.data.total }) : r)
+  const current = countsFlight = { session, promise }
+  try { return await promise } finally { if (countsFlight === current) countsFlight = null }
 }
 export async function serverList(filter: { status?: SecStatus | ''; type?: SecType | ''; page?: number }) {
   const q = new URLSearchParams({ size: '100', page: String(filter.page ?? 1) })

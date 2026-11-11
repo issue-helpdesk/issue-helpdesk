@@ -82,16 +82,16 @@ export function SecurityView() {
   const page = pageState.filterKey === filterKey ? pageState.value : 1
   const setPage = (value: number) => setPageState({ filterKey, value })
   const [error, setError] = useState('')
-  const [tick, setTick] = useState(0)
   const [openId, setOpenId] = useState<string | null>(null)
   const { say } = useToast()
   const admin = user?.serviceRole === 'ADMIN'
 
-  useEffect(() => watchSecurity(() => setTick((n) => n + 1)), [])
   useEffect(() => {
     if (!user || !admin) return
     let alive = true
-    listSecurityAlerts(user, { status, type, page }).then((r) => {
+    // 응답이 끝나야 다음 정기 조회를 허용한다. 조건 변경 시 이전 응답은 버린다.
+    const stop = watchSecurity(async () => {
+      const r = await listSecurityAlerts(user, { status, type, page })
       if (!alive) return
       if (r.ok) {
         setData(r.data)
@@ -100,8 +100,9 @@ export function SecurityView() {
     })
     return () => {
       alive = false
+      stop()
     }
-  }, [user, admin, status, type, page, tick])
+  }, [user, admin, status, type, page])
 
   if (user && !admin) return <Navigate to={HOME_BY_ROLE[user.serviceRole]} replace />
   if (!user) return null

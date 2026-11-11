@@ -1,7 +1,7 @@
 /**
  * 가이드 본문 미리보기: 마크다운 표시(###, -, 1.)가 그대로 드러나지 않고, 한 줄로 이어진 본문도 나뉘어 보인다.
  */
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { askPreLogin } from '../src/api/consult'
@@ -60,16 +60,15 @@ describe('표와 그림 표시', () => {
   })
 })
 
-describe('로그인 화면 상담 패널의 출처', () => {
-  it('출처를 누르면 가이드 미리보기 창이 열린다', async () => {
+describe('로그인 화면 공개 도움말', () => {
+  it('내부 가이드 미리보기 없이 답변의 강조 문구를 표시한다', async () => {
     const r = await askPreLogin('계정이 잠겼어요')
-    expect(r.ok && r.data.sources[0].excerpt).toContain('### 조치 방법')
+    expect(r.ok && r.data.sources).toEqual([])
     render(<ConsultPanel />)
     await userEvent.click(screen.getByRole('button', { name: '계정이 잠겼어요' }))
-    const src = await screen.findByRole('button', { name: /IT-ACC-001/ }, { timeout: 3000 })
-    await userEvent.click(src)
-    const dlg = await screen.findByRole('dialog')
-    expect(within(dlg).getByRole('heading', { name: '조치 방법', level: 4 })).toBeInTheDocument()
-    expect(within(dlg).queryByText(/###/)).toBeNull()
+    const answer = await screen.findByText('10분 후 자동으로 해제')
+    expect(answer.tagName).toBe('B')
+    expect(screen.queryByRole('button', { name: /IT-ACC-/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

@@ -81,7 +81,7 @@ describe('민감정보 가리기', () => {
 
   it('가린 종류에 맞는 안내 문구를 만든다 (docs/10 6.1)', () => {
     expect(maskNotices(maskSensitive('인증번호: 123456'))).toEqual([MASK_NOTICE])
-    expect(maskNotices(maskSensitive('비밀번호는 abc12345'))[0]).toContain('비밀번호 재설정 포털에서 변경해 주세요')
+    expect(maskNotices(maskSensitive('비밀번호는 abc12345'))[0]).toContain('해당 서비스에서 비밀번호를 변경해 주세요')
     expect(maskNotices(maskSensitive('주민번호 900101-1234567'))).toEqual([MASK_NOTICE_IDENTITY])
     expect(maskNotices(maskSensitive('그냥 문장'))).toEqual([])
   })
@@ -224,8 +224,8 @@ describe('비밀번호를 잊으셨나요? 안내와 모달 초점', () => {
   it('로그인 전 상담의 비밀번호 답변에서도 같은 창을 열 수 있다', async () => {
     const user = userEvent.setup()
     renderAt('/login')
-    await user.click(screen.getByRole('button', { name: '비밀번호를 재설정하고 싶어요' }))
-    const open = await screen.findByRole('button', { name: '비밀번호를 잊으셨나요? 열기' }, SLOW)
+    await user.click(screen.getByRole('button', { name: '비밀번호를 잊었어요' }))
+    const open = await screen.findByRole('button', { name: '비밀번호 분실 안내 보기' }, SLOW)
     await user.click(open)
     expect(await screen.findByRole('dialog', { name: '비밀번호를 잊으셨나요?' })).toBeInTheDocument()
     await user.keyboard('{Escape}')

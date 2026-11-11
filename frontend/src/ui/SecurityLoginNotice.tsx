@@ -5,7 +5,7 @@ import { countSecurityAlerts } from '../api/security'
 import { getIngestFailures, watchIngest } from '../api/guideWatch'
 import { useAuth } from '../core/session'
 import { Modal } from './Modal'
-import { Pav } from './Pav'
+import { Icon } from './Icon'
 
 export function SecurityLoginNotice({ blocked = false }: { blocked?: boolean }) {
   const { user, loginSequence } = useAuth()
@@ -31,8 +31,11 @@ export function SecurityLoginNotice({ blocked = false }: { blocked?: boolean }) 
   if (!admin || forced || blocked || failures.some((f) => !f.seen) || !notice || notice.sequence !== loginSequence || dismissed === loginSequence) return null
   const close = () => setDismissed(loginSequence)
   return (
-    <Modal title="새 보안·감사 알림이 있어요" variant="choice" lead={<Pav size={84} />} onClose={close} closeButton>
-      <p>아직 확인을 시작하지 않은 신규 알림이 <b>{notice.count}건</b> 있어요.</p>
+    <Modal title="새 보안·감사 알림이 있어요" variant="choice" lead={
+      // 일반 안내와 구분되는 경고 신호다. 사고 확정이나 심각도 판정을 뜻하지 않는다.
+      <span className="security-notice-signal" aria-hidden="true"><Icon name="alert" size={48} /></span>
+    } onClose={close} closeButton>
+      <p>아직 확인을 시작하지 않은 신규 알림이 <b className="security-notice-count">{notice.count}건</b> 있어요.</p>
       <p className="small muted">검토가 필요한 신호이며, 보안 사고나 위반이 확정된 것은 아니에요.</p>
       <div className="acts">
         <button type="button" className="btn sec" onClick={close}>나중에 볼게요</button>

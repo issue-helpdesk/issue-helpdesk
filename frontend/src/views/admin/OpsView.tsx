@@ -250,6 +250,19 @@ export function OpsView() {
     </div>
   )
 
+  // 신호등이 필요 없는 RDY 카드도 연동·배정 카드의 칼럼 위치를 유지한다.
+  const classificationRow = (mode: 'unclassified' | 'review') => (t: TicketSummary) => (
+    <div key={t.id} className="orow l">
+      <button type="button" className="o-main" aria-label={`${t.summary} 상세 보기`} onClick={() => open(t.id)}>
+        <span className="o-p"><UrgencyChip u={t.urgency} /></span>
+        <span className="o-t"><b>{t.summary}</b><small>{sub(t)}</small></span>
+      </button>
+      <span aria-hidden="true" />
+      <span className="o-e"><b>{formatElapsed(t.createdAt)}</b> 경과</span>
+      <button type="button" className="btn pri sm" onClick={() => open(t.id)}>{mode === 'unclassified' ? '분류 지정' : '검토'}</button>
+    </div>
+  )
+
   const startAssign = async (t: TicketSummary) => {
     if (!user) return
     const r = await getTicket(user, t.id)
@@ -406,7 +419,7 @@ export function OpsView() {
 
             {unclassifiedL.some(t=>t.urgency==='P1'||t.urgency==='P2') && <div className="alert info"><Icon name="alert" /><div>긴급·높음 미분류 문의가 있어요. 분류를 지정하고 담당자 배정을 확인해 주세요.</div></div>}
             <div className="ogrid">
-              {sec(<>미분류 문의 <span className="ocnt">{unclassifiedL.length}건</span></>, '분류가 정해지지 않은 문의예요. 분류 지정 후 담당자를 확인해 주세요.', null, wait(list('U', unclassifiedL, t=><div className="orow l" style={{gridTemplateColumns:'minmax(0,1fr) auto'}} key={t.id}><button className="o-main" style={{gridTemplateColumns:'minmax(0,1fr)'}} onClick={()=>open(t.id)}><span className="o-t"><b>{t.summary}</b><small>{t.receiptNo} · 담당자 미지정</small></span></button><button className="btn pri sm" onClick={()=>open(t.id)}>분류 지정</button></div>, '미분류 문의가 없어요.')),'need')}
+              {sec(<>미분류 문의 <span className="ocnt">{unclassifiedL.length}건</span></>, '분류가 정해지지 않은 문의예요. 분류 지정 후 담당자를 확인해 주세요.', null, wait(list('U', unclassifiedL, classificationRow('unclassified'), '미분류 문의가 없어요.')),'need')}
               {sec(
                 <>
                   티켓 연동 확인 <span className="ocnt">{linkL.length}건</span>
@@ -418,7 +431,7 @@ export function OpsView() {
                 wait(list('L', linkL, rowC('link'), '연동 확인이 필요한 건이 없어요.')),
                 'need',
               )}
-              {sec(<>재분류 요청 <span className="ocnt">{reclassificationL.length}건</span></>, '담당자가 분류 검토를 요청한 문의예요.', null, wait(list('R', reclassificationL, t=><div className="orow l" style={{gridTemplateColumns:'minmax(0,1fr) auto'}} key={t.id}><button className="o-main" style={{gridTemplateColumns:'minmax(0,1fr)'}} onClick={()=>open(t.id)}><span className="o-t"><b>{t.summary}</b><small>{t.receiptNo} · {t.assignee?.name}</small></span></button><button className="btn pri sm" onClick={()=>open(t.id)}>검토</button></div>, '재분류 요청이 없어요.')))}
+              {sec(<>재분류 요청 <span className="ocnt">{reclassificationL.length}건</span></>, '담당자가 분류 검토를 요청한 문의예요.', null, wait(list('R', reclassificationL, classificationRow('review'), '재분류 요청이 없어요.')))}
 
               {sec(
                 <>
