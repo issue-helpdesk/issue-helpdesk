@@ -77,7 +77,7 @@ const seedClusters = (): Cluster[] => [
   },
   {
     id: 102, category: { code: 'ACC', name: '계정' }, judgment: 'CHANGE', status: 'REVIEWING', title: 'SSO 로그인 오류 시 확인 순서 변경', ticketCount: 6,
-    targetDocId: 2, targetSection: '3.3', targetMd: '### 3.3 로그인 오류\n\n브라우저를 다시 시작한 뒤 로그인합니다.',
+    targetDocId: 2, targetSection: '3.3', targetMd: '### 3.3 로그인 오류\n\n**문의 유형** ACC-01 · **처리 구분** 🔵 IT 담당자 처리 · **담당 부서** 서비스데스크\n\n#### 이런 경우\n\n- 사내 SSO에 로그인하면 "로그인 오류"가 뜹니다.\n\n#### 원인\n\n- 브라우저에 남은 이전 로그인 정보가 맞지 않을 수 있습니다.\n\n#### 조치 방법\n\n1. 브라우저를 모두 닫고 다시 시작합니다.\n2. 다시 로그인합니다.\n3. 그래도 안 되면 오류 코드와 발생 시각을 적어 문의합니다.\n\n![그림 3.3-1. 로그인 오류 안내 화면](../images/IT-ACC-001_3.3-1.png)\n\n*그림 3.3-1. 로그인 오류 안내 화면*',
     registeredVersion: null,
     draftMd: '### 3.3 로그인 오류\n\n1. 시크릿 창에서 로그인해 봅니다.\n2. 브라우저 쿠키·캐시를 삭제합니다.\n3. 계정 잠금 여부를 헬프데스크에 확인합니다.',
     draftRevision: 3, reviewInfo: { reason: '현행 3.3 항목의 안내만으로는 해결되지 않은 사례 6건이 모였어요.\n계정 잠금이 원인인 사례가 3건이에요.', warnings: ['3.3 항목의 기존 안내를 대체해요.'], change_note: '브라우저 재시작만 안내하던 항목에 시크릿 창·캐시 삭제·계정 잠금 확인을 순서대로 추가했어요. 재시작만으로는 해결되지 않은 사례가 많았기 때문이에요.' },

@@ -31,6 +31,17 @@ describe('가이드 본문 마크다운', () => {
     expect(screen.getByRole('heading', { name: '조치 방법', level: 4 })).toBeInTheDocument()
   })
 
+  it('원본 문서의 그림 표시는 경로 없이 그림 상자로 보이고, 같은 설명의 기울임 줄은 겹치지 않게 뺀다', () => {
+    const alt = "그림 3.4-1. 안내 화면"
+    const text = ["#### 조치 방법", "", "1. 확인합니다.", "", `![${alt}](../images/IT-ACS-001_3.4-1.png)`, "", `*${alt}*`, ""].join("\n")
+    const { container } = render(<Markdown text={text} />)
+    expect(container.textContent).not.toContain("../images")
+    expect(container.textContent).not.toContain("![")
+    expect(container.querySelectorAll(".fig").length).toBe(1)
+    expect(screen.getByRole("img", { name: /^그림: 3\.4-1\./ })).toBeInTheDocument()
+    expect(container.textContent?.match(/3\.4-1\./g)?.length).toBe(1) // 설명이 두 번 나오지 않는다
+  })
+
   it('줄바꿈이 있는 본문은 그대로 두고, 굵게·코드는 요소로 그린다', () => {
     const { container } = render(<Markdown text={'## 제목\n- **굵게** 와 `코드`\n\n일반 문단'} />)
     expect(container.querySelector('h4')?.textContent).toBe('제목')
