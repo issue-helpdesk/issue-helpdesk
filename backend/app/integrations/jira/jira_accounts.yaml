@@ -9,12 +9,12 @@
 # 계정 매핑 확인용 파일이며 비밀번호·API 토큰은 저장하지 않는다.
 
 accounts:
-  EMP-1321: "712020:52820391-f4f9-4e94-a07d-debfbe810445"  # 서비스데스크 박서연 · Jira 이메일: rlahw5367@gmail.com
-  EMP-1064: "712020:8c7441de-c9d6-4804-872c-bac999fd1a00"  # 엔드포인트지원팀 강지호 · Jira 이메일: poweroverwhelming@jj.ac.kr
-  EMP-1204: "712020:7831280b-41f4-4ba4-88dd-9aabb877e31d"  # 엔드포인트지원팀 윤서아 · Jira 이메일: itssue439@gmail.com
-  EMP-1411: "712020:cc95bf90-2617-45cc-bbf7-61ccc53263e2"  # 엔드포인트지원팀 정우진 · Jira 이메일: itssue727@gmail.com
-  EMP-1333: "712020:5ec523b2-53fd-48ad-a1e0-df588bbabdc1"  # 엔드포인트지원팀 임동훈 · Jira 이메일: itssue934@gmail.com
-  EMP-1370: "712020:41052d6c-85fe-4153-bb60-37ad1aaba5a8"  # 네트워크팀 조민재 · Jira 이메일: parkpingu.log@gmail.com
-  EMP-1233: "712020:1a064be3-984b-4966-bfc4-10f1be584c01"  # 시스템인프라팀 임재원 · Jira 이메일: hyunna9412@gmail.com
-  EMP-1130: "712020:b553884f-179e-4f05-9209-49c80323475e"  # 업무시스템팀 권다은 · Jira 이메일: kty20307@gmail.com
-  EMP-1408: "70121:fb265903-e18d-481e-840f-7dc32fbeac45"  # 정보보안팀 황민석 · Jira 이메일: gn6153@gmail.com
+  EMP-1321: ""  # 서비스데스크 박서연 · Jira 이메일: rlahw5367@gmail.com
+  EMP-1064: ""  # 엔드포인트지원팀 강지호 · Jira 이메일: poweroverwhelming@jj.ac.kr
+  EMP-1204: ""  # 엔드포인트지원팀 윤서아 · Jira 이메일: itssue439@gmail.com
+  EMP-1411: ""  # 엔드포인트지원팀 정우진 · Jira 이메일: itssue727@gmail.com
+  EMP-1333: ""  # 엔드포인트지원팀 임동훈 · Jira 이메일: itssue934@gmail.com
+  EMP-1370: ""  # 네트워크팀 조민재 · Jira 이메일: parkpingu.log@gmail.com
+  EMP-1233: ""  # 시스템인프라팀 임재원 · Jira 이메일: hyunna9412@gmail.com
+  EMP-1130: ""  # 업무시스템팀 권다은 · Jira 이메일: kty20307@gmail.com
+  EMP-1408: ""  # 정보보안팀 황민석 · Jira 이메일: gn6153@gmail.com
