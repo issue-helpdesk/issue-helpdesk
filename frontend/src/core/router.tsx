@@ -4,7 +4,7 @@
  * 새 화면을 만들면 여기에 경로를 추가한다.
  * 로그인이 필요한 화면은 `RequireAuth` 아래에 두고, 사이드바가 있는 화면은 `AppShell` 안에 둔다.
  */
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes, useParams } from 'react-router-dom'
 import { AppShell } from '../ui/AppShell'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import { AccountsView } from '../views/admin/AccountsView'
@@ -48,6 +48,12 @@ function StatsEntry() {
   return user?.serviceRole === 'ADMIN' ? <AdminStatsView /> : <StatsView />
 }
 
+/** 대화 화면은 문의마다 따로 시작한다. 같은 화면 객체가 다른 문의로 이어지면 이전 문의의 상태가 남아 「불러오는 중이에요…」로 되돌아간다 */
+function ChatRoute() {
+  const { id } = useParams()
+  return <ChatView key={id} />
+}
+
 function Landing() {
   const { user, loading } = useAuth()
   if (loading) return <LoadingScreen />
@@ -67,7 +73,7 @@ export function AppRoutes() {
           <Route path="/new" element={<NewInquiryView />} />
           <Route path="/list" element={<InquiryListView />} />
           <Route path="/chat/new" element={<PendingChatView />} />
-          <Route path="/chat/:id" element={<ChatView />} />
+          <Route path="/chat/:id" element={<ChatRoute />} />
           <Route path="/faq" element={<FaqView />} />
           <Route path="/docs" element={<GuideLibraryView />} />
           {/* 담당자·관리자 */}

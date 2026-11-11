@@ -65,13 +65,44 @@ describe('접수 목록·상세 API (모의)', () => {
 })
 
 describe('처리할 문의 화면', () => {
-  it('탭에 건수가 보이고 진행 중 목록이 긴급도 순으로 나온다', async () => {
+  it('탭에 건수가 보이고, 처음 목록은 상태 순(처리 대기, 처리 중, 해결 확인 대기, 해결 완료)으로 나온다', async () => {
     renderAs('EMP-1004', '/queue')
     const tab = await screen.findByRole('tab', { name: /진행 중/ }, SLOW)
     await waitFor(() => expect(tab).toHaveTextContent('9'), SLOW)
     expect(screen.getByRole('tab', { name: /해결 확인 대기/ })).toHaveTextContent('2')
-    const rows = await within(await screen.findByRole('table')).findAllByRole('row')
-    expect(rows[1]).toHaveTextContent('악성 첨부파일 의심 메일 수신') // P1 먼저
+    const rows = (await within(await screen.findByRole('table')).findAllByRole('row')).slice(1)
+    const order = ['처리 대기', '처리 중', '해결 확인 대기', '해결 완료']
+    const rank = rows.map((r) => order.findIndex((label) => (r.textContent ?? '').includes(label)))
+    expect(rank.every((n) => n >= 0)).toBe(true)
+    expect(rank).toEqual([...rank].sort((x, y) => x - y)) // 앞쪽 상태가 먼저
+    expect(rank[0]).toBe(0) // 처리 대기가 맨 위
+  })
+
+  it('정렬 기준을 여러 개 주면 앞의 기준이 우선이다: 상태 순, 같은 상태에서는 긴급한 건, 같으면 오래된 건', async () => {
+    const u = staff()
+    const r = await listTickets(u, { assigneeId: u.id, size: 100, sort: ['workStatus,asc', 'urgency,asc', 'createdAt,asc'] })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    const WORK = { RDY: 1, WIP: 2, FIN: 3, CLS: 4 } as const
+    const URG = { P1: 1, P2: 2, P3: 3, P4: 4 } as const
+    const keys = r.data.items.map((t) => [WORK[t.workStatus ?? 'CLS'], URG[t.urgency ?? 'P4'], Date.parse(t.createdAt)])
+    expect(keys.length).toBeGreaterThan(3)
+    const sorted = [...keys].sort((x, y) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2])
+    expect(keys).toEqual(sorted)
+  })
+
+  it('탭은 전체 상태, 처리 대기, 진행 중 순서로 있고, 처리 대기 탭은 처리 대기 접수만 모아 보인다', async () => {
+    renderAs('EMP-1004', '/queue')
+    await screen.findByRole('tab', { name: /진행 중/ }, SLOW)
+    expect(screen.getAllByRole('tab').map((t) => t.textContent?.replace(/\d+$/, '').trim())).toEqual(['전체 상태', '처리 대기', '진행 중', '해결 확인 대기', '해결 완료'])
+    const rdy = screen.getByRole('tab', { name: /^처리 대기/ })
+    const open = screen.getByRole('tab', { name: /진행 중/ })
+    await waitFor(() => expect(Number(rdy.textContent?.replace(/\D/g, ''))).toBeGreaterThan(0), SLOW)
+    // 처리 대기는 진행 중(처리 대기 + 처리 중)에 포함된다
+    expect(Number(rdy.textContent?.replace(/\D/g, ''))).toBeLessThanOrEqual(Number(open.textContent?.replace(/\D/g, '')))
+    await userEvent.click(rdy)
+    expect(rdy).toHaveAttribute('aria-selected', 'true')
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(`${rdy.textContent?.replace(/\D/g, '')}건`), SLOW)
   })
 
   it('검색하면 탭의 건수도 검색 결과에 맞게 바뀌고, 지우면 돌아온다', async () => {

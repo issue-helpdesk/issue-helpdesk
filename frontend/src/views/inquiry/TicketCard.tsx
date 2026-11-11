@@ -152,7 +152,9 @@ export function TicketCard({ ticket: t, readOnly = false, busy = false, onResolv
 
       <p style={{ marginTop: 14, fontSize: 14, lineHeight: '22px' }}>{guide(t)}</p>
 
-      {t.workStatus === 'FIN' && (
+      {/* 담당자가 남긴 처리 결과: 해결 확인을 기다리는 동안과, 해결되어 종료된 뒤에도 접수 현황에서 볼 수 있다.
+          미해결로 다시 처리 중이 되면 이 상태가 아니므로 저절로 사라진다. 종료 뒤에는 남긴 글이 있을 때만 보인다 */}
+      {(t.workStatus === 'FIN' || (t.workStatus === 'CLS' && !!t.resolutionNote?.trim())) && (
         <div className="card w tkres" style={{ marginTop: 10 }}>
           <div className="small muted">처리 결과 · {t.assigneeName}</div>
           <div style={{ marginTop: 2 }}>{t.resolutionNote || '조치를 완료했습니다.'}</div>

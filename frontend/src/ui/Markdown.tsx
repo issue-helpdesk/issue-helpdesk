@@ -62,6 +62,18 @@ function parse(text: string): Block[] {
       blocks.push({ kind: 'h', level: h[1].length, text: h[2] })
       continue
     }
+    // 원본 문서의 그림 표시 `![그림 3.4-1. 설명](경로)`: 파일 경로는 보이지 않게 하고 `[그림] 설명` 상자로 보인다.
+    // 바로 뒤에 같은 설명을 *기울임*으로 한 번 더 적은 줄이 있으면 겹치므로 건너뛴다
+    const md = /^!\[(.*?)\]\((.*?)\)$/.exec(line)
+    if (md) {
+      const alt = md[1].trim()
+      blocks.push({ kind: 'fig', label: '그림', text: alt.replace(/^그림\s*/, '') })
+      let k = n + 1
+      while (k < all.length && !all[k].trim()) k++
+      const cap = k < all.length ? /^\*([^*].*)\*$/.exec(all[k].trim()) : null
+      if (cap && cap[1].trim() === alt) n = k
+      continue
+    }
     const fig = /^\[(그림|표)\]\s*(.*)$/.exec(line)
     if (fig) {
       blocks.push({ kind: 'fig', label: fig[1], text: fig[2] })

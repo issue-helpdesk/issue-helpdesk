@@ -657,4 +657,12 @@ td.nw{white-space:nowrap;font-size:13px;color:var(--ink2)}
 .gnote .gd{flex:none;width:7px;height:7px;margin-top:6.5px;border-radius:50%;background:var(--s-warn-dot)}.gnote .gd.rv{background:var(--s-info-dot)}
 .lnk{border:0;background:none;padding:0;font:inherit;font-weight:600;color:var(--ca);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .lnk:hover{text-decoration-thickness:2px}.lnk:focus-visible{outline:2px solid var(--s-info-dot);outline-offset:2px;border-radius:4px}
+/* 검토 패널 기존 내용 ↔ AI 수정 제안문: 두 칸의 위·아래 줄을 맞춘다. 길이는 기존 내용(왼쪽)을 기준으로 하고, 너무 길면 두 칸 모두 안쪽에서 넘겨 본다 */
+.detail.crev .cgcmp{align-items:stretch}
+.detail.crev .cgcmp>div{display:flex;flex-direction:column;min-width:0}
+.detail.crev .cgcmp .cgbar{display:flex;align-items:center;min-height:34px;margin-bottom:8px}
+.detail.crev .cgcmp .cgrend{flex:0 1 auto;min-height:210px;max-height:70vh;overflow:auto;padding:12px 16px;border-radius:12px;background:var(--shell);font-size:13.5px;line-height:1.7;color:var(--ink2)}
+.detail.crev .cgcmp .mdf{flex:1 1 0;min-height:0}
+.detail.crev .cgcmp .mdf>.cgta,.detail.crev .cgcmp .mdf>.mdp{flex:1 1 0;min-height:210px;max-height:70vh;margin-top:0;overflow:auto;resize:none}
+@media (max-width:800px){.detail.crev .cgcmp .cgrend{flex:none;max-height:none}.detail.crev .cgcmp .mdf>.cgta,.detail.crev .cgcmp .mdf>.mdp{flex:none;max-height:none}}
 

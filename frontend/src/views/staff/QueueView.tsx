@@ -26,9 +26,10 @@ import { TicketDetailPanel } from './TicketDetailPanel'
 
 const PAGE_SIZE = 20
 
-type Tab = 'all' | 'open' | 'fin' | 'cls'
+type Tab = 'all' | 'rdy' | 'open' | 'fin' | 'cls'
 const ALL_TAB = { key: 'all' as Tab, label: '전체 상태', statuses: ['RDY', 'WIP', 'FIN', 'CLS'] as WorkStatus[] }
 const TABS: { key: Tab; label: string; statuses: WorkStatus[] }[] = [
+  { key: 'rdy', label: '처리 대기', statuses: ['RDY'] },
   { key: 'open', label: '진행 중', statuses: ['RDY', 'WIP'] },
   { key: 'fin', label: '해결 확인 대기', statuses: ['FIN'] },
   { key: 'cls', label: '해결 완료', statuses: ['CLS'] },
@@ -82,7 +83,7 @@ export function QueueView() {
   // 대시보드에서 오면 주소의 값으로 시작한다 (?tab=open&sub=RDY, ?pri=P1, ?per=m,)
   const [params] = useSearchParams()
   const fromUrl = <T extends string>(k: string, ok: readonly T[], d: T): T => (ok.includes(params.get(k) as T) ? (params.get(k) as T) : d)
-  const [tab, setTab] = useState<Tab>(() => fromUrl('tab', ['all', 'open', 'fin', 'cls'] as const, 'all'))
+  const [tab, setTab] = useState<Tab>(() => fromUrl('tab', ['all', 'rdy', 'open', 'fin', 'cls'] as const, 'all'))
   const [sub, setSub] = useState<'' | 'RDY' | 'WIP'>(() => fromUrl('sub', ['', 'RDY', 'WIP'] as const, ''))
   const [q, setQ] = useState('')
   const [pri, setPri] = useState<string>(() => fromUrl('pri', ['', 'P1', 'P2', 'P3', 'P4'] as const, ''))
@@ -108,7 +109,8 @@ export function QueueView() {
       page,
       size: PAGE_SIZE,
       // 정렬을 고르기 전에는 긴급도 높은 순 (열 머리는 강조하지 않는다)
-      sort: sort ? `${SORT_KEY[sort.col]},${sort.dir}` : 'urgency,asc',
+      // 처음에는 상태 순(처리 대기, 처리 중, 해결 확인 대기, 해결 완료)이고, 같은 상태 안에서는 긴급한 건·오래된 건이 먼저다
+      sort: sort ? `${SORT_KEY[sort.col]},${sort.dir}` : ['workStatus,asc', 'urgency,asc', 'createdAt,asc'],
       workStatus: tab === 'open' && sub ? [sub] : t.statuses,
       urgency: pri ? [pri as Urgency] : undefined,
       createdFrom: days === undefined ? undefined : daysAgo(days),

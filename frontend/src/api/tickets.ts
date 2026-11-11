@@ -96,9 +96,8 @@ export async function listTickets(user: User, query: TicketListQuery = {}): Prom
   const statusCounts: Record<string, number> = { RDY: 0, WIP: 0, FIN: 0, CLS: 0 }
   rows.forEach((t) => t.workStatus && statusCounts[t.workStatus]++)
   if (workStatus?.length) rows = rows.filter((t) => t.workStatus && workStatus.includes(t.workStatus))
-  const [key, dir] = sort.split(',')
-  const sign = dir === 'desc' ? -1 : 1
-  const val = (t: TicketDetail): string | number => {
+  const sorts = [sort].flat().map((s) => s.split(','))
+  const val = (t: TicketDetail, key: string): string | number => {
     switch (key) {
       case 'urgency':
         return t.urgency ? URG[t.urgency] : 9
@@ -117,10 +116,12 @@ export async function listTickets(user: User, query: TicketListQuery = {}): Prom
     }
   }
   rows.sort((a, b) => {
-    const x = val(a)
-    const y = val(b)
-    const c = (x < y ? -1 : x > y ? 1 : 0) * sign
-    if (c) return c
+    for (const [key, dir] of sorts) {
+      const x = val(a, key)
+      const y = val(b, key)
+      const c = (x < y ? -1 : x > y ? 1 : 0) * (dir === 'desc' ? -1 : 1)
+      if (c) return c
+    }
     // 같으면 오래된 건 먼저 (먼저 볼 문의)
     return Date.parse(a.createdAt) - Date.parse(b.createdAt)
   })
