@@ -200,7 +200,7 @@ def check(j: GuideJudgment, guides: Iterable[GuideDoc], items: Iterable[CompareI
     guide_codes = {g.doc_code for g in guides}
     items = list(items)
     item_refs = {(i.doc_code, i.location) for i in items}
-    # 변경은 3.x 항목을 고친 항목으로 바꿔 끼운다 (김태연 님 질문지 Q2). 장·FAQ 는 변경 대상이 아니다
+    # 변경은 3.x 항목을 고친 항목으로 바꿔 끼운다. 장·FAQ 는 변경 대상이 아니다
     change_refs = {(i.doc_code, i.location) for i in items if i.chunk_type == 'ITEM'}
     target_doc, target_item, handling = j.target_doc, j.target_item, j.handling
     if j.judgment == 'ADD_ITEM':
